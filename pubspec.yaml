@@ -23,6 +23,7 @@ dependencies:
   # de `sqlite3` 3.x, que drift_flutter arrastra).
   drift: ^2.35.0
   drift_flutter: ^0.3.1
+  file_picker: ^11.0.3
   flutter:
     sdk: flutter
   flutter_localizations:

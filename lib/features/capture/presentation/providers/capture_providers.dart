@@ -5,7 +5,9 @@ import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
+import 'package:sinapsis/features/capture/data/services/system_file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
+import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 
@@ -37,3 +39,12 @@ final captureItemUseCaseProvider = Provider<CaptureItemUseCase>((ref) {
     repository: ref.watch(libraryRepositoryProvider),
   );
 });
+
+/// El selector de archivos del sistema.
+///
+/// Se sobreescribe en las pruebas: abrir el selector de verdad necesita un
+/// sistema operativo con una ventana, y es lo único de este camino que no se
+/// puede probar.
+final fileChooserProvider = Provider<FileChooser>(
+  (ref) => const SystemFileChooser(),
+);

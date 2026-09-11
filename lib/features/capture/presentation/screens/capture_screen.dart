@@ -6,7 +6,10 @@ import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_notifier.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
@@ -34,6 +37,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   final _inputController = TextEditingController();
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
+
+  /// El archivo elegido, si hay uno.
+  ///
+  /// Vive en la pantalla y no en el notifier porque es estado de la pantalla:
+  /// mientras no se apriete guardar, no le incumbe a nadie más. Lo que sí
+  /// sale de acá es que la captura pasa a ser de archivo y no de texto.
+  CapturedFile? _file;
 
   @override
   void initState() {
@@ -71,23 +81,52 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         .producesKind;
   }
 
-  Future<void> _submit() async {
+  /// Abre el selector del sistema.
+  ///
+  /// Cancelar no es un error y no muestra nada: es la respuesta más común de
+  /// un selector de archivos, porque abrirlo por accidente pasa todo el
+  /// tiempo. La falta de permiso sí se avisa, porque pide una acción distinta
+  /// —ir a los ajustes del sistema— y sin el aviso el botón parecería roto.
+  Future<void> _chooseFile() async {
     final l10n = AppLocalizations.of(context)!;
 
-    if (_inputController.text.trim().isEmpty) {
+    try {
+      final chosen = await ref.read(fileChooserProvider).pickOne();
+      if (chosen == null || !mounted) return;
+
+      setState(() => _file = chosen);
+    } on FileAccessDeniedException {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
+    }
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
+    final file = _file;
+
+    if (file == null && _inputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.captureEmptyError)));
       return;
     }
 
-    final saved = await ref
-        .read(captureNotifierProvider.notifier)
-        .capture(
-          rawInput: _inputController.text,
-          title: _titleController.text,
-          note: _noteController.text,
-        );
+    final notifier = ref.read(captureNotifierProvider.notifier);
+    final saved = file != null
+        ? await notifier.captureFile(
+            file: file,
+            title: _titleController.text,
+            note: _noteController.text,
+          )
+        : await notifier.capture(
+            rawInput: _inputController.text,
+            title: _titleController.text,
+            note: _noteController.text,
+          );
 
     if (!mounted || !saved) return;
 
@@ -124,6 +163,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     });
 
     final detected = _detectedKind;
+    final file = _file;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.captureTitle)),
@@ -136,18 +176,26 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               children: [
                 TextField(
                   controller: _inputController,
-                  autofocus: true,
+                  // El foco automático solo cuando se va a escribir: con un
+                  // archivo ya elegido, abrir el teclado sobre un campo
+                  // desactivado tapa media pantalla para nada.
+                  autofocus: file == null,
+                  enabled: file == null,
                   minLines: 5,
                   maxLines: 12,
                   keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(hintText: l10n.captureHint),
+                  decoration: InputDecoration(
+                    hintText: file == null
+                        ? l10n.captureHint
+                        : l10n.captureFileBlocksText,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 // Alto reservado aunque no haya nada que decir, para que el
                 // formulario no salte al empezar a escribir.
                 SizedBox(
                   height: 24,
-                  child: detected == null
+                  child: detected == null || file != null
                       ? null
                       : Row(
                           children: [
@@ -166,6 +214,18 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                           ],
                         ),
                 ),
+                const SizedBox(height: 8),
+                if (file == null)
+                  OutlinedButton.icon(
+                    onPressed: _chooseFile,
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(l10n.captureChooseFile),
+                  )
+                else
+                  _ChosenFileCard(
+                    file: file,
+                    onRemove: () => setState(() => _file = null),
+                  ),
                 const SizedBox(height: 16),
                 CustomTextField(
                   label: l10n.captureOptionalTitleLabel,
@@ -193,4 +253,65 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       ),
     );
   }
+}
+
+/// Lo que se ve cuando ya hay un archivo elegido.
+///
+/// Muestra el nombre, de qué formato es y cuánto pesa. Lo del formato no es
+/// decoración: es el aviso temprano de que un `.pages` o un `.zip` se va a
+/// guardar pero no va a dar texto, y de que un `.docx` renombrado a `.txt`
+/// igual se reconoció bien.
+class _ChosenFileCard extends StatelessWidget {
+  const _ChosenFileCard({required this.file, required this.onRemove});
+
+  final CapturedFile file;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final format = file.format;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(format.sourceKind.icon),
+        title: Text(file.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          l10n.captureFileSize(
+            formatFileSize(file.sizeInBytes),
+            describeFormat(format),
+          ),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: l10n.captureFileRemove,
+          onPressed: onRemove,
+        ),
+      ),
+    );
+  }
+}
+
+/// El tamaño de un archivo, en la unidad que le sirve a una persona.
+///
+/// Nadie lee "3.613.707 bytes". Se usan potencias de 1024 —que es como miden
+/// los sistemas de archivos— y un solo decimal a partir de los megabytes:
+/// más precisión no cambia ninguna decisión.
+String formatFileSize(int bytes) {
+  const unidades = ['B', 'kB', 'MB', 'GB'];
+
+  var value = bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < unidades.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+
+  // Los bytes y los kilobytes sin decimales: "512 B" y "40 kB" se leen mejor
+  // que "512,0 B".
+  final rounded = unit >= 2
+      ? value.toStringAsFixed(1)
+      : value.round().toString();
+  return '$rounded ${unidades[unit]}';
 }

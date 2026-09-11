@@ -151,6 +151,34 @@
     }
   },
   "captureEmptyError": "Write or paste something first.",
+  "captureChooseFile": "Choose a file",
+  "@captureChooseFile": {
+    "description": "Botón que abre el selector de archivos."
+  },
+  "captureFileRemove": "Remove the file",
+  "@captureFileRemove": {
+    "description": "Tooltip del botón que quita el archivo elegido."
+  },
+  "captureFileBlocksText": "To save text instead, remove the file first.",
+  "@captureFileBlocksText": {
+    "description": "Explica por qué el campo de texto está desactivado cuando hay un archivo elegido."
+  },
+  "captureFileAccessDenied": "Sinapsis doesn't have permission to read your files. You can grant it in your system settings.",
+  "@captureFileAccessDenied": {
+    "description": "Mostrado cuando el sistema niega el permiso para leer archivos."
+  },
+  "captureFileSize": "{size} · {format}",
+  "@captureFileSize": {
+    "description": "Segunda línea de la tarjeta del archivo: tamaño y formato.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "format": {
+        "type": "String"
+      }
+    }
+  },
   "@captureEmptyError": {
     "description": "Validation error when trying to save an empty capture"
   },

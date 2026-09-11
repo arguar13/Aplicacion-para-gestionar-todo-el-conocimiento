@@ -12,8 +12,10 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -21,7 +23,9 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import 'fake_file_chooser.dart';
 import 'fake_id_generator.dart';
+import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
 
 /// Lo que necesita cualquier prueba de las pantallas de la biblioteca.
@@ -32,12 +36,25 @@ import 'vault_test_doubles.dart';
 /// simulación en vez de la pantalla. Con la base de verdad, guardar algo y
 /// ver aparecer la fila es exactamente lo que hará el usuario.
 class LibraryHarness {
-  LibraryHarness._(this.container, this.database, this.ids);
+  LibraryHarness._(
+    this.container,
+    this.database,
+    this.ids,
+    this.fileChooser,
+    this.files,
+  );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
   static Future<LibraryHarness> create({
     DateTime? now,
     String locale = 'es',
+
+    /// Lo que devuelve el selector de archivos. `null` —el valor por
+    /// defecto— simula que el usuario lo abre y cancela.
+    CapturedFile? chosenFile,
+
+    /// Si está, el selector lanza esto en vez de devolver.
+    Object? fileChooserError,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -47,6 +64,8 @@ class LibraryHarness {
 
     final database = AppDatabase(NativeDatabase.memory());
     final ids = FakeIdGenerator();
+    final chooser = FakeFileChooser(file: chosenFile, error: fileChooserError);
+    final files = InMemoryFileStore();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -54,6 +73,15 @@ class LibraryHarness {
         appDatabaseProvider.overrideWithValue(database),
         sharedPreferencesProvider.overrideWithValue(prefs),
         idGeneratorProvider.overrideWithValue(ids),
+        // El selector del sistema necesita una ventana: es lo único de este
+        // camino que no se puede probar.
+        fileChooserProvider.overrideWithValue(chooser),
+        // El almacén real escribe en la carpeta de documentos de la app, y
+        // esa ruta la resuelve un canal de plataforma que en un test no
+        // existe: la llamada nunca contesta y la prueba se cuelga. Además,
+        // una prueba de pantalla no tiene por qué dejar archivos en el disco
+        // de quien la corre.
+        fileStoreProvider.overrideWithValue(files),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -79,12 +107,18 @@ class LibraryHarness {
       return database.close();
     });
 
-    return LibraryHarness._(container, database, ids);
+    return LibraryHarness._(container, database, ids, chooser, files);
   }
 
   final ProviderContainer container;
   final AppDatabase database;
   final FakeIdGenerator ids;
+
+  /// El selector de archivos de mentira, para comprobar que se abrió.
+  final FakeFileChooser fileChooser;
+
+  /// El almacén en memoria, para comprobar qué archivo quedó guardado.
+  final InMemoryFileStore files;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

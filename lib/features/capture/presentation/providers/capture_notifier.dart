@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
@@ -21,18 +22,26 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
   final ProcessingQueueNotifier _queue;
   final AppLogger _logger;
 
-  /// Guarda lo capturado. Devuelve si salió bien, para que la pantalla sepa
-  /// si corresponde cerrarse.
+  /// Guarda un texto pegado o escrito. Devuelve si salió bien, para que la
+  /// pantalla sepa si corresponde cerrarse.
   Future<bool> capture({
     required String rawInput,
     String? title,
     String? note,
-  }) async {
+  }) =>
+      _save(CaptureRequest.text(rawInput: rawInput, title: title, note: note));
+
+  /// Guarda un archivo elegido con el selector del sistema.
+  Future<bool> captureFile({
+    required CapturedFile file,
+    String? title,
+    String? note,
+  }) => _save(CaptureRequest.file(file: file, title: title, note: note));
+
+  Future<bool> _save(CaptureRequest request) async {
     state = const CaptureState.saving();
 
-    final result = await _captureItem(
-      CaptureRequest.text(rawInput: rawInput, title: title, note: note),
-    );
+    final result = await _captureItem(request);
 
     return result.match(
       (failure) {

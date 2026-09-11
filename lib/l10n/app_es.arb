@@ -34,6 +34,34 @@
   "captureAction": "Guardar",
   "captureWillSaveAs": "Se va a guardar como {kind}",
   "captureEmptyError": "Escribí o pegá algo primero.",
+  "captureChooseFile": "Elegir un archivo",
+  "@captureChooseFile": {
+    "description": "Botón que abre el selector de archivos."
+  },
+  "captureFileRemove": "Quitar el archivo",
+  "@captureFileRemove": {
+    "description": "Tooltip del botón que quita el archivo elegido."
+  },
+  "captureFileBlocksText": "Para guardar texto, quitá primero el archivo.",
+  "@captureFileBlocksText": {
+    "description": "Explica por qué el campo de texto está desactivado cuando hay un archivo elegido."
+  },
+  "captureFileAccessDenied": "Sinapsis no tiene permiso para leer tus archivos. Podés dárselo desde los ajustes del sistema.",
+  "@captureFileAccessDenied": {
+    "description": "Mostrado cuando el sistema niega el permiso para leer archivos."
+  },
+  "captureFileSize": "{size} · {format}",
+  "@captureFileSize": {
+    "description": "Segunda línea de la tarjeta del archivo: tamaño y formato.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "format": {
+        "type": "String"
+      }
+    }
+  },
   "detailProvenance": "De dónde salió",
   "detailCapturedOn": "Guardado el {date}",
   "detailAuthor": "Por {name}",
