@@ -34,6 +34,14 @@ abstract interface class FileStore {
   /// copia del original.
   Future<Uint8List?> read(String relativePath);
 
+  /// Si [relativePath] todavía está guardado, sin leer su contenido.
+  ///
+  /// Separado de [read] a propósito: un transformador que solo necesita
+  /// comprobar que el archivo sigue estando —porque lo que va a usar
+  /// después es la ruta absoluta, no los bytes— no tiene por qué cargar en
+  /// memoria un audio o un video de cientos de megas solo para descartarlo.
+  Future<bool> exists(String relativePath);
+
   /// La ruta absoluta actual de [relativePath], para abrir el archivo con la
   /// app del sistema o compartirlo.
   Future<String> resolve(String relativePath);

@@ -49,3 +49,17 @@ abstract interface class WhisperModelManager {
   /// modelo está listo cuando no lo está.
   Stream<double> download();
 }
+
+/// Se pidió transcribir sin haber descargado el modelo todavía.
+///
+/// El elemento queda como cualquier otro fallo de transformación —conserva
+/// lo que tenía, se puede reintentar— pero el motivo puntual conviene que
+/// quede claro en los registros: no es un audio corrupto ni un problema de
+/// red, es que falta un paso previo, de una sola vez, en la pantalla de
+/// transcripción.
+class WhisperModelNotReadyException implements Exception {
+  const WhisperModelNotReadyException();
+
+  @override
+  String toString() => 'El modelo de transcripción todavía no está descargado.';
+}

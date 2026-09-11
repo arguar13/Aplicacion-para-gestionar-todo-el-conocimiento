@@ -42,6 +42,10 @@ class InMemoryFileStore implements FileStore {
   Future<Uint8List?> read(String relativePath) async => _contents[relativePath];
 
   @override
+  Future<bool> exists(String relativePath) async =>
+      _contents.containsKey(relativePath);
+
+  @override
   Future<String> resolve(String relativePath) async => '/memoria/$relativePath';
 
   @override

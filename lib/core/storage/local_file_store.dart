@@ -63,6 +63,11 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<bool> exists(String relativePath) async {
+    return File(await resolve(relativePath)).existsSync();
+  }
+
+  @override
   Future<String> resolve(String relativePath) async {
     final root = await _rootDirectory();
     return p.join(root.path, p.joinAll(p.posix.split(relativePath)));

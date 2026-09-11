@@ -209,4 +209,32 @@ void main() {
       expect(await store.read(path), isNull);
     });
   });
+
+  group('exists', () {
+    test('dice que sí sin necesidad de leer los bytes', () async {
+      final path = await store.save(
+        bytes: bytes('x'),
+        suggestedName: 'apunte.pdf',
+        id: 'src-1',
+      );
+
+      expect(await store.exists(path), isTrue);
+    });
+
+    test('dice que no si nunca se guardó nada ahí', () async {
+      expect(await store.exists('originales/no-existe.pdf'), isFalse);
+    });
+
+    test('dice que no después de borrar', () async {
+      final path = await store.save(
+        bytes: bytes('x'),
+        suggestedName: 'apunte.pdf',
+        id: 'src-1',
+      );
+
+      await store.delete(path);
+
+      expect(await store.exists(path), isFalse);
+    });
+  });
 }

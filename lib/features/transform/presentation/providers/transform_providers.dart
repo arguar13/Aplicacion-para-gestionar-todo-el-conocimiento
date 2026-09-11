@@ -17,6 +17,8 @@ import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/ml_kit_image_text_extractor.dart';
+import 'package:sinapsis/features/transform/data/services/sherpa_onnx_audio_transcriber.dart';
+import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
@@ -26,6 +28,7 @@ import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
@@ -65,6 +68,13 @@ final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
   );
 });
 
+final audioTranscriberProvider = Provider<AudioTranscriber>((ref) {
+  return SherpaOnnxAudioTranscriber(
+    model: ref.watch(whisperModelManagerProvider),
+    temporaryDirectory: getTemporaryDirectory,
+  );
+});
+
 /// El orden no importa tanto como en los adaptadores —cada transformador
 /// mira el tipo de fuente y solo uno acepta cada elemento— pero se mantiene
 /// la misma convención: lo específico antes que lo general.
@@ -95,6 +105,12 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
     ),
     ImageTransformer(
       extractor: ref.watch(imageTextExtractorProvider),
+      files: ref.watch(fileStoreProvider),
+      ids: ids,
+      clock: clock,
+    ),
+    AudioTranscriptTransformer(
+      transcriber: ref.watch(audioTranscriberProvider),
       files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
