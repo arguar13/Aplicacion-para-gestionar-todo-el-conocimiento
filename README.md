@@ -141,21 +141,21 @@ La base está construida y verificada. El producto, no todavía.
   fuentes, armado desde el detalle o eligiendo varios en la biblioteca.
 
 - **Transcribir y reconocer texto.** Una foto, una captura de pantalla o el
-  cartel de una calle: el texto que tengan adentro queda reconocido con
-  Google ML Kit. Una nota de voz, un podcast o un video: transcriptos con
-  Whisper corriendo enteramente en el dispositivo, sin mandar el audio a
-  ningún lado. El modelo pesa unos 160 MB y no viene con la app —se descarga
-  aparte, una sola vez, con tu permiso explícito y mostrando el progreso—.
-  Nada de esto bloquea la interfaz mientras trabaja.
+  cartel de una calle: el texto que tengan adentro queda reconocido en el
+  propio dispositivo —Google ML Kit en Android, Tesseract en WebAssembly en
+  la web—. Una nota de voz, un podcast o un video: transcriptos con Whisper,
+  también corriendo enteramente en el dispositivo en las dos plataformas,
+  sin mandar el audio a ningún lado. El modelo pesa unos 160 MB y no viene
+  con la app —se descarga aparte, una sola vez, con tu permiso explícito y
+  mostrando el progreso—. Nada de esto bloquea la interfaz mientras trabaja.
 
 **Por construir**
 
-Las siete fases planeadas están completas. Ahora el esfuerzo va a que la
-web funcione tan a fondo como Android —base de datos, archivos, OCR y
-Whisper corriendo los dos en WebAssembly, sin servidor de por medio—, en
-vez de a compartir desde otra app en iOS, pospuesto a propósito: no hay
-ningún dispositivo iOS de por medio para esta app. El detalle de cada
-decisión está en [`docs/arquitectura.md`](docs/arquitectura.md).
+Las ocho fases planeadas están completas: Android y la web —las dos
+plataformas reales de quien construye esta app, sin ningún dispositivo iOS
+de por medio— funcionan a fondo, cada una probada de punta a punta. No
+queda ninguna fase nueva planeada. El detalle de cada decisión está en
+[`docs/arquitectura.md`](docs/arquitectura.md).
 
 ## Correr el proyecto
 

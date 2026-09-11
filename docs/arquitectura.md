@@ -635,6 +635,45 @@ esta fase —`OpfsFileStore`, `WebDownloadFileOpener`,
 condicional que ya usaba `sherpa_onnx`: no es prolijidad de sobra, es lo
 único que hace que el proyecto siga compilando para Android.
 
+### 12. Inter empaquetada, no bajada de Google Fonts
+
+Encontrado validando la fase 8 de punta a punta en un Chromium real, no en
+ninguna revisión de código: con `fonts.gstatic.com` bloqueada, la app
+entera arrancaba con **todo su texto invisible**. Los íconos —una fuente
+local, la de Material— se veían bien; cualquier letra, no. La causa era
+`AppTypography.textTheme`, que devolvía `GoogleFonts.interTextTheme()`:
+esa llamada intenta bajar los archivos de Inter la primera vez que hacen
+falta, y cuando esa descarga nunca se resuelve, la web se queda mostrando
+el texto con un tamaño que no pinta nada, sin cortarse en ningún fallback.
+
+El principio 1 ya la condenaba —bajar algo de una CDN de terceros en
+tiempo de ejecución, sin pedir permiso— pero esto es más grave que una
+violación de un principio: es la app rota de verdad para cualquiera cuya
+red no llegue a ese dominio, sea por un bloqueador de anuncios, un
+firewall corporativo, una extensión de privacidad, o simplemente que
+`fonts.gstatic.com` no responda un instante durante el primer arranque.
+Arreglarlo no podía esperar a una tarea aparte.
+
+La solución sigue el mismo patrón que sqlite3.wasm y los archivos de
+Tesseract: `tool/fetch_inter_font.sh` trae `InterVariable.ttf` —un único
+archivo variable, eje "wght", del propio repositorio de Inter en GitHub,
+fijado a un commit concreto— y queda commiteado en `assets/fonts/`, SIL
+Open Font License 1.1 verificada contra el LICENSE.txt real. La escala
+tipográfica por defecto de Material 3 solo usa dos pesos —regular y medio,
+confirmado leyendo `typography.dart` del propio SDK de Flutter—, así que
+alcanza con declarar ese mismo archivo dos veces en `pubspec.yaml`, una
+por peso: Flutter elige sola la instancia correcta de la fuente variable
+según cuál pida cada estilo. `AppTypography.textTheme` pasó a ser
+`ThemeData.light().textTheme.apply(fontFamily: 'Inter')` —la misma base
+que ya usaba `GoogleFonts.interTextTheme()` por dentro, ahora con la
+fuente puesta en vez de pedida—, y `google_fonts` se sacó de
+`pubspec.yaml` por completo: no queda ningún uso.
+
+Verificado de la única forma que importa: la misma prueba de punta a
+punta que encontró el problema, repetida con el arreglo puesto y
+`fonts.gstatic.com` todavía bloqueada, vuelve a mostrar cada pantalla con
+su texto real.
+
 ---
 
 ## Estado y orden de construcción
@@ -697,26 +736,28 @@ condicional que ya usaba `sherpa_onnx`: no es prolijidad de sobra, es lo
   isolate aparte para no congelar la interfaz mientras dura una
   transcripción larga. Sin diálogo reconocible —música, silencio, una foto
   sin texto— no es un fallo: el elemento queda listo igual, tal como llegó.
+- **Fase 8, la web de verdad.** Base de datos con drift-wasm, CanvasKit
+  servido con la propia app en vez de la CDN de Google, almacenamiento de
+  archivos sobre OPFS, captura y exportación adaptadas donde la web no
+  tiene equivalente nativo, OCR con Tesseract en WebAssembly y
+  transcripción con Whisper también en WebAssembly —con un defecto real de
+  `sherpa_onnx_web` 1.13.8 encontrado y arreglado en el camino—. Integración
+  continua que compila la web en cada cambio, los tres entry points, igual
+  que ya hacía con Android. Validado de punta a punta en un Chromium real,
+  no solo pieza por pieza: crear la bóveda, guardar una nota, encontrarla
+  por búsqueda de texto completo, y que siga estando después de recargar la
+  página desde cero. Esa misma validación encontró y corrigió un defecto
+  que ninguna prueba unitaria podía ver —`google_fonts` dejaba toda la
+  interfaz sin texto visible cuando no podía bajar la tipografía en tiempo
+  de ejecución, ver la decisión 12— y confirmó que la Share Extension de
+  iOS queda pospuesta a propósito (decisión 7): no hay ningún dispositivo
+  iOS de por medio para esta app.
 
 ### Por construir
 
-Las siete fases originales están construidas, probadas y documentadas. Lo
-que sigue no estaba en el plan inicial: Android y la web son las
-plataformas reales de quien construye esta app —no hay ningún dispositivo
-iOS de por medio—, así que el esfuerzo se redirige a que las dos funcionen
-a fondo en vez de a la Share Extension de iOS, que queda pospuesta a
-propósito (decisión 7).
-
-**Fase 8 — La web de verdad.** La decisión 6 daba por sentado que la web
-iba a llegar "después y con menos capacidades": sin ML Kit, sin isolates de
-verdad para Whisper. Investigar en serio en vez de asumir mostró dos cosas.
-Primero, que hoy la web ni siquiera arranca —`driftDatabase()` no tiene
-configurado el parámetro que exige para compilar a WebAssembly, y seis
-clases más usan `dart:io`, que no existe en el navegador—. Segundo, que las
-dos limitaciones que parecían de fondo tienen solución libre y real:
-sherpa-onnx tiene soporte oficial de WebAssembly pensado justo para
-transcribir un archivo ya grabado —no para algo en vivo—, y Tesseract
-compilado a WASM hace lo mismo para el reconocimiento de texto en
-imágenes. Esta fase pone la web al mismo nivel que Android: base de datos,
-almacenamiento de archivos, captura, OCR y transcripción, probado de punta
-a punta en un navegador real.
+Las ocho fases están construidas, probadas y documentadas. Android y la
+web —las dos plataformas reales de quien construye esta app, sin ningún
+dispositivo iOS de por medio— funcionan a fondo: no queda ninguna fase
+nueva planeada, solo lo de siempre entre una fase y la próxima que aparezca
+—una migración de esquema, un paquete que sube de versión, un detalle que
+una prueba nueva encuentre—.
