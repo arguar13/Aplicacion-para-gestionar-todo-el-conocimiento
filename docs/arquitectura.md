@@ -538,15 +538,36 @@ encontrando los mismos archivos con el mismo índice adentro.
 
 **Recibir contenido compartido desde otra app** (decisión 7) no existe como
 concepto en un navegador —no hay ninguna "hoja de compartir" del sistema
-operativo—, y no hace falta inventarle nada: soltar un archivo sobre la
-ventana ya cubre ese mismo caso en la web desde la fase 2. La
-implementación web de este listener simplemente no escucha nada.
+operativo—, y no hizo falta escribirle nada especial: `receive_sharing_intent`
+no declara la web entre sus plataformas, así que ahí no hay ningún plugin
+del otro lado, y `ReceiveSharingIntentListener` ya atrapaba
+`MissingPluginException` desde que se escribió (decisión 7). Soltar un
+archivo sobre la ventana, ya cubierto desde la fase 2, sigue siendo el
+único camino de entrada en la web, sin que nadie haya tenido que
+decidirlo aparte.
 
-**Abrir un archivo con la app del sistema** y la bóveda con clave
-(`flutter_secure_storage`) no necesitan ningún cambio: los dos ya declaran
-soporte de verdad para web desde que se eligieron —`open_app_file`
-justamente por eso, ver la fase 6—, y lo mismo pasa con `pdfrx` para leer
-PDFs.
+**Abrir un archivo con la app del sistema** casi no necesitó cambios:
+`open_app_file` ya declara soporte de verdad para web desde que se eligió
+—justamente por eso, ver la fase 6—, pero antes de llegar a él el detalle
+del item le pedía a `FileStore.resolve()` una ruta absoluta, y esa llamada
+ahora lanza a propósito en la web. `WebDownloadFileOpener` reemplaza ese
+paso puntual: lee los bytes con `read()` y dispara una descarga con el
+nombre real del archivo, en vez de dejar que `open_app_file` le ponga el
+identificador de una URL de blob como nombre. La bóveda con clave
+(`flutter_secure_storage`) y `pdfrx` para leer PDFs no necesitaron tocarse
+en absoluto: los dos ya declaraban soporte de verdad para web desde que se
+eligieron.
+
+**Una nota aparte, del propio trabajo de adaptar esto:** `package:web` y
+`dart:js_interop` no compilan en absoluto fuera de la web —a diferencia de
+`dart:io`, que compila en la web con clases que existen pero revientan
+recién al llamarlas—. Confirmado escribiendo una prueba mínima y
+corriéndola con `flutter test`: el error aparece en la compilación, no en
+tiempo de ejecución. Es la razón de fondo por la que cada pieza nueva de
+esta fase —`OpfsFileStore`, `WebDownloadFileOpener`,
+`ZipPackageDownloader`— vive detrás del mismo mecanismo de import
+condicional que ya usaba `sherpa_onnx`: no es prolijidad de sobra, es lo
+único que hace que el proyecto siga compilando para Android.
 
 ---
 
