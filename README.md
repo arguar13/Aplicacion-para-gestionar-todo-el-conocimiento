@@ -101,13 +101,19 @@ La base está construida y verificada. El producto, no todavía.
   búsqueda de texto completo con FTS5 sincronizada por triggers, y el
   repositorio de la biblioteca con filtros, orden, paginación y streams que
   se actualizan solos. Probado contra SQLite real, no contra dobles.
+- **Capturar y leer.** Pegás un enlace o escribís una nota y la app reconoce
+  sola de qué se trata —YouTube, página web, apunte propio— y lo guarda con
+  su procedencia. La biblioteca lista todo con búsqueda por contenido,
+  filtros por tipo y orden por relevancia, y se actualiza sola cuando entra
+  algo nuevo. El detalle muestra el contenido junto a de dónde salió.
 
 **Por construir**
 
-Captura, transformación, organización y exportación — el producto en sí. El
-diseño de cada etapa y el orden en que se van a construir están en
-[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es capturar y
-leer.
+Las transformaciones (traer subtítulos, limpiar páginas, leer documentos,
+transcribir audio), organizar con etiquetas y relaciones, y exportar. El
+diseño de cada etapa y el orden están en
+[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo son las dos
+transformaciones que más rinden: YouTube y páginas web.
 
 ## Correr el proyecto
 
@@ -153,7 +159,8 @@ lib/
 ├── core/         Compartido: diseño, red, errores, registro, telemetría, i18n
 └── features/     Un módulo por funcionalidad, en tres capas
     ├── vault/        Bóveda local: crear y desbloquear
-    └── dashboard/    Pantalla principal
+    ├── capture/      Reconocer y guardar lo que entra
+    └── library/      Listar, buscar, filtrar y ver el detalle
 ```
 
 La regla de dependencia dentro de cada feature apunta hacia adentro:

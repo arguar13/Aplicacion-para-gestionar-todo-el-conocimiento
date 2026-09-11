@@ -5,18 +5,29 @@ abstract final class RoutePaths {
   static const splash = '/splash';
 
   /// Las dos caras de la bóveda. Son rutas distintas y no una sola pantalla
-  /// con dos modos porque responden a situaciones distintas: crear la
-  /// bóveda pasa una vez en la vida del dispositivo, abrirla pasa en cada
-  /// arranque.
+  /// con dos modos porque responden a situaciones distintas: crear la bóveda
+  /// pasa una vez en la vida del dispositivo, abrirla pasa en cada arranque.
   static const vaultCreate = '/vault/create';
   static const vaultUnlock = '/vault/unlock';
 
-  static const dashboard = '/dashboard';
+  /// La biblioteca: la pantalla principal con todo lo guardado.
+  static const library = '/library';
+
+  /// El detalle de un elemento. Se arma con [itemDetail] para no escribir la
+  /// interpolación a mano en cada sitio que navega hasta acá.
+  static const itemDetailPattern = '$library/:id';
+
+  static String itemDetail(String id) => '$library/$id';
+
+  /// Guardar algo nuevo.
+  static const capture = '/capture';
 }
 
 abstract final class RouteNames {
   static const splash = 'splash';
   static const vaultCreate = 'vault-create';
   static const vaultUnlock = 'vault-unlock';
-  static const dashboard = 'dashboard';
+  static const library = 'library';
+  static const itemDetail = 'item-detail';
+  static const capture = 'capture';
 }

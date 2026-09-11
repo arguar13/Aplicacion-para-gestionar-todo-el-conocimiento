@@ -303,15 +303,22 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   orden por relevancia y streams que se actualizan solos. Probado contra
   SQLite real: un doble respondería lo que se le pida sin ejercitar ninguna
   cascada ni ningún trigger.
+- **Fase 2, capturar y leer.** Los adaptadores de nota, enlace web y YouTube;
+  el caso de uso de captura como única puerta de entrada; y las tres
+  pantallas —biblioteca con búsqueda y filtros, captura con reconocimiento en
+  vivo, y detalle con la procedencia completa—. Falta de esta fase recibir
+  contenido compartido desde otras apps y soltar archivos, que necesitan
+  complementos nativos.
 
 ### Por construir
 
 El orden busca que haya algo utilizable lo antes posible, y deja para el final
 lo más pesado.
 
-**Fase 2 — Capturar y leer.** Recibir contenido compartido, pegar enlaces,
-soltar archivos, escribir notas. Lista, detalle, búsqueda y filtros. Al
-terminar esta fase la app ya sirve, aunque solo guarde texto y enlaces.
+**Fase 2 (lo que falta) — Entrada desde el sistema.** Recibir contenido
+compartido desde otras apps y aceptar archivos. Es la vía por la que va a
+entrar la mayor parte del material, y necesita configuración nativa en cada
+plataforma.
 
 **Fase 3 — Las transformaciones que más rinden.** YouTube (subtítulos sin
 cuota ni espera) y páginas web (artículo limpio más copia del original). Son

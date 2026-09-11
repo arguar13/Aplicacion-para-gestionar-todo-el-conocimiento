@@ -2,16 +2,13 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/vault/data/datasources/vault_local_data_source.dart';
 import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
 import 'package:sinapsis/features/vault/domain/entities/pin_policy.dart';
 import 'package:sinapsis/features/vault/domain/entities/unlock_result.dart';
 import 'package:sinapsis/features/vault/domain/repositories/vault_repository.dart';
 import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
-
-/// De dónde sale "ahora". Se inyecta para que los tests puedan simular que
-/// pasaron diez minutos sin tener que esperarlos.
-typedef Clock = DateTime Function();
 
 class VaultRepositoryImpl implements VaultRepository {
   const VaultRepositoryImpl({

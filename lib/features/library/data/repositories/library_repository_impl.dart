@@ -111,43 +111,68 @@ class LibraryRepositoryImpl implements LibraryRepository {
     // recordar que quedó uno pendiente y volver a consultar al terminar. Eso
     // agrupa ráfagas de escrituras en una sola consulta y, sobre todo, no
     // pierde ninguna.
-    late final StreamController<List<KnowledgeItem>> controller;
+    return _watching(() => _list(query), hint: 'LibraryRepositoryImpl.watch');
+  }
+
+  /// La mecánica común de los dos métodos que observan cambios.
+  ///
+  /// Vuelve a ejecutar [read] ante cualquier escritura en las tablas que
+  /// componen un elemento. Es deliberadamente grueso: recomponer cuesta poco
+  /// comparado con la alternativa, que sería razonar si tal escritura
+  /// concreta afecta o no a tal consulta concreta — y equivocarse ahí deja la
+  /// pantalla con datos viejos sin que nadie se entere.
+  ///
+  /// Es más largo que un `await for` sobre las notificaciones, y hay dos
+  /// razones para no tomar ese camino.
+  ///
+  /// La primera: consultar la base desde adentro del flujo de avisos de drift
+  /// reentra en el controlador que está emitiendo ese mismo aviso, y revienta
+  /// con "Cannot add event while adding stream".
+  ///
+  /// La segunda importa más. Los avisos de drift son un stream de difusión:
+  /// lo que se emite mientras el consumidor está ocupado no se encola, se
+  /// pierde. Con un `asyncMap` —que pausa la fuente mientras trabaja— una
+  /// escritura que llegue justo durante la consulta anterior no provocaría
+  /// ninguna emisión nueva, y la pantalla se quedaría con datos viejos para
+  /// siempre, sin error y sin forma de enterarse.
+  ///
+  /// Como todos los avisos dicen lo mismo —"algo cambió"— alcanza con
+  /// recordar que quedó uno pendiente y volver a consultar al terminar. Eso
+  /// agrupa ráfagas de escrituras en una sola consulta y, sobre todo, no
+  /// pierde ninguna.
+  Stream<T> _watching<T>(Future<T> Function() read, {required String hint}) {
+    late final StreamController<T> controller;
     StreamSubscription<void>? changes;
-    var isRefreshing = false;
-    var changedWhileRefreshing = false;
+    var isReading = false;
+    var changedWhileReading = false;
 
     Future<void> refresh() async {
-      if (isRefreshing) {
-        changedWhileRefreshing = true;
+      if (isReading) {
+        changedWhileReading = true;
         return;
       }
 
-      isRefreshing = true;
+      isReading = true;
       try {
         do {
-          changedWhileRefreshing = false;
-          final items = await _list(query);
-          if (!controller.isClosed) controller.add(items);
-        } while (changedWhileRefreshing);
+          changedWhileReading = false;
+          final value = await read();
+          if (!controller.isClosed) controller.add(value);
+        } while (changedWhileReading);
         // Catch-all deliberado, igual que en el resto del archivo.
         // ignore: avoid_catches_without_on_clauses
       } catch (e, stackTrace) {
-        // Un fallo al recomponer la lista viaja por el stream en vez de
-        // quedar en una excepción sin dueño: quien la observa tiene que
-        // poder mostrar el error, no quedarse esperando una emisión que no
-        // va a llegar.
-        _telemetry.recordError(
-          e,
-          stackTrace,
-          hint: 'LibraryRepositoryImpl.watch',
-        );
+        // Un fallo al recomponer viaja por el stream en vez de quedar en una
+        // excepción sin dueño: quien observa tiene que poder mostrar el
+        // error, no quedarse esperando una emisión que no va a llegar.
+        _telemetry.recordError(e, stackTrace, hint: hint);
         if (!controller.isClosed) controller.addError(e, stackTrace);
       } finally {
-        isRefreshing = false;
+        isReading = false;
       }
     }
 
-    controller = StreamController<List<KnowledgeItem>>(
+    controller = StreamController<T>(
       onListen: () {
         changes = _db
             .tableUpdates(
@@ -161,7 +186,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
             )
             .listen((_) => unawaited(refresh()));
 
-        // El primer estado sale sin esperar a que cambie nada: quien se
+        // El primer valor sale sin esperar a que cambie nada: quien se
         // suscribe quiere ver lo que hay ahora.
         unawaited(refresh());
       },
@@ -171,6 +196,18 @@ class LibraryRepositoryImpl implements LibraryRepository {
     );
 
     return controller.stream;
+  }
+
+  @override
+  Stream<KnowledgeItem?> watchById(String id) {
+    return _watching(() async {
+      final rows = await (_db.select(
+        _db.items,
+      )..where((i) => i.id.equals(id))).get();
+
+      if (rows.isEmpty) return null;
+      return (await _assemble(rows)).single;
+    }, hint: 'LibraryRepositoryImpl.watchById');
   }
 
   @override

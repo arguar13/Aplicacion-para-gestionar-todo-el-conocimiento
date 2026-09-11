@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,8 +7,10 @@ import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_error_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
-import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
@@ -110,6 +113,13 @@ void main() {
           ),
           pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
+          // La biblioteca lee de la base en cuanto se monta; en un test va
+          // en memoria, que además la deja vacía en cada caso.
+          appDatabaseProvider.overrideWith((ref) {
+            final db = AppDatabase(NativeDatabase.memory());
+            ref.onDispose(db.close);
+            return db;
+          }),
         ],
       );
       addTearDown(container.dispose);
@@ -124,7 +134,7 @@ void main() {
 
       await tester.pumpWidget(buildRoutedApp(container));
       await tester.pumpAndSettle();
-      expect(find.byType(DashboardScreen), findsOneWidget);
+      expect(find.byType(LibraryScreen), findsOneWidget);
 
       // Act
       container.read(goRouterProvider).go(tUri.toString());
@@ -156,7 +166,7 @@ void main() {
       // estado de la bóveda. Con la bóveda abierta, eso termina en el
       // dashboard.
       expect(find.byType(RouteErrorScreen), findsNothing);
-      expect(find.byType(DashboardScreen), findsOneWidget);
+      expect(find.byType(LibraryScreen), findsOneWidget);
     });
   });
 }

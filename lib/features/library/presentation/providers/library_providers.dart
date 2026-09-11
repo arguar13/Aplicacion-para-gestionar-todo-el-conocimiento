@@ -28,3 +28,13 @@ final libraryItemsProvider = StreamProvider.autoDispose
     .family<List<KnowledgeItem>, LibraryQuery>((ref, query) {
       return ref.watch(libraryRepositoryProvider).watch(query);
     });
+
+/// Un elemento concreto, actualizándose solo.
+///
+/// Emite `null` cuando el elemento deja de existir, y la pantalla de detalle
+/// usa eso para cerrarse: seguir mostrando algo que se acaba de borrar es
+/// peor que volver a la lista.
+final libraryItemProvider = StreamProvider.autoDispose
+    .family<KnowledgeItem?, String>((ref, id) {
+      return ref.watch(libraryRepositoryProvider).watchById(id);
+    });

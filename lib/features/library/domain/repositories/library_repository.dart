@@ -36,6 +36,17 @@ abstract interface class LibraryRepository {
   /// tanto ni acordarse de refrescar.
   Stream<List<KnowledgeItem>> watch(LibraryQuery query);
 
+  /// Un elemento concreto, emitiendo de nuevo cada vez que cambia.
+  ///
+  /// Es lo que hace que la pantalla de detalle se complete sola: se abre un
+  /// video recién guardado —con su enlace y nada más— y cuando la
+  /// transcripción termina en segundo plano, el texto aparece sin que el
+  /// usuario tenga que salir y volver a entrar.
+  ///
+  /// Emite `null` si el elemento deja de existir, para que la pantalla pueda
+  /// cerrarse en vez de quedar mostrando algo que ya se borró.
+  Stream<KnowledgeItem?> watchById(String id);
+
   /// Cuántos elementos cumplen [query], sin traerlos.
   ///
   /// Para los contadores de la interfaz: pedir la lista entera solo para

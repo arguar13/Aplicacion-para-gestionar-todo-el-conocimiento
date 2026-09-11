@@ -51,6 +51,143 @@
     "description": "Tooltip for the button that closes the vault and returns to the unlock screen"
   },
 
+  "libraryTitle": "Library",
+  "@libraryTitle": {
+    "description": "Title of the main screen listing everything saved"
+  },
+
+  "librarySearchHint": "Search everything you saved",
+  "@librarySearchHint": {
+    "description": "Placeholder of the search field on the library screen"
+  },
+
+  "librarySearchEmpty": "Nothing matches \"{query}\"",
+  "@librarySearchEmpty": {
+    "description": "Shown when a search returns no results",
+    "placeholders": { "query": { "type": "String", "example": "paradigm" } }
+  },
+
+  "libraryFilterEmpty": "Nothing matches these filters",
+  "@libraryFilterEmpty": {
+    "description": "Shown when the active filters leave no results"
+  },
+
+  "libraryClearFilters": "Clear filters",
+  "@libraryClearFilters": {
+    "description": "Button that removes every active filter"
+  },
+
+  "libraryItemCount": "{count, plural, =0{Nothing saved yet} =1{1 item} other{{count} items}}",
+  "@libraryItemCount": {
+    "description": "How many items match the current view",
+    "placeholders": { "count": { "type": "int", "example": "12" } }
+  },
+
+  "sourceKindYoutube": "YouTube",
+  "@sourceKindYoutube": { "description": "Readable name of a source type" },
+  "sourceKindWebPage": "Web page",
+  "@sourceKindWebPage": { "description": "Readable name of a source type" },
+  "sourceKindSocialPost": "Social post",
+  "@sourceKindSocialPost": { "description": "Readable name of a source type" },
+  "sourceKindDocument": "Document",
+  "@sourceKindDocument": { "description": "Readable name of a source type" },
+  "sourceKindImage": "Image",
+  "@sourceKindImage": { "description": "Readable name of a source type" },
+  "sourceKindAudio": "Audio",
+  "@sourceKindAudio": { "description": "Readable name of a source type" },
+  "sourceKindVideo": "Video",
+  "@sourceKindVideo": { "description": "Readable name of a source type" },
+  "sourceKindNote": "Note",
+  "@sourceKindNote": { "description": "Readable name of a source type" },
+
+  "processingPending": "Waiting",
+  "@processingPending": {
+    "description": "Badge on an item whose content has not been extracted yet"
+  },
+  "processingInProgress": "Working",
+  "@processingInProgress": {
+    "description": "Badge on an item currently being converted"
+  },
+  "processingFailed": "Couldn't extract",
+  "@processingFailed": {
+    "description": "Badge on an item whose conversion failed; it still keeps whatever was obtained"
+  },
+
+  "captureTitle": "Save something",
+  "@captureTitle": { "description": "Title of the capture screen" },
+
+  "captureHint": "Paste a link, or write whatever you want to keep",
+  "@captureHint": {
+    "description": "Placeholder of the main capture field"
+  },
+
+  "captureOptionalTitleLabel": "Title (optional)",
+  "@captureOptionalTitleLabel": {
+    "description": "Label of the optional title field on capture"
+  },
+
+  "captureOptionalNoteLabel": "Your note (optional)",
+  "@captureOptionalNoteLabel": {
+    "description": "Label of the optional personal note field on capture"
+  },
+
+  "captureAction": "Save",
+  "@captureAction": { "description": "Submit button on the capture screen" },
+
+  "captureWillSaveAs": "Will be saved as {kind}",
+  "@captureWillSaveAs": {
+    "description": "Live feedback telling the user what the app recognized in what they pasted",
+    "placeholders": { "kind": { "type": "String", "example": "YouTube" } }
+  },
+
+  "captureEmptyError": "Write or paste something first.",
+  "@captureEmptyError": {
+    "description": "Validation error when trying to save an empty capture"
+  },
+
+  "detailProvenance": "Where it came from",
+  "@detailProvenance": {
+    "description": "Section header for the source information of an item"
+  },
+
+  "detailCapturedOn": "Saved on {date}",
+  "@detailCapturedOn": {
+    "description": "When the user saved this item",
+    "placeholders": { "date": { "type": "String", "example": "11 Sep 2026" } }
+  },
+
+  "detailAuthor": "By {name}",
+  "@detailAuthor": {
+    "description": "Author of the original content",
+    "placeholders": { "name": { "type": "String", "example": "Ana" } }
+  },
+
+  "detailCopyLink": "Copy link",
+  "@detailCopyLink": {
+    "description": "Button that copies the original URL to the clipboard"
+  },
+
+  "detailLinkCopied": "Link copied",
+  "@detailLinkCopied": {
+    "description": "Confirmation shown after copying the original link"
+  },
+
+  "detailNoContentYet": "The content hasn't been extracted yet. The link and everything known about it is already saved.",
+  "@detailNoContentYet": {
+    "description": "Shown on an item that has a source but no content renditions yet"
+  },
+
+  "detailDelete": "Delete",
+  "@detailDelete": { "description": "Button that deletes an item" },
+
+  "detailDeleteConfirm": "Delete this and everything in it? This can't be undone.",
+  "@detailDeleteConfirm": {
+    "description": "Confirmation question before deleting an item"
+  },
+
+  "commonCancel": "Cancel",
+  "@commonCancel": { "description": "Generic cancel button" },
+
   "emptyLibraryTitle": "Your vault is empty",
   "@emptyLibraryTitle": {
     "description": "Title of the empty state on the home screen, before anything has been captured"

@@ -6,7 +6,9 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
-import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
@@ -52,9 +54,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UnlockVaultScreen(),
       ),
       GoRoute(
-        path: RoutePaths.dashboard,
-        name: RouteNames.dashboard,
-        builder: (context, state) => const DashboardScreen(),
+        path: RoutePaths.library,
+        name: RouteNames.library,
+        builder: (context, state) => const LibraryScreen(),
+        routes: [
+          // Anidada bajo la biblioteca: el detalle de un elemento no existe
+          // por fuera de ella, y así "volver" lleva siempre a la lista —
+          // incluso cuando se llega por un enlace directo en web.
+          GoRoute(
+            path: ':id',
+            name: RouteNames.itemDetail,
+            builder: (context, state) =>
+                ItemDetailScreen(itemId: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.capture,
+        name: RouteNames.capture,
+        builder: (context, state) => const CaptureScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),
@@ -86,6 +104,6 @@ String? _redirect({required VaultSession session, required String location}) {
     VaultLocked() => onUnlock ? null : RoutePaths.vaultUnlock,
     // Abierta: las tres pantallas de acceso ya no tienen sentido.
     VaultUnlocked() =>
-      (onSplash || onCreate || onUnlock) ? RoutePaths.dashboard : null,
+      (onSplash || onCreate || onUnlock) ? RoutePaths.library : null,
   };
 }
