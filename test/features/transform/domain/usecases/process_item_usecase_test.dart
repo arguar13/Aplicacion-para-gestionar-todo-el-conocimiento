@@ -11,6 +11,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
+import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
 
@@ -19,14 +20,17 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl repository;
+  late InMemoryFileStore files;
 
   final now = DateTime(2026, 9, 11, 10);
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    files = InMemoryFileStore();
     repository = LibraryRepositoryImpl(
       database: db,
       telemetry: MockTelemetryService(),
+      files: files,
     );
   });
 

@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:async/async.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +17,8 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
+import '../../../../support/in_memory_file_store.dart';
+
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Contra SQLite real, en memoria. Un doble de la base respondería lo que se
@@ -22,15 +27,18 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl repository;
+  late InMemoryFileStore files;
 
   final now = DateTime(2026, 9, 11, 10);
   var counter = 0;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    files = InMemoryFileStore();
     repository = LibraryRepositoryImpl(
       database: db,
       telemetry: MockTelemetryService(),
+      files: files,
     );
     counter = 0;
   });
@@ -257,6 +265,76 @@ void main() {
       // La etiqueta en sí sobrevive: puede estar en uso por otros elementos,
       // y aunque no lo esté, es parte del vocabulario del usuario.
       expect(await db.select(db.tags).get(), hasLength(1));
+    });
+
+    test('también borra el archivo original del disco', () async {
+      // Las cascadas del esquema limpian la base, pero el disco no tiene
+      // cascadas. Sin esto, borrar cincuenta PDFs dejaría cincuenta PDFs
+      // ocupando el teléfono sin que nada los referencie.
+      final base = buildItem();
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'apunte.pdf',
+        id: base.source.id,
+      );
+      await repository.save(
+        base.copyWith(source: base.source.copyWith(originalFilePath: path)),
+      );
+
+      await repository.delete(base.id);
+
+      expect(files.deleted, [path]);
+      expect(files.paths, isEmpty);
+    });
+
+    test('un archivo compartido por dos elementos NO se borra', () async {
+      // El mismo PDF capturado dos veces reutiliza su fila de fuente. Borrar
+      // el archivo al eliminar el primero dejaría al segundo apuntando a algo
+      // que ya no está.
+      final primero = buildItem(id: 'item-a');
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'apunte.pdf',
+        id: primero.source.id,
+      );
+      final source = primero.source.copyWith(originalFilePath: path);
+
+      await repository.save(primero.copyWith(source: source));
+      await repository.save(buildItem(id: 'item-b').copyWith(source: source));
+
+      await repository.delete('item-a');
+
+      expect(files.deleted, isEmpty);
+      expect(files.paths, [path]);
+    });
+
+    test('si el disco se resiste, el elemento se borra igual', () async {
+      // El usuario pidió eliminar algo y en la base ya no está. Devolver un
+      // error porque el archivo no se dejó borrar sería mentirle.
+      final base = buildItem();
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'apunte.pdf',
+        id: base.source.id,
+      );
+      await repository.save(
+        base.copyWith(source: base.source.copyWith(originalFilePath: path)),
+      );
+      files.deleteError = const FileSystemException('volumen desmontado');
+
+      final result = await repository.delete(base.id);
+
+      expect(result.isRight(), isTrue);
+      expect(await db.select(db.items).get(), isEmpty);
+    });
+
+    test('un elemento sin archivo no intenta borrar nada', () async {
+      final base = buildItem();
+      await repository.save(base);
+
+      await repository.delete(base.id);
+
+      expect(files.deleted, isEmpty);
     });
   });
   group('filtrar', () {

@@ -18,6 +18,7 @@ import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 
+import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
@@ -88,14 +89,17 @@ class _ScriptedTransformer implements Transformer {
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl repository;
+  late InMemoryFileStore files;
 
   final now = DateTime(2026, 9, 11, 10);
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    files = InMemoryFileStore();
     repository = LibraryRepositoryImpl(
       database: db,
       telemetry: MockTelemetryService(),
+      files: files,
     );
   });
 

@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
@@ -17,11 +18,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
   const LibraryRepositoryImpl({
     required AppDatabase database,
     required TelemetryService telemetry,
+    required FileStore files,
   }) : _db = database,
-       _telemetry = telemetry;
+       _telemetry = telemetry,
+       _files = files;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
+  final FileStore _files;
 
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
@@ -213,14 +217,69 @@ class LibraryRepositoryImpl implements LibraryRepository {
   @override
   Future<Either<Failure, Unit>> delete(String id) async {
     try {
+      // El archivo original se busca ANTES de borrar la fila: después ya no
+      // habría forma de saber cuál era, y quedaría ocupando espacio para
+      // siempre. Las cascadas del esquema limpian la base, pero el disco no
+      // tiene cascadas.
+      final filePath = await _originalFilePathOf(id);
+
       // Las formas, etiquetas, vínculos y subrayados se van solos por las
       // cascadas del esquema (ver `PRAGMA foreign_keys` en AppDatabase).
       await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
+
+      if (filePath != null) await _deleteFileQuietly(filePath, id);
+
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.delete'));
+    }
+  }
+
+  /// La ruta del archivo original de un elemento, si tenía uno.
+  ///
+  /// La fuente puede estar compartida por varios elementos —el mismo PDF
+  /// capturado dos veces reutiliza su fila— así que solo se borra el archivo
+  /// cuando nadie más lo referencia. Borrarlo sin mirar dejaría al otro
+  /// elemento apuntando a un archivo que ya no está.
+  Future<String?> _originalFilePathOf(String id) async {
+    final query = _db.select(_db.items).join([
+      innerJoin(_db.sources, _db.sources.id.equalsExp(_db.items.sourceId)),
+    ])..where(_db.items.id.equals(id));
+
+    final row = await query.getSingleOrNull();
+    final source = row?.readTable(_db.sources);
+
+    final path = source?.originalFilePath;
+    if (path == null) return null;
+
+    final others = await (_db.select(
+      _db.items,
+    )..where((i) => i.sourceId.equals(source!.id) & i.id.isNotValue(id))).get();
+
+    return others.isEmpty ? path : null;
+  }
+
+  /// Borra el archivo sin dejar que un fallo del disco frustre el borrado.
+  ///
+  /// El usuario pidió eliminar algo y la fila ya no está: devolver un error
+  /// porque el archivo se resistió sería mentirle —el elemento sí se borró— y
+  /// dejarlo intentándolo otra vez sin resultado. Se registra y sigue.
+  Future<void> _deleteFileQuietly(String path, String id) async {
+    try {
+      await _files.delete(path);
+      // Catch-all deliberado: el disco puede fallar de muchas formas —permisos,
+      // volumen desmontado, un `Error` del sistema de archivos que no es
+      // `Exception`— y ninguna de ellas debe volver atrás un borrado que el
+      // usuario ya pidió y que en la base ya ocurrió.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'LibraryRepositoryImpl.delete: quedó el archivo de $id',
+      );
     }
   }
 

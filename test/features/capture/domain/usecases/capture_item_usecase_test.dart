@@ -16,6 +16,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -30,6 +31,7 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl repository;
+  late InMemoryFileStore files;
   late CaptureItemUseCase captureItem;
   late FakeIdGenerator ids;
 
@@ -37,9 +39,11 @@ void main() {
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    files = InMemoryFileStore();
     repository = LibraryRepositoryImpl(
       database: db,
       telemetry: MockTelemetryService(),
+      files: files,
     );
     ids = FakeIdGenerator();
 
