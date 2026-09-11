@@ -11,7 +11,13 @@ dependencies:
   # Un .docx y un .epub son, los dos, un ZIP con XML adentro. Con esto y
   # `xml` se leen sin depender de un paquete dedicado: ver la decisión 3 en
   # docs/arquitectura.md.
-  archive: ^4.2.0
+  #
+  # Tope en <4.1.0 porque `pdf` (exportación) todavía no soporta 4.1 en
+  # adelante. Entre 4.0.9 y 4.2.0 no hay ningún cambio que afecte lo que usa
+  # este proyecto — solo arreglos y agregados, según el changelog del
+  # paquete— así que no cuesta nada real quedarse en 4.0.9 hasta que `pdf`
+  # levante el tope.
+  archive: ">=4.0.9 <4.1.0"
   # PBKDF2-HMAC-SHA256 para derivar el hash del PIN de la bóveda. Se usa un
   # paquete mantenido en vez de implementar el KDF a mano: escribir
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
@@ -47,6 +53,16 @@ dependencies:
   # grandes, y casi ninguna consulta los necesita.
   path: ^1.9.0
   path_provider: ^2.1.6
+  # Generación de PDF en Dart puro, con licencia Apache-2.0. Se usa solo para
+  # *escribir* el PDF de exportación: la lectura (extraer texto de un PDF ya
+  # existente, fase 5) sigue con `pdfrx_engine`, que es un lector, no un
+  # generador.
+  #
+  # Tope en <3.13.0: desde esa versión `pdf` pide `xml` 7, que choca con el
+  # `xml` 6 que todavía pide `youtube_explode_dart` (no publicó una versión
+  # nueva que se lleve bien con xml 7). 3.12.0 es la última que todavía pide
+  # `xml` 6, así que no hace falta renunciar a nada mientras tanto.
+  pdf: ">=3.12.0 <3.13.0"
   # Port en Dart del algoritmo Readability de Mozilla. Se probó contra HTML
   # realista antes de confiarle la extracción (ver docs/arquitectura.md).
   # PDFium de Chromium empaquetado para cada plataforma. Es el complemento
