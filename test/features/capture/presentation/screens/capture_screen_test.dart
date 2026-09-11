@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -210,6 +214,82 @@ void main() {
 
       expect(find.byType(LibraryScreen), findsOneWidget);
       expect(await savedTitles(), ['capturado desde un enlace directo']);
+    });
+  });
+
+  group('contenido compartido desde otra app', () {
+    testWidgets('lo que trajo el arranque deja la captura precargada, '
+        'lista para revisar', (tester) async {
+      harness = await LibraryHarness.create(
+        initialSharedContent: [
+          const CaptureRequest.text(rawInput: 'https://ejemplo.org/algo'),
+        ],
+      );
+
+      // El guard lleva directo a la captura sin que nadie navegue: ver
+      // `_redirect` en app_router.dart.
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CaptureScreen), findsOneWidget);
+      expect(find.text('https://ejemplo.org/algo'), findsOneWidget);
+    });
+
+    testWidgets('un archivo compartido queda elegido, sin pasar por el '
+        'selector', (tester) async {
+      harness = await LibraryHarness.create(
+        initialSharedContent: [
+          CaptureRequest.file(
+            file: CapturedFile(
+              name: 'foto.jpg',
+              bytes: Uint8List.fromList([1, 2, 3]),
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CaptureScreen), findsOneWidget);
+      expect(find.text('foto.jpg'), findsOneWidget);
+    });
+
+    testWidgets('lo que llega con la app ya abierta también lleva a la '
+        'captura', (tester) async {
+      harness = await LibraryHarness.create();
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryScreen), findsOneWidget);
+
+      harness.sharedContent.add([
+        const CaptureRequest.text(rawInput: 'llegó con la app abierta'),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CaptureScreen), findsOneWidget);
+      expect(find.text('llegó con la app abierta'), findsOneWidget);
+    });
+
+    testWidgets('se ofrece una sola vez: entrar de nuevo por el botón de '
+        'siempre no repite lo mismo', (tester) async {
+      harness = await LibraryHarness.create(
+        initialSharedContent: [
+          const CaptureRequest.text(rawInput: 'una nota compartida'),
+        ],
+      );
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      // Se vacía la cola guardando lo que llegó.
+      await tester.tap(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(LibraryScreen), findsOneWidget);
+
+      harness.pushTo(RoutePaths.capture);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(mainField()).controller?.text, '');
     });
   });
 }

@@ -13,6 +13,7 @@ import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_notifier.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
+import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -51,6 +52,38 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     // Lo escrito decide qué se muestra abajo, así que hay que redibujar a
     // medida que se escribe.
     _inputController.addListener(_onInputChanged);
+
+    // Diferido al post-frame por la regla de Riverpod de no tocar providers
+    // mientras se construye el árbol de widgets: takeNext() modifica la
+    // cola, y hacerlo acá adentro revienta con "Tried to modify a provider
+    // while the widget tree was building".
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _prefillFromSharedContent();
+    });
+  }
+
+  /// Si algo llegó compartido desde otra app, lo deja cargado para revisar
+  /// —tal cual si el usuario lo hubiera pegado o elegido a mano.
+  ///
+  /// Se pide una sola vez, acá: [SharedContentController.takeNext] ya lo
+  /// saca de la cola al llamarlo, así que no hay riesgo de que una
+  /// reconstrucción de esta pantalla lo vuelva a ofrecer o pise algo que el
+  /// usuario ya esté escribiendo.
+  void _prefillFromSharedContent() {
+    final request = ref
+        .read(sharedContentControllerProvider.notifier)
+        .takeNext();
+    if (request == null) return;
+
+    setState(() {
+      switch (request) {
+        case TextCapture(:final rawInput):
+          _inputController.text = rawInput;
+        case FileCapture(:final file):
+          _file = file;
+      }
+    });
   }
 
   @override

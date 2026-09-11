@@ -5,9 +5,11 @@ import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
+import 'package:sinapsis/features/capture/data/services/receive_sharing_intent_listener.dart';
 import 'package:sinapsis/features/capture/data/services/system_file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
+import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 
@@ -47,4 +49,12 @@ final captureItemUseCaseProvider = Provider<CaptureItemUseCase>((ref) {
 /// puede probar.
 final fileChooserProvider = Provider<FileChooser>(
   (ref) => const SystemFileChooser(),
+);
+
+/// Lo que trae el botón de compartir de otra app.
+///
+/// Se sobreescribe en las pruebas: sin un sistema operativo real del otro
+/// lado, el plugin no tiene con qué contestar.
+final sharedContentListenerProvider = Provider<SharedContentListener>(
+  (ref) => const ReceiveSharingIntentListener(),
 );

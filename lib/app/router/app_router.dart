@@ -6,6 +6,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -19,14 +20,16 @@ import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen
 /// agrega con el operador spread (`...featureXRoutes`).
 ///
 /// Route guard: `redirect` se reevalúa cada vez que cambia
-/// [vaultSessionControllerProvider] (vía [GoRouterRefreshNotifier]), así que
-/// ningún widget necesita navegar manualmente al crear o abrir la bóveda —
-/// cambian el estado y el router hace el resto.
+/// [vaultSessionControllerProvider] o [sharedContentControllerProvider] (vía
+/// [GoRouterRefreshNotifier]), así que ningún widget necesita navegar
+/// manualmente al crear o abrir la bóveda, ni cuando llega algo compartido
+/// desde otra app — cambia el estado correspondiente y el router hace el
+/// resto.
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final refreshNotifier = GoRouterRefreshNotifier(
-    ref,
+  final refreshNotifier = GoRouterRefreshNotifier(ref, [
     vaultSessionControllerProvider,
-  );
+    sharedContentControllerProvider,
+  ]);
   ref.onDispose(refreshNotifier.dispose);
 
   final router = GoRouter(
@@ -35,7 +38,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final session = ref.read(vaultSessionControllerProvider);
-      return _redirect(session: session, location: state.matchedLocation);
+      final hasPendingShare = ref
+          .read(sharedContentControllerProvider)
+          .isNotEmpty;
+      return _redirect(
+        session: session,
+        location: state.matchedLocation,
+        hasPendingShare: hasPendingShare,
+      );
     },
     routes: [
       GoRoute(
@@ -81,15 +91,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// Adónde mandar al usuario según el estado de la bóveda.
+/// Adónde mandar al usuario según el estado de la bóveda y si hay algo
+/// compartido desde otra app esperando revisión.
 ///
-/// La forma es la misma que tenía el guard de sesiones remotas, con una
-/// diferencia que importa: ahora hay dos puertas de entrada distintas en
-/// vez de una. Con un backend, "no tengo sesión" y "no tengo cuenta" se
-/// resolvían en la misma pantalla de login; acá, que no exista bóveda
-/// significa que el dispositivo se está estrenando y hay que crearla, un
-/// camino separado del de abrir una que ya está.
-String? _redirect({required VaultSession session, required String location}) {
+/// La forma de la bóveda es la misma que tenía el guard de sesiones
+/// remotas, con una diferencia que importa: ahora hay dos puertas de
+/// entrada distintas en vez de una. Con un backend, "no tengo sesión" y "no
+/// tengo cuenta" se resolvían en la misma pantalla de login; acá, que no
+/// exista bóveda significa que el dispositivo se está estrenando y hay que
+/// crearla, un camino separado del de abrir una que ya está.
+///
+/// [hasPendingShare] solo importa con la bóveda abierta: mientras está
+/// cerrada, nadie debería ver ni un indicio de que hay algo esperando, y en
+/// cuanto se abre el guard ya manda a revisarlo sin que el usuario tenga que
+/// ir a buscarlo. No se redirige si ya está en la captura, para no pisar lo
+/// que esté escribiendo si el contenido llegó mientras la tenía abierta.
+String? _redirect({
+  required VaultSession session,
+  required String location,
+  required bool hasPendingShare,
+}) {
   final onSplash = location == RoutePaths.splash;
   final onCreate = location == RoutePaths.vaultCreate;
   final onUnlock = location == RoutePaths.vaultUnlock;
@@ -103,7 +124,9 @@ String? _redirect({required VaultSession session, required String location}) {
     // desbloqueo.
     VaultLocked() => onUnlock ? null : RoutePaths.vaultUnlock,
     // Abierta: las tres pantallas de acceso ya no tienen sentido.
-    VaultUnlocked() =>
-      (onSplash || onCreate || onUnlock) ? RoutePaths.library : null,
+    VaultUnlocked() when onSplash || onCreate || onUnlock => RoutePaths.library,
+    VaultUnlocked() when hasPendingShare && location != RoutePaths.capture =>
+      RoutePaths.capture,
+    VaultUnlocked() => null,
   };
 }

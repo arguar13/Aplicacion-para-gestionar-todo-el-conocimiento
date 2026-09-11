@@ -30,6 +30,7 @@ import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
+import 'fake_shared_content_listener.dart';
 import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
 
@@ -51,6 +52,7 @@ class LibraryHarness {
     this.fileSaver,
     this.notebookLmDirectoryChooser,
     this.notebookLmDirectoryWriter,
+    this.sharedContent,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -69,6 +71,11 @@ class LibraryHarness {
     /// —el valor por defecto, igual que con el archivo elegido más arriba—
     /// simula cancelar el selector.
     String? notebookLmDirectoryPath,
+
+    /// Lo que "trajo" el arranque de la app, como si el sistema operativo
+    /// hubiera entregado esto por el botón de compartir de otra app antes de
+    /// que la pantalla de captura llegara a pedirlo.
+    List<CaptureRequest> initialSharedContent = const [],
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -86,6 +93,9 @@ class LibraryHarness {
       path: notebookLmDirectoryPath,
     );
     final directoryWriter = FakeDirectoryWriter();
+    final sharedContent = FakeSharedContentListener(
+      initial: initialSharedContent,
+    );
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -112,6 +122,10 @@ class LibraryHarness {
         fileSaverProvider.overrideWithValue(saver),
         directoryChooserProvider.overrideWithValue(directoryChooser),
         directoryWriterProvider.overrideWithValue(directoryWriter),
+        // Sin un sistema operativo real, el plugin de compartir no tiene con
+        // qué hablar; y sin esto, cada prueba que monta el router de verdad
+        // construiría uno igual, con su propio canal roto.
+        sharedContentListenerProvider.overrideWithValue(sharedContent),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -147,6 +161,7 @@ class LibraryHarness {
       saver,
       directoryChooser,
       directoryWriter,
+      sharedContent,
     );
   }
 
@@ -172,6 +187,10 @@ class LibraryHarness {
   /// NotebookLM.
   final FakeDirectoryChooser notebookLmDirectoryChooser;
   final FakeDirectoryWriter notebookLmDirectoryWriter;
+
+  /// Lo que "comparte" otra app, de mentira. `add()` simula que llega algo
+  /// con la app ya abierta.
+  final FakeSharedContentListener sharedContent;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

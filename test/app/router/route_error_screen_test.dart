@@ -10,12 +10,14 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../support/fake_shared_content_listener.dart';
 import '../../support/vault_test_doubles.dart';
 
 void main() {
@@ -113,6 +115,11 @@ void main() {
           ),
           pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
+          // Sin un sistema operativo real, el plugin de compartir no tiene
+          // con qué hablar.
+          sharedContentListenerProvider.overrideWithValue(
+            FakeSharedContentListener(),
+          ),
           // La biblioteca lee de la base en cuanto se monta; en un test va
           // en memoria, que además la deja vacía en cada caso.
           appDatabaseProvider.overrideWith((ref) {

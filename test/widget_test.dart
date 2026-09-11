@@ -5,10 +5,12 @@ import 'package:sinapsis/app/app.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 
+import 'support/fake_shared_content_listener.dart';
 import 'support/vault_test_doubles.dart';
 
 /// Prueba de arriba abajo del route guard: se monta la `App` entera y se
@@ -39,6 +41,7 @@ void main() {
   Future<void> pumpApp(
     WidgetTester tester, {
     required FakeVaultLocalDataSource vault,
+    FakeSharedContentListener? sharedContent,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -46,6 +49,11 @@ void main() {
           vaultLocalDataSourceProvider.overrideWithValue(vault),
           pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
+          // Sin un sistema operativo real, el plugin de compartir no tiene
+          // con qué hablar.
+          sharedContentListenerProvider.overrideWithValue(
+            sharedContent ?? FakeSharedContentListener(),
+          ),
         ],
         child: const App(),
       ),
