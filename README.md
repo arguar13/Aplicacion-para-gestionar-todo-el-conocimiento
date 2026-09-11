@@ -115,12 +115,17 @@ La base está construida y verificada. El producto, no todavía.
   otras sesiones y sigue con lo que viene aunque un enlace se caiga. Lo que
   falla conserva su enlace y se reintenta con un botón.
 
+- **Documentos.** Elegís un PDF, un EPUB, un Word, un `.txt` o un `.md` y
+  queda su texto, con el título y el autor que traiga adentro — y el archivo
+  original guardado aparte, porque en un documento el archivo *es* la fuente
+  y no hay ningún enlace al que volver. El formato se reconoce por los bytes
+  y no por la extensión, así que un PDF renombrado sigue siendo un PDF.
+
 **Por construir**
 
-Leer documentos (PDF, EPUB, DOCX), transcribir audio e imágenes, organizar
-con etiquetas y relaciones, y exportar. El diseño de cada etapa y el orden
-están en [`docs/arquitectura.md`](docs/arquitectura.md); lo próximo son los
-documentos.
+Organizar con etiquetas y relaciones, exportar, y transcribir audio e
+imágenes. El diseño de cada etapa y el orden están en
+[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es organizar.
 
 ## Correr el proyecto
 

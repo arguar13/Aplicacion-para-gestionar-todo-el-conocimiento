@@ -65,6 +65,23 @@
   "detailProvenance": "De dónde salió",
   "detailCapturedOn": "Guardado el {date}",
   "detailAuthor": "Por {name}",
+  "detailOriginalFile": "Archivo original guardado: {name}",
+  "@detailOriginalFile": {
+    "description": "Fila de procedencia que muestra el nombre del archivo original guardado.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "detailNoContentYetFile": "Todavía no se extrajo el texto. El archivo original ya está guardado.",
+  "@detailNoContentYetFile": {
+    "description": "Aviso de contenido pendiente, para elementos que vinieron de un archivo."
+  },
+  "detailExtractionFailedFile": "No se pudo sacar el texto. El archivo original sigue guardado.",
+  "@detailExtractionFailedFile": {
+    "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
+  },
   "detailCopyLink": "Copiar enlace",
   "detailLinkCopied": "Enlace copiado",
   "detailNoContentYet": "Todavía no se extrajo el contenido. El enlace y todo lo que se sabe ya está guardado.",

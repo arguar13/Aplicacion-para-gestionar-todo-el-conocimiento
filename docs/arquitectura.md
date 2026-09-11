@@ -176,10 +176,11 @@ ruta pasa por el botón de compartir del teléfono, no por raspar su web.
 | `WebArticleTransformer` | HTML → artículo en Markdown | [`reader_mode`](https://pub.dev/packages/reader_mode) (Readability de Mozilla) + [`html2md`](https://pub.dev/packages/html2md) | Dispositivo | Construido |
 | `AudioTranscriber` | audio → texto | [`sherpa_onnx`](https://pub.dev/packages/sherpa_onnx) con modelos Whisper | Dispositivo, en un isolate | Fase 7 |
 | `ImageTextExtractor` | imagen → texto | [`google_mlkit_text_recognition`](https://pub.dev/packages/google_mlkit_text_recognition) | Dispositivo | Fase 7 |
-| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo | Fase 4 |
-| `PdfTextExtractor` | PDF → texto | [`syncfusion_flutter_pdf`](https://pub.dev/packages/syncfusion_flutter_pdf) (licencia community, gratuita) | Dispositivo | Fase 4 |
-| `EpubTextExtractor` | EPUB → texto + capítulos | [`epubx`](https://pub.dev/packages/epubx) | Dispositivo | Fase 4 |
-| `DocxTextExtractor` | DOCX → texto | `archive` + `xml` (un .docx es un zip con XML adentro) | Dispositivo | Fase 4 |
+| `PdfParser` | PDF → texto | [`pdfrx_engine`](https://pub.dev/packages/pdfrx_engine) (MIT) sobre el PDFium de Chromium | Dispositivo | Construido |
+| `EpubParser` | EPUB → Markdown, en orden de lectura | `archive` + `xml` propios (ver la decisión 3) | Dispositivo | Construido |
+| `DocxParser` | DOCX → Markdown con encabezados, listas y tablas | `archive` + `xml` (un .docx es un zip con XML adentro) | Dispositivo | Construido |
+| `PlainTextParser` | TXT y MD → Markdown | Nada: los bytes ya son el contenido | Dispositivo | Construido |
+| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo | Fase 6 |
 
 ### La cola
 
@@ -363,6 +364,12 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   vivo, y detalle con la procedencia completa—. Falta de esta fase recibir
   contenido compartido desde otras apps y soltar archivos, que necesitan
   complementos nativos.
+- **Fase 4, los documentos.** PDF, EPUB, Word, texto suelto y Markdown, con
+  el archivo original guardado fuera de la base y reconocido por sus bytes en
+  vez de por su extensión. Un solo transformador para todos los formatos
+  —lo único que cambia es cómo se interpretan los bytes— y el selector de
+  archivos en la pantalla de captura. Borrar un elemento ahora borra también
+  su archivo: el disco no tiene cascadas.
 - **Fase 3, las dos transformaciones que más rinden.** Subtítulos de YouTube
   sin clave ni cuota, con título y canal reales; y artículo limpio de páginas
   web en Markdown, con el autor y el sitio. Más la cola que las ejecuta: de a
@@ -381,19 +388,14 @@ compartido desde otras apps y aceptar archivos. Es la vía por la que va a
 entrar la mayor parte del material, y necesita configuración nativa en cada
 plataforma.
 
-**Fase 3 (lo que falta) — La copia del original de la página.** El artículo
-limpio ya se guarda; archivar la página entera tal como estaba, con sus
-imágenes y estilos incrustados al modo de SingleFile, espera al
-almacenamiento de archivos de la fase 4. Mientras tanto el enlace original
-queda guardado en la fuente, que es lo que permite volver.
-
-**Fase 4 — Documentos.** PDF, EPUB y DOCX. Bien acotado y sin sorpresas.
-
 **Fase 5 — Organizar.** Etiquetas, relaciones entre items, resaltados con
 notas. Acá la bóveda deja de ser una pila y pasa a ser una red.
 
 **Fase 6 — Exportar.** Markdown con procedencia, PDF, texto, HTML y el paquete
-para NotebookLM.
+para NotebookLM. Acá entran también abrir el archivo original con la app del
+sistema y archivar una página web entera al modo de SingleFile: las tres son
+la misma pregunta —cómo sale el contenido de la app— y conviene resolverlas
+juntas.
 
 **Fase 7 — Lo pesado.** Transcripción de audio con Whisper en el dispositivo y
 OCR de imágenes. Van al final porque implican modelos de cientos de megas,

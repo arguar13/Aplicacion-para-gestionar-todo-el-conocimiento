@@ -35,10 +35,14 @@ class LocalFileStore implements FileStore {
     required String suggestedName,
     required String id,
   }) async {
-    final relativePath = p.join(
-      _folder,
-      '$id-${sanitizeFileName(suggestedName)}',
-    );
+    // Cada archivo en su propia carpeta, nombrada por el identificador de la
+    // fuente. Es lo que evita que dos "documento.pdf" de dos sitios distintos
+    // se pisen, **sin** tener que pegar el identificador delante del nombre:
+    // así el nombre guardado sigue siendo exactamente el que el usuario
+    // reconoce, y para recuperarlo no hay que adivinar dónde terminaba el
+    // identificador — que además lleva guiones, igual que muchos nombres de
+    // archivo.
+    final relativePath = p.join(_folder, id, sanitizeFileName(suggestedName));
     final file = File(await resolve(relativePath));
 
     await file.parent.create(recursive: true);

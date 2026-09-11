@@ -33,7 +33,7 @@ class InMemoryFileStore implements FileStore {
     required String suggestedName,
     required String id,
   }) async {
-    final path = 'originales/$id-${sanitizeFileName(suggestedName)}';
+    final path = 'originales/$id/${sanitizeFileName(suggestedName)}';
     _contents[path] = bytes;
     return path;
   }

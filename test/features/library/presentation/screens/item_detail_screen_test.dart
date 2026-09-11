@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -186,6 +191,80 @@ void main() {
 
       expect(find.byType(LibraryScreen), findsOneWidget);
       expect(find.text(es.emptyLibraryTitle), findsOneWidget);
+    });
+  });
+
+  group('archivos originales', () {
+    /// Guarda un elemento que vino de un archivo, como lo dejaría el
+    /// adaptador de archivos.
+    Future<String> captureFile({String name = 'La tesis de Ana.pdf'}) async {
+      final result = await harness.container.read(captureItemUseCaseProvider)(
+        CaptureRequest.file(
+          file: CapturedFile(
+            name: name,
+            bytes: Uint8List.fromList(utf8.encode('%PDF-1.7 contenido')),
+          ),
+        ),
+      );
+
+      return result.getRight().toNullable()!.id;
+    }
+
+    testWidgets('el detalle dice que el archivo original está a salvo', (
+      tester,
+    ) async {
+      // Para un PDF no hay ningún enlace al que volver: el archivo ES la
+      // fuente. Sin esta fila, nada en la pantalla lo diría y el usuario
+      // tendría que confiar en que sí.
+      final id = await captureFile();
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('La tesis de Ana.pdf'), findsOneWidget);
+    });
+
+    testWidgets('el nombre se muestra limpio, sin el identificador', (
+      tester,
+    ) async {
+      // En el disco cada archivo vive en una carpeta con el identificador de
+      // su fuente. Eso es necesario ahí y es ruido en la pantalla.
+      final id = await captureFile(name: 'apunte.pdf');
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('originales/'), findsNothing);
+      expect(find.textContaining('apunte.pdf'), findsOneWidget);
+    });
+
+    testWidgets('el aviso de contenido pendiente habla del archivo, no de '
+        'un enlace', (tester) async {
+      // Decirle "el enlace sigue guardado" a alguien que nunca guardó un
+      // enlace suena a mensaje equivocado, y hace dudar de si su documento
+      // sigue ahí.
+      final id = await captureFile();
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailNoContentYetFile), findsOneWidget);
+      expect(find.text(es.detailNoContentYet), findsNothing);
+    });
+
+    testWidgets('y el de extracción fallida, también', (tester) async {
+      final id = await captureFile();
+      await markFailed(id);
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailExtractionFailedFile), findsOneWidget);
+      expect(find.text(es.detailExtractionFailed), findsNothing);
+    });
+
+    testWidgets('un enlace sigue hablando del enlace', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailNoContentYet), findsOneWidget);
     });
   });
 

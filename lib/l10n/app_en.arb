@@ -197,6 +197,23 @@
     }
   },
   "detailAuthor": "By {name}",
+  "detailOriginalFile": "Original file kept: {name}",
+  "@detailOriginalFile": {
+    "description": "Fila de procedencia que muestra el nombre del archivo original guardado.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "detailNoContentYetFile": "The text hasn't been extracted yet. The original file is already saved.",
+  "@detailNoContentYetFile": {
+    "description": "Aviso de contenido pendiente, para elementos que vinieron de un archivo."
+  },
+  "detailExtractionFailedFile": "The text couldn't be extracted. The original file is still saved.",
+  "@detailExtractionFailedFile": {
+    "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

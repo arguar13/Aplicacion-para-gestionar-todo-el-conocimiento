@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -227,7 +228,7 @@ class _NoContentYet extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                failed ? l10n.detailExtractionFailed : l10n.detailNoContentYet,
+                _emptyStateMessage(l10n, item: item, failed: failed),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -290,6 +291,17 @@ class _Provenance extends StatelessWidget {
           icon: Icons.event_outlined,
           text: l10n.detailCapturedOn(captured),
         ),
+        // Para un PDF o un libro no hay ningún enlace al que volver: el
+        // archivo **es** la fuente. Sin esta fila, el detalle no diría en
+        // ninguna parte que la copia original está a salvo, y el usuario
+        // tendría que confiar en que sí.
+        if (source.originalFilePath != null)
+          _ProvenanceRow(
+            icon: Icons.folder_outlined,
+            text: l10n.detailOriginalFile(
+              originalFileNameOf(source.originalFilePath!),
+            ),
+          ),
         if (source.url != null) ...[
           const SizedBox(height: 12),
           _OriginalLink(url: source.url!),
@@ -409,3 +421,33 @@ class _DetailError extends StatelessWidget {
     );
   }
 }
+
+/// Qué decir cuando todavía no hay contenido.
+///
+/// El mensaje cambia según de dónde vino el elemento, y no es un matiz: a
+/// quien guardó un enlace le importa saber que el enlace está a salvo, y a
+/// quien guardó un PDF le importa saber que el archivo está a salvo. Decirle
+/// "el enlace sigue guardado" a alguien que nunca guardó un enlace suena a
+/// mensaje equivocado, y hace dudar de si su documento sigue ahí.
+String _emptyStateMessage(
+  AppLocalizations l10n, {
+  required KnowledgeItem item,
+  required bool failed,
+}) {
+  final fromFile = item.source.originalFilePath != null;
+
+  if (failed) {
+    return fromFile
+        ? l10n.detailExtractionFailedFile
+        : l10n.detailExtractionFailed;
+  }
+
+  return fromFile ? l10n.detailNoContentYetFile : l10n.detailNoContentYet;
+}
+
+/// El nombre con el que el usuario reconoce su archivo.
+///
+/// En el almacén cada archivo vive en una carpeta con el identificador de su
+/// fuente, así que el último tramo de la ruta ya es el nombre original: no
+/// hay nada que recortar ni que adivinar.
+String originalFileNameOf(String storedPath) => p.basename(storedPath);
