@@ -400,11 +400,13 @@ antes.
   SQLite real: un doble respondería lo que se le pida sin ejercitar ninguna
   cascada ni ningún trigger.
 - **Fase 2, capturar y leer.** Los adaptadores de nota, enlace web y YouTube;
-  el caso de uso de captura como única puerta de entrada; y las tres
-  pantallas —biblioteca con búsqueda y filtros, captura con reconocimiento en
-  vivo, y detalle con la procedencia completa—. Falta de esta fase recibir
-  contenido compartido desde otras apps y soltar archivos, que necesitan
-  complementos nativos.
+  el caso de uso de captura como única puerta de entrada; las tres pantallas
+  —biblioteca con búsqueda y filtros, captura con reconocimiento en vivo, y
+  detalle con la procedencia completa—; y la entrada desde el sistema
+  operativo: compartir un enlace o un archivo desde otra app en Android, o
+  soltarlo directamente sobre la ventana en web. Los dos casos llevan solos a
+  la pantalla de captura, ya cargados, sin que el usuario tenga que ir a
+  buscarlos.
 - **Fase 4, los documentos.** PDF, EPUB, Word, texto suelto y Markdown, con
   el archivo original guardado fuera de la base y reconocido por sus bytes en
   vez de por su extensión. Un solo transformador para todos los formatos
@@ -435,11 +437,6 @@ antes.
 
 El orden busca que haya algo utilizable lo antes posible, y deja para el final
 lo más pesado.
-
-**Fase 2 (lo que falta) — Entrada desde el sistema.** Recibir contenido
-compartido desde otras apps y aceptar archivos. Es la vía por la que va a
-entrar la mayor parte del material, y necesita configuración nativa en cada
-plataforma.
 
 **Fase 7 — Lo pesado.** Transcripción de audio con Whisper en el dispositivo y
 OCR de imágenes. Van al final porque implican modelos de cientos de megas,

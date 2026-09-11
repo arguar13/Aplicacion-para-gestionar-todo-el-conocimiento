@@ -103,9 +103,12 @@ La base está construida y verificada. El producto, no todavía.
   se actualizan solos. Probado contra SQLite real, no contra dobles.
 - **Capturar y leer.** Pegás un enlace o escribís una nota y la app reconoce
   sola de qué se trata —YouTube, página web, apunte propio— y lo guarda con
-  su procedencia. La biblioteca lista todo con búsqueda por contenido,
-  filtros por tipo y orden por relevancia, y se actualiza sola cuando entra
-  algo nuevo. El detalle muestra el contenido junto a de dónde salió.
+  su procedencia. También entra compartiendo desde otra app —el botón de
+  compartir del teléfono, en Android— o soltando un archivo sobre la
+  ventana, en la versión web. La biblioteca lista todo con búsqueda por
+  contenido, filtros por tipo y orden por relevancia, y se actualiza sola
+  cuando entra algo nuevo. El detalle muestra el contenido junto a de dónde
+  salió.
 - **Las dos transformaciones que más rinden.** Pegás un enlace de YouTube y
   aparece la transcripción con sus marcas de tiempo, el título real y el
   canal — sin clave de API, sin cuotas y sin abrir otra página. Pegás una
@@ -139,10 +142,8 @@ La base está construida y verificada. El producto, no todavía.
 
 **Por construir**
 
-Recibir contenido compartido desde otras apps, y transcribir audio e
-imágenes. El diseño de cada etapa y el orden están en
-[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es recibir
-contenido compartido.
+Transcribir audio e imágenes. El diseño de cada etapa y el orden están en
+[`docs/arquitectura.md`](docs/arquitectura.md).
 
 ## Correr el proyecto
 
