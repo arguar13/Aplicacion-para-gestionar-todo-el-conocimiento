@@ -12,6 +12,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -139,9 +140,9 @@ class _DetailBody extends StatelessWidget {
               _NoContentYet(item: item)
             else
               for (final rendition in texts) ...[
-                SelectableText(
-                  rendition.content,
-                  style: theme.textTheme.bodyLarge,
+                HighlightableText(
+                  renditionId: rendition.id,
+                  content: rendition.content,
                 ),
                 const SizedBox(height: 16),
               ],

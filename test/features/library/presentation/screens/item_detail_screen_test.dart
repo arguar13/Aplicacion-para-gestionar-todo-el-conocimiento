@@ -711,4 +711,184 @@ void main() {
       );
     });
   });
+
+  group('resaltados', () {
+    /// Selecciona la primera palabra del contenido con un toque largo, tal
+    /// como lo haría alguien leyendo en la pantalla. No se manipula la
+    /// selección por código: es la única forma de probar esto que también
+    /// ejercita el callback `onSelectionChanged` de verdad.
+    Future<void> selectFirstWord(WidgetTester tester) async {
+      final topLeft = tester.getTopLeft(find.byType(SelectableText));
+      await tester.longPressAt(topLeft + const Offset(8, 8));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('seleccionar una palabra ofrece resaltarla', (tester) async {
+      final id = await captureAndGetId(
+        'Un texto con varias palabras para '
+        'seleccionar.',
+      );
+
+      await pumpDetail(tester, id);
+      await selectFirstWord(tester);
+
+      expect(find.text(es.detailHighlightSelection), findsOneWidget);
+    });
+
+    testWidgets('sin nada seleccionado, no se ofrece', (tester) async {
+      final id = await captureAndGetId('Un texto cualquiera.');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailHighlightSelection), findsNothing);
+    });
+
+    testWidgets('resaltar deja el fragmento marcado y en la lista', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+
+      await pumpDetail(tester, id);
+      await selectFirstWord(tester);
+      await tester.tap(find.text(es.detailHighlightSelection));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'me interesa esto');
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
+      expect(find.text('me interesa esto'), findsOneWidget);
+      // El botón desaparece: la selección se limpia al confirmar, para no
+      // dejar picando un botón que apunta a un resaltado que ya se hizo.
+      expect(find.text(es.detailHighlightSelection), findsNothing);
+    });
+
+    testWidgets('resaltar sin escribir nada también funciona', (tester) async {
+      // Resaltar sin explicar por qué es perfectamente legítimo: no toda
+      // selección necesita una justificación.
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+
+      await pumpDetail(tester, id);
+      await selectFirstWord(tester);
+      await tester.tap(find.text(es.detailHighlightSelection));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
+    });
+
+    testWidgets('cancelar el diálogo de nota no crea el resaltado', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+
+      await pumpDetail(tester, id);
+      await selectFirstWord(tester);
+      await tester.tap(find.text(es.detailHighlightSelection));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.detailHighlightsTitle), findsNothing);
+    });
+
+    testWidgets('editar la nota de un resaltado ya hecho', (tester) async {
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      final renditionId = item.renditions.single.renditionId;
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createHighlight(
+            renditionId: renditionId,
+            startOffset: 0,
+            endOffset: 7,
+            excerpt: 'Palabra',
+            note: 'nota original',
+          );
+
+      await pumpDetail(tester, id);
+      // Lo que abre el editor es la fila de la lista, no el propio texto
+      // resaltado.
+      await tester.tap(find.text('nota original'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'nota corregida');
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(find.text('nota corregida'), findsOneWidget);
+      expect(find.text('nota original'), findsNothing);
+    });
+
+    testWidgets('borrar un resaltado lo saca de la lista', (tester) async {
+      final id = await captureAndGetId('Palabra clave del artículo entero.');
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      final renditionId = item.renditions.single.renditionId;
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createHighlight(
+            renditionId: renditionId,
+            startOffset: 0,
+            endOffset: 7,
+            excerpt: 'Palabra',
+          );
+
+      await pumpDetail(tester, id);
+      expect(find.text(es.detailHighlightsTitle), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.detailRemoveHighlight));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.detailHighlightsTitle), findsNothing);
+    });
+
+    testWidgets(
+      'un resaltado cuyo rango ya no entra en el texto actual no rompe la '
+      'pantalla',
+      (tester) async {
+        // Pasa cuando la rendition se regenera con un texto más corto: los
+        // índices de un resaltado viejo pueden quedar apuntando más allá de
+        // donde ahora termina el texto.
+        final id = await captureAndGetId('Corto.');
+        final item =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(id))
+                .getRight()
+                .toNullable()!;
+        final renditionId = item.renditions.single.renditionId;
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createHighlight(
+              renditionId: renditionId,
+              startOffset: 0,
+              endOffset: 500,
+              excerpt: 'un fragmento que ya no existe tal cual',
+            );
+
+        // No revienta al construir la pantalla: `pumpDetail` ya hace
+        // `pumpAndSettle`, así que si el recorte de los índices fallara acá
+        // se vería como una excepción durante el build.
+        await pumpDetail(tester, id);
+
+        // Y el resaltado se sigue viendo en la lista con el texto que se
+        // guardó en su momento: el excerpt es independiente del contenido
+        // actual.
+        expect(
+          find.text('un fragmento que ya no existe tal cual'),
+          findsOneWidget,
+        );
+      },
+    );
+  });
 }

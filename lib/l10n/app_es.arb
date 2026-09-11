@@ -299,5 +299,33 @@
   "relationKindLabelSummarizes": "Resume",
   "@relationKindLabelSummarizes": {
     "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "detailHighlightSelection": "Resaltar",
+  "@detailHighlightSelection": {
+    "description": "Botón que aparece al seleccionar texto, para subrayarlo."
+  },
+  "detailHighlightsTitle": "Resaltados",
+  "@detailHighlightsTitle": {
+    "description": "Encabezado de la lista de resaltados de una forma de contenido."
+  },
+  "detailHighlightNoteHint": "Por qué te importa (opcional)",
+  "@detailHighlightNoteHint": {
+    "description": "Texto de ayuda del campo de nota al crear un resaltado."
+  },
+  "detailHighlightNoteDialogTitle": "Nota del resaltado",
+  "@detailHighlightNoteDialogTitle": {
+    "description": "Título del diálogo para ver o editar la nota de un resaltado."
+  },
+  "detailRemoveHighlight": "Quitar este resaltado",
+  "@detailRemoveHighlight": {
+    "description": "Tooltip del botón que borra un resaltado."
+  },
+  "detailEditHighlightNote": "Editar la nota",
+  "@detailEditHighlightNote": {
+    "description": "Tooltip/acción para editar la nota de un resaltado ya hecho."
+  },
+  "detailSave": "Guardar",
+  "@detailSave": {
+    "description": "Botón genérico para guardar un cambio en un diálogo."
   }
 }
