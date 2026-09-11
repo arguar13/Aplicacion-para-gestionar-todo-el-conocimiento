@@ -190,3 +190,77 @@ jobs:
           path: build/app/outputs/flutter-apk/app-dev-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+  # La fase 8 hizo de la web una plataforma de verdad, no una reducida: esta
+  # build es la única prueba real de que drift-wasm, CanvasKit sin CDN, y
+  # cada pieza que elige entre `dart:io` y `package:web` en tiempo de
+  # compilación —FileStore, FileOpener, ImageTextExtractor, AudioTranscriber,
+  # WhisperModelManager— compilan de verdad del lado que toca: `analyze` y
+  # `test` corren sobre la VM nativa y nunca ejercitan esa rama.
+  #
+  # Mismo matrix que build-android y con la misma razón: verificar que cada
+  # entry point también compila para este target.
+  build-web:
+    name: Build web (${{ matrix.flavor }})
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [dev, staging, prod]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.2"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Mismo motivo que en los otros dos jobs: el código generado no se
+      # versiona, así que sin estos dos pasos no hay nada que compilar.
+      - name: Generate code (freezed / json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Generate localizations (AppLocalizations)
+        run: flutter gen-l10n
+
+      # El SDK de Flutter no trae los componentes de web instalados por
+      # defecto: hacen falta para que exista `flutter_web_sdk/canvaskit`, de
+      # donde copy_canvaskit.sh saca CanvasKit (ver la decisión 9 en
+      # docs/arquitectura.md).
+      - name: Precache the web SDK
+        run: flutter precache --web
+
+      - name: Copy CanvasKit from the Flutter SDK
+        run: tool/copy_canvaskit.sh
+
+      - name: Build web
+        run: flutter build web --target lib/main_${{ matrix.flavor }}.dart
+
+      # Deja la build de dev descargable desde la pestaña de Actions, para
+      # poder servirla y probarla sin tener que compilarla en forma local.
+      - name: Upload dev web build
+        if: matrix.flavor == 'dev'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sinapsis-dev-web
+          path: build/web
+          if-no-files-found: error
+          retention-days: 14
