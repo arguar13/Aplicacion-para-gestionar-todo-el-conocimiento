@@ -121,11 +121,19 @@ La base está construida y verificada. El producto, no todavía.
   y no hay ningún enlace al que volver. El formato se reconoce por los bytes
   y no por la extensión, así que un PDF renombrado sigue siendo un PDF.
 
+- **Organizar.** Etiquetas con autocompletado —escribir el nombre de una que
+  ya existe reutiliza esa, no crea una segunda— y filtro por etiqueta en la
+  biblioteca, al lado del filtro por tipo. Vínculos tipados entre elementos
+  (relacionado, continúa, contradice, cita, resume), visibles desde los dos
+  lados con el sentido de la frase correcto según cuál se esté mirando.
+  Resaltados con nota sobre cualquier texto, incrustados en el propio
+  contenido y listados aparte para repasar sin releer todo.
+
 **Por construir**
 
-Organizar con etiquetas y relaciones, exportar, y transcribir audio e
-imágenes. El diseño de cada etapa y el orden están en
-[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es organizar.
+Exportar y transcribir audio e imágenes. El diseño de cada etapa y el orden
+están en [`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es
+exportar.
 
 ## Correr el proyecto
 

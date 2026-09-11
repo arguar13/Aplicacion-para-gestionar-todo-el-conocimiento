@@ -216,22 +216,36 @@ Nunca se borra nada por un error de red.
 
 ## Organización
 
-**Etiquetas**, puestas a mano o sugeridas. Una sugerencia local razonable sale
-de la frecuencia de términos contra el resto de la bóveda; no hace falta un
-modelo de lenguaje para proponer cinco candidatas y dejar que el usuario
-elija.
+**Etiquetas**, puestas a mano, con autocompletado de las que ya existen —
+escribir el nombre de una que ya está, sin distinguir mayúsculas, reutiliza
+esa etiqueta en vez de crear una segunda que compite por agrupar lo mismo. Se
+filtra la biblioteca por ellas igual que por tipo de fuente.
 
-**Relaciones** explícitas entre items, con tipo. La app puede *proponer*
-candidatas —items que comparten términos poco frecuentes suelen tener algo que
-ver— pero la conexión la confirma una persona. Un grafo lleno de relaciones
-automáticas de baja calidad vale menos que veinte hechas a mano.
+**Relaciones** explícitas entre elementos, con tipo: relacionado, continúa,
+contradice, cita, resume. Se eligen a mano, en dos pasos —con qué elemento y
+de qué tipo— y se ven desde los dos lados, con el sentido de la frase
+correcto según cuál de los dos se esté mirando: "continúa en X" parado en el
+origen, "es la continuación de X" parado en el destino.
+
+Sugerir candidatas automáticamente —por términos compartidos, o por
+similitud semántica— quedó fuera a propósito y no es una omisión: un grafo
+lleno de vínculos de baja calidad vale menos que veinte hechos a mano, y la
+alternativa seria (embeddings, un modelo de lenguaje local) es una pieza de
+trabajo aparte, no una extensión de esto. Si alguna vez se agrega, entra como
+sugerencia que alguien confirma, nunca como un vínculo que se guarda solo.
+
+**Resaltados** con nota opcional, sobre cualquier forma de texto. Se ven
+incrustados en el propio contenido —con un fondo distinto— y listados aparte
+para poder repasarlos sin releer todo. Sus índices son independientes del
+contenido actual a propósito: si una transcripción se rehace con un modelo
+mejor y cambia de longitud, el resaltado sigue mostrando el fragmento que se
+guardó en su momento, aunque ya no se pueda ubicar en el texto nuevo.
 
 **Búsqueda** sobre título, subtítulo y contenido completo, vía FTS5, con
-filtros combinables por tipo de fuente, etiqueta, fecha y estado de
-procesamiento.
+filtros combinables por tipo de fuente, etiqueta y estado de procesamiento.
 
-**Orden** por fecha de captura, fecha de publicación original, título o último
-acceso.
+**Orden** por fecha de captura, fecha de publicación original, última
+modificación o título — y por relevancia cuando hay una búsqueda activa.
 
 ---
 
@@ -377,6 +391,11 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   pendiente de sesiones anteriores, sin repetir lo que ya está en curso, y sin
   que un enlace roto corte lo que sigue. Lo que falla conserva su enlace y su
   título, y se reintenta a pedido desde el elemento.
+- **Fase 5, organizar.** Etiquetas globales con autocompletado, filtro por
+  etiqueta en la biblioteca, relaciones tipadas entre elementos —vistas desde
+  los dos lados, con el sentido correcto según cuál se esté mirando— y
+  resaltados con nota, incrustados en el texto y listados aparte. La bóveda
+  deja de ser una pila y pasa a ser una red.
 
 ### Por construir
 
@@ -387,9 +406,6 @@ lo más pesado.
 compartido desde otras apps y aceptar archivos. Es la vía por la que va a
 entrar la mayor parte del material, y necesita configuración nativa en cada
 plataforma.
-
-**Fase 5 — Organizar.** Etiquetas, relaciones entre items, resaltados con
-notas. Acá la bóveda deja de ser una pila y pasa a ser una red.
 
 **Fase 6 — Exportar.** Markdown con procedencia, PDF, texto, HTML y el paquete
 para NotebookLM. Acá entran también abrir el archivo original con la app del
