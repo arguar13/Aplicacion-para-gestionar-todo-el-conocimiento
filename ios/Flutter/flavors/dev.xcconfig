@@ -1,0 +1,9 @@
+// Valores del flavor `dev`. Espeja lo que `android/app/build.gradle.kts`
+// define en su productFlavor homónimo y lo que `main_dev.dart` elige del
+// lado de Dart: las tres definiciones tienen que contar la misma historia.
+//
+// El sufijo se aplica sobre el bundle id base (app.sinapsis) para que dev,
+// staging y prod puedan convivir instalados en el mismo dispositivo. iOS,
+// igual que Android, trata un identificador distinto como una app distinta.
+FLAVOR_BUNDLE_ID_SUFFIX = .dev
+APP_DISPLAY_NAME = Sinapsis Dev

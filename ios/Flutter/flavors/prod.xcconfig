@@ -1,0 +1,7 @@
+// Valores del flavor `prod`.
+//
+// Sin sufijo, a propósito: este es el bundle identifier de publicación y no
+// puede cambiar nunca — App Store Connect lo usa como identidad permanente
+// de la app.
+FLAVOR_BUNDLE_ID_SUFFIX =
+APP_DISPLAY_NAME = Sinapsis

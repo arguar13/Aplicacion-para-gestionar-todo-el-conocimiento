@@ -1,0 +1,3 @@
+// Valores del flavor `staging`. Ver dev.xcconfig para el porqué del sufijo.
+FLAVOR_BUNDLE_ID_SUFFIX = .staging
+APP_DISPLAY_NAME = Sinapsis Staging

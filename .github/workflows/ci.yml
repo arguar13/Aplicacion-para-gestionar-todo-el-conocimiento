@@ -93,3 +93,87 @@ jobs:
         with:
           path: coverage/lcov.info
           min_coverage: 80
+
+  # Compilar es la única prueba real de que la configuración nativa (los
+  # product flavors de Gradle, el applicationId de cada uno, los entry
+  # points de Dart) está bien: `flutter analyze` y `flutter test` corren
+  # sobre Dart y nunca tocan Gradle ni el AndroidManifest.
+  #
+  # El matrix recorre los tres flavors en paralelo y deriva el entry point
+  # de su nombre, así que también verifica la convención que los une:
+  # flavor `dev` <-> productFlavor "dev" <-> lib/main_dev.dart <->
+  # AppFlavor.dev. Si alguien agrega un flavor de un lado y se olvida del
+  # otro, este job lo encuentra.
+  build-android:
+    name: Build Android (${{ matrix.flavor }})
+    runs-on: ubuntu-latest
+    # No tiene sentido gastar minutos compilando algo que ni siquiera pasa
+    # el analizador.
+    needs: analyze-and-test
+
+    strategy:
+      # Si un flavor falla, igual queremos saber si los otros dos también:
+      # dice si el problema es de ese flavor o de la configuración común.
+      fail-fast: false
+      matrix:
+        flavor: [dev, staging, prod]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      # `android/app/build.gradle.kts` fija JVM_17 en compileOptions y en
+      # kotlin.compilerOptions; el runner trae una versión más nueva por
+      # defecto, así que se pide explícitamente la que el proyecto declara.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.2"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Mismo motivo que en el job de análisis: el código generado no se
+      # versiona, así que sin estos dos pasos no hay nada que compilar.
+      - name: Generate code (freezed / json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Generate localizations (AppLocalizations)
+        run: flutter gen-l10n
+
+      # Debug y no release: alcanza para probar que Gradle resuelve el
+      # flavor y que la app enlaza, sin necesitar un keystore de firma.
+      - name: Build APK
+        run: >-
+          flutter build apk --debug
+          --flavor ${{ matrix.flavor }}
+          --target lib/main_${{ matrix.flavor }}.dart
+
+      # Deja el APK de dev descargable desde la pestaña de Actions, para
+      # poder instalarlo en un teléfono sin tener que montar el entorno de
+      # Flutter localmente.
+      - name: Upload dev APK
+        if: matrix.flavor == 'dev'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sinapsis-dev-debug-apk
+          path: build/app/outputs/flutter-apk/app-dev-debug.apk
+          if-no-files-found: error
+          retention-days: 14
