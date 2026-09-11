@@ -106,14 +106,21 @@ La base está construida y verificada. El producto, no todavía.
   su procedencia. La biblioteca lista todo con búsqueda por contenido,
   filtros por tipo y orden por relevancia, y se actualiza sola cuando entra
   algo nuevo. El detalle muestra el contenido junto a de dónde salió.
+- **Las dos transformaciones que más rinden.** Pegás un enlace de YouTube y
+  aparece la transcripción con sus marcas de tiempo, el título real y el
+  canal — sin clave de API, sin cuotas y sin abrir otra página. Pegás una
+  página web y queda el artículo limpio en Markdown, sin menús ni avisos, con
+  su autor y su sitio. Las trae una cola que trabaja de a uno para no
+  disparar diez descargas a la vez, retoma sola lo que quedó pendiente de
+  otras sesiones y sigue con lo que viene aunque un enlace se caiga. Lo que
+  falla conserva su enlace y se reintenta con un botón.
 
 **Por construir**
 
-Las transformaciones (traer subtítulos, limpiar páginas, leer documentos,
-transcribir audio), organizar con etiquetas y relaciones, y exportar. El
-diseño de cada etapa y el orden están en
-[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo son las dos
-transformaciones que más rinden: YouTube y páginas web.
+Leer documentos (PDF, EPUB, DOCX), transcribir audio e imágenes, organizar
+con etiquetas y relaciones, y exportar. El diseño de cada etapa y el orden
+están en [`docs/arquitectura.md`](docs/arquitectura.md); lo próximo son los
+documentos.
 
 ## Correr el proyecto
 

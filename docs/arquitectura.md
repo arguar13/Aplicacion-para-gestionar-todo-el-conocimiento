@@ -45,18 +45,28 @@ algo porque una etapa opcional no funcionó es peor que aceptarlo incompleto.
                │
                ▼
         ┌──────────────┐
-        │   ADAPTER    │  ¿qué es esto? Extrae metadatos y contenido crudo
+        │   ADAPTER    │  ¿qué es esto? Reconoce la fuente y su procedencia
         └──────┬───────┘  YouTube · web · social · archivo · texto
                │
                ▼
         ┌──────────────┐
-        │ TRANSFORMER  │  Lo convierte en una o más representaciones
-        └──────┬───────┘  audio→texto · imagen→texto · PDF→texto · HTML→artículo
+        │   ITEM       │  Guardado YA, con su enlace y su título provisional
+        └──────┬───────┘  El usuario ya puede cerrar la app
                │
                ▼
         ┌──────────────┐
-        │   ITEM       │  Guardado, con su procedencia y sus representaciones
-        └──────┬───────┘
+        │     COLA     │  De a uno, en segundo plano. Lo que falla no se
+        └──────┬───────┘  pierde: conserva su enlace y se reintenta
+               │
+               ▼
+        ┌──────────────┐
+        │ TRANSFORMER  │  Lo convierte en una o más representaciones
+        └──────┬───────┘  video→transcripción · HTML→artículo · audio→texto
+               │
+               ▼
+        ┌──────────────┐
+        │ ITEM COMPLETO│  Aparece solo en la lista: las pantallas escuchan
+        └──────┬───────┘  los cambios de la base
                │
        ┌───────┴────────┐
        ▼                ▼
@@ -65,6 +75,10 @@ algo porque una etapa opcional no funcionó es peor que aceptarlo incompleto.
   relaciones         texto · HTML
   búsqueda           NotebookLM
 ```
+
+El item se guarda **antes** de transformarlo, no después. Es lo que permite
+capturar diez enlaces en el subte sin conexión y cerrar la app: lo que se
+guardó está guardado, y el contenido llega cuando haya red.
 
 La separación entre **adapter** y **transformer** es la que permite que esto
 crezca sin volverse un nudo:
@@ -156,24 +170,46 @@ ruta pasa por el botón de compartir del teléfono, no por raspar su web.
 
 ## Transformers: convertir el formato
 
-| Transformer | De → a | Con qué | Dónde corre |
-|---|---|---|---|
-| `AudioTranscriber` | audio → texto | [`sherpa_onnx`](https://pub.dev/packages/sherpa_onnx) con modelos Whisper | Dispositivo, en un isolate |
-| `ImageTextExtractor` | imagen → texto | [`google_mlkit_text_recognition`](https://pub.dev/packages/google_mlkit_text_recognition) | Dispositivo |
-| `ArticleExtractor` | HTML → artículo | Algoritmo Readability de Mozilla | Dispositivo |
-| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo |
-| `PdfTextExtractor` | PDF → texto | [`syncfusion_flutter_pdf`](https://pub.dev/packages/syncfusion_flutter_pdf) (licencia community, gratuita) | Dispositivo |
-| `EpubTextExtractor` | EPUB → texto + capítulos | [`epubx`](https://pub.dev/packages/epubx) | Dispositivo |
-| `DocxTextExtractor` | DOCX → texto | `archive` + `xml` (un .docx es un zip con XML adentro) | Dispositivo |
+| Transformer | De → a | Con qué | Dónde corre | Estado |
+|---|---|---|---|---|
+| `YouTubeTranscriptTransformer` | video → transcripción con marcas de tiempo | [`youtube_explode_dart`](https://pub.dev/packages/youtube_explode_dart) — **sin API key ni cuotas** | Dispositivo | Construido |
+| `WebArticleTransformer` | HTML → artículo en Markdown | [`reader_mode`](https://pub.dev/packages/reader_mode) (Readability de Mozilla) + [`html2md`](https://pub.dev/packages/html2md) | Dispositivo | Construido |
+| `AudioTranscriber` | audio → texto | [`sherpa_onnx`](https://pub.dev/packages/sherpa_onnx) con modelos Whisper | Dispositivo, en un isolate | Fase 7 |
+| `ImageTextExtractor` | imagen → texto | [`google_mlkit_text_recognition`](https://pub.dev/packages/google_mlkit_text_recognition) | Dispositivo | Fase 7 |
+| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo | Fase 4 |
+| `PdfTextExtractor` | PDF → texto | [`syncfusion_flutter_pdf`](https://pub.dev/packages/syncfusion_flutter_pdf) (licencia community, gratuita) | Dispositivo | Fase 4 |
+| `EpubTextExtractor` | EPUB → texto + capítulos | [`epubx`](https://pub.dev/packages/epubx) | Dispositivo | Fase 4 |
+| `DocxTextExtractor` | DOCX → texto | `archive` + `xml` (un .docx es un zip con XML adentro) | Dispositivo | Fase 4 |
 
-Las transformaciones caras —transcribir, OCR sobre muchas páginas— van a una
-**cola persistente**. El item se guarda enseguida con lo que se tenga, y la
-transcripción aparece cuando termina. Nadie debería esperar mirando una barra
-de progreso para poder guardar algo.
+### La cola
 
-Esa cola es también la respuesta al principio de *degradar antes que fallar*:
-si la transcripción falla, el item queda con su enlace y su título, marcado
-como pendiente, y se puede reintentar.
+Traer contenido tarda y puede fallar, así que no pasa mientras el usuario
+espera. El item se guarda enseguida con lo que se tenga —su enlace, su título
+provisional, su nota— y el contenido aparece en la lista cuando llega, porque
+las pantallas escuchan los cambios de la base. Nadie debería esperar mirando
+una barra de progreso para poder guardar algo.
+
+**De a uno y no en paralelo.** Capturar diez enlaces de golpe —algo normal al
+vaciar una lista de pendientes— dispararía diez descargas simultáneas: una
+ráfaga contra los mismos servidores, que invita a que corten el acceso, y diez
+transcripciones compitiendo por la memoria de un teléfono.
+
+**Lo persistente es el estado, no la cola.** La cola en sí vive en memoria; lo
+que sobrevive al cierre de la app es el estado de cada item en la base
+—esperando, en curso, listo o fallido—. Al abrir la biblioteca, todo lo que
+quedó *esperando* se vuelve a encolar solo. Es lo mismo desde afuera y mucho
+menos maquinaria: no hace falta una tabla de trabajos que se pueda
+desincronizar de los items que describe.
+
+**Lo que falló no se reintenta solo.** Queda marcado como *fallido*, no como
+*esperando*, y por eso no vuelve a entrar en cada arranque. Un fallo puede ser
+permanente —un video borrado, una página que ya no existe— y reintentarlo cada
+vez sería gastar batería y datos para volver a fallar. Se reintenta a pedido,
+con un botón en el elemento.
+
+Todo esto es la forma concreta del principio de *degradar antes que fallar*:
+si traer el contenido falla, el item conserva su enlace, su título y su nota.
+Nunca se borra nada por un error de red.
 
 ---
 
@@ -309,6 +345,13 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   vivo, y detalle con la procedencia completa—. Falta de esta fase recibir
   contenido compartido desde otras apps y soltar archivos, que necesitan
   complementos nativos.
+- **Fase 3, las dos transformaciones que más rinden.** Subtítulos de YouTube
+  sin clave ni cuota, con título y canal reales; y artículo limpio de páginas
+  web en Markdown, con el autor y el sitio. Más la cola que las ejecuta: de a
+  uno para no disparar diez descargas a la vez, retomando sola lo que quedó
+  pendiente de sesiones anteriores, sin repetir lo que ya está en curso, y sin
+  que un enlace roto corte lo que sigue. Lo que falla conserva su enlace y su
+  título, y se reintenta a pedido desde el elemento.
 
 ### Por construir
 
@@ -320,10 +363,11 @@ compartido desde otras apps y aceptar archivos. Es la vía por la que va a
 entrar la mayor parte del material, y necesita configuración nativa en cada
 plataforma.
 
-**Fase 3 — Las transformaciones que más rinden.** YouTube (subtítulos sin
-cuota ni espera) y páginas web (artículo limpio más copia del original). Son
-las dos de mejor relación entre trabajo y beneficio, y cubren buena parte del
-problema original.
+**Fase 3 (lo que falta) — La copia del original de la página.** El artículo
+limpio ya se guarda; archivar la página entera tal como estaba, con sus
+imágenes y estilos incrustados al modo de SingleFile, espera al
+almacenamiento de archivos de la fase 4. Mientras tanto el enlace original
+queda guardado en la fuente, que es lo que permite volver.
 
 **Fase 4 — Documentos.** PDF, EPUB y DOCX. Bien acotado y sin sorpresas.
 
