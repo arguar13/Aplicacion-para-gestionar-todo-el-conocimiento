@@ -8,6 +8,10 @@ environment:
   flutter: ">=3.24.0"
 
 dependencies:
+  # Un .docx y un .epub son, los dos, un ZIP con XML adentro. Con esto y
+  # `xml` se leen sin depender de un paquete dedicado: ver la decisión 3 en
+  # docs/arquitectura.md.
+  archive: ^4.2.0
   # PBKDF2-HMAC-SHA256 para derivar el hash del PIN de la bóveda. Se usa un
   # paquete mantenido en vez de implementar el KDF a mano: escribir
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
@@ -51,6 +55,10 @@ dependencies:
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.
   uuid: ^4.6.0
+  # Ya venía como dependencia transitiva; se declara explícita porque ahora
+  # el código del proyecto la usa directamente para leer el OPF de un EPUB y
+  # el document.xml de un DOCX.
+  xml: ^6.6.1
   # Metadatos y subtítulos de YouTube sin API key ni cuotas.
   youtube_explode_dart: ^3.1.0
 

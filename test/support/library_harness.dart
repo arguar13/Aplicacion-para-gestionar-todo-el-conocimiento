@@ -101,7 +101,7 @@ class LibraryHarness {
   /// las que sí.
   Future<void> capture(String rawInput, {String? title, String? note}) async {
     final result = await container.read(captureItemUseCaseProvider)(
-      CaptureRequest(rawInput: rawInput, title: title, note: note),
+      CaptureRequest.text(rawInput: rawInput, title: title, note: note),
     );
 
     result.match(

@@ -67,7 +67,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
     return ref
         .read(sourceAdapterRegistryProvider)
-        .resolve(CaptureRequest(rawInput: input))
+        .resolve(CaptureRequest.text(rawInput: input))
         .producesKind;
   }
 

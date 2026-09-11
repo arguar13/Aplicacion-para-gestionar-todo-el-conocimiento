@@ -30,8 +30,15 @@ class PlainTextAdapter implements SourceAdapter {
   @override
   SourceKind get producesKind => SourceKind.manualNote;
 
+  /// Acepta cualquier **texto**: es el caso base, el que convierte "no
+  /// reconocí esto" en "lo guardo como nota".
+  ///
+  /// Un archivo no, y la distinción importa porque este adaptador va último
+  /// en el registro: sin esta línea se quedaría con los archivos que el
+  /// adaptador de archivos no llegara a ver, y los guardaría como una nota
+  /// de texto vacía — perdiendo el archivo.
   @override
-  bool canHandle(CaptureRequest request) => true;
+  bool canHandle(CaptureRequest request) => request.asFile == null;
 
   @override
   Future<KnowledgeItem> adapt(CaptureRequest request) async {

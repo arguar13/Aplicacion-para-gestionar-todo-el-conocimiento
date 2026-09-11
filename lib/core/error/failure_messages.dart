@@ -25,7 +25,13 @@ extension FailureLocalization on Failure {
       ServerFailure() => l10n.globalErrorServer,
       ValidationFailure() => l10n.globalErrorValidation,
       CacheFailure() => l10n.globalErrorStorage,
+      FileTooLargeFailure(:final maxBytes) => l10n.globalErrorFileTooLarge(
+        _megabytes(maxBytes),
+      ),
       UnexpectedFailure() => l10n.globalErrorUnexpected,
     };
   }
 }
+
+/// El límite en megabytes, para decírselo a alguien que no piensa en bytes.
+String _megabytes(int bytes) => (bytes / (1024 * 1024)).round().toString();

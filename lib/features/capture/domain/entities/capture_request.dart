@@ -1,17 +1,24 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 
 part 'capture_request.freezed.dart';
 
 /// Lo que el usuario aporta al capturar algo.
 ///
-/// Es texto crudo y no un tipo ya resuelto a propósito: quien captura pega
-/// lo que tiene —un enlace, un párrafo, una frase— sin tener que declarar
-/// antes de qué se trata. Reconocerlo es trabajo de los adaptadores, no de
-/// la persona.
+/// Son dos formas y no una con campos opcionales: lo pegado y lo elegido. Con
+/// un solo constructor que llevara texto **y** archivo, los dos nulos o los
+/// dos llenos serían estados construibles, y cada adaptador tendría que
+/// defenderse de combinaciones que no existen. Separadas, la que no
+/// corresponde no se puede ni escribir.
 @freezed
 sealed class CaptureRequest with _$CaptureRequest {
-  const factory CaptureRequest({
-    /// Lo pegado o escrito, tal cual.
+  /// Lo pegado o escrito, tal cual.
+  ///
+  /// Es texto crudo y no un tipo ya resuelto a propósito: quien captura pega
+  /// lo que tiene —un enlace, un párrafo, una frase— sin tener que declarar
+  /// antes de qué se trata. Reconocerlo es trabajo de los adaptadores, no de
+  /// la persona.
+  const factory CaptureRequest.text({
     required String rawInput,
 
     /// Un título puesto a mano. Si viene, gana sobre el que dedujera el
@@ -20,13 +27,28 @@ sealed class CaptureRequest with _$CaptureRequest {
 
     /// Una nota del usuario sobre esto, separada del contenido.
     String? note,
-  }) = _CaptureRequest;
+  }) = TextCapture;
+
+  /// Un archivo elegido con el selector del sistema o compartido desde otra
+  /// app.
+  const factory CaptureRequest.file({
+    required CapturedFile file,
+    String? title,
+    String? note,
+  }) = FileCapture;
 
   const CaptureRequest._();
 
   /// El texto sin espacios sobrantes, que es con lo que trabajan los
   /// adaptadores: una URL pegada suele venir con un salto de línea detrás.
-  String get trimmedInput => rawInput.trim();
+  ///
+  /// Vacío cuando lo que entró fue un archivo. Así los adaptadores de texto
+  /// no necesitan preguntar de qué clase de captura se trata: la respuesta
+  /// que reciben ya los descarta.
+  String get trimmedInput => switch (this) {
+    TextCapture(:final rawInput) => rawInput.trim(),
+    FileCapture() => '',
+  };
 
   /// La URL, si lo que entró es una.
   ///
@@ -41,4 +63,10 @@ sealed class CaptureRequest with _$CaptureRequest {
     final isWebScheme = parsed.scheme == 'http' || parsed.scheme == 'https';
     return isWebScheme && parsed.host.isNotEmpty ? parsed : null;
   }
+
+  /// El archivo, si lo que entró fue uno.
+  CapturedFile? get asFile => switch (this) {
+    FileCapture(:final file) => file,
+    TextCapture() => null,
+  };
 }

@@ -24,6 +24,18 @@ sealed class Failure with _$Failure {
 
   const factory Failure.cache({required String message}) = CacheFailure;
 
+  /// Un archivo que no entra en memoria.
+  ///
+  /// Es su propia variante y no una [ValidationFailure] porque el usuario
+  /// necesita saber **cuál** es el límite para poder hacer algo al respecto.
+  /// Todas las validaciones comparten un solo mensaje traducido —"revisá los
+  /// datos"— y frente a un video de un giga eso no explica nada ni sugiere
+  /// qué hacer.
+  const factory Failure.fileTooLarge({
+    required String message,
+    required int maxBytes,
+  }) = FileTooLargeFailure;
+
   const factory Failure.unexpected({required String message}) =
       UnexpectedFailure;
 }

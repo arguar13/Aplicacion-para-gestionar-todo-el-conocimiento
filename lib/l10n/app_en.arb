@@ -1,105 +1,113 @@
 {
   "@@locale": "en",
-
   "loginTitle": "Log In",
   "@loginTitle": {
     "description": "Title of the login screen"
   },
-
   "emailLabel": "Email",
   "@emailLabel": {
     "description": "Label for the email text field"
   },
-
   "emailEmptyError": "Enter your email.",
   "@emailEmptyError": {
     "description": "Validation error shown when the email field is left empty"
   },
-
   "emailInvalidError": "Enter a valid email.",
   "@emailInvalidError": {
     "description": "Validation error shown when the email doesn't look like a real address"
   },
-
   "passwordLabel": "Password",
   "@passwordLabel": {
     "description": "Label for the password text field"
   },
-
   "passwordEmptyError": "Enter your password.",
   "@passwordEmptyError": {
     "description": "Validation error shown when the password field is left empty"
   },
-
   "loginButton": "Sign In",
   "@loginButton": {
     "description": "Submit button on the login screen (deliberately distinct wording from loginTitle, both for UX clarity and to keep the title/button uniquely findable in the UI)"
   },
-
   "passwordsDoNotMatchError": "Passwords don't match.",
   "@passwordsDoNotMatchError": {
     "description": "Shown on sign-up when password and confirmPassword differ"
   },
-
   "dashboardTitle": "Home",
   "@dashboardTitle": {
     "description": "Title of the dashboard AppBar"
   },
-
   "lockVaultTooltip": "Lock vault",
   "@lockVaultTooltip": {
     "description": "Tooltip for the button that closes the vault and returns to the unlock screen"
   },
-
   "libraryTitle": "Library",
   "@libraryTitle": {
     "description": "Title of the main screen listing everything saved"
   },
-
   "librarySearchHint": "Search everything you saved",
   "@librarySearchHint": {
     "description": "Placeholder of the search field on the library screen"
   },
-
   "librarySearchEmpty": "Nothing matches \"{query}\"",
   "@librarySearchEmpty": {
     "description": "Shown when a search returns no results",
-    "placeholders": { "query": { "type": "String", "example": "paradigm" } }
+    "placeholders": {
+      "query": {
+        "type": "String",
+        "example": "paradigm"
+      }
+    }
   },
-
   "libraryFilterEmpty": "Nothing matches these filters",
   "@libraryFilterEmpty": {
     "description": "Shown when the active filters leave no results"
   },
-
   "libraryClearFilters": "Clear filters",
   "@libraryClearFilters": {
     "description": "Button that removes every active filter"
   },
-
   "libraryItemCount": "{count, plural, =0{Nothing saved yet} =1{1 item} other{{count} items}}",
   "@libraryItemCount": {
     "description": "How many items match the current view",
-    "placeholders": { "count": { "type": "int", "example": "12" } }
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
   },
-
   "sourceKindYoutube": "YouTube",
-  "@sourceKindYoutube": { "description": "Readable name of a source type" },
+  "@sourceKindYoutube": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindWebPage": "Web page",
-  "@sourceKindWebPage": { "description": "Readable name of a source type" },
+  "@sourceKindWebPage": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindSocialPost": "Social post",
-  "@sourceKindSocialPost": { "description": "Readable name of a source type" },
+  "@sourceKindSocialPost": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindDocument": "Document",
-  "@sourceKindDocument": { "description": "Readable name of a source type" },
+  "@sourceKindDocument": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindImage": "Image",
-  "@sourceKindImage": { "description": "Readable name of a source type" },
+  "@sourceKindImage": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindAudio": "Audio",
-  "@sourceKindAudio": { "description": "Readable name of a source type" },
+  "@sourceKindAudio": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindVideo": "Video",
-  "@sourceKindVideo": { "description": "Readable name of a source type" },
+  "@sourceKindVideo": {
+    "description": "Readable name of a source type"
+  },
   "sourceKindNote": "Note",
-  "@sourceKindNote": { "description": "Readable name of a source type" },
-
+  "@sourceKindNote": {
+    "description": "Readable name of a source type"
+  },
   "processingPending": "Waiting",
   "@processingPending": {
     "description": "Badge on an item whose content has not been extracted yet"
@@ -112,152 +120,153 @@
   "@processingFailed": {
     "description": "Badge on an item whose conversion failed; it still keeps whatever was obtained"
   },
-
   "captureTitle": "Save something",
-  "@captureTitle": { "description": "Title of the capture screen" },
-
+  "@captureTitle": {
+    "description": "Title of the capture screen"
+  },
   "captureHint": "Paste a link, or write whatever you want to keep",
   "@captureHint": {
     "description": "Placeholder of the main capture field"
   },
-
   "captureOptionalTitleLabel": "Title (optional)",
   "@captureOptionalTitleLabel": {
     "description": "Label of the optional title field on capture"
   },
-
   "captureOptionalNoteLabel": "Your note (optional)",
   "@captureOptionalNoteLabel": {
     "description": "Label of the optional personal note field on capture"
   },
-
   "captureAction": "Save",
-  "@captureAction": { "description": "Submit button on the capture screen" },
-
+  "@captureAction": {
+    "description": "Submit button on the capture screen"
+  },
   "captureWillSaveAs": "Will be saved as {kind}",
   "@captureWillSaveAs": {
     "description": "Live feedback telling the user what the app recognized in what they pasted",
-    "placeholders": { "kind": { "type": "String", "example": "YouTube" } }
+    "placeholders": {
+      "kind": {
+        "type": "String",
+        "example": "YouTube"
+      }
+    }
   },
-
   "captureEmptyError": "Write or paste something first.",
   "@captureEmptyError": {
     "description": "Validation error when trying to save an empty capture"
   },
-
   "detailProvenance": "Where it came from",
   "@detailProvenance": {
     "description": "Section header for the source information of an item"
   },
-
   "detailCapturedOn": "Saved on {date}",
   "@detailCapturedOn": {
     "description": "When the user saved this item",
-    "placeholders": { "date": { "type": "String", "example": "11 Sep 2026" } }
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "11 Sep 2026"
+      }
+    }
   },
-
   "detailAuthor": "By {name}",
   "@detailAuthor": {
     "description": "Author of the original content",
-    "placeholders": { "name": { "type": "String", "example": "Ana" } }
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Ana"
+      }
+    }
   },
-
   "detailCopyLink": "Copy link",
   "@detailCopyLink": {
     "description": "Button that copies the original URL to the clipboard"
   },
-
   "detailLinkCopied": "Link copied",
   "@detailLinkCopied": {
     "description": "Confirmation shown after copying the original link"
   },
-
   "detailNoContentYet": "The content hasn't been extracted yet. The link and everything known about it is already saved.",
   "@detailNoContentYet": {
     "description": "Shown on an item that has a source but no content renditions yet"
   },
-
   "detailRetry": "Try again",
   "@detailRetry": {
     "description": "Button that re-queues an item whose content extraction failed"
   },
-
   "detailExtractionFailed": "Couldn't get the content. The link and everything known about it is still saved.",
   "@detailExtractionFailed": {
     "description": "Shown on an item whose extraction failed, making clear nothing was lost"
   },
-
   "detailDelete": "Delete",
-  "@detailDelete": { "description": "Button that deletes an item" },
-
+  "@detailDelete": {
+    "description": "Button that deletes an item"
+  },
   "detailDeleteConfirm": "Delete this and everything in it? This can't be undone.",
   "@detailDeleteConfirm": {
     "description": "Confirmation question before deleting an item"
   },
-
   "commonCancel": "Cancel",
-  "@commonCancel": { "description": "Generic cancel button" },
-
+  "@commonCancel": {
+    "description": "Generic cancel button"
+  },
   "emptyLibraryTitle": "Your vault is empty",
   "@emptyLibraryTitle": {
     "description": "Title of the empty state on the home screen, before anything has been captured"
   },
-
   "emptyLibraryMessage": "Whatever you save here — a video, a thread, an article, a PDF — gets turned into text you can search, without losing where it came from.",
   "@emptyLibraryMessage": {
     "description": "Explanation of the empty state on the home screen"
   },
-
   "themeModeTooltip": "Change theme",
   "@themeModeTooltip": {
     "description": "Tooltip for the theme (light/dark/system) toggle button"
   },
-
   "languageTooltip": "Change language",
   "@languageTooltip": {
     "description": "Tooltip for the language toggle button"
   },
-
   "loadErrorRetry": "Retry",
   "@loadErrorRetry": {
     "description": "Retry button shown when loading the dashboard profile failed"
   },
-
   "globalErrorValidation": "Please check the information you entered.",
   "@globalErrorValidation": {
     "description": "Shown for a ValidationFailure that reached the UI without a field-level message"
   },
-
   "globalErrorStorage": "Couldn't read the data stored on this device.",
+  "globalErrorFileTooLarge": "That file is too large. The maximum is {size} MB.",
+  "@globalErrorFileTooLarge": {
+    "description": "Mostrado cuando el archivo elegido supera el límite de tamaño.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "@globalErrorStorage": {
     "description": "Shown for a CacheFailure: local storage could not be read or written"
   },
-
   "vaultCreateTitle": "Protect your vault",
   "@vaultCreateTitle": {
     "description": "Title of the screen where the user sets up the vault passcode for the first time"
   },
-
   "vaultCreateSubtitle": "Everything you save stays on this device. Choose a passcode to lock it — there is no way to recover it, so pick something you'll remember.",
   "@vaultCreateSubtitle": {
     "description": "Explanation under the vault creation title"
   },
-
   "vaultPasscodeLabel": "Passcode",
   "@vaultPasscodeLabel": {
     "description": "Label for the passcode field"
   },
-
   "vaultConfirmPasscodeLabel": "Repeat passcode",
   "@vaultConfirmPasscodeLabel": {
     "description": "Label for the passcode confirmation field"
   },
-
   "vaultPasscodeEmptyError": "Enter a passcode.",
   "@vaultPasscodeEmptyError": {
     "description": "Validation error when the passcode field is empty"
   },
-
   "vaultPasscodeTooShortError": "Use at least {count} characters.",
   "@vaultPasscodeTooShortError": {
     "description": "Validation error when the passcode is shorter than PinPolicy.minLength",
@@ -268,27 +277,22 @@
       }
     }
   },
-
   "vaultPasscodeMismatchError": "The passcodes don't match.",
   "@vaultPasscodeMismatchError": {
     "description": "Validation error when the two passcode fields differ"
   },
-
   "vaultCreateAction": "Create vault",
   "@vaultCreateAction": {
     "description": "Submit button on the vault creation screen"
   },
-
   "vaultUnlockTitle": "Welcome back",
   "@vaultUnlockTitle": {
     "description": "Title of the vault unlock screen"
   },
-
   "vaultUnlockAction": "Unlock",
   "@vaultUnlockAction": {
     "description": "Submit button on the vault unlock screen"
   },
-
   "vaultUnlockWrongPasscode": "{count, plural, =1{Wrong passcode. 1 attempt left before a wait.} other{Wrong passcode. {count} attempts left before a wait.}}",
   "@vaultUnlockWrongPasscode": {
     "description": "Shown after a failed unlock attempt, counting down to the lockout",
@@ -299,7 +303,6 @@
       }
     }
   },
-
   "vaultUnlockLockedOut": "Too many attempts. Try again in {duration}.",
   "@vaultUnlockLockedOut": {
     "description": "Shown while the vault is temporarily locked after repeated failures",
@@ -310,7 +313,6 @@
       }
     }
   },
-
   "vaultLockedSeconds": "{count, plural, =1{1 second} other{{count} seconds}}",
   "@vaultLockedSeconds": {
     "description": "Duration fragment used inside vaultUnlockLockedOut",
@@ -321,7 +323,6 @@
       }
     }
   },
-
   "vaultLockedMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
   "@vaultLockedMinutes": {
     "description": "Duration fragment used inside vaultUnlockLockedOut",
@@ -332,7 +333,6 @@
       }
     }
   },
-
   "vaultLockedHours": "{count, plural, =1{1 hour} other{{count} hours}}",
   "@vaultLockedHours": {
     "description": "Duration fragment used inside vaultUnlockLockedOut",
@@ -343,37 +343,30 @@
       }
     }
   },
-
   "routeNotFoundTitle": "Page not found",
   "@routeNotFoundTitle": {
     "description": "Title of the screen shown when a URL matches no route (GoRouter errorBuilder)"
   },
-
   "routeNotFoundMessage": "The address you opened doesn't match any screen in the app. It may be an outdated link.",
   "@routeNotFoundMessage": {
     "description": "Explanation on the route-not-found screen"
   },
-
   "routeNotFoundAction": "Go to start",
   "@routeNotFoundAction": {
     "description": "Button on the route-not-found screen that returns the user to a valid destination"
   },
-
   "navHome": "Home",
   "@navHome": {
     "description": "Navigation destination label"
   },
-
   "navProfile": "Profile",
   "@navProfile": {
     "description": "Navigation destination label"
   },
-
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Navigation destination label"
   },
-
   "welcomeMessage": "Welcome back, {name}",
   "@welcomeMessage": {
     "description": "Greeting on the dashboard, includes the signed-in user's name",
@@ -384,7 +377,6 @@
       }
     }
   },
-
   "resultsCount": "{count, plural, =0{No results} =1{1 result} other{{count} results}}",
   "@resultsCount": {
     "description": "Generic pluralized result-count label, reusable by any future list/search feature",
@@ -395,22 +387,18 @@
       }
     }
   },
-
   "globalErrorNetwork": "No internet connection. Please check it and try again.",
   "@globalErrorNetwork": {
     "description": "Global snackbar shown for any failed request caused by a connectivity problem, regardless of the active screen"
   },
-
   "globalErrorUnauthorized": "Your session expired. Please log in again.",
   "@globalErrorUnauthorized": {
     "description": "Global snackbar shown when a request is rejected for an expired/invalid session"
   },
-
   "globalErrorServer": "Something went wrong on our end. Please try again shortly.",
   "@globalErrorServer": {
     "description": "Global snackbar shown for an unexpected server-side failure"
   },
-
   "globalErrorUnexpected": "An unexpected error occurred.",
   "@globalErrorUnexpected": {
     "description": "Global snackbar fallback for any error type not otherwise covered"

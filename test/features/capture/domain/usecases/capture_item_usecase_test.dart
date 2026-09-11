@@ -68,7 +68,7 @@ void main() {
 
   group('validación', () {
     test('una entrada vacía no guarda nada', () async {
-      final result = await captureItem(const CaptureRequest(rawInput: ''));
+      final result = await captureItem(const CaptureRequest.text(rawInput: ''));
 
       expect(result.isLeft(), isTrue);
       result.getLeft().fold(
@@ -80,7 +80,7 @@ void main() {
 
     test('una entrada de solo espacios tampoco', () async {
       final result = await captureItem(
-        const CaptureRequest(rawInput: '   \n\t  '),
+        const CaptureRequest.text(rawInput: '   \n\t  '),
       );
 
       expect(result.isLeft(), isTrue);
@@ -91,7 +91,7 @@ void main() {
   group('captura de verdad', () {
     test('una nota queda guardada, buscable y con su contenido', () async {
       await captureItem(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'La estructura de las revoluciones\n\nHabla de paradigmas.',
         ),
       );
@@ -109,7 +109,7 @@ void main() {
     test('un enlace queda guardado con su procedencia intacta', () async {
       const url = 'https://ejemplo.org/blog/un-articulo-interesante';
 
-      await captureItem(const CaptureRequest(rawInput: url));
+      await captureItem(const CaptureRequest.text(rawInput: url));
 
       final found = (await repository.list(
         const LibraryQuery(),
@@ -125,7 +125,7 @@ void main() {
     test('un video de YouTube queda marcado como tal y pendiente de '
         'transcripción', () async {
       await captureItem(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         ),
       );
@@ -140,15 +140,15 @@ void main() {
 
     test('capturar dos cosas guarda dos elementos distintos, no uno que pisa '
         'al otro', () async {
-      await captureItem(const CaptureRequest(rawInput: 'primera nota'));
-      await captureItem(const CaptureRequest(rawInput: 'segunda nota'));
+      await captureItem(const CaptureRequest.text(rawInput: 'primera nota'));
+      await captureItem(const CaptureRequest.text(rawInput: 'segunda nota'));
 
       expect(await countStored(), 2);
     });
 
     test('la nota del usuario se guarda aparte del contenido', () async {
       await captureItem(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'https://ejemplo.org/algo-util',
           note: 'me lo recomendó Ana',
         ),
@@ -162,12 +162,12 @@ void main() {
     });
 
     test('lo capturado se puede filtrar por su tipo de fuente', () async {
-      await captureItem(const CaptureRequest(rawInput: 'una nota'));
+      await captureItem(const CaptureRequest.text(rawInput: 'una nota'));
       await captureItem(
-        const CaptureRequest(rawInput: 'https://ejemplo.org/a'),
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/a'),
       );
       await captureItem(
-        const CaptureRequest(rawInput: 'https://youtu.be/dQw4w9WgXcQ'),
+        const CaptureRequest.text(rawInput: 'https://youtu.be/dQw4w9WgXcQ'),
       );
 
       final videos = (await repository.list(
@@ -179,9 +179,9 @@ void main() {
     });
 
     test('lo pendiente se puede separar de lo que ya está listo', () async {
-      await captureItem(const CaptureRequest(rawInput: 'una nota'));
+      await captureItem(const CaptureRequest.text(rawInput: 'una nota'));
       await captureItem(
-        const CaptureRequest(rawInput: 'https://ejemplo.org/a'),
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/a'),
       );
 
       final pending = (await repository.list(

@@ -31,7 +31,7 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
     state = const CaptureState.saving();
 
     final result = await _captureItem(
-      CaptureRequest(rawInput: rawInput, title: title, note: note),
+      CaptureRequest.text(rawInput: rawInput, title: title, note: note),
     );
 
     return result.match(

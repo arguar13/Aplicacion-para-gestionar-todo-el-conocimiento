@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -9,6 +12,7 @@ import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 
 import '../../../../support/fake_id_generator.dart';
 
@@ -28,11 +32,11 @@ void main() {
   group('CaptureRequest.asUrl', () {
     test('reconoce una dirección http y https', () {
       expect(
-        const CaptureRequest(rawInput: 'https://ejemplo.org/a').asUrl,
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/a').asUrl,
         isNotNull,
       );
       expect(
-        const CaptureRequest(rawInput: 'http://ejemplo.org/a').asUrl,
+        const CaptureRequest.text(rawInput: 'http://ejemplo.org/a').asUrl,
         isNotNull,
       );
     });
@@ -40,7 +44,7 @@ void main() {
     test('ignora los espacios de alrededor: una URL pegada suele traer un '
         'salto de línea detrás', () {
       expect(
-        const CaptureRequest(rawInput: '  https://ejemplo.org/a\n ').asUrl,
+        const CaptureRequest.text(rawInput: '  https://ejemplo.org/a\n ').asUrl,
         isNotNull,
       );
     });
@@ -49,38 +53,51 @@ void main() {
       // `Uri.parse` acepta casi cualquier cosa —"hola" es una URI válida con
       // path "hola"— así que sin exigir esquema web media biblioteca de notas
       // terminaría clasificada como páginas.
-      expect(const CaptureRequest(rawInput: 'hola').asUrl, isNull);
+      expect(const CaptureRequest.text(rawInput: 'hola').asUrl, isNull);
       expect(
-        const CaptureRequest(rawInput: 'una nota con dos palabras').asUrl,
+        const CaptureRequest.text(rawInput: 'una nota con dos palabras').asUrl,
         isNull,
       );
-      expect(const CaptureRequest(rawInput: 'ejemplo.org').asUrl, isNull);
+      expect(const CaptureRequest.text(rawInput: 'ejemplo.org').asUrl, isNull);
     });
 
     test('otros esquemas tampoco: no son páginas web', () {
       expect(
-        const CaptureRequest(rawInput: 'mailto:alguien@ejemplo.org').asUrl,
+        const CaptureRequest.text(rawInput: 'mailto:alguien@ejemplo.org').asUrl,
         isNull,
       );
       expect(
-        const CaptureRequest(rawInput: 'file:///home/a.txt').asUrl,
+        const CaptureRequest.text(rawInput: 'file:///home/a.txt').asUrl,
         isNull,
       );
     });
   });
 
   group('PlainTextAdapter', () {
-    test('acepta cualquier cosa: es la red de contención', () {
-      expect(
-        plainText().canHandle(const CaptureRequest(rawInput: 'lo que sea')),
-        isTrue,
+    test('acepta cualquier texto: es la red de contención', () {
+      const cualquierCosa = CaptureRequest.text(rawInput: 'lo que sea');
+
+      expect(plainText().canHandle(cualquierCosa), isTrue);
+    });
+
+    test('NO acepta un archivo', () {
+      // Va último en el registro: sin esto se quedaría con los archivos que
+      // el adaptador de archivos no llegara a ver, y los guardaría como una
+      // nota de texto vacía — perdiendo el archivo.
+      final archivo = CaptureRequest.file(
+        file: CapturedFile(
+          name: 'apunte.pdf',
+          bytes: Uint8List.fromList(utf8.encode('%PDF-1.7')),
+        ),
       );
+
+      expect(plainText().canHandle(archivo), isFalse);
     });
 
     test('guarda el texto como contenido y saca el título de la primera '
         'línea', () async {
       final item = await plainText().adapt(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'La idea principal\n\nY después el desarrollo.',
         ),
       );
@@ -95,7 +112,7 @@ void main() {
       'queda listo de entrada: no hay nada que traer ni convertir',
       () async {
         final item = await plainText().adapt(
-          const CaptureRequest(rawInput: 'una nota'),
+          const CaptureRequest.text(rawInput: 'una nota'),
         );
 
         expect(item.processingState, ProcessingState.ready);
@@ -106,7 +123,7 @@ void main() {
     test('no guarda enlace de origen, y no es un dato faltante: el origen es '
         'quien lo escribió', () async {
       final item = await plainText().adapt(
-        const CaptureRequest(rawInput: 'una nota'),
+        const CaptureRequest.text(rawInput: 'una nota'),
       );
 
       expect(item.source.url, isNull);
@@ -114,7 +131,7 @@ void main() {
 
     test('la forma de contenido apunta al elemento que la contiene', () async {
       final item = await plainText().adapt(
-        const CaptureRequest(rawInput: 'una nota'),
+        const CaptureRequest.text(rawInput: 'una nota'),
       );
 
       final rendition = item.renditions.single as TextRendition;
@@ -124,7 +141,7 @@ void main() {
 
     test('un título puesto a mano gana sobre el deducido', () async {
       final item = await plainText().adapt(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'La idea principal',
           title: 'Mi propio título',
         ),
@@ -135,7 +152,7 @@ void main() {
 
     test('un título en blanco no cuenta como título puesto a mano', () async {
       final item = await plainText().adapt(
-        const CaptureRequest(rawInput: 'La idea principal', title: '   '),
+        const CaptureRequest.text(rawInput: 'La idea principal', title: '   '),
       );
 
       expect(item.title, 'La idea principal');
@@ -146,12 +163,12 @@ void main() {
     test('acepta direcciones y rechaza texto', () {
       expect(
         webLink().canHandle(
-          const CaptureRequest(rawInput: 'https://ejemplo.org/a'),
+          const CaptureRequest.text(rawInput: 'https://ejemplo.org/a'),
         ),
         isTrue,
       );
       expect(
-        webLink().canHandle(const CaptureRequest(rawInput: 'una nota')),
+        webLink().canHandle(const CaptureRequest.text(rawInput: 'una nota')),
         isFalse,
       );
     });
@@ -159,7 +176,7 @@ void main() {
     test('guarda el enlace y deduce un título legible de la '
         'dirección', () async {
       final item = await webLink().adapt(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput:
               'https://ejemplo.org/blog/2019/la-estructura-de-las-revoluciones',
         ),
@@ -175,7 +192,7 @@ void main() {
         'posterior', () async {
       // Es lo que hace que capturar sea instantáneo y funcione sin conexión.
       final item = await webLink().adapt(
-        const CaptureRequest(rawInput: 'https://ejemplo.org/a'),
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/a'),
       );
 
       expect(item.processingState, ProcessingState.pending);
@@ -193,7 +210,7 @@ void main() {
         'https://m.youtube.com/watch?v=dQw4w9WgXcQ',
       ]) {
         expect(
-          youtube().canHandle(CaptureRequest(rawInput: url)),
+          youtube().canHandle(CaptureRequest.text(rawInput: url)),
           isTrue,
           reason: 'debería reconocer $url',
         );
@@ -224,7 +241,7 @@ void main() {
       // subtítulos a un sitio cualquiera.
       expect(
         youtube().canHandle(
-          const CaptureRequest(
+          const CaptureRequest.text(
             rawInput: 'https://youtube.ejemplo.com/watch?v=x',
           ),
         ),
@@ -232,7 +249,9 @@ void main() {
       );
       expect(
         youtube().canHandle(
-          const CaptureRequest(rawInput: 'https://notyoutube.com/watch?v=x'),
+          const CaptureRequest.text(
+            rawInput: 'https://notyoutube.com/watch?v=x',
+          ),
         ),
         isFalse,
       );
@@ -242,13 +261,15 @@ void main() {
         'capturar', () {
       expect(
         youtube().canHandle(
-          const CaptureRequest(rawInput: 'https://www.youtube.com/'),
+          const CaptureRequest.text(rawInput: 'https://www.youtube.com/'),
         ),
         isFalse,
       );
       expect(
         youtube().canHandle(
-          const CaptureRequest(rawInput: 'https://www.youtube.com/@uncanal'),
+          const CaptureRequest.text(
+            rawInput: 'https://www.youtube.com/@uncanal',
+          ),
         ),
         isFalse,
       );
@@ -256,7 +277,7 @@ void main() {
 
     test('lo marca como video y lo deja pendiente de transcripción', () async {
       final item = await youtube().adapt(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         ),
       );
@@ -275,7 +296,7 @@ void main() {
       // Los dos lo aceptarían; el orden de la lista decide, y tiene que
       // ganar el que sabe más.
       final adapter = buildRegistry().resolve(
-        const CaptureRequest(
+        const CaptureRequest.text(
           rawInput: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         ),
       );
@@ -285,7 +306,7 @@ void main() {
 
     test('otra dirección va al genérico', () {
       final adapter = buildRegistry().resolve(
-        const CaptureRequest(rawInput: 'https://ejemplo.org/a'),
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/a'),
       );
 
       expect(adapter, isA<WebLinkAdapter>());
@@ -293,7 +314,7 @@ void main() {
 
     test('lo que nadie reconoce termina como nota, no como error', () {
       final adapter = buildRegistry().resolve(
-        const CaptureRequest(rawInput: 'algo que no es un enlace'),
+        const CaptureRequest.text(rawInput: 'algo que no es un enlace'),
       );
 
       expect(adapter, isA<PlainTextAdapter>());

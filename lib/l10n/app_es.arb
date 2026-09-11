@@ -1,6 +1,5 @@
 {
   "@@locale": "es",
-
   "loginTitle": "Iniciar sesión",
   "emailLabel": "Correo electrónico",
   "emailEmptyError": "Ingresa tu correo electrónico.",
@@ -53,6 +52,15 @@
   "loadErrorRetry": "Reintentar",
   "globalErrorValidation": "Revisá los datos que ingresaste.",
   "globalErrorStorage": "No se pudieron leer los datos guardados en este dispositivo.",
+  "globalErrorFileTooLarge": "El archivo es demasiado grande. El máximo es {size} MB.",
+  "@globalErrorFileTooLarge": {
+    "description": "Mostrado cuando el archivo elegido supera el límite de tamaño.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "vaultCreateTitle": "Protegé tu bóveda",
   "vaultCreateSubtitle": "Todo lo que guardes queda en este dispositivo. Elegí una clave para cerrarla — no hay forma de recuperarla, así que usá una que vayas a recordar.",
   "vaultPasscodeLabel": "Clave",
