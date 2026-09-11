@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +15,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -23,11 +26,32 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// parte; se quitó en vez de conservarla vacía, porque una navegación cuyos
 /// botones no hacen nada enseña a desconfiar de los que sí funcionan. Vuelve
 /// cuando haya secciones de verdad a las que ir.
-class LibraryScreen extends ConsumerWidget {
+class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Retoma lo que quedó a medias en sesiones anteriores: alguien pudo
+    // capturar cinco enlaces sin conexión y cerrar la app. Al volver, eso se
+    // completa solo, sin que haya que acordarse de pedirlo.
+    //
+    // Diferido al post-frame por la regla de Riverpod de no tocar providers
+    // mientras se construye el árbol de widgets.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(processingQueueProvider.notifier).enqueuePending());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
     final items = ref.watch(libraryItemsProvider(query));

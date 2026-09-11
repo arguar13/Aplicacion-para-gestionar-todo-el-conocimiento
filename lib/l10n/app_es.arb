@@ -41,6 +41,8 @@
   "detailCopyLink": "Copiar enlace",
   "detailLinkCopied": "Enlace copiado",
   "detailNoContentYet": "Todavía no se extrajo el contenido. El enlace y todo lo que se sabe ya está guardado.",
+  "detailRetry": "Reintentar",
+  "detailExtractionFailed": "No se pudo traer el contenido. El enlace y todo lo que se sabe sigue guardado.",
   "detailDelete": "Eliminar",
   "detailDeleteConfirm": "¿Eliminar esto y todo lo que contiene? No se puede deshacer.",
   "commonCancel": "Cancelar",

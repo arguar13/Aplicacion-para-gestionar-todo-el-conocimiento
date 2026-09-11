@@ -1,3 +1,4 @@
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/vault/data/datasources/vault_local_data_source.dart';
 import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
 import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
@@ -127,4 +128,33 @@ class CorruptedPinHasher implements PinHasher {
   }) async {
     throw const CorruptedCredentialException('credencial de prueba dañado');
   }
+}
+
+/// Cola de procesamiento que no procesa nada.
+///
+/// La usan los tests de la biblioteca y del detalle. Sin ella, abrir la
+/// biblioteca en un test dispararía el procesamiento real de lo pendiente, y
+/// entonces una prueba sobre cómo se ve un elemento en espera dependería de
+/// si la cola llegó a tocarlo antes de la aserción. Un test de la lista tiene
+/// que probar la lista.
+///
+/// Recibe las dependencias reales y no las usa: así el doble no puede
+/// desincronizarse del constructor de la clase base. Los tests de la cola
+/// usan la de verdad, con clientes de red falsos.
+class InertProcessingQueue extends ProcessingQueueNotifier {
+  InertProcessingQueue({
+    required super.processItem,
+    required super.repository,
+    required super.logger,
+  });
+
+  /// Lo que se pidió encolar. Permite comprobar que una pantalla encola lo
+  /// que corresponde, sin que nada se procese de verdad.
+  final enqueued = <String>[];
+
+  @override
+  void enqueue(String itemId) => enqueued.add(itemId);
+
+  @override
+  Future<void> enqueuePending() async {}
 }

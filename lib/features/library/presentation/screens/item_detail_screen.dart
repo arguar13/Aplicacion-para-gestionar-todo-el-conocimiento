@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un elemento por dentro: su contenido y, sobre todo, de dónde salió.
@@ -189,36 +191,63 @@ class _UserNote extends StatelessWidget {
 
 /// El aviso de que el contenido todavía no llegó.
 ///
-/// Dice explícitamente que el enlace ya está guardado. Sin esa aclaración,
-/// una pantalla vacía se lee como "no se guardó nada" y el usuario vuelve a
-/// capturarlo, o peor, deja de confiar en la app.
-class _NoContentYet extends StatelessWidget {
+/// En los dos casos —esperando o fallido— dice explícitamente que el enlace
+/// ya está guardado. Sin esa aclaración, una pantalla vacía se lee como "no
+/// se guardó nada" y el usuario vuelve a capturarlo, o peor, deja de confiar
+/// en la app.
+class _NoContentYet extends ConsumerWidget {
   const _NoContentYet({required this.item});
 
   final KnowledgeItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final failed = item.processingState == ProcessingState.failed;
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          item.isBeingProcessed ? Icons.hourglass_empty : Icons.info_outline,
-          size: 20,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            l10n.detailNoContentYet,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              switch (item.processingState) {
+                ProcessingState.pending => Icons.schedule,
+                ProcessingState.processing => Icons.hourglass_empty,
+                ProcessingState.failed => Icons.error_outline,
+                ProcessingState.ready => Icons.info_outline,
+              },
+              size: 20,
+              color: failed
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurfaceVariant,
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                failed ? l10n.detailExtractionFailed : l10n.detailNoContentYet,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
         ),
+        if (failed) ...[
+          const SizedBox(height: 12),
+          // Reintentar es a pedido y no automático en cada arranque: un fallo
+          // puede ser permanente —un video borrado, una página que ya no
+          // existe— y volver a intentarlo solo gastaría batería y datos para
+          // fallar de nuevo. Quien sabe si vale la pena es el usuario.
+          FilledButton.tonalIcon(
+            onPressed: () =>
+                ref.read(processingQueueProvider.notifier).enqueue(item.id),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: Text(l10n.detailRetry),
+          ),
+        ],
       ],
     );
   }

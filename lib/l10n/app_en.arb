@@ -177,6 +177,16 @@
     "description": "Shown on an item that has a source but no content renditions yet"
   },
 
+  "detailRetry": "Try again",
+  "@detailRetry": {
+    "description": "Button that re-queues an item whose content extraction failed"
+  },
+
+  "detailExtractionFailed": "Couldn't get the content. The link and everything known about it is still saved.",
+  "@detailExtractionFailed": {
+    "description": "Shown on an item whose extraction failed, making clear nothing was lost"
+  },
+
   "detailDelete": "Delete",
   "@detailDelete": { "description": "Button that deletes an item" },
 

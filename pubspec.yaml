@@ -29,6 +29,10 @@ dependencies:
   freezed_annotation: ^3.1.0
   go_router: ^14.6.2
   google_fonts: ^6.2.1
+  # Parseo de HTML, para la extracción de artículos.
+  html: ^0.15.7
+  # HTML -> Markdown: el formato de intercambio del proyecto.
+  html2md: ^1.3.2
   intl: ^0.20.2
   json_annotation: ^4.12.0
   logger: ^2.5.0
@@ -38,12 +42,17 @@ dependencies:
   # grandes, y casi ninguna consulta los necesita.
   path: ^1.9.0
   path_provider: ^2.1.6
+  # Port en Dart del algoritmo Readability de Mozilla. Se probó contra HTML
+  # realista antes de confiarle la extracción (ver docs/arquitectura.md).
+  reader_mode: ^0.2.3
   sentry_flutter: ^8.14.0
   shared_preferences: ^2.3.3
   # UUID v7 para los identificadores: a diferencia del v4, son ordenables por
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.
   uuid: ^4.6.0
+  # Metadatos y subtítulos de YouTube sin API key ni cuotas.
+  youtube_explode_dart: ^3.1.0
 
 dev_dependencies:
   # Para `StreamQueue` en los tests de streams: permite pedir la siguiente

@@ -11,9 +11,13 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -57,6 +61,16 @@ class LibraryHarness {
           FakeVaultLocalDataSource.withPin('246810'),
         ),
         pinHasherProvider.overrideWithValue(FakePinHasher()),
+        // La cola no procesa en los tests que no la están probando. Sin
+        // esto, abrir la biblioteca dispararía descargas reales y el estado
+        // de cada elemento cambiaría bajo los pies de las aserciones.
+        processingQueueProvider.overrideWith(
+          (ref) => InertProcessingQueue(
+            processItem: ref.watch(processItemUseCaseProvider),
+            repository: ref.watch(libraryRepositoryProvider),
+            logger: ref.watch(appLoggerProvider),
+          ),
+        ),
       ],
     );
 

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/provisional_titles.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
@@ -201,17 +202,17 @@ void main() {
 
     test('extrae el identificador del video de las tres', () {
       expect(
-        YouTubeLinkAdapter.videoIdOf(
+        YouTubeUrl.videoIdOf(
           Uri.parse('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
         ),
         'dQw4w9WgXcQ',
       );
       expect(
-        YouTubeLinkAdapter.videoIdOf(Uri.parse('https://youtu.be/dQw4w9WgXcQ')),
+        YouTubeUrl.videoIdOf(Uri.parse('https://youtu.be/dQw4w9WgXcQ')),
         'dQw4w9WgXcQ',
       );
       expect(
-        YouTubeLinkAdapter.videoIdOf(
+        YouTubeUrl.videoIdOf(
           Uri.parse('https://www.youtube.com/shorts/dQw4w9WgXcQ'),
         ),
         'dQw4w9WgXcQ',
