@@ -18,6 +18,12 @@ dependencies:
   # paquete— así que no cuesta nada real quedarse en 4.0.9 hasta que `pdf`
   # levante el tope.
   archive: ">=4.0.9 <4.1.0"
+  # Convierte cualquier audio —o la pista de audio de un video— a WAV en
+  # crudo, con las APIs nativas de cada sistema operativo y sin FFmpeg: la
+  # opción de siempre para esto, `ffmpeg_kit_flutter`, se dejó de mantener a
+  # mediados de 2025 y no le confiaría a un paquete abandonado la conversión
+  # que hace falta antes de transcribir. MIT.
+  audio_decoder: ^0.8.1
   # PBKDF2-HMAC-SHA256 para derivar el hash del PIN de la bóveda. Se usa un
   # paquete mantenido en vez de implementar el KDF a mano: escribir
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
@@ -100,6 +106,12 @@ dependencies:
   receive_sharing_intent: ^1.9.0
   sentry_flutter: ^8.14.0
   shared_preferences: ^2.3.3
+  # Whisper corriendo en el dispositivo, sin clave ni cuota. Apache-2.0, y el
+  # único motor con soporte parejo en los seis destinos del proyecto —
+  # Android, iOS, Windows, macOS, Linux y web—, igual que open_app_file. El
+  # modelo en sí no viene con el paquete: se elige y se descarga aparte, ver
+  # la decisión 8 en docs/arquitectura.md.
+  sherpa_onnx: ^1.13.8
   # UUID v7 para los identificadores: a diferencia del v4, son ordenables por
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.

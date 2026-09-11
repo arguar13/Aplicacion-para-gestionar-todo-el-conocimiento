@@ -118,6 +118,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 const _LanguageToggleButton(),
                 const _ThemeModeToggleButton(),
                 IconButton(
+                  icon: const Icon(Icons.mic_none_outlined),
+                  tooltip: l10n.libraryTranscriptionModelTooltip,
+                  onPressed: () => context.push(RoutePaths.transcriptionModel),
+                ),
+                IconButton(
                   icon: const Icon(Icons.lock_outline),
                   tooltip: l10n.lockVaultTooltip,
                   // Ni navegación manual ni conocimiento del router: solo se

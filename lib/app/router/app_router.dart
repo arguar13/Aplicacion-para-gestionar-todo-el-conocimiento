@@ -10,6 +10,7 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
@@ -83,6 +84,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.capture,
         name: RouteNames.capture,
         builder: (context, state) => const CaptureScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.transcriptionModel,
+        name: RouteNames.transcriptionModel,
+        builder: (context, state) => const TranscriptionModelScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

@@ -31,6 +31,7 @@ import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
 import 'fake_shared_content_listener.dart';
+import 'fake_whisper_model_manager.dart';
 import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
 
@@ -53,6 +54,7 @@ class LibraryHarness {
     this.notebookLmDirectoryChooser,
     this.notebookLmDirectoryWriter,
     this.sharedContent,
+    this.whisperModel,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -76,6 +78,9 @@ class LibraryHarness {
     /// hubiera entregado esto por el botón de compartir de otra app antes de
     /// que la pantalla de captura llegara a pedirlo.
     List<CaptureRequest> initialSharedContent = const [],
+
+    /// Si el modelo de transcripción "ya está descargado" al arrancar.
+    bool whisperModelReady = false,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -96,6 +101,7 @@ class LibraryHarness {
     final sharedContent = FakeSharedContentListener(
       initial: initialSharedContent,
     );
+    final whisperModel = FakeWhisperModelManager(ready: whisperModelReady);
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -126,6 +132,9 @@ class LibraryHarness {
         // qué hablar; y sin esto, cada prueba que monta el router de verdad
         // construiría uno igual, con su propio canal roto.
         sharedContentListenerProvider.overrideWithValue(sharedContent),
+        // El modelo de Whisper pesa cientos de megas y se baja de una URL de
+        // verdad: nada de eso tiene sentido en una prueba de pantalla.
+        whisperModelManagerProvider.overrideWithValue(whisperModel),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -162,6 +171,7 @@ class LibraryHarness {
       directoryChooser,
       directoryWriter,
       sharedContent,
+      whisperModel,
     );
   }
 
@@ -191,6 +201,9 @@ class LibraryHarness {
   /// Lo que "comparte" otra app, de mentira. `add()` simula que llega algo
   /// con la app ya abierta.
   final FakeSharedContentListener sharedContent;
+
+  /// El modelo de transcripción de mentira, para simular su descarga.
+  final FakeWhisperModelManager whisperModel;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

@@ -85,3 +85,26 @@ final resourceFetchDioProvider = Provider<Dio>((ref) {
     ),
   )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
 });
+
+/// Cliente HTTP para descargar el modelo de transcripción.
+///
+/// Deliberadamente sin [GlobalErrorInterceptor], por el mismo motivo que
+/// [resourceFetchDioProvider]: la pantalla que dispara esta descarga ya
+/// muestra su propio estado de error con un botón para reintentar, y el
+/// aviso global duplicaría el mensaje sin agregar nada.
+///
+/// Sin límite de tiempo de recepción: son cientos de megas y una conexión
+/// lenta no es un error, es exactamente el caso para el que existe la barra
+/// de progreso.
+final whisperModelDioProvider = Provider<Dio>((ref) {
+  final logger = ref.watch(appLoggerProvider);
+
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      headers: const {
+        'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)',
+      },
+    ),
+  )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
+});

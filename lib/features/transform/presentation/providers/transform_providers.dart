@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
+import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/ml_kit_image_text_extractor.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
@@ -25,6 +27,7 @@ import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart'
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
+import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
@@ -51,6 +54,16 @@ final pageArchiverProvider = Provider<PageArchiver>((ref) {
 final imageTextExtractorProvider = Provider<ImageTextExtractor>(
   (ref) => const MlKitImageTextExtractor(),
 );
+
+/// Deliberadamente NO autoDispose: si se descarta al cerrar la pantalla de
+/// descarga, una descarga en curso perdería su avance —o directamente su
+/// `StreamController`— apenas alguien navegara para atrás.
+final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
+  return HttpWhisperModelManager(
+    dio: ref.watch(whisperModelDioProvider),
+    rootDirectory: getApplicationDocumentsDirectory,
+  );
+});
 
 /// El orden no importa tanto como en los adaptadores —cada transformador
 /// mira el tipo de fuente y solo uno acepta cada elemento— pero se mantiene

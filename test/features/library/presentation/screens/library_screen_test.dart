@@ -6,6 +6,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -248,6 +249,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CaptureScreen), findsOneWidget);
+    });
+
+    testWidgets('el botón de transcripción lleva a esa pantalla', (
+      tester,
+    ) async {
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(es.libraryTranscriptionModelTooltip));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TranscriptionModelScreen), findsOneWidget);
     });
   });
 

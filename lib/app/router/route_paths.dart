@@ -21,6 +21,9 @@ abstract final class RoutePaths {
 
   /// Guardar algo nuevo.
   static const capture = '/capture';
+
+  /// El modelo de transcripción: si está descargado, y descargarlo.
+  static const transcriptionModel = '/transcription-model';
 }
 
 abstract final class RouteNames {
@@ -30,4 +33,5 @@ abstract final class RouteNames {
   static const library = 'library';
   static const itemDetail = 'item-detail';
   static const capture = 'capture';
+  static const transcriptionModel = 'transcription-model';
 }

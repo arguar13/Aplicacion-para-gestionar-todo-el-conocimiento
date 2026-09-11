@@ -379,6 +379,48 @@ El día que el proyecto tenga con qué compilar y probar iOS de verdad, la
 Share Extension se agrega con la misma prolijidad que todo lo demás —no
 antes.
 
+### 8. Whisper "base" multilingüe, traído aparte y con permiso explícito
+
+Transcribir voz en el dispositivo, sin mandar audio a ningún servidor, es
+justamente lo que pide el principio 1 — pero exige tres decisiones propias
+que no se resuelven solas.
+
+**Qué tamaño de modelo.** [`sherpa_onnx`](https://pub.dev/packages/sherpa_onnx)
+(Apache 2.0) corre Whisper en el dispositivo vía FFI, y ofrece varios
+tamaños ya exportados a ONNX. Se eligió "base" multilingüe —unos 160 MB
+entre encoder, decoder y vocabulario, cuantizados a int8— en vez de "tiny"
+—bastante más chico—: en español, que es el idioma principal de quien usa
+esta app, "tiny" pierde precisión de forma notoria, y "base" sigue siendo
+liviano para lo que es un modelo de reconocimiento de voz. Los tres
+archivos se traen sueltos de Hugging Face (el repositorio de quien mantiene
+`sherpa-onnx`), no el paquete `.tar.bz2` de sus releases de GitHub: es la
+misma fuente, sin tener que descomprimir bzip2 en el dispositivo.
+
+**Cómo llega el audio hasta ahí.** `sherpa_onnx` sólo sabe leer WAV
+—`readWave()` no entiende MP3, M4A ni la pista de audio de un video—, así
+que hace falta convertir antes. El estándar histórico para esto,
+`ffmpeg_kit_flutter`, se dejó de mantener a mediados de 2025: mismo motivo
+por el que se descartaron `epubx` o
+`syncfusion_flutter_pdf` en la decisión 3, no se lo va a sumar ahora. En su
+lugar,
+[`audio_decoder`](https://pub.dev/packages/audio_decoder) (MIT) convierte
+cualquier formato común —incluido el audio de un MP4— a PCM crudo usando
+las APIs nativas de cada sistema operativo, sin empaquetar FFmpeg.
+
+**Cuándo se descarga.** 160 MB es demasiado para bajarlos solos la primera
+vez que alguien toca "transcribir": el principio 1 permite conexiones
+salientes cuando el usuario las pide explícitamente, y esta es exactamente
+esa excepción, no un atajo alrededor de la regla. Por eso el modelo no se
+descarga nunca en silencio: hay una pantalla propia —accesible desde el
+ícono de micrófono de la biblioteca— que muestra el tamaño antes de bajar,
+el progreso mientras baja, y un error con reintento si algo sale mal. Una
+vez descargado queda en la carpeta de documentos de la app y no se vuelve a
+pedir.
+
+**Lo que cuesta:** transcribir la primera vez implica un paso previo y una
+descarga grande, no es instantáneo. A cambio, la transcripción en sí no
+depende de conexión ni de que un servicio externo siga existiendo.
+
 ---
 
 ## Estado y orden de construcción

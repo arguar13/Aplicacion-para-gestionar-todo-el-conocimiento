@@ -67,6 +67,10 @@
   "@librarySelectTooltip": {
     "description": "Botón que activa el modo de selección múltiple en la biblioteca."
   },
+  "libraryTranscriptionModelTooltip": "Audio and video transcription",
+  "@libraryTranscriptionModelTooltip": {
+    "description": "Botón que lleva a la pantalla del modelo de transcripción."
+  },
   "libraryExitSelectionTooltip": "Cancel selection",
   "@libraryExitSelectionTooltip": {
     "description": "Botón que sale del modo de selección múltiple sin hacer nada más."
@@ -706,5 +710,47 @@
   "detailSave": "Save",
   "@detailSave": {
     "description": "Botón genérico para guardar un cambio en un diálogo."
+  },
+  "transcriptionModelTitle": "Audio and video transcription",
+  "@transcriptionModelTitle": {
+    "description": "Título de la pantalla del modelo de transcripción."
+  },
+  "transcriptionModelReady": "The model is already downloaded. Audio and video you capture will be transcribed on their own, without a connection.",
+  "@transcriptionModelReady": {
+    "description": "Mensaje cuando el modelo de Whisper ya está listo para usarse."
+  },
+  "transcriptionModelExplanation": "Transcribing audio and video needs the speech recognition model. It downloads once, and works offline after that.",
+  "@transcriptionModelExplanation": {
+    "description": "Explica para qué sirve el modelo, antes de pedir la descarga."
+  },
+  "transcriptionModelSize": "It's {size}.",
+  "@transcriptionModelSize": {
+    "description": "Tamaño de la descarga, ya formateado (\"160 MB\").",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptionModelDownloadAction": "Download",
+  "@transcriptionModelDownloadAction": {
+    "description": "Botón que empieza la descarga del modelo."
+  },
+  "transcriptionModelDownloading": "Downloading… {percent}%",
+  "@transcriptionModelDownloading": {
+    "description": "Texto mostrado junto a la barra de progreso mientras se descarga el modelo.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "transcriptionModelError": "Couldn't download the model. Check your connection and try again.",
+  "@transcriptionModelError": {
+    "description": "Mensaje cuando falla la descarga del modelo."
+  },
+  "transcriptionModelRetryAction": "Retry",
+  "@transcriptionModelRetryAction": {
+    "description": "Botón para reintentar la descarga del modelo tras un error."
   }
 }
