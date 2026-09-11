@@ -16,7 +16,6 @@ import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
-import 'package:sinapsis/features/transform/data/services/ml_kit_image_text_extractor.dart';
 import 'package:sinapsis/features/transform/data/services/sherpa_onnx_audio_transcriber.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
@@ -33,6 +32,7 @@ import 'package:sinapsis/features/transform/domain/services/image_text_extractor
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
+import 'package:sinapsis/features/transform/presentation/providers/platform_image_text_extractor.dart';
 
 final youTubeClientProvider = Provider<YouTubeClient>((ref) {
   return const YoutubeExplodeClient();
@@ -54,9 +54,9 @@ final pageArchiverProvider = Provider<PageArchiver>((ref) {
   return HtmlPageArchiver(fetcher: ref.watch(resourceFetcherProvider));
 });
 
-final imageTextExtractorProvider = Provider<ImageTextExtractor>(
-  (ref) => const MlKitImageTextExtractor(),
-);
+final imageTextExtractorProvider = Provider<ImageTextExtractor>((ref) {
+  return createImageTextExtractor(files: ref.watch(fileStoreProvider));
+});
 
 /// Deliberadamente NO autoDispose: si se descarta al cerrar la pantalla de
 /// descarga, una descarga en curso perdería su avance —o directamente su

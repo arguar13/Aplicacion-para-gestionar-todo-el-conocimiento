@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -51,8 +52,10 @@ class ImageTransformer implements Transformer {
     final bytes = await _files.read(path);
     if (bytes == null) throw MissingOriginalFileException(path);
 
-    final absolutePath = await _files.resolve(path);
-    final text = await _extractor.extractText(absolutePath);
+    // En la web `resolve()` no tiene sentido —no hay ruta absoluta— así que
+    // el extractor recibe la ruta relativa y la resuelve por su cuenta.
+    final extractorPath = kIsWeb ? path : await _files.resolve(path);
+    final text = await _extractor.extractText(extractorPath);
 
     // Sin texto reconocido no es un fallo: la mayoría de las fotos no
     // tienen ninguna letra adentro, y eso está bien. El elemento se marca
