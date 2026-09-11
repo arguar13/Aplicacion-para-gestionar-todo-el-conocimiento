@@ -45,6 +45,11 @@ dependencies:
   freezed_annotation: ^3.1.0
   go_router: ^14.6.2
   google_fonts: ^6.2.1
+  # OCR en el dispositivo, sin clave ni cuota: el texto de una imagen. MIT.
+  # Solo Android e iOS —ML Kit no tiene versión web ni de escritorio—, y solo
+  # el reconocedor de script latino: cubre español e inglés, los dos idiomas
+  # de la interfaz, sin sumar los paquetes de otros alfabetos.
+  google_mlkit_text_recognition: ^0.17.1
   # Parseo de HTML, para la extracción de artículos.
   html: ^0.15.7
   # HTML -> Markdown: el formato de intercambio del proyecto.

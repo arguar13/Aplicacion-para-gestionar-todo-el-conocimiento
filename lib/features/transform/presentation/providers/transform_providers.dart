@@ -14,7 +14,9 @@ import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
+import 'package:sinapsis/features/transform/data/services/ml_kit_image_text_extractor.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
+import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/youtube_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
@@ -22,6 +24,7 @@ import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
@@ -44,6 +47,10 @@ final resourceFetcherProvider = Provider<ResourceFetcher>((ref) {
 final pageArchiverProvider = Provider<PageArchiver>((ref) {
   return HtmlPageArchiver(fetcher: ref.watch(resourceFetcherProvider));
 });
+
+final imageTextExtractorProvider = Provider<ImageTextExtractor>(
+  (ref) => const MlKitImageTextExtractor(),
+);
 
 /// El orden no importa tanto como en los adaptadores —cada transformador
 /// mira el tipo de fuente y solo uno acepta cada elemento— pero se mantiene
@@ -69,6 +76,12 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
     ),
     DocumentTransformer(
       parsers: ref.watch(documentParsersProvider),
+      files: ref.watch(fileStoreProvider),
+      ids: ids,
+      clock: clock,
+    ),
+    ImageTransformer(
+      extractor: ref.watch(imageTextExtractorProvider),
       files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
