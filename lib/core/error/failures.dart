@@ -38,4 +38,13 @@ sealed class Failure with _$Failure {
 
   const factory Failure.unexpected({required String message}) =
       UnexpectedFailure;
+
+  /// No se pudo escribir en una carpeta que el propio usuario eligió —
+  /// exportar un paquete, guardar un archivo—.
+  ///
+  /// Aparte de [CacheFailure] porque el remedio es distinto: aquella es
+  /// sobre el almacenamiento propio de la app, y acá lo único que tiene
+  /// sentido sugerir es elegir otra carpeta o revisar sus permisos.
+  const factory Failure.exportFailed({required String message}) =
+      ExportFailedFailure;
 }

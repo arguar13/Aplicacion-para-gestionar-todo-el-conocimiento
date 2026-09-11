@@ -29,6 +29,7 @@ extension FailureLocalization on Failure {
         _megabytes(maxBytes),
       ),
       UnexpectedFailure() => l10n.globalErrorUnexpected,
+      ExportFailedFailure() => l10n.globalErrorExportFailed,
     };
   }
 }

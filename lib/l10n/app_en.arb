@@ -498,6 +498,10 @@
   "@globalErrorUnexpected": {
     "description": "Global snackbar fallback for any error type not otherwise covered"
   },
+  "globalErrorExportFailed": "Couldn't save to the chosen folder.",
+  "@globalErrorExportFailed": {
+    "description": "Al fallar la escritura en una carpeta que el usuario eligió para exportar (permisos, disco desconectado)."
+  },
   "detailRelationsTitle": "Related",
   "@detailRelationsTitle": {
     "description": "Encabezado de la sección de vínculos en el detalle."

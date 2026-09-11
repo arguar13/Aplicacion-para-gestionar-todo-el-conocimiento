@@ -183,6 +183,10 @@
   "globalErrorUnauthorized": "Tu sesión expiró. Iniciá sesión de nuevo.",
   "globalErrorServer": "Algo falló de nuestro lado. Intentá de nuevo en un momento.",
   "globalErrorUnexpected": "Ocurrió un error inesperado.",
+  "globalErrorExportFailed": "No se pudo guardar en la carpeta elegida.",
+  "@globalErrorExportFailed": {
+    "description": "Al fallar la escritura en una carpeta que el usuario eligió para exportar (permisos, disco desconectado)."
+  },
   "detailRelationsTitle": "Relacionado",
   "@detailRelationsTitle": {
     "description": "Encabezado de la sección de vínculos en el detalle."
