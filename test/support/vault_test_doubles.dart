@@ -152,9 +152,12 @@ class InertProcessingQueue extends ProcessingQueueNotifier {
   /// que corresponde, sin que nada se procese de verdad.
   final enqueued = <String>[];
 
+  /// Cuántas veces se pidió retomar lo pendiente.
+  int pendingSweeps = 0;
+
   @override
   void enqueue(String itemId) => enqueued.add(itemId);
 
   @override
-  Future<void> enqueuePending() async {}
+  Future<void> enqueuePending() async => pendingSweeps++;
 }

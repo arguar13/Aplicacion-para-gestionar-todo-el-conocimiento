@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -34,15 +35,15 @@ void main() {
 
   Finder mainField() => find.byType(TextField).first;
 
-  Future<List<String>> savedTitles() async {
-    final items =
-        (await harness.container
-                .read(libraryRepositoryProvider)
-                .list(const LibraryQuery()))
-            .getRight()
-            .toNullable()!;
-    return items.map((i) => i.title).toList();
-  }
+  Future<List<KnowledgeItem>> savedItems() async =>
+      (await harness.container
+              .read(libraryRepositoryProvider)
+              .list(const LibraryQuery()))
+          .getRight()
+          .toNullable()!;
+
+  Future<List<String>> savedTitles() async =>
+      (await savedItems()).map((i) => i.title).toList();
 
   group('reconocimiento en vivo', () {
     testWidgets('con el campo vacío no promete nada', (tester) async {
@@ -170,6 +171,21 @@ void main() {
       expect(find.byType(CaptureScreen), findsNothing);
       // No hace falta recargar nada: la lista escucha los cambios de la base.
       expect(find.text('Algo recién capturado'), findsOneWidget);
+    });
+
+    testWidgets('lo guardado entra en la cola para que le traigan el '
+        'contenido', (tester) async {
+      // Guardar el enlace no es el final: lo que el usuario quiere es el
+      // texto. Si la captura no encolara, el elemento quedaría esperando
+      // para siempre sin que nada lo intente.
+      await pumpCapture(tester);
+
+      await tester.enterText(mainField(), 'https://ejemplo.org/un-articulo');
+      await tester.tap(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+
+      final saved = await savedItems();
+      expect(harness.queue.enqueued, [saved.single.id]);
     });
   });
 

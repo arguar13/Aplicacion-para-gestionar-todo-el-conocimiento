@@ -163,4 +163,20 @@ void main() {
       expect(find.byType(CaptureScreen), findsOneWidget);
     });
   });
+
+  group('retomar lo que quedó a medias', () {
+    testWidgets('abrir la biblioteca pide traer lo que quedó pendiente', (
+      tester,
+    ) async {
+      // Alguien pudo capturar cinco enlaces sin conexión y cerrar la app. Al
+      // volver, eso tiene que completarse solo: si la pantalla no se lo
+      // pidiera a la cola, quedaría esperando para siempre y el usuario no
+      // tendría forma de saber que hay que pedirlo.
+      await harness.capture('https://ejemplo.org/quedó-pendiente');
+
+      await pumpLibrary(tester);
+
+      expect(harness.queue.pendingSweeps, 1);
+    });
+  });
 }

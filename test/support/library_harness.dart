@@ -86,6 +86,14 @@ class LibraryHarness {
   final AppDatabase database;
   final FakeIdGenerator ids;
 
+  /// La cola inerte, para comprobar qué se le pidió procesar.
+  ///
+  /// Las pantallas no procesan nada por su cuenta: le piden a la cola. Que le
+  /// pidan lo correcto es justamente lo que se rompe en silencio cuando
+  /// alguien mueve un proveedor de sitio.
+  InertProcessingQueue get queue =>
+      container.read(processingQueueProvider.notifier) as InertProcessingQueue;
+
   /// Guarda algo pasando por el mismo camino que usa la app.
   ///
   /// No inserta filas a mano: si el test construyera los datos por su cuenta,

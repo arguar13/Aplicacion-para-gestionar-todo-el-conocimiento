@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -33,6 +34,19 @@ void main() {
   Future<void> pumpDetail(WidgetTester tester, String id) async {
     await tester.pumpWidget(harness.wrap(ItemDetailScreen(itemId: id)));
     await tester.pumpAndSettle();
+  }
+
+  /// Deja un elemento como si traerle el contenido hubiera fallado.
+  ///
+  /// Pasa por el repositorio en vez de escribir la fila a mano: así el estado
+  /// del que parte la prueba es uno que la app produce de verdad.
+  Future<void> markFailed(String id) async {
+    final repository = harness.container.read(libraryRepositoryProvider);
+    final item = (await repository.findById(id)).getRight().toNullable()!;
+
+    await repository.save(
+      item.copyWith(processingState: ProcessingState.failed),
+    );
   }
 
   group('contenido', () {
@@ -172,6 +186,44 @@ void main() {
 
       expect(find.byType(LibraryScreen), findsOneWidget);
       expect(find.text(es.emptyLibraryTitle), findsOneWidget);
+    });
+  });
+
+  group('reintentar', () {
+    testWidgets('algo que falló ofrece volver a intentarlo', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/se-cayó');
+      await markFailed(id);
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailExtractionFailed), findsOneWidget);
+      expect(find.text(es.detailRetry), findsOneWidget);
+    });
+
+    testWidgets('el botón lo devuelve a la cola', (tester) async {
+      // Reintentar es a pedido y no automático en cada arranque. Ese trato
+      // solo se sostiene si el botón funciona: sin él, lo que falló una vez
+      // quedaría muerto para siempre.
+      final id = await captureAndGetId('https://ejemplo.org/se-cayó');
+      await markFailed(id);
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailRetry));
+      await tester.pumpAndSettle();
+
+      expect(harness.queue.enqueued, [id]);
+    });
+
+    testWidgets('algo que todavía está en camino NO ofrece reintento', (
+      tester,
+    ) async {
+      // Un botón de reintentar sobre algo que está andando invita a
+      // apretarlo, y lo único que haría es encolar de nuevo lo mismo.
+      final id = await captureAndGetId('https://ejemplo.org/en-camino');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailRetry), findsNothing);
     });
   });
 }
