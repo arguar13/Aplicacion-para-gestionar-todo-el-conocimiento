@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -26,15 +27,28 @@ void main() {
   });
 
   /// Guarda algo y devuelve su identificador.
+  ///
+  /// No usa "el primero de la lista": la lista se ordena por fecha de
+  /// captura, y el reloj de las pruebas es fijo, así que dos capturas en la
+  /// misma prueba comparten el mismo instante y el orden entre ellas no está
+  /// garantizado. Se identifica en cambio comparando qué identificador
+  /// apareció que antes no estaba — funciona sin importar cuántos elementos
+  /// haya ni en qué orden los devuelva la consulta.
   Future<String> captureAndGetId(String input, {String? note}) async {
-    await harness.capture(input, note: note);
-    final items =
+    Future<Set<String>> currentIds() async =>
         (await harness.container
                 .read(libraryRepositoryProvider)
                 .list(const LibraryQuery()))
             .getRight()
-            .toNullable()!;
-    return items.first.id;
+            .toNullable()!
+            .map((i) => i.id)
+            .toSet();
+
+    final before = await currentIds();
+    await harness.capture(input, note: note);
+    final after = await currentIds();
+
+    return after.difference(before).single;
   }
 
   Future<void> pumpDetail(WidgetTester tester, String id) async {
@@ -389,20 +403,7 @@ void main() {
             .read(libraryRepositoryProvider)
             .save(existingItem.copyWith(tags: [firstTag]));
 
-        // No se usa `captureAndGetId` para el segundo: ordena por fecha de
-        // captura, y el reloj de las pruebas es fijo, así que los dos
-        // elementos comparten el mismo instante y el orden entre ellos no
-        // está garantizado.
-        await harness.capture('un segundo artículo');
-        final id =
-            (await harness.container
-                    .read(libraryRepositoryProvider)
-                    .list(const LibraryQuery()))
-                .getRight()
-                .toNullable()!
-                .map((i) => i.id)
-                .firstWhere((itemId) => itemId != existing);
-
+        final id = await captureAndGetId('un segundo artículo');
         await pumpDetail(tester, id);
         await tester.tap(find.text(es.detailAddTag));
         await tester.pumpAndSettle();
@@ -444,21 +445,7 @@ void main() {
           .read(libraryRepositoryProvider)
           .save(item.copyWith(tags: [tag]));
 
-      // No se usa `captureAndGetId`: ordena por fecha de captura, y el reloj
-      // de las pruebas es fijo, así que los dos elementos comparten el mismo
-      // instante. El orden entre ellos no está garantizado, y usar `.first`
-      // a ciegas podía terminar mostrando el detalle del elemento
-      // equivocado — el que ya tenía la etiqueta puesta.
-      await harness.capture('otro elemento sin etiquetas');
-      final id =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!
-              .map((i) => i.id)
-              .firstWhere((itemId) => itemId != withTag);
-
+      final id = await captureAndGetId('otro elemento sin etiquetas');
       await pumpDetail(tester, id);
       await tester.tap(find.text(es.detailAddTag));
       await tester.pumpAndSettle();
@@ -532,6 +519,196 @@ void main() {
               .getRight()
               .toNullable()!;
       expect(reloaded.tags, isEmpty);
+    });
+  });
+
+  group('relaciones', () {
+    testWidgets('sin nada vinculado, no muestra ninguna fila', (tester) async {
+      final id = await captureAndGetId('un elemento cualquiera');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailRelationsTitle), findsOneWidget);
+      expect(find.byType(ListTile), findsNothing);
+    });
+
+    testWidgets(
+      'con un solo elemento en la biblioteca, el selector avisa que no hay '
+      'con qué vincular',
+      (tester) async {
+        final id = await captureAndGetId('el único elemento');
+
+        await pumpDetail(tester, id);
+        await tester.tap(find.byTooltip(es.detailAddRelation));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.pickItemNoOthers), findsOneWidget);
+      },
+    );
+
+    testWidgets('vincular con otro elemento lo deja guardado y visible', (
+      tester,
+    ) async {
+      await captureAndGetId('un artículo sobre el tema');
+      final id = await captureAndGetId('la respuesta al artículo');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byTooltip(es.detailAddRelation));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('un artículo sobre el tema'));
+      await tester.pumpAndSettle();
+
+      // El tipo por defecto es "relacionado", así que alcanza con
+      // confirmar.
+      await tester.tap(find.text(es.detailAddRelation));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.relationKindRelatedTo('un artículo sobre el tema')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('se puede elegir otro tipo de vínculo, con una nota', (
+      tester,
+    ) async {
+      await captureAndGetId('la fuente original');
+      final id = await captureAndGetId('lo que la cita');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byTooltip(es.detailAddRelation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('la fuente original'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Cita'));
+      await tester.enterText(
+        find.byType(TextField),
+        'para el trabajo del jueves',
+      );
+      await tester.tap(find.text(es.detailAddRelation));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.relationKindCitesOutgoing('la fuente original')),
+        findsOneWidget,
+      );
+      expect(find.text('para el trabajo del jueves'), findsOneWidget);
+    });
+
+    testWidgets('cancelar el selector de elemento no crea nada', (
+      tester,
+    ) async {
+      await captureAndGetId('otro elemento cualquiera');
+      final id = await captureAndGetId('el elemento que se mira');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byTooltip(es.detailAddRelation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ListTile), findsNothing);
+    });
+
+    testWidgets('cancelar el selector de tipo tampoco crea nada', (
+      tester,
+    ) async {
+      await captureAndGetId('otro elemento cualquiera');
+      final id = await captureAndGetId('el elemento que se mira');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byTooltip(es.detailAddRelation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('otro elemento cualquiera'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      // Se lee directo de la base, no con `watchRelationsForItem`: la
+      // sección de vínculos de la pantalla ya tiene su propia suscripción
+      // activa mientras el detalle está montado, y abrir una segunda acá
+      // compite sobre el mismo stream de drift.
+      final relations = await harness.database
+          .select(harness.database.relations)
+          .get();
+      expect(relations, isEmpty);
+    });
+
+    testWidgets('quitar un vínculo lo saca de la lista', (tester) async {
+      final other = await captureAndGetId('el otro elemento');
+      final id = await captureAndGetId('el elemento con el vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
+
+      await pumpDetail(tester, id);
+      expect(find.byType(ListTile), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.detailRemoveRelation));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ListTile), findsNothing);
+    });
+
+    testWidgets(
+      'se ve desde el otro elemento también, con el sentido correcto',
+      (tester) async {
+        final origin = await captureAndGetId('el capítulo uno');
+        final continuation = await captureAndGetId('el capítulo dos');
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createRelation(
+              fromItemId: origin,
+              toItemId: continuation,
+              kind: RelationKind.continues,
+            );
+
+        // Parado en el capítulo dos (el destino), la frase tiene que decir
+        // que ES la continuación del uno, no que continúa en él.
+        await pumpDetail(tester, continuation);
+
+        expect(
+          find.text(es.relationKindContinuesIncoming('el capítulo uno')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('tocar una fila de vínculo navega al otro elemento', (
+      tester,
+    ) async {
+      final other = await captureAndGetId('el destino del vínculo');
+      final id = await captureAndGetId('el origen del vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo('${RoutePaths.library}/$id');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(ListTile));
+      await tester.pumpAndSettle();
+
+      // No alcanza con buscar el texto: el origen sigue en la pila de
+      // navegación (para poder volver), y su fila de vínculo también dice
+      // "el destino del vínculo". Lo que distingue a la pantalla de encima
+      // es su AppBar.
+      expect(
+        find.widgetWithText(AppBar, 'el destino del vínculo'),
+        findsOneWidget,
+      );
     });
   });
 }
