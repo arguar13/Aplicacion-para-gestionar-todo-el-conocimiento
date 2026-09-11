@@ -86,7 +86,20 @@ ${chapter.html}
 
 /// Un DOCX mínimo pero válido, con `[Content_Types].xml` como primera entrada
 /// —que es lo que escribe Word— y el cuerpo en `word/document.xml`.
-Uint8List buildDocx({String documentXml = _defaultDocumentXml}) {
+///
+/// [body] es el contenido de `<w:body>`: se le pasan los párrafos ya
+/// escritos, que es lo que permite armar en cada prueba exactamente el caso
+/// que se quiere ejercitar.
+Uint8List buildDocx({String? body, String? title, String? author}) {
+  final documentXml = body == null
+      ? _defaultDocumentXml
+      : '''
+<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="$wordNamespace">
+  <w:body>
+$body  </w:body>
+</w:document>''';
+
   final archive = Archive()
     ..add(
       _textFile('[Content_Types].xml', '''
@@ -98,12 +111,79 @@ Uint8List buildDocx({String documentXml = _defaultDocumentXml}) {
     )
     ..add(_textFile('word/document.xml', documentXml));
 
+  if (title != null || author != null) {
+    archive.add(
+      _textFile('docProps/core.xml', '''
+<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties
+    xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+  ${title == null ? '' : '<dc:title>$title</dc:title>'}
+  ${author == null ? '' : '<dc:creator>$author</dc:creator>'}
+</cp:coreProperties>'''),
+    );
+  }
+
   return Uint8List.fromList(ZipEncoder().encode(archive));
 }
 
-const _defaultDocumentXml = '''
+/// El espacio de nombres del formato de Word, para armar cuerpos a mano.
+const wordNamespace =
+    'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+/// Un párrafo de Word con un solo pedazo de texto.
+///
+/// [style] es el identificador del estilo (`Heading1`, `Ttulo2`), [listLevel]
+/// convierte el párrafo en un punto de lista con esa sangría.
+String wordParagraph(
+  String text, {
+  String? style,
+  int? outlineLevel,
+  int? listLevel,
+  bool bold = false,
+  bool italic = false,
+}) {
+  final properties = StringBuffer();
+  if (style != null) properties.write('<w:pStyle w:val="$style"/>');
+  if (outlineLevel != null) {
+    properties.write('<w:outlineLvl w:val="$outlineLevel"/>');
+  }
+  if (listLevel != null) {
+    properties.write(
+      '<w:numPr><w:ilvl w:val="$listLevel"/><w:numId w:val="1"/></w:numPr>',
+    );
+  }
+
+  final runProperties = StringBuffer();
+  if (bold) runProperties.write('<w:b/>');
+  if (italic) runProperties.write('<w:i/>');
+
+  return '''
+    <w:p>
+      ${properties.isEmpty ? '' : '<w:pPr>$properties</w:pPr>'}
+      <w:r>${runProperties.isEmpty ? '' : '<w:rPr>$runProperties</w:rPr>'}<w:t xml:space="preserve">$text</w:t></w:r>
+    </w:p>
+''';
+}
+
+/// Una tabla de Word a partir de sus filas.
+String wordTable(List<List<String>> rows) {
+  final buffer = StringBuffer('    <w:tbl>\n');
+  for (final row in rows) {
+    buffer.write('      <w:tr>');
+    for (final cell in row) {
+      buffer.write('<w:tc><w:p><w:r><w:t>$cell</w:t></w:r></w:p></w:tc>');
+    }
+    buffer.writeln('</w:tr>');
+  }
+  buffer.writeln('    </w:tbl>');
+  return buffer.toString();
+}
+
+const _defaultDocumentXml =
+    '''
 <?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:document xmlns:w="$wordNamespace">
   <w:body>
     <w:p><w:r><w:t>Un párrafo cualquiera.</w:t></w:r></w:p>
   </w:body>

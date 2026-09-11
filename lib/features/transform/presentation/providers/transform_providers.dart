@@ -1,16 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/network/network_providers.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/clients/youtube_explode_client.dart';
+import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
+import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
+import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/youtube_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
+import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
@@ -45,7 +50,22 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       ids: ids,
       clock: clock,
     ),
+    DocumentTransformer(
+      parsers: ref.watch(documentParsersProvider),
+      files: ref.watch(fileStoreProvider),
+      ids: ids,
+      clock: clock,
+    ),
   ]);
+});
+
+/// Los lectores de documentos, en el orden en que se les pregunta.
+///
+/// El orden no importa: cada uno declara qué formato sabe leer y ninguno se
+/// pisa con otro. Se mantiene la lista igual para que agregar uno nuevo sea
+/// una línea.
+final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
+  return const [DocxParser(), PlainTextParser()];
 });
 
 final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
