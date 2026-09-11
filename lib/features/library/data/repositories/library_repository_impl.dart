@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -144,62 +145,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// recordar que quedó uno pendiente y volver a consultar al terminar. Eso
   /// agrupa ráfagas de escrituras en una sola consulta y, sobre todo, no
   /// pierde ninguna.
+  /// Envoltorio fino sobre `watchQuery`: fija las tablas de las que depende
+  /// cualquier lectura de este repositorio, para no repetir la lista en cada
+  /// método que observa.
   Stream<T> _watching<T>(Future<T> Function() read, {required String hint}) {
-    late final StreamController<T> controller;
-    StreamSubscription<void>? changes;
-    var isReading = false;
-    var changedWhileReading = false;
-
-    Future<void> refresh() async {
-      if (isReading) {
-        changedWhileReading = true;
-        return;
-      }
-
-      isReading = true;
-      try {
-        do {
-          changedWhileReading = false;
-          final value = await read();
-          if (!controller.isClosed) controller.add(value);
-        } while (changedWhileReading);
-        // Catch-all deliberado, igual que en el resto del archivo.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (e, stackTrace) {
-        // Un fallo al recomponer viaja por el stream en vez de quedar en una
-        // excepción sin dueño: quien observa tiene que poder mostrar el
-        // error, no quedarse esperando una emisión que no va a llegar.
-        _telemetry.recordError(e, stackTrace, hint: hint);
-        if (!controller.isClosed) controller.addError(e, stackTrace);
-      } finally {
-        isReading = false;
-      }
-    }
-
-    controller = StreamController<T>(
-      onListen: () {
-        changes = _db
-            .tableUpdates(
-              TableUpdateQuery.onAllTables([
-                _db.items,
-                _db.sources,
-                _db.renditions,
-                _db.tags,
-                _db.itemTags,
-              ]),
-            )
-            .listen((_) => unawaited(refresh()));
-
-        // El primer valor sale sin esperar a que cambie nada: quien se
-        // suscribe quiere ver lo que hay ahora.
-        unawaited(refresh());
-      },
-      onCancel: () async {
-        await changes?.cancel();
-      },
+    return watchQuery<T>(
+      db: _db,
+      tables: [_db.items, _db.sources, _db.renditions, _db.tags, _db.itemTags],
+      read: read,
+      telemetry: _telemetry,
+      hint: hint,
     );
-
-    return controller.stream;
   }
 
   @override
