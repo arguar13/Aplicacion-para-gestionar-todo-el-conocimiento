@@ -426,6 +426,128 @@ pedir.
 descarga grande, no es instantáneo. A cambio, la transcripción en sí no
 depende de conexión ni de que un servicio externo siga existiendo.
 
+### 9. Base de datos y archivos en la web: WebAssembly y OPFS, no un servidor
+
+`driftDatabase()` se llamaba sin el parámetro que `drift_flutter` exige para
+compilar a la web, así que hoy la app revienta apenas intenta abrir la
+base ahí. Arreglarlo no es solo pasar un parámetro: hace falta decidir
+dónde vive de verdad cada cosa cuando no hay sistema de archivos.
+
+**La base de datos.** `drift` compila a WebAssembly con `sqlite3.wasm`
+corriendo en un worker aparte —el mismo SQLite de siempre, no una
+reimplementación—, pero a diferencia de `sherpa_onnx_web` (decisión 8), acá
+los archivos **no** vienen empaquetados en el paquete: hay que traer
+`sqlite3.wasm` y `drift_worker.js` a mano, en la versión exacta que fijan
+`sqlite3` y `drift` en `pubspec.lock`. Mismo criterio que
+`tool/fetch_pdfium.sh`: un script versionado en vez de un archivo binario
+sumado al repositorio a mano, para que actualizar `drift` no deje una copia
+vieja del worker dando vueltas sin que nadie lo note.
+
+**Los archivos originales.** `FileStore` guarda documentos, imágenes,
+audio y video que pueden pesar cientos de megas, y en el navegador no hay
+ningún directorio real donde ponerlos. La respuesta no es meterlos en la
+base —seguiría siendo cierto lo que dice `file_store.dart`: SQLite se
+vuelve lento con binarios grandes adentro, y en un WASM corriendo en el
+navegador ese costo pesa todavía más—. La respuesta es el **Origin Private
+File System** (OPFS): un sistema de archivos real, privado al origen de la
+página, pensado justo para esto —soporta archivos de cientos de megas sin
+mandar nada a ningún lado—. Se accede con `package:web` y
+`dart:js_interop` directo, sin sumar un paquete de por medio: la API es
+chica (obtener el directorio, un handle de archivo, un stream para
+escribir) y ya hay ese mismo estilo de interop en el propio `audio_decoder`
+y en `sherpa_onnx`, así que no suma una forma nueva de hacer las cosas.
+
+**Cómo conviven las dos implementaciones.** `FileStore` es una interfaz;
+`LocalFileStore` (sobre `dart:io`) y la nueva `OpfsFileStore` son sus dos
+implementaciones, elegidas en tiempo de compilación con el mismo mecanismo
+de `import if (dart.library.io) ... if (dart.library.js_interop) ...` que
+ya usa `sherpa_onnx` puertas adentro. Ninguna de las dos clases importa lo
+que no puede compilar en su plataforma: `dart:io` no existe en la web, y no
+tiene sentido escribir la versión web con las manos atadas para que
+"parezca" la nativa.
+
+**Lo que cuesta:** dos implementaciones de `FileStore` para mantener, y un
+par de archivos binarios que hay que resincronizar a mano cuando cambien
+las versiones de `drift`/`sqlite3` —el script deja ese trabajo en un solo
+comando, pero sigue siendo manual—. A cambio, la web guarda tanto como
+Android: nada se trunca ni se manda a ningún servidor por no tener dónde
+ponerlo.
+
+### 10. OCR y transcripción en la web: los mismos principios, otro motor
+
+La decisión 6 daba por sentado que la web no iba a tener esto. Investigar
+en vez de asumir cambió la respuesta para las dos cosas, aunque no de la
+misma forma.
+
+**Transcripción.** `sherpa_onnx` —ya elegido en la decisión 8— trae su
+propio soporte de WebAssembly, con el mismo `OfflineRecognizer` y la misma
+API pública que la versión nativa: el código que arma la configuración del
+modelo y decodifica el audio es, en su mayor parte, el mismo en las dos
+plataformas. Dos diferencias reales, no cosméticas:
+
+- `readWave()` —la función que lee un WAV de disco— está sin implementar en
+  la web ("not yet supported"). La solución no es esquivarla con un parche
+  para la web: es dejar de depender de ella *en las dos plataformas*.
+  `audio_decoder.convertToWavBytes(..., includeHeader: false)` devuelve las
+  muestras PCM en crudo, en memoria, sin pasar por ningún archivo —ya
+  funcionaba así en Android, y la versión de `audio_decoder` para la web
+  usa exactamente ese mismo camino, porque en el navegador tampoco hay una
+  ruta de archivo que darle a nada—. Convertir esos bytes a las muestras
+  normalizadas que pide `acceptWaveform()` son diez líneas de Dart puro,
+  iguales en cualquier plataforma. Resultado: menos código específico de
+  plataforma que antes de esta fase, no más.
+- `dart:isolate` no compila en la web —se le sacó el soporte a `dart2js`
+  hace años, y sigue así—, así que `Isolate.run` no es una opción ahí. La
+  implementación web de sherpa-onnx tampoco lo intenta: decodifica en el
+  hilo principal, con llamadas directas a WebAssembly. Se sigue el mismo
+  camino en vez de inventar uno propio con Web Workers: la interfaz se
+  congela mientras dura una transcripción, que es una molestia real pero
+  medible y documentada, no un fallo silencioso — y muy por debajo de no
+  poder transcribir nada en el navegador.
+
+**Reconocimiento de texto en imágenes.** Google ML Kit no tiene ninguna
+versión web: es un SDK nativo de Android/iOS, no algo que se pueda compilar
+a WebAssembly. El reemplazo para el navegador es
+[Tesseract](https://tesseractocr.org/) —Apache 2.0— compilado a
+WebAssembly, corriendo entero del lado del cliente, sin mandar la imagen a
+ningún servidor: mismo principio que ML Kit, motor distinto porque no hay
+uno solo que cubra las dos plataformas. Los datos de idioma que necesita
+Tesseract se sirven como parte de los propios assets de la app —no desde
+la CDN que trae por defecto—, para que reconocer texto en una imagen siga
+siendo una conexión que nunca sale del dispositivo, en vez de convertirse
+en la excepción silenciosa que el principio 1 prohíbe.
+
+**Lo que cuesta:** dos motores de OCR y dos formas de invocar la
+transcripción para mantener, uno por plataforma. Y en la web, mientras dura
+una transcripción larga, la interfaz no responde —una limitación real,
+compartida con el propio motor de sherpa-onnx, no una que esta app podría
+evitar sola—.
+
+### 11. Lo que en la web se adapta, y lo que se omite sin más
+
+No todo lo que existe en Android tiene un equivalente directo en un
+navegador, y forzarlo sería peor que adaptarlo.
+
+**Elegir una carpeta y escribir varios archivos ahí** —lo que usa el
+paquete de NotebookLM— no tiene una forma confiable en la web: el único
+API que lo permite todavía no lo soportan todos los navegadores por igual.
+El reemplazo es el patrón habitual en la web para "exportar varios
+archivos de una": armarlos igual que siempre y entregarlos comprimidos en
+un único `.zip` que el navegador descarga. Quien lo reciba sigue
+encontrando los mismos archivos con el mismo índice adentro.
+
+**Recibir contenido compartido desde otra app** (decisión 7) no existe como
+concepto en un navegador —no hay ninguna "hoja de compartir" del sistema
+operativo—, y no hace falta inventarle nada: soltar un archivo sobre la
+ventana ya cubre ese mismo caso en la web desde la fase 2. La
+implementación web de este listener simplemente no escucha nada.
+
+**Abrir un archivo con la app del sistema** y la bóveda con clave
+(`flutter_secure_storage`) no necesitan ningún cambio: los dos ya declaran
+soporte de verdad para web desde que se eligieron —`open_app_file`
+justamente por eso, ver la fase 6—, y lo mismo pasa con `pdfrx` para leer
+PDFs.
+
 ---
 
 ## Estado y orden de construcción
