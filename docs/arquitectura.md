@@ -298,6 +298,24 @@ o cuentas de pago.
 **Lo que cuesta:** trabajo de implementación propio. A cambio: funciona sin
 conexión, sin cuotas, y no se rompe cuando un servicio cambia su HTML.
 
+**Qué cuenta como "libre" acá.** Una licencia libre de verdad —MIT, BSD,
+Apache— no una gratuidad condicional. La diferencia importa y es la razón por
+la que se descartó `syncfusion_flutter_pdf`, que el plan original proponía: su
+"Community License" es una licencia **propietaria** que solo permite el uso
+gratuito a organizaciones con menos de un millón de dólares de facturación
+anual y menos de cinco desarrolladores. Es un permiso condicional que se puede
+perder por crecer, y que obliga a aceptar términos de un tercero para usar la
+app. Se usa [`pdfrx`](https://pub.dev/packages/pdfrx) (MIT, sobre el PDFium de
+Chromium) en su lugar.
+
+Por el mismo criterio, EPUB y DOCX se leen con `archive` + `xml` en vez de
+adoptar un paquete dedicado: los dos formatos son un ZIP con XML adentro y
+estándares documentados, y los candidatos disponibles estaban abandonados
+—`epubx` lleva tres años sin publicar— o eran demasiado nuevos para
+confiarles el formato en el que alguien guarda su biblioteca. Un lector de
+spine de EPUB son unas cien líneas que se pueden probar; una dependencia
+muerta en el camino crítico, no.
+
 ### 4. Adapters y transformers separados
 
 Explicado arriba. La alternativa —una clase por combinación de fuente y
