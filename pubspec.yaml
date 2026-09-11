@@ -22,6 +22,11 @@ dependencies:
   # paquete mantenido en vez de implementar el KDF a mano: escribir
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
   cryptography: ^2.9.0
+  # Soltar un archivo sobre la ventana de la app. Licencia Apache-2.0. Cubre
+  # Windows, macOS y Linux para cuando existan, y también web —la única
+  # plataforma de escritorio que ya está armada en este proyecto—, todo con
+  # el mismo widget.
+  desktop_drop: ^0.8.4
   dio: ^5.7.0
   # Base de datos local. `drift_flutter` resuelve por sí solo las librerías
   # nativas de SQLite y la ruta del archivo en cada plataforma; no hace falta
@@ -80,6 +85,14 @@ dependencies:
   # propietaria: ver la decisión 3 en docs/arquitectura.md.
   pdfrx_engine: ^0.6.0
   reader_mode: ^0.2.3
+  # Recibir contenido compartido desde otras apps (el botón de compartir del
+  # teléfono). Licencia Apache-2.0. Solo se configura el lado Android: el de
+  # iOS necesita además una Share Extension —un target nuevo de Xcode, con su
+  # propio Info.plist y un App Group para pasarle los datos a la app
+  # principal— que no se puede armar a ciegas sin Xcode ni compilar sin una
+  # Mac, y este proyecto no tiene ninguna de las dos cosas. Ver la decisión 7
+  # en docs/arquitectura.md.
+  receive_sharing_intent: ^1.9.0
   sentry_flutter: ^8.14.0
   shared_preferences: ^2.3.3
   # UUID v7 para los identificadores: a diferencia del v4, son ordenables por

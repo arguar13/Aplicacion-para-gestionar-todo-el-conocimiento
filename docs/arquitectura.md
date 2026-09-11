@@ -355,6 +355,30 @@ páginas ajenas.
 **Lo que cuesta:** la versión web llega después y con menos capacidades.
 Consumir y buscar funcionará; capturar y transformar, no del todo.
 
+### 7. Compartir desde otras apps: Android completo, iOS documentado y pendiente
+
+Aparecer en la hoja de compartir de un sistema operativo exige configuración
+nativa, y esa configuración no pesa lo mismo en las dos plataformas. En
+Android es agregar intent-filters a un `AndroidManifest.xml` que ya existe:
+texto plano, legible, que además ya compila en la integración continua. En
+iOS hace falta algo de otra naturaleza — una Share Extension, que es un
+**target nuevo** dentro del proyecto de Xcode, con su propio `Info.plist`,
+sus entitlements y un App Group para pasarle lo compartido a la app
+principal.
+
+Armar eso a mano, editando `project.pbxproj` sin Xcode, es escribir a ciegas
+un archivo que ni siquiera se puede abrir para comprobar que quedó bien: este
+proyecto corre en Linux, no en una Mac, y la integración continua todavía no
+compila iOS (ver "Construido" más abajo). Un error ahí no lo marca ninguna
+prueba; lo nota recién quien intente abrir el proyecto en Xcode y lo
+encuentre roto.
+
+**Lo que cuesta:** en iOS, compartir un enlace o un archivo a Sinapsis desde
+otra app no funciona todavía. Pegarlo a mano en la pantalla de captura, sí.
+El día que el proyecto tenga con qué compilar y probar iOS de verdad, la
+Share Extension se agrega con la misma prolijidad que todo lo demás —no
+antes.
+
 ---
 
 ## Estado y orden de construcción
