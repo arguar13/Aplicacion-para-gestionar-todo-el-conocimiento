@@ -474,14 +474,23 @@ depende de conexión ni de que un servicio externo siga existiendo.
   abre con la app que el sistema tenga asociada. Paquete completo para
   NotebookLM —los items elegidos más un índice con las fuentes—, armado desde
   el detalle de un item o desde una selección múltiple en la biblioteca.
+- **Fase 7, lo pesado.** Reconocimiento de texto en imágenes con Google ML
+  Kit. Transcripción de audio y video con Whisper "base" multilingüe,
+  corriendo enteramente en el dispositivo: el modelo se descarga aparte, una
+  sola vez y con permiso explícito —nunca junto con la app, y nunca en
+  silencio— desde una pantalla propia que muestra tamaño y progreso. Las
+  llamadas de Whisper son FFI síncronas y bloqueantes, así que corren en un
+  isolate aparte para no congelar la interfaz mientras dura una
+  transcripción larga. Sin diálogo reconocible —música, silencio, una foto
+  sin texto— no es un fallo: el elemento queda listo igual, tal como llegó.
 
 ### Por construir
 
-El orden busca que haya algo utilizable lo antes posible, y deja para el final
-lo más pesado.
-
-**Fase 7 — Lo pesado.** Transcripción de audio con Whisper en el dispositivo y
-OCR de imágenes. Van al final porque implican modelos de cientos de megas,
-trabajo en segundo plano y diferencias grandes entre plataformas — y porque
-para entonces la cola de procesamiento ya va a estar probada con tareas más
-simples.
+No queda nada pendiente del recorrido que describe este documento: las
+siete fases están construidas, probadas y documentadas. Lo que sigue no es
+una fase nueva sino extender lo ya construido, y las dos extensiones
+conocidas ya están registradas donde correspondía decidirlas: la Share
+Extension de iOS para compartir desde otra app (decisión 7) y una versión
+web con menos capacidades que el resto de las plataformas —sin ML Kit, sin
+isolates de verdad para Whisper, sin poder descargar páginas ajenas por
+CORS— (decisión 6).

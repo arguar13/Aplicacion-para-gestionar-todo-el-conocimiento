@@ -140,10 +140,21 @@ La base está construida y verificada. El producto, no todavía.
   de una, un paquete con los archivos que mejor ingiere y un índice con las
   fuentes, armado desde el detalle o eligiendo varios en la biblioteca.
 
+- **Transcribir y reconocer texto.** Una foto, una captura de pantalla o el
+  cartel de una calle: el texto que tengan adentro queda reconocido con
+  Google ML Kit. Una nota de voz, un podcast o un video: transcriptos con
+  Whisper corriendo enteramente en el dispositivo, sin mandar el audio a
+  ningún lado. El modelo pesa unos 160 MB y no viene con la app —se descarga
+  aparte, una sola vez, con tu permiso explícito y mostrando el progreso—.
+  Nada de esto bloquea la interfaz mientras trabaja.
+
 **Por construir**
 
-Transcribir audio e imágenes. El diseño de cada etapa y el orden están en
-[`docs/arquitectura.md`](docs/arquitectura.md).
+Nada, del recorrido planeado: las siete fases de
+[`docs/arquitectura.md`](docs/arquitectura.md) están completas. Quedan dos
+extensiones ya identificadas y conscientemente pospuestas —compartir a
+Sinapsis desde otra app en iOS, y una versión web con menos capacidades—,
+documentadas ahí mismo con su motivo.
 
 ## Correr el proyecto
 
