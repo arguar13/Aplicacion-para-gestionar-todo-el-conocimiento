@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
+import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -24,7 +25,7 @@ void main() {
   setUp(() {
     files = InMemoryFileStore();
     transformer = DocumentTransformer(
-      parsers: const [DocxParser(), PlainTextParser()],
+      parsers: const [DocxParser(), EpubParser(), PlainTextParser()],
       files: files,
       ids: FakeIdGenerator(),
       clock: () => now,
@@ -130,6 +131,20 @@ void main() {
       final result = await transformer.transform(item);
 
       expect(result.source.authorName, 'Ana Martinez');
+    });
+
+    test('un libro en EPUB se lee, con su titulo y su autor', () async {
+      final item = await seed(
+        buildEpub(title: 'Cien anos de soledad', author: 'Gabriel Garcia'),
+        name: 'libro.epub',
+        title: 'Libro',
+      );
+
+      final result = await transformer.transform(item);
+
+      expect(result.title, 'Cien anos de soledad');
+      expect(result.source.authorName, 'Gabriel Garcia');
+      expect(result.searchableText, contains('El primer capítulo'));
     });
 
     test('un archivo de texto suelto tambien se lee', () async {

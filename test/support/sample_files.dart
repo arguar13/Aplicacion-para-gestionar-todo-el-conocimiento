@@ -21,6 +21,14 @@ Uint8List buildEpub({
     (name: 'cap2.xhtml', html: '<h1>Segundo</h1><p>El segundo capítulo.</p>'),
   ],
   String? containerPath,
+
+  /// Nombres de capítulo que van marcados como no lineales: material
+  /// auxiliar que no forma parte del hilo de lectura.
+  Set<String> nonLinear = const {},
+
+  /// Un identificador de spine que no existe en el manifiesto. Pasa en
+  /// libros mal armados.
+  bool withDanglingSpineEntry = false,
 }) {
   final opfPath = containerPath ?? 'OEBPS/contenido.opf';
   final folder = opfPath.contains('/')
@@ -31,10 +39,14 @@ Uint8List buildEpub({
   final spine = StringBuffer();
   for (var i = 0; i < chapters.length; i++) {
     manifest.writeln(
-      '<item id="c$i" href="${chapters[i].name}" '
+      '<item id="c$i" href="${Uri.encodeComponent(chapters[i].name)}" '
       'media-type="application/xhtml+xml"/>',
     );
-    spine.writeln('<itemref idref="c$i"/>');
+    final linear = nonLinear.contains(chapters[i].name) ? ' linear="no"' : '';
+    spine.writeln('<itemref idref="c$i"$linear/>');
+  }
+  if (withDanglingSpineEntry) {
+    spine.writeln('<itemref idref="no-existe"/>');
   }
 
   final archive = Archive()

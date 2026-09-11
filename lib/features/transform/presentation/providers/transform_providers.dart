@@ -9,6 +9,7 @@ import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dar
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/clients/youtube_explode_client.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
+import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
@@ -65,7 +66,7 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
 /// pisa con otro. Se mantiene la lista igual para que agregar uno nuevo sea
 /// una línea.
 final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
-  return const [DocxParser(), PlainTextParser()];
+  return const [DocxParser(), EpubParser(), PlainTextParser()];
 });
 
 final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
