@@ -60,3 +60,28 @@ final dioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+/// Cliente HTTP para los recursos que se incrustan al archivar una página
+/// completa: imágenes, hojas de estilo, fuentes.
+///
+/// Deliberadamente **sin** [GlobalErrorInterceptor]. Archivar una sola
+/// página pide decenas de estos recursos, y que uno falle —un CDN caído, una
+/// imagen bloqueada por CORS— es lo esperado, no un problema del usuario: el
+/// archivado sigue igual, sin ese recurso incrustado. Con el interceptor
+/// global cada uno de esos fallos rutinarios dispararía el aviso de error de
+/// toda la app, sin que hubiera ninguna acción que el usuario pudiera tomar
+/// al respecto. El registro de peticiones sí se mantiene, para poder
+/// diagnosticar sin generar ruido visible.
+final resourceFetchDioProvider = Provider<Dio>((ref) {
+  final logger = ref.watch(appLoggerProvider);
+
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: const {
+        'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)',
+      },
+    ),
+  )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
+});

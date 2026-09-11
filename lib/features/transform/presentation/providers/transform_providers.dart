@@ -5,6 +5,8 @@ import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/transform/data/archive/html_page_archiver.dart';
+import 'package:sinapsis/features/transform/data/clients/dio_resource_fetcher.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/clients/youtube_explode_client.dart';
@@ -15,6 +17,8 @@ import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dar
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/youtube_transcript_transformer.dart';
+import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
+import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -33,6 +37,14 @@ final articleExtractorProvider = Provider<ArticleExtractor>((ref) {
   return const ReaderModeArticleExtractor();
 });
 
+final resourceFetcherProvider = Provider<ResourceFetcher>((ref) {
+  return DioResourceFetcher(ref.watch(resourceFetchDioProvider));
+});
+
+final pageArchiverProvider = Provider<PageArchiver>((ref) {
+  return HtmlPageArchiver(fetcher: ref.watch(resourceFetcherProvider));
+});
+
 /// El orden no importa tanto como en los adaptadores —cada transformador
 /// mira el tipo de fuente y solo uno acepta cada elemento— pero se mantiene
 /// la misma convención: lo específico antes que lo general.
@@ -49,8 +61,11 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
     WebArticleTransformer(
       client: ref.watch(webPageClientProvider),
       extractor: ref.watch(articleExtractorProvider),
+      archiver: ref.watch(pageArchiverProvider),
+      files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
+      logger: ref.watch(appLoggerProvider),
     ),
     DocumentTransformer(
       parsers: ref.watch(documentParsersProvider),

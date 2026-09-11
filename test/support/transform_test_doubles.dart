@@ -5,9 +5,13 @@
 // puede simular ambas.
 // ignore_for_file: only_throw_errors
 
+import 'dart:typed_data';
+
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
+import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
@@ -124,5 +128,51 @@ class FakeTransformer implements Transformer {
         ),
       ],
     );
+  }
+}
+
+/// Trae lo que se le diga para cada URL, sin salir a la red.
+///
+/// Ausente del mapa o con valor `null` simula un recurso que no se pudo
+/// traer — un 404, un CDN caído, lo que sea: son la misma cosa desde el
+/// punto de vista de quien archiva.
+class FakeResourceFetcher implements ResourceFetcher {
+  FakeResourceFetcher({this.byUrl = const {}});
+
+  final Map<String, Uint8List?> byUrl;
+
+  /// Las URLs que se pidieron, en orden.
+  final requested = <Uri>[];
+
+  @override
+  Future<Uint8List?> fetchBytes(Uri url) async {
+    requested.add(url);
+    return byUrl[url.toString()];
+  }
+}
+
+/// Archivador que hace lo que se le diga, sin tocar HTML de verdad.
+///
+/// Para probar el transformador aparte de cómo se incrustan los recursos:
+/// esto es orquestación —qué se guarda y qué pasa cuando el archivado
+/// falla— y usar el archivador real mezclaría los dos asuntos.
+class FakePageArchiver implements PageArchiver {
+  FakePageArchiver({this.result, this.error});
+
+  /// Lo que devuelve. `null` simula que no se pudo producir nada
+  /// aprovechable, sin que eso sea un error.
+  final Uint8List? result;
+
+  /// Si está, se lanza en vez de responder.
+  final Object? error;
+
+  final requested = <String>[];
+
+  @override
+  Future<Uint8List?> archive(String html, {required Uri baseUri}) async {
+    requested.add(html);
+    if (error != null) throw error!;
+
+    return result;
   }
 }

@@ -3,8 +3,11 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
@@ -23,25 +26,40 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 ///   el HTML adentro, cada artículo entraría dos veces y con los nombres de
 ///   las etiquetas mezclados entre las palabras.
 ///
-/// Archivar la página entera tal como estaba —con sus imágenes y sus estilos
-/// incrustados, al modo de SingleFile— es otra cosa, y va como forma de
-/// archivo aparte cuando exista el almacenamiento de archivos. Por ahora el
-/// enlace original queda guardado en la fuente, que es lo que permite volver.
+/// Además de extraer el artículo, archiva la página entera tal como estaba
+/// —con sus imágenes y sus estilos incrustados, al modo de SingleFile— y la
+/// guarda como el archivo original de la fuente. Es el seguro contra el
+/// enlace que mañana da 404: aunque el artículo ya quedó a salvo en
+/// Markdown, tener también la página completa preserva el diseño y
+/// cualquier cosa que la extracción no haya conservado.
+///
+/// Que el archivado falle —una página demasiado pesada, un recurso que no
+/// se pudo traer— nunca le cuesta al usuario el artículo: es un extra sobre
+/// el resultado principal, no una condición para tenerlo.
 class WebArticleTransformer implements Transformer {
   const WebArticleTransformer({
     required WebPageClient client,
     required ArticleExtractor extractor,
+    required PageArchiver archiver,
+    required FileStore files,
     required IdGenerator ids,
     required Clock clock,
+    required AppLogger logger,
   }) : _client = client,
        _extractor = extractor,
+       _archiver = archiver,
+       _files = files,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _logger = logger;
 
   final WebPageClient _client;
   final ArticleExtractor _extractor;
+  final PageArchiver _archiver;
+  final FileStore _files;
   final IdGenerator _ids;
   final Clock _clock;
+  final AppLogger _logger;
 
   /// Convierte el HTML del artículo a Markdown.
   ///
@@ -80,14 +98,26 @@ class WebArticleTransformer implements Transformer {
     }
 
     final now = _clock();
+    // El título provisional salió de la dirección; ahora se sabe cómo se
+    // llama de verdad el artículo. Se usa también para nombrar el archivo
+    // de abajo: es lo que el usuario va a reconocer.
+    final title = article.title?.isNotEmpty ?? false
+        ? article.title!
+        : item.title;
+
+    final originalFilePath = await _archiveSafely(
+      html,
+      url: url,
+      sourceId: item.source.id,
+      title: title,
+    );
 
     return item.copyWith(
-      // El título provisional salió de la dirección; ahora se sabe cómo se
-      // llama de verdad el artículo.
-      title: article.title?.isNotEmpty ?? false ? article.title! : item.title,
+      title: title,
       subtitle: article.siteName ?? item.subtitle,
       source: item.source.copyWith(
         authorName: article.byline ?? item.source.authorName,
+        originalFilePath: originalFilePath ?? item.source.originalFilePath,
       ),
       renditions: [
         Rendition.text(
@@ -100,5 +130,35 @@ class WebArticleTransformer implements Transformer {
         ),
       ],
     );
+  }
+
+  /// Archiva la página y la guarda, o `null` si no se pudo.
+  ///
+  /// Atrapa cualquier fallo a propósito —no solo los que declara
+  /// [PageArchiver], sino cualquier cosa que una implementación futura o un
+  /// error de programación deje escapar—: el archivado es un extra, y el
+  /// artículo que sí se extrajo no puede perderse por él.
+  Future<String?> _archiveSafely(
+    String html, {
+    required Uri url,
+    required String sourceId,
+    required String title,
+  }) async {
+    try {
+      final archived = await _archiver.archive(html, baseUri: url);
+      if (archived == null) return null;
+
+      return await _files.save(
+        bytes: archived,
+        suggestedName: '$title.html',
+        id: sourceId,
+      );
+      // El archivado es un extra: cualquier fallo, del tipo que sea, se
+      // registra y se sigue sin él, en vez de perder el artículo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e) {
+      _logger.warning('No se pudo archivar la página $url: $e');
+      return null;
+    }
   }
 }

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -9,14 +12,18 @@ import 'package:sinapsis/features/transform/data/transformers/web_article_transf
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
 
 void main() {
   final now = DateTime(2026, 9, 11, 10);
   late FakeIdGenerator ids;
+  late InMemoryFileStore files;
 
   setUp(() {
     ids = FakeIdGenerator();
+    files = InMemoryFileStore();
   });
 
   KnowledgeItem webItem({
@@ -42,6 +49,7 @@ void main() {
   WebArticleTransformer build({
     FakeWebPageClient? client,
     FakeArticleExtractor? extractor,
+    FakePageArchiver? archiver,
   }) => WebArticleTransformer(
     client: client ?? FakeWebPageClient(html: '<html></html>'),
     extractor:
@@ -52,8 +60,14 @@ void main() {
             textContent: 'El cuerpo del artículo.',
           ),
         ),
+    // `null` por defecto: la mayoría de las pruebas de acá no le interesa el
+    // archivado, y así se comprueba de paso que no archivar nada no le
+    // cuesta nada al resto del resultado.
+    archiver: archiver ?? FakePageArchiver(),
+    files: files,
     ids: ids,
     clock: () => now,
+    logger: const SilentLogger(),
   );
 
   group('a qué se aplica', () {
@@ -175,6 +189,72 @@ void main() {
           () => transformer.transform(webItem()),
           throwsA(isA<NoArticleFoundException>()),
         );
+      },
+    );
+  });
+
+  group('archivado de la página', () {
+    Uint8List archivedBytes(String contents) =>
+        Uint8List.fromList(utf8.encode(contents));
+
+    test('si se pudo archivar, la ruta queda en la fuente', () async {
+      final transformer = build(
+        archiver: FakePageArchiver(result: archivedBytes('<html></html>')),
+      );
+
+      final result = await transformer.transform(webItem());
+
+      expect(result.source.originalFilePath, isNotNull);
+      expect(await files.read(result.source.originalFilePath!), isNotNull);
+    });
+
+    test('el archivo queda bajo el identificador de la fuente', () async {
+      final transformer = build(
+        archiver: FakePageArchiver(result: archivedBytes('<html></html>')),
+      );
+
+      final result = await transformer.transform(webItem());
+
+      expect(
+        result.source.originalFilePath,
+        startsWith('originales/${result.source.id}/'),
+      );
+    });
+
+    test('se le pasa a la página tal cual la trajo el cliente', () async {
+      final archiver = FakePageArchiver(result: archivedBytes('<html></html>'));
+      final client = FakeWebPageClient(html: '<html>contenido real</html>');
+
+      await build(client: client, archiver: archiver).transform(webItem());
+
+      expect(archiver.requested.single, '<html>contenido real</html>');
+    });
+
+    test(
+      'si el archivador no produjo nada, la fuente no gana un archivo',
+      () async {
+        final transformer = build(archiver: FakePageArchiver());
+
+        final result = await transformer.transform(webItem());
+
+        expect(result.source.originalFilePath, isNull);
+        expect(files.paths, isEmpty);
+      },
+    );
+
+    test(
+      'si el archivador revienta, el artículo se guarda igual, sin archivo',
+      () async {
+        // El archivado es un extra. Que falle de la forma que sea no puede
+        // costarle al usuario el artículo que sí se extrajo.
+        final transformer = build(
+          archiver: FakePageArchiver(error: StateError('roto')),
+        );
+
+        final result = await transformer.transform(webItem());
+
+        expect(result.source.originalFilePath, isNull);
+        expect(result.renditions, isNotEmpty);
       },
     );
   });
