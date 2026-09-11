@@ -1,3 +1,4 @@
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   /// mientras no se apriete guardar, no le incumbe a nadie más. Lo que sí
   /// sale de acá es que la captura pasa a ser de archivo y no de texto.
   CapturedFile? _file;
+
+  /// Si hay algo arrastrado encima de la pantalla ahora mismo, para dibujar
+  /// el borde que avisa que soltar acá va a funcionar.
+  var _isDraggingFile = false;
 
   @override
   void initState() {
@@ -137,6 +142,33 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     }
   }
 
+  /// Lo que se soltó sobre la pantalla, igual que si se hubiera elegido con
+  /// el selector.
+  ///
+  /// Solo un archivo por vez: [CapturedFile] es singular en toda la app —el
+  /// selector del sistema también rechaza una selección múltiple— y una
+  /// carpeta no tiene bytes propios que leer. Ninguno de los dos casos es un
+  /// error del usuario tan grave como para no explicarlo, así que se avisa
+  /// en vez de quedarse callado o adivinar cuál de varios era el que
+  /// importaba.
+  Future<void> _onDropDone(DropDoneDetails details) async {
+    final l10n = AppLocalizations.of(context)!;
+    final dropped = details.files;
+
+    if (dropped.length != 1 || dropped.single is DropItemDirectory) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.captureDropSingleFileOnly)));
+      return;
+    }
+
+    final item = dropped.single;
+    final bytes = await item.readAsBytes();
+    if (!mounted) return;
+
+    setState(() => _file = CapturedFile(name: item.name, bytes: bytes));
+  }
+
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
     final file = _file;
@@ -198,88 +230,103 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     final detected = _detectedKind;
     final file = _file;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.captureTitle)),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                TextField(
-                  controller: _inputController,
-                  // El foco automático solo cuando se va a escribir: con un
-                  // archivo ya elegido, abrir el teclado sobre un campo
-                  // desactivado tapa media pantalla para nada.
-                  autofocus: file == null,
-                  enabled: file == null,
-                  minLines: 5,
-                  maxLines: 12,
-                  keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(
-                    hintText: file == null
-                        ? l10n.captureHint
-                        : l10n.captureFileBlocksText,
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _isDraggingFile = true),
+      onDragExited: (_) => setState(() => _isDraggingFile = false),
+      onDragDone: _onDropDone,
+      child: Scaffold(
+        appBar: AppBar(title: Text(l10n.captureTitle)),
+        body: SafeArea(
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              constraints: const BoxConstraints(maxWidth: 560),
+              // El único indicio de que soltar acá hace algo: sin él, la
+              // superficie que acepta un archivo arrastrado sería invisible
+              // hasta que alguien lo probara por las dudas.
+              decoration: BoxDecoration(
+                border: _isDraggingFile
+                    ? Border.all(color: theme.colorScheme.primary, width: 2)
+                    : Border.all(color: Colors.transparent, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  TextField(
+                    controller: _inputController,
+                    // El foco automático solo cuando se va a escribir: con un
+                    // archivo ya elegido, abrir el teclado sobre un campo
+                    // desactivado tapa media pantalla para nada.
+                    autofocus: file == null,
+                    enabled: file == null,
+                    minLines: 5,
+                    maxLines: 12,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      hintText: file == null
+                          ? l10n.captureHint
+                          : l10n.captureFileBlocksText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Alto reservado aunque no haya nada que decir, para que el
-                // formulario no salte al empezar a escribir.
-                SizedBox(
-                  height: 24,
-                  child: detected == null || file != null
-                      ? null
-                      : Row(
-                          children: [
-                            Icon(
-                              detected.icon,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.captureWillSaveAs(detected.label(l10n)),
-                              style: theme.textTheme.bodySmall?.copyWith(
+                  const SizedBox(height: 12),
+                  // Alto reservado aunque no haya nada que decir, para que el
+                  // formulario no salte al empezar a escribir.
+                  SizedBox(
+                    height: 24,
+                    child: detected == null || file != null
+                        ? null
+                        : Row(
+                            children: [
+                              Icon(
+                                detected.icon,
+                                size: 16,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
-                            ),
-                          ],
-                        ),
-                ),
-                const SizedBox(height: 8),
-                if (file == null)
-                  OutlinedButton.icon(
-                    onPressed: _chooseFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text(l10n.captureChooseFile),
-                  )
-                else
-                  _ChosenFileCard(
-                    file: file,
-                    onRemove: () => setState(() => _file = null),
+                              const SizedBox(width: 8),
+                              Text(
+                                l10n.captureWillSaveAs(detected.label(l10n)),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  label: l10n.captureOptionalTitleLabel,
-                  controller: _titleController,
-                  validator: (_) => null,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  label: l10n.captureOptionalNoteLabel,
-                  controller: _noteController,
-                  validator: (_) => null,
-                  textInputAction: TextInputAction.done,
-                ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: l10n.captureAction,
-                  isLoading: state is CaptureSaving,
-                  onPressed: _submit,
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  if (file == null)
+                    OutlinedButton.icon(
+                      onPressed: _chooseFile,
+                      icon: const Icon(Icons.attach_file),
+                      label: Text(l10n.captureChooseFile),
+                    )
+                  else
+                    _ChosenFileCard(
+                      file: file,
+                      onRemove: () => setState(() => _file = null),
+                    ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: l10n.captureOptionalTitleLabel,
+                    controller: _titleController,
+                    validator: (_) => null,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 16),
+                  CustomTextField(
+                    label: l10n.captureOptionalNoteLabel,
+                    controller: _noteController,
+                    validator: (_) => null,
+                    textInputAction: TextInputAction.done,
+                  ),
+                  const SizedBox(height: 24),
+                  PrimaryButton(
+                    label: l10n.captureAction,
+                    isLoading: state is CaptureSaving,
+                    onPressed: _submit,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -99,6 +99,10 @@
       }
     }
   },
+  "captureDropSingleFileOnly": "Soltá un solo archivo por vez.",
+  "@captureDropSingleFileOnly": {
+    "description": "Aviso al soltar más de un archivo, o una carpeta, sobre la pantalla de captura."
+  },
   "detailProvenance": "De dónde salió",
   "detailCapturedOn": "Guardado el {date}",
   "detailAuthor": "Por {name}",

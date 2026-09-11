@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -38,6 +39,25 @@ void main() {
   }
 
   Finder mainField() => find.byType(TextField).first;
+
+  /// Simula soltar [files] sobre la pantalla, llamando directo al callback
+  /// que le pasa a `DropTarget`: no hay forma de fabricar un evento nativo
+  /// de arrastre en una prueba, así que esto es lo más cerca que se puede
+  /// llegar del gesto real.
+  Future<void> dropFiles(WidgetTester tester, List<DropItem> files) async {
+    final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+    // `onDragDone` está tipado como `void Function(...)`, aunque lo que hay
+    // detrás sea async: no se puede esperar la llamada en sí, pero
+    // `pumpAndSettle` sí espera lo que quede pendiente.
+    dropTarget.onDragDone!(
+      DropDoneDetails(
+        files: files,
+        localPosition: Offset.zero,
+        globalPosition: Offset.zero,
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
 
   Future<List<KnowledgeItem>> savedItems() async =>
       (await harness.container
@@ -290,6 +310,106 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.widget<TextField>(mainField()).controller?.text, '');
+    });
+  });
+
+  group('soltar un archivo (drag-and-drop)', () {
+    // `XFile` —de quien `DropItemFile` hereda— saca `.name` de la ruta y no
+    // del parámetro `name:` al construirse con `.fromData()` en escritorio:
+    // ver cross_file/src/types/io.dart. Un archivo de verdad soltado sí trae
+    // una ruta real, así que en la app esto nunca pasa; acá hay que pasar el
+    // nombre como ruta para que la ficha de prueba se comporte igual.
+    DropItemFile fakeDroppedFile(String name, {Uint8List? bytes}) =>
+        DropItemFile.fromData(bytes ?? Uint8List(0), path: name);
+
+    testWidgets('deja el archivo elegido, igual que el selector', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      await dropFiles(tester, [
+        fakeDroppedFile(
+          'foto.jpg',
+          bytes: Uint8List.fromList('contenido'.codeUnits),
+        ),
+      ]);
+
+      expect(find.text('foto.jpg'), findsOneWidget);
+    });
+
+    testWidgets('reemplaza el archivo ya elegido, no lo duplica', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      await dropFiles(tester, [fakeDroppedFile('primero.pdf')]);
+      expect(find.text('primero.pdf'), findsOneWidget);
+
+      await dropFiles(tester, [fakeDroppedFile('segundo.pdf')]);
+
+      expect(find.text('primero.pdf'), findsNothing);
+      expect(find.text('segundo.pdf'), findsOneWidget);
+    });
+
+    testWidgets('soltar más de un archivo a la vez avisa, sin elegir '
+        'ninguno', (tester) async {
+      await pumpCapture(tester);
+
+      await dropFiles(tester, [
+        fakeDroppedFile('uno.jpg'),
+        fakeDroppedFile('dos.jpg'),
+      ]);
+
+      expect(find.text(es.captureDropSingleFileOnly), findsOneWidget);
+      expect(find.byType(OutlinedButton), findsOneWidget);
+    });
+
+    testWidgets('soltar una carpeta avisa igual que soltar varios archivos', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      await dropFiles(tester, [DropItemDirectory('/una/carpeta', const [])]);
+
+      expect(find.text(es.captureDropSingleFileOnly), findsOneWidget);
+    });
+
+    testWidgets('el borde solo aparece mientras algo está arrastrado '
+        'encima', (tester) async {
+      await pumpCapture(tester);
+
+      Border? borderOf() =>
+          (tester
+                          .widget<AnimatedContainer>(
+                            find.byType(AnimatedContainer),
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .border
+              as Border?;
+
+      expect(borderOf()!.top.color, Colors.transparent);
+
+      final dropTarget = tester.widget<DropTarget>(find.byType(DropTarget));
+      dropTarget.onDragEntered!(
+        DropEventDetails(
+          localPosition: Offset.zero,
+          globalPosition: Offset.zero,
+        ),
+      );
+      await tester.pump();
+
+      expect(borderOf()!.top.color, isNot(Colors.transparent));
+
+      dropTarget.onDragExited!(
+        DropEventDetails(
+          localPosition: Offset.zero,
+          globalPosition: Offset.zero,
+        ),
+      );
+      await tester.pump();
+
+      expect(borderOf()!.top.color, Colors.transparent);
     });
   });
 }

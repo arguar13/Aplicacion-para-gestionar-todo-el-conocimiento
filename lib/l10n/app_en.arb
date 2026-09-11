@@ -216,6 +216,10 @@
       }
     }
   },
+  "captureDropSingleFileOnly": "Drop a single file at a time.",
+  "@captureDropSingleFileOnly": {
+    "description": "Aviso al soltar más de un archivo, o una carpeta, sobre la pantalla de captura."
+  },
   "@captureEmptyError": {
     "description": "Validation error when trying to save an empty capture"
   },
