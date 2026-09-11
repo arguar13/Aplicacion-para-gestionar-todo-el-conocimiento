@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
+import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
@@ -15,8 +16,10 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 /// 1. Convertir el archivo de origen —cualquier audio, o la pista de audio
 ///    de un video— a WAV de 16 kHz mono con `audio_decoder`: es el formato
 ///    exacto que espera un modelo de Whisper, sea cual sea el formato de
-///    origen.
-/// 2. Decodificar ese WAV con sherpa-onnx, en un isolate aparte.
+///    origen. Archivo a archivo, no bytes a bytes: así el origen —que puede
+///    ser un video de varios cientos de megas— nunca se carga entero en la
+///    memoria de Dart, solo lo lee el decodificador nativo.
+/// 2. Leer ese WAV y decodificarlo con sherpa-onnx, en un isolate aparte.
 ///
 /// Por qué en dos pasos y no todo junto: `audio_decoder` habla con las APIs
 /// nativas de la plataforma por un canal de método, y esos canales no
@@ -26,12 +29,18 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 /// la interfaz entera si corriera en el isolate principal. `Isolate.run`
 /// separa justo lo que hace falta separar, sin más.
 ///
+/// Ya no se usa `sherpa_onnx.readWave()`: no existe en la web (ver
+/// `SherpaOnnxAudioTranscriberWeb`), así que las dos plataformas convierten
+/// el WAV a las muestras normalizadas con la misma función de Dart puro,
+/// `pcm16ToFloat32Samples`. Acá el WAV lo sigue escribiendo `audio_decoder`
+/// con su cabecera RIFF de siempre, así que se la saltea.
+///
 /// Sin pruebas propias, igual que `MlKitImageTextExtractor` y
 /// `HttpWhisperModelManager`: envuelve un motor real —FFI nativo, en un
 /// isolate— que no tiene con qué correr en un test. Lo que sí se prueba es
 /// `AudioTranscriptTransformer`, contra un doble de esta interfaz.
-class SherpaOnnxAudioTranscriber implements AudioTranscriber {
-  const SherpaOnnxAudioTranscriber({
+class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
+  const SherpaOnnxAudioTranscriberIo({
     required WhisperModelManager model,
     required Future<Directory> Function() temporaryDirectory,
   }) : _model = model,
@@ -44,6 +53,10 @@ class SherpaOnnxAudioTranscriber implements AudioTranscriber {
   /// parte del modelo, así que no se expone como parámetro.
   static const _sampleRate = 16000;
 
+  /// El tamaño de la cabecera RIFF/WAV que escribe `audio_decoder`: 44
+  /// bytes fijos, sin fragmentos extra.
+  static const _wavHeaderBytes = 44;
+
   /// Un solo nombre fijo, no uno por llamada: la cola procesa de a un
   /// elemento por vez, así que nunca hay dos conversiones en curso al mismo
   /// tiempo, y un nombre fijo es uno menos que limpiar si algo se
@@ -51,7 +64,7 @@ class SherpaOnnxAudioTranscriber implements AudioTranscriber {
   static const _tempFileName = 'sinapsis-transcripcion.wav';
 
   @override
-  Future<String> transcribe(String absolutePath) async {
+  Future<String> transcribe(String path) async {
     if (!await _model.isReady()) throw const WhisperModelNotReadyException();
 
     final modelPaths = await _model.paths();
@@ -67,7 +80,7 @@ class SherpaOnnxAudioTranscriber implements AudioTranscriber {
 
     try {
       await AudioDecoder.convertToWav(
-        absolutePath,
+        path,
         wavPath,
         sampleRate: _sampleRate,
         channels: 1,
@@ -90,13 +103,15 @@ class SherpaOnnxAudioTranscriber implements AudioTranscriber {
           ),
         );
 
-        final wave = sherpa_onnx.readWave(wavPath);
+        final wavBytes = File(wavPath).readAsBytesSync();
+        final samples = pcm16ToFloat32Samples(
+          wavBytes,
+          headerBytes: _wavHeaderBytes,
+        );
+
         final stream = recognizer.createStream();
         try {
-          stream.acceptWaveform(
-            samples: wave.samples,
-            sampleRate: wave.sampleRate,
-          );
+          stream.acceptWaveform(samples: samples, sampleRate: _sampleRate);
           recognizer.decode(stream);
           return recognizer.getResult(stream).text;
         } finally {

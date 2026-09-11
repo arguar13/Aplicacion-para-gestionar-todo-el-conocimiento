@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -56,8 +57,11 @@ class AudioTranscriptTransformer implements Transformer {
     // varios cientos de megas.
     if (!await _files.exists(path)) throw MissingOriginalFileException(path);
 
-    final absolutePath = await _files.resolve(path);
-    final text = await _transcriber.transcribe(absolutePath);
+    // En la web `resolve()` no tiene sentido —no hay ruta absoluta— así
+    // que el transcriptor recibe la ruta relativa y la resuelve por su
+    // cuenta.
+    final transcriberPath = kIsWeb ? path : await _files.resolve(path);
+    final text = await _transcriber.transcribe(transcriberPath);
 
     // Sin texto transcripto no es un fallo: un video sin diálogo, música
     // instrumental, silencio. El elemento se marca listo igual, con el

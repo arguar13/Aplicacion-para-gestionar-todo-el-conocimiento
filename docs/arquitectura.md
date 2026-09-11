@@ -480,22 +480,31 @@ en vez de asumir cambió la respuesta para las dos cosas, aunque no de la
 misma forma.
 
 **Transcripción.** `sherpa_onnx` —ya elegido en la decisión 8— trae su
-propio soporte de WebAssembly, con el mismo `OfflineRecognizer` y la misma
-API pública que la versión nativa: el código que arma la configuración del
-modelo y decodifica el audio es, en su mayor parte, el mismo en las dos
-plataformas. Dos diferencias reales, no cosméticas:
+propio soporte de WebAssembly, con la misma API pública que la versión
+nativa en el papel. En la práctica hicieron falta dos ajustes reales y el
+arreglo de un defecto del propio paquete, ninguno cosmético:
 
 - `readWave()` —la función que lee un WAV de disco— está sin implementar en
   la web ("not yet supported"). La solución no es esquivarla con un parche
-  para la web: es dejar de depender de ella *en las dos plataformas*.
-  `audio_decoder.convertToWavBytes(..., includeHeader: false)` devuelve las
-  muestras PCM en crudo, en memoria, sin pasar por ningún archivo —ya
-  funcionaba así en Android, y la versión de `audio_decoder` para la web
-  usa exactamente ese mismo camino, porque en el navegador tampoco hay una
-  ruta de archivo que darle a nada—. Convertir esos bytes a las muestras
-  normalizadas que pide `acceptWaveform()` son diez líneas de Dart puro,
-  iguales en cualquier plataforma. Resultado: menos código específico de
-  plataforma que antes de esta fase, no más.
+  para la web: es dejar de depender de ella *en las dos plataformas*, con
+  una sola función de Dart puro (`pcm16ToFloat32Samples`, con sus propias
+  pruebas) que convierte PCM de 16 bits a las muestras normalizadas que
+  pide `acceptWaveform()`. Lo que sigue siendo distinto es de dónde salen
+  esos bytes, porque ahí sí hay una asimetría real entre plataformas: fuera
+  de la web, `audio_decoder.convertToWav()` sigue convirtiendo el archivo
+  de origen a un WAV temporal *archivo a archivo*, no bytes a bytes —para
+  que un video de cientos de megas nunca se cargue entero en la memoria de
+  Dart—, y de ahí se leen los bytes ya convertidos para pasarlos por
+  `pcm16ToFloat32Samples`. En la web, `convertToWav()` está directamente
+  sin implementar ("Use convertToWavBytes instead"): no hay alternativa a
+  cargar el origen entero en memoria y usar `convertToWavBytes()`, que
+  además ignora el `formatHint` que pide como argumento obligatorio —en la
+  web decodifica con la Web Audio API, que reconoce el formato por el
+  contenido, no por una pista aparte— y lo resuelve con la propia API del
+  navegador en vez de con un archivo temporal. Resultado: una función de
+  conversión final compartida entre plataformas; lo que cambia es solo
+  cómo se llega a esos bytes, y ese cambio es inherente a no tener sistema
+  de archivos en el navegador, no una limitación evitable.
 - `dart:isolate` no compila en la web —se le sacó el soporte a `dart2js`
   hace años, y sigue así—, así que `Isolate.run` no es una opción ahí. La
   implementación web de sherpa-onnx tampoco lo intenta: decodifica en el
@@ -504,6 +513,60 @@ plataformas. Dos diferencias reales, no cosméticas:
   congela mientras dura una transcripción, que es una molestia real pero
   medible y documentada, no un fallo silencioso — y muy por debajo de no
   poder transcribir nada en el navegador.
+- **Un defecto real de `sherpa_onnx_web` 1.13.8**, encontrado compilando una
+  app de prueba y corriéndola en un Chromium de verdad —no alcanzaba con
+  leer el código—: `sherpa-onnx-asr.js` declara `OfflineRecognizer` con
+  `class`, y `SherpaOnnxWeb.loadWasm()` carga ese archivo con un `eval`
+  indirecto. Una clase declarada así nunca queda alcanzable desde afuera:
+  ni por `globalThis.OfflineRecognizer` —que es como la busca
+  `dart:js_interop`—, ni siquiera nombrándola en un `eval` indirecto
+  posterior, porque cada `eval` indirecto tiene su propio entorno léxico
+  que desaparece en cuanto esa llamada termina. El resultado, verificado
+  con una app Dart real: `sherpa_onnx.OfflineRecognizer(...)` reventaba
+  siempre con "OfflineRecognizer not found", incluso después de un
+  `initBindingsAsync()` sin ningún error. `createOnlineRecognizer` —el de
+  reconocimiento en vivo, que esta app no usa— no tiene este problema: ese
+  sí es una función, y las funciones declaradas en un `eval` indirecto sí
+  quedan alcanzables. El arreglo, en `sherpa_onnx_offline_recognizer_fix.dart`:
+  cargar el mismo archivo una segunda vez, pero como una etiqueta
+  `<script>` de verdad en vez de un `eval` —los `<script>`, a diferencia de
+  los `eval`, sí comparten un mismo entorno global persistente entre
+  ellos— y copiar la clase desde ahí a
+  `globalThis.OfflineRecognizer`. Repite el trabajo de cargar un archivo
+  que `initBindingsAsync()` ya cargó una vez, pero es la única forma de
+  dejar la clase alcanzable sin tocar el paquete. Verificado compilando esa
+  misma app de prueba con el arreglo puesto: el motor de WebAssembly llega
+  a validar de verdad la configuración que se le pasa, con los mensajes de
+  error del propio C++ de sherpa-onnx en la consola del navegador. Si una
+  versión futura del paquete expone la clase por su cuenta, este arreglo
+  se puede borrar entero.
+
+El modelo en sí se guarda en OPFS con `OpfsWhisperModelManager`, en su
+propia carpeta —separada de `originales/`, porque un modelo no es un
+archivo original de ningún elemento—. Sus `paths()` no son rutas reales
+—OPFS no las tiene—: son las constantes que entiende el sistema de
+archivos virtual del propio motor de WebAssembly, sin ninguna relación con
+dónde vive nada en OPFS. Para que esas rutas signifiquen algo hace falta
+copiar los bytes ahí con `Module.FS.writeFile()` antes de crear el
+reconocedor —confirmado que existe y funciona con la misma prueba de la
+app real—, porque en la web sherpa-onnx no lee ningún archivo por su
+cuenta.
+
+**Una duda que queda abierta, a propósito:** los tres archivos del modelo
+siguen viniendo de Hugging Face, igual que en Android, pero ahí sí hay una
+diferencia real entre plataformas que no se pudo terminar de verificar. Un
+navegador exige que el servidor conteste con encabezados CORS para dejar
+leer la respuesta desde otro origen, y una app nativa no tiene esa
+restricción. Hugging Face no los mandaba en 2021 (un problema reportado y
+ya cerrado en su repositorio), y todo indica que hoy sí —`transformers.js`,
+la propia librería de Hugging Face para correr modelos en el navegador,
+depende exactamente de esto—, pero este entorno de trabajo bloquea
+`huggingface.co` a nivel de red y no hay forma de probarlo de manera
+directa. Si algún día resulta que no manda esos encabezados, la descarga
+fallaría con un error de red —ya manejado como cualquier otro fallo de
+conexión, por el mismo camino que "sin internet" en Android— en vez de
+romper la app; no haría falta ningún cambio de arquitectura, solo mover el
+origen de los tres archivos a uno que sí los mande.
 
 **Reconocimiento de texto en imágenes.** Google ML Kit no tiene ninguna
 versión web: es un SDK nativo de Android/iOS, no algo que se pueda compilar
@@ -521,7 +584,10 @@ en la excepción silenciosa que el principio 1 prohíbe.
 transcripción para mantener, uno por plataforma. Y en la web, mientras dura
 una transcripción larga, la interfaz no responde —una limitación real,
 compartida con el propio motor de sherpa-onnx, no una que esta app podría
-evitar sola—.
+evitar sola—. Además, `sherpa-onnx-asr.js` se termina cargando dos veces
+—una al pedirlo `initBindingsAsync()`, otra al arreglar el acceso a
+`OfflineRecognizer`—: un archivo de menos de 100 KB, un costo real pero
+menor comparado con los cientos de megas del propio modelo.
 
 ### 11. Lo que en la web se adapta, y lo que se omite sin más
 
