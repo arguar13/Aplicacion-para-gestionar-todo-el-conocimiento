@@ -297,15 +297,17 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   invalidar bóvedas existentes.
 - Español e inglés, tema claro y oscuro, manejo de errores de punta a punta y
   telemetría opcional sin datos personales.
+- **Fase 1, la fundación de datos.** Las siete tablas con sus cascadas y sus
+  restricciones, la búsqueda de texto completo sincronizada por triggers, y
+  el repositorio de la biblioteca con guardado atómico, filtros combinables,
+  orden por relevancia y streams que se actualizan solos. Probado contra
+  SQLite real: un doble respondería lo que se le pida sin ejercitar ninguna
+  cascada ni ningún trigger.
 
 ### Por construir
 
 El orden busca que haya algo utilizable lo antes posible, y deja para el final
 lo más pesado.
-
-**Fase 1 — Fundación de datos.** Esquema en drift, `Item`, `Source`,
-`Rendition`, `Tag`, FTS5 y los repositorios. Sin interfaz todavía. Todo lo
-demás se apoya acá, así que equivocarse en esta fase es caro.
 
 **Fase 2 — Capturar y leer.** Recibir contenido compartido, pegar enlaces,
 soltar archivos, escribir notas. Lista, detalle, búsqueda y filtros. Al

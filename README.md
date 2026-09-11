@@ -97,12 +97,17 @@ La base está construida y verificada. El producto, no todavía.
   telemetría opcional sin datos personales, y mensajes traducidos por tipo.
 - Integración continua que analiza, formatea, prueba, exige 80% de cobertura
   y compila los tres flavors de Android.
+- La fundación de datos: siete tablas con sus cascadas y restricciones,
+  búsqueda de texto completo con FTS5 sincronizada por triggers, y el
+  repositorio de la biblioteca con filtros, orden, paginación y streams que
+  se actualizan solos. Probado contra SQLite real, no contra dobles.
 
 **Por construir**
 
 Captura, transformación, organización y exportación — el producto en sí. El
 diseño de cada etapa y el orden en que se van a construir están en
-[`docs/arquitectura.md`](docs/arquitectura.md).
+[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es capturar y
+leer.
 
 ## Correr el proyecto
 
