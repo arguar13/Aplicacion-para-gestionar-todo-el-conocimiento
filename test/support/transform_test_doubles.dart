@@ -1,3 +1,10 @@
+// Los dobles lanzan lo que el test les dé, y el tipo tiene que ser `Object`
+// porque `Exception` y `Error` no comparten más supertipo que ese. Es
+// deliberado: la app tiene que sobrevivir a las dos cosas —una librería ajena
+// puede tirar un `Error` de parseo— y eso solo se puede probar si el doble
+// puede simular ambas.
+// ignore_for_file: only_throw_errors
+
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';

@@ -6,28 +6,15 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
+import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
-
-class SilentLogger implements AppLogger {
-  @override
-  void debug(String message, [Object? error, StackTrace? stackTrace]) {}
-  @override
-  void info(String message, [Object? error, StackTrace? stackTrace]) {}
-  @override
-  void warning(String message, [Object? error, StackTrace? stackTrace]) {}
-  @override
-  void error(String message, [Object? error, StackTrace? stackTrace]) {}
-  @override
-  void fatal(String message, [Object? error, StackTrace? stackTrace]) {}
-}
 
 void main() {
   late AppDatabase db;
@@ -48,7 +35,7 @@ void main() {
   ProcessItemUseCase build(TransformerRegistry registry) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
-    logger: SilentLogger(),
+    logger: const SilentLogger(),
     telemetry: MockTelemetryService(),
     clock: () => now,
   );

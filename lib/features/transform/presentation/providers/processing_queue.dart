@@ -39,16 +39,37 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   final AppLogger _logger;
 
   final _queue = Queue<String>();
+
+  /// El que se está procesando ahora mismo.
+  ///
+  /// Se lleva aparte de [_queue] porque el elemento en curso ya salió de
+  /// ella: mirar solo la cola daría por nuevo algo que en ese instante se
+  /// está descargando.
+  String? _current;
+
   var _isDraining = false;
   var _isDisposed = false;
 
   /// Suma un elemento a la cola y arranca si no estaba andando.
   void enqueue(String itemId) {
-    // Sin esta comprobación, capturar y volver a abrir la app encolaría dos
-    // veces lo mismo y se descargaría dos veces.
-    if (_queue.contains(itemId)) return;
+    // Sin esta comprobación, capturar algo y volver a abrir la app encolaría
+    // dos veces lo mismo y se descargaría dos veces.
+    if (itemId == _current || _queue.contains(itemId)) return;
 
     _queue.add(itemId);
+
+    // Lo que acaba de entrar cambia cuántos faltan. Sin este refresco, vaciar
+    // una lista de diez pendientes mostraría "faltan 0" hasta que terminara
+    // el primero, porque el contador solo se publica al sacar el siguiente de
+    // la cola.
+    final current = state;
+    if (current is QueueWorking) {
+      state = ProcessingQueueState.working(
+        currentItemId: current.currentItemId,
+        remaining: _queue.length,
+      );
+    }
+
     unawaited(_drain());
   }
 
@@ -84,19 +105,24 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     try {
       while (_queue.isNotEmpty && !_isDisposed) {
         final itemId = _queue.removeFirst();
+        _current = itemId;
         state = ProcessingQueueState.working(
           currentItemId: itemId,
           remaining: _queue.length,
         );
 
-        // El caso de uso no lanza: traduce cualquier fallo a un `Left` y deja
-        // el elemento marcado. Es lo que permite que un enlace roto no corte
-        // la cola y los demás sigan procesándose.
-        final result = await _processItem(itemId);
-        result.match(
-          (failure) => _logger.warning('Quedó pendiente $itemId: $failure'),
-          (_) {},
-        );
+        try {
+          // El caso de uso no lanza: traduce cualquier fallo a un `Left` y
+          // deja el elemento marcado. Es lo que permite que un enlace roto no
+          // corte la cola y los demás sigan procesándose.
+          final result = await _processItem(itemId);
+          result.match(
+            (failure) => _logger.warning('Quedó pendiente $itemId: $failure'),
+            (_) {},
+          );
+        } finally {
+          _current = null;
+        }
       }
     } finally {
       _isDraining = false;
