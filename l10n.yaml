@@ -1,0 +1,13 @@
+# Config de `flutter gen-l10n`. Con `generate: true` en pubspec.yaml,
+# `flutter pub get` (y `flutter run`/`build`/`test`) regeneran esto solo.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+
+# El paquete sintético `flutter_gen` ya no existe en Flutter recientes —
+# el código generado siempre va a un directorio normal del proyecto ahora.
+# `output-dir` lo saca de `lib/l10n/` (donde viven los .arb fuente) a su
+# propia carpeta, en el mismo espíritu que *.freezed.dart/*.g.dart:
+# generado, no se versiona (ver .gitignore), se regenera en CI.
+output-dir: lib/l10n/generated

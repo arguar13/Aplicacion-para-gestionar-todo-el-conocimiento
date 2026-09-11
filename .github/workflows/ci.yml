@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - develop
+
+# Si se empuja un nuevo commit a un PR mientras el run anterior sigue
+# corriendo, cancela el viejo — evita gastar minutos de Actions en un
+# resultado que ya quedó obsoleto.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze, format & test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cachea los paquetes de pub.dev (no el SDK de Flutter, eso lo
+      # cachea flutter-action con `cache: true` más abajo). Se invalida
+      # solo cuando cambia pubspec.lock.
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.2"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Obligatorio en este repo: *.freezed.dart / *.g.dart están en
+      # .gitignore (no se versiona código generado), así que sin este
+      # paso `flutter analyze` y `flutter test` fallan de entrada al no
+      # poder resolver los `part 'x.freezed.dart';`.
+      - name: Generate code (freezed / json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      # `lib/l10n/generated/` también está gitignoreado (mismo criterio).
+      # `flutter pub get` ya lo dispara solo por `generate: true` en
+      # pubspec.yaml, pero se deja explícito por las dudas — no vale la
+      # pena depender de un side-effect implícito para algo que rompe el
+      # build entero si falla.
+      - name: Generate localizations (AppLocalizations)
+        run: flutter gen-l10n
+
+      # Falla el pipeline si algún archivo no está formateado con
+      # `dart format` (--output=none no reescribe nada, solo reporta).
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      # Reglas estrictas de very_good_analysis (analysis_options.yaml):
+      # cero advertencias o errores tolerados.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --coverage
+
+      # `lib/l10n/generated/**` (AppLocalizations) es código generado
+      # mecánicamente desde los .arb — igual que *.freezed.dart/*.g.dart,
+      # no debería inflar ni desinflar el % de cobertura de lógica propia.
+      # Esos dos sí quedan afuera solos (son `part of`, coverage no los
+      # reporta como archivo aparte); los de l10n sí son librerías propias
+      # y hay que sacarlos a mano.
+      - name: Strip generated localizations from coverage report
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y lcov
+          lcov --remove coverage/lcov.info 'lib/l10n/generated/*' \
+            -o coverage/lcov.info --ignore-errors unused
+
+      # Falla el pipeline si la cobertura de línea baja de 80%.
+      - name: Enforce minimum coverage
+        uses: VeryGoodOpenSource/very_good_coverage@v3
+        with:
+          path: coverage/lcov.info
+          min_coverage: 80

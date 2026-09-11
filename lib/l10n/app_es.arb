@@ -1,0 +1,26 @@
+{
+  "@@locale": "es",
+
+  "loginTitle": "Iniciar sesión",
+  "emailLabel": "Correo electrónico",
+  "emailEmptyError": "Ingresa tu correo electrónico.",
+  "emailInvalidError": "Ingresa un correo electrónico válido.",
+  "passwordLabel": "Contraseña",
+  "passwordEmptyError": "Ingresa tu contraseña.",
+  "loginButton": "Ingresar",
+  "passwordsDoNotMatchError": "Las contraseñas no coinciden.",
+  "dashboardTitle": "Inicio",
+  "logoutTooltip": "Cerrar sesión",
+  "themeModeTooltip": "Cambiar tema",
+  "languageTooltip": "Cambiar idioma",
+  "loadErrorRetry": "Reintentar",
+  "navHome": "Inicio",
+  "navProfile": "Perfil",
+  "navSettings": "Ajustes",
+  "welcomeMessage": "Hola de nuevo, {name}",
+  "resultsCount": "{count, plural, =0{Sin resultados} =1{1 resultado} other{{count} resultados}}",
+  "globalErrorNetwork": "Sin conexión a internet. Revisala e intentá de nuevo.",
+  "globalErrorUnauthorized": "Tu sesión expiró. Iniciá sesión de nuevo.",
+  "globalErrorServer": "Algo falló de nuestro lado. Intentá de nuevo en un momento.",
+  "globalErrorUnexpected": "Ocurrió un error inesperado."
+}

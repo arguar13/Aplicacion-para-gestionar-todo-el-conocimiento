@@ -1,0 +1,43 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# pubspec.lock SÍ se versiona: esto es una app, no un package, y fijar
+# versiones exactas evita el tipo de desalineación analyzer/build_runner
+# que ya nos rompió el build una vez durante el setup inicial.
+
+# Generated code
+*.freezed.dart
+*.g.dart
+*.mocks.dart
+lib/l10n/generated/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Android / iOS (artefactos locales de build, no el proyecto nativo)
+android/.gradle/
+android/local.properties
+android/**/build/
+ios/Pods/
+ios/Flutter/Flutter.podspec
+ios/.symlinks/
+
+# Env / secretos
+*.env
+.env*
+!.env.example
+
+# Misc
+*.log
+
+# Node (mock server)
+mock_server/node_modules/
+coverage/

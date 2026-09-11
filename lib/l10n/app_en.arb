@@ -1,0 +1,125 @@
+{
+  "@@locale": "en",
+
+  "loginTitle": "Log In",
+  "@loginTitle": {
+    "description": "Title of the login screen"
+  },
+
+  "emailLabel": "Email",
+  "@emailLabel": {
+    "description": "Label for the email text field"
+  },
+
+  "emailEmptyError": "Enter your email.",
+  "@emailEmptyError": {
+    "description": "Validation error shown when the email field is left empty"
+  },
+
+  "emailInvalidError": "Enter a valid email.",
+  "@emailInvalidError": {
+    "description": "Validation error shown when the email doesn't look like a real address"
+  },
+
+  "passwordLabel": "Password",
+  "@passwordLabel": {
+    "description": "Label for the password text field"
+  },
+
+  "passwordEmptyError": "Enter your password.",
+  "@passwordEmptyError": {
+    "description": "Validation error shown when the password field is left empty"
+  },
+
+  "loginButton": "Sign In",
+  "@loginButton": {
+    "description": "Submit button on the login screen (deliberately distinct wording from loginTitle, both for UX clarity and to keep the title/button uniquely findable in the UI)"
+  },
+
+  "passwordsDoNotMatchError": "Passwords don't match.",
+  "@passwordsDoNotMatchError": {
+    "description": "Shown on sign-up when password and confirmPassword differ"
+  },
+
+  "dashboardTitle": "Home",
+  "@dashboardTitle": {
+    "description": "Title of the dashboard AppBar"
+  },
+
+  "logoutTooltip": "Log Out",
+  "@logoutTooltip": {
+    "description": "Tooltip for the logout icon button"
+  },
+
+  "themeModeTooltip": "Change theme",
+  "@themeModeTooltip": {
+    "description": "Tooltip for the theme (light/dark/system) toggle button"
+  },
+
+  "languageTooltip": "Change language",
+  "@languageTooltip": {
+    "description": "Tooltip for the language toggle button"
+  },
+
+  "loadErrorRetry": "Retry",
+  "@loadErrorRetry": {
+    "description": "Retry button shown when loading the dashboard profile failed"
+  },
+
+  "navHome": "Home",
+  "@navHome": {
+    "description": "Navigation destination label"
+  },
+
+  "navProfile": "Profile",
+  "@navProfile": {
+    "description": "Navigation destination label"
+  },
+
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Navigation destination label"
+  },
+
+  "welcomeMessage": "Welcome back, {name}",
+  "@welcomeMessage": {
+    "description": "Greeting on the dashboard, includes the signed-in user's name",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Ana"
+      }
+    }
+  },
+
+  "resultsCount": "{count, plural, =0{No results} =1{1 result} other{{count} results}}",
+  "@resultsCount": {
+    "description": "Generic pluralized result-count label, reusable by any future list/search feature",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+
+  "globalErrorNetwork": "No internet connection. Please check it and try again.",
+  "@globalErrorNetwork": {
+    "description": "Global snackbar shown for any failed request caused by a connectivity problem, regardless of the active screen"
+  },
+
+  "globalErrorUnauthorized": "Your session expired. Please log in again.",
+  "@globalErrorUnauthorized": {
+    "description": "Global snackbar shown when a request is rejected for an expired/invalid session"
+  },
+
+  "globalErrorServer": "Something went wrong on our end. Please try again shortly.",
+  "@globalErrorServer": {
+    "description": "Global snackbar shown for an unexpected server-side failure"
+  },
+
+  "globalErrorUnexpected": "An unexpected error occurred.",
+  "@globalErrorUnexpected": {
+    "description": "Global snackbar fallback for any error type not otherwise covered"
+  }
+}
