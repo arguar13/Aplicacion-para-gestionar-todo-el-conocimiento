@@ -48,6 +48,11 @@ dependencies:
   json_annotation: ^4.12.0
   logger: ^2.5.0
   meta: ^1.16.0
+  # Abrir el archivo original con la app que el sistema tenga asociada a su
+  # tipo (el lector de PDF, el procesador de textos). Licencia BSD-3-Clause,
+  # y el único candidato con soporte parejo en los seis destinos del
+  # proyecto — Android, iOS, Windows, macOS, Linux y web.
+  open_app_file: ^4.0.5
   # Para guardar los archivos pesados (PDFs, audio, imágenes, copias de
   # páginas) fuera de la base: SQLite se vuelve lento si se le meten binarios
   # grandes, y casi ninguna consulta los necesita.

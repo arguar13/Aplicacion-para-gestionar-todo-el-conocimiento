@@ -10,6 +10,8 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/storage/file_opener.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
@@ -261,13 +263,13 @@ class _NoContentYet extends ConsumerWidget {
   }
 }
 
-class _Provenance extends StatelessWidget {
+class _Provenance extends ConsumerWidget {
   const _Provenance({required this.item});
 
   final KnowledgeItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final source = item.source;
@@ -302,19 +304,56 @@ class _Provenance extends StatelessWidget {
         // archivo **es** la fuente. Sin esta fila, el detalle no diría en
         // ninguna parte que la copia original está a salvo, y el usuario
         // tendría que confiar en que sí.
-        if (source.originalFilePath != null)
+        if (source.originalFilePath != null) ...[
           _ProvenanceRow(
             icon: Icons.folder_outlined,
             text: l10n.detailOriginalFile(
               originalFileNameOf(source.originalFilePath!),
             ),
           ),
+          TextButton.icon(
+            onPressed: () =>
+                _openOriginalFile(context, ref, source.originalFilePath!),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(l10n.detailOpenFile),
+          ),
+        ],
         if (source.url != null) ...[
           const SizedBox(height: 12),
           _OriginalLink(url: source.url!),
         ],
       ],
     );
+  }
+
+  /// Pide al almacén la ruta absoluta y se la pasa a la app del sistema.
+  ///
+  /// Solo avisa cuando algo sale mal: si se abrió, el sistema ya está
+  /// mostrando el archivo y una confirmación encima sería ruido.
+  Future<void> _openOriginalFile(
+    BuildContext context,
+    WidgetRef ref,
+    String relativePath,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final absolutePath = await ref
+        .read(fileStoreProvider)
+        .resolve(relativePath);
+    final result = await ref.read(fileOpenerProvider).open(absolutePath);
+    if (!context.mounted) return;
+
+    final message = switch (result) {
+      FileOpenResult.done => null,
+      FileOpenResult.fileNotFound => l10n.detailOpenFileNotFound,
+      FileOpenResult.noAppAvailable => l10n.detailOpenFileNoApp,
+      FileOpenResult.failed => l10n.detailOpenFileFailed,
+    };
+    if (message == null) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

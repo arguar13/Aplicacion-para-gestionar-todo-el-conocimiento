@@ -248,6 +248,22 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
+  "detailOpenFile": "Open file",
+  "@detailOpenFile": {
+    "description": "Botón que abre el archivo original con la aplicación del sistema."
+  },
+  "detailOpenFileNotFound": "The original file is no longer on this device.",
+  "@detailOpenFileNotFound": {
+    "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."
+  },
+  "detailOpenFileNoApp": "This device has no app to open this file.",
+  "@detailOpenFileNoApp": {
+    "description": "Aviso al intentar abrir un archivo cuyo tipo no tiene ninguna aplicación asociada."
+  },
+  "detailOpenFileFailed": "The file couldn't be opened.",
+  "@detailOpenFileFailed": {
+    "description": "Aviso genérico cuando abrir el archivo original falla por cualquier otro motivo."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

@@ -24,6 +24,7 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import 'fake_file_chooser.dart';
+import 'fake_file_opener.dart';
 import 'fake_id_generator.dart';
 import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
@@ -42,6 +43,7 @@ class LibraryHarness {
     this.ids,
     this.fileChooser,
     this.files,
+    this.fileOpener,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -66,6 +68,7 @@ class LibraryHarness {
     final ids = FakeIdGenerator();
     final chooser = FakeFileChooser(file: chosenFile, error: fileChooserError);
     final files = InMemoryFileStore();
+    final opener = FakeFileOpener();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -82,6 +85,10 @@ class LibraryHarness {
         // una prueba de pantalla no tiene por qué dejar archivos en el disco
         // de quien la corre.
         fileStoreProvider.overrideWithValue(files),
+        // El complemento nativo que abre archivos con la app del sistema no
+        // tiene con qué hablar en un test: no hay sistema operativo real que
+        // responda al otro lado del canal.
+        fileOpenerProvider.overrideWithValue(opener),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -107,7 +114,7 @@ class LibraryHarness {
       return database.close();
     });
 
-    return LibraryHarness._(container, database, ids, chooser, files);
+    return LibraryHarness._(container, database, ids, chooser, files, opener);
   }
 
   final ProviderContainer container;
@@ -119,6 +126,10 @@ class LibraryHarness {
 
   /// El almacén en memoria, para comprobar qué archivo quedó guardado.
   final InMemoryFileStore files;
+
+  /// El abridor de archivos de mentira, para comprobar qué se le pidió abrir
+  /// y simular qué contesta el sistema operativo.
+  final FakeFileOpener fileOpener;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

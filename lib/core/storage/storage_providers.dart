@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/storage/local_file_store.dart';
+import 'package:sinapsis/core/storage/open_app_file_opener.dart';
 
 /// El almacén de archivos originales.
 ///
@@ -10,4 +12,8 @@ import 'package:sinapsis/core/storage/local_file_store.dart';
 /// perder el PDF original rompería la promesa central de la app.
 final fileStoreProvider = Provider<FileStore>((ref) {
   return const LocalFileStore(rootDirectory: getApplicationDocumentsDirectory);
+});
+
+final fileOpenerProvider = Provider<FileOpener>((ref) {
+  return const OpenAppFileOpener();
 });
