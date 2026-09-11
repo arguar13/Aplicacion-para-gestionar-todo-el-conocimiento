@@ -43,6 +43,17 @@ class WebArticleTransformer implements Transformer {
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// Convierte el HTML del artículo a Markdown.
+  ///
+  /// `headingStyle: 'atx'` no es un detalle de gusto. Por defecto la
+  /// librería escribe los encabezados de nivel 1 y 2 al estilo antiguo
+  /// —subrayados con `===` y `---`— y del 3 en adelante con almohadillas,
+  /// así que un mismo documento sale con dos convenciones mezcladas. Con
+  /// `atx` todos quedan como `#`, `##`, `###`, que es lo que esperan
+  /// Obsidian, Logseq y cualquier editor actual.
+  String _toMarkdown(String html) =>
+      html2md.convert(html, styleOptions: const {'headingStyle': 'atx'});
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.webPage) return false;
@@ -83,7 +94,7 @@ class WebArticleTransformer implements Transformer {
           id: _ids.next(),
           itemId: item.id,
           kind: RenditionKind.markdown,
-          content: html2md.convert(article.contentHtml),
+          content: _toMarkdown(article.contentHtml),
           isPrimary: true,
           createdAt: now,
         ),
