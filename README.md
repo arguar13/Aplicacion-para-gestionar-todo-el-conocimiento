@@ -1,0 +1,170 @@
+# Sinapsis
+
+Un gestor de conocimiento multi-fuente. Todo lo que leés, mirás y escuchás
+en un solo lugar, convertido en texto que podés buscar, relacionar y llevarte
+—sin perder de dónde salió.
+
+Funciona enteramente en tu dispositivo. Sin cuenta, sin servidor, sin
+suscripción.
+
+---
+
+## El problema
+
+El conocimiento que vale la pena llega en formatos que no se hablan entre sí
+y desde lugares que no dejan sacarlo: un reel sin transcripción, un hilo de X
+que mañana puede no estar, un short con una idea de treinta segundos, un PDF
+de trescientas páginas, una página que en seis meses da 404.
+
+La respuesta habitual es una pila de herramientas sueltas —una para bajar
+subtítulos, otra para transcribir audio, otra para limpiar páginas, otra para
+guardar recortes, otra para tomar notas— cada una con su cuenta, su límite
+gratuito y su formato propio. El trabajo de pegarlas queda del lado de uno, se
+hace a mano cada vez, y lo guardado termina desperdigado entre cinco servicios
+que no se conocen.
+
+Sinapsis hace ese trabajo: recibe cualquier cosa, la convierte en texto
+buscable, conserva el rastro de su origen y la conecta con el resto.
+
+## Cómo funciona
+
+```
+  CAPTURA            TRANSFORMACIÓN          ORGANIZACIÓN          SALIDA
+                                                              
+  compartir     →    audio → texto      →   categorías     →   Markdown
+  pegar enlace       imagen → texto         etiquetas          PDF
+  soltar archivo     página → artículo      relaciones         texto plano
+  escribir           PDF/EPUB → texto       búsqueda           HTML original
+                     video → transcripción  filtros            NotebookLM
+                                                              
+  ───────────────────────────────────────────────────────────────────────
+  La procedencia viaja con el contenido en todo el recorrido: enlace
+  original, autor, perfil, fecha de captura y copia del formato de origen.
+```
+
+Nada se pierde en la conversión. Si era un video de YouTube, queda la
+transcripción **y** el enlace. Si era un tweet, el texto **y** el perfil de
+quien lo escribió. Si era una página, el artículo limpio **y** una copia de la
+página tal como estaba el día que la guardaste.
+
+## Qué acepta, y en qué lo convierte
+
+| Entra | Sale |
+|---|---|
+| Video o short de YouTube | Transcripción, con marcas de tiempo y enlace |
+| Reel, TikTok, nota de voz, podcast | Transcripción del audio (Whisper, en el dispositivo) |
+| Captura de pantalla, foto de un libro | El texto de la imagen (OCR), con la imagen al lado |
+| Publicación de X, Bluesky, Mastodon | Texto, autor, enlace al perfil y a la publicación |
+| Artículo o página web | Artículo limpio, sin banners, y copia del original |
+| PDF, EPUB, DOCX | Texto con su estructura, capítulos e imágenes |
+| Un apunte propio | Texto, igual que todo lo demás |
+
+Y de ahí sale en el formato que quieras: Markdown, PDF, texto plano, HTML, o
+empaquetado para llevarlo a NotebookLM.
+
+## Las herramientas que reemplaza
+
+El plan inicial de este proyecto era encadenar a mano DownSub, SingleFile,
+Glasp, PrintFriendly, TurboScribe, Whisper y Notion. Casi ninguna tiene API
+pública gratuita, así que integrarlas significaría scraping frágil o cuentas
+de pago. Pero la capacidad de cada una es replicable con librerías de código
+abierto, y así queda mejor: sin cuentas, sin cuotas, sin conexión, y sin
+romperse cuando un servicio cambia su HTML.
+
+| Herramienta | En su lugar |
+|---|---|
+| DownSub | `youtube_explode_dart` — subtítulos sin API key ni cuotas |
+| Whisper | Integrado de verdad, corriendo en el dispositivo |
+| TurboScribe | Cubierto por lo anterior |
+| SingleFile | Su enfoque: HTML con los recursos incrustados en un solo archivo |
+| PrintFriendly | Readability de Mozilla, más generación de PDF |
+| Glasp | Resaltados propios — es el núcleo de la app, no un anexo |
+| NotebookLM | No tiene API pública (solo Enterprise, de pago). Se exporta en el formato que mejor ingiere y se abre el notebook |
+
+## Estado
+
+La base está construida y verificada. El producto, no todavía.
+
+**Listo**
+
+- Arquitectura por capas, con tres flavors (dev / staging / prod) y sus
+  equivalentes nativos en Android.
+- Bóveda local protegida con clave: PBKDF2 en el almacén seguro del sistema,
+  límite de intentos con espera creciente, y migración de parámetros del KDF
+  sin invalidar bóvedas existentes.
+- Español e inglés, tema claro y oscuro, ambos recordados entre arranques.
+- Manejo de errores de punta a punta: captura de fallos no manejados,
+  telemetría opcional sin datos personales, y mensajes traducidos por tipo.
+- Integración continua que analiza, formatea, prueba, exige 80% de cobertura
+  y compila los tres flavors de Android.
+
+**Por construir**
+
+Captura, transformación, organización y exportación — el producto en sí. El
+diseño de cada etapa y el orden en que se van a construir están en
+[`docs/arquitectura.md`](docs/arquitectura.md).
+
+## Correr el proyecto
+
+Requiere [Flutter](https://docs.flutter.dev/get-started/install) 3.47.2 o
+posterior.
+
+```bash
+flutter pub get
+
+# El código generado no se versiona: hay que producirlo antes de la
+# primera compilación, o `flutter analyze` falla al no poder resolver los
+# `part 'x.freezed.dart'`.
+dart run build_runner build --delete-conflicting-outputs
+flutter gen-l10n
+
+flutter run --flavor dev -t lib/main_dev.dart
+```
+
+En Android, los tres flavors conviven instalados a la vez con nombres e
+íconos propios (`app.sinapsis.dev`, `.staging`, y `app.sinapsis` para
+producción). En iOS la configuración está preparada pero falta un paso manual
+en Xcode: ver [`ios/Flutter/flavors/README.md`](ios/Flutter/flavors/README.md).
+
+### Lo que corre el pipeline
+
+Antes de subir un cambio conviene pasar lo mismo que va a pasar el CI:
+
+```bash
+dart format --output=none --set-exit-if-changed .
+flutter analyze
+flutter test --coverage
+```
+
+Cero advertencias toleradas — `analysis_options.yaml` usa
+`very_good_analysis` con `strict-casts`, `strict-inference` y
+`strict-raw-types`.
+
+## Estructura
+
+```
+lib/
+├── app/          Arranque, router y manejo global de errores
+├── core/         Compartido: diseño, red, errores, registro, telemetría, i18n
+└── features/     Un módulo por funcionalidad, en tres capas
+    ├── vault/        Bóveda local: crear y desbloquear
+    └── dashboard/    Pantalla principal
+```
+
+La regla de dependencia dentro de cada feature apunta hacia adentro:
+`presentation → domain ← data`. El dominio no importa nada de las otras dos.
+`core` no importa nada de `features`. Las convenciones completas están en
+[`lib/features/README.md`](lib/features/README.md).
+
+## Privacidad
+
+Lo que entra a Sinapsis no sale del dispositivo. No hay servidor propio al que
+mandarlo, y la app no pide cuenta.
+
+Las únicas conexiones salientes son las que pedís vos: descargar la página que
+querés archivar, los subtítulos del video que guardaste. El procesamiento
+—transcribir, reconocer texto, extraer— ocurre localmente.
+
+El reporte de errores es opcional, viene apagado, y solo se enciende con un
+DSN configurado en tiempo de compilación. Nunca incluye contenido de la
+bóveda: únicamente el error, su traza y un identificador interno.
