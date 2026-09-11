@@ -355,7 +355,7 @@ páginas ajenas.
 **Lo que cuesta:** la versión web llega después y con menos capacidades.
 Consumir y buscar funcionará; capturar y transformar, no del todo.
 
-### 7. Compartir desde otras apps: Android completo, iOS documentado y pendiente
+### 7. Compartir desde otras apps: Android completo, iOS pospuesto a propósito
 
 Aparecer en la hoja de compartir de un sistema operativo exige configuración
 nativa, y esa configuración no pesa lo mismo en las dos plataformas. En
@@ -375,9 +375,14 @@ encuentre roto.
 
 **Lo que cuesta:** en iOS, compartir un enlace o un archivo a Sinapsis desde
 otra app no funciona todavía. Pegarlo a mano en la pantalla de captura, sí.
-El día que el proyecto tenga con qué compilar y probar iOS de verdad, la
-Share Extension se agrega con la misma prolijidad que todo lo demás —no
-antes.
+
+Y a diferencia de otras cosas pospuestas en este documento, esta no espera a
+que el proyecto tenga con qué compilar y probar iOS: Android y la web son
+las plataformas reales de quien construye esta app —no hay ningún
+dispositivo iOS en el que probarla—, así que no tiene sentido invertir ahí
+antes que en profundizar las dos que sí se usan. Si el día de mañana hay un
+iPhone de por medio, la Share Extension se agrega con la misma prolijidad
+que todo lo demás; hasta entonces, no es una prioridad.
 
 ### 8. Whisper "base" multilingüe, traído aparte y con permiso explícito
 
@@ -486,11 +491,23 @@ depende de conexión ni de que un servicio externo siga existiendo.
 
 ### Por construir
 
-No queda nada pendiente del recorrido que describe este documento: las
-siete fases están construidas, probadas y documentadas. Lo que sigue no es
-una fase nueva sino extender lo ya construido, y las dos extensiones
-conocidas ya están registradas donde correspondía decidirlas: la Share
-Extension de iOS para compartir desde otra app (decisión 7) y una versión
-web con menos capacidades que el resto de las plataformas —sin ML Kit, sin
-isolates de verdad para Whisper, sin poder descargar páginas ajenas por
-CORS— (decisión 6).
+Las siete fases originales están construidas, probadas y documentadas. Lo
+que sigue no estaba en el plan inicial: Android y la web son las
+plataformas reales de quien construye esta app —no hay ningún dispositivo
+iOS de por medio—, así que el esfuerzo se redirige a que las dos funcionen
+a fondo en vez de a la Share Extension de iOS, que queda pospuesta a
+propósito (decisión 7).
+
+**Fase 8 — La web de verdad.** La decisión 6 daba por sentado que la web
+iba a llegar "después y con menos capacidades": sin ML Kit, sin isolates de
+verdad para Whisper. Investigar en serio en vez de asumir mostró dos cosas.
+Primero, que hoy la web ni siquiera arranca —`driftDatabase()` no tiene
+configurado el parámetro que exige para compilar a WebAssembly, y seis
+clases más usan `dart:io`, que no existe en el navegador—. Segundo, que las
+dos limitaciones que parecían de fondo tienen solución libre y real:
+sherpa-onnx tiene soporte oficial de WebAssembly pensado justo para
+transcribir un archivo ya grabado —no para algo en vivo—, y Tesseract
+compilado a WASM hace lo mismo para el reconocimiento de texto en
+imágenes. Esta fase pone la web al mismo nivel que Android: base de datos,
+almacenamiento de archivos, captura, OCR y transcripción, probado de punta
+a punta en un navegador real.

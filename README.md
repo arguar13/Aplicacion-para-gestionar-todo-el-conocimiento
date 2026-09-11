@@ -150,11 +150,12 @@ La base está construida y verificada. El producto, no todavía.
 
 **Por construir**
 
-Nada, del recorrido planeado: las siete fases de
-[`docs/arquitectura.md`](docs/arquitectura.md) están completas. Quedan dos
-extensiones ya identificadas y conscientemente pospuestas —compartir a
-Sinapsis desde otra app en iOS, y una versión web con menos capacidades—,
-documentadas ahí mismo con su motivo.
+Las siete fases planeadas están completas. Ahora el esfuerzo va a que la
+web funcione tan a fondo como Android —base de datos, archivos, OCR y
+Whisper corriendo los dos en WebAssembly, sin servidor de por medio—, en
+vez de a compartir desde otra app en iOS, pospuesto a propósito: no hay
+ningún dispositivo iOS de por medio para esta app. El detalle de cada
+decisión está en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 ## Correr el proyecto
 
