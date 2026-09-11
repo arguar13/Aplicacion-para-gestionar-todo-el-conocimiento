@@ -28,6 +28,15 @@ abstract interface class OrganizeRepository {
   /// `LibraryRepository.save` con la lista de etiquetas del elemento.
   Stream<List<Tag>> watchAllTags();
 
+  /// La etiqueta que se llama [name], sin distinguir mayúsculas. Si no
+  /// existe, la crea.
+  ///
+  /// Es el paso previo a agregar una etiqueta a un elemento: quien escribe
+  /// "filosofía" en un elemento que ya tiene la etiqueta "Filosofía" tiene
+  /// que terminar en la misma etiqueta, no en dos que compiten por agrupar lo
+  /// mismo. Devuelve un fallo si el nombre queda vacío.
+  Future<Either<Failure, Tag>> getOrCreateTag(String name);
+
   /// Le cambia el nombre a una etiqueta, en todos los elementos que la usan.
   ///
   /// Devuelve un fallo si el nombre queda vacío, o si ya existe otra etiqueta

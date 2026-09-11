@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
@@ -15,6 +16,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -56,6 +58,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final query = ref.watch(libraryQueryNotifierProvider);
     final items = ref.watch(libraryItemsProvider(query));
 
+    // La fila de etiquetas solo ocupa lugar cuando hay algo que mostrar en
+    // ella: sin esto, una biblioteca sin una sola etiqueta puesta reservaría
+    // el alto igual, dejando una franja vacía debajo de los filtros de tipo.
+    final hasTags =
+        (ref.watch(allTagsProvider).valueOrNull ?? const []).isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.libraryTitle),
@@ -71,9 +79,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ref.read(vaultSessionControllerProvider.notifier).lock(),
           ),
         ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(112),
-          child: _SearchAndFilters(),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(hasTags ? 160 : 112),
+          child: const _SearchAndFilters(),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -101,6 +109,7 @@ class _SearchAndFilters extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
+    final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -137,6 +146,30 @@ class _SearchAndFilters extends ConsumerWidget {
             ],
           ),
         ),
+        // Sin nada en el vocabulario todavía, esta fila no tiene qué
+        // mostrar: ocuparía espacio para decir "no hay etiquetas por las que
+        // filtrar", que no es información que alguien necesite ver siempre.
+        if (tags.isNotEmpty)
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              children: [
+                for (final tag in tags) ...[
+                  FilterChip(
+                    avatar: const Icon(Icons.label_outline, size: 18),
+                    label: Text(tag.name),
+                    selected: query.tagIds.contains(tag.id),
+                    onSelected: (_) => ref
+                        .read(libraryQueryNotifierProvider.notifier)
+                        .toggleTagId(tag.id),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
       ],
     );
   }

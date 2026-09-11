@@ -12,6 +12,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -124,6 +125,8 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 16),
+            TagEditor(item: item),
             const SizedBox(height: 24),
 
             if (item.notes?.isNotEmpty ?? false) ...[

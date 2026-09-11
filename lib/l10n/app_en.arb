@@ -63,6 +63,10 @@
     "description": "Shown when the active filters leave no results"
   },
   "libraryClearFilters": "Clear filters",
+  "libraryFilterByTag": "By tag",
+  "@libraryFilterByTag": {
+    "description": "Encabezado de la fila de chips de filtro por etiqueta en la biblioteca."
+  },
   "@libraryClearFilters": {
     "description": "Button that removes every active filter"
   },
@@ -198,6 +202,36 @@
   },
   "detailAuthor": "By {name}",
   "detailOriginalFile": "Original file kept: {name}",
+  "detailTagsTitle": "Tags",
+  "@detailTagsTitle": {
+    "description": "Encabezado de la sección de etiquetas en el detalle."
+  },
+  "detailAddTag": "Add tag",
+  "@detailAddTag": {
+    "description": "Tooltip/label del botón que abre el diálogo para agregar una etiqueta."
+  },
+  "detailRemoveTag": "Remove \"{name}\"",
+  "@detailRemoveTag": {
+    "description": "Tooltip del botón que quita una etiqueta de un elemento.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "detailNewTagHint": "Tag name",
+  "@detailNewTagHint": {
+    "description": "Texto de ayuda del campo para escribir el nombre de una etiqueta nueva."
+  },
+  "detailNewTagCreate": "Create \"{name}\"",
+  "@detailNewTagCreate": {
+    "description": "Opción para crear una etiqueta nueva cuando el nombre escrito no coincide con ninguna existente.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "@detailOriginalFile": {
     "description": "Fila de procedencia que muestra el nombre del archivo original guardado.",
     "placeholders": {

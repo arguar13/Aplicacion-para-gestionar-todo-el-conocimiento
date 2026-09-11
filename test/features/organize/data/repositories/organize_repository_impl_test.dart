@@ -138,6 +138,50 @@ void main() {
       });
     });
 
+    group('obtener o crear', () {
+      test('si no existe, la crea', () async {
+        final result = await repository.getOrCreateTag('Nueva');
+
+        expect(result.getRight().toNullable()?.name, 'Nueva');
+        expect((await repository.watchAllTags().first).map((t) => t.name), [
+          'Nueva',
+        ]);
+      });
+
+      test('si ya existe, devuelve la misma sin crear una segunda', () async {
+        final original = await seedTag('Filosofía');
+
+        final result = await repository.getOrCreateTag('Filosofía');
+
+        expect(result.getRight().toNullable()?.id, original.id);
+        expect(await repository.watchAllTags().first, hasLength(1));
+      });
+
+      test('encuentra la existente sin distinguir mayúsculas', () async {
+        // Quien escribe "filosofía" en un elemento que ya tiene la etiqueta
+        // "Filosofía" tiene que terminar en la misma etiqueta, no en dos que
+        // compiten por agrupar lo mismo.
+        final original = await seedTag('Filosofía');
+
+        final result = await repository.getOrCreateTag('filosofía');
+
+        expect(result.getRight().toNullable()?.id, original.id);
+        expect(await repository.watchAllTags().first, hasLength(1));
+      });
+
+      test('un nombre en blanco se rechaza', () async {
+        final result = await repository.getOrCreateTag('   ');
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('recorta los espacios de los bordes', () async {
+        final result = await repository.getOrCreateTag('  Historia  ');
+
+        expect(result.getRight().toNullable()?.name, 'Historia');
+      });
+    });
+
     group('renombrar', () {
       test('el nuevo nombre queda guardado', () async {
         final tag = await seedTag('Filosofia');

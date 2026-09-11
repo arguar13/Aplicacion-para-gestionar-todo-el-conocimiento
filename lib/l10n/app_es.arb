@@ -15,6 +15,10 @@
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
+  "libraryFilterByTag": "Por etiqueta",
+  "@libraryFilterByTag": {
+    "description": "Encabezado de la fila de chips de filtro por etiqueta en la biblioteca."
+  },
   "libraryItemCount": "{count, plural, =0{Todavía no guardaste nada} =1{1 elemento} other{{count} elementos}}",
   "sourceKindYoutube": "YouTube",
   "sourceKindWebPage": "Página web",
@@ -66,6 +70,36 @@
   "detailCapturedOn": "Guardado el {date}",
   "detailAuthor": "Por {name}",
   "detailOriginalFile": "Archivo original guardado: {name}",
+  "detailTagsTitle": "Etiquetas",
+  "@detailTagsTitle": {
+    "description": "Encabezado de la sección de etiquetas en el detalle."
+  },
+  "detailAddTag": "Agregar etiqueta",
+  "@detailAddTag": {
+    "description": "Tooltip/label del botón que abre el diálogo para agregar una etiqueta."
+  },
+  "detailRemoveTag": "Quitar \"{name}\"",
+  "@detailRemoveTag": {
+    "description": "Tooltip del botón que quita una etiqueta de un elemento.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "detailNewTagHint": "Nombre de la etiqueta",
+  "@detailNewTagHint": {
+    "description": "Texto de ayuda del campo para escribir el nombre de una etiqueta nueva."
+  },
+  "detailNewTagCreate": "Crear \"{name}\"",
+  "@detailNewTagCreate": {
+    "description": "Opción para crear una etiqueta nueva cuando el nombre escrito no coincide con ninguna existente.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "@detailOriginalFile": {
     "description": "Fila de procedencia que muestra el nombre del archivo original guardado.",
     "placeholders": {

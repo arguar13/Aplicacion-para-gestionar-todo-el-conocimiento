@@ -49,6 +49,44 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   @override
+  Future<Either<Failure, Tag>> getOrCreateTag(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El nombre no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final existing =
+          await (_db.select(_db.tags)
+                ..where((t) => t.name.lower().equals(trimmed.toLowerCase())))
+              .getSingleOrNull();
+
+      if (existing != null) return right(_toTag(existing));
+
+      final tag = Tag(id: _ids.next(), name: trimmed, createdAt: _clock());
+      await _db
+          .into(_db.tags)
+          .insert(
+            TagsCompanion.insert(
+              id: tag.id,
+              name: tag.name,
+              createdAt: tag.createdAt,
+            ),
+          );
+
+      return right(tag);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.getOrCreateTag'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Tag>> renameTag({
     required String id,
     required String name,

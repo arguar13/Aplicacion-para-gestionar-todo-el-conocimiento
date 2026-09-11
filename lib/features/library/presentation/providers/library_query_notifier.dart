@@ -33,6 +33,13 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(sourceKinds: kinds);
   }
 
+  /// Suma o quita una etiqueta del filtro.
+  void toggleTagId(String tagId) {
+    final tagIds = Set<String>.from(state.tagIds);
+    if (!tagIds.remove(tagId)) tagIds.add(tagId);
+    state = state.copyWith(tagIds: tagIds);
+  }
+
   void sortBy(LibrarySort sort, {bool descending = true}) {
     state = state.copyWith(sortBy: sort, descending: descending);
   }

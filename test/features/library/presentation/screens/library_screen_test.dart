@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -138,6 +141,90 @@ void main() {
       expect(find.text('una nota escrita'), findsNothing);
       expect(find.textContaining('dQw4w9WgXcQ'), findsOneWidget);
     });
+
+    testWidgets('sin ninguna etiqueta puesta, no se reserva lugar para la '
+        'fila que las filtra', (tester) async {
+      // Mostrarla vacía sería ocupar espacio para decir "no hay nada por lo
+      // que filtrar", que no es información que alguien necesite ver
+      // siempre — y menos en una biblioteca recién estrenada. Se comprueba
+      // el alto reservado en el `AppBar` y no solo la ausencia de chips: sin
+      // etiquetas, la fila entera de por medio tampoco debería estar.
+      await harness.capture('una nota sin etiquetas');
+      await pumpLibrary(tester);
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.bottom!.preferredSize.height, 112);
+      expect(find.byIcon(Icons.label_outline), findsNothing);
+    });
+
+    testWidgets('con al menos una etiqueta, sí se reserva el lugar', (
+      tester,
+    ) async {
+      await harness.capture('algo etiquetado');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .getOrCreateTag('Cualquiera');
+      await pumpLibrary(tester);
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.bottom!.preferredSize.height, 160);
+    });
+
+    testWidgets('el filtro por etiqueta deja solo lo que corresponde', (
+      tester,
+    ) async {
+      await harness.capture('un artículo de filosofía');
+      await harness.capture('una nota sobre cocina');
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final filosofico = items.firstWhere((i) => i.title.contains('filosofía'));
+      final tag =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .getOrCreateTag('Filosofía'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(filosofico.copyWith(tags: [tag]));
+
+      await pumpLibrary(tester);
+      await tester.tap(find.text('Filosofía'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('filosofía'), findsOneWidget);
+      expect(find.textContaining('cocina'), findsNothing);
+    });
+
+    testWidgets(
+      'un filtro de etiqueta que no coincide con nada ofrece limpiarlo',
+      (tester) async {
+        await harness.capture('algo sin esa etiqueta');
+        // La etiqueta existe pero nadie la tiene puesta: puede pasar
+        // perfectamente —se creó para otra cosa, o se está probando el
+        // filtro— y el chip para filtrar por ella igual aparece, porque sale
+        // de todo el vocabulario y no de lo que hay visible en ese momento.
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .getOrCreateTag('Sin uso');
+
+        await pumpLibrary(tester);
+        await tester.tap(find.text('Sin uso'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.libraryFilterEmpty), findsOneWidget);
+
+        await tester.tap(find.text(es.libraryClearFilters));
+        await tester.pumpAndSettle();
+
+        expect(find.text('algo sin esa etiqueta'), findsOneWidget);
+      },
+    );
   });
 
   group('navegación', () {

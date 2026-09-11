@@ -12,6 +12,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -303,6 +304,234 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.text(es.detailRetry), findsNothing);
+    });
+  });
+
+  group('etiquetas', () {
+    testWidgets('un elemento recién guardado no tiene ninguna', (tester) async {
+      final id = await captureAndGetId('una nota cualquiera');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailAddTag), findsOneWidget);
+    });
+
+    testWidgets('agregar una nueva la deja guardada', (tester) async {
+      final id = await captureAndGetId('una nota sobre epistemología');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddTag));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Filosofía');
+      // El botón "Agregar etiqueta" del diálogo: hay dos widgets con ese
+      // texto en pantalla —el chip de atrás y el botón del diálogo—, y el
+      // del diálogo es el último en el árbol.
+      await tester.tap(find.text(es.detailAddTag).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Filosofía'), findsOneWidget);
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      expect(item.tags.map((t) => t.name), ['Filosofía']);
+    });
+
+    testWidgets('cancelar el diálogo no agrega nada', (tester) async {
+      final id = await captureAndGetId('una nota');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddTag));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Algo');
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Algo'), findsNothing);
+    });
+
+    testWidgets('un nombre en blanco no hace nada', (tester) async {
+      final id = await captureAndGetId('una nota');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddTag));
+      await tester.pumpAndSettle();
+
+      // Sin escribir nada, confirmar no debe cerrar con una etiqueta vacía.
+      await tester.tap(find.text(es.detailAddTag).last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+    });
+
+    testWidgets(
+      'escribir el nombre de una ya existente en otro elemento reutiliza esa',
+      (tester) async {
+        // Quien escribe "filosofía" en minúscula sobre una etiqueta que ya
+        // existe como "Filosofía" tiene que terminar en la misma, no en dos
+        // que compiten por agrupar lo mismo.
+        final existing = await captureAndGetId('el primer artículo');
+        final existingItem =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(existing))
+                .getRight()
+                .toNullable()!;
+        final firstTag =
+            (await harness.container
+                    .read(organizeRepositoryProvider)
+                    .getOrCreateTag('Filosofía'))
+                .getRight()
+                .toNullable()!;
+        await harness.container
+            .read(libraryRepositoryProvider)
+            .save(existingItem.copyWith(tags: [firstTag]));
+
+        // No se usa `captureAndGetId` para el segundo: ordena por fecha de
+        // captura, y el reloj de las pruebas es fijo, así que los dos
+        // elementos comparten el mismo instante y el orden entre ellos no
+        // está garantizado.
+        await harness.capture('un segundo artículo');
+        final id =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .list(const LibraryQuery()))
+                .getRight()
+                .toNullable()!
+                .map((i) => i.id)
+                .firstWhere((itemId) => itemId != existing);
+
+        await pumpDetail(tester, id);
+        await tester.tap(find.text(es.detailAddTag));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), 'filosofía');
+        await tester.tap(find.text(es.detailAddTag).last);
+        await tester.pumpAndSettle();
+
+        // Se lee directo de la base y no con `watchAllTags`: abrir una
+        // segunda suscripción justo cuando la del diálogo se está
+        // descartando (autoDispose) compite sobre el mismo stream de drift.
+        // En la app real eso no pasa —Riverpod comparte una sola
+        // suscripción entre quien la mire— así que alcanza con una lectura
+        // puntual para esta comprobación.
+        final allTags = await harness.database
+            .select(harness.database.tags)
+            .get();
+        expect(allTags, hasLength(1));
+      },
+    );
+
+    testWidgets('tocar una sugerencia la agrega sin escribir nada más', (
+      tester,
+    ) async {
+      final withTag = await captureAndGetId('un artículo cualquiera');
+      final item =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById(withTag))
+              .getRight()
+              .toNullable()!;
+      final tag =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .getOrCreateTag('Historia'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(item.copyWith(tags: [tag]));
+
+      // No se usa `captureAndGetId`: ordena por fecha de captura, y el reloj
+      // de las pruebas es fijo, así que los dos elementos comparten el mismo
+      // instante. El orden entre ellos no está garantizado, y usar `.first`
+      // a ciegas podía terminar mostrando el detalle del elemento
+      // equivocado — el que ya tenía la etiqueta puesta.
+      await harness.capture('otro elemento sin etiquetas');
+      final id =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .map((i) => i.id)
+              .firstWhere((itemId) => itemId != withTag);
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddTag));
+      await tester.pumpAndSettle();
+
+      // "Historia" aparece como sugerencia porque ya existe en el
+      // vocabulario, aunque este elemento nunca la tuvo. Se apunta al chip
+      // y no al texto crudo: el área que responde al toque es la del
+      // `ActionChip`, más grande que el glifo de su etiqueta.
+      await tester.tap(find.widgetWithText(ActionChip, 'Historia'));
+      await tester.pumpAndSettle();
+
+      final reloaded =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      expect(reloaded.tags.map((t) => t.name), ['Historia']);
+    });
+
+    testWidgets('una que ya tiene el elemento no se sugiere de nuevo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un elemento etiquetado');
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      final tag =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .getOrCreateTag('Arte'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(item.copyWith(tags: [tag]));
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddTag));
+      await tester.pumpAndSettle();
+
+      // "Arte" solo debe verse una vez: como chip ya puesto, no también como
+      // sugerencia para agregarla de nuevo.
+      expect(find.text('Arte'), findsOneWidget);
+    });
+
+    testWidgets('quitar una la saca de la lista', (tester) async {
+      final id = await captureAndGetId('un elemento con una etiqueta');
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      final tag =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .getOrCreateTag('Efímera'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(item.copyWith(tags: [tag]));
+
+      await pumpDetail(tester, id);
+      expect(find.text('Efímera'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.detailRemoveTag('Efímera')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Efímera'), findsNothing);
+      final reloaded =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      expect(reloaded.tags, isEmpty);
     });
   });
 }
