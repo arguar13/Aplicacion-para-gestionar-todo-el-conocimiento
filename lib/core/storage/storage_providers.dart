@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
-import 'package:sinapsis/core/storage/open_app_file_opener.dart';
+import 'package:sinapsis/core/storage/platform_file_opener.dart';
 import 'package:sinapsis/core/storage/platform_file_store.dart';
 
 /// El almacén de archivos originales.
@@ -14,6 +14,10 @@ import 'package:sinapsis/core/storage/platform_file_store.dart';
 /// `createFileStore()`.
 final fileStoreProvider = Provider<FileStore>((ref) => createFileStore());
 
+/// Abre el archivo original. Fuera de la web, con la app que el sistema
+/// tenga asociada; en la web, que no tiene ese concepto, disparando una
+/// descarga (`createFileOpener()`, ver la decisión 11 en
+/// docs/arquitectura.md).
 final fileOpenerProvider = Provider<FileOpener>((ref) {
-  return const OpenAppFileOpener();
+  return createFileOpener(files: ref.watch(fileStoreProvider));
 });

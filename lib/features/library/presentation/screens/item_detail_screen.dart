@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -381,6 +382,10 @@ class _Provenance extends ConsumerWidget {
   ///
   /// Solo avisa cuando algo sale mal: si se abrió, el sistema ya está
   /// mostrando el archivo y una confirmación encima sería ruido.
+  ///
+  /// En la web no hay una ruta absoluta que pedir —`resolve()` lanza a
+  /// propósito, ver `OpfsFileStore`—, así que se le pasa directo la ruta
+  /// relativa: `WebDownloadFileOpener` lee los bytes por su cuenta.
   Future<void> _openOriginalFile(
     BuildContext context,
     WidgetRef ref,
@@ -388,10 +393,10 @@ class _Provenance extends ConsumerWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
 
-    final absolutePath = await ref
-        .read(fileStoreProvider)
-        .resolve(relativePath);
-    final result = await ref.read(fileOpenerProvider).open(absolutePath);
+    final path = kIsWeb
+        ? relativePath
+        : await ref.read(fileStoreProvider).resolve(relativePath);
+    final result = await ref.read(fileOpenerProvider).open(path);
     if (!context.mounted) return;
 
     final message = switch (result) {
