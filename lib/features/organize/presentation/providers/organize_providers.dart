@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
-import 'package:sinapsis/features/organize/domain/entities/item_relation.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este

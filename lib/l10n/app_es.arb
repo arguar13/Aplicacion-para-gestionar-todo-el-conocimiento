@@ -166,5 +166,138 @@
   "globalErrorNetwork": "Sin conexión a internet. Revisala e intentá de nuevo.",
   "globalErrorUnauthorized": "Tu sesión expiró. Iniciá sesión de nuevo.",
   "globalErrorServer": "Algo falló de nuestro lado. Intentá de nuevo en un momento.",
-  "globalErrorUnexpected": "Ocurrió un error inesperado."
+  "globalErrorUnexpected": "Ocurrió un error inesperado.",
+  "detailRelationsTitle": "Relacionado",
+  "@detailRelationsTitle": {
+    "description": "Encabezado de la sección de vínculos en el detalle."
+  },
+  "detailAddRelation": "Vincular con otro elemento",
+  "@detailAddRelation": {
+    "description": "Botón que abre el flujo para vincular este elemento con otro."
+  },
+  "detailRemoveRelation": "Quitar este vínculo",
+  "@detailRemoveRelation": {
+    "description": "Tooltip del botón que borra un vínculo."
+  },
+  "pickItemTitle": "Elegir con qué vincular",
+  "@pickItemTitle": {
+    "description": "Título del diálogo para elegir el otro elemento del vínculo."
+  },
+  "pickItemSearchHint": "Buscá en tu biblioteca",
+  "@pickItemSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda en el selector de elementos."
+  },
+  "pickItemNoOthers": "No hay ningún otro elemento guardado todavía.",
+  "@pickItemNoOthers": {
+    "description": "Mostrado cuando la biblioteca no tiene ningún otro elemento para vincular."
+  },
+  "pickItemNoMatches": "Nada coincide con \"{query}\"",
+  "@pickItemNoMatches": {
+    "description": "Mostrado cuando la búsqueda en el selector de elementos no encuentra nada.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "pickRelationKindTitle": "Qué clase de vínculo es",
+  "@pickRelationKindTitle": {
+    "description": "Título del paso donde se elige el tipo de vínculo."
+  },
+  "pickRelationNoteHint": "Por qué están relacionados (opcional)",
+  "@pickRelationNoteHint": {
+    "description": "Texto de ayuda del campo de nota opcional al crear un vínculo."
+  },
+  "relationKindRelatedTo": "Relacionado con {name}",
+  "@relationKindRelatedTo": {
+    "description": "Vínculo genérico, mostrado en la fila del elemento vinculado.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContradicts": "Contradice a {name}",
+  "@relationKindContradicts": {
+    "description": "Vínculo de contradicción.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContinuesOutgoing": "Continúa en {name}",
+  "@relationKindContinuesOutgoing": {
+    "description": "Este elemento continúa en el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContinuesIncoming": "Es la continuación de {name}",
+  "@relationKindContinuesIncoming": {
+    "description": "Este elemento es la continuación del otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindCitesOutgoing": "Cita a {name}",
+  "@relationKindCitesOutgoing": {
+    "description": "Este elemento cita al otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindCitesIncoming": "Citado por {name}",
+  "@relationKindCitesIncoming": {
+    "description": "Este elemento es citado por el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindSummarizesOutgoing": "Resume a {name}",
+  "@relationKindSummarizesOutgoing": {
+    "description": "Este elemento resume al otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindSummarizesIncoming": "Resumido por {name}",
+  "@relationKindSummarizesIncoming": {
+    "description": "Este elemento es resumido por el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindLabelRelatedTo": "Relacionado",
+  "@relationKindLabelRelatedTo": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelContradicts": "Contradice",
+  "@relationKindLabelContradicts": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelContinues": "Continúa",
+  "@relationKindLabelContinues": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelCites": "Cita",
+  "@relationKindLabelCites": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelSummarizes": "Resume",
+  "@relationKindLabelSummarizes": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  }
 }

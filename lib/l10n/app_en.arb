@@ -481,5 +481,138 @@
   "globalErrorUnexpected": "An unexpected error occurred.",
   "@globalErrorUnexpected": {
     "description": "Global snackbar fallback for any error type not otherwise covered"
+  },
+  "detailRelationsTitle": "Related",
+  "@detailRelationsTitle": {
+    "description": "Encabezado de la sección de vínculos en el detalle."
+  },
+  "detailAddRelation": "Link to another item",
+  "@detailAddRelation": {
+    "description": "Botón que abre el flujo para vincular este elemento con otro."
+  },
+  "detailRemoveRelation": "Remove this link",
+  "@detailRemoveRelation": {
+    "description": "Tooltip del botón que borra un vínculo."
+  },
+  "pickItemTitle": "Choose what to link to",
+  "@pickItemTitle": {
+    "description": "Título del diálogo para elegir el otro elemento del vínculo."
+  },
+  "pickItemSearchHint": "Search your library",
+  "@pickItemSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda en el selector de elementos."
+  },
+  "pickItemNoOthers": "There's no other saved item yet.",
+  "@pickItemNoOthers": {
+    "description": "Mostrado cuando la biblioteca no tiene ningún otro elemento para vincular."
+  },
+  "pickItemNoMatches": "Nothing matches \"{query}\"",
+  "@pickItemNoMatches": {
+    "description": "Mostrado cuando la búsqueda en el selector de elementos no encuentra nada.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "pickRelationKindTitle": "What kind of link is this",
+  "@pickRelationKindTitle": {
+    "description": "Título del paso donde se elige el tipo de vínculo."
+  },
+  "pickRelationNoteHint": "Why they are related (optional)",
+  "@pickRelationNoteHint": {
+    "description": "Texto de ayuda del campo de nota opcional al crear un vínculo."
+  },
+  "relationKindRelatedTo": "Related to {name}",
+  "@relationKindRelatedTo": {
+    "description": "Vínculo genérico, mostrado en la fila del elemento vinculado.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContradicts": "Contradicts {name}",
+  "@relationKindContradicts": {
+    "description": "Vínculo de contradicción.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContinuesOutgoing": "Continues in {name}",
+  "@relationKindContinuesOutgoing": {
+    "description": "Este elemento continúa en el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindContinuesIncoming": "Continues from {name}",
+  "@relationKindContinuesIncoming": {
+    "description": "Este elemento es la continuación del otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindCitesOutgoing": "Cites {name}",
+  "@relationKindCitesOutgoing": {
+    "description": "Este elemento cita al otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindCitesIncoming": "Cited by {name}",
+  "@relationKindCitesIncoming": {
+    "description": "Este elemento es citado por el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindSummarizesOutgoing": "Summarizes {name}",
+  "@relationKindSummarizesOutgoing": {
+    "description": "Este elemento resume al otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindSummarizesIncoming": "Summarized by {name}",
+  "@relationKindSummarizesIncoming": {
+    "description": "Este elemento es resumido por el otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindLabelRelatedTo": "Related",
+  "@relationKindLabelRelatedTo": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelContradicts": "Contradicts",
+  "@relationKindLabelContradicts": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelContinues": "Continues",
+  "@relationKindLabelContinues": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelCites": "Cites",
+  "@relationKindLabelCites": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
+  "relationKindLabelSummarizes": "Summarizes",
+  "@relationKindLabelSummarizes": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
   }
 }

@@ -1,9 +1,9 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/features/organize/domain/entities/item_relation.dart';
 
 /// Lo que convierte una pila de recortes guardados en algo organizado:
 /// etiquetas, vínculos entre elementos y resaltados con nota.
