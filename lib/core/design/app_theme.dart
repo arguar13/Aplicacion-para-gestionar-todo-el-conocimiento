@@ -1,7 +1,7 @@
-import 'package:cristo_es_el_salvador/core/design/app_colors.dart';
-import 'package:cristo_es_el_salvador/core/design/app_semantic_colors.dart';
-import 'package:cristo_es_el_salvador/core/design/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/app_colors.dart';
+import 'package:sinapsis/core/design/app_semantic_colors.dart';
+import 'package:sinapsis/core/design/app_typography.dart';
 
 /// Único punto de construcción de los `ThemeData` de la app. Todo widget
 /// debe leer estilos vía `Theme.of(context)` — nunca `AppColors`/

@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/design/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/design/app_colors.dart';
 
 /// `ColorScheme` de Material 3 no tiene un slot para "éxito" ni
 /// "advertencia" (solo `error`) — para exponerlos igual vía

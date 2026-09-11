@@ -1,5 +1,5 @@
 {
-  "name": "cristo-es-el-salvador-mock-server",
+  "name": "sinapsis-mock-server",
   "private": true,
   "version": "1.0.0",
   "description": "Mock backend local (json-server) para desarrollo del flavor dev.",

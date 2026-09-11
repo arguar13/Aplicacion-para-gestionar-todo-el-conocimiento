@@ -1,11 +1,11 @@
-import 'package:cristo_es_el_salvador/app/global_error_listener.dart';
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/error/global_error_bus.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations_en.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/global_error_listener.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/error/global_error_bus.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
 void main() {
   final l10n = AppLocalizationsEn();

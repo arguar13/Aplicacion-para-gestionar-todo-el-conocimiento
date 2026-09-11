@@ -1,4 +1,4 @@
-package com.cristoeselsalvador.cristo_es_el_salvador
+package app.sinapsis
 
 import io.flutter.embedding.android.FlutterActivity
 

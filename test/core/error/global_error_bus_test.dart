@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/error/global_error_bus.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/error/global_error_bus.dart';
 
 void main() {
   test('el estado inicial es null (nada que mostrar todavía)', () {

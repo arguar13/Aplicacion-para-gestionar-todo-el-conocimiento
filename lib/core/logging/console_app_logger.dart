@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
 import 'package:logger/logger.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
 
 /// Implementación por defecto: imprime en consola vía el paquete `logger`.
 ///

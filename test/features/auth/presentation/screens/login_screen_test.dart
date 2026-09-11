@@ -1,19 +1,19 @@
 import 'dart:async';
 
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/repositories/auth_repository.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_providers.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/screens/login_screen.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/widgets/primary_button.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations_en.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/features/auth/domain/repositories/auth_repository.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_providers.dart';
+import 'package:sinapsis/features/auth/presentation/screens/login_screen.dart';
+import 'package:sinapsis/features/auth/presentation/widgets/primary_button.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 

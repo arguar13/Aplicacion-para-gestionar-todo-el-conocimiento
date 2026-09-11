@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/core/data/dtos/user_dto.dart';
-import 'package:cristo_es_el_salvador/core/network/dio_exception_mapper.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/data/dtos/user_dto.dart';
+import 'package:sinapsis/core/network/dio_exception_mapper.dart';
 
 /// `GET /user`: no arma la cabecera `Authorization` a mano, la pone
 /// `AuthInterceptor` (ver `core/network/network_providers.dart`). Si esta

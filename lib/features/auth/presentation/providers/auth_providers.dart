@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/network/network_providers.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_provider.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/datasources/sign_up_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/repositories/auth_repository.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/usecases/login_usecase.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/usecases/sign_up_usecase.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/network/network_providers.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:sinapsis/features/auth/data/datasources/sign_up_remote_data_source.dart';
+import 'package:sinapsis/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:sinapsis/features/auth/domain/repositories/auth_repository.dart';
+import 'package:sinapsis/features/auth/domain/usecases/login_usecase.dart';
+import 'package:sinapsis/features/auth/domain/usecases/sign_up_usecase.dart';
 
 /// Cascada de DI del feature: DataSource -> Repository -> UseCase.
 /// `presentation` solo debe depender de [loginUseCaseProvider] o

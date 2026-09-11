@@ -1,16 +1,16 @@
 import 'dart:ui';
 
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/i18n/locale_notifier.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/session/session_controller.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/usecases/sign_up_usecase.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_providers.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_state.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/session/session_controller.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/features/auth/domain/usecases/sign_up_usecase.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_providers.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_state.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Reutiliza [AuthState] (no un `SignUpState` propio): la forma es
 /// idéntica a la del login —initial/loading/success/error— y ambas

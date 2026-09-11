@@ -1,9 +1,9 @@
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/errors/auth_exceptions.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:sinapsis/features/auth/domain/errors/auth_exceptions.dart';
 
 class MockDio extends Mock implements Dio {}
 

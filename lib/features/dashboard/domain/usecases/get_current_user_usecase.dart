@@ -1,8 +1,8 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/usecase/usecase.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/dashboard/domain/repositories/dashboard_repository.dart';
 
 class GetCurrentUserUseCase implements UseCase<User, NoParams> {
   const GetCurrentUserUseCase(this._repository);

@@ -1,8 +1,8 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/session/session_state.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/session/session_state.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 /// Única fuente de verdad de "¿el usuario tiene sesión?" para toda la app.
 /// El router lo observa (vía `refreshListenable`) para expulsar/dejar

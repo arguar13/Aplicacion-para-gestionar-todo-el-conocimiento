@@ -1,7 +1,7 @@
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/sentry_telemetry_service.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/telemetry/sentry_telemetry_service.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 /// Se sobreescribe en `bootstrap()` con la instancia ya inicializada (y con
 /// el DSN/flavor reales) antes de `runApp()`. El default de acá nunca

@@ -1,10 +1,10 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/session/session_controller.dart';
-import 'package:cristo_es_el_salvador/core/session/session_state.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/session/session_controller.dart';
+import 'package:sinapsis/core/session/session_state.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 class MockTokenStorage extends Mock implements TokenStorage {}
 

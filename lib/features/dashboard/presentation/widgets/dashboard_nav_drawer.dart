@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/widgets/dashboard_nav_destination.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_nav_destination.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class DashboardNavDrawer extends StatelessWidget {
   const DashboardNavDrawer({

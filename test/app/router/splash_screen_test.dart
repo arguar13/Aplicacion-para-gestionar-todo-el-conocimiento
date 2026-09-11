@@ -1,10 +1,10 @@
-import 'package:cristo_es_el_salvador/app/router/splash_screen.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/core/session/session_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/splash_screen.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/core/session/session_state.dart';
 
 /// En vez de mockear `SessionController` (un `StateNotifier`, con toda su
 /// plantillería de listeners) se usa el controller real con este fake de

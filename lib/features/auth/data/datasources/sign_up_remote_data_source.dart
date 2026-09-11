@@ -1,7 +1,7 @@
-import 'package:cristo_es_el_salvador/core/network/dio_exception_mapper.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/dtos/login_response_dto.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/errors/auth_exceptions.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/network/dio_exception_mapper.dart';
+import 'package:sinapsis/features/auth/data/dtos/login_response_dto.dart';
+import 'package:sinapsis/features/auth/domain/errors/auth_exceptions.dart';
 
 // Interfaz de un solo método a propósito, igual que AuthRemoteDataSource:
 // define el contrato que AuthRepositoryImpl consume y los tests mockean.

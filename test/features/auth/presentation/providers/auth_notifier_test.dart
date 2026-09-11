@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/session/session_controller.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/usecases/login_usecase.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_notifier.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/session/session_controller.dart';
+import 'package:sinapsis/features/auth/domain/usecases/login_usecase.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_notifier.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_state.dart';
 
 class MockLoginUseCase extends Mock implements LoginUseCase {}
 

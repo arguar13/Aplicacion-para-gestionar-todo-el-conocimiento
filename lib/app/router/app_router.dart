@@ -1,15 +1,15 @@
-import 'package:cristo_es_el_salvador/app/router/go_router_refresh_notifier.dart';
-import 'package:cristo_es_el_salvador/app/router/placeholder_screen.dart';
-import 'package:cristo_es_el_salvador/app/router/route_paths.dart';
-import 'package:cristo_es_el_salvador/app/router/splash_screen.dart';
-import 'package:cristo_es_el_salvador/core/config/app_flavor.dart';
-import 'package:cristo_es_el_salvador/core/config/env_config.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/core/session/session_state.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/screens/login_screen.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/go_router_refresh_notifier.dart';
+import 'package:sinapsis/app/router/placeholder_screen.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/app/router/splash_screen.dart';
+import 'package:sinapsis/core/config/app_flavor.dart';
+import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/core/session/session_state.dart';
+import 'package:sinapsis/features/auth/presentation/screens/login_screen.dart';
+import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
 
 /// Router centralizado (deep linking + URLs amigables en web). Cada feature
 /// añade sus `GoRoute` aquí, o expone una lista de rutas que este archivo

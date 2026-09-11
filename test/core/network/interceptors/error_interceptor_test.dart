@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/error_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/interceptors/error_interceptor.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 class MockAppLogger extends Mock implements AppLogger {}
 

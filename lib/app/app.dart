@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/app/global_error_listener.dart';
-import 'package:cristo_es_el_salvador/app/router/app_router.dart';
-import 'package:cristo_es_el_salvador/core/config/app_flavor.dart';
-import 'package:cristo_es_el_salvador/core/config/env_config.dart';
-import 'package:cristo_es_el_salvador/core/design/app_theme.dart';
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart';
-import 'package:cristo_es_el_salvador/core/i18n/locale_notifier.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/app/global_error_listener.dart';
+import 'package:sinapsis/app/router/app_router.dart';
+import 'package:sinapsis/core/config/app_flavor.dart';
+import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/design/app_theme.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});

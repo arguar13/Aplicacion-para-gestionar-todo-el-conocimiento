@@ -1,15 +1,15 @@
-import 'package:cristo_es_el_salvador/core/config/env_config.dart';
-import 'package:cristo_es_el_salvador/core/error/global_error_bus.dart';
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/auth_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/error_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/logging_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/unauthorized_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/error/global_error_bus.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/network/interceptors/auth_interceptor.dart';
+import 'package:sinapsis/core/network/interceptors/error_interceptor.dart';
+import 'package:sinapsis/core/network/interceptors/logging_interceptor.dart';
+import 'package:sinapsis/core/network/interceptors/unauthorized_interceptor.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 
 /// Cliente HTTP base de la app. Cada `data source` de un feature debe
 /// depender de este provider en vez de instanciar su propio `Dio`.

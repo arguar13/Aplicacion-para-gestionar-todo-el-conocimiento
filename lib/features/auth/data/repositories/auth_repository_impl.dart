@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/datasources/auth_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/auth/data/datasources/sign_up_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/errors/auth_exceptions.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/repositories/auth_repository.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/auth/data/datasources/auth_remote_data_source.dart';
+import 'package:sinapsis/features/auth/data/datasources/sign_up_remote_data_source.dart';
+import 'package:sinapsis/features/auth/domain/errors/auth_exceptions.dart';
+import 'package:sinapsis/features/auth/domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   const AuthRepositoryImpl({

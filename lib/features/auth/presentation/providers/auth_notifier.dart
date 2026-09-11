@@ -1,12 +1,12 @@
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/session/session_controller.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/usecases/login_usecase.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_providers.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/session/session_controller.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/features/auth/domain/usecases/login_usecase.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_providers.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_state.dart';
 
 /// Único punto donde vive la lógica de login: valida nada (eso lo hace la
 /// UI antes de llamar), orquesta el `LoginUseCase` y traduce el resultado

@@ -1,23 +1,23 @@
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart';
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/i18n/locale_notifier.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/core/session/session_state.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/domain/repositories/dashboard_repository.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/providers/dashboard_providers.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/screens/dashboard_screen.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations_en.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/core/session/session_state.dart';
+import 'package:sinapsis/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_providers.dart';
+import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
+import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
 class MockDashboardRepository extends Mock implements DashboardRepository {}
 

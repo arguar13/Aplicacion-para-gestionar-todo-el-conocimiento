@@ -1,16 +1,16 @@
 import 'dart:async';
 
-import 'package:cristo_es_el_salvador/app/app.dart';
-import 'package:cristo_es_el_salvador/core/config/env_config.dart';
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart';
-import 'package:cristo_es_el_salvador/core/logging/console_app_logger.dart';
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/sentry_telemetry_service.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/app/app.dart';
+import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/logging/console_app_logger.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/telemetry/sentry_telemetry_service.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 
 /// Arranque compartido por los 3 entry points de flavor. Centraliza los
 /// tres puntos de captura de errores no manejados — `FlutterError.onError`

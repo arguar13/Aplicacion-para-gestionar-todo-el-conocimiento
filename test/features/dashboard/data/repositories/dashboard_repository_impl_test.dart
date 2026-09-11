@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/data/dtos/user_dto.dart';
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/data/datasources/dashboard_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/data/dtos/user_dto.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/dashboard/data/datasources/dashboard_remote_data_source.dart';
+import 'package:sinapsis/features/dashboard/data/repositories/dashboard_repository_impl.dart';
 
 class MockDashboardRemoteDataSource extends Mock
     implements DashboardRemoteDataSource {}

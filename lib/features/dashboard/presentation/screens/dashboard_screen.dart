@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart';
-import 'package:cristo_es_el_salvador/core/i18n/locale_notifier.dart';
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/providers/dashboard_notifier.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/providers/dashboard_state.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_notifier.dart';
+import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_state.dart';
+import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
+import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Ancho a partir del cual se usa `Drawer` (Web/Tablet) en vez de
 /// `BottomNavigationBar` (móvil). 600 es el breakpoint estándar de

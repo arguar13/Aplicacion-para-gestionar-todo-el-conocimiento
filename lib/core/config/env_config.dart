@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/config/app_flavor.dart';
-import 'package:cristo_es_el_salvador/core/config/platform_base_url.dart';
+import 'package:sinapsis/core/config/app_flavor.dart';
+import 'package:sinapsis/core/config/platform_base_url.dart';
 
 /// Configuración de entorno resuelta en el arranque de cada entry point
 /// (`main_dev.dart`, `main_staging.dart`, `main_prod.dart`).
@@ -70,9 +70,9 @@ class EnvConfig {
 
   static String _appNameFor(AppFlavor flavor) {
     return switch (flavor) {
-      AppFlavor.dev => 'Cristo es El Salvador (Dev)',
-      AppFlavor.staging => 'Cristo es El Salvador (Staging)',
-      AppFlavor.prod => 'Cristo es El Salvador',
+      AppFlavor.dev => 'Sinapsis (Dev)',
+      AppFlavor.staging => 'Sinapsis (Staging)',
+      AppFlavor.prod => 'Sinapsis',
     };
   }
 }

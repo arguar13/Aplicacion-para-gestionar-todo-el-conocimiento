@@ -1,10 +1,10 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/data/datasources/dashboard_remote_data_source.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/dashboard/data/datasources/dashboard_remote_data_source.dart';
+import 'package:sinapsis/features/dashboard/domain/repositories/dashboard_repository.dart';
 
 class DashboardRepositoryImpl implements DashboardRepository {
   const DashboardRepositoryImpl({

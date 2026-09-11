@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
 
 // Contrato del dominio, de un solo método hoy porque el feature solo
 // necesita esto; crecerá con más operaciones del dashboard.

@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
 
 /// Cuando el backend responde 401 en cualquier request autenticado (no en
 /// `/login`: ese caso lo maneja `AuthRemoteDataSource` como credenciales

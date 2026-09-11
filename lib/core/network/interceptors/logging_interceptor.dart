@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
 
 /// Registra cada request/response saliente a través de [AppLogger] en vez
 /// de `print()`, para que los logs de red respeten el mismo sink que el

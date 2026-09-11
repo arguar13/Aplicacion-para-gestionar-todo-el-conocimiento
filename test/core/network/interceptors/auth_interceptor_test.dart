@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:cristo_es_el_salvador/core/network/interceptors/auth_interceptor.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/network/interceptors/auth_interceptor.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
 
 class MockTokenStorage extends Mock implements TokenStorage {}
 

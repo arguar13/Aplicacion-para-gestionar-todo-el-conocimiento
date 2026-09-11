@@ -1,7 +1,7 @@
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/sentry_telemetry_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/telemetry/sentry_telemetry_service.dart';
 
 class MockAppLogger extends Mock implements AppLogger {}
 

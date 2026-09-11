@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
 
 part 'user_dto.g.dart';
 

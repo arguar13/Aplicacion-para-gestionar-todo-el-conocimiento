@@ -1,10 +1,10 @@
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_notifier.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/providers/auth_state.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/widgets/custom_text_field.dart';
-import 'package:cristo_es_el_salvador/features/auth/presentation/widgets/primary_button.dart';
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_notifier.dart';
+import 'package:sinapsis/features/auth/presentation/providers/auth_state.dart';
+import 'package:sinapsis/features/auth/presentation/widgets/custom_text_field.dart';
+import 'package:sinapsis/features/auth/presentation/widgets/primary_button.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 final _emailRegExp = RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
 

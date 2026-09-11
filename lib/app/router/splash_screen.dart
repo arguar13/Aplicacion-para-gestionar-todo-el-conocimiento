@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/core/session/session_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/session/session_providers.dart';
 
 /// Pantalla de arranque: no navega por sí misma. Solo dispara la lectura
 /// del almacenamiento seguro; el router observa `sessionControllerProvider`

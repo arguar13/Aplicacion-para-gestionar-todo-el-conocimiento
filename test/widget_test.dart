@@ -1,11 +1,11 @@
-import 'package:cristo_es_el_salvador/app/app.dart';
-import 'package:cristo_es_el_salvador/core/config/app_flavor.dart';
-import 'package:cristo_es_el_salvador/core/config/env_config.dart';
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart';
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/app/app.dart';
+import 'package:sinapsis/core/config/app_flavor.dart';
+import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
 
 /// `flutter_secure_storage` real usa platform channels que no existen en
 /// widget tests; se sobreescribe `tokenStorageProvider` con este fake para

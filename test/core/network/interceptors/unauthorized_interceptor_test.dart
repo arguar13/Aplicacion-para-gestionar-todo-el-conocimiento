@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/network/interceptors/unauthorized_interceptor.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/interceptors/unauthorized_interceptor.dart';
 
 class MockAppLogger extends Mock implements AppLogger {}
 

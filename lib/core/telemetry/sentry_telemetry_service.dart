@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 /// Implementación de [TelemetryService] con `sentry_flutter`.
 ///

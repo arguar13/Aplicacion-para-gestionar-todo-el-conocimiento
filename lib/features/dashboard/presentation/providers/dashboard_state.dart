@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
 
 part 'dashboard_state.freezed.dart';
 

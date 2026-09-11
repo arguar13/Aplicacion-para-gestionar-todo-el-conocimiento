@@ -1,8 +1,8 @@
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/network/dio_exception_mapper.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/dio_exception_mapper.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 
 /// Punto único de manejo global de errores de red: registra el fallo y deja
 /// pasar el [DioException] intacto para que cada repositorio lo traduzca a

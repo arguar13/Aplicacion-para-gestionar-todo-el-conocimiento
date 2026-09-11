@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/error/exceptions.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/error/exceptions.dart';
 
 /// Traduce un [DioException] genérico a una excepción de `core/error`.
 /// Cada data source que use el `dioProvider` debería pasar por aquí en vez

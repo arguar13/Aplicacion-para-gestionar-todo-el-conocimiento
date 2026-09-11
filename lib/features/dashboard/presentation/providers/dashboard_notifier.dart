@@ -1,13 +1,13 @@
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/logging/app_logger.dart';
-import 'package:cristo_es_el_salvador/core/logging/logger_provider.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_provider.dart';
-import 'package:cristo_es_el_salvador/core/telemetry/telemetry_service.dart';
-import 'package:cristo_es_el_salvador/core/usecase/usecase.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/domain/usecases/get_current_user_usecase.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/providers/dashboard_providers.dart';
-import 'package:cristo_es_el_salvador/features/dashboard/presentation/providers/dashboard_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/dashboard/domain/usecases/get_current_user_usecase.dart';
+import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_providers.dart';
+import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_state.dart';
 
 /// Nota sobre 401: si `GET /me` expira, `UnauthorizedInterceptor`
 /// (core/network) ya desloguea globalmente y el router saca al usuario del

@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Estructura de navegación compartida por `DashboardNavDrawer` (Web/Tablet)
 /// y `DashboardBottomNavBar` (móvil), para que ambos muestren siempre los

@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
 
 /// Contrato del dominio: `data` lo implementa, `presentation` solo conoce
 /// esta interfaz (a través de `LoginUseCase`/`SignUpUseCase`), nunca

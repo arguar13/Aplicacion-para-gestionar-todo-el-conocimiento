@@ -1,9 +1,9 @@
-import 'package:cristo_es_el_salvador/core/domain/entities/user.dart';
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
-import 'package:cristo_es_el_salvador/core/usecase/usecase.dart';
-import 'package:cristo_es_el_salvador/features/auth/domain/repositories/auth_repository.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:meta/meta.dart';
+import 'package:sinapsis/core/domain/entities/user.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/auth/domain/repositories/auth_repository.dart';
 
 class SignUpUseCase implements UseCase<User, SignUpParams> {
   const SignUpUseCase(this._repository);

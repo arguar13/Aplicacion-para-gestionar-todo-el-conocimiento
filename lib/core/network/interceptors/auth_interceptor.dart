@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/network/token_storage.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/core/network/token_storage.dart';
 
 /// Inyecta el `Authorization: Bearer <token>` en cada request saliente.
 class AuthInterceptor extends Interceptor {

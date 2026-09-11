@@ -1,6 +1,6 @@
-import 'package:cristo_es_el_salvador/app/router/placeholder_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/placeholder_screen.dart';
 
 void main() {
   testWidgets('dibuja el título recibido dentro de un Scaffold', (

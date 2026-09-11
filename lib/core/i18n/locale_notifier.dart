@@ -1,10 +1,10 @@
 import 'dart:ui';
 
-import 'package:cristo_es_el_salvador/core/design/theme_mode_notifier.dart'
-    show sharedPreferencesProvider;
-import 'package:cristo_es_el_salvador/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Recuerda el idioma elegido por el usuario (o `null` = "seguir el
 /// idioma del sistema") entre reinicios de la app. Reutiliza

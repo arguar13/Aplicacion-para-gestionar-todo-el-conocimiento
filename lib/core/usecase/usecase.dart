@@ -1,5 +1,5 @@
-import 'package:cristo_es_el_salvador/core/error/failures.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/error/failures.dart';
 
 /// Contrato que debe implementar cada caso de uso de `domain`.
 /// [ResultType] es el resultado exitoso, [Params] los argumentos de entrada.
