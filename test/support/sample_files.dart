@@ -218,3 +218,79 @@ ArchiveFile _textFile(String name, String content) =>
 /// pruebas.
 Uint8List withSignature(List<int> signature, {int padding = 64}) =>
     Uint8List.fromList([...signature, ...List.filled(padding, 0)]);
+
+/// Un PDF mínimo pero válido, con una línea de texto por página.
+///
+/// Se arma a mano en vez de con una librería de generación: lo que se está
+/// probando es la lectura de PDFs de verdad, y un PDF escrito byte a byte
+/// —con su tabla de referencias cruzadas calculada— ejercita el mismo camino
+/// que un archivo del usuario. Además deja controlar exactamente qué hay en
+/// cada página, que con un motor de maquetación no se puede.
+///
+/// El texto tiene que ser ASCII: las cadenas de un PDF se codifican según la
+/// fuente, y meter acentos acá obligaría a incrustar una tabla de
+/// codificación que no aporta nada a lo que se quiere probar.
+///
+/// Una página con [pageTexts] vacío no lleva texto: es el caso del PDF
+/// escaneado, que es un álbum de fotos de páginas y no contiene ni una letra.
+Uint8List buildPdf({List<String> pageTexts = const ['Hola mundo']}) {
+  final objects = <String>[
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '', // el de las páginas se completa abajo, cuando se sabe cuántas hay
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  final pageRefs = <String>[];
+  for (var i = 0; i < pageTexts.length; i++) {
+    final pageNumber = objects.length + 1;
+    final contentNumber = pageNumber + 1;
+    pageRefs.add('$pageNumber 0 R');
+
+    final stream = pageTexts[i].isEmpty
+        ? ''
+        : 'BT /F1 24 Tf 72 700 Td (${_escapePdfString(pageTexts[i])}) Tj ET';
+
+    objects
+      ..add(
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] '
+        '/Resources << /Font << /F1 3 0 R >> >> '
+        '/Contents $contentNumber 0 R >>',
+      )
+      ..add('<< /Length ${stream.length} >>\nstream\n$stream\nendstream');
+  }
+
+  objects[1] =
+      '<< /Type /Pages /Kids [${pageRefs.join(' ')}] '
+      '/Count ${pageTexts.length} >>';
+
+  // El cuerpo, anotando dónde empieza cada objeto: la tabla de referencias
+  // cruzadas son esas posiciones, y un byte de diferencia deja el archivo
+  // ilegible.
+  final body = StringBuffer('%PDF-1.4\n');
+  final offsets = <int>[];
+  for (var i = 0; i < objects.length; i++) {
+    offsets.add(body.length);
+    body.write('${i + 1} 0 obj\n${objects[i]}\nendobj\n');
+  }
+
+  final xrefOffset = body.length;
+  body
+    ..write('xref\n0 ${objects.length + 1}\n')
+    // La entrada cero es siempre la cabeza de la lista de libres.
+    ..write('0000000000 65535 f \n');
+  for (final offset in offsets) {
+    body.write('${offset.toString().padLeft(10, '0')} 00000 n \n');
+  }
+
+  body.write(
+    'trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n'
+    'startxref\n$xrefOffset\n%%EOF\n',
+  );
+
+  // Latin-1 y no UTF-8: las posiciones de la tabla se cuentan en bytes, y con
+  // UTF-8 un carácter podría ocupar dos y correr todo lo que viene después.
+  return Uint8List.fromList(latin1.encode(body.toString()));
+}
+
+String _escapePdfString(String text) =>
+    text.replaceAll(r'\', r'\\').replaceAll('(', r'\(').replaceAll(')', r'\)');

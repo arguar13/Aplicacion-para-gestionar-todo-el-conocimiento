@@ -41,3 +41,6 @@ ios/.symlinks/
 # Node (mock server)
 mock_server/node_modules/
 coverage/
+
+# Librería nativa de PDFium para las pruebas (ver tool/fetch_pdfium.sh).
+.pdfium/

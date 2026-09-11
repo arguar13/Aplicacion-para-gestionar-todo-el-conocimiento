@@ -72,6 +72,14 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # La librería nativa de PDFium. En la app la empaqueta el complemento
+      # `pdfium_flutter` y no hay nada que preparar, pero `flutter test` corre
+      # fuera de ese empaquetado. Sin esto, las pruebas del lector de PDF se
+      # saltan —lo dicen en su mensaje— y el lector quedaría sin verificar en
+      # cada integración.
+      - name: Fetch PDFium for the PDF tests
+        run: echo "PDFIUM_PATH=$(tool/fetch_pdfium.sh)" >> "$GITHUB_ENV"
+
       - name: Run tests
         run: flutter test --coverage
 

@@ -48,6 +48,15 @@ dependencies:
   path_provider: ^2.1.6
   # Port en Dart del algoritmo Readability de Mozilla. Se probó contra HTML
   # realista antes de confiarle la extracción (ver docs/arquitectura.md).
+  # PDFium de Chromium empaquetado para cada plataforma. Es el complemento
+  # que trae el binario nativo; el visor completo (`pdfrx`) arrastraría
+  # url_launcher y dos librerías de widgets que esta app no usa — solo se
+  # necesita extraer texto.
+  pdfium_flutter: ^0.3.0
+  # La API de lectura de PDF sobre PDFium, en Dart puro y con licencia MIT.
+  # Reemplaza a syncfusion_flutter_pdf, cuya licencia community es
+  # propietaria: ver la decisión 3 en docs/arquitectura.md.
+  pdfrx_engine: ^0.6.0
   reader_mode: ^0.2.3
   sentry_flutter: ^8.14.0
   shared_preferences: ^2.3.3
