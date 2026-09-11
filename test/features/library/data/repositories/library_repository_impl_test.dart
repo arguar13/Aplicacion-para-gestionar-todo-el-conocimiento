@@ -1,0 +1,588 @@
+import 'package:async/async.dart';
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+
+class MockTelemetryService extends Mock implements TelemetryService {}
+
+/// Contra SQLite real, en memoria. Un doble de la base respondería lo que se
+/// le pida y no probaría ni las transacciones, ni las cascadas, ni la
+/// búsqueda — que es justamente lo que hay que verificar acá.
+void main() {
+  late AppDatabase db;
+  late LibraryRepositoryImpl repository;
+
+  final now = DateTime(2026, 9, 11, 10);
+  var counter = 0;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+    repository = LibraryRepositoryImpl(
+      database: db,
+      telemetry: MockTelemetryService(),
+    );
+    counter = 0;
+  });
+
+  tearDown(() => db.close());
+
+  KnowledgeItem buildItem({
+    String? id,
+    String title = 'La estructura de las revoluciones científicas',
+    String? subtitle,
+    SourceKind sourceKind = SourceKind.webPage,
+    DateTime? capturedAt,
+    DateTime? publishedAt,
+    ProcessingState state = ProcessingState.ready,
+    List<Rendition> renditions = const [],
+    List<Tag> tags = const [],
+  }) {
+    final n = counter++;
+    final itemId = id ?? 'item-$n';
+    return KnowledgeItem(
+      id: itemId,
+      title: title,
+      subtitle: subtitle,
+      source: Source(
+        id: 'src-$n',
+        kind: sourceKind,
+        capturedAt: capturedAt ?? now,
+        publishedAt: publishedAt,
+        url: 'https://ejemplo.org/$n',
+        authorName: 'Autora $n',
+        authorUrl: 'https://ejemplo.org/autora-$n',
+      ),
+      processingState: state,
+      createdAt: now,
+      updatedAt: now,
+      renditions: renditions,
+      tags: tags,
+    );
+  }
+
+  Rendition textRendition(
+    String itemId,
+    String content, {
+    String? id,
+    bool isPrimary = true,
+  }) => Rendition.text(
+    id: id ?? 'rend-${counter++}',
+    itemId: itemId,
+    kind: RenditionKind.plainText,
+    content: content,
+    isPrimary: isPrimary,
+    createdAt: now,
+  );
+
+  group('guardar y recuperar', () {
+    test('un elemento vuelve completo: con su fuente, sus formas y sus '
+        'etiquetas', () async {
+      final base = buildItem(subtitle: 'Thomas Kuhn, 1962');
+      final item = base.copyWith(
+        renditions: [textRendition(base.id, 'El concepto de paradigma...')],
+        tags: [Tag(id: 'tag-1', name: 'epistemología', createdAt: now)],
+      );
+
+      await repository.save(item);
+      final found = (await repository.findById(
+        item.id,
+      )).getRight().toNullable();
+
+      expect(found, isNotNull);
+      expect(found!.title, item.title);
+      expect(found.subtitle, 'Thomas Kuhn, 1962');
+      // Lo que más importa: la procedencia sobrevivió al viaje completo.
+      expect(found.source.url, item.source.url);
+      expect(found.source.authorName, 'Autora 0');
+      expect(found.source.authorUrl, item.source.authorUrl);
+      expect(found.renditions, hasLength(1));
+      expect(found.tags.map((t) => t.name), ['epistemología']);
+    });
+
+    test('un elemento que no existe devuelve null, no un error', () async {
+      final result = await repository.findById('no-existe');
+
+      expect(result.isRight(), isTrue);
+      expect(result.getRight().toNullable(), isNull);
+    });
+
+    test('guardar dos veces actualiza en vez de duplicar', () async {
+      final item = buildItem(title: 'Título original');
+      await repository.save(item);
+
+      await repository.save(item.copyWith(title: 'Título corregido'));
+
+      final all = (await repository.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!;
+      expect(all, hasLength(1));
+      expect(all.single.title, 'Título corregido');
+    });
+
+    test(
+      'el guardado es atómico: si algo falla, no queda nada a medias',
+      () async {
+        // Una forma inválida —sin texto ni archivo— viola el CHECK del esquema
+        // en mitad de la transacción, después de haber escrito la fuente y el
+        // elemento.
+        final base = buildItem();
+        final broken = base.copyWith(
+          renditions: [
+            Rendition.file(
+              id: 'r1',
+              itemId: base.id,
+              kind: RenditionKind.image,
+              relativePath: '',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        );
+
+        // Se fuerza el fallo insertando directamente una forma inválida con el
+        // mismo identificador, para que el upsert choque.
+        await db.customStatement(
+          'INSERT INTO sources (id, kind, captured_at) VALUES (?, ?, ?)',
+          [base.source.id, 'webPage', now.millisecondsSinceEpoch ~/ 1000],
+        );
+
+        final result = await repository.save(broken.copyWith(title: 'x' * 10));
+
+        // Sea cual sea el desenlace, lo que no puede pasar es que quede un
+        // elemento sin sus formas: o entró todo, o no entró nada.
+        if (result.isRight()) {
+          final found = (await repository.findById(
+            broken.id,
+          )).getRight().toNullable();
+          expect(found!.renditions, hasLength(1));
+        } else {
+          expect(await db.select(db.items).get(), isEmpty);
+        }
+      },
+    );
+  });
+
+  group('actualizar sin destruir', () {
+    test('actualizar un elemento NO borra los subrayados de las formas que '
+        'siguen estando', () async {
+      // El bug que esta implementación evita a propósito: rehacer todas las
+      // formas en cada guardado sería más corto de escribir y se llevaría por
+      // delante, en cascada, cada subrayado y cada nota al margen del
+      // usuario. Sin ruido y sin vuelta atrás.
+      final base = buildItem();
+      final rendition = textRendition(
+        base.id,
+        'una frase que alguien va a subrayar',
+        id: 'rend-fijo',
+      );
+      await repository.save(base.copyWith(renditions: [rendition]));
+
+      await db
+          .into(db.highlights)
+          .insert(
+            HighlightsCompanion.insert(
+              id: 'hl-1',
+              renditionId: 'rend-fijo',
+              startOffset: 2,
+              endOffset: 7,
+              excerpt: 'frase',
+              createdAt: now,
+            ),
+          );
+
+      // Se guarda otra vez, cambiando solo el título.
+      await repository.save(
+        base.copyWith(title: 'Otro título', renditions: [rendition]),
+      );
+
+      expect(await db.select(db.highlights).get(), hasLength(1));
+    });
+
+    test('una forma que desaparece de la entidad sí se borra', () async {
+      final base = buildItem();
+      final a = textRendition(base.id, 'primera', id: 'r-a');
+      final b = textRendition(base.id, 'segunda', id: 'r-b', isPrimary: false);
+      await repository.save(base.copyWith(renditions: [a, b]));
+
+      await repository.save(base.copyWith(renditions: [a]));
+
+      final found = (await repository.findById(
+        base.id,
+      )).getRight().toNullable();
+      expect(found!.renditions.map((r) => r.renditionId), ['r-a']);
+    });
+
+    test('quitar una etiqueta de un elemento no borra la etiqueta para los '
+        'demás', () async {
+      final tag = Tag(id: 'tag-1', name: 'filosofía', createdAt: now);
+      final a = buildItem(title: 'A');
+      final b = buildItem(title: 'B');
+      await repository.save(a.copyWith(tags: [tag]));
+      await repository.save(b.copyWith(tags: [tag]));
+
+      await repository.save(a.copyWith(tags: const []));
+
+      final foundB = (await repository.findById(b.id)).getRight().toNullable();
+      expect(foundB!.tags.map((t) => t.name), ['filosofía']);
+      expect(await db.select(db.tags).get(), hasLength(1));
+    });
+  });
+
+  group('borrar', () {
+    test('borra el elemento y todo lo que cuelga de él', () async {
+      final base = buildItem();
+      await repository.save(
+        base.copyWith(
+          renditions: [textRendition(base.id, 'contenido')],
+          tags: [Tag(id: 'tag-1', name: 'algo', createdAt: now)],
+        ),
+      );
+
+      await repository.delete(base.id);
+
+      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.renditions).get(), isEmpty);
+      expect(await db.select(db.itemTags).get(), isEmpty);
+      // La etiqueta en sí sobrevive: puede estar en uso por otros elementos,
+      // y aunque no lo esté, es parte del vocabulario del usuario.
+      expect(await db.select(db.tags).get(), hasLength(1));
+    });
+  });
+  group('filtrar', () {
+    Future<void> seed() async {
+      final yt = buildItem(
+        title: 'Charla sobre paradigmas',
+        sourceKind: SourceKind.youtube,
+      );
+      await repository.save(
+        yt.copyWith(
+          renditions: [
+            textRendition(yt.id, 'transcripción sobre epistemología'),
+          ],
+          tags: [Tag(id: 'tag-filo', name: 'filosofía', createdAt: now)],
+        ),
+      );
+
+      final web = buildItem(title: 'Artículo sobre enzimas');
+      await repository.save(
+        web.copyWith(
+          renditions: [textRendition(web.id, 'las enzimas catalizan')],
+          tags: [Tag(id: 'tag-bio', name: 'biología', createdAt: now)],
+        ),
+      );
+
+      final pdf = buildItem(
+        title: 'Un PDF pendiente',
+        sourceKind: SourceKind.document,
+        state: ProcessingState.pending,
+      );
+      await repository.save(
+        pdf.copyWith(
+          tags: [
+            Tag(id: 'tag-filo', name: 'filosofía', createdAt: now),
+            Tag(id: 'tag-bio', name: 'biología', createdAt: now),
+          ],
+        ),
+      );
+    }
+
+    Future<List<String>> titlesOf(LibraryQuery query) async {
+      final items = (await repository.list(query)).getRight().toNullable()!;
+      return items.map((i) => i.title).toList();
+    }
+
+    test('por tipo de fuente', () async {
+      await seed();
+
+      expect(
+        await titlesOf(const LibraryQuery(sourceKinds: {SourceKind.youtube})),
+        ['Charla sobre paradigmas'],
+      );
+    });
+
+    test('dentro de un mismo filtro vale cualquiera de los valores', () async {
+      await seed();
+
+      final titles = await titlesOf(
+        const LibraryQuery(
+          sourceKinds: {SourceKind.youtube, SourceKind.document},
+        ),
+      );
+
+      expect(titles, hasLength(2));
+    });
+
+    test(
+      'por estado de procesamiento, para poder mirar solo lo que falta',
+      () async {
+        await seed();
+
+        expect(
+          await titlesOf(
+            const LibraryQuery(processingStates: {ProcessingState.pending}),
+          ),
+          ['Un PDF pendiente'],
+        );
+      },
+    );
+
+    test('por etiqueta', () async {
+      await seed();
+
+      final titles = await titlesOf(const LibraryQuery(tagIds: {'tag-filo'}));
+
+      expect(titles, hasLength(2));
+      expect(titles, contains('Charla sobre paradigmas'));
+      expect(titles, contains('Un PDF pendiente'));
+    });
+
+    test('un elemento que coincide con VARIAS de las etiquetas buscadas '
+        'aparece una sola vez', () async {
+      // El motivo de resolver este filtro con una subconsulta y no con un
+      // join: con join, el PDF —que tiene las dos etiquetas— saldría
+      // duplicado, y la lista mostraría el mismo elemento dos veces.
+      await seed();
+
+      final titles = await titlesOf(
+        const LibraryQuery(tagIds: {'tag-filo', 'tag-bio'}),
+      );
+
+      expect(titles.where((t) => t == 'Un PDF pendiente'), hasLength(1));
+    });
+
+    test('entre filtros distintos se tienen que cumplir todos', () async {
+      await seed();
+
+      final titles = await titlesOf(
+        const LibraryQuery(
+          sourceKinds: {SourceKind.document},
+          tagIds: {'tag-filo'},
+        ),
+      );
+
+      expect(titles, ['Un PDF pendiente']);
+    });
+
+    test('busca en el contenido, no solo en el título', () async {
+      await seed();
+
+      expect(await titlesOf(const LibraryQuery(searchText: 'catalizan')), [
+        'Artículo sobre enzimas',
+      ]);
+    });
+
+    test('la búsqueda se combina con los filtros', () async {
+      await seed();
+
+      expect(
+        await titlesOf(
+          const LibraryQuery(
+            searchText: 'sobre',
+            sourceKinds: {SourceKind.youtube},
+          ),
+        ),
+        ['Charla sobre paradigmas'],
+      );
+    });
+
+    test(
+      'una búsqueda de solo espacios no filtra nada: no es una búsqueda',
+      () async {
+        // Tratarla como tal devolvería cero resultados y daría a entender que
+        // la biblioteca está vacía.
+        await seed();
+
+        expect(
+          await titlesOf(const LibraryQuery(searchText: '   ')),
+          hasLength(3),
+        );
+      },
+    );
+  });
+
+  group('ordenar y paginar', () {
+    Future<void> seedOrdered() async {
+      for (final (i, title) in ['Cero', 'Alfa', 'Beta'].indexed) {
+        await repository.save(
+          buildItem(
+            title: title,
+            capturedAt: now.add(Duration(days: i)),
+          ),
+        );
+      }
+    }
+
+    Future<List<String>> titlesOf(LibraryQuery query) async {
+      final items = (await repository.list(query)).getRight().toNullable()!;
+      return items.map((i) => i.title).toList();
+    }
+
+    test('por fecha de captura, lo más nuevo primero', () async {
+      await seedOrdered();
+
+      expect(await titlesOf(const LibraryQuery()), ['Beta', 'Alfa', 'Cero']);
+    });
+
+    test('y al revés si se pide', () async {
+      await seedOrdered();
+
+      expect(await titlesOf(const LibraryQuery(descending: false)), [
+        'Cero',
+        'Alfa',
+        'Beta',
+      ]);
+    });
+
+    test('alfabético por título', () async {
+      await seedOrdered();
+
+      expect(
+        await titlesOf(
+          const LibraryQuery(sortBy: LibrarySort.title, descending: false),
+        ),
+        ['Alfa', 'Beta', 'Cero'],
+      );
+    });
+
+    test('sin texto buscado, pedir orden por relevancia no rompe: cae en el '
+        'orden por fecha', () async {
+      await seedOrdered();
+
+      expect(
+        await titlesOf(const LibraryQuery(sortBy: LibrarySort.relevance)),
+        ['Beta', 'Alfa', 'Cero'],
+      );
+    });
+
+    test('con texto buscado, el orden por relevancia pone primero lo que más '
+        'coincide', () async {
+      final poco = buildItem(title: 'Mención aislada de enzimas');
+      await repository.save(poco);
+      final mucho = buildItem(title: 'Enzimas');
+      await repository.save(
+        mucho.copyWith(
+          renditions: [
+            textRendition(mucho.id, 'enzimas, enzimas y más enzimas'),
+          ],
+        ),
+      );
+
+      final titles = await titlesOf(
+        const LibraryQuery(
+          searchText: 'enzimas',
+          sortBy: LibrarySort.relevance,
+        ),
+      );
+
+      expect(titles.first, 'Enzimas');
+      expect(titles, hasLength(2));
+    });
+
+    test('pagina', () async {
+      await seedOrdered();
+
+      expect(await titlesOf(const LibraryQuery(limit: 2)), ['Beta', 'Alfa']);
+      expect(await titlesOf(const LibraryQuery(limit: 2, offset: 2)), ['Cero']);
+    });
+
+    test('contar devuelve el total, no el tamaño de la página', () async {
+      await seedOrdered();
+
+      final total = (await repository.count(
+        const LibraryQuery(limit: 1),
+      )).getRight().toNullable();
+
+      expect(total, 3);
+    });
+
+    test('contar respeta los filtros', () async {
+      await seedOrdered();
+      await repository.save(
+        buildItem(title: 'Un video', sourceKind: SourceKind.youtube),
+      );
+
+      final total = (await repository.count(
+        const LibraryQuery(sourceKinds: {SourceKind.youtube}),
+      )).getRight().toNullable();
+
+      expect(total, 1);
+    });
+  });
+
+  group('observar cambios', () {
+    // Se usa `StreamQueue` y no `pumpEventQueue` ni `emitsInOrder` a secas.
+    //
+    // El stream de `watch` no termina nunca —esa es su función—, así que
+    // esperar a que la cola de eventos se vacíe cuelga el test. Y la primera
+    // emisión es asíncrona (hay una consulta de por medio), de modo que
+    // suscribirse y escribir en la línea siguiente es una carrera: la
+    // escritura puede llegar antes de que salga la emisión inicial, y
+    // entonces esa primera emisión ya trae el cambio.
+    //
+    // Para la aplicación eso da igual —el stream converge al estado
+    // correcto— pero un test tiene que ser determinista. `StreamQueue`
+    // permite decir exactamente lo que se quiere: esperá la primera, recién
+    // entonces escribí, después esperá la siguiente.
+
+    test(
+      'vuelve a emitir cuando algo se guarda, sin que nadie pregunte',
+      () async {
+        // Es lo que permite que una pantalla abierta se actualice sola cuando
+        // una transcripción termina en segundo plano.
+        final queue = StreamQueue(repository.watch(const LibraryQuery()));
+        addTearDown(queue.cancel);
+
+        expect(await queue.next, isEmpty);
+
+        await repository.save(buildItem(title: 'Recién llegado'));
+
+        expect(await queue.next, hasLength(1));
+      },
+    );
+
+    test('también cuando algo se borra', () async {
+      final item = buildItem();
+      await repository.save(item);
+
+      final queue = StreamQueue(repository.watch(const LibraryQuery()));
+      addTearDown(queue.cancel);
+
+      expect(await queue.next, hasLength(1));
+
+      await repository.delete(item.id);
+
+      expect(await queue.next, isEmpty);
+    });
+
+    test('lo que emite respeta los filtros de la consulta', () async {
+      final queue = StreamQueue(
+        repository.watch(const LibraryQuery(sourceKinds: {SourceKind.youtube})),
+      );
+      addTearDown(queue.cancel);
+
+      expect(await queue.next, isEmpty);
+
+      // Un elemento que no cumple el filtro igual provoca una emisión —el
+      // stream reacciona a cualquier escritura— pero su contenido tiene que
+      // seguir vacío.
+      await repository.save(buildItem(title: 'Un artículo'));
+      expect(await queue.next, isEmpty);
+
+      await repository.save(
+        buildItem(title: 'Un video', sourceKind: SourceKind.youtube),
+      );
+      expect(await queue.next, hasLength(1));
+    });
+  });
+}

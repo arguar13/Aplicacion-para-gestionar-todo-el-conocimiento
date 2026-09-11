@@ -75,16 +75,21 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
-      # `lib/l10n/generated/**` (AppLocalizations) es código generado
-      # mecánicamente desde los .arb — igual que *.freezed.dart/*.g.dart,
-      # no debería inflar ni desinflar el % de cobertura de lógica propia.
-      # Esos dos sí quedan afuera solos (son `part of`, coverage no los
-      # reporta como archivo aparte); los de l10n sí son librerías propias
-      # y hay que sacarlos a mano.
-      - name: Strip generated localizations from coverage report
+      # El código generado se saca del reporte: no es lógica propia, nadie lo
+      # escribe y nadie debería escribirle tests, así que contarlo solo
+      # distorsiona el porcentaje real de lo que sí mantenemos.
+      #
+      # Hasta acá se excluía únicamente `lib/l10n/generated/**`, dando por
+      # sentado que los `*.g.dart` y `*.freezed.dart` quedaban afuera solos
+      # "por ser `part of`". Con freezed pasa, pero con los `*.g.dart` no:
+      # el generado por drift aparece en el informe con sus 2400 líneas, y
+      # arrastró la cobertura del 86% al 44% sin que cambiara una sola línea
+      # de lógica propia.
+      - name: Strip generated code from coverage report
         run: |
           sudo apt-get update -y && sudo apt-get install -y lcov
-          lcov --remove coverage/lcov.info 'lib/l10n/generated/*' \
+          lcov --remove coverage/lcov.info \
+            'lib/l10n/generated/*' '*.g.dart' '*.freezed.dart' \
             -o coverage/lcov.info --ignore-errors unused
 
       # Falla el pipeline si la cobertura de línea baja de 80%.

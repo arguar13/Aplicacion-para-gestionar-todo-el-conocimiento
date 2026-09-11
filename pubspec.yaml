@@ -13,6 +13,12 @@ dependencies:
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
   cryptography: ^2.9.0
   dio: ^5.7.0
+  # Base de datos local. `drift_flutter` resuelve por sí solo las librerías
+  # nativas de SQLite y la ruta del archivo en cada plataforma; no hace falta
+  # agregar `sqlite3_flutter_libs` a mano (de hecho ya está deprecado a favor
+  # de `sqlite3` 3.x, que drift_flutter arrastra).
+  drift: ^2.35.0
+  drift_flutter: ^0.3.1
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -27,11 +33,24 @@ dependencies:
   json_annotation: ^4.12.0
   logger: ^2.5.0
   meta: ^1.16.0
+  # Para guardar los archivos pesados (PDFs, audio, imágenes, copias de
+  # páginas) fuera de la base: SQLite se vuelve lento si se le meten binarios
+  # grandes, y casi ninguna consulta los necesita.
+  path: ^1.9.0
+  path_provider: ^2.1.6
   sentry_flutter: ^8.14.0
   shared_preferences: ^2.3.3
+  # UUID v7 para los identificadores: a diferencia del v4, son ordenables por
+  # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
+  # inserción por todo el árbol.
+  uuid: ^4.6.0
 
 dev_dependencies:
+  # Para `StreamQueue` en los tests de streams: permite pedir la siguiente
+  # emisión de a una, que es lo que hace deterministas las pruebas de `watch`.
+  async: ^2.11.0
   build_runner: ^2.4.13
+  drift_dev: ^2.35.0
   flutter_secure_storage_platform_interface: ^1.1.2
   flutter_test:
     sdk: flutter

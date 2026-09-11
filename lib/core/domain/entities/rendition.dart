@@ -1,0 +1,74 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+
+part 'rendition.freezed.dart';
+
+/// Una de las formas en que existe el contenido de un elemento.
+///
+/// Un video de YouTube puede tener tres a la vez: la transcripción, el enlace
+/// y la miniatura. Que sean varias —y no un único campo `contenido`— es lo
+/// que permite *elegir en qué formato conservarlo* sin tener que elegir uno
+/// solo: conviven, y al exportar se toma la que haga falta.
+///
+/// Está partida en dos variantes en vez de tener `content` y `filePath`
+/// anulables porque un estado como "las dos llenas" o "las dos vacías" no
+/// significa nada, y con dos campos anulables sería representable. Acá no se
+/// puede construir.
+@freezed
+sealed class Rendition with _$Rendition {
+  const factory Rendition.text({
+    required String id,
+    required String itemId,
+    required RenditionKind kind,
+
+    /// El texto en sí, guardado en la base: es lo que se busca e indexa.
+    required String content,
+    required bool isPrimary,
+    required DateTime createdAt,
+  }) = TextRendition;
+
+  /// Contenido que vive como archivo: imagen, audio, PDF, la copia de una
+  /// página.
+  ///
+  /// Fuera de la base a propósito. SQLite se vuelve lento si se le meten
+  /// binarios grandes, y prácticamente ninguna consulta los necesita: la
+  /// lista, la búsqueda y los filtros trabajan con texto y metadatos.
+  const factory Rendition.file({
+    required String id,
+    required String itemId,
+    required RenditionKind kind,
+
+    /// Ruta relativa al directorio de datos de la app, nunca absoluta: en
+    /// iOS y Android el contenedor de la app cambia de ruta entre
+    /// instalaciones y actualizaciones, así que una ruta absoluta guardada
+    /// hoy puede no existir mañana.
+    required String relativePath,
+    required bool isPrimary,
+    required DateTime createdAt,
+  }) = FileRendition;
+
+  const Rendition._();
+
+  /// La que se muestra por defecto cuando hay varias.
+  bool get primary => switch (this) {
+    TextRendition(:final isPrimary) => isPrimary,
+    FileRendition(:final isPrimary) => isPrimary,
+  };
+
+  String get renditionId => switch (this) {
+    TextRendition(:final id) => id,
+    FileRendition(:final id) => id,
+  };
+
+  RenditionKind get renditionKind => switch (this) {
+    TextRendition(:final kind) => kind,
+    FileRendition(:final kind) => kind,
+  };
+
+  /// El texto buscable, o `null` si esta forma no tiene ninguno. Es lo que
+  /// alimenta el índice de búsqueda.
+  String? get searchableText => switch (this) {
+    TextRendition(:final content) => content,
+    FileRendition() => null,
+  };
+}
