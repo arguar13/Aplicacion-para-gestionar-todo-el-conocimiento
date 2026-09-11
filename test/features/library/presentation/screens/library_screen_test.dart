@@ -251,6 +251,126 @@ void main() {
     });
   });
 
+  group('selección múltiple', () {
+    testWidgets('el ícono de seleccionar activa el modo, sin elegir nada '
+        'todavía', (tester) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.librarySelectedCount(0)), findsOneWidget);
+      expect(find.byIcon(Icons.close), findsOneWidget);
+    });
+
+    testWidgets('mantener presionada una fila entra al modo y la elige', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+    });
+
+    testWidgets(
+      'en modo selección, tocar una fila alterna la casilla en vez de '
+      'navegar',
+      (tester) async {
+        await harness.capture('Uno');
+        await pumpLibrary(tester);
+
+        await tester.tap(find.byIcon(Icons.checklist));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Uno'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+        expect(find.byType(LibraryScreen), findsOneWidget);
+
+        await tester.tap(find.text('Uno'));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.librarySelectedCount(0)), findsOneWidget);
+      },
+    );
+
+    testWidgets('cancelar la selección vuelve a la barra normal', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryTitle), findsOneWidget);
+      expect(find.byIcon(Icons.checklist), findsOneWidget);
+    });
+
+    testWidgets('sin nada elegido, exportar está deshabilitado', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.upload_file_outlined),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('exporta lo elegido para NotebookLM y confirma', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await harness.capture('Dos');
+      harness.notebookLmDirectoryChooser.path = '/mi/carpeta';
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.upload_file_outlined));
+      await tester.pumpAndSettle();
+
+      // Los dos elegidos, más el índice.
+      expect(harness.notebookLmDirectoryWriter.written, hasLength(3));
+      expect(
+        find.text(es.libraryExportPackageSaved(3, '/mi/carpeta')),
+        findsOneWidget,
+      );
+      // Terminado el paquete, no queda nada seleccionado.
+      expect(find.byIcon(Icons.checklist), findsOneWidget);
+    });
+
+    testWidgets(
+      'cancelar el selector de carpeta no saca del modo de selección',
+      (tester) async {
+        await harness.capture('Uno');
+        harness.notebookLmDirectoryChooser.path = null;
+        await pumpLibrary(tester);
+
+        await tester.longPress(find.text('Uno'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.upload_file_outlined));
+        await tester.pumpAndSettle();
+
+        expect(harness.notebookLmDirectoryWriter.written, isEmpty);
+        expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+      },
+    );
+  });
+
   group('retomar lo que quedó a medias', () {
     testWidgets('abrir la biblioteca pide traer lo que quedó pendiente', (
       tester,

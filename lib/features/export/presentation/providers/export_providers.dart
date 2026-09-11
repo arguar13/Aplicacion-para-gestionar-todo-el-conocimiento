@@ -4,10 +4,13 @@ import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/plain_text_exporter.dart';
 import 'package:sinapsis/features/export/data/services/local_directory_writer.dart';
 import 'package:sinapsis/features/export/data/services/system_directory_chooser.dart';
+import 'package:sinapsis/features/export/data/services/system_file_saver.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter_registry.dart';
 import 'package:sinapsis/features/export/domain/notebooklm/notebooklm_package_builder.dart';
 import 'package:sinapsis/features/export/domain/services/directory_chooser.dart';
 import 'package:sinapsis/features/export/domain/services/directory_writer.dart';
+import 'package:sinapsis/features/export/domain/services/file_saver.dart';
+import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_notebooklm_package_usecase.dart';
 
 const _markdownExporter = MarkdownExporter();
@@ -44,3 +47,14 @@ final exportNotebookLmPackageUseCaseProvider =
         builder: ref.watch(notebookLmPackageBuilderProvider),
       );
     });
+
+final fileSaverProvider = Provider<FileSaver>((ref) {
+  return const SystemFileSaver();
+});
+
+final exportItemUseCaseProvider = Provider<ExportItemUseCase>((ref) {
+  return ExportItemUseCase(
+    registry: ref.watch(exporterRegistryProvider),
+    saver: ref.watch(fileSaverProvider),
+  );
+});

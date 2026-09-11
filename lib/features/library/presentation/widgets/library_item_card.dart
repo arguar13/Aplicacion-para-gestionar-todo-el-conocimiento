@@ -9,10 +9,27 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// tipo de fuente), cómo se llama, de dónde salió y si le falta algo. Un
 /// vistazo a la lista tiene que alcanzar para reconocer lo que uno busca.
 class LibraryItemCard extends StatelessWidget {
-  const LibraryItemCard({required this.item, required this.onTap, super.key});
+  const LibraryItemCard({
+    required this.item,
+    required this.onTap,
+    this.onLongPress,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onSelectedChanged,
+    super.key,
+  });
 
   final KnowledgeItem item;
   final VoidCallback onTap;
+
+  /// Punto de entrada al modo de selección múltiple, en las listas donde
+  /// existe. `null` en las que no lo ofrecen.
+  final VoidCallback? onLongPress;
+
+  /// Si la lista está mostrando casillas en vez de navegar al tocar.
+  final bool selectionMode;
+  final bool selected;
+  final ValueChanged<bool>? onSelectedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -21,11 +38,22 @@ class LibraryItemCard extends StatelessWidget {
     final stateLabel = item.processingState.label(l10n);
 
     return ListTile(
-      onTap: onTap,
-      leading: Icon(
-        item.source.kind.icon,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
+      // En modo selección, tocar la fila alterna la casilla: es lo que
+      // espera cualquiera que use Gmail o Fotos, y repetir el mismo gesto
+      // en la casilla y en el resto de la fila evita que haya que acertarle
+      // a un blanco chico.
+      onTap: selectionMode ? () => onSelectedChanged?.call(!selected) : onTap,
+      onLongPress: onLongPress,
+      selected: selected,
+      leading: selectionMode
+          ? Checkbox(
+              value: selected,
+              onChanged: (value) => onSelectedChanged?.call(value ?? false),
+            )
+          : Icon(
+              item.source.kind.icon,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
       title: Text(
         item.title,
         maxLines: 2,

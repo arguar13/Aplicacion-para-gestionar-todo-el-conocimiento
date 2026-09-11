@@ -63,6 +63,39 @@
     "description": "Shown when the active filters leave no results"
   },
   "libraryClearFilters": "Clear filters",
+  "librarySelectTooltip": "Select items",
+  "@librarySelectTooltip": {
+    "description": "Botón que activa el modo de selección múltiple en la biblioteca."
+  },
+  "libraryExitSelectionTooltip": "Cancel selection",
+  "@libraryExitSelectionTooltip": {
+    "description": "Botón que sale del modo de selección múltiple sin hacer nada más."
+  },
+  "librarySelectedCount": "{count, plural, =1{1 selected} other{{count} selected}}",
+  "@librarySelectedCount": {
+    "description": "Título de la barra superior mientras se seleccionan elementos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryExportSelectedTooltip": "Export for NotebookLM",
+  "@libraryExportSelectedTooltip": {
+    "description": "Botón que arma el paquete de NotebookLM con los elementos seleccionados."
+  },
+  "libraryExportPackageSaved": "{count, plural, =1{Saved 1 file to {path}.} other{Saved {count} files to {path}.}}",
+  "@libraryExportPackageSaved": {
+    "description": "Confirmación tras guardar el paquete de NotebookLM.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "libraryFilterByTag": "By tag",
   "@libraryFilterByTag": {
     "description": "Encabezado de la fila de chips de filtro por etiqueta en la biblioteca."
@@ -252,6 +285,13 @@
   "@detailOpenFile": {
     "description": "Botón que abre el archivo original con la aplicación del sistema."
   },
+  "detailExportTooltip": "Export",
+  "@detailExportTooltip": {
+    "description": "Botón que abre el menú de formatos de exportación en el detalle."
+  },
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatPlainText": "Plain text",
+  "exportFormatPdf": "PDF",
   "detailOpenFileNotFound": "The original file is no longer on this device.",
   "@detailOpenFileNotFound": {
     "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."

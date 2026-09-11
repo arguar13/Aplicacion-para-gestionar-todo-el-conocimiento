@@ -967,4 +967,48 @@ void main() {
       },
     );
   });
+
+  group('exportar', () {
+    testWidgets('elegir un formato lo exporta y se lo pasa al selector', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('Un artículo interesante');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byIcon(Icons.ios_share));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, endsWith('.md'));
+      expect(harness.fileSaver.savedBytes, isNotNull);
+    });
+
+    testWidgets('cada formato del menú se exporta con su propia extensión', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('Un artículo interesante');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byIcon(Icons.ios_share));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatPdf));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, endsWith('.pdf'));
+    });
+
+    testWidgets('si el selector de guardado falla, lo avisa', (tester) async {
+      final id = await captureAndGetId('Un artículo interesante');
+      harness.fileSaver.error = StateError('el diálogo se cayó');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byIcon(Icons.ios_share));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.globalErrorExportFailed), findsOneWidget);
+    });
+  });
 }

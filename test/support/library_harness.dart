@@ -17,14 +17,18 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import 'fake_directory_chooser.dart';
+import 'fake_directory_writer.dart';
 import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
+import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
 import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
@@ -44,6 +48,9 @@ class LibraryHarness {
     this.fileChooser,
     this.files,
     this.fileOpener,
+    this.fileSaver,
+    this.notebookLmDirectoryChooser,
+    this.notebookLmDirectoryWriter,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -57,6 +64,11 @@ class LibraryHarness {
 
     /// Si está, el selector lanza esto en vez de devolver.
     Object? fileChooserError,
+
+    /// La carpeta que "elige" quien prueba el paquete de NotebookLM. `null`
+    /// —el valor por defecto, igual que con el archivo elegido más arriba—
+    /// simula cancelar el selector.
+    String? notebookLmDirectoryPath,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -69,6 +81,11 @@ class LibraryHarness {
     final chooser = FakeFileChooser(file: chosenFile, error: fileChooserError);
     final files = InMemoryFileStore();
     final opener = FakeFileOpener();
+    final saver = FakeFileSaver();
+    final directoryChooser = FakeDirectoryChooser(
+      path: notebookLmDirectoryPath,
+    );
+    final directoryWriter = FakeDirectoryWriter();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -89,6 +106,12 @@ class LibraryHarness {
         // tiene con qué hablar en un test: no hay sistema operativo real que
         // responda al otro lado del canal.
         fileOpenerProvider.overrideWithValue(opener),
+        // Mismo motivo: el diálogo de guardado y el selector de carpeta son
+        // los dos ventanas del sistema, y escribir en una carpeta de verdad
+        // no tiene sentido en una prueba de pantalla.
+        fileSaverProvider.overrideWithValue(saver),
+        directoryChooserProvider.overrideWithValue(directoryChooser),
+        directoryWriterProvider.overrideWithValue(directoryWriter),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -114,7 +137,17 @@ class LibraryHarness {
       return database.close();
     });
 
-    return LibraryHarness._(container, database, ids, chooser, files, opener);
+    return LibraryHarness._(
+      container,
+      database,
+      ids,
+      chooser,
+      files,
+      opener,
+      saver,
+      directoryChooser,
+      directoryWriter,
+    );
   }
 
   final ProviderContainer container;
@@ -130,6 +163,15 @@ class LibraryHarness {
   /// El abridor de archivos de mentira, para comprobar qué se le pidió abrir
   /// y simular qué contesta el sistema operativo.
   final FakeFileOpener fileOpener;
+
+  /// El selector de guardado de mentira, para el botón de exportar del
+  /// detalle.
+  final FakeFileSaver fileSaver;
+
+  /// El selector de carpeta y el escritor de mentira, para el paquete de
+  /// NotebookLM.
+  final FakeDirectoryChooser notebookLmDirectoryChooser;
+  final FakeDirectoryWriter notebookLmDirectoryWriter;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

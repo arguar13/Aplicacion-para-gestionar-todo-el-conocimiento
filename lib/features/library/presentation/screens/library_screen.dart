@@ -11,6 +11,8 @@ import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
@@ -36,6 +38,13 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  /// Vacío significa "no está en modo selección", no "seleccionó todo y
+  /// después nada". Entrar al modo pasando por acá, y no por un booleano
+  /// aparte, evita el estado imposible de "modo activo, pero no se sabe con
+  /// qué arrancó".
+  final Set<String> _selectedIds = {};
+  var _selectionModeActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +61,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
+  void _enterSelectionMode(String itemId) {
+    setState(() {
+      _selectionModeActive = true;
+      _selectedIds.add(itemId);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionModeActive = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _setSelected(String itemId, {required bool selected}) {
+    setState(() {
+      if (selected) {
+        _selectedIds.add(itemId);
+      } else {
+        _selectedIds.remove(itemId);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -63,41 +96,153 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     // el alto igual, dejando una franja vacía debajo de los filtros de tipo.
     final hasTags =
         (ref.watch(allTagsProvider).valueOrNull ?? const []).isNotEmpty;
+    final loadedItems = items.valueOrNull ?? const <KnowledgeItem>[];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.libraryTitle),
-        actions: [
-          const _LanguageToggleButton(),
-          const _ThemeModeToggleButton(),
-          IconButton(
-            icon: const Icon(Icons.lock_outline),
-            tooltip: l10n.lockVaultTooltip,
-            // Ni navegación manual ni conocimiento del router: solo se le
-            // avisa al controlador de la bóveda, y el router reacciona.
-            onPressed: () =>
-                ref.read(vaultSessionControllerProvider.notifier).lock(),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(hasTags ? 160 : 112),
-          child: const _SearchAndFilters(),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push(RoutePaths.capture),
-        icon: const Icon(Icons.add),
-        label: Text(l10n.captureAction),
-      ),
+      appBar: _selectionModeActive
+          ? _SelectionAppBar(
+              selectedCount: _selectedIds.length,
+              onCancel: _exitSelectionMode,
+              onExport: () => _exportSelection(context, loadedItems),
+            )
+          : AppBar(
+              title: Text(l10n.libraryTitle),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.checklist),
+                  tooltip: l10n.librarySelectTooltip,
+                  // Sin nada elegido todavía: entrar al modo alcanza, no
+                  // hace falta que el primer toque también elija algo.
+                  onPressed: () => setState(() => _selectionModeActive = true),
+                ),
+                const _LanguageToggleButton(),
+                const _ThemeModeToggleButton(),
+                IconButton(
+                  icon: const Icon(Icons.lock_outline),
+                  tooltip: l10n.lockVaultTooltip,
+                  // Ni navegación manual ni conocimiento del router: solo se
+                  // le avisa al controlador de la bóveda, y el router
+                  // reacciona.
+                  onPressed: () =>
+                      ref.read(vaultSessionControllerProvider.notifier).lock(),
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: Size.fromHeight(hasTags ? 160 : 112),
+                child: const _SearchAndFilters(),
+              ),
+            ),
+      floatingActionButton: _selectionModeActive
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.push(RoutePaths.capture),
+              icon: const Icon(Icons.add),
+              label: Text(l10n.captureAction),
+            ),
       body: items.when(
         // Solo se ve en el primer instante: después, el stream re-emite sin
         // volver a pasar por "cargando", así que la lista no parpadea cada
         // vez que se guarda algo.
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stackTrace) => _LibraryError(error: error),
-        data: (list) =>
-            list.isEmpty ? _EmptyState(query: query) : _ItemList(items: list),
+        data: (list) => list.isEmpty
+            ? _EmptyState(query: query)
+            : _ItemList(
+                items: list,
+                selectionMode: _selectionModeActive,
+                selectedIds: _selectedIds,
+                onLongPressItem: _enterSelectionMode,
+                onSelectedChanged: _setSelected,
+              ),
       ),
+    );
+  }
+
+  Future<void> _exportSelection(
+    BuildContext context,
+    List<KnowledgeItem> allItems,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final selected = allItems
+        .where((item) => _selectedIds.contains(item.id))
+        .toList();
+
+    final result = await ref.read(exportNotebookLmPackageUseCaseProvider)(
+      selected,
+    );
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(failure.localizedMessage(l10n))),
+          );
+      },
+      (exportResult) {
+        // Cancelar el selector de carpeta no es un error: se deja el modo
+        // de selección tal como estaba, por si quiere intentarlo de nuevo.
+        if (exportResult is! NotebookLmExportCompleted) return;
+
+        setState(() {
+          _selectionModeActive = false;
+          _selectedIds.clear();
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.libraryExportPackageSaved(
+                  exportResult.fileCount,
+                  exportResult.directoryPath,
+                ),
+              ),
+            ),
+          );
+      },
+    );
+  }
+}
+
+/// La barra superior mientras se seleccionan elementos: cuenta cuántos hay,
+/// deja cancelar y ofrece la única acción que tiene sentido en este modo.
+class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _SelectionAppBar({
+    required this.selectedCount,
+    required this.onCancel,
+    required this.onExport,
+  });
+
+  final int selectedCount;
+  final VoidCallback onCancel;
+  final VoidCallback onExport;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: l10n.libraryExitSelectionTooltip,
+        onPressed: onCancel,
+      ),
+      title: Text(l10n.librarySelectedCount(selectedCount)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.upload_file_outlined),
+          tooltip: l10n.libraryExportSelectedTooltip,
+          // Deshabilitado en cero: pedirle al caso de uso una lista vacía
+          // solo volvería con el mismo fallo de validación, sin que el
+          // usuario haya podido hacer nada distinto para evitarlo.
+          onPressed: selectedCount == 0 ? null : onExport,
+        ),
+      ],
     );
   }
 }
@@ -176,9 +321,20 @@ class _SearchAndFilters extends ConsumerWidget {
 }
 
 class _ItemList extends StatelessWidget {
-  const _ItemList({required this.items});
+  const _ItemList({
+    required this.items,
+    required this.selectionMode,
+    required this.selectedIds,
+    required this.onLongPressItem,
+    required this.onSelectedChanged,
+  });
 
   final List<KnowledgeItem> items;
+  final bool selectionMode;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onLongPressItem;
+  final void Function(String itemId, {required bool selected})
+  onSelectedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +348,11 @@ class _ItemList extends StatelessWidget {
         return LibraryItemCard(
           item: item,
           onTap: () => context.push('${RoutePaths.library}/${item.id}'),
+          onLongPress: () => onLongPressItem(item.id),
+          selectionMode: selectionMode,
+          selected: selectedIds.contains(item.id),
+          onSelectedChanged: (value) =>
+              onSelectedChanged(item.id, selected: value),
         );
       },
     );

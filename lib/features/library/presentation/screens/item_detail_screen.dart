@@ -12,6 +12,10 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/export/domain/entities/export_format.dart';
+import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
@@ -44,12 +48,14 @@ class ItemDetailScreen extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (item.valueOrNull != null)
+          if (item.valueOrNull != null) ...[
+            _ExportButton(item: item.valueOrNull!),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
               onPressed: () => _confirmDelete(context, ref),
             ),
+          ],
         ],
       ),
       body: item.when(
@@ -100,6 +106,51 @@ class ItemDetailScreen extends ConsumerWidget {
     } else {
       context.go(RoutePaths.library);
     }
+  }
+}
+
+/// El botón de exportar, con el formato como único paso: no hace falta
+/// preguntar dónde guardarlo aparte, porque el selector de guardado del
+/// sistema ya resuelve eso en el mismo gesto.
+class _ExportButton extends ConsumerWidget {
+  const _ExportButton({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return PopupMenuButton<ExportFormat>(
+      icon: const Icon(Icons.ios_share),
+      tooltip: l10n.detailExportTooltip,
+      onSelected: (format) => _export(context, ref, format),
+      itemBuilder: (context) => [
+        for (final format in ExportFormat.values)
+          PopupMenuItem(value: format, child: Text(format.label(l10n))),
+      ],
+    );
+  }
+
+  /// No distingue "canceló el diálogo de guardado" de "lo guardó": ver
+  /// [ExportItemUseCase]. Solo avisa cuando algo salió mal de verdad.
+  Future<void> _export(
+    BuildContext context,
+    WidgetRef ref,
+    ExportFormat format,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final result = await ref.read(exportItemUseCaseProvider)(
+      ExportItemParams(item: item, format: format),
+    );
+    if (!context.mounted) return;
+
+    result.match((failure) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+    }, (_) {});
   }
 }
 

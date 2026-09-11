@@ -15,6 +15,39 @@
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
+  "librarySelectTooltip": "Seleccionar elementos",
+  "@librarySelectTooltip": {
+    "description": "Botón que activa el modo de selección múltiple en la biblioteca."
+  },
+  "libraryExitSelectionTooltip": "Cancelar selección",
+  "@libraryExitSelectionTooltip": {
+    "description": "Botón que sale del modo de selección múltiple sin hacer nada más."
+  },
+  "librarySelectedCount": "{count, plural, =1{1 seleccionado} other{{count} seleccionados}}",
+  "@librarySelectedCount": {
+    "description": "Título de la barra superior mientras se seleccionan elementos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryExportSelectedTooltip": "Exportar para NotebookLM",
+  "@libraryExportSelectedTooltip": {
+    "description": "Botón que arma el paquete de NotebookLM con los elementos seleccionados."
+  },
+  "libraryExportPackageSaved": "{count, plural, =1{Se guardó 1 archivo en {path}.} other{Se guardaron {count} archivos en {path}.}}",
+  "@libraryExportPackageSaved": {
+    "description": "Confirmación tras guardar el paquete de NotebookLM.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "libraryFilterByTag": "Por etiqueta",
   "@libraryFilterByTag": {
     "description": "Encabezado de la fila de chips de filtro por etiqueta en la biblioteca."
@@ -120,6 +153,13 @@
   "@detailOpenFile": {
     "description": "Botón que abre el archivo original con la aplicación del sistema."
   },
+  "detailExportTooltip": "Exportar",
+  "@detailExportTooltip": {
+    "description": "Botón que abre el menú de formatos de exportación en el detalle."
+  },
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatPlainText": "Texto plano",
+  "exportFormatPdf": "PDF",
   "detailOpenFileNotFound": "El archivo original ya no está en este dispositivo.",
   "@detailOpenFileNotFound": {
     "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."
