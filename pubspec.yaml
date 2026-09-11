@@ -117,6 +117,10 @@ dependencies:
   # inserción por todo el árbol.
   uuid: ^4.6.0
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
+  # el código del proyecto la usa directamente: es el interop con OPFS de
+  # OpfsFileStore, ver la decisión 9 en docs/arquitectura.md.
+  web: ^1.1.1
+  # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente para leer el OPF de un EPUB y
   # el document.xml de un DOCX.
   xml: ^6.6.1
