@@ -1,60 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_error_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
-import 'package:sinapsis/core/domain/entities/user.dart';
-import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/network/token_storage.dart';
-import 'package:sinapsis/features/dashboard/domain/repositories/dashboard_repository.dart';
-import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-class MockDashboardRepository extends Mock implements DashboardRepository {}
-
-/// Mismo enfoque que `splash_screen_test.dart`: el `SessionController` real
-/// con un almacenamiento falso, en vez de mockear el controller entero.
-class _FakeTokenStorage implements TokenStorage {
-  _FakeTokenStorage({String? initialToken}) : _token = initialToken;
-
-  String? _token;
-
-  @override
-  Future<String?> readAccessToken() async => _token;
-
-  @override
-  Future<void> saveAccessToken(String token) async => _token = token;
-
-  @override
-  Future<void> clearTokens() async => _token = null;
-}
+import '../../support/vault_test_doubles.dart';
 
 void main() {
-  late MockDashboardRepository dashboardRepository;
   late SharedPreferences prefs;
 
   final en = AppLocalizationsEn();
   final es = AppLocalizationsEs();
 
   final tUri = Uri.parse('/ruta-que-no-existe');
-  const tUser = User(id: '1', name: 'Ana Ejemplo', email: 'ana@example.com');
 
   setUp(() async {
     // Mismo contrato que cumplen los entry points de flavor y
     // `widget_test.dart`: `goRouterProvider` lee `EnvConfig.current` (para
-    // decidir `debugLogDiagnostics`), y sin inicializar salta el assert
-    // que exige haber elegido un flavor antes de construir la app.
+    // decidir `debugLogDiagnostics`), y sin inicializar salta el assert que
+    // exige haber elegido un flavor antes de construir la app.
     EnvConfig.initialize(AppFlavor.dev);
-    dashboardRepository = MockDashboardRepository();
     SharedPreferences.setMockInitialValues({'app_locale': 'es'});
     prefs = await SharedPreferences.getInstance();
   });
@@ -106,12 +80,6 @@ void main() {
   group('integración con el router real', () {
     /// Monta el `GoRouter` de la app —no uno de mentira— para probar que el
     /// `errorBuilder` está efectivamente cableado a esta pantalla.
-    ///
-    /// El dashboard se deja cargar de verdad (repositorio mockeado
-    /// devolviendo un usuario) en vez de dejarlo en `loading`: su
-    /// `CircularProgressIndicator` es una animación indeterminada que pide
-    /// frames para siempre, y `pumpAndSettle` colgaría esperando a que
-    /// termine.
     Widget buildRoutedApp(ProviderContainer container) {
       return UncontrolledProviderScope(
         container: container,
@@ -126,33 +94,33 @@ void main() {
       );
     }
 
-    ProviderContainer buildContainer() {
-      when(
-        dashboardRepository.getCurrentUser,
-      ).thenAnswer((_) async => right<Failure, User>(tUser));
-
+    /// Arranca con la bóveda ya abierta.
+    ///
+    /// Hace falta: el `redirect` global corre antes que el matching de
+    /// rutas, así que con la bóveda cerrada NINGUNA dirección llega al
+    /// `errorBuilder` — el guard las manda todas al desbloqueo primero. Es
+    /// el comportamiento correcto (a alguien que no abrió la bóveda no se le
+    /// confirma qué rutas existen), pero implica que esta pantalla solo es
+    /// alcanzable con la bóveda abierta.
+    ProviderContainer buildUnlockedContainer() {
       final container = ProviderContainer(
         overrides: [
-          tokenStorageProvider.overrideWithValue(
-            _FakeTokenStorage(initialToken: 'a-valid-token'),
+          vaultLocalDataSourceProvider.overrideWithValue(
+            FakeVaultLocalDataSource.withPin('246810'),
           ),
-          dashboardRepositoryProvider.overrideWithValue(dashboardRepository),
+          pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
       );
       addTearDown(container.dispose);
+      container.read(vaultSessionControllerProvider.notifier).markUnlocked();
       return container;
     }
 
     testWidgets('una URL que no corresponde a ninguna ruta cae en '
         'RouteErrorScreen', (tester) async {
-      // Arrange: con sesión activa. El `redirect` global corre antes que el
-      // matching de rutas, así que sin sesión NINGUNA dirección llega al
-      // `errorBuilder` — el guard las manda todas a /login primero. Es el
-      // comportamiento correcto (no le confirmamos a un visitante anónimo
-      // qué rutas existen), pero implica que esta pantalla solo es
-      // alcanzable con la sesión ya resuelta.
-      final container = buildContainer();
+      // Arrange
+      final container = buildUnlockedContainer();
 
       await tester.pumpWidget(buildRoutedApp(container));
       await tester.pumpAndSettle();
@@ -170,7 +138,7 @@ void main() {
     testWidgets('el botón devuelve a un destino válido en vez de dejar al '
         'usuario encerrado', (tester) async {
       // Arrange
-      final container = buildContainer();
+      final container = buildUnlockedContainer();
 
       await tester.pumpWidget(buildRoutedApp(container));
       await tester.pumpAndSettle();
@@ -184,8 +152,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Assert: el botón va al splash y es el route guard el que elige el
-      // destino final — por eso esta pantalla no necesita saber nada de la
-      // sesión. Con sesión activa, eso termina en el dashboard.
+      // destino final — por eso esta pantalla no necesita saber nada del
+      // estado de la bóveda. Con la bóveda abierta, eso termina en el
+      // dashboard.
       expect(find.byType(RouteErrorScreen), findsNothing);
       expect(find.byType(DashboardScreen), findsOneWidget);
     });

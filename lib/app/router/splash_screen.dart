@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sinapsis/core/session/session_providers.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 
 /// Pantalla de arranque: no navega por sí misma. Solo dispara la lectura
-/// del almacenamiento seguro; el router observa `sessionControllerProvider`
-/// y decide a dónde ir en cuanto deja de estar en `unknown`.
+/// del almacenamiento seguro; el router observa
+/// [vaultSessionControllerProvider] y decide a dónde ir en cuanto deja de
+/// estar en `unknown`.
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -16,7 +17,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(sessionControllerProvider.notifier).checkInitialSession();
+    ref.read(vaultSessionControllerProvider.notifier).resolveInitialState();
   }
 
   @override

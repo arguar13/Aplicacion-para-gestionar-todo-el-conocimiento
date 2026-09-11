@@ -8,6 +8,10 @@ environment:
   flutter: ">=3.24.0"
 
 dependencies:
+  # PBKDF2-HMAC-SHA256 para derivar el hash del PIN de la bóveda. Se usa un
+  # paquete mantenido en vez de implementar el KDF a mano: escribir
+  # criptografía propia es una mala idea aunque el algoritmo sea simple.
+  cryptography: ^2.9.0
   dio: ^5.7.0
   flutter:
     sdk: flutter

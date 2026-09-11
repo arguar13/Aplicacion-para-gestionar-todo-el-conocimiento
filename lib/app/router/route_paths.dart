@@ -3,12 +3,20 @@
 /// este archivo re-exporta) para que las URLs web queden en un solo lugar.
 abstract final class RoutePaths {
   static const splash = '/splash';
-  static const login = '/login';
+
+  /// Las dos caras de la bóveda. Son rutas distintas y no una sola pantalla
+  /// con dos modos porque responden a situaciones distintas: crear la
+  /// bóveda pasa una vez en la vida del dispositivo, abrirla pasa en cada
+  /// arranque.
+  static const vaultCreate = '/vault/create';
+  static const vaultUnlock = '/vault/unlock';
+
   static const dashboard = '/dashboard';
 }
 
 abstract final class RouteNames {
   static const splash = 'splash';
-  static const login = 'login';
+  static const vaultCreate = 'vault-create';
+  static const vaultUnlock = 'vault-unlock';
   static const dashboard = 'dashboard';
 }

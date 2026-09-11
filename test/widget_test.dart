@@ -5,48 +5,68 @@ import 'package:sinapsis/app/app.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
-import 'package:sinapsis/core/network/token_storage.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
+import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
+import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 
-/// `flutter_secure_storage` real usa platform channels que no existen en
-/// widget tests; se sobreescribe `tokenStorageProvider` con este fake para
-/// poder probar el route guard sin tocar el SO.
-class _FakeTokenStorage implements TokenStorage {
-  String? _token;
+import 'support/vault_test_doubles.dart';
 
-  @override
-  Future<String?> readAccessToken() async => _token;
-
-  @override
-  Future<void> saveAccessToken(String token) async => _token = token;
-
-  @override
-  Future<void> clearTokens() async => _token = null;
-}
-
+/// Prueba de arriba abajo del route guard: se monta la `App` entera y se
+/// comprueba en qué pantalla termina el usuario según el estado de la
+/// bóveda.
+///
+/// Es el único test que cubre la bifurcación que trajo el modelo local: con
+/// un backend había una sola puerta de entrada (el login), y acá hay dos
+/// —crear y desbloquear— que dependen de si este dispositivo ya tiene
+/// bóveda. Equivocar esa decisión es de los errores más caros posibles:
+/// llevar a la pantalla de creación a alguien que ya tiene datos guardados
+/// le sugiere que los perdió.
 void main() {
-  testWidgets('Sin sesión guardada, el guard manda a LoginScreen', (
-    tester,
-  ) async {
-    EnvConfig.initialize(AppFlavor.dev);
-    // `SharedPreferences` real usa platform channels; `setMockInitialValues`
-    // es el mock oficial del propio paquete para tests. Se fija el idioma
-    // para que la aserción de texto no dependa del idioma del sistema
-    // donde corra el test (sin esto, cae al idioma del sistema —
-    // `LocaleNotifier`— y en CI eso normalmente es inglés).
-    SharedPreferences.setMockInitialValues({'app_locale': 'es'});
-    final prefs = await SharedPreferences.getInstance();
+  late SharedPreferences prefs;
 
+  setUp(() async {
+    // Mismo contrato que cumplen los entry points de flavor: el router lee
+    // `EnvConfig.current` al construirse.
+    EnvConfig.initialize(AppFlavor.dev);
+    // `SharedPreferences` real usa canales de plataforma;
+    // `setMockInitialValues` es el mock oficial del propio paquete. Se fija
+    // el idioma para que las aserciones no dependan del sistema donde corra
+    // el test.
+    SharedPreferences.setMockInitialValues({'app_locale': 'es'});
+    prefs = await SharedPreferences.getInstance();
+  });
+
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    required FakeVaultLocalDataSource vault,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
+          vaultLocalDataSourceProvider.overrideWithValue(vault),
+          pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const App(),
       ),
     );
     await tester.pumpAndSettle();
+  }
 
-    expect(find.text('Iniciar sesión'), findsOneWidget);
+  testWidgets('sin bóveda en el dispositivo, el guard lleva a crearla', (
+    tester,
+  ) async {
+    await pumpApp(tester, vault: FakeVaultLocalDataSource());
+
+    expect(find.byType(CreateVaultScreen), findsOneWidget);
+    expect(find.byType(UnlockVaultScreen), findsNothing);
+  });
+
+  testWidgets('con una bóveda ya creada, el guard lleva a desbloquearla y '
+      'NO a crear una nueva', (tester) async {
+    await pumpApp(tester, vault: FakeVaultLocalDataSource.withPin('246810'));
+
+    expect(find.byType(UnlockVaultScreen), findsOneWidget);
+    expect(find.byType(CreateVaultScreen), findsNothing);
   });
 }

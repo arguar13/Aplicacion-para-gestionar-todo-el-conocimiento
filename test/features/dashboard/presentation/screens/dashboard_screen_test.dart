@@ -1,76 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
-import 'package:sinapsis/core/domain/entities/user.dart';
-import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
-import 'package:sinapsis/core/network/token_storage.dart';
-import 'package:sinapsis/core/session/session_providers.dart';
-import 'package:sinapsis/core/session/session_state.dart';
-import 'package:sinapsis/features/dashboard/domain/repositories/dashboard_repository.dart';
-import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:sinapsis/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
 import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_en.dart';
 
-class MockDashboardRepository extends Mock implements DashboardRepository {}
-
-/// Igual que en los otros widget tests: fake simple en vez de mockear
-/// `SessionController`, para poder comprobar el estado de sesión resultante
-/// tras tocar "Cerrar sesión" sin lidiar con la plantillería de un
-/// `StateNotifier` mockeado.
-class _FakeTokenStorage implements TokenStorage {
-  String? _token = 'a-valid-token';
-
-  @override
-  Future<String?> readAccessToken() async => _token;
-
-  @override
-  Future<void> saveAccessToken(String token) async => _token = token;
-
-  @override
-  Future<void> clearTokens() async => _token = null;
-}
+import '../../../../support/vault_test_doubles.dart';
 
 void main() {
-  late MockDashboardRepository dashboardRepository;
   late SharedPreferences prefs;
 
-  const tUser = User(id: '1', name: 'Ana Ejemplo', email: 'ana@example.com');
   // Locale fija (no la del sistema donde corra el test) para que las
   // aserciones de texto sean deterministas.
   final l10n = AppLocalizationsEn();
 
   setUp(() async {
-    dashboardRepository = MockDashboardRepository();
-    // `SharedPreferences` real usa platform channels; `setMockInitialValues`
-    // es el mock oficial del propio paquete para tests. `ThemeModeNotifier`
-    // lo necesita porque `DashboardScreen` ahora tiene el botón de tema, y
-    // `LocaleNotifier` porque tiene el de idioma — se fija 'en' para que el
-    // texto no dependa del idioma del sistema que corre el test.
+    // `SharedPreferences` real usa canales de plataforma;
+    // `setMockInitialValues` es el mock oficial del propio paquete.
+    // `ThemeModeNotifier` lo necesita por el botón de tema y
+    // `LocaleNotifier` por el de idioma — se fija 'en' para que el texto no
+    // dependa del idioma del sistema que corre el test.
     SharedPreferences.setMockInitialValues({'app_locale': 'en'});
     prefs = await SharedPreferences.getInstance();
   });
 
-  Widget buildTestableWidget({ProviderContainer? container}) {
-    final overrides = [
-      dashboardRepositoryProvider.overrideWithValue(dashboardRepository),
-      tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ];
-    // Igual que en `app/app.dart`: el `locale` del MaterialApp sale de
-    // Riverpod, para que quede sincronizado con lo que lee el botón de
-    // idioma del propio DashboardScreen.
-    const child = _LocaleAwareMaterialApp();
-    return container != null
-        ? UncontrolledProviderScope(container: container, child: child)
-        : ProviderScope(overrides: overrides, child: child);
+  ProviderContainer buildContainer() {
+    final container = ProviderContainer(
+      overrides: [
+        vaultLocalDataSourceProvider.overrideWithValue(
+          FakeVaultLocalDataSource.withPin('246810'),
+        ),
+        pinHasherProvider.overrideWithValue(FakePinHasher()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(vaultSessionControllerProvider.notifier).markUnlocked();
+    return container;
+  }
+
+  /// Igual que en `app/app.dart`: el `locale` del MaterialApp sale de
+  /// Riverpod, para que quede sincronizado con lo que lee el botón de
+  /// idioma de la propia pantalla.
+  Widget buildTestableWidget(ProviderContainer container) {
+    return UncontrolledProviderScope(
+      container: container,
+      child: Consumer(
+        builder: (context, ref, _) => MaterialApp(
+          locale: ref.watch(effectiveLocaleProvider),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const DashboardScreen(),
+        ),
+      ),
+    );
   }
 
   Future<void> setViewportWidth(WidgetTester tester, double width) async {
@@ -79,146 +69,101 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  group('estado cargado', () {
-    testWidgets('muestra el nombre y el email del usuario tras cargar', (
+  group('estado vacío', () {
+    testWidgets('explica qué hace la app en vez de mostrar un vacío mudo', (
       tester,
     ) async {
-      // Arrange
-      when(
-        () => dashboardRepository.getCurrentUser(),
-      ).thenAnswer((_) async => const Right(tUser));
-
-      // Act
-      await tester.pumpWidget(buildTestableWidget());
+      await tester.pumpWidget(buildTestableWidget(buildContainer()));
       await tester.pumpAndSettle();
 
-      // Assert: el nombre viaja dentro del propio mensaje traducido
-      // (ver la nota en dashboard_screen.dart), ya no como Text aparte.
-      expect(find.text(l10n.welcomeMessage(tUser.name)), findsOneWidget);
-      expect(find.text(tUser.email), findsOneWidget);
+      expect(find.text(l10n.emptyLibraryTitle), findsOneWidget);
+      expect(find.text(l10n.emptyLibraryMessage), findsOneWidget);
+    });
+
+    testWidgets('no hay indicador de carga: la pantalla ya no espera a '
+        'ninguna petición de red', (tester) async {
+      await tester.pumpWidget(buildTestableWidget(buildContainer()));
+      // Un solo frame, sin dejar que nada "termine": si algo quedara
+      // cargando, se vería acá.
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 
-  group('estado de error', () {
-    testWidgets(
-      'muestra el mensaje de error y el botón de reintentar, que vuelve '
-      'a llamar al repositorio al tocarlo',
-      (tester) async {
-        // Arrange
-        when(() => dashboardRepository.getCurrentUser()).thenAnswer(
-          (_) async => const Left(Failure.network(message: 'Sin conexión')),
-        );
-
-        // Act
-        await tester.pumpWidget(buildTestableWidget());
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(l10n.loadErrorRetry));
-        await tester.pumpAndSettle();
-
-        // Assert
-        expect(find.text('Sin conexión'), findsOneWidget);
-        verify(() => dashboardRepository.getCurrentUser()).called(2);
-      },
-    );
-  });
-
   group('layout responsivo', () {
-    testWidgets(
-      'en pantallas anchas (>= 600) usa Drawer, no BottomNavigationBar',
-      (tester) async {
-        // Arrange
-        when(
-          () => dashboardRepository.getCurrentUser(),
-        ).thenAnswer((_) async => const Right(tUser));
-        await setViewportWidth(tester, 1024);
+    testWidgets('en pantalla angosta usa la barra inferior', (tester) async {
+      await setViewportWidth(tester, 400);
 
-        // Act: el Drawer de Scaffold no se monta en el árbol hasta que se
-        // abre (Flutter lo construye perezosamente), así que hay que tocar
-        // el ícono de menú que el AppBar agrega automáticamente cuando
-        // `drawer` no es null.
-        await tester.pumpWidget(buildTestableWidget());
-        await tester.pumpAndSettle();
-        expect(find.byIcon(Icons.menu), findsOneWidget);
-        await tester.tap(find.byIcon(Icons.menu));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(buildTestableWidget(buildContainer()));
+      await tester.pumpAndSettle();
 
-        // Assert
-        expect(find.byType(DashboardNavDrawer), findsOneWidget);
-        expect(find.byType(DashboardBottomNavBar), findsNothing);
-      },
-    );
+      expect(find.byType(DashboardBottomNavBar), findsOneWidget);
+    });
 
-    testWidgets(
-      'en pantallas angostas (< 600) usa BottomNavigationBar, no Drawer',
-      (tester) async {
-        // Arrange
-        when(
-          () => dashboardRepository.getCurrentUser(),
-        ).thenAnswer((_) async => const Right(tUser));
-        await setViewportWidth(tester, 390);
+    testWidgets('en pantalla ancha usa el cajón lateral', (tester) async {
+      await setViewportWidth(tester, 1200);
 
-        // Act
-        await tester.pumpWidget(buildTestableWidget());
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(buildTestableWidget(buildContainer()));
+      await tester.pumpAndSettle();
 
-        // Assert
-        expect(find.byType(DashboardBottomNavBar), findsOneWidget);
-        expect(find.byType(DashboardNavDrawer), findsNothing);
-        expect(find.byIcon(Icons.menu), findsNothing);
-      },
-    );
+      expect(find.byType(DashboardBottomNavBar), findsNothing);
+      // El Drawer se construye al abrirse, así que se comprueba por el
+      // Scaffold que lo tiene configurado.
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      expect(scaffold.drawer, isA<DashboardNavDrawer>());
+    });
   });
 
-  group('cerrar sesión', () {
-    testWidgets(
-      'al tocar el botón de logout, solo le avisa a SessionController '
-      '(sin navegar) y la sesión queda unauthenticated',
-      (tester) async {
-        // Arrange
-        when(
-          () => dashboardRepository.getCurrentUser(),
-        ).thenAnswer((_) async => const Right(tUser));
-        final container = ProviderContainer(
-          overrides: [
-            dashboardRepositoryProvider.overrideWithValue(dashboardRepository),
-            tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
-            sharedPreferencesProvider.overrideWithValue(prefs),
-          ],
-        );
-        addTearDown(container.dispose);
-        // La sesión arranca autenticada (así se llegaría a este dashboard
-        // en la app real, vía el route guard).
-        container.read(sessionControllerProvider.notifier).markAuthenticated();
-        await tester.pumpWidget(buildTestableWidget(container: container));
-        await tester.pumpAndSettle();
+  group('bloquear la bóveda', () {
+    testWidgets('el botón la cierra sin navegar a mano: deja el estado en '
+        '`locked` y el router se encarga del resto', (tester) async {
+      // Arrange
+      final container = buildContainer();
+      await tester.pumpWidget(buildTestableWidget(container));
+      await tester.pumpAndSettle();
 
-        // Act
-        await tester.tap(find.byIcon(Icons.logout));
-        await tester.pumpAndSettle();
+      expect(
+        container.read(vaultSessionControllerProvider),
+        const VaultSession.unlocked(),
+      );
 
-        // Assert
-        expect(
-          container.read(sessionControllerProvider),
-          const SessionState.unauthenticated(),
-        );
-      },
-    );
+      // Act
+      await tester.tap(find.byTooltip(l10n.lockVaultTooltip));
+      await tester.pumpAndSettle();
+
+      // Assert
+      expect(
+        container.read(vaultSessionControllerProvider),
+        const VaultSession.locked(),
+      );
+    });
+
+    testWidgets('cerrar la bóveda NO borra el credencial: la misma clave '
+        'vuelve a abrirla', (tester) async {
+      // Arrange
+      final vault = FakeVaultLocalDataSource.withPin('246810');
+      final container = ProviderContainer(
+        overrides: [
+          vaultLocalDataSourceProvider.overrideWithValue(vault),
+          pinHasherProvider.overrideWithValue(FakePinHasher()),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(vaultSessionControllerProvider.notifier).markUnlocked();
+
+      await tester.pumpWidget(buildTestableWidget(container));
+      await tester.pumpAndSettle();
+
+      // Act
+      await tester.tap(find.byTooltip(l10n.lockVaultTooltip));
+      await tester.pumpAndSettle();
+
+      // Assert: bloquear es cerrar una puerta, no destruir la casa. El
+      // equivalente anterior —cerrar sesión— sí borraba el token, y
+      // confundir ambas cosas acá dejaría al usuario sin sus datos.
+      expect(vault.credential, isNotNull);
+    });
   });
-}
-
-/// Igual patrón que `App` (`lib/app/app.dart`): lee el `Locale` de
-/// Riverpod para que el `MaterialApp` de prueba muestre el mismo idioma
-/// que el botón de idioma de `DashboardScreen` cree que está activo.
-class _LocaleAwareMaterialApp extends ConsumerWidget {
-  const _LocaleAwareMaterialApp();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      locale: ref.watch(localeNotifierProvider),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: const DashboardScreen(),
-    );
-  }
 }

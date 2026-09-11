@@ -46,9 +46,19 @@
     "description": "Title of the dashboard AppBar"
   },
 
-  "logoutTooltip": "Log Out",
-  "@logoutTooltip": {
-    "description": "Tooltip for the logout icon button"
+  "lockVaultTooltip": "Lock vault",
+  "@lockVaultTooltip": {
+    "description": "Tooltip for the button that closes the vault and returns to the unlock screen"
+  },
+
+  "emptyLibraryTitle": "Your vault is empty",
+  "@emptyLibraryTitle": {
+    "description": "Title of the empty state on the home screen, before anything has been captured"
+  },
+
+  "emptyLibraryMessage": "Whatever you save here — a video, a thread, an article, a PDF — gets turned into text you can search, without losing where it came from.",
+  "@emptyLibraryMessage": {
+    "description": "Explanation of the empty state on the home screen"
   },
 
   "themeModeTooltip": "Change theme",
@@ -64,6 +74,127 @@
   "loadErrorRetry": "Retry",
   "@loadErrorRetry": {
     "description": "Retry button shown when loading the dashboard profile failed"
+  },
+
+  "globalErrorValidation": "Please check the information you entered.",
+  "@globalErrorValidation": {
+    "description": "Shown for a ValidationFailure that reached the UI without a field-level message"
+  },
+
+  "globalErrorStorage": "Couldn't read the data stored on this device.",
+  "@globalErrorStorage": {
+    "description": "Shown for a CacheFailure: local storage could not be read or written"
+  },
+
+  "vaultCreateTitle": "Protect your vault",
+  "@vaultCreateTitle": {
+    "description": "Title of the screen where the user sets up the vault passcode for the first time"
+  },
+
+  "vaultCreateSubtitle": "Everything you save stays on this device. Choose a passcode to lock it — there is no way to recover it, so pick something you'll remember.",
+  "@vaultCreateSubtitle": {
+    "description": "Explanation under the vault creation title"
+  },
+
+  "vaultPasscodeLabel": "Passcode",
+  "@vaultPasscodeLabel": {
+    "description": "Label for the passcode field"
+  },
+
+  "vaultConfirmPasscodeLabel": "Repeat passcode",
+  "@vaultConfirmPasscodeLabel": {
+    "description": "Label for the passcode confirmation field"
+  },
+
+  "vaultPasscodeEmptyError": "Enter a passcode.",
+  "@vaultPasscodeEmptyError": {
+    "description": "Validation error when the passcode field is empty"
+  },
+
+  "vaultPasscodeTooShortError": "Use at least {count} characters.",
+  "@vaultPasscodeTooShortError": {
+    "description": "Validation error when the passcode is shorter than PinPolicy.minLength",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "6"
+      }
+    }
+  },
+
+  "vaultPasscodeMismatchError": "The passcodes don't match.",
+  "@vaultPasscodeMismatchError": {
+    "description": "Validation error when the two passcode fields differ"
+  },
+
+  "vaultCreateAction": "Create vault",
+  "@vaultCreateAction": {
+    "description": "Submit button on the vault creation screen"
+  },
+
+  "vaultUnlockTitle": "Welcome back",
+  "@vaultUnlockTitle": {
+    "description": "Title of the vault unlock screen"
+  },
+
+  "vaultUnlockAction": "Unlock",
+  "@vaultUnlockAction": {
+    "description": "Submit button on the vault unlock screen"
+  },
+
+  "vaultUnlockWrongPasscode": "{count, plural, =1{Wrong passcode. 1 attempt left before a wait.} other{Wrong passcode. {count} attempts left before a wait.}}",
+  "@vaultUnlockWrongPasscode": {
+    "description": "Shown after a failed unlock attempt, counting down to the lockout",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+
+  "vaultUnlockLockedOut": "Too many attempts. Try again in {duration}.",
+  "@vaultUnlockLockedOut": {
+    "description": "Shown while the vault is temporarily locked after repeated failures",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "2 minutes"
+      }
+    }
+  },
+
+  "vaultLockedSeconds": "{count, plural, =1{1 second} other{{count} seconds}}",
+  "@vaultLockedSeconds": {
+    "description": "Duration fragment used inside vaultUnlockLockedOut",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "30"
+      }
+    }
+  },
+
+  "vaultLockedMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@vaultLockedMinutes": {
+    "description": "Duration fragment used inside vaultUnlockLockedOut",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
+
+  "vaultLockedHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@vaultLockedHours": {
+    "description": "Duration fragment used inside vaultUnlockLockedOut",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "1"
+      }
+    }
   },
 
   "routeNotFoundTitle": "Page not found",

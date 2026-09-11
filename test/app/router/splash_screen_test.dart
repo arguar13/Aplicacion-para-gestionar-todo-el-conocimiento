@@ -2,126 +2,105 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
-import 'package:sinapsis/core/network/token_storage.dart';
-import 'package:sinapsis/core/session/session_providers.dart';
-import 'package:sinapsis/core/session/session_state.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 
-/// En vez de mockear `SessionController` (un `StateNotifier`, con toda su
-/// plantillería de listeners) se usa el controller real con este fake de
-/// almacenamiento — más simple y prueba el comportamiento de verdad:
-/// ¿terminar en `SplashScreen` deja la sesión en el estado correcto?
-class _FakeTokenStorage implements TokenStorage {
-  _FakeTokenStorage({String? initialToken}) : _token = initialToken;
+import '../../support/vault_test_doubles.dart';
 
-  String? _token;
-
-  @override
-  Future<String?> readAccessToken() async => _token;
-
-  @override
-  Future<void> saveAccessToken(String token) async => _token = token;
-
-  @override
-  Future<void> clearTokens() async => _token = null;
-}
-
+/// En vez de mockear `VaultSessionController` (un `StateNotifier`, con toda
+/// su plantillería de listeners) se usa el controlador real sobre un
+/// almacenamiento falso — más simple y prueba el comportamiento de verdad:
+/// ¿montar el splash deja la bóveda en el estado correcto?
 void main() {
-  testWidgets(
-    'muestra un CircularProgressIndicator mientras resuelve la sesión',
-    (tester) async {
-      // Arrange
-      final container = ProviderContainer(
-        overrides: [
-          tokenStorageProvider.overrideWithValue(
-            _FakeTokenStorage(initialToken: 'a-valid-token'),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+  ProviderContainer buildContainer({required FakeVaultLocalDataSource vault}) {
+    final container = ProviderContainer(
+      overrides: [
+        vaultLocalDataSourceProvider.overrideWithValue(vault),
+        pinHasherProvider.overrideWithValue(FakePinHasher()),
+      ],
+    );
+    addTearDown(container.dispose);
+    return container;
+  }
 
-      // Act: un solo frame, antes de que la lectura async del storage
-      // resuelva.
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: SplashScreen()),
-        ),
-      );
+  testWidgets('muestra un indicador de progreso mientras lee el '
+      'almacenamiento', (tester) async {
+    // Arrange: con una demora real en la lectura. Sin ella, el
+    // almacenamiento falso responde antes del primer frame y el estado
+    // intermedio nunca llega a existir — no porque la app no lo tenga, sino
+    // porque el doble es demasiado rápido para que se note.
+    final container = buildContainer(
+      vault: FakeVaultLocalDataSource.withPin(
+        '246810',
+        delay: const Duration(milliseconds: 50),
+      ),
+    );
 
-      // Assert
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    },
-  );
+    // Act: un solo frame, antes de que la lectura asíncrona resuelva.
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SplashScreen()),
+      ),
+    );
 
-  testWidgets(
-    'al montar, dispara checkInitialSession y termina en authenticated '
-    'cuando hay un token guardado',
-    (tester) async {
-      // Arrange
-      final container = ProviderContainer(
-        overrides: [
-          tokenStorageProvider.overrideWithValue(
-            _FakeTokenStorage(initialToken: 'a-valid-token'),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
+    // Assert
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      container.read(vaultSessionControllerProvider),
+      const VaultSession.unknown(),
+    );
 
-      // Act
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: SplashScreen()),
-        ),
-      );
-      // No `pumpAndSettle`: el spinner indeterminado nunca deja de pedir
-      // frames dentro de este test aislado (no hay router que navegue
-      // fuera del splash), así que colgaría esperando animaciones que no
-      // van a terminar. Un par de `pump()` alcanza para drenar el único
-      // `await` de `checkInitialSession`.
-      await tester.pump();
-      await tester.pump();
+    // Se deja terminar la lectura para no dejar un temporizador vivo al
+    // final del test.
+    await tester.pump(const Duration(milliseconds: 60));
+  });
 
-      // Assert
-      expect(
-        container.read(sessionControllerProvider),
-        const SessionState.authenticated(),
-      );
-    },
-  );
+  testWidgets('con una bóveda guardada, termina en `locked`', (tester) async {
+    // Arrange
+    final container = buildContainer(
+      vault: FakeVaultLocalDataSource.withPin('246810'),
+    );
 
-  testWidgets(
-    'al montar, dispara checkInitialSession y termina en unauthenticated '
-    'cuando no hay token guardado',
-    (tester) async {
-      // Arrange
-      final container = ProviderContainer(
-        overrides: [
-          tokenStorageProvider.overrideWithValue(_FakeTokenStorage()),
-        ],
-      );
-      addTearDown(container.dispose);
+    // Act
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SplashScreen()),
+      ),
+    );
+    // No `pumpAndSettle`: el indicador indeterminado nunca deja de pedir
+    // frames dentro de este test aislado (no hay router que navegue fuera
+    // del splash), así que colgaría esperando animaciones que no van a
+    // terminar. Un par de `pump()` alcanza para drenar el único `await`.
+    await tester.pump();
+    await tester.pump();
 
-      // Act
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(home: SplashScreen()),
-        ),
-      );
-      // No `pumpAndSettle`: el spinner indeterminado nunca deja de pedir
-      // frames dentro de este test aislado (no hay router que navegue
-      // fuera del splash), así que colgaría esperando animaciones que no
-      // van a terminar. Un par de `pump()` alcanza para drenar el único
-      // `await` de `checkInitialSession`.
-      await tester.pump();
-      await tester.pump();
+    // Assert
+    expect(
+      container.read(vaultSessionControllerProvider),
+      const VaultSession.locked(),
+    );
+  });
 
-      // Assert
-      expect(
-        container.read(sessionControllerProvider),
-        const SessionState.unauthenticated(),
-      );
-    },
-  );
+  testWidgets('sin bóveda guardada, termina en `absent`', (tester) async {
+    // Arrange
+    final container = buildContainer(vault: FakeVaultLocalDataSource());
+
+    // Act
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SplashScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // Assert
+    expect(
+      container.read(vaultSessionControllerProvider),
+      const VaultSession.absent(),
+    );
+  });
 }

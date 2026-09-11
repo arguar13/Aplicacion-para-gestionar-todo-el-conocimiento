@@ -1,15 +1,15 @@
 import 'package:sinapsis/core/config/app_flavor.dart';
-import 'package:sinapsis/core/config/platform_base_url.dart';
 
 /// Configuración de entorno resuelta en el arranque de cada entry point
 /// (`main_dev.dart`, `main_staging.dart`, `main_prod.dart`).
 ///
-/// El valor de `apiBaseUrl` puede sobreescribirse en tiempo de build con
-/// `--dart-define=API_BASE_URL=https://...` sin tocar el código fuente.
+/// Ya no incluye una `apiBaseUrl`: Sinapsis procesa y guarda todo en el
+/// dispositivo, así que no hay ningún servidor propio al que apuntar. Las
+/// descargas de contenido usan la URL absoluta de cada fuente (ver
+/// `core/network/network_providers.dart`).
 class EnvConfig {
   const EnvConfig._({
     required this.flavor,
-    required this.apiBaseUrl,
     required this.appName,
     required this.telemetryDsn,
   });
@@ -17,15 +17,10 @@ class EnvConfig {
   factory EnvConfig._resolve(AppFlavor flavor) {
     return EnvConfig._(
       flavor: flavor,
-      apiBaseUrl: _apiBaseUrlOverride.isNotEmpty
-          ? _apiBaseUrlOverride
-          : _defaultApiBaseUrlFor(flavor),
       appName: _appNameFor(flavor),
       telemetryDsn: _telemetryDsn,
     );
   }
-
-  static const _apiBaseUrlOverride = String.fromEnvironment('API_BASE_URL');
 
   // Sin valor por defecto a propósito: el DSN de Sentry no es secreto (va
   // en el bundle del cliente igual), pero sí es específico de cada proyecto
@@ -37,7 +32,6 @@ class EnvConfig {
   static EnvConfig? _instance;
 
   final AppFlavor flavor;
-  final String apiBaseUrl;
   final String appName;
   final String telemetryDsn;
 
@@ -58,20 +52,10 @@ class EnvConfig {
     _instance = EnvConfig._resolve(flavor);
   }
 
-  static String _defaultApiBaseUrlFor(AppFlavor flavor) {
-    return switch (flavor) {
-      // dev apunta al mock server local (`mock_server/`), no a un host
-      // fijo: la URL depende de la plataforma (ver platform_base_url.dart).
-      AppFlavor.dev => resolveLocalBaseUrl(),
-      AppFlavor.staging => 'https://staging.api.cristoeselsalvador.org',
-      AppFlavor.prod => 'https://api.cristoeselsalvador.org',
-    };
-  }
-
   static String _appNameFor(AppFlavor flavor) {
     return switch (flavor) {
-      AppFlavor.dev => 'Sinapsis (Dev)',
-      AppFlavor.staging => 'Sinapsis (Staging)',
+      AppFlavor.dev => 'Sinapsis Dev',
+      AppFlavor.staging => 'Sinapsis Staging',
       AppFlavor.prod => 'Sinapsis',
     };
   }

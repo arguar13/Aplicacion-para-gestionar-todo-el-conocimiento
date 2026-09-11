@@ -1,0 +1,130 @@
+import 'package:sinapsis/features/vault/data/datasources/vault_local_data_source.dart';
+import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
+import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
+
+/// Dobles compartidos por los tests que necesitan una bóveda sin tocar el
+/// sistema operativo.
+///
+/// Viven acá y no repetidos en cada archivo porque cuatro copias del mismo
+/// fake divergen: una se actualiza al cambiar la interfaz y las otras tres
+/// se arreglan a los tumbos cuando alguien las pisa.
+
+/// [VaultLocalDataSource] en memoria.
+///
+/// `flutter_secure_storage` usa canales de plataforma que no existen en un
+/// widget test, así que cualquier prueba que toque la bóveda necesita algo
+/// como esto.
+class FakeVaultLocalDataSource implements VaultLocalDataSource {
+  FakeVaultLocalDataSource({
+    String? credential,
+    LockoutState? lockout,
+    this.delay = Duration.zero,
+  }) : _credential = credential,
+       _lockout = lockout ?? LockoutState.initial;
+
+  /// Una bóveda ya creada, cuyo PIN es [pin] según [FakePinHasher].
+  factory FakeVaultLocalDataSource.withPin(
+    String pin, {
+    Duration delay = Duration.zero,
+  }) => FakeVaultLocalDataSource(
+    credential: FakePinHasher.encode(pin),
+    delay: delay,
+  );
+
+  /// Cuánto tarda cada lectura.
+  ///
+  /// Por defecto, nada: casi ningún test necesita simular lentitud. Sirve
+  /// para los que prueban qué se ve *durante* la espera — sin una demora
+  /// real, la lectura resuelve antes del primer frame y el estado
+  /// intermedio no llega a existir, aunque en un dispositivo de verdad sea
+  /// perfectamente visible.
+  final Duration delay;
+
+  String? _credential;
+  LockoutState _lockout;
+  var _credentialWrites = 0;
+
+  /// Para poder comprobar en un test qué quedó guardado.
+  String? get credential => _credential;
+  LockoutState get lockout => _lockout;
+
+  /// Cuántas veces se escribió el credencial.
+  ///
+  /// Permite distinguir "se volvió a derivar" de "no se tocó" en casos
+  /// donde el valor resultante sería idéntico y comparar strings no
+  /// alcanzaría.
+  int get credentialWrites => _credentialWrites;
+
+  @override
+  Future<String?> readCredential() async {
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
+    return _credential;
+  }
+
+  @override
+  Future<void> writeCredential(String credential) async {
+    _credentialWrites++;
+    _credential = credential;
+  }
+
+  @override
+  Future<LockoutState> readLockout() async => _lockout;
+
+  @override
+  Future<void> writeLockout(LockoutState state) async => _lockout = state;
+}
+
+/// [PinHasher] que no deriva nada: guarda el PIN tal cual, con un prefijo.
+///
+/// Es exactamente lo que jamás haría la implementación real, y acá es lo
+/// correcto: derivar de verdad cuesta cerca de un segundo por llamada —es
+/// el punto de un KDF—, y un test de interfaz que desbloquea tres veces
+/// pasaría más tiempo derivando que probando. La derivación real tiene sus
+/// propios tests en `pbkdf2_pin_hasher_test.dart`, que es donde importa.
+class FakePinHasher implements PinHasher {
+  FakePinHasher({this.forcedVerification});
+
+  static const _prefix = 'fake-hash:';
+
+  /// Para simular un resultado concreto sin tener que construir el
+  /// credencial que lo produciría — por ejemplo
+  /// [PinVerification.correctNeedsRehash].
+  final PinVerification? forcedVerification;
+
+  static String encode(String pin) => '$_prefix$pin';
+
+  @override
+  Future<String> hash(String pin) async => encode(pin);
+
+  @override
+  Future<PinVerification> verify({
+    required String pin,
+    required String encoded,
+  }) async {
+    if (forcedVerification != null) return forcedVerification!;
+
+    return encoded == encode(pin)
+        ? PinVerification.correct
+        : PinVerification.incorrect;
+  }
+}
+
+/// [PinHasher] que siempre falla al leer el credencial guardado.
+///
+/// Simula una bóveda dañada: el caso en que el usuario escribe su clave
+/// correcta y aun así no puede entrar, que la app tiene que saber
+/// distinguir de una clave equivocada.
+class CorruptedPinHasher implements PinHasher {
+  const CorruptedPinHasher();
+
+  @override
+  Future<String> hash(String pin) async => 'irrelevante';
+
+  @override
+  Future<PinVerification> verify({
+    required String pin,
+    required String encoded,
+  }) async {
+    throw const CorruptedCredentialException('credencial de prueba dañado');
+  }
+}

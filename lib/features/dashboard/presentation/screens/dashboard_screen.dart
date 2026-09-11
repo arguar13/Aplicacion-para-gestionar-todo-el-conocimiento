@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
-import 'package:sinapsis/core/session/session_providers.dart';
-import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_notifier.dart';
-import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_state.dart';
 import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_bottom_nav_bar.dart';
 import 'package:sinapsis/features/dashboard/presentation/widgets/dashboard_nav_drawer.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Ancho a partir del cual se usa `Drawer` (Web/Tablet) en vez de
@@ -14,6 +12,13 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Material 3 para "compact" vs "medium" window size class.
 const _wideLayoutBreakpoint = 600.0;
 
+/// La pantalla a la que se llega con la bóveda abierta.
+///
+/// Antes pedía el perfil del usuario a `GET /user` para demostrar que el
+/// token viajaba en cada petición. Sin backend esa demostración no tiene
+/// objeto, así que ya no hace ninguna llamada de red: lo que queda es el
+/// esqueleto de navegación —que estaba bien resuelto y el producto va a
+/// reusar— y el estado vacío que describe para qué sirve la app.
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -25,24 +30,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedNavIndex = 0;
 
   @override
-  void initState() {
-    super.initState();
-    // Diferido al post-frame: `loadCurrentUser()` muta el estado de forma
-    // síncrona antes de cualquier `await` (pasa a `loading` de inmediato).
-    // Hacerlo directo en `initState` viola la regla de Riverpod de no
-    // modificar providers mientras el árbol de widgets se está
-    // construyendo — el propio mensaje de error de Riverpod sugiere este
-    // patrón.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(dashboardNotifierProvider.notifier).loadCurrentUser();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.sizeOf(context).width >= _wideLayoutBreakpoint;
-    final state = ref.watch(dashboardNotifierProvider);
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -52,13 +41,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const _LanguageToggleButton(),
           const _ThemeModeToggleButton(),
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: l10n.logoutTooltip,
+            icon: const Icon(Icons.lock_outline),
+            tooltip: l10n.lockVaultTooltip,
             // Ni redirección manual ni conocimiento del router acá: solo se
-            // le avisa al SessionController. El router (que lo escucha)
-            // expulsa a /login por su cuenta.
+            // le avisa al controlador de la bóveda. El router, que lo
+            // escucha, lleva al desbloqueo por su cuenta.
             onPressed: () =>
-                ref.read(sessionControllerProvider.notifier).logout(),
+                ref.read(vaultSessionControllerProvider.notifier).lock(),
           ),
         ],
       ),
@@ -74,57 +63,56 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               selectedIndex: _selectedNavIndex,
               onSelect: (index) => setState(() => _selectedNavIndex = index),
             ),
-      body: _DashboardBody(state: state),
+      body: const _EmptyLibrary(),
     );
   }
 }
 
-class _DashboardBody extends ConsumerWidget {
-  const _DashboardBody({required this.state});
-
-  final DashboardState state;
+/// El estado inicial: todavía no hay nada capturado.
+///
+/// Un vacío mudo deja al usuario adivinando qué hacer. Este explica en una
+/// frase qué acepta la app y qué hace con ello, que es justamente lo que
+/// alguien necesita saber la primera vez que entra.
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
-    return switch (state) {
-      DashboardInitial() ||
-      DashboardLoading() => const Center(child: CircularProgressIndicator()),
-      DashboardError(:final message) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => ref
-                  .read(dashboardNotifierProvider.notifier)
-                  .loadCurrentUser(),
-              child: Text(l10n.loadErrorRetry),
-            ),
-          ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 56,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                l10n.emptyLibraryTitle,
+                style: theme.textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.emptyLibraryMessage,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
-      // El nombre viaja dentro del propio mensaje traducido
-      // (welcomeMessage(name)) en vez de mostrarse dos veces — ver
-      // app_en.arb/app_es.arb, es el ejemplo de string con parámetro
-      // dinámico que pidió el requerimiento.
-      DashboardLoaded(:final user) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l10n.welcomeMessage(user.name),
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(user.email, style: Theme.of(context).textTheme.bodyMedium),
-          ],
-        ),
-      ),
-    };
+    );
   }
 }
 
