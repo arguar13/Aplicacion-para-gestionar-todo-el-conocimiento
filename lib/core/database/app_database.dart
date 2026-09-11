@@ -31,8 +31,21 @@ class AppDatabase extends _$AppDatabase {
   /// La base real, en el directorio de datos de la app.
   ///
   /// `drift_flutter` resuelve por su cuenta dónde va el archivo en cada
-  /// plataforma y carga las librerías nativas de SQLite que hagan falta.
-  AppDatabase.open() : super(driftDatabase(name: 'sinapsis'));
+  /// plataforma y carga las librerías nativas de SQLite que hagan falta. En
+  /// la web hace falta decirle además dónde están los dos archivos que no
+  /// vienen empaquetados —`sqlite3.wasm` y el worker—, traídos con
+  /// `tool/fetch_sqlite3_wasm.sh` (ver la decisión 9 en
+  /// docs/arquitectura.md). Fuera de la web, `web:` no se usa para nada.
+  AppDatabase.open()
+    : super(
+        driftDatabase(
+          name: 'sinapsis',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ),
+      );
 
   @override
   int get schemaVersion => 1;

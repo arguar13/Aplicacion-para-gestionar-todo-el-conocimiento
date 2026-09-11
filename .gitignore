@@ -44,3 +44,10 @@ coverage/
 
 # Librería nativa de PDFium para las pruebas (ver tool/fetch_pdfium.sh).
 .pdfium/
+
+# CanvasKit se copia del propio SDK de Flutter antes de compilar para la
+# web, para que quede local y no dependa de la CDN de Google en tiempo de
+# ejecución (ver tool/copy_canvaskit.sh y la decisión 9 en
+# docs/arquitectura.md). No se commitea: siempre se deriva de la versión de
+# Flutter instalada.
+web/canvaskit/
