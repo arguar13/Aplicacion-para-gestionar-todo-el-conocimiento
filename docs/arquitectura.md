@@ -180,7 +180,7 @@ ruta pasa por el botón de compartir del teléfono, no por raspar su web.
 | `EpubParser` | EPUB → Markdown, en orden de lectura | `archive` + `xml` propios (ver la decisión 3) | Dispositivo | Construido |
 | `DocxParser` | DOCX → Markdown con encabezados, listas y tablas | `archive` + `xml` (un .docx es un zip con XML adentro) | Dispositivo | Construido |
 | `PlainTextParser` | TXT y MD → Markdown | Nada: los bytes ya son el contenido | Dispositivo | Construido |
-| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo | Fase 6 |
+| `PageArchiver` | HTML → archivo único | Recursos incrustados como data URI, el enfoque de SingleFile | Dispositivo | Construido |
 
 ### La cola
 
@@ -257,10 +257,13 @@ derivados:
 - **Markdown** con una cabecera YAML que incluye la procedencia. Es el formato
   de intercambio por defecto: lo leen Obsidian, Logseq, Notion y cualquier
   editor de texto.
-- **PDF** vía [`printing`](https://pub.dev/packages/printing), para leer o
-  imprimir.
+- **PDF** vía [`pdf`](https://pub.dev/packages/pdf) (Apache-2.0, Dart puro),
+  para leer o imprimir fuera de la app.
 - **Texto plano**, cuando solo importa el contenido.
-- **HTML original**, la copia de la página tal como estaba.
+- **HTML original**, la copia de la página tal como estaba: recursos
+  incrustados como data URI en un solo archivo, al modo de SingleFile.
+- **Abrir el archivo original** con la app que el sistema tenga asociada —el
+  lector de PDF, la galería de fotos—, para lo que no tiene sentido convertir.
 - **Paquete para NotebookLM**: los items seleccionados como archivos que
   NotebookLM ingiere bien, más un índice con las fuentes, y un enlace que abre
   el sitio para subirlos.
@@ -396,6 +399,13 @@ Consumir y buscar funcionará; capturar y transformar, no del todo.
   los dos lados, con el sentido correcto según cuál se esté mirando— y
   resaltados con nota, incrustados en el texto y listados aparte. La bóveda
   deja de ser una pila y pasa a ser una red.
+- **Fase 6, exportar.** Markdown con cabecera de procedencia, PDF armado como
+  texto corrido con pie de página, y texto plano puro, para cualquier item.
+  Página web archivada entera en un solo HTML con sus imágenes y estilos
+  incrustados, al modo de SingleFile; el archivo original de un documento se
+  abre con la app que el sistema tenga asociada. Paquete completo para
+  NotebookLM —los items elegidos más un índice con las fuentes—, armado desde
+  el detalle de un item o desde una selección múltiple en la biblioteca.
 
 ### Por construir
 
@@ -406,12 +416,6 @@ lo más pesado.
 compartido desde otras apps y aceptar archivos. Es la vía por la que va a
 entrar la mayor parte del material, y necesita configuración nativa en cada
 plataforma.
-
-**Fase 6 — Exportar.** Markdown con procedencia, PDF, texto, HTML y el paquete
-para NotebookLM. Acá entran también abrir el archivo original con la app del
-sistema y archivar una página web entera al modo de SingleFile: las tres son
-la misma pregunta —cómo sale el contenido de la app— y conviene resolverlas
-juntas.
 
 **Fase 7 — Lo pesado.** Transcripción de audio con Whisper en el dispositivo y
 OCR de imágenes. Van al final porque implican modelos de cientos de megas,

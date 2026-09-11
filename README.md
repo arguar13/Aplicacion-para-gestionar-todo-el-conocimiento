@@ -129,11 +129,20 @@ La base está construida y verificada. El producto, no todavía.
   Resaltados con nota sobre cualquier texto, incrustados en el propio
   contenido y listados aparte para repasar sin releer todo.
 
+- **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
+  o en texto plano. Si vino de una página web, también como un HTML con todo
+  incrustado en un solo archivo, igual que SingleFile —para leerla el día
+  que la original ya no exista—. Un documento abre con la app que el sistema
+  tenga asociada, sin pasar por Sinapsis. Y para llevarte varios a NotebookLM
+  de una, un paquete con los archivos que mejor ingiere y un índice con las
+  fuentes, armado desde el detalle o eligiendo varios en la biblioteca.
+
 **Por construir**
 
-Exportar y transcribir audio e imágenes. El diseño de cada etapa y el orden
-están en [`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es
-exportar.
+Recibir contenido compartido desde otras apps, y transcribir audio e
+imágenes. El diseño de cada etapa y el orden están en
+[`docs/arquitectura.md`](docs/arquitectura.md); lo próximo es recibir
+contenido compartido.
 
 ## Correr el proyecto
 
