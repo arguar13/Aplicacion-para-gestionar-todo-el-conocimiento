@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/go_router_refresh_notifier.dart';
-import 'package:sinapsis/app/router/placeholder_screen.dart';
+import 'package:sinapsis/app/router/route_error_screen.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
@@ -51,8 +51,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const DashboardScreen(),
       ),
     ],
-    errorBuilder: (context, state) =>
-        PlaceholderScreen(title: 'Ruta no encontrada: ${state.uri}'),
+    errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),
   );
 
   return router;

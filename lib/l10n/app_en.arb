@@ -66,6 +66,21 @@
     "description": "Retry button shown when loading the dashboard profile failed"
   },
 
+  "routeNotFoundTitle": "Page not found",
+  "@routeNotFoundTitle": {
+    "description": "Title of the screen shown when a URL matches no route (GoRouter errorBuilder)"
+  },
+
+  "routeNotFoundMessage": "The address you opened doesn't match any screen in the app. It may be an outdated link.",
+  "@routeNotFoundMessage": {
+    "description": "Explanation on the route-not-found screen"
+  },
+
+  "routeNotFoundAction": "Go to start",
+  "@routeNotFoundAction": {
+    "description": "Button on the route-not-found screen that returns the user to a valid destination"
+  },
+
   "navHome": "Home",
   "@navHome": {
     "description": "Navigation destination label"

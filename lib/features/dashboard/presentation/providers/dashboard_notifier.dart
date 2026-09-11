@@ -9,7 +9,7 @@ import 'package:sinapsis/features/dashboard/domain/usecases/get_current_user_use
 import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:sinapsis/features/dashboard/presentation/providers/dashboard_state.dart';
 
-/// Nota sobre 401: si `GET /me` expira, `UnauthorizedInterceptor`
+/// Nota sobre 401: si el token expira, `UnauthorizedInterceptor`
 /// (core/network) ya desloguea globalmente y el router saca al usuario del
 /// dashboard antes de que nadie vea el mensaje de [DashboardState.error]
 /// de esta llamada — igual lo seteamos para no dejar el estado colgado en

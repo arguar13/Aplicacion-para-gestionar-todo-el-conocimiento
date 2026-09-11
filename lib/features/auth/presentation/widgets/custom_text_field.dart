@@ -27,10 +27,15 @@ class CustomTextField extends StatelessWidget {
       textInputAction: textInputAction,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      // Solo `labelText`: todo lo demás (bordes, radio, relleno, colores de
+      // foco y de error) sale del `inputDecorationTheme` de AppTheme. Un
+      // `border:` explícito acá —aunque sea un `OutlineInputBorder()` a
+      // secas— gana sobre el tema y se lleva puesta la configuración
+      // completa: InputDecoration.applyDefaults solo rellena los campos que
+      // están en null, así que fijar uno lo saca de la jerarquía del tema.
+      // Eso devolvía el radio por defecto de Material (4) en vez del de la
+      // app (12) y un borde negro en vez de colorScheme.outline.
+      decoration: InputDecoration(labelText: label),
     );
   }
 }
