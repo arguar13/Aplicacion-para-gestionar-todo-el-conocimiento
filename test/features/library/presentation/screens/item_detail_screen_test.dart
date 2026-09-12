@@ -637,7 +637,7 @@ void main() {
 
       // El tipo por defecto es "relacionado", así que alcanza con
       // confirmar.
-      await tester.tap(find.text(es.detailAddRelation));
+      await tester.tap(find.text(es.pickRelationConfirm));
       await tester.pumpAndSettle();
 
       expect(
@@ -663,7 +663,7 @@ void main() {
         find.byType(TextField),
         'para el trabajo del jueves',
       );
-      await tester.tap(find.text(es.detailAddRelation));
+      await tester.tap(find.text(es.pickRelationConfirm));
       await tester.pumpAndSettle();
 
       expect(

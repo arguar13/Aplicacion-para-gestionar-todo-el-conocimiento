@@ -276,6 +276,10 @@
   "@pickRelationNoteHint": {
     "description": "Texto de ayuda del campo de nota opcional al crear un vínculo."
   },
+  "pickRelationConfirm": "Agregar",
+  "@pickRelationConfirm": {
+    "description": "Botón que confirma el tipo de vínculo ya elegido y lo crea. Deliberadamente distinto de detailAddRelation (\"Vincular con otro elemento\"), que abre el flujo entero: reusar ese texto acá, para el paso de confirmación, hacía pensar que el vínculo no se había guardado."
+  },
   "relationKindRelatedTo": "Relacionado con {name}",
   "@relationKindRelatedTo": {
     "description": "Vínculo genérico, mostrado en la fila del elemento vinculado.",

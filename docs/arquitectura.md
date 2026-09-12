@@ -733,6 +733,100 @@ ecosistema de plugins la soporte parejo. A cambio, la build funciona hoy,
 sin parches por proyecto que dependan de una API de Gradle que no se
 comporta como documentada.
 
+### 14. Cuatro fallas reales, encontradas usando la app de verdad
+
+La compilación contra un SDK de Android real (decisión 13) fue el primer
+paso; el segundo fue recorrer a mano cada flujo principal en el emulador.
+Cuatro cosas fallaban o se veían mal, ninguna visible con `flutter analyze`
+ni con la batería de pruebas existente porque las cuatro dependían de cómo
+se comporta una librería de verdad, un sistema operativo de verdad, o una
+pantalla larga de verdad — nada de eso lo simula un doble de prueba.
+
+**El artículo de Wikipedia no se podía extraer.** `reader_mode` (decisión
+3) usa por defecto `ParserType.jsdom`, un parser de HTML escrito a mano
+para ese paquete. Contra una página de Wikipedia real revienta con
+errores como "expected '</main>' and got '</div>'" en cuanto encuentra
+una etiqueta que no cierra exactamente como él espera —algo común en
+páginas grandes con años de historia—, y `parse()` devuelve `null` en vez
+de un artículo: el elemento quedaba con "Couldn't extract" para siempre,
+en una de las fuentes más comunes que alguien va a querer archivar. El
+paquete también ofrece `ParserType.html`, que delega en `package:html`
+—el parser HTML5 estándar de Dart, el mismo que ya usa `WebPageAdapter` en
+el resto del proyecto—, y que tolera exactamente lo que el parser a mano
+no tolera: elementos vacíos y cierre implícito de etiquetas, igual que un
+navegador. Cambiar el parser en
+[`reader_mode_article_extractor.dart`](../lib/features/transform/data/clients/reader_mode_article_extractor.dart)
+resolvió el `Flutter` de Wikipedia (una redirección real a "Trémolo
+(electrónica y comunicación)") de punta a punta, imágenes y todo.
+
+**Un `content://` sin permiso de lectura tumbaba la app entera.**
+Simulando un intent de compartir a mano —sin pasar por la hoja de
+compartir real del sistema, que sí otorga el permiso de lectura
+correctamente— apareció un `SecurityException` fatal, en el hilo
+principal, que mataba el proceso. La causa: `receive_sharing_intent`
+1.9.0 no envuelve en try/catch sus propias llamadas a `ContentResolver`
+(`query`, `getType`, `openInputStream`) en `FileDirectory.getDataColumn`,
+y las dispara de forma síncrona desde `onNewIntent`, fuera de cualquier
+`MethodChannel.Result` que pudiera convertir el fallo en una excepción
+Dart atrapable. Ningún manejador del lado Dart —ni `FlutterError.onError`,
+ni `PlatformDispatcher.onError`, ni `runZonedGuarded`— puede interceptar
+algo que nunca cruzó al lado Dart. Reproducido con la hoja de compartir
+real de Android (en vez de un intent armado a mano), la app no crashea:
+el sistema operativo otorga el permiso de lectura correctamente antes de
+entregar el intent, así que este defecto del paquete no se dispara en el
+uso real. Aun así, degradar antes que fallar (principio 4) también vale
+para lo que pasa del lado nativo: se envolvió `onNewIntent` en la única
+actividad que este proyecto controla,
+[`MainActivity.kt`](../android/app/src/main/kotlin/app/sinapsis/MainActivity.kt),
+para que cualquier intent de compartir que no se pueda leer —por este
+paquete o cualquier otra razón— quede en un `Log.w` en vez de costar el
+resto de la sesión, sin parchear un paquete de terceros que se
+sobrescribiría en el próximo `flutter pub get`.
+
+**Resaltar una selección era, en la práctica, invisible.** El botón para
+confirmar un resaltado aparecía después de todo el `SelectableText` de la
+rendition, no junto a la selección: en cualquier contenido más largo que
+una pantalla —una transcripción, un artículo— quedaba a miles de píxeles
+de donde el usuario estaba mirando. El diseño original evitaba a
+propósito el menú nativo de selección (copiar/pegar) porque ese menú lo
+dibuja el sistema operativo y no hay una forma confiable de tocarlo en
+pruebas automatizadas — una razón válida, pero que asumía que la única
+alternativa a "un botón aparte" era "el menú nativo del sistema".
+`contextMenuBuilder`, el mecanismo que el propio Flutter expone para
+personalizar el menú de selección, resuelve las dos cosas a la vez: sigue
+siendo un widget de Flutter normal y corriente —se prueba con
+`tester.tap()` como cualquier otro, sin tocar ninguna API nativa—, y
+Flutter lo posiciona junto a la selección activa en vez de en un lugar
+fijo, sea cual sea el punto de un texto largo donde el usuario esté
+parado. El cambio quedó en
+[`highlightable_text.dart`](../lib/features/organize/presentation/widgets/highlightable_text.dart),
+con una prueba de widget nueva —el paquete no tenía ninguna hasta
+ahora— que verifica el menú completo, más las pruebas de integración ya
+existentes en `item_detail_screen_test.dart`, que ejercitan lo mismo con
+un `longPressAt` real y ya pasaban sin cambios: la prueba con el gesto
+real es la que de verdad hubiera encontrado este problema antes de
+llegar al emulador.
+
+**El botón que confirmaba un vínculo decía "Link to another item".** La
+misma cadena de localización, `detailAddRelation`, se usaba para dos
+botones con propósitos distintos: el ícono que abre el flujo completo de
+vincular (donde "Vincular con otro elemento" tiene sentido) y el botón
+que confirma el tipo de vínculo ya elegido, en el último paso del mismo
+flujo (donde ese texto hace pensar que todavía falta elegir otro
+elemento, no que el vínculo ya se va a guardar). Se agregó una clave
+propia, `pickRelationConfirm` ("Add" / "Agregar"), específica para ese
+botón, en vez de seguir reusando un texto pensado para otro lugar de la
+pantalla.
+
+**Lo que tienen en común los cuatro.** Ninguno lo iba a encontrar
+`flutter analyze` ni una prueba con un doble: el primero necesitaba HTML
+de una página real con años de historia; el segundo, un permiso de
+Android real, mal otorgado; el tercero, una transcripción más larga que
+una pantalla; el cuarto, leer el mismo botón en dos contextos distintos
+de la misma pantalla. Es la razón concreta detrás de "nunca des algo por
+probado si se puede probar de verdad": los cuatro pasaron `flutter test`
+en verde antes de esta validación.
+
 ---
 
 ## Estado y orden de construcción

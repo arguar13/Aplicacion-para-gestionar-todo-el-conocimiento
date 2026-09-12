@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
@@ -6,15 +8,22 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El texto de una forma de contenido, subrayable.
 ///
-/// Seleccionar una parte del texto ofrece un botón para resaltarla; el
-/// resultado se ve incrustado en el propio texto —con un fondo distinto— y
-/// además se lista abajo con su nota, para poder repasar sin tener que
-/// encontrar cada fragmento en medio de un artículo largo.
+/// Seleccionar una parte del texto agrega "Resaltar" al propio menú de
+/// selección —junto a Copiar y Compartir—, en el lugar exacto donde ya
+/// aparecen esas opciones. El resultado se ve incrustado en el propio texto
+/// —con un fondo distinto— y además se lista abajo con su nota, para poder
+/// repasar sin tener que encontrar cada fragmento en medio de un artículo
+/// largo.
 ///
-/// No se usa el menú nativo de selección (copiar/pegar) para agregar
-/// "Resaltar" ahí adentro: ese menú lo dibuja el sistema operativo, y en las
-/// pruebas automatizadas no hay una forma confiable de tocarlo. Un botón
-/// visible normal se prueba como cualquier otro botón.
+/// Antes había un botón aparte que aparecía debajo de todo el texto en vez
+/// de junto a la selección: en cualquier forma de contenido más larga que
+/// una pantalla —una transcripción, un artículo— quedaba a miles de
+/// píxeles de donde el usuario estaba mirando, y en la práctica era
+/// invisible. `contextMenuBuilder` lo resuelve sin volver al menú nativo
+/// del sistema operativo que se había descartado antes: sigue siendo un
+/// widget de Flutter, normal y corriente —se prueba con `tester.tap` como
+/// cualquier otro—, solo que Flutter lo posiciona junto a la selección en
+/// vez de en un lugar fijo.
 class HighlightableText extends ConsumerStatefulWidget {
   const HighlightableText({
     required this.renditionId,
@@ -30,12 +39,7 @@ class HighlightableText extends ConsumerStatefulWidget {
 }
 
 class _HighlightableTextState extends ConsumerState<HighlightableText> {
-  TextSelection? _selection;
-
-  Future<void> _highlightSelection(
-    WidgetRef ref,
-    TextSelection selection,
-  ) async {
+  Future<void> _highlightSelection(TextSelection selection) async {
     final excerpt = selection.textInside(widget.content);
 
     // `null` es "se canceló". Una nota vacía sigue siendo una confirmación
@@ -48,8 +52,6 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     );
     if (note == null || !mounted) return;
 
-    setState(() => _selection = null);
-
     await ref
         .read(organizeRepositoryProvider)
         .createHighlight(
@@ -59,6 +61,36 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           excerpt: excerpt,
           note: note.isEmpty ? null : note,
         );
+  }
+
+  /// Agrega "Resaltar" al menú de selección que Flutter ya arma para
+  /// Copiar/Compartir, en vez de dibujar uno propio: mismo look nativo del
+  /// resto del menú, y Flutter lo posiciona solo junto a la selección
+  /// activa, sea cual sea el punto de un texto largo donde el usuario esté
+  /// parado.
+  Widget _buildContextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final selection = editableTextState.textEditingValue.selection;
+
+    final buttonItems = [
+      if (!selection.isCollapsed)
+        ContextMenuButtonItem(
+          onPressed: () {
+            ContextMenuController.removeAny();
+            unawaited(_highlightSelection(selection));
+          },
+          label: l10n.detailHighlightSelection,
+        ),
+      ...editableTextState.contextMenuButtonItems,
+    ];
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: buttonItems,
+    );
   }
 
   @override
@@ -76,23 +108,8 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       children: [
         SelectableText.rich(
           _buildSpans(theme, highlights),
-          onSelectionChanged: (selection, cause) {
-            setState(
-              () => _selection = selection.isCollapsed ? null : selection,
-            );
-          },
+          contextMenuBuilder: _buildContextMenu,
         ),
-        if (_selection != null) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: () => _highlightSelection(ref, _selection!),
-              icon: const Icon(Icons.highlight, size: 18),
-              label: Text(l10n.detailHighlightSelection),
-            ),
-          ),
-        ],
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(

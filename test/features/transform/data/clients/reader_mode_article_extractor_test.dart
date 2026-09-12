@@ -95,6 +95,41 @@ void main() {
     });
   });
 
+  group('HTML real, no el de un ejemplo prolijo', () {
+    // Encontrado validando la app contra Wikipedia real, no en ninguna
+    // revisión de código: `ParserType.jsdom` (el default de `reader_mode`)
+    // reventaba con "expected '</main>' and got '</div>'" y devolvía
+    // `null` apenas encontraba párrafos sin cerrar o etiquetas sin
+    // anidar como él esperaba —algo común en páginas grandes con años de
+    // historia—, tal como hace un párrafo de verdad sin `</p>` explícito.
+    // Un parser HTML5 de verdad tolera exactamente esto, que es
+    // justamente lo que corrige el cambio a `ParserType.html`.
+    test('un párrafo sin cerrar no tira el artículo entero', () {
+      const messyPage = '''
+<!DOCTYPE html>
+<html lang="es">
+<head><title>Un artículo con HTML descuidado</title></head>
+<body>
+  <main>
+    <div class="mw-parser-output">
+      <p>Kuhn sostiene que la ciencia no avanza acumulando verdades una sobre otra, sino a través de rupturas que reorganizan por completo el modo en que una comunidad entiende su campo de estudio.
+      <p>Un paradigma, en su vocabulario, no es solamente una teoría: es el conjunto de prácticas, instrumentos y preguntas que una comunidad científica da por sentado mientras trabaja, sin cuestionarlo durante los períodos de ciencia normal.
+      <img src="/diagrama.png">
+      <p>La crisis llega cuando las anomalías se acumulan y dejan de poder explicarse con los recursos disponibles, y aparece un candidato nuevo que reorganiza el campo entero de la disciplina.
+    </div>
+  </main>
+</body>
+</html>
+''';
+
+      final article = extractor.extract(messyPage, baseUri: baseUri);
+
+      expect(article, isNotNull);
+      expect(article!.textContent, contains('Kuhn sostiene'));
+      expect(article.textContent, contains('anomalías'));
+    });
+  });
+
   group('páginas que no son artículos', () {
     test('una portada con puros enlaces devuelve null', () {
       const homepage = '''

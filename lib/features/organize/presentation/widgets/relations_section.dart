@@ -274,7 +274,7 @@ class _PickRelationDialogState extends State<_PickRelationDialog> {
                 ? null
                 : _noteController.text.trim(),
           )),
-          child: Text(l10n.detailAddRelation),
+          child: Text(l10n.pickRelationConfirm),
         ),
       ],
     );

@@ -28,7 +28,22 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
 
   @override
   ExtractedArticle? extract(String html, {required Uri baseUri}) {
-    final article = reader.parse(html, baseUri: baseUri.toString());
+    // `reader_mode` trae dos parsers: `ParserType.jsdom` (el default), un
+    // parser de HTML escrito a mano para este paquete, y `ParserType.html`,
+    // que delega en `package:html` —el parser HTML5 estándar de Dart, el
+    // mismo que ya usa `WebPageAdapter` en el resto del proyecto—. El
+    // primero no tolera el HTML real de páginas grandes y con muchos años
+    // de historia como Wikipedia: revienta con errores del estilo
+    // "expected '</main>' and got '</div>'" apenas encuentra una etiqueta
+    // que no cierra exactamente como él espera, y `parse()` devuelve
+    // `null` en vez de un artículo. Un parser HTML5 de verdad —que
+    // entiende elementos vacíos y cierre implícito de etiquetas, igual que
+    // un navegador— no tiene ese problema.
+    final article = reader.parse(
+      html,
+      baseUri: baseUri.toString(),
+      parser: reader.ParserType.html,
+    );
     if (article == null) return null;
 
     final text = article.textContent.trim();
