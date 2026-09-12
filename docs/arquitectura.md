@@ -818,14 +818,39 @@ propia, `pickRelationConfirm` ("Add" / "Agregar"), específica para ese
 botón, en vez de seguir reusando un texto pensado para otro lugar de la
 pantalla.
 
-**Lo que tienen en común los cuatro.** Ninguno lo iba a encontrar
+**El paquete de NotebookLM no se podía guardar en algunas carpetas.**
+Elegir "Alarms" —o cualquier otra carpeta que Android reserva a una
+colección de medios: Ringtones, Notifications, Podcasts, Music— terminaba
+en "Couldn't save to the chosen folder", con "Documents" o "Download"
+funcionando sin problema. La causa: `SystemDirectoryChooser` usa
+`file_picker`, que en Android devuelve una ruta de archivo *adivinada* a
+partir del URI real que entrega el selector del sistema —funciona, por
+coincidencia, en la mayoría de las carpetas—, y `LocalDirectoryWriter`
+escribía ahí con `dart:io` liso y llano. El almacenamiento con ámbito de
+Android concede el permiso del árbol SAF, pero no el permiso de escritura
+directa por el sistema de archivos en las carpetas de una colección de
+medios: esas exigen escribir por el propio Storage Access Framework, sea
+cual sea el URI que se haya otorgado. `SafDirectoryChooser` (sobre
+`saf_util`) devuelve el URI real sin traducirlo a nada, y
+`SafDirectoryWriter` (sobre `saf_stream`) escribe por ese URI con
+`ContentResolver`/`DocumentFile`, no con `dart:io` — los dos, BSD-3-Clause.
+La elección entre esto y lo de siempre queda en
+[`directory_services_io.dart`](../lib/features/export/data/services/directory_services_io.dart),
+detrás del mismo import condicional que ya separaba el resto de este
+proyecto por plataforma: la web —que no tiene ninguna de las dos cosas—
+sigue con
+[`directory_services_web.dart`](../lib/features/export/data/services/directory_services_web.dart)
+sin tocarse.
+
+**Lo que tienen en común los cinco.** Ninguno lo iba a encontrar
 `flutter analyze` ni una prueba con un doble: el primero necesitaba HTML
 de una página real con años de historia; el segundo, un permiso de
 Android real, mal otorgado; el tercero, una transcripción más larga que
 una pantalla; el cuarto, leer el mismo botón en dos contextos distintos
-de la misma pantalla. Es la razón concreta detrás de "nunca des algo por
-probado si se puede probar de verdad": los cuatro pasaron `flutter test`
-en verde antes de esta validación.
+de la misma pantalla; el quinto, una carpeta real de Android con reglas
+de almacenamiento propias. Es la razón concreta detrás de "nunca des algo
+por probado si se puede probar de verdad": los cinco pasaron
+`flutter test` en verde antes de esta validación.
 
 ---
 

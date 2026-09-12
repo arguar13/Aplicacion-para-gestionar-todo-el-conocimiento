@@ -103,6 +103,22 @@ dependencies:
   # Mac, y este proyecto no tiene ninguna de las dos cosas. Ver la decisión 7
   # en docs/arquitectura.md.
   receive_sharing_intent: ^1.9.0
+  # Escribir el paquete de NotebookLM en Android exige el Storage Access
+  # Framework de verdad, no una ruta de archivo adivinada a partir del URI
+  # que devuelve `file_picker` —eso funciona por coincidencia en carpetas
+  # comunes como Download o Documents, y falla en las que Android reserva a
+  # una colección de medios (Alarms, Ringtones, Notifications, Podcasts,
+  # Music), donde el almacenamiento con ámbito bloquea la escritura directa
+  # aunque el permiso del árbol SAF ya se haya otorgado. `saf_util` elige la
+  # carpeta y `saf_stream` escribe ahí por el URI real, sin adivinar nada.
+  # Los dos, BSD-3-Clause, del mismo autor y pensados para usarse juntos.
+  #
+  # Fijado en 4.0.0, no ^4.0.1: esa versión sube su dependencia de `jni` a
+  # ^1.0.2, que choca con la que trae `sentry_flutter` (jni 0.14.2, fijada
+  # por ese paquete). 4.0.0 pide `jni` ^0.14.1, compatible con las dos cosas
+  # a la vez.
+  saf_stream: 4.0.0
+  saf_util: ^3.1.0
   sentry_flutter: ^9.29.0
   shared_preferences: ^2.3.3
   # Whisper corriendo en el dispositivo, sin clave ni cuota. Apache-2.0, y el

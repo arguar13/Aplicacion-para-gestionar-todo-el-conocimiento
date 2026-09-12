@@ -4,8 +4,7 @@ import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/plain_text_exporter.dart';
-import 'package:sinapsis/features/export/data/services/local_directory_writer.dart';
-import 'package:sinapsis/features/export/data/services/system_directory_chooser.dart';
+import 'package:sinapsis/features/export/data/services/directory_services.dart';
 import 'package:sinapsis/features/export/data/services/system_file_saver.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter_registry.dart';
@@ -26,12 +25,18 @@ final exporterRegistryProvider = Provider<ExporterRegistry>((ref) {
   ]);
 });
 
+// `createDefaultDirectoryChooser`/`createDefaultDirectoryWriter` eligen en
+// tiempo de compilación entre el Storage Access Framework (Android, donde
+// el almacenamiento con ámbito lo exige) y `dart:io` sencillo (el resto de
+// las plataformas de escritorio) — ver directory_services_io.dart. La
+// elección vive ahí y no acá porque este archivo también lo importa la web,
+// donde `Platform.isAndroid` no tiene nada real que contestar.
 final directoryChooserProvider = Provider<DirectoryChooser>((ref) {
-  return const SystemDirectoryChooser();
+  return createDefaultDirectoryChooser();
 });
 
 final directoryWriterProvider = Provider<DirectoryWriter>((ref) {
-  return const LocalDirectoryWriter();
+  return createDefaultDirectoryWriter();
 });
 
 final notebookLmPackageBuilderProvider = Provider<NotebookLmPackageBuilder>((
