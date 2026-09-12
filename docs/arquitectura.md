@@ -674,6 +674,65 @@ punta que encontró el problema, repetida con el arreglo puesto y
 `fonts.gstatic.com` todavía bloqueada, vuelve a mostrar cada pantalla con
 su texto real.
 
+### 13. Android Gradle Plugin 8.13.0, no 9.x
+
+`flutter create` había generado el proyecto con AGP 9.1.0 —la línea recién
+publicada al momento de escribir esto—, y nunca se había compilado contra
+un SDK de Android real hasta la validación de la fase 7/8 en un emulador de
+verdad. Ese primer intento reveló, uno detrás de otro, cuatro choques
+distintos entre AGP 9 y el ecosistema de plugins:
+
+- **`resValues` apagado por defecto.** AGP 9 cambió el default de varios
+  `buildFeatures` —antes venían prendidos— para acelerar builds que no los
+  usan. Los tres flavors (`dev`/`staging`/`prod`) generan
+  `@string/app_name` con `resValue()`, así que la build fallaba con
+  "contains custom resource values, but the feature is disabled" hasta
+  pedirlo a mano.
+- **`receive_sharing_intent` 1.9.0 declara `compileSdk 37` a secas.** Desde
+  el ciclo de Android 17 (API 37), Google ya no publica una plataforma "37"
+  simple: solo existen "37.0", "37.1", etc. Ese entero nunca resuelve a
+  nada instalable, en ninguna máquina, hasta que el paquete lo arregle río
+  arriba.
+- **`sentry_flutter` 8.14.2 fija Kotlin `languageVersion 1.6`**, que el
+  compilador Kotlin 2.4 —el que trae AGP 9.1.0— ya no soporta ("Language
+  version 1.6 is no longer supported; use version 2.0 or greater instead").
+- **El Kotlin integrado de AGP 9 (`android.builtInKotlin`) es
+  irreconciliable entre dos plugins a la vez.** `file_picker` 11.0.3 da por
+  sentado que viene prendido en AGP 9+ y no aplica ningún plugin de Kotlin
+  externo como respaldo si no lo está; `audio_decoder` 0.8.1 hace lo
+  contrario —aplica `kotlin-android` a mano sin fijarse en la propiedad ni
+  en la versión de AGP— y el propio AGP rechaza tener las dos cosas
+  prendidas a la vez ("Remove the 'org.jetbrains.kotlin.android' plugin
+  from this project's build file"). No hay una propiedad de Gradle por
+  subproyecto que lo resuelva: se probó fijar una `extra` property desde
+  `gradle.beforeProject` apuntando solo a `audio_decoder`, sin efecto — la
+  bandera se lee por una vía que ese mecanismo no alcanza a pisar.
+
+Los primeros tres tienen arreglo local sin tocar el paquete vendorizado
+(pedir `resValues` a mano, fijar el `compileSdk` real del módulo de
+`receive_sharing_intent`, subir `sentry_flutter`). El cuarto no: es un
+choque real entre dos paquetes de terceros, ninguno con una versión
+publicada que lo resuelva, y sin un mecanismo de Gradle que permita
+apagar el Kotlin integrado para uno solo de los dos.
+
+**La decisión:** en vez de seguir persiguiendo, uno por uno, los
+próximos choques de una versión de AGP publicada hace días, bajar a
+**8.13.0** —la última de la línea 8.x, probada por el ecosistema entero de
+plugins de Flutter— que no tiene Kotlin integrado en absoluto, así que ese
+choque puntual desaparece solo. De paso simplifica el arreglo de
+`receive_sharing_intent`: en vez de perseguir la plataforma 37 que pidió de
+más (y tener que subir el `compileSdk` de toda la app para satisfacer los
+metadatos del AAR que ese `compileSdk` alto genera), alcanza con fijarlo a
+la 36 —la misma que ya usa el resto del proyecto, y la que 8.13.0 prueba
+oficialmente como máximo—: el plugin es un puente simple al botón de
+compartir del sistema, no usa ninguna API exclusiva de API 37.
+
+**Lo que cuesta:** quedar un paso por detrás de la versión más nueva de
+AGP, con la migración a Kotlin integrado pendiente para cuando el
+ecosistema de plugins la soporte parejo. A cambio, la build funciona hoy,
+sin parches por proyecto que dependan de una API de Gradle que no se
+comporta como documentada.
+
 ---
 
 ## Estado y orden de construcción
