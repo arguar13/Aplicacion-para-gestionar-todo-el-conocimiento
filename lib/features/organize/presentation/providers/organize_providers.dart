@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -43,3 +44,8 @@ final renditionHighlightsProvider = StreamProvider.autoDispose
           .watch(organizeRepositoryProvider)
           .watchHighlightsForRendition(renditionId);
     });
+
+/// Todos los espacios que existen, actualizándose solos.
+final allSpacesProvider = StreamProvider.autoDispose<List<Space>>((ref) {
+  return ref.watch(organizeRepositoryProvider).watchAllSpaces();
+});

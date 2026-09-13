@@ -980,6 +980,52 @@ cuenta, y un archivo que el usuario controla de punta a punta: se puede
 abrir dentro de diez años con cualquier programa que entienda un `.zip`, ni
 siquiera hace falta Sinapsis para ver qué hay adentro.
 
+### 17. Espacios: carpetas, no otra forma de etiquetar
+
+Las etiquetas (decisión de la Fase 5) ya resuelven "marcar" un elemento con
+uno o varios conceptos que se cruzan entre sí —un video puede ser
+"filosofía" y "para revisar" a la vez—. Lo que no resuelven es la pregunta
+inversa: "¿qué hay en mi carpeta de Trabajo?", donde cada cosa vive en
+**un** lugar, no en varios. Confundir las dos —por ejemplo, tratando un
+espacio como una etiqueta más— dejaría sin resolver el caso de uso real
+(una vista tipo carpeta) a cambio de nada, porque las etiquetas ya cubren
+bien el caso de las marcas que se combinan.
+
+**Una columna nullable en `Items`, no una tabla de unión.** Las etiquetas
+son muchos-a-muchos y necesitan `ItemTags`; los espacios son
+muchos-a-uno —un elemento pertenece a lo sumo a uno— así que alcanza con
+`Items.spaceId`, igual que ya existe `Items.sourceId`. Menos una tabla
+completa, un repositorio de sincronización y una consulta con subconsulta
+para evitar duplicados (ver `_matchingIds` y el filtro de etiquetas):
+acá el filtro es un `WHERE spaceId = ?` liso.
+
+**`ON DELETE SET NULL`, no `CASCADE`.** Borrar un espacio es borrar una
+carpeta, no lo que había adentro — el principio de procedencia (principio
+2) no aplica acá porque un espacio no es de dónde vino algo, es solo cómo
+se lo organiza. La app ya tiene un ejemplo de la cascada contraria
+(`Items.sourceId` con `CASCADE`, porque un elemento sin fuente no es un
+elemento) que sirve para contrastar: acá el elemento sigue siendo el mismo
+elemento completo, solo que sin carpeta.
+
+**Primera migración real del esquema.** `schemaVersion` nunca había subido
+de 1 —las siete tablas originales se crean todas juntas en `onCreate`—.
+Sumar `Spaces` y la columna en `Items` obligó al primer `onUpgrade` real
+del proyecto. Se optó por una columna **nullable** en vez de exigir un
+valor por defecto: así una bóveda que ya existe sube de versión con todo
+"sin clasificar" en vez de fallar la migración por una columna `NOT NULL`
+sin con qué llenarse, o inventar un espacio "General" que nadie pidió.
+
+**Nombres únicos, pero sin fusionar en silencio.** `getOrCreateTag` fusiona
+en silencio porque una etiqueta se escribe al vuelo, sobre un elemento, y
+dos veces el mismo nombre casi siempre quiere decir la misma etiqueta.
+`createSpace` en cambio **falla** ante un nombre repetido: un espacio se
+crea desde su propia pantalla, con un nombre elegido a propósito, así que
+escribir dos veces "Trabajo" amerita un aviso —quizás ya existe y el
+usuario no lo vio— en vez de una fusión que podría no ser lo que quiso.
+
+**Lo que cuesta:** un elemento no puede estar en dos espacios a la vez —si
+alguna vez hiciera falta, la respuesta ya existe y se llama etiqueta—.
+
 ---
 
 ## Estado y orden de construcción
@@ -1075,6 +1121,12 @@ siquiera hace falta Sinapsis para ver qué hay adentro.
   accesible desde el ícono de backup en la biblioteca. Probado contra
   SQLite y un sistema de archivos reales, igual que la fundación de datos
   de la fase 1.
+- **Espacios: carpetas para organizar.** Una tabla `Spaces` y una columna
+  `spaceId` nullable en `Items` —ver la decisión 17—, con su fila de chips
+  en la biblioteca (crear, elegir, renombrar y borrar) y su selector en el
+  detalle de cada elemento. Primera migración real del esquema
+  (`schemaVersion` 1 → 2): las bóvedas que ya existen suben sin perder
+  nada, con todo lo que tenían sin clasificar.
 
 ### Por construir
 

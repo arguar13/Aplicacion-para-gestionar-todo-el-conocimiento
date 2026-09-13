@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -138,7 +139,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ),
               ],
               bottom: PreferredSize(
-                preferredSize: Size.fromHeight(hasTags ? 160 : 112),
+                preferredSize: Size.fromHeight(hasTags ? 216 : 168),
                 child: const _SearchAndFilters(),
               ),
             ),
@@ -265,6 +266,7 @@ class _SearchAndFilters extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
+    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -279,6 +281,35 @@ class _SearchAndFilters extends ConsumerWidget {
               prefixIcon: const Icon(Icons.search),
               isDense: true,
             ),
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.add, size: 18),
+                label: Text(l10n.spacesNewAction),
+                onPressed: () => _createSpace(context, ref),
+              ),
+              const SizedBox(width: 8),
+              for (final space in spaces) ...[
+                GestureDetector(
+                  onLongPress: () => _manageSpace(context, ref, space),
+                  child: FilterChip(
+                    avatar: const Icon(Icons.folder_outlined, size: 18),
+                    label: Text(space.name),
+                    selected: query.spaceId == space.id,
+                    onSelected: (_) => ref
+                        .read(libraryQueryNotifierProvider.notifier)
+                        .selectSpace(space.id),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ],
           ),
         ),
         SizedBox(
@@ -328,7 +359,167 @@ class _SearchAndFilters extends ConsumerWidget {
       ],
     );
   }
+
+  Future<void> _createSpace(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.spacesNewTitle),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: l10n.spacesNameHint),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text(l10n.spacesNewAction),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.trim().isEmpty || !context.mounted) return;
+
+    final result = await ref.read(organizeRepositoryProvider).createSpace(name);
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      // El espacio recién creado queda elegido: quien lo crea casi siempre
+      // lo hace para empezar a usarlo enseguida, no solo para que exista.
+      (space) =>
+          ref.read(libraryQueryNotifierProvider.notifier).selectSpace(space.id),
+    );
+  }
+
+  Future<void> _manageSpace(
+    BuildContext context,
+    WidgetRef ref,
+    Space space,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final action = await showDialog<_SpaceAction>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(space.name),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(_SpaceAction.rename),
+            child: Text(l10n.spacesRenameAction),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(_SpaceAction.delete),
+            child: Text(l10n.spacesDeleteAction),
+          ),
+        ],
+      ),
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case _SpaceAction.rename:
+        await _renameSpace(context, ref, space);
+      case _SpaceAction.delete:
+        await _deleteSpace(context, ref, space);
+    }
+  }
+
+  Future<void> _renameSpace(
+    BuildContext context,
+    WidgetRef ref,
+    Space space,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController(text: space.name);
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.spacesRenameAction),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: l10n.spacesNameHint),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text(l10n.detailSave),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.trim().isEmpty || !context.mounted) return;
+
+    final result = await ref
+        .read(organizeRepositoryProvider)
+        .renameSpace(id: space.id, name: name);
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      (_) {},
+    );
+  }
+
+  Future<void> _deleteSpace(
+    BuildContext context,
+    WidgetRef ref,
+    Space space,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(l10n.spacesDeleteConfirm(space.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.spacesDeleteAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    // Si era el espacio que se estaba mirando, hay que salir de esa vista:
+    // de lo contrario la biblioteca quedaría filtrando por un espacio que
+    // ya no existe, mostrando siempre una lista vacía sin decir por qué.
+    final notifier = ref.read(libraryQueryNotifierProvider.notifier);
+    if (ref.read(libraryQueryNotifierProvider).spaceId == space.id) {
+      notifier.selectSpace(null);
+    }
+
+    await ref.read(organizeRepositoryProvider).deleteSpace(space.id);
+  }
 }
+
+enum _SpaceAction { rename, delete }
 
 class _ItemList extends StatelessWidget {
   const _ItemList({

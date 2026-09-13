@@ -40,6 +40,13 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(tagIds: tagIds);
   }
 
+  /// Entra o sale de un espacio, como una carpeta: elegir el que ya está
+  /// activo vuelve a "todos", a diferencia de las etiquetas —que se
+  /// combinan— acá solo tiene sentido mirar un espacio a la vez.
+  void selectSpace(String? spaceId) {
+    state = state.copyWith(spaceId: state.spaceId == spaceId ? null : spaceId);
+  }
+
   void sortBy(LibrarySort sort, {bool descending = true}) {
     state = state.copyWith(sortBy: sort, descending: descending);
   }

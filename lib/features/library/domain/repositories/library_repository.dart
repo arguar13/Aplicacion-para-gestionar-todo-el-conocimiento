@@ -56,4 +56,14 @@ abstract interface class LibraryRepository {
 
   /// Borra un elemento y todo lo que cuelga de él.
   Future<Either<Failure, Unit>> delete(String id);
+
+  /// Mueve un elemento a [spaceId], o lo deja sin clasificar si es `null`.
+  ///
+  /// Aparte de [save] a propósito: mover de carpeta no debería tocar ni
+  /// releer las formas ni las etiquetas del elemento, que es lo que hace
+  /// `save` al sincronizarlas — acá alcanza con una sola columna.
+  Future<Either<Failure, Unit>> assignSpace({
+    required String itemId,
+    required String? spaceId,
+  });
 }

@@ -281,6 +281,116 @@ void main() {
     });
   });
 
+  group('espacios', () {
+    group('listar todos', () {
+      test('ordenados alfabéticamente, actualizándose solo', () async {
+        final stream = repository.watchAllSpaces();
+        final queue = StreamQueue(stream);
+
+        expect(await queue.next, isEmpty);
+
+        await repository.createSpace('Trabajo');
+        expect((await queue.next).map((s) => s.name), ['Trabajo']);
+
+        await repository.createSpace('Casa');
+        expect((await queue.next).map((s) => s.name), ['Casa', 'Trabajo']);
+
+        await queue.cancel();
+      });
+    });
+
+    group('crear', () {
+      test('un nombre nuevo se crea', () async {
+        final result = await repository.createSpace('Proyectos');
+
+        final space = result.getRight().toNullable()!;
+        expect(space.name, 'Proyectos');
+      });
+
+      test('un nombre repetido, sin distinguir mayúsculas, falla', () async {
+        await repository.createSpace('Proyectos');
+
+        final result = await repository.createSpace('proyectos');
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('un nombre vacío falla', () async {
+        final result = await repository.createSpace('   ');
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+    });
+
+    group('renombrar', () {
+      test('cambia el nombre', () async {
+        final created = (await repository.createSpace(
+          'Viejo',
+        )).getRight().toNullable()!;
+
+        final result = await repository.renameSpace(
+          id: created.id,
+          name: 'Nuevo',
+        );
+
+        expect(result.getRight().toNullable()!.name, 'Nuevo');
+      });
+
+      test('a un nombre que ya usa otro espacio falla', () async {
+        await repository.createSpace('Uno');
+        final dos = (await repository.createSpace(
+          'Dos',
+        )).getRight().toNullable()!;
+
+        final result = await repository.renameSpace(id: dos.id, name: 'uno');
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('a su propio nombre no falla por choque consigo mismo', () async {
+        final space = (await repository.createSpace(
+          'Mismo',
+        )).getRight().toNullable()!;
+
+        final result = await repository.renameSpace(
+          id: space.id,
+          name: 'Mismo',
+        );
+
+        expect(result.isRight(), isTrue);
+      });
+    });
+
+    group('borrar', () {
+      test(
+        'el elemento que pertenecía queda sin clasificar, no se borra',
+        () async {
+          final space = (await repository.createSpace(
+            'Efímero',
+          )).getRight().toNullable()!;
+          final item = await seedItem();
+          await libraryRepository.assignSpace(
+            itemId: item.id,
+            spaceId: space.id,
+          );
+
+          await repository.deleteSpace(space.id);
+
+          final reloaded = (await libraryRepository.findById(
+            item.id,
+          )).getRight().toNullable()!;
+          expect(reloaded.spaceId, isNull);
+        },
+      );
+
+      test('borrar uno que no existe no falla', () async {
+        final result = await repository.deleteSpace('no-existe');
+
+        expect(result.isRight(), isTrue);
+      });
+    });
+  });
+
   group('relaciones', () {
     test('vincula dos elementos y se puede ver desde los dos lados', () async {
       final a = await seedItem(title: 'El artículo original');

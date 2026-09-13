@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 
@@ -103,4 +104,32 @@ abstract interface class OrganizeRepository {
   /// Los resaltados de una forma de contenido, en el orden en que aparecen
   /// en el texto, actualizándose solo.
   Stream<List<Highlight>> watchHighlightsForRendition(String renditionId);
+
+  // ---------------------------------------------------------------------
+  // Espacios
+  // ---------------------------------------------------------------------
+
+  /// Todos los espacios que existen, ordenados alfabéticamente.
+  Stream<List<Space>> watchAllSpaces();
+
+  /// Crea un espacio nuevo. Devuelve un fallo si el nombre queda vacío o si
+  /// ya existe otro espacio con ese nombre (sin distinguir mayúsculas).
+  ///
+  /// A diferencia de `getOrCreateTag`, esto sí puede fallar por nombre
+  /// repetido en vez de devolver el existente: un espacio se crea desde una
+  /// pantalla propia donde el usuario elige el nombre a propósito, no al
+  /// escribirlo de paso sobre un elemento — que dos veces haya escrito lo
+  /// mismo amerita avisarle, no unificarlo en silencio.
+  Future<Either<Failure, Space>> createSpace(String name);
+
+  /// Le cambia el nombre a un espacio.
+  Future<Either<Failure, Space>> renameSpace({
+    required String id,
+    required String name,
+  });
+
+  /// Borra un espacio. Los elementos que pertenecían a él quedan sin
+  /// clasificar — la cascada de la columna es `SET NULL`, no `CASCADE`:
+  /// borrar una carpeta no debería borrar lo que había adentro.
+  Future<Either<Failure, Unit>> deleteSpace(String id);
 }

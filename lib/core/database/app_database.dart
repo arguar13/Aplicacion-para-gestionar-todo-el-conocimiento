@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
 import 'package:sinapsis/core/database/tables/sources.dart';
+import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/tags.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
 // generado es un `part` de este archivo y hereda sus imports, no los de las
@@ -22,7 +23,16 @@ part 'app_database.g.dart';
 /// La base de datos local. Todo lo que Sinapsis guarda vive acá o en archivos
 /// que esta base referencia.
 @DriftDatabase(
-  tables: [Sources, Items, Renditions, Tags, ItemTags, Relations, Highlights],
+  tables: [
+    Sources,
+    Items,
+    Renditions,
+    Tags,
+    ItemTags,
+    Relations,
+    Highlights,
+    Spaces,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Para los tests, que pasan una base en memoria.
@@ -48,13 +58,24 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createSearchIndex();
+    },
+    // Primera migración real del esquema: hasta acá, `schemaVersion` nunca
+    // había subido de 1. Espacios (carpetas) se suma como tabla nueva y una
+    // columna nullable en `Items` — nullable a propósito, para que las
+    // bóvedas que ya existen abran con todo sin clasificar en vez de fallar
+    // por una columna NOT NULL sin valor por defecto.
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.createTable(spaces);
+        await migrator.addColumn(items, items.spaceId);
+      }
     },
     beforeOpen: (details) async {
       // SQLite trae las claves foráneas DESACTIVADAS por defecto, por

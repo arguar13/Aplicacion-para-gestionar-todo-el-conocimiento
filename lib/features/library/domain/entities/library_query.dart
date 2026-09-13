@@ -52,6 +52,11 @@ sealed class LibraryQuery with _$LibraryQuery {
     @Default(<SourceKind>{}) Set<SourceKind> sourceKinds,
     @Default(<String>{}) Set<String> tagIds,
 
+    /// A qué espacio limitar la vista. `null` es "todos" — a diferencia de
+    /// las etiquetas, que se combinan, acá tiene sentido mirar un espacio a
+    /// la vez, como una carpeta.
+    String? spaceId,
+
     /// Para poder mirar solo lo que falló, o solo lo que está en la cola.
     @Default(<ProcessingState>{}) Set<ProcessingState> processingStates,
 

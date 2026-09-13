@@ -154,7 +154,7 @@ void main() {
       await pumpLibrary(tester);
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.bottom!.preferredSize.height, 112);
+      expect(appBar.bottom!.preferredSize.height, 168);
       expect(find.byIcon(Icons.label_outline), findsNothing);
     });
 
@@ -168,7 +168,7 @@ void main() {
       await pumpLibrary(tester);
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.bottom!.preferredSize.height, 160);
+      expect(appBar.bottom!.preferredSize.height, 216);
     });
 
     testWidgets('el filtro por etiqueta deja solo lo que corresponde', (
@@ -226,6 +226,53 @@ void main() {
         expect(find.text('algo sin esa etiqueta'), findsOneWidget);
       },
     );
+
+    testWidgets('crear un espacio y elegirlo deja solo lo que contiene', (
+      tester,
+    ) async {
+      await harness.capture('un artículo de filosofía');
+      await harness.capture('una nota sobre cocina');
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final filosofico = items.firstWhere((i) => i.title.contains('filosofía'));
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace('Filosofía'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpace(itemId: filosofico.id, spaceId: space.id);
+
+      await pumpLibrary(tester);
+      await tester.tap(find.text('Filosofía'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('filosofía'), findsOneWidget);
+      expect(find.textContaining('cocina'), findsNothing);
+
+      // Tocarlo de nuevo vuelve a "todos" — un espacio es una carpeta en la
+      // que se entra y se sale, no un filtro que se combina con otros.
+      await tester.tap(find.text('Filosofía'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('cocina'), findsOneWidget);
+    });
+
+    testWidgets('el chip para crear un espacio nuevo siempre está', (
+      tester,
+    ) async {
+      await harness.capture('una nota sin espacio');
+      await pumpLibrary(tester);
+
+      expect(find.text(es.spacesNewAction), findsOneWidget);
+    });
   });
 
   group('navegación', () {

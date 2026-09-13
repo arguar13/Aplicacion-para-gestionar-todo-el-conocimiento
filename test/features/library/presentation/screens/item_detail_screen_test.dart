@@ -153,7 +153,10 @@ void main() {
       );
 
       await pumpDetail(tester, id);
-      await tester.tap(find.text(es.detailCopyLink));
+      final copyLinkButton = find.text(es.detailCopyLink);
+      await tester.ensureVisible(copyLinkButton);
+      await tester.pumpAndSettle();
+      await tester.tap(copyLinkButton);
       await tester.pumpAndSettle();
 
       expect(copied, 'https://ejemplo.org/un-articulo');
@@ -302,7 +305,10 @@ void main() {
       final relativePath = item.source.originalFilePath!;
 
       await pumpDetail(tester, id);
-      await tester.tap(find.widgetWithText(TextButton, es.detailOpenFile));
+      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
+      await tester.ensureVisible(openFileButton);
+      await tester.pumpAndSettle();
+      await tester.tap(openFileButton);
       await tester.pumpAndSettle();
 
       expect(harness.fileOpener.requested, [
@@ -317,7 +323,10 @@ void main() {
       harness.fileOpener.result = FileOpenResult.done;
 
       await pumpDetail(tester, id);
-      await tester.tap(find.widgetWithText(TextButton, es.detailOpenFile));
+      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
+      await tester.ensureVisible(openFileButton);
+      await tester.pumpAndSettle();
+      await tester.tap(openFileButton);
       await tester.pumpAndSettle();
 
       expect(find.byType(SnackBar), findsNothing);
@@ -328,7 +337,10 @@ void main() {
       harness.fileOpener.result = FileOpenResult.fileNotFound;
 
       await pumpDetail(tester, id);
-      await tester.tap(find.widgetWithText(TextButton, es.detailOpenFile));
+      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
+      await tester.ensureVisible(openFileButton);
+      await tester.pumpAndSettle();
+      await tester.tap(openFileButton);
       await tester.pumpAndSettle();
 
       expect(find.text(es.detailOpenFileNotFound), findsOneWidget);
@@ -341,7 +353,10 @@ void main() {
       harness.fileOpener.result = FileOpenResult.noAppAvailable;
 
       await pumpDetail(tester, id);
-      await tester.tap(find.widgetWithText(TextButton, es.detailOpenFile));
+      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
+      await tester.ensureVisible(openFileButton);
+      await tester.pumpAndSettle();
+      await tester.tap(openFileButton);
       await tester.pumpAndSettle();
 
       expect(find.text(es.detailOpenFileNoApp), findsOneWidget);
@@ -352,7 +367,10 @@ void main() {
       harness.fileOpener.result = FileOpenResult.failed;
 
       await pumpDetail(tester, id);
-      await tester.tap(find.widgetWithText(TextButton, es.detailOpenFile));
+      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
+      await tester.ensureVisible(openFileButton);
+      await tester.pumpAndSettle();
+      await tester.tap(openFileButton);
       await tester.pumpAndSettle();
 
       expect(find.text(es.detailOpenFileFailed), findsOneWidget);

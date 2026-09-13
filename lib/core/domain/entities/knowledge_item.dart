@@ -36,6 +36,10 @@ sealed class KnowledgeItem with _$KnowledgeItem {
 
     /// Lo que escribió el usuario sobre esto, aparte del contenido en sí.
     String? notes,
+
+    /// A qué espacio pertenece. `null` es "sin clasificar", un estado
+    /// normal y no una carencia.
+    String? spaceId,
   }) = _KnowledgeItem;
 
   const KnowledgeItem._();

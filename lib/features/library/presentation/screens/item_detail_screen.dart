@@ -21,6 +21,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -182,6 +183,8 @@ class _DetailBody extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 16),
+            SpacePicker(item: item),
+            const SizedBox(height: 24),
             TagEditor(item: item),
             const SizedBox(height: 24),
 

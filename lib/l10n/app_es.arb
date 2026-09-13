@@ -521,5 +521,46 @@
   "vaultBackupImportCloseAppAction": "Cerrar Sinapsis",
   "@vaultBackupImportCloseAppAction": {
     "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
+  },
+  "spacesNewAction": "Nuevo espacio",
+  "@spacesNewAction": {
+    "description": "Chip y botón para crear un espacio nuevo."
+  },
+  "spacesNewTitle": "Nuevo espacio",
+  "@spacesNewTitle": {
+    "description": "Título del diálogo para crear un espacio."
+  },
+  "spacesNameHint": "Nombre del espacio",
+  "@spacesNameHint": {
+    "description": "Placeholder del campo de nombre al crear o renombrar un espacio."
+  },
+  "spacesRenameAction": "Renombrar",
+  "@spacesRenameAction": {
+    "description": "Opción para renombrar un espacio."
+  },
+  "spacesDeleteAction": "Eliminar",
+  "@spacesDeleteAction": {
+    "description": "Opción para eliminar un espacio."
+  },
+  "spacesDeleteConfirm": "¿Eliminar el espacio \"{name}\"? Los elementos que tenía quedan sin clasificar, no se borran.",
+  "@spacesDeleteConfirm": {
+    "description": "Mensaje de confirmación antes de eliminar un espacio.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "detailSpaceLabel": "Espacio",
+  "@detailSpaceLabel": {
+    "description": "Etiqueta de la sección de espacio en el detalle de un elemento."
+  },
+  "detailSpaceNone": "Sin clasificar",
+  "@detailSpaceNone": {
+    "description": "Texto cuando el elemento no pertenece a ningún espacio."
+  },
+  "detailSpaceChoose": "Elegir espacio",
+  "@detailSpaceChoose": {
+    "description": "Título del selector de espacio en el detalle de un elemento."
   }
 }

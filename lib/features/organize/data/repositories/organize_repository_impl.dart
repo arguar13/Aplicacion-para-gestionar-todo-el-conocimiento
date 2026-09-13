@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -420,11 +421,138 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   // ---------------------------------------------------------------------
+  // Espacios
+  // ---------------------------------------------------------------------
+
+  @override
+  Stream<List<Space>> watchAllSpaces() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.spaces],
+      read: () async {
+        final rows = await (_db.select(
+          _db.spaces,
+        )..orderBy([(s) => OrderingTerm(expression: s.name)])).get();
+        return rows.map(_toSpace).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'OrganizeRepositoryImpl.watchAllSpaces',
+    );
+  }
+
+  @override
+  Future<Either<Failure, Space>> createSpace(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El nombre no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final clash =
+          await (_db.select(_db.spaces)
+                ..where((s) => s.name.lower().equals(trimmed.toLowerCase())))
+              .getSingleOrNull();
+      if (clash != null) {
+        return left(
+          Failure.validation(message: 'Ya existe un espacio "$trimmed".'),
+        );
+      }
+
+      final space = Space(id: _ids.next(), name: trimmed, createdAt: _clock());
+      await _db
+          .into(_db.spaces)
+          .insert(
+            SpacesCompanion.insert(
+              id: space.id,
+              name: space.name,
+              createdAt: space.createdAt,
+            ),
+          );
+
+      return right(space);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.createSpace'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Space>> renameSpace({
+    required String id,
+    required String name,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El nombre no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final clash =
+          await (_db.select(_db.spaces)..where(
+                (s) =>
+                    s.name.lower().equals(trimmed.toLowerCase()) &
+                    s.id.equals(id).not(),
+              ))
+              .getSingleOrNull();
+      if (clash != null) {
+        return left(
+          Failure.validation(message: 'Ya existe un espacio "$trimmed".'),
+        );
+      }
+
+      final updated =
+          await (_db.update(_db.spaces)..where((s) => s.id.equals(id)))
+              .writeReturning(SpacesCompanion(name: Value(trimmed)));
+
+      final row = updated.singleOrNull;
+      if (row == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'El espacio ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(_toSpace(row));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.renameSpace'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> deleteSpace(String id) async {
+    try {
+      await (_db.delete(_db.spaces)..where((s) => s.id.equals(id))).go();
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.deleteSpace'),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
 
   Tag _toTag(TagRow row) =>
       Tag(id: row.id, name: row.name, createdAt: row.createdAt);
+
+  Space _toSpace(SpaceRow row) =>
+      Space(id: row.id, name: row.name, createdAt: row.createdAt);
 
   Highlight _toHighlight(HighlightRow row) => Highlight(
     id: row.id,

@@ -217,6 +217,25 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return others.isEmpty ? path : null;
   }
 
+  @override
+  Future<Either<Failure, Unit>> assignSpace({
+    required String itemId,
+    required String? spaceId,
+  }) async {
+    try {
+      await (_db.update(_db.items)..where((i) => i.id.equals(itemId))).write(
+        ItemsCompanion(spaceId: Value(spaceId)),
+      );
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.assignSpace'),
+      );
+    }
+  }
+
   /// Borra el archivo sin dejar que un fallo del disco frustre el borrado.
   ///
   /// El usuario pidió eliminar algo y la fila ya no está: devolver un error
@@ -273,6 +292,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
             updatedAt: item.updatedAt,
             subtitle: Value(item.subtitle),
             notes: Value(item.notes),
+            spaceId: Value(item.spaceId),
           ),
         );
   }
@@ -421,6 +441,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
         ),
       );
     }
+    if (query.spaceId != null) {
+      select.where(_db.items.spaceId.equals(query.spaceId!));
+    }
     if (query.tagIds.isNotEmpty) {
       // Subconsulta en vez de un join: con un join, un elemento que tiene
       // tres de las etiquetas buscadas aparecería tres veces en el
@@ -557,6 +580,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         updatedAt: row.updatedAt,
         renditions: renditionsByItem[row.id] ?? const [],
         tags: tagsByItem[row.id] ?? const [],
+        spaceId: row.spaceId,
       );
     }).toList();
   }

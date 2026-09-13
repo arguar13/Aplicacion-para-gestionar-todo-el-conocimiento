@@ -126,11 +126,13 @@ La base está construida y verificada. El producto, no todavía.
 
 - **Organizar.** Etiquetas con autocompletado —escribir el nombre de una que
   ya existe reutiliza esa, no crea una segunda— y filtro por etiqueta en la
-  biblioteca, al lado del filtro por tipo. Vínculos tipados entre elementos
-  (relacionado, continúa, contradice, cita, resume), visibles desde los dos
-  lados con el sentido de la frase correcto según cuál se esté mirando.
-  Resaltados con nota sobre cualquier texto, incrustados en el propio
-  contenido y listados aparte para repasar sin releer todo.
+  biblioteca, al lado del filtro por tipo. Espacios: carpetas donde cada
+  elemento vive en una sola a la vez, para separar por proyecto o por tema
+  sin que compita con las etiquetas, que se combinan. Vínculos tipados entre
+  elementos (relacionado, continúa, contradice, cita, resume), visibles
+  desde los dos lados con el sentido de la frase correcto según cuál se esté
+  mirando. Resaltados con nota sobre cualquier texto, incrustados en el
+  propio contenido y listados aparte para repasar sin releer todo.
 
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo

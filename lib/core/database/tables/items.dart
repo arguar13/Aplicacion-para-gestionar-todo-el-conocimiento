@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/sources.dart';
+import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 
 /// El elemento guardado.
@@ -12,6 +13,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 @TableIndex(name: 'idx_items_updated_at', columns: {#updatedAt})
 @TableIndex(name: 'idx_items_processing_state', columns: {#processingState})
 @TableIndex(name: 'idx_items_source', columns: {#sourceId})
+@TableIndex(name: 'idx_items_space', columns: {#spaceId})
 class Items extends Table {
   TextColumn get id => text()();
   TextColumn get title => text()();
@@ -23,6 +25,14 @@ class Items extends Table {
   /// va a pasar — contenido que no puede decir de dónde salió.
   TextColumn get sourceId =>
       text().references(Sources, #id, onDelete: KeyAction.cascade)();
+
+  /// A qué espacio pertenece, si a alguno. `null` es "sin clasificar" — un
+  /// estado normal, no una carencia: no todo lo que se guarda necesita ir a
+  /// una carpeta enseguida. Borrar el espacio no borra el elemento, solo lo
+  /// deja sin clasificar: es una carpeta que desaparece, no una cascada de
+  /// borrado sobre lo que había adentro.
+  TextColumn get spaceId =>
+      text().nullable().references(Spaces, #id, onDelete: KeyAction.setNull)();
 
   TextColumn get processingState => textEnum<ProcessingState>()();
   DateTimeColumn get createdAt => dateTime()();
