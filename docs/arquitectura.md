@@ -923,6 +923,63 @@ consistente con lo que ya cuesta la decisión 3: mejor una dependencia
 externa clara y con licencia libre de verdad, que una atada al
 repositorio sin una forma sana de mantenerla al día.
 
+### 16. Copia de seguridad completa de la bóveda: manual, no sincronización
+
+Con Windows como plataforma real (decisión 15), usar la misma bóveda en la
+compu y en el celular dejó de ser hipotético. La decisión 1 ya descarta un
+servidor propio, y ninguna sincronización automática entre dispositivos es
+gratis en esfuerzo sin uno —CRDTs, resolución de conflictos, un protocolo
+de transporte—, así que el camino elegido es manual: `VaultBackupService`
+arma un único `.zip` con la base y todos los archivos originales, el
+usuario lo lleva como quiera —un cable, una nube que ya use— y lo restaura
+del otro lado.
+
+**Un solo archivo, no una carpeta como el paquete de NotebookLM.** La
+exportación a NotebookLM (decisión 5) arma varios archivos porque cada uno
+tiene que poder subirse suelto a un sitio ajeno. Acá es lo contrario: una
+copia de la bóveda es una sola unidad, y separarla en archivos sueltos
+solo complicaría llevarla de un lado a otro sin ganar nada.
+
+**`VACUUM INTO` en vez de copiar el archivo a mano.** La base sigue
+abierta y en uso mientras se arma la copia —no tiene sentido pedirle al
+usuario que cierre la app para hacer un backup—, y copiar el archivo
+`.sqlite` con `dart:io` mientras hay escrituras en curso puede llevarse una
+página a medio escribir, o dejar afuera los archivos `-wal`/`-shm` sueltos
+si la conexión usa journal en modo WAL. `VACUUM INTO` es una sentencia SQL
+que corre sobre la misma conexión que la app ya tiene abierta y deja un
+archivo consistente de un solo golpe, sin bloquear nada más que esa
+sentencia.
+
+**Restaurar exige cerrar la conexión antes de escribir, y reiniciar
+después.** El archivo de destino es el mismo que `AppDatabase.open()` ya
+tiene abierto: escribirle encima con una conexión viva es pedirle
+comportamiento indefinido a SQLite, en el mejor de los casos, y un archivo
+bloqueado por Windows, en el peor. `VaultBackupScreen` cierra
+`appDatabaseProvider` explícitamente antes de restaurar, y ninguna otra
+pantalla de la app puede seguir funcionando con esa conexión cerrada a
+mitad de camino —los streams que alimentan la biblioteca dependen de
+ella—, así que la única salida honesta es pedirle a la app que se cierre
+del todo (`exit(0)`) y que el usuario la vuelva a abrir. Es la misma lógica
+que un instalador de Windows pidiendo reiniciar después de reemplazar sus
+propios archivos en uso, no una limitación que se pueda evitar con más
+código.
+
+**Validar antes de preguntar.** `PickVaultBackupFileUseCase` confirma que
+el `.zip` elegido tenga la base de datos adentro antes de que
+`VaultBackupScreen` muestre el diálogo de confirmación irreversible: no
+tiene sentido advertirle a alguien que va a perder su bóveda entera por un
+archivo que ni siquiera es una copia válida. `RestoreVaultBackupUseCase`
+vuelve a comprobarlo del lado de `VaultBackupService` de todas formas —no
+confía en que la validación previa se haya hecho—, por si algún día se
+llama desde otro lado que se salte ese paso.
+
+**Lo que cuesta:** ningún camino en tiempo real, ni resolución de
+conflictos si dos dispositivos cambiaron cosas distintas —restaurar
+siempre reemplaza todo, nunca combina—. A cambio, cero servidor, cero
+cuenta, y un archivo que el usuario controla de punta a punta: se puede
+abrir dentro de diez años con cualquier programa que entienda un `.zip`, ni
+siquiera hace falta Sinapsis para ver qué hay adentro.
+
 ---
 
 ## Estado y orden de construcción
@@ -1010,6 +1067,14 @@ repositorio sin una forma sana de mantenerla al día.
   texto en español e inglés. Sin sincronización propia entre dispositivos
   a propósito (decisión 1): la bóveda de la compu y la del celular son
   independientes, y pasar una a la otra es una operación manual.
+- **Copia de seguridad completa de la bóveda.** `VaultBackupService`
+  empaqueta la base entera —vía `VACUUM INTO`, consistente sin necesidad de
+  cerrar nada— y todos los archivos originales en un `.zip`, y lo
+  restaura del otro lado reemplazando ambos. Es el mecanismo manual que
+  permite usar la misma bóveda en dos dispositivos —ver la decisión 16—,
+  accesible desde el ícono de backup en la biblioteca. Probado contra
+  SQLite y un sistema de archivos reales, igual que la fundación de datos
+  de la fase 1.
 
 ### Por construir
 

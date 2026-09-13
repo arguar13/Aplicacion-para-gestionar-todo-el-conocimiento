@@ -153,7 +153,8 @@ La base está construida y verificada. El producto, no todavía.
   texto en imágenes sobre el Tesseract instalado en el sistema —Google ML
   Kit no tiene versión de escritorio—. La bóveda de la compu y la del
   celular son independientes a propósito: no hay sincronización automática,
-  se pasa una a la otra a mano cuando hace falta.
+  se pasa una a la otra a mano cuando hace falta, con el botón de copia de
+  seguridad de la biblioteca.
 
 **Por construir**
 

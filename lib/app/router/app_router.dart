@@ -15,6 +15,7 @@ import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
+import 'package:sinapsis/features/vault/presentation/screens/vault_backup_screen.dart';
 
 /// Router centralizado (deep linking + URLs amigables en web). Cada feature
 /// añade sus `GoRoute` aquí, o expone una lista de rutas que este archivo
@@ -89,6 +90,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.transcriptionModel,
         name: RouteNames.transcriptionModel,
         builder: (context, state) => const TranscriptionModelScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.vaultBackup,
+        name: RouteNames.vaultBackup,
+        builder: (context, state) => const VaultBackupScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

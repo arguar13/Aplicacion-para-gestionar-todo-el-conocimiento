@@ -24,6 +24,9 @@ abstract final class RoutePaths {
 
   /// El modelo de transcripción: si está descargado, y descargarlo.
   static const transcriptionModel = '/transcription-model';
+
+  /// Copia de seguridad de la bóveda completa: exportar e importar.
+  static const vaultBackup = '/vault-backup';
 }
 
 abstract final class RouteNames {
@@ -34,4 +37,5 @@ abstract final class RouteNames {
   static const itemDetail = 'item-detail';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
+  static const vaultBackup = 'vault-backup';
 }

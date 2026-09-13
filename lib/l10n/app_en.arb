@@ -756,5 +756,85 @@
   "transcriptionModelRetryAction": "Retry",
   "@transcriptionModelRetryAction": {
     "description": "Botón para reintentar la descarga del modelo tras un error."
+  },
+  "libraryVaultBackupTooltip": "Vault backup",
+  "@libraryVaultBackupTooltip": {
+    "description": "Tooltip del ícono que lleva a la pantalla de copia de seguridad."
+  },
+  "vaultBackupTitle": "Backup",
+  "@vaultBackupTitle": {
+    "description": "Título de la pantalla de copia de seguridad de la bóveda."
+  },
+  "vaultBackupExportSectionTitle": "Make a backup",
+  "@vaultBackupExportSectionTitle": {
+    "description": "Encabezado de la sección para exportar la bóveda."
+  },
+  "vaultBackupExportExplanation": "Packages your whole vault —the database and the original files— into a single file. Take it to another device to use the same vault there.",
+  "@vaultBackupExportExplanation": {
+    "description": "Explica para qué sirve exportar la bóveda."
+  },
+  "vaultBackupExportAction": "Make backup",
+  "@vaultBackupExportAction": {
+    "description": "Botón que arma y guarda la copia de la bóveda."
+  },
+  "vaultBackupExportInProgress": "Building the backup…",
+  "@vaultBackupExportInProgress": {
+    "description": "Mensaje mientras se arma el archivo de copia."
+  },
+  "vaultBackupExportSuccess": "Backup saved to {path} ({size}).",
+  "@vaultBackupExportSuccess": {
+    "description": "Mensaje de éxito tras guardar la copia.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultBackupImportSectionTitle": "Restore a backup",
+  "@vaultBackupImportSectionTitle": {
+    "description": "Encabezado de la sección para importar una copia."
+  },
+  "vaultBackupImportExplanation": "Replaces everything in this vault with the contents of a backup made earlier. This can't be undone.",
+  "@vaultBackupImportExplanation": {
+    "description": "Explica qué hace restaurar una copia, y que es irreversible."
+  },
+  "vaultBackupImportAction": "Restore backup",
+  "@vaultBackupImportAction": {
+    "description": "Botón que empieza a elegir un archivo de copia para restaurar."
+  },
+  "vaultBackupImportInvalidFile": "That file isn't a Sinapsis backup.",
+  "@vaultBackupImportInvalidFile": {
+    "description": "Mensaje cuando el archivo elegido no tiene la forma esperada."
+  },
+  "vaultBackupImportConfirmTitle": "Restore this backup?",
+  "@vaultBackupImportConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de restaurar."
+  },
+  "vaultBackupImportConfirmMessage": "Everything currently in this vault —notes, tags, highlights— will be replaced with what the backup brings. There's no way to undo this.",
+  "@vaultBackupImportConfirmMessage": {
+    "description": "Cuerpo del diálogo de confirmación antes de restaurar."
+  },
+  "vaultBackupImportConfirmAction": "Restore",
+  "@vaultBackupImportConfirmAction": {
+    "description": "Botón de confirmación final para restaurar la copia."
+  },
+  "vaultBackupImportInProgress": "Restoring…",
+  "@vaultBackupImportInProgress": {
+    "description": "Mensaje mientras se restaura la copia."
+  },
+  "vaultBackupImportSuccessTitle": "Backup restored",
+  "@vaultBackupImportSuccessTitle": {
+    "description": "Título del diálogo tras restaurar con éxito."
+  },
+  "vaultBackupImportSuccessMessage": "The vault was replaced with the backup. Sinapsis is going to close: open it again to see the result.",
+  "@vaultBackupImportSuccessMessage": {
+    "description": "Cuerpo del diálogo tras restaurar con éxito, explicando el reinicio."
+  },
+  "vaultBackupImportCloseAppAction": "Close Sinapsis",
+  "@vaultBackupImportCloseAppAction": {
+    "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
   }
 }

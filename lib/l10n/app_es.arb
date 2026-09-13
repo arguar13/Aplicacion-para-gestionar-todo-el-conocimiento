@@ -441,5 +441,85 @@
   "transcriptionModelRetryAction": "Reintentar",
   "@transcriptionModelRetryAction": {
     "description": "Botón para reintentar la descarga del modelo tras un error."
+  },
+  "libraryVaultBackupTooltip": "Copia de seguridad de la bóveda",
+  "@libraryVaultBackupTooltip": {
+    "description": "Tooltip del ícono que lleva a la pantalla de copia de seguridad."
+  },
+  "vaultBackupTitle": "Copia de seguridad",
+  "@vaultBackupTitle": {
+    "description": "Título de la pantalla de copia de seguridad de la bóveda."
+  },
+  "vaultBackupExportSectionTitle": "Hacer una copia",
+  "@vaultBackupExportSectionTitle": {
+    "description": "Encabezado de la sección para exportar la bóveda."
+  },
+  "vaultBackupExportExplanation": "Empaqueta toda tu bóveda —la base y los archivos originales— en un solo archivo. Llevalo a otro dispositivo para usar la misma bóveda ahí.",
+  "@vaultBackupExportExplanation": {
+    "description": "Explica para qué sirve exportar la bóveda."
+  },
+  "vaultBackupExportAction": "Hacer copia",
+  "@vaultBackupExportAction": {
+    "description": "Botón que arma y guarda la copia de la bóveda."
+  },
+  "vaultBackupExportInProgress": "Armando la copia…",
+  "@vaultBackupExportInProgress": {
+    "description": "Mensaje mientras se arma el archivo de copia."
+  },
+  "vaultBackupExportSuccess": "Copia guardada en {path} ({size}).",
+  "@vaultBackupExportSuccess": {
+    "description": "Mensaje de éxito tras guardar la copia.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultBackupImportSectionTitle": "Restaurar una copia",
+  "@vaultBackupImportSectionTitle": {
+    "description": "Encabezado de la sección para importar una copia."
+  },
+  "vaultBackupImportExplanation": "Reemplaza todo lo que hay en esta bóveda con el contenido de una copia hecha antes. No se puede deshacer.",
+  "@vaultBackupImportExplanation": {
+    "description": "Explica qué hace restaurar una copia, y que es irreversible."
+  },
+  "vaultBackupImportAction": "Restaurar copia",
+  "@vaultBackupImportAction": {
+    "description": "Botón que empieza a elegir un archivo de copia para restaurar."
+  },
+  "vaultBackupImportInvalidFile": "Ese archivo no es una copia de Sinapsis.",
+  "@vaultBackupImportInvalidFile": {
+    "description": "Mensaje cuando el archivo elegido no tiene la forma esperada."
+  },
+  "vaultBackupImportConfirmTitle": "¿Restaurar esta copia?",
+  "@vaultBackupImportConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de restaurar."
+  },
+  "vaultBackupImportConfirmMessage": "Todo lo que hay ahora en esta bóveda —notas, etiquetas, resaltados— se va a reemplazar por lo que traiga la copia. No hay forma de deshacerlo.",
+  "@vaultBackupImportConfirmMessage": {
+    "description": "Cuerpo del diálogo de confirmación antes de restaurar."
+  },
+  "vaultBackupImportConfirmAction": "Restaurar",
+  "@vaultBackupImportConfirmAction": {
+    "description": "Botón de confirmación final para restaurar la copia."
+  },
+  "vaultBackupImportInProgress": "Restaurando…",
+  "@vaultBackupImportInProgress": {
+    "description": "Mensaje mientras se restaura la copia."
+  },
+  "vaultBackupImportSuccessTitle": "Copia restaurada",
+  "@vaultBackupImportSuccessTitle": {
+    "description": "Título del diálogo tras restaurar con éxito."
+  },
+  "vaultBackupImportSuccessMessage": "La bóveda se reemplazó con la copia. Sinapsis se va a cerrar: abrila de nuevo para ver el resultado.",
+  "@vaultBackupImportSuccessMessage": {
+    "description": "Cuerpo del diálogo tras restaurar con éxito, explicando el reinicio."
+  },
+  "vaultBackupImportCloseAppAction": "Cerrar Sinapsis",
+  "@vaultBackupImportCloseAppAction": {
+    "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
   }
 }
