@@ -562,5 +562,85 @@
   "detailSpaceChoose": "Elegir espacio",
   "@detailSpaceChoose": {
     "description": "Título del selector de espacio en el detalle de un elemento."
+  },
+  "captureBlocksNote": "Nota con bloques",
+  "@captureBlocksNote": {
+    "description": "Botón que abre el editor de bloques desde la pantalla de captura."
+  },
+  "blocksNewTitle": "Nota con bloques",
+  "@blocksNewTitle": {
+    "description": "Título de la pantalla del editor al crear una nota nueva."
+  },
+  "blocksEditTitle": "Editar nota",
+  "@blocksEditTitle": {
+    "description": "Título de la pantalla del editor al modificar una nota existente."
+  },
+  "blocksEditAction": "Editar",
+  "@blocksEditAction": {
+    "description": "Botón en el detalle que abre el editor de bloques de una nota ya guardada."
+  },
+  "blocksTitleHint": "Título",
+  "@blocksTitleHint": {
+    "description": "Placeholder del campo de título en el editor de bloques."
+  },
+  "blocksUntitled": "Sin título",
+  "@blocksUntitled": {
+    "description": "Título por defecto de una nota de bloques guardada sin título."
+  },
+  "blocksEmptyError": "Escribí algo antes de guardar.",
+  "@blocksEmptyError": {
+    "description": "Mensaje cuando se intenta guardar una nota de bloques totalmente vacía."
+  },
+  "blocksChangeType": "Cambiar tipo de bloque",
+  "@blocksChangeType": {
+    "description": "Tooltip del ícono que abre el selector de tipo de un bloque."
+  },
+  "blocksAddBlock": "Agregar bloque",
+  "@blocksAddBlock": {
+    "description": "Tooltip del botón que agrega un bloque nuevo debajo del actual."
+  },
+  "blocksDeleteBlock": "Eliminar bloque",
+  "@blocksDeleteBlock": {
+    "description": "Tooltip del botón que borra un bloque."
+  },
+  "blocksParagraphHint": "Escribí algo…",
+  "@blocksParagraphHint": {
+    "description": "Placeholder de un bloque de párrafo vacío."
+  },
+  "blocksHeadingHint": "Encabezado",
+  "@blocksHeadingHint": {
+    "description": "Placeholder de un bloque de encabezado vacío."
+  },
+  "blocksListItemHint": "Ítem de lista",
+  "@blocksListItemHint": {
+    "description": "Placeholder de un bloque de lista (con viñeta o numerado) vacío."
+  },
+  "blocksQuoteHint": "Cita",
+  "@blocksQuoteHint": {
+    "description": "Placeholder de un bloque de cita vacío."
+  },
+  "blocksTypeParagraph": "Párrafo",
+  "@blocksTypeParagraph": {
+    "description": "Opción del selector de tipo de bloque: párrafo simple."
+  },
+  "blocksTypeHeading": "Encabezado",
+  "@blocksTypeHeading": {
+    "description": "Opción del selector de tipo de bloque: encabezado."
+  },
+  "blocksTypeBulletItem": "Lista con viñetas",
+  "@blocksTypeBulletItem": {
+    "description": "Opción del selector de tipo de bloque: ítem de lista con viñeta."
+  },
+  "blocksTypeNumberedItem": "Lista numerada",
+  "@blocksTypeNumberedItem": {
+    "description": "Opción del selector de tipo de bloque: ítem de lista numerada."
+  },
+  "blocksTypeChecklistItem": "Casillero",
+  "@blocksTypeChecklistItem": {
+    "description": "Opción del selector de tipo de bloque: ítem con casillero."
+  },
+  "blocksTypeQuote": "Cita",
+  "@blocksTypeQuote": {
+    "description": "Opción del selector de tipo de bloque: cita."
   }
 }

@@ -1026,6 +1026,72 @@ usuario no lo vio— en vez de una fusión que podría no ser lo que quiso.
 **Lo que cuesta:** un elemento no puede estar en dos espacios a la vez —si
 alguna vez hiciera falta, la respuesta ya existe y se llama etiqueta—.
 
+### 18. Notas de bloques: JSON dentro de una `Rendition.text`, no una tabla nueva
+
+Un editor estilo Notion —encabezados, listas, casilleros, citas, cada uno
+reordenable— pide un modelo de contenido más rico que "un texto suelto",
+pero no pide tocar el esquema de la base en absoluto: `Rendition.text` ya
+tiene una columna `content` de texto libre, pensada desde la Fase 1 para
+llevar cualquier forma de texto que un elemento pueda tener. Un nuevo
+`RenditionKind.blocks` y una convención —el `content` de esa rendition es
+un JSON con la lista de bloques, codificado por `encodeContentBlocks`— alcanzan
+sin agregar ninguna columna, ninguna tabla ni ninguna migración. Es la
+`textEnum` de siempre: `RenditionKind` se guarda como texto, así que un
+valor nuevo en el enum no le pide nada al esquema.
+
+**JSON a mano, no `@JsonSerializable` sobre `@freezed`.** Ninguna otra
+entidad sellada del proyecto necesita serializarse a JSON —cada una vive
+en sus propias columnas tipadas de drift—; `ContentBlock` es la primera
+que sí, porque es la única que se guarda como texto en una columna pensada
+para texto. Sumar `json_serializable` encima de `freezed` —otro `part`,
+otro paso de codegen, otra anotación por campo— para una sola clase de seis
+variantes es más superficie nueva que las ~30 líneas de
+`_blockToJson`/`_blockFromJson` escritas a mano.
+
+**Un tipo desconocido se lee como párrafo, no rompe la nota.** Si una
+versión futura agrega un séptimo tipo de bloque y luego alguien vuelve a
+una versión vieja de la app —o restaura un backup hecho con una versión más
+nueva, ver la decisión 16—, `decodeContentBlocks` no sabe qué hacer con
+`{"type": "tabla", ...}` más que mostrar su texto como si fuera un párrafo
+liso. Es el principio 4 de siempre: degradar antes que fallar. La
+alternativa —lanzar una excepción al toparse con un tipo que no reconoce—
+dejaría toda la nota inaccesible por un solo bloque que no entiende, cuando
+lo que hay ahí es perfectamente legible como texto plano.
+
+**`searchableText` decodifica los bloques en vez de indexar el JSON
+crudo.** Sin este cuidado, buscar "encabezado" encontraría cualquier nota
+de bloques —la clave `"type": "heading"` aparece en su JSON— sin que el
+usuario haya escrito esa palabra en ningún lado. `Rendition.searchableText`
+distingue `RenditionKind.blocks` como caso aparte y concatena solo el texto
+de cada bloque, así que el índice de búsqueda ve exactamente lo que la
+persona escribió, ni una clave de estructura de más.
+
+**Un editor propio, aparte de `HighlightableText`.** El resto de las
+formas de texto se leen y se resaltan con el mismo widget porque son,
+literalmente, texto: una cadena que se puede seleccionar de punta a punta.
+Una nota de bloques no lo es —tiene estructura, tipos y orden—, así que
+necesita su propio editor (`BlockEditorScreen`) y su propia vista de
+lectura (`BlockView`). Resaltar un fragmento dentro de un bloque queda
+fuera de esta primera versión a propósito: mezclar índices de resaltado
+—que ya son delicados, ver la Fase 5— con una estructura que además se
+puede reordenar es una pieza de trabajo aparte, no una extensión barata de
+esto.
+
+**Guardar reemplaza toda la rendition de bloques, nunca la mezcla con
+otra.** `BlockEditorScreen` busca si el elemento ya tenía una rendition de
+tipo `blocks` y, si la había, reutiliza su `id` —es la misma forma de
+contenido actualizada, no una nueva que convive con la vieja—; el resto de
+las renditions del elemento (una transcripción, el enlace original) no se
+tocan. Es el mismo criterio que ya usa `_syncRenditions` en
+`LibraryRepositoryImpl`: se guarda el agregado completo y el repositorio
+decide qué actualizar y qué dejar igual.
+
+**Lo que cuesta:** ni resaltados ni búsqueda de texto completo dentro de un
+bloque individual —la búsqueda encuentra la nota, no en qué bloque estaba—,
+y sin sugerencias de formato al estilo "escribir `#` para encabezado": el
+tipo se elige con un selector, no con comandos de barra. Ambas son
+extensiones genuinas de esto, no omisiones por descuido.
+
 ---
 
 ## Estado y orden de construcción
@@ -1127,6 +1193,13 @@ alguna vez hiciera falta, la respuesta ya existe y se llama etiqueta—.
   detalle de cada elemento. Primera migración real del esquema
   (`schemaVersion` 1 → 2): las bóvedas que ya existen suben sin perder
   nada, con todo lo que tenían sin clasificar.
+- **Editor de bloques, al estilo Notion.** Encabezados, párrafos, listas
+  con viñeta o numeradas, casilleros y citas, cada uno editable,
+  reordenable y con su propio tipo —ver la decisión 18—. Ningún cambio de
+  esquema: es un `RenditionKind.blocks` nuevo y JSON dentro del `content`
+  que ya tenía cada rendition de texto. Accesible desde "Nota con bloques"
+  en la captura, y con edición in situ desde el detalle de cualquier
+  elemento que ya tenga una.
 
 ### Por construir
 

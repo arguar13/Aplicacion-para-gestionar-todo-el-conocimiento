@@ -877,5 +877,85 @@
   "detailSpaceChoose": "Choose space",
   "@detailSpaceChoose": {
     "description": "Título del selector de espacio en el detalle de un elemento."
+  },
+  "captureBlocksNote": "Blocks note",
+  "@captureBlocksNote": {
+    "description": "Botón que abre el editor de bloques desde la pantalla de captura."
+  },
+  "blocksNewTitle": "Blocks note",
+  "@blocksNewTitle": {
+    "description": "Título de la pantalla del editor al crear una nota nueva."
+  },
+  "blocksEditTitle": "Edit note",
+  "@blocksEditTitle": {
+    "description": "Título de la pantalla del editor al modificar una nota existente."
+  },
+  "blocksEditAction": "Edit",
+  "@blocksEditAction": {
+    "description": "Botón en el detalle que abre el editor de bloques de una nota ya guardada."
+  },
+  "blocksTitleHint": "Title",
+  "@blocksTitleHint": {
+    "description": "Placeholder del campo de título en el editor de bloques."
+  },
+  "blocksUntitled": "Untitled",
+  "@blocksUntitled": {
+    "description": "Título por defecto de una nota de bloques guardada sin título."
+  },
+  "blocksEmptyError": "Write something before saving.",
+  "@blocksEmptyError": {
+    "description": "Mensaje cuando se intenta guardar una nota de bloques totalmente vacía."
+  },
+  "blocksChangeType": "Change block type",
+  "@blocksChangeType": {
+    "description": "Tooltip del ícono que abre el selector de tipo de un bloque."
+  },
+  "blocksAddBlock": "Add block",
+  "@blocksAddBlock": {
+    "description": "Tooltip del botón que agrega un bloque nuevo debajo del actual."
+  },
+  "blocksDeleteBlock": "Delete block",
+  "@blocksDeleteBlock": {
+    "description": "Tooltip del botón que borra un bloque."
+  },
+  "blocksParagraphHint": "Write something…",
+  "@blocksParagraphHint": {
+    "description": "Placeholder de un bloque de párrafo vacío."
+  },
+  "blocksHeadingHint": "Heading",
+  "@blocksHeadingHint": {
+    "description": "Placeholder de un bloque de encabezado vacío."
+  },
+  "blocksListItemHint": "List item",
+  "@blocksListItemHint": {
+    "description": "Placeholder de un bloque de lista (con viñeta o numerado) vacío."
+  },
+  "blocksQuoteHint": "Quote",
+  "@blocksQuoteHint": {
+    "description": "Placeholder de un bloque de cita vacío."
+  },
+  "blocksTypeParagraph": "Paragraph",
+  "@blocksTypeParagraph": {
+    "description": "Opción del selector de tipo de bloque: párrafo simple."
+  },
+  "blocksTypeHeading": "Heading",
+  "@blocksTypeHeading": {
+    "description": "Opción del selector de tipo de bloque: encabezado."
+  },
+  "blocksTypeBulletItem": "Bulleted list",
+  "@blocksTypeBulletItem": {
+    "description": "Opción del selector de tipo de bloque: ítem de lista con viñeta."
+  },
+  "blocksTypeNumberedItem": "Numbered list",
+  "@blocksTypeNumberedItem": {
+    "description": "Opción del selector de tipo de bloque: ítem de lista numerada."
+  },
+  "blocksTypeChecklistItem": "Checklist item",
+  "@blocksTypeChecklistItem": {
+    "description": "Opción del selector de tipo de bloque: ítem con casillero."
+  },
+  "blocksTypeQuote": "Quote",
+  "@blocksTypeQuote": {
+    "description": "Opción del selector de tipo de bloque: cita."
   }
 }

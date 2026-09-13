@@ -6,13 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -197,10 +201,13 @@ class _DetailBody extends StatelessWidget {
               _NoContentYet(item: item)
             else
               for (final rendition in texts) ...[
-                HighlightableText(
-                  renditionId: rendition.id,
-                  content: rendition.content,
-                ),
+                if (rendition.kind == RenditionKind.blocks)
+                  _BlocksRendition(item: item, rendition: rendition)
+                else
+                  HighlightableText(
+                    renditionId: rendition.id,
+                    content: rendition.content,
+                  ),
                 const SizedBox(height: 16),
               ],
 
@@ -213,6 +220,44 @@ class _DetailBody extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Una nota de bloques dentro del detalle: la muestra de solo lectura, con
+/// un botón para abrir el editor y cambiarla.
+///
+/// Aparte del resto de las formas de texto —que se muestran directo con
+/// `HighlightableText`— porque el contenido guardado es JSON, no texto para
+/// leer tal cual; hay que decodificarlo antes.
+class _BlocksRendition extends StatelessWidget {
+  const _BlocksRendition({required this.item, required this.rendition});
+
+  final KnowledgeItem item;
+  final TextRendition rendition;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final blocks = decodeContentBlocks(rendition.content);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: Text(l10n.blocksEditAction),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (context) => BlockEditorScreen(existingItem: item),
+              ),
+            ),
+          ),
+        ),
+        BlockView(blocks: blocks),
+      ],
     );
   }
 }

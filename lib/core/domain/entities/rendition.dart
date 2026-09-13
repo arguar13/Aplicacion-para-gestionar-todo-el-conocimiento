@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 
 part 'rendition.freezed.dart';
@@ -67,7 +68,14 @@ sealed class Rendition with _$Rendition {
 
   /// El texto buscable, o `null` si esta forma no tiene ninguno. Es lo que
   /// alimenta el índice de búsqueda.
+  ///
+  /// Una nota de bloques guarda JSON en `content` —claves como "type" o
+  /// "checked" no son texto que alguien vaya a buscar—, así que se decodifica
+  /// y se concatena solo el texto de cada bloque, igual que vería la persona
+  /// que lo escribió.
   String? get searchableText => switch (this) {
+    TextRendition(:final content, kind: RenditionKind.blocks) =>
+      decodeContentBlocks(content).map((b) => b.text).join('\n'),
     TextRendition(:final content) => content,
     FileRendition() => null,
   };

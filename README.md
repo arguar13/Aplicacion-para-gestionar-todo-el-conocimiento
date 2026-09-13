@@ -134,6 +134,12 @@ La base está construida y verificada. El producto, no todavía.
   mirando. Resaltados con nota sobre cualquier texto, incrustados en el
   propio contenido y listados aparte para repasar sin releer todo.
 
+- **Notas con bloques.** Encabezados, párrafos, listas con viñeta o
+  numeradas, casilleros y citas, cada uno con su tipo, editable y
+  reordenable — el mismo estilo de armar una nota que Notion. Se abre desde
+  "Nota con bloques" en la pantalla de captura, y se edita in situ desde el
+  detalle de cualquier elemento que ya tenga una.
+
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo
   incrustado en un solo archivo, igual que SingleFile —para leerla el día

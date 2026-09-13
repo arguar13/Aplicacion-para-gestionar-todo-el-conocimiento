@@ -8,6 +8,7 @@ import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
@@ -296,10 +297,25 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                   ),
                   const SizedBox(height: 8),
                   if (file == null)
-                    OutlinedButton.icon(
-                      onPressed: _chooseFile,
-                      icon: const Icon(Icons.attach_file),
-                      label: Text(l10n.captureChooseFile),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _chooseFile,
+                          icon: const Icon(Icons.attach_file),
+                          label: Text(l10n.captureChooseFile),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push<void>(
+                            MaterialPageRoute(
+                              builder: (context) => const BlockEditorScreen(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.view_agenda_outlined),
+                          label: Text(l10n.captureBlocksNote),
+                        ),
+                      ],
                     )
                   else
                     _ChosenFileCard(

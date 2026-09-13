@@ -361,7 +361,12 @@ void main() {
       ]);
 
       expect(find.text(es.captureDropSingleFileOnly), findsOneWidget);
-      expect(find.byType(OutlinedButton), findsOneWidget);
+      // Ningún archivo quedó elegido: el botón para elegir uno sigue
+      // ahí, tal cual antes del intento de soltar dos a la vez.
+      expect(
+        find.widgetWithText(OutlinedButton, es.captureChooseFile),
+        findsOneWidget,
+      );
     });
 
     testWidgets('soltar una carpeta avisa igual que soltar varios archivos', (

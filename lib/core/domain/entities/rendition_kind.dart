@@ -12,6 +12,14 @@ enum RenditionKind {
   /// lo leen Obsidian, Logseq, Notion y cualquier editor.
   markdown,
 
+  /// Una nota armada con bloques —encabezados, listas, casilleros, citas—,
+  /// al estilo de Notion. El contenido guardado es JSON: una lista de
+  /// bloques codificada por `encodeContentBlocks` en `content_block.dart`,
+  /// no texto plano ni Markdown. Solo la produce y la edita el usuario,
+  /// nunca un transformador: no hay forma automática de saber dónde
+  /// termina un párrafo y empieza el siguiente en un texto ajeno.
+  blocks,
+
   /// HTML — típicamente la copia de una página tal como estaba el día que
   /// se guardó, con sus recursos incrustados.
   html,
