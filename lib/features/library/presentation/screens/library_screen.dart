@@ -349,10 +349,12 @@ class _ItemList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      // Sitio para que el botón flotante no tape la última fila.
-      padding: const EdgeInsets.only(bottom: 96),
+      // Sitio para que el botón flotante no tape la última fila, y aire a
+      // los costados: cada fila es su propia tarjeta, no un renglón que
+      // ocupa el ancho completo hasta el borde de la pantalla.
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
       itemCount: items.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = items[index];
         return LibraryItemCard(

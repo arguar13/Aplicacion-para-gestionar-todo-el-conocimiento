@@ -166,6 +166,49 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(_borderRadius),
         ),
       ),
+
+      cardTheme: CardThemeData(
+        color: colorScheme.surfaceContainerLow,
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+      ),
+
+      // Las etiquetas (`Chip`) son la unidad visual repetida de organizar:
+      // aparecen en el editor de etiquetas, en los filtros y en el
+      // resaltado de relaciones. Un solo lugar donde se ven redondeadas
+      // "en píldora" y sin el borde grueso que trae Material por defecto.
+      chipTheme: ChipThemeData(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        selectedColor: colorScheme.primaryContainer,
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onPrimaryContainer,
+        ),
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      ),
+
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        space: 1,
+        thickness: 1,
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
     );
   }
 }
