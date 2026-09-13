@@ -969,5 +969,79 @@
   "graphEmpty": "There are no links between items yet. Create one from any item's detail to see it here.",
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
+  },
+  "libraryChatTooltip": "Ask your vault",
+  "@libraryChatTooltip": {
+    "description": "Tooltip del ícono que lleva al chat de la bóveda."
+  },
+  "chatTitle": "Ask your vault",
+  "@chatTitle": {
+    "description": "Título de la pantalla de chat."
+  },
+  "chatModelTooltip": "Language model",
+  "@chatModelTooltip": {
+    "description": "Tooltip del ícono que lleva a la pantalla de descarga del modelo de chat."
+  },
+  "chatModelNotReadyBanner": "Without the language model downloaded, answers show the relevant sources without a written response.",
+  "@chatModelNotReadyBanner": {
+    "description": "Aviso persistente en el chat cuando el modelo todavía no está descargado."
+  },
+  "chatEmptyExplanation": "Ask something about what you saved. The answer will cite where each fact comes from.",
+  "@chatEmptyExplanation": {
+    "description": "Mensaje en el chat antes de la primera pregunta."
+  },
+  "chatInputHint": "Ask something…",
+  "@chatInputHint": {
+    "description": "Placeholder del campo de texto del chat."
+  },
+  "chatNoSourcesFound": "I couldn't find anything in your vault related to this.",
+  "@chatNoSourcesFound": {
+    "description": "Mensaje cuando la búsqueda no encuentra ninguna fuente relevante."
+  },
+  "chatSourcesOnlyExplanation": "Here's the most relevant thing I found, without a written answer:",
+  "@chatSourcesOnlyExplanation": {
+    "description": "Mensaje antes de la lista de fuentes cuando el modelo de lenguaje no está descargado."
+  },
+  "chatModelTitle": "Language model",
+  "@chatModelTitle": {
+    "description": "Título de la pantalla de descarga del modelo de chat."
+  },
+  "chatModelReady": "The model is already downloaded. Chat answers are written on their own, without a connection.",
+  "@chatModelReady": {
+    "description": "Mensaje cuando el modelo de chat ya está listo para usarse."
+  },
+  "chatModelExplanation": "For the chat to write an answer it needs a language model. It downloads once and then works offline.",
+  "@chatModelExplanation": {
+    "description": "Explica para qué sirve el modelo, antes de pedir la descarga."
+  },
+  "chatModelSize": "It's {size}.",
+  "@chatModelSize": {
+    "description": "Tamaño de la descarga, ya formateado.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelDownloadAction": "Download",
+  "@chatModelDownloadAction": {
+    "description": "Botón que empieza la descarga del modelo de chat."
+  },
+  "chatModelDownloading": "Downloading… {percent}%",
+  "@chatModelDownloading": {
+    "description": "Texto junto a la barra de progreso mientras se descarga el modelo.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelError": "Couldn't download the model. Check your connection and try again.",
+  "@chatModelError": {
+    "description": "Mensaje cuando falla la descarga del modelo de chat."
+  },
+  "chatModelRetryAction": "Retry",
+  "@chatModelRetryAction": {
+    "description": "Botón para reintentar la descarga del modelo tras un error."
   }
 }

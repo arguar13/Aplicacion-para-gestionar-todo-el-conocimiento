@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -133,6 +134,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   tooltip: l10n.libraryGraphTooltip,
                   onPressed: () => context.push(RoutePaths.graph),
                 ),
+                // Sin web a propósito: el chat necesita flutter_gemma
+                // corriendo en el dispositivo, y esta primera versión solo
+                // se validó en Android y Windows — las dos plataformas
+                // reales de quien construye esta app (decisión 6 en
+                // docs/arquitectura.md).
+                if (!kIsWeb)
+                  IconButton(
+                    icon: const Icon(Icons.forum_outlined),
+                    tooltip: l10n.libraryChatTooltip,
+                    onPressed: () => context.push(RoutePaths.chat),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.lock_outline),
                   tooltip: l10n.lockVaultTooltip,

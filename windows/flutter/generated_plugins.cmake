@@ -4,7 +4,9 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audio_decoder
+  connectivity_plus
   desktop_drop
+  flutter_gemma
   flutter_secure_storage_windows
   sentry_flutter
 )

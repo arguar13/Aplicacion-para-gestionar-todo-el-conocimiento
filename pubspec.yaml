@@ -43,6 +43,16 @@ dependencies:
   file_picker: ^11.0.3
   flutter:
     sdk: flutter
+  # Un modelo de lenguaje corriendo en el dispositivo, para la respuesta en
+  # lenguaje natural del chat sobre la bóveda. El único paquete con soporte
+  # de verdad en Android y Windows a la vez con un único formato de modelo
+  # (LiteRT-LM); en escritorio corre por FFI directo, sin JVM ni servidor
+  # aparte. Ver la decisión 20 en docs/arquitectura.md.
+  flutter_gemma: ^1.8.2
+  # El motor de escritorio de flutter_gemma: en Windows, macOS y Linux solo
+  # entiende el formato `.litertlm`, y ese soporte vive en este paquete
+  # aparte, no en flutter_gemma a secas.
+  flutter_gemma_litertlm: ^1.6.3
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1

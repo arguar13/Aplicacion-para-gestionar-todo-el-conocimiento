@@ -30,6 +30,12 @@ abstract final class RoutePaths {
 
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
+
+  /// Preguntarle algo a la bóveda.
+  static const chat = '/chat';
+
+  /// Si el modelo de lenguaje del chat está descargado, y descargarlo.
+  static const chatModel = '/chat/model';
 }
 
 abstract final class RouteNames {
@@ -42,4 +48,6 @@ abstract final class RouteNames {
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';
   static const graph = 'graph';
+  static const chat = 'chat';
+  static const chatModel = 'chat-model';
 }

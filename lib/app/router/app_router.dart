@@ -8,6 +8,8 @@ import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
+import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -101,6 +103,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.graph,
         name: RouteNames.graph,
         builder: (context, state) => const GraphScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.chat,
+        name: RouteNames.chat,
+        builder: (context, state) => const ChatScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.chatModel,
+        name: RouteNames.chatModel,
+        builder: (context, state) => const ChatModelScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

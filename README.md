@@ -145,6 +145,14 @@ La base está construida y verificada. El producto, no todavía.
   mismos vínculos que ya se arman a mano en el detalle. Tocar un nodo lleva
   directo a ese elemento.
 
+- **Preguntarle a la bóveda.** Escribís una pregunta y la app busca qué
+  elementos guardados se relacionan, con un fragmento de cada uno. Con el
+  modelo de lenguaje descargado —Gemma, corriendo en el dispositivo,
+  gratis y sin conexión, igual que Whisper— además redacta una respuesta
+  que cita esas mismas fuentes. Sin él, ya sirve como buscador: nada obliga
+  a bajar el modelo para empezar a usarlo. Funciona igual en Android y en
+  Windows.
+
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo
   incrustado en un solo archivo, igual que SingleFile —para leerla el día

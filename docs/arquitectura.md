@@ -1145,6 +1145,80 @@ vinculados entre sí empezaría a notarse. No es un problema hoy: hace falta
 un grafo bastante más grande que el de una biblioteca personal típica para
 llegar a sentirlo.
 
+### 20. Preguntarle a la bóveda: RAG local, con `flutter_gemma` como único motor nuevo
+
+El pedido —"preguntale algo a tus notas y que conteste citando de dónde
+sale"— tiene dos mitades que conviene separar desde el diseño: encontrar
+qué es relevante (retrieval) y redactar una respuesta a partir de eso
+(generation). Es el patrón RAG de siempre, y separarlo en
+`VaultRetriever` / `ChatModel` —dos interfaces que `AskVaultQuestionUseCase`
+es la única pieza que conoce a la vez— es lo que permite que la mitad sin
+riesgo funcione sola, sin esperar a que la mitad grande y nueva esté lista.
+
+**FTS5 como retriever, no embeddings vectoriales.** La biblioteca ya tiene
+búsqueda de texto completo (Fase 1) probada contra SQLite real. Sumarle
+embeddings —un modelo aparte, un índice vectorial aparte, otra descarga—
+para una primera versión sería resolver un problema que todavía no se
+demostró que existe: si la búsqueda por palabras encuentra lo relevante en
+la mayoría de las preguntas reales, no hace falta más; si no alcanza, el
+camino de mejora es agregar embeddings *detrás* de la misma interfaz
+`VaultRetriever`, sin que `AskVaultQuestionUseCase` ni la pantalla se
+enteren. Es la misma lógica que separar adapters de transformers
+(decisión 4): la interfaz absorbe el cambio, no lo propaga.
+
+**`flutter_gemma`, evaluado antes de elegirlo.** De las alternativas
+relevadas —`llamadart`, `llama_cpp_dart`, `cactus`, ONNX Runtime genérico—
+es la única con soporte de verdad en Android **y** Windows a la vez con un
+solo formato de modelo (LiteRT-LM vía el paquete hermano
+`flutter_gemma_litertlm`), sin exigir compilar `llama.cpp` a mano
+(`llama_cpp_dart`) ni quedar afuera de escritorio (`cactus`). En escritorio
+corre por FFI directo —"no JVM, no gRPC, no servidor aparte", como dice su
+propia documentación—, el mismo espíritu que ya tiene `sherpa_onnx` acá.
+Verificado compilando de verdad para Windows y para Android en este
+proyecto, no solo leyendo su documentación: los dos compilan limpio con la
+versión 1.8.2, confirmando además que Gemma 3 1B en formato `.litertlm`
+funciona igual en las dos plataformas, sin ninguna rama de código por
+sistema operativo — un requisito explícito de este pedido.
+
+**Gemma 3 1B, no una variante más grande.** Por debajo de mil millones de
+parámetros la redacción en español se degrada notoriamente; muy por
+encima, la descarga deja de ser razonable para un celular de gama media.
+1B cuantizado a 4 bits es el punto donde las dos cosas conviven. Nada
+impide que una variante de escritorio más grande (3-4B) se sume después
+como una opción, no un reemplazo — el `ChatModelManager` ya está pensado
+para eso.
+
+**Gratis de verdad, sin excepción.** Gemma es de pesos abiertos —Google la
+publica para que cualquiera la use, sin costo—; lo único que Hugging Face
+puede pedir es aceptar su licencia con una cuenta gratuita antes de dejar
+bajar el archivo, nunca un pago ni una clave de API paga. El principio 1
+(todo en el dispositivo) y el compromiso de la app entera —100% gratis,
+sin límites— se sostienen los dos: ninguna llamada sale del dispositivo,
+y no hay ningún costo escondido en ningún punto de la cadena.
+
+**Sin conversación con memoria, a propósito, por ahora.** Cada pregunta
+arma su propia sesión de chat con el contexto que encontró para ELLA, sin
+arrastrar el historial de preguntas anteriores. Una charla de ida y vuelta
+de verdad —donde la segunda pregunta puede referirse a la primera— es una
+extensión genuina de esto: hay que decidir qué hacer cuando el contexto
+nuevo contradice al viejo, y no es gratis en complejidad. Se prefirió
+dejarla afuera de esta primera versión que forzar una decisión apurada.
+
+**El modelo se descarga aparte, con permiso explícito.** Mismo patrón que
+Whisper (decisión 8): una pantalla propia (`ChatModelScreen`) que muestra
+tamaño y progreso, nada se baja en silencio ni junto con la app. A
+diferencia de Whisper, acá `flutter_gemma` resuelve la descarga por su
+cuenta —reintentos, progreso, un servicio en primer plano en Android para
+descargas largas—, así que `GemmaChatModelManager` es una capa fina sobre
+esa descarga, no una reimplementación con `dio` como la de Whisper.
+
+**Lo que cuesta:** sin conversación con memoria entre preguntas, sin
+resaltar en qué bloque exacto de un fragmento salió cada dato, y con una
+dependencia de un solo mantenedor (`flutter_gemma` es reciente y de
+desarrollo muy activo) — mitigado por vivir enteramente detrás de la
+interfaz `ChatModel`, así que cambiar de motor el día de mañana no toca ni
+`AskVaultQuestionUseCase` ni la pantalla.
+
 ---
 
 ## Estado y orden de construcción
