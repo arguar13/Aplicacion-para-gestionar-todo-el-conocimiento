@@ -2,9 +2,10 @@
 /// pantalla, la foto de una página de un libro, un cartel.
 ///
 /// Aparte del `Transformer` que la usa, a propósito: el reconocimiento de
-/// texto necesita un motor distinto en cada plataforma —ML Kit fuera de la
-/// web, Tesseract en WebAssembly ahí— y esta interfaz es lo único de todo
-/// el camino que no se puede probar sin uno de los dos.
+/// texto necesita un motor distinto en cada plataforma —ML Kit en Android e
+/// iOS, Tesseract en WebAssembly en la web, el Tesseract del sistema en
+/// escritorio— y esta interfaz es lo único de todo el camino que no se puede
+/// probar sin uno de los tres.
 // ignore: one_member_abstracts
 abstract interface class ImageTextExtractor {
   /// El texto reconocido en la imagen de [path]. Cadena vacía si no había

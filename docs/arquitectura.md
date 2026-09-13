@@ -852,6 +852,77 @@ de almacenamiento propias. Es la razón concreta detrás de "nunca des algo
 por probado si se puede probar de verdad": los cinco pasaron
 `flutter test` en verde antes de esta validación.
 
+### 15. Windows como tercera plataforma real, y OCR de escritorio sobre el Tesseract del sistema
+
+El proyecto nació pensado para Android y la web (decisión 6): son las
+plataformas donde vive quien lo construye. Sumar Windows como una tercera
+plataforma de uso real —la misma bóveda, en la compu y en el celular,
+sincronizada a mano por el usuario en vez de con la app (ver más abajo)—
+significó agregar el target de escritorio de Flutter y resolver una cadena
+de dependencias del toolchain nativo que ninguna otra plataforma de este
+proyecto necesitaba: Modo de Desarrollador de Windows (símlinks de
+plugins), Visual Studio Build Tools con el workload de C++ y su componente
+ATL —lo pide `flutter_secure_storage_windows`, no algo que este proyecto
+elija—, y un JDK completo con cabeceras JNI —el JBR que trae Android Studio
+no las incluye, y `jni` (transitiva de `saf_stream` y `sentry_flutter`)
+las exige para compilar su parte nativa incluso en Windows, aunque nada de
+esta app entrada por JNI en escritorio—. Ninguno de los tres es específico
+de Sinapsis: es lo que pide compilar cualquier app de Flutter con estos
+plugins en un Windows sin herramientas de desarrollo previas.
+
+**OCR en escritorio: ni ML Kit ni Tesseract-WebAssembly sirven ahí.**
+`ImageTextExtractor` ya tenía dos motores —ML Kit fuera de la web
+(decisión 7/Fase 7) y Tesseract-WASM en la web (decisión 10)— y ninguno de
+los dos cubre Windows: ML Kit es un SDK nativo de Android/iOS sin versión
+de escritorio, y Tesseract-WASM depende de `package:web` y
+`dart:js_interop`, que no compilan fuera de la web (nota al cierre de la
+decisión 11). `platform_image_text_extractor_io.dart` pasó de devolver
+siempre `MlKitImageTextExtractor` a elegir en tiempo de ejecución, con
+`Platform.isAndroid || Platform.isIOS`, entre ese motor y uno nuevo,
+`TesseractCliImageTextExtractor`, para el resto de las plataformas de
+`dart:io` —Windows, Linux, macOS—.
+
+**Por qué no se bundlea un Tesseract propio para escritorio, a diferencia
+de la web.** La decisión 10 sí empaqueta Tesseract-WASM con la app porque
+ahí no hay otra forma: un navegador no puede invocar un binario del
+sistema. En escritorio sí puede, así que bundlear un `tesseract.exe` de
+terceros dentro del repositorio repetiría exactamente el problema que la
+decisión 3 evitó con `syncfusion_flutter_pdf` y la decisión 8 con
+`ffmpeg_kit_flutter`: una dependencia binaria ajena al ecosistema de Dart,
+sin una forma clara de fijar versión ni de confirmar que el mantenedor
+siga publicando. `TesseractCliImageTextExtractor` en cambio invoca
+`tesseract` como estuviera en el `PATH` del sistema —el mismo binario que
+instala el proyecto oficial de Tesseract, versionado y firmado por su
+propio equipo—, con `Process.run` inyectable para poder probarlo sin
+depender de que el binario esté presente en cada máquina que corra la
+batería de pruebas.
+
+**Qué pasa si Tesseract no está instalado.** No es un caso especial: es el
+principio 4 de siempre. `extractText` lanza
+`TesseractNotAvailableException` —igual de concreta que
+`MissingOriginalFileException`—, `ImageTransformer.transform` no la
+atrapa, y el elemento queda marcado como fallido con el mismo botón de
+reintento que un enlace roto. Nadie tiene que instalar Tesseract para usar
+el resto de la app; sin él, simplemente el reconocimiento de texto en
+imágenes no está disponible en esa máquina hasta que se instale.
+
+**Los datos entrenados, del mismo commit que la web.** El instalador de
+Tesseract para Windows solo trae inglés por defecto. `spa.traineddata` se
+suma a mano a su carpeta de datos, bajado del mismo commit fijo del
+repositorio `tessdata_fast` que ya usa `tool/fetch_tesseract_web.sh`
+(`TESSDATA_REF` en ese script): así el texto que reconoce la versión de
+escritorio en español es exactamente el mismo motor y los mismos pesos que
+reconoce la versión web, no una variante distinta por casualidad de qué
+trajo el instalador del sistema operativo.
+
+**Lo que cuesta:** a diferencia de Android (ML Kit viaja con la app) y la
+web (Tesseract-WASM viaja con la app), en escritorio el reconocimiento de
+texto depende de una instalación aparte que el usuario tiene que hacer una
+vez, fuera de Sinapsis. Es una asimetría real entre plataformas, pero
+consistente con lo que ya cuesta la decisión 3: mejor una dependencia
+externa clara y con licencia libre de verdad, que una atada al
+repositorio sin una forma sana de mantenerla al día.
+
 ---
 
 ## Estado y orden de construcción
@@ -930,6 +1001,15 @@ por probado si se puede probar de verdad": los cinco pasaron
   de ejecución, ver la decisión 12— y confirmó que la Share Extension de
   iOS queda pospuesta a propósito (decisión 7): no hay ningún dispositivo
   iOS de por medio para esta app.
+- **Windows, como tercera plataforma real.** El target de escritorio de
+  Flutter, con la cadena de herramientas nativa que pide (Modo de
+  Desarrollador, Visual Studio Build Tools con ATL, un JDK con cabeceras
+  JNI), y `TesseractCliImageTextExtractor` como motor de OCR ahí, sobre el
+  Tesseract del sistema en vez de uno bundleado —ver la decisión 15—.
+  Compilado y ejecutado de punta a punta en un Windows real, reconociendo
+  texto en español e inglés. Sin sincronización propia entre dispositivos
+  a propósito (decisión 1): la bóveda de la compu y la del celular son
+  independientes, y pasar una a la otra es una operación manual.
 
 ### Por construir
 

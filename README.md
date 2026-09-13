@@ -149,12 +149,19 @@ La base está construida y verificada. El producto, no todavía.
   con la app —se descarga aparte, una sola vez, con tu permiso explícito y
   mostrando el progreso—. Nada de esto bloquea la interfaz mientras trabaja.
 
+- **Windows.** La misma app corre en escritorio, con reconocimiento de
+  texto en imágenes sobre el Tesseract instalado en el sistema —Google ML
+  Kit no tiene versión de escritorio—. La bóveda de la compu y la del
+  celular son independientes a propósito: no hay sincronización automática,
+  se pasa una a la otra a mano cuando hace falta.
+
 **Por construir**
 
 Las ocho fases planeadas están completas: Android y la web —las dos
 plataformas reales de quien construye esta app, sin ningún dispositivo iOS
-de por medio— funcionan a fondo, cada una probada de punta a punta. No
-queda ninguna fase nueva planeada. El detalle de cada decisión está en
+de por medio— funcionan a fondo, cada una probada de punta a punta. Windows
+se sumó después como tercera plataforma real. No queda ninguna fase nueva
+planeada. El detalle de cada decisión está en
 [`docs/arquitectura.md`](docs/arquitectura.md).
 
 ## Correr el proyecto
