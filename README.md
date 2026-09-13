@@ -140,6 +140,11 @@ La base está construida y verificada. El producto, no todavía.
   "Nota con bloques" en la pantalla de captura, y se edita in situ desde el
   detalle de cualquier elemento que ya tenga una.
 
+- **Grafo de relaciones.** Toda la bóveda como una red que se recorre con
+  pan y zoom: un nodo por cada elemento vinculado, conectados por los
+  mismos vínculos que ya se arman a mano en el detalle. Tocar un nodo lleva
+  directo a ese elemento.
+
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo
   incrustado en un solo archivo, igual que SingleFile —para leerla el día

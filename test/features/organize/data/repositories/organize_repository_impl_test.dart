@@ -526,6 +526,61 @@ void main() {
 
       expect(await queue.next, hasLength(1));
     });
+
+    group('todos los vínculos', () {
+      test('trae los de toda la bóveda, no de un elemento', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+        final c = await seedItem();
+
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.relatedTo,
+        );
+        await repository.createRelation(
+          fromItemId: b.id,
+          toItemId: c.id,
+          kind: RelationKind.continues,
+        );
+
+        final edges = await repository.watchAllRelations().first;
+
+        expect(edges, hasLength(2));
+        expect(
+          edges.map((e) => (e.fromItemId, e.toItemId)),
+          containsAll([(a.id, b.id), (b.id, c.id)]),
+        );
+      });
+
+      test('sin ningún vínculo, una lista vacía', () async {
+        await seedItem();
+
+        expect(await repository.watchAllRelations().first, isEmpty);
+      });
+
+      test('se actualiza sola cuando se crea o se borra un vínculo', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+
+        final queue = StreamQueue(repository.watchAllRelations());
+        addTearDown(queue.cancel);
+
+        expect(await queue.next, isEmpty);
+
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.relatedTo,
+        );
+        final created = await queue.next;
+        expect(created, hasLength(1));
+
+        await repository.deleteRelation(created.single.id);
+
+        expect(await queue.next, isEmpty);
+      });
+    });
   });
 
   group('resaltados', () {

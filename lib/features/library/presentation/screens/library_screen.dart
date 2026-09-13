@@ -129,6 +129,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   onPressed: () => context.push(RoutePaths.vaultBackup),
                 ),
                 IconButton(
+                  icon: const Icon(Icons.hub_outlined),
+                  tooltip: l10n.libraryGraphTooltip,
+                  onPressed: () => context.push(RoutePaths.graph),
+                ),
+                IconButton(
                   icon: const Icon(Icons.lock_outline),
                   tooltip: l10n.lockVaultTooltip,
                   // Ni navegación manual ni conocimiento del router: solo se

@@ -642,5 +642,17 @@
   "blocksTypeQuote": "Cita",
   "@blocksTypeQuote": {
     "description": "Opción del selector de tipo de bloque: cita."
+  },
+  "libraryGraphTooltip": "Grafo de relaciones",
+  "@libraryGraphTooltip": {
+    "description": "Tooltip del ícono que lleva al grafo de relaciones."
+  },
+  "graphTitle": "Grafo de relaciones",
+  "@graphTitle": {
+    "description": "Título de la pantalla del grafo."
+  },
+  "graphEmpty": "Todavía no hay ningún vínculo entre elementos. Creá uno desde el detalle de cualquier elemento para verlo acá.",
+  "@graphEmpty": {
+    "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
   }
 }

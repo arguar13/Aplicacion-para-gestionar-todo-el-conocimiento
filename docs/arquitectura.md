@@ -1092,6 +1092,59 @@ y sin sugerencias de formato al estilo "escribir `#` para encabezado": el
 tipo se elige con un selector, no con comandos de barra. Ambas son
 extensiones genuinas de esto, no omisiones por descuido.
 
+### 19. El grafo de relaciones: Fruchterman-Reingold propio, no un paquete
+
+La decisión 5 (Fase 5) ya explica por qué las relaciones se eligen a mano y
+no se sugieren solas: un grafo lleno de vínculos de baja confianza vale
+menos que veinte hechos a mano. Lo que faltaba no era más vínculos, era una
+forma de *verlos* como red en vez de como una lista de líneas de texto en
+el detalle de cada elemento —que es como se veían hasta ahora—.
+
+**Un layout de fuerzas propio, en unas cien líneas, en vez de una
+dependencia.** Dibujar un grafo bien —que los grupos conectados queden
+juntos y el resto se separe, en vez de una fila o un círculo parejo que no
+dice nada sobre la estructura— pide un algoritmo, no solo un `CustomPaint`.
+Fruchterman-Reingold es el clásico para esto: cada nodo repele a todos los
+demás como una carga eléctrica, cada arista atrae a sus dos extremos como
+un resorte, y unas pocas decenas de iteraciones con una "temperatura" que
+baja alcanzan para que el sistema converja en una disposición estable. Es
+público desde 1991 y son unas cien líneas de matemática de vectores sin
+estado oculto ni casos raros de UI; sumar un paquete de grafos completo
+—con su propio sistema de renderizado, generalmente pensado para grafos de
+miles de nodos— sería mucho más superficie para lo que hace falta acá: una
+bóveda personal, no una red social.
+
+**Determinístico a propósito.** El layout no usa `Random()`: arranca de una
+disposición en círculo por índice, siempre igual para la misma lista de
+nodos. Abrir el grafo dos veces con los mismos vínculos da exactamente la
+misma imagen las dos veces. Un layout con azar de verdad "saltaría" cada
+vez que se abre la pantalla — desorientador para algo que se supone que
+ayuda a construir un mapa mental de la bóveda.
+
+**Solo entran los elementos con al menos un vínculo.** La mayoría de una
+biblioteca no tiene ninguno puesto —es lo esperable, dado que la decisión 5
+exige ponerlos a mano—, así que incluir cada elemento sin vínculos como un
+punto suelto llenaría el grafo de ruido sin ninguna línea que lo conecte a
+nada. El grafo muestra la red que el usuario construyó, no el catálogo
+entero.
+
+**`RelationEdge`, aparte de `ItemRelation`.** `ItemRelation` (Fase 5) está
+pensado para mostrar los vínculos de **un** elemento en su propio detalle,
+con el sentido de la frase ya resuelto según desde dónde se lo mira. El
+grafo necesita lo contrario: todos los vínculos de la bóveda a la vez, sin
+la noción de "desde qué elemento". Forzar `ItemRelation` a este uso
+hubiera significado pedirle un `otherItemId` sin "otro" del que hablar, o
+llamarlo una vez por cada elemento de la biblioteca —N consultas donde una
+sola alcanza—.
+
+**Lo que cuesta:** sin agrupamiento por comunidad ni resaltado de qué tan
+central es un elemento en la red —ninguno de los dos existe todavía—, y el
+cálculo del layout recorre todos los pares de nodos en cada iteración
+(orden N² por vuelta), que para una bóveda con miles de elementos
+vinculados entre sí empezaría a notarse. No es un problema hoy: hace falta
+un grafo bastante más grande que el de una biblioteca personal típica para
+llegar a sentirlo.
+
 ---
 
 ## Estado y orden de construcción
@@ -1200,6 +1253,11 @@ extensiones genuinas de esto, no omisiones por descuido.
   que ya tenía cada rendition de texto. Accesible desde "Nota con bloques"
   en la captura, y con edición in situ desde el detalle de cualquier
   elemento que ya tenga una.
+- **Grafo de relaciones.** La bóveda como una red interactiva —pan y
+  zoom—, con un nodo por elemento vinculado y una línea con flecha por
+  vínculo, dispuestos con un layout de fuerzas (Fruchterman-Reingold)
+  propio y determinístico —ver la decisión 19—. Solo entran los elementos
+  con al menos un vínculo puesto; tocar un nodo lleva a su detalle.
 
 ### Por construir
 

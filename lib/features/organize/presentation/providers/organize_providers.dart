@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
@@ -49,3 +50,8 @@ final renditionHighlightsProvider = StreamProvider.autoDispose
 final allSpacesProvider = StreamProvider.autoDispose<List<Space>>((ref) {
   return ref.watch(organizeRepositoryProvider).watchAllSpaces();
 });
+
+/// Todos los vínculos de la bóveda, actualizándose solos. Para el grafo.
+final allRelationEdgesProvider = StreamProvider.autoDispose<List<RelationEdge>>(
+  (ref) => ref.watch(organizeRepositoryProvider).watchAllRelations(),
+);

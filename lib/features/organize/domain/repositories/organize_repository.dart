@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -77,6 +78,12 @@ abstract interface class OrganizeRepository {
   /// Con qué otros elementos está vinculado [itemId], en cualquiera de los
   /// dos sentidos, actualizándose solo.
   Stream<List<ItemRelation>> watchRelationsForItem(String itemId);
+
+  /// Todos los vínculos de la bóveda, sin filtrar por ningún elemento.
+  ///
+  /// Para el grafo: mostrar la red completa necesita cada arista, no las
+  /// de un elemento a la vez.
+  Stream<List<RelationEdge>> watchAllRelations();
 
   // ---------------------------------------------------------------------
   // Resaltados

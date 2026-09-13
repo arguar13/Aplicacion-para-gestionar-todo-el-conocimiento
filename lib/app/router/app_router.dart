@@ -8,6 +8,7 @@ import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
@@ -95,6 +96,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.vaultBackup,
         name: RouteNames.vaultBackup,
         builder: (context, state) => const VaultBackupScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.graph,
+        name: RouteNames.graph,
+        builder: (context, state) => const GraphScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

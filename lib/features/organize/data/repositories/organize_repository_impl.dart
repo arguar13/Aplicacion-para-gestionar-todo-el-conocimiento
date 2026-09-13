@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -294,6 +295,29 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         otherItemSourceKind: otherSource.kind,
       );
     }).toList();
+  }
+
+  @override
+  Stream<List<RelationEdge>> watchAllRelations() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.relations],
+      read: () async {
+        final rows = await _db.select(_db.relations).get();
+        return rows
+            .map(
+              (row) => RelationEdge(
+                id: row.id,
+                fromItemId: row.fromItemId,
+                toItemId: row.toItemId,
+                kind: row.kind,
+              ),
+            )
+            .toList();
+      },
+      telemetry: _telemetry,
+      hint: 'OrganizeRepositoryImpl.watchAllRelations',
+    );
   }
 
   // ---------------------------------------------------------------------

@@ -27,6 +27,9 @@ abstract final class RoutePaths {
 
   /// Copia de seguridad de la bóveda completa: exportar e importar.
   static const vaultBackup = '/vault-backup';
+
+  /// La bóveda como un grafo de vínculos.
+  static const graph = '/graph';
 }
 
 abstract final class RouteNames {
@@ -38,4 +41,5 @@ abstract final class RouteNames {
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';
+  static const graph = 'graph';
 }
