@@ -1221,6 +1221,76 @@ interfaz `ChatModel`, así que cambiar de motor el día de mañana no toca ni
 
 ---
 
+### 21. Flashcards con SM-2: el estado de repaso vive en la tarjeta, y la IA solo sugiere
+
+Una app de estudio que solo guarda y busca información deja afuera la
+mitad del problema: recordarla con el tiempo. La repetición espaciada
+—mostrar cada tarjeta justo antes de que se olvide, cada vez más
+separada— es la técnica con más evidencia detrás para eso, y es la razón
+de ser de Anki. Se sumó acá con el mismo algoritmo, SM-2 de Piotr Wozniak
+(1987), en vez de inventar una variante propia: es simple, probado durante
+casi cuatro décadas, y cualquiera que haya usado Anki ya entiende cómo se
+comporta sin necesitar explicación.
+
+**El estado de repetición vive en la entidad, no en un servicio aparte.**
+`Flashcard` guarda `easeFactor`, `intervalDays`, `repetitions` y `dueAt`
+junto con la pregunta y la respuesta, porque una tarjeta *es* su historial
+de repasos, no solo su contenido — separarlos hubiera significado
+sincronizar dos cosas que siempre cambian juntas. `scheduleNext()`
+(`sm2_scheduler.dart`) es la única pieza que sabe calcular el próximo
+estado a partir del actual y una calificación, y es una función pura: sin
+base de datos ni reloj de por medio, así que la fórmula del algoritmo se
+prueba con las mismas cuatro operaciones matemáticas que describe el
+paper original, no con una base SQLite de fondo.
+
+**Cuelgan de `Item`, no de `Rendition`.** Una tarjeta pregunta por una
+idea, no por un fragmento de texto puntual: el mismo elemento puede tener
+varias transcripciones o revisiones de contenido a lo largo del tiempo, y
+las tarjetas que se armaron sobre él siguen teniendo sentido aunque el
+texto exacto cambie. Referenciar la rendition hubiera atado las tarjetas a
+una versión específica del contenido, cuando lo que importa es el
+elemento como concepto.
+
+**Generación asistida por IA, reutilizando `GemmaChatModel`.** Pedirle al
+modelo que proponga preguntas y respuestas a partir del contenido de un
+elemento es, en el fondo, el mismo problema que responder una pregunta
+sobre la bóveda (decisión 20): un modelo de lenguaje corriendo local que
+recibe texto y devuelve texto. En vez de levantar una segunda instancia de
+`InferenceModel` — cara en memoria para un modelo que ya vive cargado en
+el chat — `GemmaChatModel` implementa dos interfaces a la vez, `ChatModel`
+y `FlashcardGenerator`, cada una con su propia instrucción de sistema y su
+propio prompt. Es una asimetría real: `FlashcardGenerator` es la única
+interfaz de dominio de esta app que no tiene una única implementación de
+producción con una razón de ser propia, sino que comparte motor con otra
+por conveniencia de recursos. Se aceptó el costo porque separar el
+servicio en dos clases hubiera significado dos modelos cargados en
+paralelo en un celular de gama media, y el resto de la app no ve la
+diferencia: pide un `FlashcardGenerator` y no le importa qué hay detrás.
+
+**Formato de salida deliberadamente austero.** Se le pide al modelo un
+formato `P: ...` / `R: ...` línea por línea, sin Markdown ni numeración
+ni JSON — un modelo de 1B de parámetros no sigue instrucciones de formato
+tan bien como uno mucho más grande, y cuanto más simple lo pedido, menos
+formas tiene de desviarse. `parseFlashcardDrafts()` es tolerante a
+propósito: una línea que no matchea ninguno de los dos patrones se ignora
+en silencio en vez de descartar el lote entero por una sola línea que
+salió rara.
+
+**Nunca se guarda nada sin que la persona lo revise.** `FlashcardGenerator`
+solo sugiere: `FlashcardDraft` no es una `Flashcard`, y la única forma de
+convertir uno en la otra es pasar por el diálogo de revisión, donde cada
+borrador se acepta o descarta por separado. Una sugerencia mala se
+descarta con un toque; nada llega a la base de datos sin que alguien lo
+haya visto primero.
+
+**Lo que cuesta:** la generación por IA hereda las mismas limitaciones que
+el chat (decisión 20) — sin memoria entre pedidos, dependiente de
+`flutter_gemma` — y un modelo de 1B ocasionalmente ignora el formato
+pedido, en cuyo caso el parser simplemente no encuentra nada que ofrecer y
+la persona puede volver a intentar o cargar la tarjeta a mano.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -1332,6 +1402,16 @@ interfaz `ChatModel`, así que cambiar de motor el día de mañana no toca ni
   vínculo, dispuestos con un layout de fuerzas (Fruchterman-Reingold)
   propio y determinístico —ver la decisión 19—. Solo entran los elementos
   con al menos un vínculo puesto; tocar un nodo lleva a su detalle.
+- **Preguntarle a la bóveda.** RAG local con `flutter_gemma`: `VaultRetriever`
+  encuentra los fragmentos relevantes por búsqueda de texto completo y
+  `ChatModel` redacta la respuesta citando de dónde sale cada dato —ver la
+  decisión 20—. El modelo (Gemma 3 1B) se descarga aparte, con permiso
+  explícito y una pantalla propia que muestra tamaño y progreso.
+- **Flashcards con repetición espaciada.** SM-2, el mismo algoritmo de
+  Anki, con una pantalla de repaso diario y una insignia en la biblioteca
+  que muestra cuántas tocan hoy —ver la decisión 21—. Tarjetas a mano
+  desde el detalle de cualquier elemento, o generadas por IA a partir de
+  su contenido, siempre con revisión antes de guardarse.
 
 ### Por construir
 

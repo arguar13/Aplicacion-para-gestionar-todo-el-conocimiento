@@ -15,6 +15,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
@@ -145,6 +146,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     tooltip: l10n.libraryChatTooltip,
                     onPressed: () => context.push(RoutePaths.chat),
                   ),
+                const _ReviewButton(),
                 IconButton(
                   icon: const Icon(Icons.lock_outline),
                   tooltip: l10n.lockVaultTooltip,
@@ -692,6 +694,28 @@ class _LibraryError extends StatelessWidget {
 
 /// Cicla sistema -> claro -> oscuro -> sistema. El ícono refleja el modo
 /// actual; el cambio persiste solo (ver `ThemeModeNotifier`).
+/// El ícono de repaso, con una insignia mostrando cuántas tarjetas ya
+/// tocan repasarse —para que no haga falta entrar a mirar—.
+class _ReviewButton extends ConsumerWidget {
+  const _ReviewButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final dueCount = ref.watch(dueFlashcardCountProvider).valueOrNull ?? 0;
+
+    return IconButton(
+      icon: Badge(
+        isLabelVisible: dueCount > 0,
+        label: Text('$dueCount'),
+        child: const Icon(Icons.style_outlined),
+      ),
+      tooltip: l10n.libraryReviewTooltip,
+      onPressed: () => context.push(RoutePaths.review),
+    );
+  }
+}
+
 class _ThemeModeToggleButton extends ConsumerWidget {
   const _ThemeModeToggleButton();
 

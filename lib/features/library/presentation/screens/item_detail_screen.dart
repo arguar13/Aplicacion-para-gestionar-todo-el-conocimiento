@@ -21,6 +21,7 @@ import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
@@ -212,6 +213,8 @@ class _DetailBody extends StatelessWidget {
               ],
 
             const SizedBox(height: 16),
+            FlashcardSection(item: item),
+            const SizedBox(height: 24),
             RelationsSection(item: item),
             const SizedBox(height: 16),
             const Divider(),

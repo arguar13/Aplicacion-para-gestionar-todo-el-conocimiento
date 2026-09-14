@@ -36,6 +36,9 @@ abstract final class RoutePaths {
 
   /// Si el modelo de lenguaje del chat está descargado, y descargarlo.
   static const chatModel = '/chat/model';
+
+  /// Repasar las tarjetas que ya tocan.
+  static const review = '/review';
 }
 
 abstract final class RouteNames {
@@ -50,4 +53,5 @@ abstract final class RouteNames {
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';
+  static const review = 'review';
 }

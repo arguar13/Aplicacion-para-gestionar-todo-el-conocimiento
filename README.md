@@ -153,6 +153,14 @@ La base está construida y verificada. El producto, no todavía.
   a bajar el modelo para empezar a usarlo. Funciona igual en Android y en
   Windows.
 
+- **Flashcards con repetición espaciada.** El mismo algoritmo de Anki
+  (SM-2): cada tarjeta vuelve a aparecer justo antes de que se te olvide,
+  cada vez más espaciada si la recordás bien. Las cargás a mano desde el
+  detalle de cualquier elemento, o le pedís al modelo de lenguaje que
+  proponga preguntas y respuestas a partir del contenido — siempre las
+  revisás antes de que se guarden. Una insignia en la biblioteca avisa
+  cuántas tocan repasar hoy.
+
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo
   incrustado en un solo archivo, igual que SingleFile —para leerla el día

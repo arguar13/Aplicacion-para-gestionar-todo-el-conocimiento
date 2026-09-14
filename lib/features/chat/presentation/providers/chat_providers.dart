@@ -6,6 +6,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
@@ -15,12 +16,19 @@ final chatModelManagerProvider = Provider<ChatModelManager>((ref) {
   return const GemmaChatModelManager();
 });
 
-/// El modelo de Gemma en sí queda cargado en memoria entre preguntas —ver
-/// `GemmaChatModel`—, así que tampoco es `autoDispose`: perderlo al cerrar
-/// la pantalla del chat forzaría a recargar varios cientos de megas en la
-/// siguiente pregunta.
+/// El modelo de Gemma en sí queda cargado en memoria entre usos —ver
+/// `GemmaChatModel`—, así que tampoco es `autoDispose`: perderlo forzaría a
+/// recargar varios cientos de megas la próxima vez. Una sola instancia
+/// compartida entre el chat y el generador de tarjetas, para que las dos
+/// funciones usen el mismo modelo ya cargado en vez de cada una el suyo.
+final _gemmaModelProvider = Provider<GemmaChatModel>((ref) => GemmaChatModel());
+
 final chatModelProvider = Provider<ChatModel>((ref) {
-  return GemmaChatModel();
+  return ref.watch(_gemmaModelProvider);
+});
+
+final flashcardGeneratorProvider = Provider<FlashcardGenerator>((ref) {
+  return ref.watch(_gemmaModelProvider);
 });
 
 final vaultRetrieverProvider = Provider.autoDispose<VaultRetriever>((ref) {

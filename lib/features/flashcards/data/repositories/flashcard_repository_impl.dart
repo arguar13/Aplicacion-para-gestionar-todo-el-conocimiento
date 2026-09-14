@@ -1,0 +1,235 @@
+import 'package:drift/drift.dart';
+import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
+import 'package:sinapsis/features/flashcards/domain/services/sm2_scheduler.dart';
+
+class FlashcardRepositoryImpl implements FlashcardRepository {
+  const FlashcardRepositoryImpl({
+    required AppDatabase database,
+    required TelemetryService telemetry,
+    required IdGenerator ids,
+    required Clock clock,
+  }) : _db = database,
+       _telemetry = telemetry,
+       _ids = ids,
+       _clock = clock;
+
+  final AppDatabase _db;
+  final TelemetryService _telemetry;
+  final IdGenerator _ids;
+  final Clock _clock;
+
+  @override
+  Future<Either<Failure, Flashcard>> create({
+    required String itemId,
+    required String front,
+    required String back,
+  }) async {
+    final trimmedFront = front.trim();
+    final trimmedBack = back.trim();
+    if (trimmedFront.isEmpty || trimmedBack.isEmpty) {
+      return left(
+        const Failure.validation(
+          message: 'La pregunta y la respuesta no pueden quedar vacías.',
+        ),
+      );
+    }
+
+    try {
+      final now = _clock();
+      final card = Flashcard(
+        id: _ids.next(),
+        itemId: itemId,
+        front: trimmedFront,
+        back: trimmedBack,
+        dueAt: now,
+        createdAt: now,
+      );
+
+      await _db
+          .into(_db.flashcards)
+          .insert(
+            FlashcardsCompanion.insert(
+              id: card.id,
+              itemId: card.itemId,
+              front: card.front,
+              back: card.back,
+              dueAt: card.dueAt,
+              createdAt: card.createdAt,
+            ),
+          );
+
+      return right(card);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.create'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Flashcard>> update({
+    required String id,
+    required String front,
+    required String back,
+  }) async {
+    final trimmedFront = front.trim();
+    final trimmedBack = back.trim();
+    if (trimmedFront.isEmpty || trimmedBack.isEmpty) {
+      return left(
+        const Failure.validation(
+          message: 'La pregunta y la respuesta no pueden quedar vacías.',
+        ),
+      );
+    }
+
+    try {
+      final updated =
+          await (_db.update(
+            _db.flashcards,
+          )..where((f) => f.id.equals(id))).writeReturning(
+            FlashcardsCompanion(
+              front: Value(trimmedFront),
+              back: Value(trimmedBack),
+            ),
+          );
+
+      final row = updated.singleOrNull;
+      if (row == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'La tarjeta ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(_toEntity(row));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.update'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> delete(String id) async {
+    try {
+      await (_db.delete(_db.flashcards)..where((f) => f.id.equals(id))).go();
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.delete'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Flashcard>> review({
+    required String id,
+    required ReviewGrade grade,
+  }) async {
+    try {
+      final row = await (_db.select(
+        _db.flashcards,
+      )..where((f) => f.id.equals(id))).getSingleOrNull();
+
+      if (row == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'La tarjeta ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      final scheduled = scheduleNext(_toEntity(row), grade, now: _clock());
+
+      await (_db.update(_db.flashcards)..where((f) => f.id.equals(id))).write(
+        FlashcardsCompanion(
+          easeFactor: Value(scheduled.easeFactor),
+          intervalDays: Value(scheduled.intervalDays),
+          repetitions: Value(scheduled.repetitions),
+          dueAt: Value(scheduled.dueAt),
+          lastReviewedAt: Value(scheduled.lastReviewedAt),
+        ),
+      );
+
+      return right(scheduled);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.review'));
+    }
+  }
+
+  @override
+  Stream<List<Flashcard>> watchForItem(String itemId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.flashcards],
+      read: () async {
+        final rows =
+            await (_db.select(_db.flashcards)
+                  ..where((f) => f.itemId.equals(itemId))
+                  ..orderBy([(f) => OrderingTerm(expression: f.createdAt)]))
+                .get();
+        return rows.map(_toEntity).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'FlashcardRepositoryImpl.watchForItem',
+    );
+  }
+
+  @override
+  Stream<List<Flashcard>> watchDue() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.flashcards],
+      read: () async {
+        final now = _clock();
+        final rows =
+            await (_db.select(_db.flashcards)
+                  ..where((f) => f.dueAt.isSmallerOrEqualValue(now))
+                  ..orderBy([(f) => OrderingTerm(expression: f.dueAt)]))
+                .get();
+        return rows.map(_toEntity).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'FlashcardRepositoryImpl.watchDue',
+    );
+  }
+
+  @override
+  Stream<int> watchDueCount() {
+    return watchDue().map((cards) => cards.length);
+  }
+
+  Flashcard _toEntity(FlashcardRow row) => Flashcard(
+    id: row.id,
+    itemId: row.itemId,
+    front: row.front,
+    back: row.back,
+    dueAt: row.dueAt,
+    createdAt: row.createdAt,
+    easeFactor: row.easeFactor,
+    intervalDays: row.intervalDays,
+    repetitions: row.repetitions,
+    lastReviewedAt: row.lastReviewedAt,
+  );
+
+  /// Catch-all deliberado, igual que en el resto de los repositorios: un
+  /// `TypeError` es `Error`, no `Exception`, y atrapar solo `Exception` lo
+  /// dejaría escapar dejando a quien llamó esperando una respuesta que
+  /// nunca llega.
+  Failure _unexpected(Object e, StackTrace stackTrace, String hint) {
+    _telemetry.recordError(e, stackTrace, hint: hint);
+    return Failure.unexpected(message: e.toString());
+  }
+}

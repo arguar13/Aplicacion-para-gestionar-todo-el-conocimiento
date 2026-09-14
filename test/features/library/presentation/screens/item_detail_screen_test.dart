@@ -111,6 +111,15 @@ void main() {
       final id = await captureAndGetId('https://ejemplo.org/un-articulo');
 
       await pumpDetail(tester, id);
+      // La sección de procedencia queda más abajo que el "cache extent" por
+      // defecto de un `ListView` en test —lo que ya obliga a scrollear para
+      // las pruebas de más abajo—, así que hay que llegar hasta ella antes
+      // de poder afirmar que está.
+      await tester.scrollUntilVisible(
+        find.text(es.detailProvenance),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
 
       expect(find.text(es.detailProvenance), findsOneWidget);
       expect(find.text(es.sourceKindWebPage), findsOneWidget);
@@ -154,7 +163,16 @@ void main() {
 
       await pumpDetail(tester, id);
       final copyLinkButton = find.text(es.detailCopyLink);
-      await tester.ensureVisible(copyLinkButton);
+      // `ensureVisible` no sirve acá: el botón queda más allá del "cache
+      // extent" por defecto del `ListView`, así que ni siquiera está
+      // construido todavía —`ensureVisible` necesita que el elemento ya
+      // exista para poder scrollear hasta él—. `scrollUntilVisible` en
+      // cambio scrollea de a poco hasta que aparece.
+      await tester.scrollUntilVisible(
+        copyLinkButton,
+        300,
+        scrollable: find.byType(Scrollable),
+      );
       await tester.pumpAndSettle();
       await tester.tap(copyLinkButton);
       await tester.pumpAndSettle();

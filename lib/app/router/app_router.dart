@@ -10,6 +10,7 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -113,6 +114,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.chatModel,
         name: RouteNames.chatModel,
         builder: (context, state) => const ChatModelScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.review,
+        name: RouteNames.review,
+        builder: (context, state) => const ReviewScreen(),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

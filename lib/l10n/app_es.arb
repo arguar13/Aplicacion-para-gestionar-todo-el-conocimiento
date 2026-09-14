@@ -728,5 +728,86 @@
   "chatModelRetryAction": "Reintentar",
   "@chatModelRetryAction": {
     "description": "Botón para reintentar la descarga del modelo tras un error."
+  },
+  "libraryReviewTooltip": "Repasar tarjetas",
+  "@libraryReviewTooltip": {
+    "description": "Tooltip del ícono de repaso en la biblioteca."
+  },
+  "reviewTitle": "Repasar",
+  "@reviewTitle": {
+    "description": "Título de la pantalla de repaso de tarjetas."
+  },
+  "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
+  "@reviewAllDone": {
+    "description": "Mensaje cuando no quedan tarjetas por repasar."
+  },
+  "reviewRemaining": "{count, plural, =1{Queda 1 tarjeta} other{Quedan {count} tarjetas}}",
+  "@reviewRemaining": {
+    "description": "Cuántas tarjetas quedan por repasar en esta sesión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewShowAnswer": "Mostrar respuesta",
+  "@reviewShowAnswer": {
+    "description": "Botón para revelar la respuesta de una tarjeta."
+  },
+  "reviewGradeAgain": "De nuevo",
+  "@reviewGradeAgain": {
+    "description": "Botón de calificación: no se recordó."
+  },
+  "reviewGradeHard": "Difícil",
+  "@reviewGradeHard": {
+    "description": "Botón de calificación: costó recordarla."
+  },
+  "reviewGradeGood": "Bien",
+  "@reviewGradeGood": {
+    "description": "Botón de calificación: se recordó sin problema."
+  },
+  "reviewGradeEasy": "Fácil",
+  "@reviewGradeEasy": {
+    "description": "Botón de calificación: se recordó de inmediato."
+  },
+  "flashcardsTitle": "Tarjetas de repaso",
+  "@flashcardsTitle": {
+    "description": "Encabezado de la sección de tarjetas en el detalle de un elemento."
+  },
+  "flashcardsAddAction": "Agregar tarjeta",
+  "@flashcardsAddAction": {
+    "description": "Botón para agregar una tarjeta a mano."
+  },
+  "flashcardsGenerateAction": "Generar con IA",
+  "@flashcardsGenerateAction": {
+    "description": "Botón para generar tarjetas con el modelo de lenguaje."
+  },
+  "flashcardsEmpty": "Todavía no tiene ninguna tarjeta.",
+  "@flashcardsEmpty": {
+    "description": "Mensaje cuando un elemento no tiene tarjetas."
+  },
+  "flashcardsFrontHint": "Pregunta",
+  "@flashcardsFrontHint": {
+    "description": "Placeholder del campo de pregunta al crear una tarjeta."
+  },
+  "flashcardsBackHint": "Respuesta",
+  "@flashcardsBackHint": {
+    "description": "Placeholder del campo de respuesta al crear una tarjeta."
+  },
+  "flashcardsReviewTitle": "Revisar tarjetas propuestas",
+  "@flashcardsReviewTitle": {
+    "description": "Título del diálogo que muestra las tarjetas generadas por IA antes de guardarlas."
+  },
+  "flashcardsSaveSelected": "Guardar las elegidas",
+  "@flashcardsSaveSelected": {
+    "description": "Botón para guardar las tarjetas generadas que quedaron tildadas."
+  },
+  "flashcardsNoContentToGenerate": "Este elemento todavía no tiene contenido del que generar tarjetas.",
+  "@flashcardsNoContentToGenerate": {
+    "description": "Mensaje cuando se intenta generar tarjetas de un elemento sin texto."
+  },
+  "flashcardsGenerationFailed": "No se pudo generar ninguna tarjeta. Probá crearlas a mano, o comprobá que el modelo de chat esté descargado.",
+  "@flashcardsGenerationFailed": {
+    "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
   }
 }
