@@ -1,21 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
@@ -23,7 +19,6 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
-import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La pantalla principal: todo lo guardado, con búsqueda y filtros.
@@ -117,44 +112,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   // Sin nada elegido todavía: entrar al modo alcanza, no
                   // hace falta que el primer toque también elija algo.
                   onPressed: () => setState(() => _selectionModeActive = true),
-                ),
-                const _LanguageToggleButton(),
-                const _ThemeModeToggleButton(),
-                IconButton(
-                  icon: const Icon(Icons.mic_none_outlined),
-                  tooltip: l10n.libraryTranscriptionModelTooltip,
-                  onPressed: () => context.push(RoutePaths.transcriptionModel),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.backup_outlined),
-                  tooltip: l10n.libraryVaultBackupTooltip,
-                  onPressed: () => context.push(RoutePaths.vaultBackup),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.hub_outlined),
-                  tooltip: l10n.libraryGraphTooltip,
-                  onPressed: () => context.push(RoutePaths.graph),
-                ),
-                // Sin web a propósito: el chat necesita flutter_gemma
-                // corriendo en el dispositivo, y esta primera versión solo
-                // se validó en Android y Windows — las dos plataformas
-                // reales de quien construye esta app (decisión 6 en
-                // docs/arquitectura.md).
-                if (!kIsWeb)
-                  IconButton(
-                    icon: const Icon(Icons.forum_outlined),
-                    tooltip: l10n.libraryChatTooltip,
-                    onPressed: () => context.push(RoutePaths.chat),
-                  ),
-                const _ReviewButton(),
-                IconButton(
-                  icon: const Icon(Icons.lock_outline),
-                  tooltip: l10n.lockVaultTooltip,
-                  // Ni navegación manual ni conocimiento del router: solo se
-                  // le avisa al controlador de la bóveda, y el router
-                  // reacciona.
-                  onPressed: () =>
-                      ref.read(vaultSessionControllerProvider.notifier).lock(),
                 ),
               ],
               bottom: PreferredSize(
@@ -692,78 +649,6 @@ class _LibraryError extends StatelessWidget {
   }
 }
 
-/// Cicla sistema -> claro -> oscuro -> sistema. El ícono refleja el modo
-/// actual; el cambio persiste solo (ver `ThemeModeNotifier`).
-/// El ícono de repaso, con una insignia mostrando cuántas tarjetas ya
-/// tocan repasarse —para que no haga falta entrar a mirar—.
-class _ReviewButton extends ConsumerWidget {
-  const _ReviewButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final dueCount = ref.watch(dueFlashcardCountProvider).valueOrNull ?? 0;
-
-    return IconButton(
-      icon: Badge(
-        isLabelVisible: dueCount > 0,
-        label: Text('$dueCount'),
-        child: const Icon(Icons.style_outlined),
-      ),
-      tooltip: l10n.libraryReviewTooltip,
-      onPressed: () => context.push(RoutePaths.review),
-    );
-  }
-}
-
-class _ThemeModeToggleButton extends ConsumerWidget {
-  const _ThemeModeToggleButton();
-
-  static const _cycle = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
-
-  IconData _iconFor(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => Icons.brightness_auto,
-    ThemeMode.light => Icons.light_mode,
-    ThemeMode.dark => Icons.dark_mode,
-  };
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeNotifierProvider);
-
-    return IconButton(
-      icon: Icon(_iconFor(themeMode)),
-      tooltip: AppLocalizations.of(context)!.themeModeTooltip,
-      onPressed: () {
-        final next = _cycle[(_cycle.indexOf(themeMode) + 1) % _cycle.length];
-        ref.read(themeModeNotifierProvider.notifier).setThemeMode(next);
-      },
-    );
-  }
-}
-
-/// Cicla sistema -> Español -> English -> sistema. Muestra el código del
-/// idioma *efectivo* (resuelve "sistema" a es/en real), no un ícono ambiguo.
-class _LanguageToggleButton extends ConsumerWidget {
-  const _LanguageToggleButton();
-
-  static const _cycle = <Locale?>[null, Locale('es'), Locale('en')];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final preference = ref.watch(localeNotifierProvider);
-    final effective = ref.watch(effectiveLocaleProvider);
-
-    return IconButton(
-      icon: Text(
-        effective.languageCode.toUpperCase(),
-        style: Theme.of(context).textTheme.labelLarge,
-      ),
-      tooltip: AppLocalizations.of(context)!.languageTooltip,
-      onPressed: () {
-        final next = _cycle[(_cycle.indexOf(preference) + 1) % _cycle.length];
-        ref.read(localeNotifierProvider.notifier).setLocale(next);
-      },
-    );
-  }
-}
+// El botón de repaso (con insignia), el de tema, el de idioma y el de
+// bloquear la bóveda que vivían acá se mudaron a la navegación principal y a
+// `SettingsScreen` — ver la decisión 22 en docs/arquitectura.md.

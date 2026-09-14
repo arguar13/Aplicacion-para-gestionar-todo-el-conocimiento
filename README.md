@@ -151,15 +151,24 @@ La base está construida y verificada. El producto, no todavía.
   gratis y sin conexión, igual que Whisper— además redacta una respuesta
   que cita esas mismas fuentes. Sin él, ya sirve como buscador: nada obliga
   a bajar el modelo para empezar a usarlo. Funciona igual en Android y en
-  Windows.
+  Windows. El repositorio de Gemma en Hugging Face pide una cuenta
+  gratuita antes de dejar bajar el archivo: la pantalla de descarga
+  explica los dos pasos (aceptar la licencia y generar un token) y guarda
+  el token para la próxima vez.
 
 - **Flashcards con repetición espaciada.** El mismo algoritmo de Anki
   (SM-2): cada tarjeta vuelve a aparecer justo antes de que se te olvide,
   cada vez más espaciada si la recordás bien. Las cargás a mano desde el
   detalle de cualquier elemento, o le pedís al modelo de lenguaje que
   proponga preguntas y respuestas a partir del contenido — siempre las
-  revisás antes de que se guarden. Una insignia en la biblioteca avisa
+  revisás antes de que se guarden. Una insignia en la navegación avisa
   cuántas tocan repasar hoy.
+
+- **Navegación por pestañas, ajustes en un solo lugar.** Biblioteca, grafo,
+  chat, repaso y ajustes tienen cada uno su propio ícono en una barra
+  (celular) o un riel (ventana ancha en Windows), en vez de competir por
+  espacio en un solo AppBar. Idioma, tema, modelo de transcripción, copia
+  de seguridad y bloqueo de la bóveda viven juntos en Ajustes.
 
 - **Exportar.** Sacás cualquier item en Markdown con su procedencia, en PDF
   o en texto plano. Si vino de una página web, también como un HTML con todo

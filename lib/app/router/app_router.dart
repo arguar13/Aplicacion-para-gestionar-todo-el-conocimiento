@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/navigation/adaptive_scaffold.dart';
 import 'package:sinapsis/app/router/go_router_refresh_notifier.dart';
 import 'package:sinapsis/app/router/route_error_screen.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -70,22 +72,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const UnlockVaultScreen(),
       ),
       GoRoute(
-        path: RoutePaths.library,
-        name: RouteNames.library,
-        builder: (context, state) => const LibraryScreen(),
-        routes: [
-          // Anidada bajo la biblioteca: el detalle de un elemento no existe
-          // por fuera de ella, y así "volver" lleva siempre a la lista —
-          // incluso cuando se llega por un enlace directo en web.
-          GoRoute(
-            path: ':id',
-            name: RouteNames.itemDetail,
-            builder: (context, state) =>
-                ItemDetailScreen(itemId: state.pathParameters['id']!),
-          ),
-        ],
-      ),
-      GoRoute(
         path: RoutePaths.capture,
         name: RouteNames.capture,
         builder: (context, state) => const CaptureScreen(),
@@ -101,24 +87,80 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const VaultBackupScreen(),
       ),
       GoRoute(
-        path: RoutePaths.graph,
-        name: RouteNames.graph,
-        builder: (context, state) => const GraphScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.chat,
-        name: RouteNames.chat,
-        builder: (context, state) => const ChatScreen(),
-      ),
-      GoRoute(
         path: RoutePaths.chatModel,
         name: RouteNames.chatModel,
         builder: (context, state) => const ChatModelScreen(),
       ),
-      GoRoute(
-        path: RoutePaths.review,
-        name: RouteNames.review,
-        builder: (context, state) => const ReviewScreen(),
+      // Los cinco destinos principales, cada uno con su propio `Navigator` —
+      // así cambiar de pestaña y volver conserva el scroll y los filtros de
+      // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
+      // celular, un riel al costado en escritorio. Reemplaza al AppBar de
+      // nueve íconos que tenía antes la biblioteca — ver la decisión 22 en
+      // docs/arquitectura.md. El orden de las ramas es significativo: tiene
+      // que coincidir con `NavDestinationSpec.branchIndex` en
+      // `nav_destinations.dart`.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AdaptiveScaffold(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.library,
+                name: RouteNames.library,
+                builder: (context, state) => const LibraryScreen(),
+                routes: [
+                  // Anidada bajo la biblioteca: el detalle de un elemento no
+                  // existe por fuera de ella, y así "volver" lleva siempre a
+                  // la lista — incluso cuando se llega por un enlace
+                  // directo en web.
+                  GoRoute(
+                    path: ':id',
+                    name: RouteNames.itemDetail,
+                    builder: (context, state) =>
+                        ItemDetailScreen(itemId: state.pathParameters['id']!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.graph,
+                name: RouteNames.graph,
+                builder: (context, state) => const GraphScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.chat,
+                name: RouteNames.chat,
+                builder: (context, state) => const ChatScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.review,
+                name: RouteNames.review,
+                builder: (context, state) => const ReviewScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.settings,
+                name: RouteNames.settings,
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(uri: state.uri),

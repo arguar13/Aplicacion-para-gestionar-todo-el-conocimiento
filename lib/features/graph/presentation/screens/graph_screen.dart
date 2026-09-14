@@ -36,8 +36,8 @@ class GraphScreen extends ConsumerWidget {
       body: switch ((items, edges)) {
         (AsyncData(value: final items), AsyncData(value: final edges)) =>
           _Graph(items: items, edges: edges),
-        (AsyncError(:final error), _) || (_, AsyncError(:final error)) =>
-          Center(child: Text('$error')),
+        (AsyncError(:final error), _) ||
+        (_, AsyncError(:final error)) => Center(child: Text('$error')),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );

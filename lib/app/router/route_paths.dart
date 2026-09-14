@@ -39,6 +39,10 @@ abstract final class RoutePaths {
 
   /// Repasar las tarjetas que ya tocan.
   static const review = '/review';
+
+  /// Idioma, tema, modelo de transcripción, copia de seguridad y bloqueo de
+  /// la bóveda, todo junto.
+  static const settings = '/settings';
 }
 
 abstract final class RouteNames {
@@ -54,4 +58,5 @@ abstract final class RouteNames {
   static const chat = 'chat';
   static const chatModel = 'chat-model';
   static const review = 'review';
+  static const settings = 'settings';
 }

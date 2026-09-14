@@ -298,17 +298,23 @@ void main() {
       expect(find.byType(CaptureScreen), findsOneWidget);
     });
 
-    testWidgets('el botón de transcripción lleva a esa pantalla', (
-      tester,
-    ) async {
-      await tester.pumpWidget(harness.wrapWithAppRouter());
-      await tester.pumpAndSettle();
+    testWidgets(
+      'el botón de transcripción, desde ajustes, lleva a esa pantalla',
+      (tester) async {
+        // El acceso a la pantalla de transcripción se mudó de un ícono en
+        // el AppBar de la biblioteca a la pantalla de Ajustes — ver la
+        // decisión 22 en docs/arquitectura.md.
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(es.libraryTranscriptionModelTooltip));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.settings_outlined));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(es.libraryTranscriptionModelTooltip));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(TranscriptionModelScreen), findsOneWidget);
-    });
+        expect(find.byType(TranscriptionModelScreen), findsOneWidget);
+      },
+    );
   });
 
   group('selección múltiple', () {

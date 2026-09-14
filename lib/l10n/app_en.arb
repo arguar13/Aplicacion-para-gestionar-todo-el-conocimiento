@@ -369,6 +369,18 @@
   "@languageTooltip": {
     "description": "Tooltip for the language toggle button"
   },
+  "themeModeSystem": "System",
+  "@themeModeSystem": {
+    "description": "Nombre del modo de tema que sigue al sistema operativo."
+  },
+  "themeModeLight": "Light",
+  "@themeModeLight": {
+    "description": "Nombre del tema claro."
+  },
+  "themeModeDark": "Dark",
+  "@themeModeDark": {
+    "description": "Nombre del tema oscuro."
+  },
   "loadErrorRetry": "Retry",
   "@loadErrorRetry": {
     "description": "Retry button shown when loading the dashboard profile failed"
@@ -1043,6 +1055,66 @@
   "chatModelRetryAction": "Retry",
   "@chatModelRetryAction": {
     "description": "Botón para reintentar la descarga del modelo tras un error."
+  },
+  "chatModelAuthRequired": "This model requires a free Hugging Face account. Accept its license and paste your access token below.",
+  "@chatModelAuthRequired": {
+    "description": "Mensaje cuando la descarga falla porque falta autenticarse contra Hugging Face."
+  },
+  "chatModelTokenExplanation": "The Gemma model lives in a gated repository: a free Hugging Face account is needed to download it.",
+  "@chatModelTokenExplanation": {
+    "description": "Explica por qué hace falta un token de Hugging Face."
+  },
+  "chatModelTokenAcceptLicense": "1. Accept the license here",
+  "@chatModelTokenAcceptLicense": {
+    "description": "Paso 1: aceptar la licencia del modelo en su página de Hugging Face."
+  },
+  "chatModelTokenGenerate": "2. Generate a token here",
+  "@chatModelTokenGenerate": {
+    "description": "Paso 2: generar un token de acceso en Hugging Face."
+  },
+  "chatModelTokenLabel": "Hugging Face token",
+  "@chatModelTokenLabel": {
+    "description": "Etiqueta del campo para pegar el token de acceso."
+  },
+  "chatModelTokenHint": "hf_...",
+  "@chatModelTokenHint": {
+    "description": "Texto de ejemplo del campo del token."
+  },
+  "navLibrary": "Library",
+  "@navLibrary": {
+    "description": "Etiqueta corta del destino de biblioteca en la navegación principal."
+  },
+  "navGraph": "Graph",
+  "@navGraph": {
+    "description": "Etiqueta corta del destino de grafo en la navegación principal."
+  },
+  "navChat": "Chat",
+  "@navChat": {
+    "description": "Etiqueta corta del destino de chat en la navegación principal."
+  },
+  "navReview": "Review",
+  "@navReview": {
+    "description": "Etiqueta corta del destino de repaso en la navegación principal."
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Etiqueta corta del destino de ajustes en la navegación principal."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Título de la pantalla de ajustes."
+  },
+  "settingsAppearanceSection": "Appearance",
+  "@settingsAppearanceSection": {
+    "description": "Encabezado de la sección de idioma y tema en ajustes."
+  },
+  "settingsAiSection": "AI and models",
+  "@settingsAiSection": {
+    "description": "Encabezado de la sección de modelos de IA en ajustes."
+  },
+  "settingsVaultSection": "Vault",
+  "@settingsVaultSection": {
+    "description": "Encabezado de la sección de bóveda en ajustes."
   },
   "libraryReviewTooltip": "Review flashcards",
   "@libraryReviewTooltip": {

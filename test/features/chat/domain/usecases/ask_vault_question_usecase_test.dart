@@ -31,7 +31,7 @@ class _FakeChatModelManager implements ChatModelManager {
   Future<int?> downloadSizeInBytes() async => null;
 
   @override
-  Stream<double> download() => const Stream.empty();
+  Stream<double> download({String? huggingFaceToken}) => const Stream.empty();
 }
 
 class _FakeChatModel implements ChatModel {

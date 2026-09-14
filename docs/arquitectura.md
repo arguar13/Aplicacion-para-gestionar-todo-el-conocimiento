@@ -1219,6 +1219,25 @@ desarrollo muy activo) — mitigado por vivir enteramente detrás de la
 interfaz `ChatModel`, así que cambiar de motor el día de mañana no toca ni
 `AskVaultQuestionUseCase` ni la pantalla.
 
+**Corrección posterior: el repositorio de Gemma es gateado de verdad, no
+solo de palabra.** Probado en un celular real, la descarga fallaba siempre
+con 401, para cualquiera, sin importar la conexión —confirmado con
+`curl -I` contra la URL del modelo: `X-Error-Code: GatedRepo`—. El texto
+original de esta decisión decía que Hugging Face "puede pedir aceptar la
+licencia", pero en los hechos la exige antes de dejar bajar el archivo, y
+`flutter_gemma` no manda ninguna credencial por su cuenta. Se agregó
+`HuggingFaceTokenNotifier` (persistido con `SharedPreferences`, mismo
+patrón que `ThemeModeNotifier`) y un campo en `ChatModelScreen` para pegar
+un token de acceso gratuito, que viaja como `token:` en
+`.fromNetwork(url, token: ...)` — el parámetro que el propio paquete
+expone para esto. `ChatModelManager.download()` también distingue ahora
+`ChatModelNeedsAuthentication` de cualquier otra falla
+(`ChatModelDownloadFailed`), en vez de un solo mensaje genérico de "revisá
+tu conexión" que escondía la verdadera causa. Sigue siendo gratis —el
+token es de una cuenta sin costo, nunca una clave paga—, pero deja de ser
+"un botón y listo": hace falta un paso de cuenta la primera vez, con
+instrucciones en la propia pantalla.
+
 ---
 
 ### 21. Flashcards con SM-2: el estado de repaso vive en la tarjeta, y la IA solo sugiere
@@ -1288,6 +1307,69 @@ el chat (decisión 20) — sin memoria entre pedidos, dependiente de
 `flutter_gemma` — y un modelo de 1B ocasionalmente ignora el formato
 pedido, en cuyo caso el parser simplemente no encuentra nada que ofrecer y
 la persona puede volver a intentar o cargar la tarjeta a mano.
+
+---
+
+### 22. Navegación adaptativa: barra o riel, en vez de un AppBar de nueve íconos
+
+Probado en un celular real y no solo en el simulador, el AppBar de la
+biblioteca desbordaba: nueve acciones —seleccionar, idioma, tema,
+transcripción, backup, grafo, chat, repaso y bloqueo— compitiendo por una
+sola fila. Cada función nueva que se agregó a lo largo de las fases sumó un
+ícono más a esa fila, hasta pasar el ancho de cualquier celular real.
+
+**Separar destinos de ajustes.** Biblioteca, Grafo, Chat, Repaso y una
+nueva pantalla de Ajustes pasan a ser los cinco destinos de la navegación
+principal —lo que se visita seguido, cada uno con su lugar propio—.
+Idioma, tema, modelo de transcripción y copia de seguridad de la bóveda
+—cosas que se tocan una vez y quedan— se consolidan en Ajustes, con
+`ListTile` agrupados en tarjetas (`Card`, el mismo estilo que ya define
+`app_theme.dart` para las tarjetas de la biblioteca). Bloquear la bóveda
+también se muda a Ajustes, como la última acción, separada con un
+`Divider` y en el color de error del tema: cuesta un toque más que antes
+—ir a Ajustes en vez de tocarlo desde cualquier pantalla—, pero evita
+inventar un lugar "clavado" que se comporte distinto según si la pantalla
+usa una barra o un riel.
+
+**`NavigationBar` o `NavigationRail`, según el ancho, no uno solo para
+siempre.** El punto de quiebre es 600dp — el mismo corte que usa Material 3
+entre la clase de ventana "compacta" y "mediana o más", no un número
+inventado para esta app. Por debajo, una barra abajo, como espera cualquier
+celular; en o por encima, un riel al costado, como espera una ventana de
+escritorio que se puede agrandar. Un `Drawer` hubiese escondido los
+destinos detrás de un toque justo donde sobra ancho (escritorio); una
+barra fija sin adaptar se ve mal estirada a lo ancho de una ventana
+maximizada; un menú de "más opciones" resolvía el desborde pero no lo que
+se pidió —que cada función tuviera su lugar—. El riel/barra adaptativo es
+el único de los cuatro que da un lugar propio a cada función en Android y
+en Windows a la vez, con widgets que ya trae el SDK de Flutter
+(`NavigationBar`, `NavigationRail`): no hace falta ninguna dependencia
+nueva.
+
+**`StatefulShellRoute.indexedStack`, no rutas planas.** Cada uno de los
+cinco destinos vive en su propio `Navigator` (`StatefulShellBranch`), así
+que cambiar de pestaña y volver conserva el scroll y los filtros de cada
+una en vez de reconstruir la pantalla de cero. El guard de la bóveda
+(`_redirect` en `app_router.dart`) no necesitó ningún cambio: ya comparaba
+la ubicación contra rutas concretas de forma genérica, sin distinguir si
+esa ubicación vive dentro de un shell o no — confirmado con un test que
+navega directo a `/graph` con la bóveda bloqueada y verifica que sigue
+redirigiendo al desbloqueo.
+
+**`NavDestinationSpec.branchIndex`, para no desincronizar la lista visible
+de la rama activa.** El chat sigue sin mostrarse en la web (decisión 6), lo
+que significa que la lista de destinos visibles tiene un elemento menos
+que ramas hay ahí. Usar la posición dentro de esa lista como si fuera el
+índice de la rama hubiera hecho que, en la web, `NavigationBar` marcara un
+destino distinto del que en verdad está activo apenas la cuenta no
+coincidiera. Cada `NavDestinationSpec` lleva su índice de rama real, y el
+shell traduce entre "posición visible" y "rama activa" en los dos
+sentidos.
+
+**Lo que cuesta:** bloquear la bóveda pasa de un toque a dos (entrar a
+Ajustes primero), y la fila de búsqueda y filtros de la biblioteca ahora
+convive con una barra o un riel alrededor —verificado que sigue sin
+amontonarse ni en 400dp de ancho ni en el punto de quiebre exacto—.
 
 ---
 
@@ -1412,6 +1494,13 @@ la persona puede volver a intentar o cargar la tarjeta a mano.
   que muestra cuántas tocan hoy —ver la decisión 21—. Tarjetas a mano
   desde el detalle de cualquier elemento, o generadas por IA a partir de
   su contenido, siempre con revisión antes de guardarse.
+- **Navegación adaptativa.** Biblioteca, Grafo, Chat, Repaso y una nueva
+  pantalla de Ajustes como los cinco destinos principales, cada uno con su
+  propio `Navigator` —ver la decisión 22—. `NavigationBar` abajo en
+  celular, `NavigationRail` al costado en escritorio, con el mismo punto
+  de quiebre que define Material 3. Idioma, tema, modelo de transcripción,
+  copia de seguridad y bloqueo de la bóveda —antes nueve íconos amontonados
+  en un solo AppBar— quedan agrupados en Ajustes.
 
 ### Por construir
 
