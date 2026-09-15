@@ -1448,6 +1448,54 @@ amontonarse ni en 400dp de ancho ni en el punto de quiebre exacto—.
 
 ---
 
+### 23. El modo de lectura se pagina, en vez de un solo scroll con todo el libro
+
+`DocumentReaderScreen` —el modo de lectura de un DOCX, un EPUB o texto
+suelto— mostraba el contenido entero de la rendition en un único
+`SelectableText.rich` dentro de un `SingleChildScrollView`. Ese widget no
+recorta lo que no se ve: Flutter tiene que calcular el layout de texto —
+salto de línea, posición de cada glifo— del documento **entero** apenas se
+abre la pantalla, sin importar cuánto entre en la ventana visible. Contra
+un libro de mil o dos mil páginas reales —varios millones de caracteres—
+eso significa congelar la app por varios segundos, o quedarse sin memoria
+en un equipo modesto, solo para abrir la primera página.
+
+**`splitIntoReaderPages` corta antes de ponerle formato a una sola letra,
+y `PageView.builder` arma una página por vez.** La función vive en
+`lib/features/viewer/domain/services/reader_pagination.dart`, pura y sin
+ningún widget de por medio, así que se prueba sin levantar Flutter.
+`DocumentReaderScreen` arma la lista de páginas una sola vez al construirse
+y le pasa cada una, ya cortada, a `PageView.builder`: solo la página visible
+—y como mucho la siguiente, que `PageView` prepara de antemano— pasa por
+`RenderedMarkdown.parse()` y por el layout de texto. Abrir un libro de mil
+páginas cuesta, en los hechos, lo mismo que abrir uno de diez.
+
+**Un PDF ya trae sus propias páginas: se usan esas, no una partición
+arbitraria.** `PdfParser` ya une el texto de cada página del documento
+original con el separador `\n\n---\n\n` (ver la decisión 3). Cortar ahí antes
+que nada más da una correspondencia exacta entre la página del libro de
+verdad y la página del lector, sin inventar ningún límite de caracteres
+para ese caso. Lo que no trae ese separador —un DOCX, un EPUB, texto
+suelto— no tiene páginas "de verdad" a las que volver: se arman juntando
+párrafos hasta acercarse a un límite de caracteres (2400 por defecto, un
+tamaño elegido para que una página se lea de un vistazo sin quedar
+minúscula), sin partir nunca un párrafo a la mitad —salvo que un párrafo
+solo, sin ningún salto de línea real, ya supere ese límite él solo, el
+único caso donde cortarlo a la fuerza es preferible a una página sin techo
+de tamaño—.
+
+**Lo que se dejó afuera, a propósito.** El detalle de un elemento
+(`ItemDetailScreen`) sigue mostrando el contenido completo en un solo
+`HighlightableText`, sin paginar: ahí vive el resaltado de texto, que
+depende de poder seleccionar y marcar cualquier rango del documento tal
+como está, algo que paginar complicaría de verdad —una selección no puede
+cruzar el borde entre dos páginas separadas— para un beneficio menor, ya
+que esa pantalla es la vista rápida y no el lugar pensado para leer un
+libro entero de corrido. El modo de lectura, en cambio, existe
+específicamente para eso, y es donde paginar rinde más.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido

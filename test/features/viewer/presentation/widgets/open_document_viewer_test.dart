@@ -16,6 +16,7 @@ import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/pdf_viewer_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/sample_files.dart';
 
@@ -133,6 +134,8 @@ void main() {
           fileStoreProvider.overrideWithValue(_RealFileStore(filePath)),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Consumer(
               builder: (context, ref, _) => ElevatedButton(

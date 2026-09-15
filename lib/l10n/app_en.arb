@@ -48,6 +48,18 @@
   "@librarySearchHint": {
     "description": "Placeholder of the search field on the library screen"
   },
+  "documentReaderPageOf": "Page {page} of {total}",
+  "@documentReaderPageOf": {
+    "description": "Page indicator in the paginated document reader.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "librarySearchEmpty": "Nothing matches \"{query}\"",
   "@librarySearchEmpty": {
     "description": "Shown when a search returns no results",

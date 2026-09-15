@@ -12,6 +12,18 @@
   "lockVaultTooltip": "Bloquear bóveda",
   "libraryTitle": "Biblioteca",
   "librarySearchHint": "Buscá en todo lo que guardaste",
+  "documentReaderPageOf": "Página {page} de {total}",
+  "@documentReaderPageOf": {
+    "description": "Indicador de página en el lector paginado de documentos.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
