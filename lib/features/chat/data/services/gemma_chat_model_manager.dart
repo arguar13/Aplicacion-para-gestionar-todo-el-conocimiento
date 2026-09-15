@@ -14,9 +14,10 @@ import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart'
 /// decisión 20 como la Gemma 3n E4B nueva comparten `ModelType.gemmaIt` —es
 /// el tipo genérico "familia Gemma 3", no una por modelo—, así que hace
 /// falta mirar también el nombre del archivo activo para no confundir una
-/// con la otra. Gemma 4 no tiene ese problema: `ModelType.gemma4` es propio
-/// y exclusivo de esa familia en esta app, así que ahí [nameContains] queda
-/// en `null`.
+/// con la otra. Lo mismo pasa ahora con `ModelType.gemma4`: Gemma 4 E4B y
+/// Gemma 4 12B (decisión 27) son dos repositorios y dos archivos
+/// distintos, pero comparten el mismo `ModelType`, así que las dos
+/// necesitan su propio [nameContains].
 class _ModelSpec {
   const _ModelSpec({
     required this.modelType,
@@ -42,12 +43,21 @@ const _specs = {
   ChatModelOption.gemma4E4b: _ModelSpec(
     modelType: ModelType.gemma4,
     repo: 'litert-community/gemma-4-E4B-it-litert-lm',
+    // Ahora que `ModelType.gemma4` también es de Gemma 4 12B (ver más
+    // abajo), hace falta el mismo desambiguador por nombre de archivo que
+    // ya usaba Gemma 3n E4B.
+    nameContains: 'e4b',
   ),
   ChatModelOption.gemma3nE4b: _ModelSpec(
     modelType: ModelType.gemmaIt,
     repo: 'google/gemma-3n-E4B-it-litert-lm',
     file: 'gemma-3n-E4B-it-int4.litertlm',
     nameContains: 'gemma-3n',
+  ),
+  ChatModelOption.gemma412b: _ModelSpec(
+    modelType: ModelType.gemma4,
+    repo: 'litert-community/gemma-4-12B-it-litert-lm',
+    nameContains: '12b',
   ),
 };
 

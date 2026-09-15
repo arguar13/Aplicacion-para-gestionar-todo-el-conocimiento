@@ -22,6 +22,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -37,6 +38,8 @@ import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
 import 'fake_relation_suggestion_service.dart';
 import 'fake_shared_content_listener.dart';
+import 'fake_summarization_service.dart';
+import 'fake_text_to_speech_service.dart';
 import 'fake_whisper_model_manager.dart';
 import 'in_memory_file_store.dart';
 import 'vault_test_doubles.dart';
@@ -64,7 +67,10 @@ class LibraryHarness {
     this.chatModel,
     this.chatModelManager,
     this.chatModelManagerGemma3n,
+    this.chatModelManagerGemma412b,
     this.relationSuggestionService,
+    this.summarizationService,
+    this.textToSpeechService,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -98,11 +104,29 @@ class LibraryHarness {
     /// Lo que "contesta" el modelo de chat de mentira, tanto en el modo con
     /// la bóveda como en una conversación libre.
     String? chatModelResponse,
+
+    /// Lo que "contesta" el resumidor de mentira.
+    String? summarizeResponse,
+
+    /// Si está, el resumidor lanza esto en vez de contestar.
+    Object? summarizeError,
+
+    /// Qué opción de modelo de chat está elegida al arrancar.
+    ///
+    /// Fija en [ChatModelOption.gemma4E4b] por defecto y no según la
+    /// plataforma real —a diferencia de `defaultChatModelOption`—: qué
+    /// modelo por defecto le toca a una prueba no puede depender de si
+    /// quien la corre usa Windows, Linux o Android, o las mismas pruebas
+    /// pasarían distinto según la máquina.
+    ChatModelOption initialChatModelOption = ChatModelOption.gemma4E4b,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
     EnvConfig.initialize(AppFlavor.dev);
-    SharedPreferences.setMockInitialValues({'app_locale': locale});
+    SharedPreferences.setMockInitialValues({
+      'app_locale': locale,
+      'chat_model_option': initialChatModelOption.name,
+    });
     final prefs = await SharedPreferences.getInstance();
 
     final database = AppDatabase(NativeDatabase.memory());
@@ -122,7 +146,13 @@ class LibraryHarness {
     final chatModel = FakeChatModel(response: chatModelResponse);
     final chatModelManager = FakeChatModelManager(ready: chatModelReady);
     final chatModelManagerGemma3n = FakeChatModelManager();
+    final chatModelManagerGemma412b = FakeChatModelManager();
     final relationSuggestionService = FakeRelationSuggestionService();
+    final summarizationService = FakeSummarizationService(
+      response: summarizeResponse,
+      error: summarizeError,
+    );
+    final textToSpeechService = FakeTextToSpeechService();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -172,11 +202,16 @@ class LibraryHarness {
           return switch (option) {
             ChatModelOption.gemma4E4b => chatModelManager,
             ChatModelOption.gemma3nE4b => chatModelManagerGemma3n,
+            ChatModelOption.gemma412b => chatModelManagerGemma412b,
           };
         }),
         relationSuggestionServiceProvider.overrideWithValue(
           relationSuggestionService,
         ),
+        summarizationServiceProvider.overrideWithValue(summarizationService),
+        // `flutter_tts` habla con un canal de plataforma que no existe en
+        // un test, mismo motivo que el modelo de Whisper o el de Gemma.
+        textToSpeechServiceProvider.overrideWithValue(textToSpeechService),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -217,7 +252,10 @@ class LibraryHarness {
       chatModel,
       chatModelManager,
       chatModelManagerGemma3n,
+      chatModelManagerGemma412b,
       relationSuggestionService,
+      summarizationService,
+      textToSpeechService,
     );
   }
 
@@ -267,9 +305,22 @@ class LibraryHarness {
   /// y descarga la que corresponde, no siempre la misma.
   final FakeChatModelManager chatModelManagerGemma3n;
 
+  /// El estado del modelo de chat de mentira para la opción más pesada
+  /// ([ChatModelOption.gemma412b]) — independiente de las otras dos, por
+  /// el mismo motivo.
+  final FakeChatModelManager chatModelManagerGemma412b;
+
   /// El servicio de sugerencias de vínculos de mentira, para comprobar qué
   /// se le pidió al "asistente con IA" del grafo y controlar qué contesta.
   final FakeRelationSuggestionService relationSuggestionService;
+
+  /// El resumidor de mentira, para comprobar qué se le pidió resumir y
+  /// controlar qué contesta.
+  final FakeSummarizationService summarizationService;
+
+  /// El motor de voz de mentira, para comprobar qué se le pidió leer y
+  /// simular que termina —o falla— de leer un fragmento.
+  final FakeTextToSpeechService textToSpeechService;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

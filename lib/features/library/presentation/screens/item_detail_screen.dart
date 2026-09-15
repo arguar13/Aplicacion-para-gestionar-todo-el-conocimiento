@@ -27,6 +27,8 @@ import 'package:sinapsis/features/export/presentation/widgets/export_format_pres
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
+import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
@@ -259,6 +261,7 @@ class _TextRenditionView extends ConsumerWidget {
                   label: Text(l10n.detailRemoveTimestamps),
                   onPressed: () => _removeTimestamps(context, ref),
                 ),
+              SummarizeButton(content: rendition.content),
               TextButton.icon(
                 icon: const Icon(Icons.copy_outlined, size: 18),
                 label: Text(l10n.detailCopyContent),
@@ -271,6 +274,8 @@ class _TextRenditionView extends ConsumerWidget {
           renditionId: rendition.id,
           content: rendition.content,
         ),
+        const SizedBox(height: 8),
+        NarrationPlayer(text: rendition.content),
       ],
     );
   }
@@ -329,23 +334,36 @@ class _BlocksRendition extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final blocks = decodeContentBlocks(rendition.content);
+    // Un resumen o una lectura en voz alta no distinguen encabezados de
+    // párrafos: unir el texto de cada bloque con un punto y aparte es
+    // suficiente para las dos cosas, sin tener que enseñarles nada sobre
+    // la estructura de una nota de bloques.
+    final plainText = blocks.map((b) => b.text).join('\n\n');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: Text(l10n.blocksEditAction),
-            onPressed: () => Navigator.of(context).push<void>(
-              MaterialPageRoute(
-                builder: (context) => BlockEditorScreen(existingItem: item),
+          child: Wrap(
+            spacing: 4,
+            children: [
+              SummarizeButton(content: plainText),
+              TextButton.icon(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: Text(l10n.blocksEditAction),
+                onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (context) => BlockEditorScreen(existingItem: item),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
         BlockView(blocks: blocks),
+        const SizedBox(height: 8),
+        NarrationPlayer(text: plainText),
       ],
     );
   }

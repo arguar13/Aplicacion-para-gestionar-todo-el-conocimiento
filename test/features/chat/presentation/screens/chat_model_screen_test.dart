@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -104,5 +105,27 @@ void main() {
     expect(find.text(es.chatModelDownloading('0')), findsOneWidget);
 
     unawaited(harness.chatModelManager.lastDownload!.close());
+  });
+
+  group('Gemma 4 12B, la opción de escritorio', () {
+    testWidgets('no aparece fuera de escritorio', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await pumpScreen(tester);
+
+      expect(find.text(es.chatModelOptionGemma412bTitle), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('aparece y se puede elegir en Windows', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      await pumpScreen(tester);
+      harness.chatModelManagerGemma412b.ready = true;
+
+      await tester.tap(find.text(es.chatModelOptionGemma412bTitle));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.chatModelReady), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 }

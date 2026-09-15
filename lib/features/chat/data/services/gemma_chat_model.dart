@@ -7,6 +7,7 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_par
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
+import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 
 /// Le pide instrucciones tajantes de no inventar nada que no esté en el
 /// contexto: es lo único que separa una respuesta útil de una que suena
@@ -72,6 +73,18 @@ const _vaultConversationSystemInstruction =
     'pero seguí la conversación con naturalidad en vez de negarte a '
     'contestar.';
 
+/// Mismo criterio que el resto de las instrucciones de sistema: nada de
+/// agregar datos que no estén en el contenido, y una redacción corrida —sin
+/// viñetas ni encabezados— porque lo que sigue casi siempre se escucha en
+/// voz alta con el lector de la app, y una lista con viñetas se lee como
+/// "guion, guion, guion" en lugar de una idea seguida.
+const _summarizationSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es resumir el contenido '
+    'que se te da, basándote ÚNICAMENTE en ese contenido: nunca agregues '
+    'información de tu propio conocimiento. El resumen va en dos o tres '
+    'párrafos cortos de texto corrido, sin viñetas, sin encabezados y sin '
+    'Markdown.';
+
 /// [ChatModel] sobre `flutter_gemma`: Gemma corriendo en el dispositivo, vía
 /// FFI directo —sin JVM, sin servidor propio, ver la decisión 20 en
 /// docs/arquitectura.md—.
@@ -92,7 +105,11 @@ const _vaultConversationSystemInstruction =
 /// alternativa (mover la lógica de cachear el modelo a un tercer lugar
 /// compartido) es más superficie nueva por unas pocas clases que la usan.
 class GemmaChatModel
-    implements ChatModel, FlashcardGenerator, RelationSuggestionService {
+    implements
+        ChatModel,
+        FlashcardGenerator,
+        RelationSuggestionService,
+        SummarizationService {
   GemmaChatModel();
 
   InferenceModel? _model;
@@ -183,6 +200,26 @@ class GemmaChatModel
       };
 
       return parseFlashcardDrafts(text).take(count).toList();
+    } finally {
+      await chat.close();
+    }
+  }
+
+  @override
+  Future<String> summarize({required String content}) async {
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _summarizationSystemInstruction,
+    );
+
+    try {
+      await chat.addQueryChunk(Message.text(text: content, isUser: true));
+      final response = await chat.generateChatResponse();
+
+      return switch (response) {
+        TextResponse(:final token) => token,
+        _ => '',
+      };
     } finally {
       await chat.close();
     }

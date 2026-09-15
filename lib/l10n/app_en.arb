@@ -1355,9 +1355,11 @@
   "chatModelTokenGenerate": "2. Generate a token here",
   "chatModelOptionTitle": "Model",
   "chatModelOptionGemma4Title": "Gemma 4 E4B",
-  "chatModelOptionGemma4Description": "The default option: quick to install, with good response quality. About 4.3 GB.",
+  "chatModelOptionGemma4Description": "Quick to install, with good response quality. 3.7 GB, ~4 billion effective parameters.",
   "chatModelOptionGemma3nTitle": "Gemma 3n E4B",
-  "chatModelOptionGemma3nDescription": "The smartest option: better writing, at the cost of more space and memory. About 4.9 GB.",
+  "chatModelOptionGemma3nDescription": "From the previous Gemma family, with better writing in some cases. About 4.9 GB, ~4 billion effective parameters.",
+  "chatModelOptionGemma412bTitle": "Gemma 4 12B",
+  "chatModelOptionGemma412bDescription": "The smartest of the three, with no selective activation: the whole model loaded. 6.9 GB, 12 billion parameters. Only available on Windows, macOS and Linux — the model isn't published for Android or iOS.",
   "@chatModelTokenGenerate": {
     "description": "Paso 2: generar un token de acceso en Hugging Face."
   },
@@ -1438,6 +1440,107 @@
         "type": "String"
       }
     }
+  },
+  "narrationListenAction": "Listen",
+  "@narrationListenAction": {
+    "description": "Botón que empieza a leer el contenido en voz alta."
+  },
+  "narrationRestartTooltip": "Back to start",
+  "@narrationRestartTooltip": {
+    "description": "Tooltip del botón que reinicia la lectura desde el primer fragmento."
+  },
+  "narrationRewindTooltip": "Previous segment",
+  "@narrationRewindTooltip": {
+    "description": "Tooltip del botón que retrocede un fragmento de la lectura."
+  },
+  "narrationPlayTooltip": "Play",
+  "@narrationPlayTooltip": {
+    "description": "Tooltip del botón de reproducir, cuando la lectura está pausada."
+  },
+  "narrationPauseTooltip": "Pause",
+  "@narrationPauseTooltip": {
+    "description": "Tooltip del botón de pausar, mientras se está leyendo."
+  },
+  "narrationForwardTooltip": "Next segment",
+  "@narrationForwardTooltip": {
+    "description": "Tooltip del botón que adelanta un fragmento de la lectura."
+  },
+  "narrationSettingsTooltip": "Voice and speed",
+  "@narrationSettingsTooltip": {
+    "description": "Tooltip del botón que abre los ajustes de voz y velocidad."
+  },
+  "narrationCloseTooltip": "Close the player",
+  "@narrationCloseTooltip": {
+    "description": "Tooltip del botón que corta la lectura y cierra el reproductor."
+  },
+  "narrationProgress": "Segment {current} of {total}",
+  "@narrationProgress": {
+    "description": "Indicador de en qué fragmento de la lectura va.",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "narrationSettingsTitle": "Voice and speed",
+  "@narrationSettingsTitle": {
+    "description": "Título del panel de ajustes de la lectura en voz alta."
+  },
+  "narrationVoiceSectionTitle": "Voice",
+  "@narrationVoiceSectionTitle": {
+    "description": "Encabezado de la lista de voces disponibles."
+  },
+  "narrationSystemDefaultVoice": "System voice (default)",
+  "@narrationSystemDefaultVoice": {
+    "description": "Opción para usar la voz que el sistema tenga configurada, sin elegir ninguna en particular."
+  },
+  "narrationNoVoicesAvailable": "This device doesn't offer extra voices: the system voice is used instead.",
+  "@narrationNoVoicesAvailable": {
+    "description": "Mensaje cuando el motor de voz no reporta ninguna voz instalada."
+  },
+  "narrationSpeedSectionTitle": "Speed",
+  "@narrationSpeedSectionTitle": {
+    "description": "Encabezado del control deslizante de velocidad de lectura."
+  },
+  "narrationSpeedValue": "{speed}x",
+  "@narrationSpeedValue": {
+    "description": "Valor de la velocidad de lectura, ya formateado.",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "summarizeAction": "Summarize with AI",
+  "@summarizeAction": {
+    "description": "Botón que pide un resumen del contenido al modelo de lenguaje."
+  },
+  "summarizeModelRequired": "Summarizing with AI needs the language model downloaded.",
+  "@summarizeModelRequired": {
+    "description": "Mensaje cuando se pide un resumen sin el modelo de chat descargado."
+  },
+  "summarizeDownloadAction": "Download",
+  "@summarizeDownloadAction": {
+    "description": "Botón que lleva a la pantalla de descarga del modelo, desde el aviso de resumir."
+  },
+  "summarizeDialogTitle": "Summary",
+  "@summarizeDialogTitle": {
+    "description": "Título del diálogo que muestra el resumen generado."
+  },
+  "summarizeError": "Couldn't generate a summary.",
+  "@summarizeError": {
+    "description": "Mensaje cuando falla la generación del resumen."
+  },
+  "summarizeCopyAction": "Copy",
+  "@summarizeCopyAction": {
+    "description": "Botón para copiar el resumen generado."
+  },
+  "summarizeCopied": "Summary copied.",
+  "@summarizeCopied": {
+    "description": "Confirmación de que el resumen se copió al portapapeles."
   },
   "navLibrary": "Library",
   "@navLibrary": {

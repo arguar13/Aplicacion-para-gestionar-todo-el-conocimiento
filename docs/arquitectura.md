@@ -1638,6 +1638,95 @@ futuro no soportara imágenes, `flutter_gemma` fallaría al pedirle una
 respuesta y ese mensaje quedaría con `error` seteado, el mismo camino que
 ya cubre cualquier otro fallo del motor de inferencia.
 
+### 27. Un tercer modelo de chat, más pesado — y por qué no es el que arranca en Android
+
+Se pidió un modelo todavía más inteligente que las dos opciones que ya
+había (decisión 20), con su peso y su cantidad de parámetros a la vista, y
+que quedara como opción por defecto aunque pesara más.
+
+**Gemma 4 12B, ~6.9 GB, 12.000 millones de parámetros densos** —sin la
+activación selectiva que hace que "E4B" signifique un tamaño *efectivo* de
+unos 4.000 millones—: es el modelo entero cargado, y por eso es el más
+pesado y el más lento de arrancar de los tres.
+
+**No es la opción por defecto en Android — ni siquiera aparece ahí.** El
+propio fabricante (`litert-community`) publica este modelo listo para
+macOS, Linux y Windows, con una variante aparte y más liviana para web,
+pero **sin ningún build para Android ni iOS**: no es una limitación que
+esta app le imponga, es lo que el modelo puede correr. Pedirle a un
+teléfono que reserve casi 7 GB de RAM para un modelo que su fabricante
+nunca preparó para esa plataforma habría sido, en el mejor de los casos,
+un `ChatModelDownloadFailed` incomprensible, y en el peor, un teléfono
+modesto quedándose sin memoria. `isDesktopChatPlatform`
+(`chat_model_option_notifier.dart`) filtra esta opción del selector fuera
+de Windows/macOS/Linux, y `defaultChatModelOption` solo apunta a ella en
+esas plataformas — en cualquier otra, sigue siendo
+`ChatModelOption.gemma4E4b`, la misma de siempre. Es la resolución de raíz
+del pedido, no un parche: cumplir "que el modelo más inteligente sea el
+que arranca por defecto" en cada plataforma donde eso es real, en vez de
+prometerlo en una donde no lo es.
+
+`ModelType.gemma4` pasó a ser compartido por dos opciones —Gemma 4 E4B y
+Gemma 4 12B, dos repositorios y dos archivos distintos—, así que las dos
+necesitan ahora su propio `nameContains` para que `GemmaChatModelManager`
+no confunda cuál de las dos está activa —mismo mecanismo que ya resolvía
+la ambigüedad entre la Gemma 3 vieja y Gemma 3n E4B.
+
+### 28. Resumir con IA y leer en voz alta
+
+Se pidió que cualquier texto largo de la app —el contenido ya extraído de
+un documento, la transcripción de un audio o un video, un artículo— se
+pudiera resumir con el modelo de lenguaje y escuchar en voz alta, con
+controles de reproducción y elección de voz, acento y velocidad.
+
+**`SummarizationService` es una interfaz más de dominio, no un método
+nuevo en `ChatModel`.** Mismo criterio que ya separa `FlashcardGenerator`
+y `RelationSuggestionService` (decisión 20): quien pide un resumen no
+tiene por qué conocer nada de citas ni de conversaciones, y la
+implementación real sigue siendo el mismo `GemmaChatModel` ya cargado.
+Vive en el dominio de `library` y no en `chat` —la asimetría ya aceptada
+en la decisión 26 se repite acá— porque quien lo pide es el detalle de un
+elemento y el lector de documentos, no el chat.
+
+**`NarrationPlayer` es un feature propio, `narration`, y no vive dentro de
+`viewer` ni de `library`.** Lo usan las dos por igual —el detalle de un
+elemento y el modo de lectura paginada—, así que ponerlo en cualquiera de
+las dos habría sido una dependencia cruzada arbitraria entre feature
+hermanos, en vez de una carpeta compartida con nombre propio.
+
+**Sin verdadero pausar a mitad de oración, ni un `seek` real.** El
+contenido se corta en fragmentos cortos por oración
+(`splitIntoSpeechSegments`, análogo a `splitIntoReaderPages` pero para
+escuchar en vez de leer con los ojos) y "pausar" es simplemente no pedir
+el próximo fragmento todavía — retomar vuelve a leer el fragmento en el
+que se quedó, desde su principio. "Retroceder" y "adelantar" cambian de
+fragmento entero por el mismo motivo: no existe un `seek` real sobre voz
+sintetizada que nunca se decodificó a un buffer navegable, y Android,
+Windows y Web resuelven "pausar y seguir" de formas demasiado distintas
+—en Android es, según la propia documentación de `flutter_tts`, un truco
+sobre el índice de la última palabra leída— como para prometer que las
+tres retoman exactamente en la misma palabra donde se cortó. Fragmentos
+cortos y reproducibles de a uno es lo único que las tres plataformas
+pueden garantizar por igual.
+
+**`flutter_tts` (4.2.5), no un motor propio.** Corre nativo en Android,
+Windows, macOS, iOS y Web sin ningún servidor de por medio —mismo
+principio 1 de siempre—, y `getVoices`/`setVoice`/`pause` están
+soportados en las dos plataformas que le importan a esta app según su
+propia documentación. `TextToSpeechService` (`narration/domain/services`)
+es la interfaz de dominio de siempre sobre un plugin no testeable —mismo
+patrón que `FileChooser`/`FileOpener`—, con `FakeTextToSpeechService` para
+probar `NarrationPlayer` entero sin hablarle a ningún canal nativo,
+incluido disparar a mano el evento de "terminó de leer" para probar que
+encadena el próximo fragmento solo.
+
+**Un detalle real que las pruebas encontraron:** `_NarrationPlayerState`
+llamaba a `ref.read(...)` dentro de `dispose()` para cortar la lectura al
+cerrar la pantalla — Riverpod no permite usar `ref` ahí, porque el widget
+ya se desmontó. La prueba de "cerrar corta la lectura" lo hizo saltar de
+inmediato; la solución fue guardar el servicio una sola vez en un campo
+`late final` durante `initState`, no volver a pedirlo en cada uso.
+
 ---
 
 ## Estado y orden de construcción

@@ -1135,17 +1135,25 @@
   "@chatModelOptionGemma4Title": {
     "description": "Nombre corto de la opción de modelo por defecto, en el selector."
   },
-  "chatModelOptionGemma4Description": "La opción por defecto: rápida de instalar y con buena calidad de respuesta. Pesa unos 4.3 GB.",
+  "chatModelOptionGemma4Description": "Rápida de instalar y con buena calidad de respuesta. Pesa 3.7 GB, ~4.000 millones de parámetros efectivos.",
   "@chatModelOptionGemma4Description": {
-    "description": "Descripción de la opción de modelo por defecto, debajo del selector."
+    "description": "Descripción de la opción de modelo Gemma 4 E4B, debajo del selector."
   },
   "chatModelOptionGemma3nTitle": "Gemma 3n E4B",
   "@chatModelOptionGemma3nTitle": {
-    "description": "Nombre corto de la opción de modelo más pesada, en el selector."
+    "description": "Nombre corto de la opción de modelo Gemma 3n E4B, en el selector."
   },
-  "chatModelOptionGemma3nDescription": "La opción más inteligente: mejor redacción, a costa de más espacio y más memoria. Pesa unos 4.9 GB.",
+  "chatModelOptionGemma3nDescription": "De la familia anterior de Gemma, con mejor redacción en algunos casos. Pesa unos 4.9 GB, ~4.000 millones de parámetros efectivos.",
   "@chatModelOptionGemma3nDescription": {
-    "description": "Descripción de la opción de modelo más pesada, debajo del selector."
+    "description": "Descripción de la opción de modelo Gemma 3n E4B, debajo del selector."
+  },
+  "chatModelOptionGemma412bTitle": "Gemma 4 12B",
+  "@chatModelOptionGemma412bTitle": {
+    "description": "Nombre corto de la opción de modelo más pesada e inteligente, en el selector."
+  },
+  "chatModelOptionGemma412bDescription": "La opción más inteligente de las tres, sin activación selectiva: el modelo entero cargado. Pesa 6.9 GB, 12.000 millones de parámetros. Solo disponible en Windows, macOS y Linux — el modelo no se publica para Android ni iOS.",
+  "@chatModelOptionGemma412bDescription": {
+    "description": "Descripción de la opción de modelo más pesada, debajo del selector. Explica por qué no aparece fuera de escritorio."
   },
   "chatModelTokenLabel": "Token de Hugging Face",
   "@chatModelTokenLabel": {
@@ -1224,6 +1232,107 @@
         "type": "String"
       }
     }
+  },
+  "narrationListenAction": "Escuchar",
+  "@narrationListenAction": {
+    "description": "Botón que empieza a leer el contenido en voz alta."
+  },
+  "narrationRestartTooltip": "Volver al principio",
+  "@narrationRestartTooltip": {
+    "description": "Tooltip del botón que reinicia la lectura desde el primer fragmento."
+  },
+  "narrationRewindTooltip": "Fragmento anterior",
+  "@narrationRewindTooltip": {
+    "description": "Tooltip del botón que retrocede un fragmento de la lectura."
+  },
+  "narrationPlayTooltip": "Reproducir",
+  "@narrationPlayTooltip": {
+    "description": "Tooltip del botón de reproducir, cuando la lectura está pausada."
+  },
+  "narrationPauseTooltip": "Pausar",
+  "@narrationPauseTooltip": {
+    "description": "Tooltip del botón de pausar, mientras se está leyendo."
+  },
+  "narrationForwardTooltip": "Fragmento siguiente",
+  "@narrationForwardTooltip": {
+    "description": "Tooltip del botón que adelanta un fragmento de la lectura."
+  },
+  "narrationSettingsTooltip": "Voz y velocidad",
+  "@narrationSettingsTooltip": {
+    "description": "Tooltip del botón que abre los ajustes de voz y velocidad."
+  },
+  "narrationCloseTooltip": "Cerrar el lector",
+  "@narrationCloseTooltip": {
+    "description": "Tooltip del botón que corta la lectura y cierra el reproductor."
+  },
+  "narrationProgress": "Fragmento {current} de {total}",
+  "@narrationProgress": {
+    "description": "Indicador de en qué fragmento de la lectura va.",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "narrationSettingsTitle": "Voz y velocidad",
+  "@narrationSettingsTitle": {
+    "description": "Título del panel de ajustes de la lectura en voz alta."
+  },
+  "narrationVoiceSectionTitle": "Voz",
+  "@narrationVoiceSectionTitle": {
+    "description": "Encabezado de la lista de voces disponibles."
+  },
+  "narrationSystemDefaultVoice": "Voz del sistema (por defecto)",
+  "@narrationSystemDefaultVoice": {
+    "description": "Opción para usar la voz que el sistema tenga configurada, sin elegir ninguna en particular."
+  },
+  "narrationNoVoicesAvailable": "Este dispositivo no ofrece voces adicionales: se usa la del sistema.",
+  "@narrationNoVoicesAvailable": {
+    "description": "Mensaje cuando el motor de voz no reporta ninguna voz instalada."
+  },
+  "narrationSpeedSectionTitle": "Velocidad",
+  "@narrationSpeedSectionTitle": {
+    "description": "Encabezado del control deslizante de velocidad de lectura."
+  },
+  "narrationSpeedValue": "{speed}x",
+  "@narrationSpeedValue": {
+    "description": "Valor de la velocidad de lectura, ya formateado.",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "summarizeAction": "Resumir con IA",
+  "@summarizeAction": {
+    "description": "Botón que pide un resumen del contenido al modelo de lenguaje."
+  },
+  "summarizeModelRequired": "Resumir con IA necesita el modelo de lenguaje descargado.",
+  "@summarizeModelRequired": {
+    "description": "Mensaje cuando se pide un resumen sin el modelo de chat descargado."
+  },
+  "summarizeDownloadAction": "Descargar",
+  "@summarizeDownloadAction": {
+    "description": "Botón que lleva a la pantalla de descarga del modelo, desde el aviso de resumir."
+  },
+  "summarizeDialogTitle": "Resumen",
+  "@summarizeDialogTitle": {
+    "description": "Título del diálogo que muestra el resumen generado."
+  },
+  "summarizeError": "No se pudo generar el resumen.",
+  "@summarizeError": {
+    "description": "Mensaje cuando falla la generación del resumen."
+  },
+  "summarizeCopyAction": "Copiar",
+  "@summarizeCopyAction": {
+    "description": "Botón para copiar el resumen generado."
+  },
+  "summarizeCopied": "Resumen copiado.",
+  "@summarizeCopied": {
+    "description": "Confirmación de que el resumen se copió al portapapeles."
   },
   "navLibrary": "Biblioteca",
   "@navLibrary": {

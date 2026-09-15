@@ -22,8 +22,24 @@ String _modelPageUrl(ChatModelOption option) => switch (option) {
     'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm',
   ChatModelOption.gemma3nE4b =>
     'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm',
+  ChatModelOption.gemma412b =>
+    'https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm',
 };
 const _tokenPageUrl = 'https://huggingface.co/settings/tokens';
+
+String _optionTitle(AppLocalizations l10n, ChatModelOption option) =>
+    switch (option) {
+      ChatModelOption.gemma4E4b => l10n.chatModelOptionGemma4Title,
+      ChatModelOption.gemma3nE4b => l10n.chatModelOptionGemma3nTitle,
+      ChatModelOption.gemma412b => l10n.chatModelOptionGemma412bTitle,
+    };
+
+String _optionDescription(AppLocalizations l10n, ChatModelOption option) =>
+    switch (option) {
+      ChatModelOption.gemma4E4b => l10n.chatModelOptionGemma4Description,
+      ChatModelOption.gemma3nE4b => l10n.chatModelOptionGemma3nDescription,
+      ChatModelOption.gemma412b => l10n.chatModelOptionGemma412bDescription,
+    };
 
 /// Si el modelo de lenguaje del chat está descargado, y descargarlo si no.
 ///
@@ -278,14 +294,11 @@ class _ModelOptionSelector extends StatelessWidget {
         const SizedBox(height: 8),
         SegmentedButton<ChatModelOption>(
           segments: [
-            ButtonSegment(
-              value: ChatModelOption.gemma4E4b,
-              label: Text(l10n.chatModelOptionGemma4Title),
-            ),
-            ButtonSegment(
-              value: ChatModelOption.gemma3nE4b,
-              label: Text(l10n.chatModelOptionGemma3nTitle),
-            ),
+            for (final option in availableChatModelOptions)
+              ButtonSegment(
+                value: option,
+                label: Text(_optionTitle(l10n, option)),
+              ),
           ],
           selected: {selected},
           onSelectionChanged: onSelected == null
@@ -294,11 +307,7 @@ class _ModelOptionSelector extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          switch (selected) {
-            ChatModelOption.gemma4E4b => l10n.chatModelOptionGemma4Description,
-            ChatModelOption.gemma3nE4b =>
-              l10n.chatModelOptionGemma3nDescription,
-          },
+          _optionDescription(l10n, selected),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

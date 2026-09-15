@@ -20,6 +20,7 @@ import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecas
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
+import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
@@ -53,6 +54,10 @@ final flashcardGeneratorProvider = Provider<FlashcardGenerator>((ref) {
 final relationSuggestionServiceProvider = Provider<RelationSuggestionService>((
   ref,
 ) {
+  return ref.watch(_gemmaModelProvider);
+});
+
+final summarizationServiceProvider = Provider<SummarizationService>((ref) {
   return ref.watch(_gemmaModelProvider);
 });
 
