@@ -1524,6 +1524,52 @@ actúa, en vez de sumar un botón aparte solo para esto.
 
 ---
 
+### 25. El grafo: nodos como tarjetas de entidad, no como círculos
+
+Se pidió explícitamente que el grafo se pareciera más a un diagrama
+entidad-relación de base de datos: una forma visual mucho más conocida —y
+más informativa de un vistazo— para representar "cosas conectadas entre
+sí" que un círculo con un ícono adentro y una etiqueta suelta debajo.
+
+**Cada nodo es una tarjeta rectangular de dos filas, como una tabla en
+miniatura.** Un encabezado con el color del espacio —el mismo rol que
+cumple el nombre de una tabla— con el ícono y el título del elemento, y
+una fila debajo con su tipo de fuente ("Documento", "Video"...) — la
+única "columna" visible de esta tabla en miniatura, con la misma etiqueta
+que ya usa la biblioteca (`SourceKindPresentation.label`, evitando
+duplicar esa correspondencia). Es más información al mismo golpe de vista
+que un ícono solo, y la forma rectangular distingue de entrada un nodo de
+una arista —que ya se dibujaba con líneas y puntas de flecha rectas—, el
+mismo lenguaje visual que cualquier diagrama entidad-relación.
+
+**Las líneas ahora recortan contra el borde de un rectángulo, no contra un
+círculo a distancia fija.** Con un nodo circular alcanzaba con parar la
+línea a `radius` píxeles del centro, en cualquier dirección — un círculo
+es igual de "ancho" mirado desde cualquier ángulo. Una tarjeta rectangular
+no: vista de costado, el borde está a `halfWidth`; vista de arriba, a
+`halfHeight`, mucho más cerca en una tarjeta ancha y baja como esta.
+`clipToRectBorder` (`graph_edges_painter.dart`) resuelve el ángulo real
+de cada arista contra la caja del nodo —el mismo método de "recorte de
+rayo contra una caja" que usa cualquier motor de físicas 2D, simplificado
+porque acá el rayo siempre arranca en el centro de la caja—, expuesta
+como función pura y probada con números concretos, sin levantar ningún
+widget: el resto del pintor de aristas —color por tipo de vínculo, punta
+de flecha, atenuado en modo foco— no cambió.
+
+**Lo que no cambió, a propósito.** El algoritmo de layout
+(`computeGraphLayout`, Fruchterman-Reingold, decisión 19) sigue intacto:
+ya resuelve bien "qué tan separados van los nodos" tratándolos como
+puntos, y ese problema no depende de la forma que se dibuje encima de cada
+punto — solo hizo falta agrandar el margen del lienzo y el tamaño mínimo
+de separación para el tamaño nuevo, más grande, de la tarjeta. Tampoco se
+sumó la notación completa de "pata de gallo" (cardinalidad) que trae un
+diagrama entidad-relación de verdad: esta app no modela relaciones
+uno-a-muchos ni muchos-a-muchos con esa precisión, y forzar esa notación
+sobre vínculos que son, en los hechos, simples aristas dirigidas habría
+sido decoración sin información real detrás.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido

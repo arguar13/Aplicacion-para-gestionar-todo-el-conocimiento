@@ -24,10 +24,22 @@ import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog
 import 'package:sinapsis/features/organize/presentation/widgets/pick_relation_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Ancho de la etiqueta bajo cada nodo. Compartida entre el cálculo del
-/// margen del lienzo y el widget que dibuja el nodo: si se desincronizan,
-/// vuelve el recorte en el borde que arregló esta constante.
-const _kNodeLabelWidth = 96.0;
+/// El tamaño de la tarjeta de cada nodo —todas del mismo tamaño, al estilo
+/// de una entidad en un diagrama entidad-relación—. Compartida entre el
+/// cálculo del margen del lienzo, el pintor de aristas y el widget que
+/// dibuja el nodo: si se desincronizan, vuelve el recorte en el borde que
+/// arregló esta constante.
+const _kNodeSize = Size(164, 60);
+
+/// Cuánto se aleja cada nodo del borde del lienzo y del visor al encuadrar:
+/// la mitad de la diagonal de la tarjeta, con margen de sobra para que la
+/// sombra del nodo enfocado tampoco quede cortada.
+final _kNodeMargin =
+    math.sqrt(
+      _kNodeSize.width * _kNodeSize.width / 4 +
+          _kNodeSize.height * _kNodeSize.height / 4,
+    ) +
+    16;
 
 /// La bóveda como una red: un nodo por cada elemento que tiene al menos un
 /// vínculo, y una línea por cada vínculo, con pan y zoom para recorrerla.
@@ -341,14 +353,13 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     final nodeIds = scope.nodeIds.where(itemsById.containsKey).toList();
 
     final canvasSize = Size(
-      math.max(900, nodeIds.length * 110.0),
-      math.max(900, nodeIds.length * 110.0),
+      math.max(900, nodeIds.length * 190.0),
+      math.max(900, nodeIds.length * 190.0),
     );
-    const nodeRadius = 24.0;
-    // El nodo se dibuja centrado en su posición, con la etiqueta debajo:
-    // el margen tiene que cubrir lo que sobresale del centro en cada
-    // dirección para que ningún nodo quede a medias fuera del lienzo.
-    const edgeMargin = _kNodeLabelWidth / 2 + 8;
+    // El nodo se dibuja centrado en su posición: el margen tiene que cubrir
+    // lo que la tarjeta sobresale del centro en cada dirección para que
+    // ninguna quede a medias fuera del lienzo.
+    final edgeMargin = _kNodeMargin;
 
     _ensureLayout(
       nodeIds: nodeIds,
@@ -373,6 +384,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         _transformController.value = computeFitTransform(
           positions: positions,
           viewportSize: viewportSize,
+          contentMargin: _kNodeMargin,
         );
       });
     }
@@ -413,7 +425,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                       (edge.fromItemId, edge.toItemId, edge.kind),
                   ],
                   positions: positions,
-                  nodeRadius: nodeRadius,
+                  nodeSize: _kNodeSize,
                   colorScheme: theme.colorScheme,
                   dimmedNodeIds: dimmedNodeIds,
                 ),
@@ -423,7 +435,6 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   key: ValueKey(id),
                   item: itemsById[id]!,
                   center: positions[id]!,
-                  radius: nodeRadius,
                   dimmed: dimmedNodeIds?.contains(id) ?? false,
                   focused: focused == id,
                   onTap: () => context.push(RoutePaths.itemDetail(id)),
@@ -489,6 +500,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
       _transformController.value = computeFitTransform(
         positions: positions,
         viewportSize: viewport,
+        contentMargin: _kNodeMargin,
       );
     });
   }
@@ -933,11 +945,21 @@ class _LegendChip extends StatelessWidget {
   }
 }
 
+/// Un elemento del grafo, dibujado como una tarjeta rectangular —una
+/// "entidad", al estilo de una tabla en un diagrama entidad-relación de
+/// base de datos— en vez de un círculo con una etiqueta suelta debajo.
+///
+/// Dos filas, como una tabla en miniatura: un encabezado con el color del
+/// espacio —el mismo rol que cumple el nombre de la tabla— con el título
+/// del elemento, y una fila de "columna" mostrando su tipo de fuente. Es
+/// más información al mismo golpe de vista que un ícono solo, y la forma
+/// rectangular dis­tingue de entrada un nodo de una arista, que ya usa
+/// líneas y puntas de flecha rectas —el mismo lenguaje visual que cualquier
+/// diagrama entidad-relación—.
 class _GraphNode extends StatelessWidget {
   const _GraphNode({
     required this.item,
     required this.center,
-    required this.radius,
     required this.dimmed,
     required this.focused,
     required this.onTap,
@@ -948,7 +970,6 @@ class _GraphNode extends StatelessWidget {
 
   final KnowledgeItem item;
   final Offset center;
-  final double radius;
   final bool dimmed;
   final bool focused;
   final VoidCallback onTap;
@@ -957,15 +978,19 @@ class _GraphNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    const labelWidth = _kNodeLabelWidth;
     final fill = spaceNodeColor(item.spaceId, theme.colorScheme);
     final foreground = spaceNodeForeground(item.spaceId, theme.colorScheme);
+    final borderColor = focused
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outlineVariant;
 
     return Positioned(
-      left: center.dx - labelWidth / 2,
-      top: center.dy - radius,
-      width: labelWidth,
+      left: center.dx - _kNodeSize.width / 2,
+      top: center.dy - _kNodeSize.height / 2,
+      width: _kNodeSize.width,
+      height: _kNodeSize.height,
       child: AnimatedOpacity(
         opacity: dimmed ? 0.25 : 1,
         duration: const Duration(milliseconds: 200),
@@ -973,48 +998,72 @@ class _GraphNode extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           onPanUpdate: (details) => onDragUpdate(details.delta),
-          child: Column(
-            children: [
-              Container(
-                width: radius * 2,
-                height: radius * 2,
-                decoration: BoxDecoration(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: focused ? 2 : 1),
+              boxShadow: [
+                BoxShadow(
+                  color: focused
+                      ? theme.colorScheme.primary.withValues(alpha: 0.35)
+                      : theme.colorScheme.shadow.withValues(alpha: 0.12),
+                  blurRadius: focused ? 16 : 6,
+                  spreadRadius: focused ? 1 : 0,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // El "nombre de la tabla": el color del espacio identifica
+                // de qué carpeta es sin tener que leer nada, igual que ya
+                // hacía el relleno del círculo anterior.
+                Container(
                   color: fill,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: focused
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.surface,
-                    width: focused ? 3 : 2,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
                   ),
-                  boxShadow: focused
-                      ? [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.35,
-                            ),
-                            blurRadius: 14,
-                            spreadRadius: 1,
+                  child: Row(
+                    children: [
+                      Icon(item.source.kind.icon, size: 14, color: foreground),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ]
-                      : null,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Icon(
-                  item.source.kind.icon,
-                  size: radius,
-                  color: foreground,
+                // La única "columna" visible de la tabla: de qué tipo de
+                // fuente es, la misma etiqueta que ya usa la biblioteca.
+                Expanded(
+                  child: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      item.source.kind.label(l10n),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

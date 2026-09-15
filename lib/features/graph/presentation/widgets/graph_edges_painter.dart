@@ -11,18 +11,29 @@ typedef GraphEdge = (String from, String to, RelationKind kind);
 /// Dibuja las aristas del grafo: una línea por vínculo, coloreada según su
 /// tipo, con una punta de flecha chica que marca el sentido —de dónde
 /// viene, hacia dónde va—.
+///
+/// Cada nodo se dibuja como una tarjeta rectangular, al estilo de una
+/// entidad en un diagrama entidad-relación (ver `_GraphNode` en
+/// `graph_screen.dart`) — no como un círculo. La línea tiene que terminar
+/// justo en el borde de esa tarjeta, en el lado que mira hacia la otra, y
+/// no a una distancia fija del centro como alcanzaba con un círculo: un
+/// nodo ancho y bajo tiene un borde mucho más cerca del centro por arriba
+/// que por los costados. [clipToRectBorder] es ese cálculo.
 class GraphEdgesPainter extends CustomPainter {
   const GraphEdgesPainter({
     required this.edges,
     required this.positions,
-    required this.nodeRadius,
+    required this.nodeSize,
     required this.colorScheme,
     this.dimmedNodeIds,
   });
 
   final List<GraphEdge> edges;
   final Map<String, Offset> positions;
-  final double nodeRadius;
+
+  /// El tamaño de la tarjeta de cada nodo — todas del mismo tamaño, ver
+  /// `_GraphNode`.
+  final Size nodeSize;
   final ColorScheme colorScheme;
 
   /// Los nodos que deben pintarse tenues, en modo foco: una arista donde
@@ -34,6 +45,9 @@ class GraphEdgesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final halfWidth = nodeSize.width / 2;
+    final halfHeight = nodeSize.height / 2;
+
     for (final (from, to, kind) in edges) {
       final start = positions[from];
       final end = positions[to];
@@ -55,14 +69,18 @@ class GraphEdgesPainter extends CustomPainter {
 
       final direction = end - start;
       final distance = direction.distance;
-      if (distance <= nodeRadius * 2) continue;
+      // Dos tarjetas superpuestas o casi —dos nodos con la misma posición
+      // fijada a mano— no tienen ningún borde real entre las dos hacia el
+      // que trazar una línea con sentido.
+      if (distance <= 1) continue;
       final unit = direction / distance;
 
-      // La línea se corta antes de llegar al centro del nodo destino, para
-      // que la punta de flecha quede pegada al borde del círculo y no
-      // enterrada debajo de su ícono.
-      final lineEnd = end - unit * nodeRadius;
-      canvas.drawLine(start + unit * nodeRadius, lineEnd, linePaint);
+      // La línea arranca en el borde de la tarjeta de origen —no en su
+      // centro, que quedaría debajo de su contenido— y termina en el borde
+      // de la de destino, con la punta de flecha pegada ahí.
+      final lineStart = clipToRectBorder(start, unit, halfWidth, halfHeight);
+      final lineEnd = clipToRectBorder(end, -unit, halfWidth, halfHeight);
+      canvas.drawLine(lineStart, lineEnd, linePaint);
 
       const arrowLength = 9.0;
       const arrowAngle = 0.5;
@@ -95,6 +113,30 @@ class GraphEdgesPainter extends CustomPainter {
   bool shouldRepaint(GraphEdgesPainter oldDelegate) =>
       oldDelegate.edges != edges ||
       oldDelegate.positions != positions ||
+      oldDelegate.nodeSize != nodeSize ||
       oldDelegate.colorScheme != colorScheme ||
       oldDelegate.dimmedNodeIds != dimmedNodeIds;
+}
+
+/// Dónde cruza el borde de una tarjeta rectangular centrada en [center] el
+/// rayo que sale de su centro en la dirección [unit] —un vector unitario—.
+///
+/// Es la versión rectangular de "el punto a `radius` de distancia del
+/// centro, hacia el otro nodo" que alcanzaba con un círculo: acá la
+/// distancia al borde no es constante, depende de qué tan inclinado sea el
+/// ángulo. Se calcula por cuánto hay que escalar [unit] para tocar la pared
+/// vertical (`halfWidth / |unit.dx|`) o la horizontal (`halfHeight /
+/// |unit.dy|`) primero, y se usa el que se toca antes — el mismo principio
+/// que un recorte de rayo contra una caja ("slab method"), simplificado
+/// porque acá el rayo siempre arranca en el centro de la caja.
+Offset clipToRectBorder(
+  Offset center,
+  Offset unit,
+  double halfWidth,
+  double halfHeight,
+) {
+  final tx = unit.dx == 0 ? double.infinity : halfWidth / unit.dx.abs();
+  final ty = unit.dy == 0 ? double.infinity : halfHeight / unit.dy.abs();
+  final t = math.min(tx, ty);
+  return center + unit * t;
 }
