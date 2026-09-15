@@ -9,12 +9,21 @@ enum ExportFormat {
   plainText,
 
   /// Para leer o imprimir fuera de la app.
-  pdf;
+  pdf,
+
+  /// La entrada de referencia bibliográfica, para llevarla a Zotero, LaTeX
+  /// o cualquier gestor de citas que entienda el formato estándar.
+  bibtex,
+
+  /// Para abrir y seguir editando en Word, LibreOffice Writer o similares.
+  docx;
 
   /// La extensión con la que se sugiere guardar el archivo, sin el punto.
   String get fileExtension => switch (this) {
     ExportFormat.markdown => 'md',
     ExportFormat.plainText => 'txt',
     ExportFormat.pdf => 'pdf',
+    ExportFormat.bibtex => 'bib',
+    ExportFormat.docx => 'docx',
   };
 }

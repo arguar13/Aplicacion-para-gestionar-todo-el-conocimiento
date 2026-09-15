@@ -69,6 +69,13 @@ dependencies:
   html: ^0.15.7
   # HTML -> Markdown: el formato de intercambio del proyecto.
   html2md: ^1.3.2
+  # Ya venía como dependencia transitiva; se declara explícita porque ahora
+  # el código del proyecto la usa directamente: codifica a PNG los píxeles
+  # BGRA crudos que devuelve `pdfrx_engine` al renderizar una página de PDF,
+  # para poder pasarla por el mismo `ImageTextExtractor` que ya usa
+  # `ImageTransformer` (ver `PdfParser`, que le pide OCR a una página sin
+  # texto en vez de darla por perdida).
+  image: ^4.9.2
   intl: ^0.20.2
   json_annotation: ^4.12.0
   logger: ^2.5.0
@@ -96,13 +103,21 @@ dependencies:
   # Port en Dart del algoritmo Readability de Mozilla. Se probó contra HTML
   # realista antes de confiarle la extracción (ver docs/arquitectura.md).
   # PDFium de Chromium empaquetado para cada plataforma. Es el complemento
-  # que trae el binario nativo; el visor completo (`pdfrx`) arrastraría
-  # url_launcher y dos librerías de widgets que esta app no usa — solo se
-  # necesita extraer texto.
+  # que trae el binario nativo, lo usan tanto `pdfrx_engine` (extraer texto)
+  # como `pdfrx` (mostrar las páginas).
   pdfium_flutter: ^0.3.0
+  # El visor completo, con paginado y zoom con pellizco — el complemento
+  # de `pdfrx_engine`. Antes se evitaba a propósito porque solo hacía falta
+  # extraer texto (ver la decisión 3 en docs/arquitectura.md); ahora que la
+  # app también necesita *mostrar* el PDF como se ve fuera de ella, el
+  # costo de sumar `url_launcher` de paso deja de pesar más que construir
+  # un visor de páginas a mano.
+  pdfrx: ^2.6.1
   # La API de lectura de PDF sobre PDFium, en Dart puro y con licencia MIT.
   # Reemplaza a syncfusion_flutter_pdf, cuya licencia community es
-  # propietaria: ver la decisión 3 en docs/arquitectura.md.
+  # propietaria: ver la decisión 3 en docs/arquitectura.md. Sigue siendo lo
+  # que usa `PdfParser` para extraer texto; `pdfrx` (arriba) es solo para
+  # mostrar las páginas.
   pdfrx_engine: ^0.6.0
   reader_mode: ^0.2.3
   # Recibir contenido compartido desde otras apps (el botón de compartir del
@@ -141,10 +156,27 @@ dependencies:
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.
   uuid: ^4.6.0
+  # Ya venía como dependencia transitiva de Flutter; se declara explícita
+  # porque el grafo de relaciones la usa directamente para encuadrar la
+  # vista (`Matrix4`), en vez de reimplementar álgebra de matrices propia
+  # para una sola transformación.
+  vector_math: ^2.4.0
+  # El reproductor de audio y video integrado, sobre el motor nativo de
+  # cada plataforma (ExoPlayer en Android). BSD-3-Clause y mantenido por el
+  # propio equipo de Flutter — el mismo criterio de siempre: nada que
+  # dependa de que un tercero lo siga manteniendo.
+  video_player: ^2.14.0
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente: es el interop con OPFS de
   # OpfsFileStore, ver la decisión 9 en docs/arquitectura.md.
   web: ^1.1.1
+  # El visor de páginas archivadas: muestra el HTML completo tal como quedó
+  # guardado —con sus imágenes y sus estilos incrustados—, en vez de la
+  # versión en Markdown que ya se ve en el detalle. Igual que `video_player`,
+  # es del propio equipo de Flutter y corre sobre el motor nativo de cada
+  # plataforma (`WebView` en Android), así que no hay un tercero de quien
+  # depender para que siga funcionando.
+  webview_flutter: ^4.10.0
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente para leer el OPF de un EPUB y
   # el document.xml de un DOCX.

@@ -3,6 +3,8 @@ import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
+import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 
 /// Le pide instrucciones tajantes de no inventar nada que no esté en el
 /// contexto: es lo único que separa una respuesta útil de una que suena
@@ -27,6 +29,47 @@ const _flashcardSystemInstruction =
     'una pregunta y una respuesta por vez, sin numerar, sin usar Markdown '
     'ni comillas:\nP: <pregunta>\nR: <respuesta>';
 
+/// Mismo criterio que `_flashcardSystemInstruction`, para juzgar vínculos en
+/// vez de generar tarjetas: un formato exacto y estricto, para que un
+/// modelo chico se desvíe lo menos posible de él.
+const _relationSuggestionSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es identificar qué '
+    'elementos de una lista numerada están relacionados con un elemento '
+    'semilla, basándote ÚNICAMENTE en los títulos y fragmentos que se te '
+    'dan. Para cada elemento relacionado, respondé UNA línea con este '
+    'formato exacto, sin Markdown ni numeración propia:\n'
+    'SUGERENCIA: <número> | <clave> | <motivo breve>\n'
+    'donde <número> es el número de la lista y <clave> es exactamente una '
+    'de estas palabras: relacionado, continua, contradice, cita, resume. '
+    'Si ningún elemento está relacionado, no respondas ninguna línea '
+    'SUGERENCIA. No respondas nada más aparte de esas líneas.';
+
+/// A diferencia de `_systemInstruction`, sin ninguna restricción al
+/// contenido de la bóveda: acá el pedido es justamente lo contrario, hablar
+/// con el modelo como con cualquier asistente de lenguaje general.
+const _freeConversationSystemInstruction =
+    'Sos un asistente conversacional útil y directo. Respondé siempre en '
+    'español, salvo que te pidan otro idioma explícitamente.';
+
+/// La del modo "con mi bóveda", pero conversacional: a diferencia de
+/// `_systemInstruction` —una pregunta, cita o silencio—, acá se pide
+/// charlar de verdad. Sigue citando cuando hay de dónde, pero no se niega a
+/// responder ante lo que no es estrictamente una pregunta puntual: "hacé un
+/// resumen", "y qué más dice sobre eso", "compará estas dos cosas" son
+/// pedidos legítimos sobre el mismo contenido, no algo para lo que haya que
+/// inventar una excusa.
+const _vaultConversationSystemInstruction =
+    'Sos un asistente que ayuda a explorar y conversar sobre el contenido '
+    'de la bóveda del usuario. Respondé siempre en español, de forma '
+    'natural, como en cualquier chat — no solo con citas sueltas. Podés '
+    'resumir, comparar, elaborar o responder preguntas generales sobre el '
+    'contenido, no solo repetirlo. Cuando se te da contexto de la bóveda, '
+    'usalo como base de tu respuesta y mencioná el número de la fuente '
+    'entre corchetes, como [1] o [2], cuando cites un dato puntual. Si no '
+    'hay contexto relevante para lo que preguntan, decilo con honestidad, '
+    'pero seguí la conversación con naturalidad en vez de negarte a '
+    'contestar.';
+
 /// [ChatModel] sobre `flutter_gemma`: Gemma corriendo en el dispositivo, vía
 /// FFI directo —sin JVM, sin servidor propio, ver la decisión 20 en
 /// docs/arquitectura.md—.
@@ -39,14 +82,15 @@ const _flashcardSystemInstruction =
 /// cada pregunta recupera sus propias fuentes y no tiene por qué compartir
 /// contexto con la charla previa.
 ///
-/// También implementa [FlashcardGenerator]: generar tarjetas es otra tarea
-/// del mismo modelo ya cargado, no un motor aparte. Que la clase concreta
-/// viva en el feature `chat` y no en `flashcards` es una asimetría real
-/// —`flashcards` depende de una implementación de `chat`—, aceptada acá
-/// porque la alternativa (mover la lógica de cachear el modelo a un tercer
-/// lugar compartido) es más superficie nueva por una sola clase que la
-/// usa.
-class GemmaChatModel implements ChatModel, FlashcardGenerator {
+/// También implementa [FlashcardGenerator] y [RelationSuggestionService]:
+/// generar tarjetas y sugerir vínculos son otras tareas del mismo modelo ya
+/// cargado, no motores aparte. Que la clase concreta viva en el feature
+/// `chat` y no en `flashcards` o `graph` es una asimetría real —esos dos
+/// dependen de una implementación de `chat`—, aceptada acá porque la
+/// alternativa (mover la lógica de cachear el modelo a un tercer lugar
+/// compartido) es más superficie nueva por unas pocas clases que la usan.
+class GemmaChatModel
+    implements ChatModel, FlashcardGenerator, RelationSuggestionService {
   GemmaChatModel();
 
   InferenceModel? _model;
@@ -74,7 +118,7 @@ class GemmaChatModel implements ChatModel, FlashcardGenerator {
 
     try {
       await chat.addQueryChunk(
-        Message.text(text: _prompt(question, sources), isUser: true),
+        Message.text(text: _buildVaultPrompt(question, sources), isUser: true),
       );
       final response = await chat.generateChatResponse();
 
@@ -92,13 +136,22 @@ class GemmaChatModel implements ChatModel, FlashcardGenerator {
     }
   }
 
-  String _prompt(String question, List<ChatSource> sources) {
-    final context = [
-      for (var i = 0; i < sources.length; i++)
-        '[${i + 1}] ${sources[i].itemTitle}\n${sources[i].excerpt}',
-    ].join('\n\n');
+  @override
+  Future<FreeConversation> startConversation() async {
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _freeConversationSystemInstruction,
+    );
+    return _GemmaFreeConversation(chat);
+  }
 
-    return 'Contexto:\n$context\n\nPregunta: $question';
+  @override
+  Future<VaultConversation> startVaultConversation() async {
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _vaultConversationSystemInstruction,
+    );
+    return _GemmaVaultConversation(chat);
   }
 
   @override
@@ -132,4 +185,130 @@ class GemmaChatModel implements ChatModel, FlashcardGenerator {
       await chat.close();
     }
   }
+
+  @override
+  Future<List<RelationSuggestion>> suggestRelations({
+    required String seedTitle,
+    required String seedExcerpt,
+    required List<RelationCandidate> candidates,
+  }) async {
+    if (candidates.isEmpty) return const [];
+
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _relationSuggestionSystemInstruction,
+    );
+
+    try {
+      final list = [
+        for (var i = 0; i < candidates.length; i++)
+          '${i + 1}. ${candidates[i].title}\n${candidates[i].excerpt}',
+      ].join('\n\n');
+
+      await chat.addQueryChunk(
+        Message.text(
+          text:
+              'Elemento semilla: $seedTitle\n$seedExcerpt\n\n'
+              'Lista de candidatos:\n$list',
+          isUser: true,
+        ),
+      );
+      final response = await chat.generateChatResponse();
+
+      final text = switch (response) {
+        TextResponse(:final token) => token,
+        _ => '',
+      };
+
+      final suggestions = <RelationSuggestion>[];
+      for (final line in parseRelationSuggestions(text)) {
+        if (line.candidateIndex < 0 ||
+            line.candidateIndex >= candidates.length) {
+          continue;
+        }
+        suggestions.add(
+          RelationSuggestion(
+            itemId: candidates[line.candidateIndex].itemId,
+            kind: line.kind,
+            reason: line.reason,
+          ),
+        );
+      }
+      return suggestions;
+    } finally {
+      await chat.close();
+    }
+  }
+}
+
+/// [FreeConversation] sobre la sesión de `flutter_gemma`: cada [send]
+/// agrega el mensaje y pide una respuesta sin cerrar la sesión, así que el
+/// modelo sigue viendo todo lo dicho antes en esta misma conversación —a
+/// diferencia de `GemmaChatModel.answer`, que abre y cierra una sesión
+/// nueva por pregunta.
+class _GemmaFreeConversation implements FreeConversation {
+  _GemmaFreeConversation(this._chat);
+
+  final InferenceChat _chat;
+
+  @override
+  Future<String> send(String message) async {
+    await _chat.addQueryChunk(Message.text(text: message, isUser: true));
+    final response = await _chat.generateChatResponse();
+
+    return switch (response) {
+      TextResponse(:final token) => token,
+      _ => '',
+    };
+  }
+
+  @override
+  Future<void> close() => _chat.close();
+}
+
+/// [VaultConversation] sobre la sesión de `flutter_gemma`: igual que
+/// [_GemmaFreeConversation] en que el historial no se cierra entre
+/// mensajes, pero cada [send] además le agrega al mensaje del usuario el
+/// contexto que trajo `VaultRetriever` para esa vuelta puntual —el mismo
+/// formato que ya arma [_buildVaultPrompt]—, así el modelo ve tanto lo
+/// conversado antes como lo nuevo que se encontró en la bóveda.
+class _GemmaVaultConversation implements VaultConversation {
+  _GemmaVaultConversation(this._chat);
+
+  final InferenceChat _chat;
+
+  @override
+  Future<String> send({
+    required String message,
+    required List<ChatSource> sources,
+  }) async {
+    await _chat.addQueryChunk(
+      Message.text(text: _buildVaultPrompt(message, sources), isUser: true),
+    );
+    final response = await _chat.generateChatResponse();
+
+    return switch (response) {
+      TextResponse(:final token) => token,
+      _ => '',
+    };
+  }
+
+  @override
+  Future<void> close() => _chat.close();
+}
+
+/// El mensaje que de verdad se le manda al modelo: la pregunta o el pedido
+/// del usuario, más el contexto de la bóveda que se haya encontrado para
+/// esa vuelta —numerado, para que citar "[1]" en la respuesta señale
+/// exactamente cuál—. Sin fuentes, el contexto queda vacío y el modelo lo
+/// ve tal cual: nada que ocultarle sobre lo que sí o no se encontró.
+String _buildVaultPrompt(String message, List<ChatSource> sources) {
+  if (sources.isEmpty) return message;
+
+  final context = [
+    for (var i = 0; i < sources.length; i++)
+      '[${i + 1}] ${sources[i].itemTitle}\n${sources[i].excerpt}',
+  ].join('\n\n');
+
+  return 'Contexto de la bóveda:\n$context\n\nMensaje: $message';
 }

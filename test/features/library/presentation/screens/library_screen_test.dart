@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -435,6 +436,201 @@ void main() {
         expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
       },
     );
+  });
+
+  group('el menú de tres puntos de cada fila', () {
+    testWidgets('eliminar pide confirmación y saca el elemento de la lista', (
+      tester,
+    ) async {
+      await harness.capture('Algo para borrar');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.detailDelete).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.detailDelete).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Algo para borrar'), findsNothing);
+    });
+
+    testWidgets('cancelar la confirmación no borra nada', (tester) async {
+      await harness.capture('Algo que se queda');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.detailDelete).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Algo que se queda'), findsOneWidget);
+    });
+
+    testWidgets('mover a un espacio lo deja asignado y avisa', (
+      tester,
+    ) async {
+      await harness.capture('Por mover');
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace('Destino'))
+              .getRight()
+              .toNullable()!;
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryItemMoveToSpace));
+      await tester.pumpAndSettle();
+      // "Destino" también aparece como chip de filtro en la biblioteca de
+      // atrás: la fila del selector de espacio es la última en el árbol.
+      await tester.tap(find.text('Destino').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryItemMoved('Destino')), findsOneWidget);
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      expect(
+        items.firstWhere((i) => i.title == 'Por mover').spaceId,
+        space.id,
+      );
+    });
+
+    testWidgets('exportar pasa por el mismo selector de guardado', (
+      tester,
+    ) async {
+      await harness.capture('Para exportar');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text(es.libraryItemExportAs(es.exportFormatMarkdown)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, isNotNull);
+      expect(find.text(es.libraryItemExported), findsOneWidget);
+    });
+  });
+
+  group('vistas de la biblioteca', () {
+    Future<void> switchView(WidgetTester tester, String label) async {
+      await tester.tap(find.byType(PopupMenuButton<LibraryViewMode>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('la vista de tabla muestra una columna por propiedad', (
+      tester,
+    ) async {
+      await harness.capture('Un artículo cualquiera');
+      await pumpLibrary(tester);
+
+      await switchView(tester, es.libraryViewTable);
+
+      expect(find.text(es.libraryColumnTitle), findsOneWidget);
+      expect(find.text(es.libraryColumnCaptured), findsOneWidget);
+      expect(find.text('Un artículo cualquiera'), findsOneWidget);
+    });
+
+    testWidgets('tocar el encabezado de Título cambia el orden', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await switchView(tester, es.libraryViewTable);
+      await tester.tap(find.text(es.libraryColumnTitle));
+      await tester.pumpAndSettle();
+
+      final query = harness.container.read(libraryQueryNotifierProvider);
+      expect(query.sortBy, LibrarySort.title);
+    });
+
+    testWidgets('la vista de tablero agrupa por espacio', (tester) async {
+      await harness.capture('Sin clasificar todavía');
+      await harness.capture('Ya tiene espacio');
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace('Filosofía'))
+              .getRight()
+              .toNullable()!;
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final item = items.firstWhere((i) => i.title.contains('Ya tiene'));
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpace(itemId: item.id, spaceId: space.id);
+
+      await pumpLibrary(tester);
+      await switchView(tester, es.libraryViewKanban);
+
+      // "Filosofía" también aparece como chip de filtro arriba: acá alcanza
+      // con confirmar que la columna del tablero está.
+      expect(find.text('Filosofía'), findsWidgets);
+      expect(find.text(es.detailSpaceNone), findsOneWidget);
+      expect(find.textContaining('Sin clasificar todavía'), findsOneWidget);
+      expect(find.textContaining('Ya tiene espacio'), findsOneWidget);
+    });
+  });
+
+  group('paginación', () {
+    // El tamaño de tanda de `LibraryQueryNotifier` es 100: sin al menos esa
+    // cantidad no hay manera de ejercitar "cargar más" de verdad.
+    Future<void> captureMany(int count) async {
+      for (var i = 0; i < count; i++) {
+        await harness.capture('Elemento número $i');
+      }
+    }
+
+    testWidgets('con menos elementos que una tanda, no ofrece cargar más', (
+      tester,
+    ) async {
+      await captureMany(5);
+      await pumpLibrary(tester);
+
+      expect(find.text(es.libraryLoadMore), findsNothing);
+    });
+
+    testWidgets('con una tanda completa, ofrece cargar más', (tester) async {
+      await captureMany(100);
+      await pumpLibrary(tester);
+
+      expect(find.text(es.libraryLoadMore), findsOneWidget);
+    });
+
+    testWidgets('tocar "cargar más" trae el resto sin perder lo que ya '
+        'estaba', (tester) async {
+      await captureMany(105);
+      await pumpLibrary(tester);
+
+      expect(find.text(es.libraryLoadMore), findsOneWidget);
+      // Lo que ya se había traído sigue a la vista mientras se pide el
+      // resto: no hay un spinner que lo tape por un instante.
+      expect(find.textContaining('Elemento número'), findsWidgets);
+
+      await tester.tap(find.text(es.libraryLoadMore));
+      await tester.pumpAndSettle();
+
+      // Con las 105 traídas, ya no queda nada más por cargar.
+      expect(find.text(es.libraryLoadMore), findsNothing);
+    });
   });
 
   group('retomar lo que quedó a medias', () {

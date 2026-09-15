@@ -15,6 +15,10 @@
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
+  "libraryLoadMore": "Cargar más",
+  "@libraryLoadMore": {
+    "description": "Botón al pie de la lista que trae la próxima tanda de elementos, en una biblioteca con más de los que se muestran de entrada."
+  },
   "librarySelectTooltip": "Seleccionar elementos",
   "@librarySelectTooltip": {
     "description": "Botón que activa el modo de selección múltiple en la biblioteca."
@@ -78,6 +82,70 @@
   "captureChooseFile": "Elegir un archivo",
   "@captureChooseFile": {
     "description": "Botón que abre el selector de archivos."
+  },
+  "captureTypePrompt": "¿Qué querés guardar?",
+  "@captureTypePrompt": {
+    "description": "Título del selector de tipo de captura, el primer paso de la pantalla de guardar."
+  },
+  "captureTypeVideo": "Video",
+  "@captureTypeVideo": {
+    "description": "Botón del selector de tipo: un video."
+  },
+  "captureTypeVideoHint": "Pegá el enlace del video: YouTube, TikTok, Reels, Shorts…",
+  "@captureTypeVideoHint": {
+    "description": "Texto de ayuda del campo de enlace cuando se eligió \"Video\"."
+  },
+  "captureTypePost": "Publicación",
+  "@captureTypePost": {
+    "description": "Botón del selector de tipo: una publicación de una red social."
+  },
+  "captureTypePostHint": "Pegá el enlace de la publicación: X, Instagram, Threads…",
+  "@captureTypePostHint": {
+    "description": "Texto de ayuda del campo de enlace cuando se eligió \"Publicación\"."
+  },
+  "captureTypeWebPage": "Página web",
+  "@captureTypeWebPage": {
+    "description": "Botón del selector de tipo: una página o artículo."
+  },
+  "captureTypeWebPageHint": "Pegá el enlace de la página",
+  "@captureTypeWebPageHint": {
+    "description": "Texto de ayuda del campo de enlace cuando se eligió \"Página web\"."
+  },
+  "captureTypeBook": "Libro o documento",
+  "@captureTypeBook": {
+    "description": "Botón del selector de tipo: un archivo PDF, EPUB o Word."
+  },
+  "captureTypeImage": "Imagen",
+  "@captureTypeImage": {
+    "description": "Botón del selector de tipo: una imagen."
+  },
+  "captureTypeAudio": "Audio",
+  "@captureTypeAudio": {
+    "description": "Botón del selector de tipo: un archivo de audio."
+  },
+  "captureTypePasteText": "Texto para pegar",
+  "@captureTypePasteText": {
+    "description": "Botón del selector de tipo: texto suelto escrito o pegado."
+  },
+  "captureTypePasteTextHint": "Pegá o escribí el texto que querés conservar",
+  "@captureTypePasteTextHint": {
+    "description": "Texto de ayuda del campo grande cuando se eligió \"Texto para pegar\"."
+  },
+  "captureTypeNote": "Nota",
+  "@captureTypeNote": {
+    "description": "Botón del selector de tipo: una nota propia con bloques."
+  },
+  "captureChangeType": "Cambiar tipo",
+  "@captureChangeType": {
+    "description": "Botón que vuelve al selector de tipo de captura."
+  },
+  "captureChooseFileAction": "Elegir archivo",
+  "@captureChooseFileAction": {
+    "description": "Botón que abre el selector de archivos, dentro del paso ya elegido (libro, imagen o audio)."
+  },
+  "captureLinkLabel": "Enlace",
+  "@captureLinkLabel": {
+    "description": "Etiqueta del campo de enlace en los pasos de video, publicación y página web."
   },
   "captureFileRemove": "Quitar el archivo",
   "@captureFileRemove": {
@@ -157,6 +225,10 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
+  "detailViewFile": "Ver",
+  "@detailViewFile": {
+    "description": "Botón que abre el visor integrado del archivo original (PDF, imagen, audio, video o documento)."
+  },
   "detailOpenFile": "Abrir archivo",
   "@detailOpenFile": {
     "description": "Botón que abre el archivo original con la aplicación del sistema."
@@ -168,6 +240,14 @@
   "exportFormatMarkdown": "Markdown",
   "exportFormatPlainText": "Texto plano",
   "exportFormatPdf": "PDF",
+  "exportFormatBibtex": "BibTeX",
+  "@exportFormatBibtex": {
+    "description": "Nombre del formato de exportación BibTeX, para gestores de citas."
+  },
+  "exportFormatDocx": "Word",
+  "@exportFormatDocx": {
+    "description": "Nombre del formato de exportación .docx, para abrir en Word o similares."
+  },
   "detailOpenFileNotFound": "El archivo original ya no está en este dispositivo.",
   "@detailOpenFileNotFound": {
     "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."
@@ -179,6 +259,26 @@
   "detailOpenFileFailed": "No se pudo abrir el archivo.",
   "@detailOpenFileFailed": {
     "description": "Aviso genérico cuando abrir el archivo original falla por cualquier otro motivo."
+  },
+  "detailRemoveTimestamps": "Quitar marcas de tiempo",
+  "@detailRemoveTimestamps": {
+    "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."
+  },
+  "detailTimestampsRemoved": "Marcas de tiempo eliminadas",
+  "@detailTimestampsRemoved": {
+    "description": "Confirmación tras quitar las marcas de tiempo de una transcripción."
+  },
+  "detailDeleteOriginalFile": "Borrar archivo, quedarme con el texto",
+  "@detailDeleteOriginalFile": {
+    "description": "Botón que borra el video o audio original de un elemento y conserva la transcripción."
+  },
+  "detailDeleteOriginalFileConfirm": "Se borra el archivo original. El texto que ya se extrajo queda guardado.",
+  "@detailDeleteOriginalFileConfirm": {
+    "description": "Confirmación antes de borrar el video o audio original, aclarando que el texto se conserva."
+  },
+  "detailOriginalFileDeleted": "Archivo original borrado",
+  "@detailOriginalFileDeleted": {
+    "description": "Aviso tras borrar el video o audio original de un elemento."
   },
   "detailCopyLink": "Copiar enlace",
   "detailLinkCopied": "Enlace copiado",
@@ -575,6 +675,90 @@
   "@detailSpaceChoose": {
     "description": "Título del selector de espacio en el detalle de un elemento."
   },
+  "libraryViewList": "Lista",
+  "@libraryViewList": {
+    "description": "Nombre de la vista de biblioteca en lista, para el selector de vistas."
+  },
+  "libraryViewTable": "Tabla",
+  "@libraryViewTable": {
+    "description": "Nombre de la vista de biblioteca en tabla, para el selector de vistas."
+  },
+  "libraryViewKanban": "Tablero",
+  "@libraryViewKanban": {
+    "description": "Nombre de la vista de biblioteca en tablero (kanban), para el selector de vistas."
+  },
+  "libraryColumnTitle": "Título",
+  "@libraryColumnTitle": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryColumnType": "Tipo",
+  "@libraryColumnType": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryColumnSpace": "Espacio",
+  "@libraryColumnSpace": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryColumnTags": "Etiquetas",
+  "@libraryColumnTags": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryColumnStatus": "Estado",
+  "@libraryColumnStatus": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryColumnCaptured": "Capturado",
+  "@libraryColumnCaptured": {
+    "description": "Encabezado de columna en la vista de tabla de la biblioteca."
+  },
+  "libraryKanbanDropHint": "Soltá acá para mover de espacio",
+  "@libraryKanbanDropHint": {
+    "description": "Mensaje breve que explica el arrastre entre columnas del tablero kanban."
+  },
+  "citationTitle": "Cita",
+  "@citationTitle": {
+    "description": "Título de la sección de cita bibliográfica en el detalle de un elemento."
+  },
+  "citationCopyAction": "Copiar cita",
+  "@citationCopyAction": {
+    "description": "Botón para copiar la cita formateada al portapapeles."
+  },
+  "citationCopied": "Cita copiada",
+  "@citationCopied": {
+    "description": "Confirmación tras copiar la cita al portapapeles."
+  },
+  "libraryItemMenuTooltip": "Más opciones",
+  "@libraryItemMenuTooltip": {
+    "description": "Tooltip del botón de tres puntos sobre cada fila de la biblioteca."
+  },
+  "libraryItemMoveToSpace": "Mover a espacio",
+  "@libraryItemMoveToSpace": {
+    "description": "Acción del menú de una fila de la biblioteca para cambiarle el espacio."
+  },
+  "libraryItemExportAs": "Exportar como {format}",
+  "@libraryItemExportAs": {
+    "description": "Acción del menú de una fila de la biblioteca para exportarla en un formato concreto.",
+    "placeholders": {
+      "format": {
+        "type": "String",
+        "example": "Markdown"
+      }
+    }
+  },
+  "libraryItemMoved": "Movido a {space}",
+  "@libraryItemMoved": {
+    "description": "Confirmación tras mover un elemento a un espacio desde el menú de la biblioteca.",
+    "placeholders": {
+      "space": {
+        "type": "String",
+        "example": "Trabajo"
+      }
+    }
+  },
+  "libraryItemExported": "Exportado",
+  "@libraryItemExported": {
+    "description": "Confirmación tras exportar un elemento desde el menú de la biblioteca."
+  },
   "captureBlocksNote": "Nota con bloques",
   "@captureBlocksNote": {
     "description": "Botón que abre el editor de bloques desde la pantalla de captura."
@@ -667,13 +851,167 @@
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
   },
+  "graphScopeEmpty": "No hay vínculos para este espacio y este grado. Probá otro espacio o ampliá el grado.",
+  "@graphScopeEmpty": {
+    "description": "Mensaje cuando el filtro de espacio y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
+  },
+  "graphSpaceFilterAll": "Todos los espacios",
+  "@graphSpaceFilterAll": {
+    "description": "Opción del selector de espacio del grafo que no filtra por ninguno."
+  },
+  "graphSpaceFilterNone": "Sin espacio",
+  "@graphSpaceFilterNone": {
+    "description": "Opción del selector de espacio del grafo para los elementos sin espacio asignado."
+  },
+  "graphSpaceFilterTooltip": "Filtrar por espacio",
+  "@graphSpaceFilterTooltip": {
+    "description": "Tooltip del selector de espacio del grafo."
+  },
+  "graphDegreeLabel": "Grado",
+  "@graphDegreeLabel": {
+    "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el espacio elegido."
+  },
+  "graphDegreeAll": "Todos",
+  "@graphDegreeAll": {
+    "description": "Opción del selector de grado que no pone techo a la expansión."
+  },
+  "graphComponentAllLabel": "Todos juntos",
+  "@graphComponentAllLabel": {
+    "description": "Chip que muestra el grafo entero de una, en vez de un solo tema a la vez."
+  },
+  "graphComponentTagLabel": "{tag} ({count})",
+  "@graphComponentTagLabel": {
+    "description": "Etiqueta de un chip de tema del grafo, cuando sus elementos comparten una etiqueta.",
+    "placeholders": {
+      "tag": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "graphComponentFallbackLabel": "{title} y otros ({count})",
+  "@graphComponentFallbackLabel": {
+    "description": "Etiqueta de un chip de tema del grafo cuando sus elementos no comparten ninguna etiqueta: usa el título del elemento más conectado del grupo.",
+    "placeholders": {
+      "title": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "graphComponentsHint": "La bóveda tiene varios temas sin vínculos entre sí. Elegí cuál mirar.",
+  "@graphComponentsHint": {
+    "description": "Explica por qué apareció el selector de temas del grafo, la primera vez que hay más de uno."
+  },
+  "graphZoomInTooltip": "Acercar",
+  "@graphZoomInTooltip": {
+    "description": "Tooltip del botón que agranda el zoom del grafo."
+  },
+  "graphZoomOutTooltip": "Alejar",
+  "@graphZoomOutTooltip": {
+    "description": "Tooltip del botón que achica el zoom del grafo."
+  },
+  "graphFitViewTooltip": "Encuadrar todo",
+  "@graphFitViewTooltip": {
+    "description": "Tooltip del botón que vuelve a centrar y escalar la vista para que quepan todos los nodos visibles."
+  },
+  "graphLegendTooltip": "Referencias",
+  "@graphLegendTooltip": {
+    "description": "Tooltip del botón que abre las referencias de colores del grafo."
+  },
+  "graphLegendSpacesTitle": "Espacios",
+  "@graphLegendSpacesTitle": {
+    "description": "Encabezado de la sección de espacios en las referencias del grafo."
+  },
+  "graphLegendRelationsTitle": "Tipos de vínculo",
+  "@graphLegendRelationsTitle": {
+    "description": "Encabezado de la sección de tipos de vínculo en las referencias del grafo."
+  },
+  "graphAddRelationTooltip": "Agregar vínculo",
+  "@graphAddRelationTooltip": {
+    "description": "Tooltip del botón flotante que crea un vínculo manualmente desde el grafo."
+  },
+  "graphPickFirstItemTitle": "Elegí el primer elemento",
+  "@graphPickFirstItemTitle": {
+    "description": "Título del primer selector al agregar un vínculo manual desde el grafo."
+  },
+  "graphPickSecondItemTitle": "Elegí con qué vincularlo",
+  "@graphPickSecondItemTitle": {
+    "description": "Título del segundo selector al agregar un vínculo manual desde el grafo."
+  },
+  "graphAiSuggestTooltip": "Sugerir vínculos con IA",
+  "@graphAiSuggestTooltip": {
+    "description": "Tooltip del botón flotante que pide sugerencias de vínculos al modelo de lenguaje."
+  },
+  "graphAiPickSeedTitle": "Elegí un elemento para buscarle relaciones",
+  "@graphAiPickSeedTitle": {
+    "description": "Título implícito del paso de elegir el elemento semilla para las sugerencias con IA."
+  },
+  "graphAiModelRequiredTitle": "Hace falta el modelo de lenguaje",
+  "@graphAiModelRequiredTitle": {
+    "description": "Título del aviso cuando se pide una sugerencia con IA sin el modelo descargado."
+  },
+  "graphAiModelRequiredMessage": "Sugerir vínculos con IA necesita el mismo modelo de lenguaje que el chat, descargado en el dispositivo.",
+  "@graphAiModelRequiredMessage": {
+    "description": "Explicación del aviso cuando se pide una sugerencia con IA sin el modelo descargado."
+  },
+  "graphAiDialogTitle": "Sugerencias con IA",
+  "@graphAiDialogTitle": {
+    "description": "Título del diálogo de sugerencias de vínculos con IA."
+  },
+  "graphAiDialogLoading": "Buscando relaciones posibles…",
+  "@graphAiDialogLoading": {
+    "description": "Mensaje mientras el modelo analiza los candidatos a vincular."
+  },
+  "graphAiDialogEmpty": "El modelo no encontró ninguna relación evidente con este elemento.",
+  "@graphAiDialogEmpty": {
+    "description": "Mensaje cuando el modelo no sugiere ningún vínculo."
+  },
+  "graphAiDialogError": "No se pudo pedir sugerencias. Intentá de nuevo.",
+  "@graphAiDialogError": {
+    "description": "Mensaje cuando falla el pedido de sugerencias al modelo."
+  },
+  "graphAiDialogConfirm": "{count, plural, =1{Agregar 1 vínculo} other{Agregar {count} vínculos}}",
+  "@graphAiDialogConfirm": {
+    "description": "Botón que confirma las sugerencias marcadas, con la cantidad elegida.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "graphRelationsAdded": "{count, plural, =1{Se agregó 1 vínculo.} other{Se agregaron {count} vínculos.}}",
+  "@graphRelationsAdded": {
+    "description": "Confirmación tras crear los vínculos elegidos de las sugerencias con IA.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "libraryChatTooltip": "Preguntarle a la bóveda",
   "@libraryChatTooltip": {
     "description": "Tooltip del ícono que lleva al chat de la bóveda."
   },
-  "chatTitle": "Preguntarle a la bóveda",
+  "chatTitle": "Chat",
   "@chatTitle": {
     "description": "Título de la pantalla de chat."
+  },
+  "chatModeVault": "Con mi bóveda",
+  "@chatModeVault": {
+    "description": "Nombre del modo de chat que busca y cita fuentes guardadas."
+  },
+  "chatModeFree": "Conversación libre",
+  "@chatModeFree": {
+    "description": "Nombre del modo de chat que conversa libremente con el modelo, sin buscar en la bóveda."
+  },
+  "chatNewConversationTooltip": "Nueva conversación",
+  "@chatNewConversationTooltip": {
+    "description": "Tooltip del botón que reinicia el historial de la conversación libre."
+  },
+  "chatFreeModelRequired": "La conversación libre necesita el modelo de lenguaje descargado: acá no hay una búsqueda de respaldo, como en el modo con tu bóveda.",
+  "@chatFreeModelRequired": {
+    "description": "Mensaje cuando se intenta usar el modo de conversación libre sin el modelo descargado."
+  },
+  "chatFreeEmptyExplanation": "Charlá con el modelo de lenguaje como con cualquier asistente: acá no busca en tu bóveda, solo conversa.",
+  "@chatFreeEmptyExplanation": {
+    "description": "Mensaje en el modo de conversación libre antes del primer mensaje."
   },
   "chatModelTooltip": "Modelo de lenguaje",
   "@chatModelTooltip": {

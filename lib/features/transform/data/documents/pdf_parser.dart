@@ -1,8 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image/image.dart' as img;
+import 'package:pdfrx/pdfrx.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 
 /// Saca el texto de un PDF.
 ///
@@ -13,20 +17,57 @@ import 'package:sinapsis/features/transform/domain/documents/document_parser.dar
 /// gratuito por debajo de cierta facturación. Ver la decisión 3 en
 /// `docs/arquitectura.md`.
 ///
-/// **Solo extrae el texto que el PDF ya tiene.** Un PDF escaneado es un
-/// álbum de fotos de páginas: no contiene ni una letra, y de ahí no sale
-/// texto por mucho que se insista. Esos se reconocen porque salen vacíos, y
-/// su contenido va a llegar cuando esté el reconocimiento óptico de la fase
-/// 7. Mientras tanto el archivo queda guardado, que es lo que importa.
+/// **Primero intenta el texto que el PDF ya tiene.** Es instantáneo y exacto,
+/// así que es lo único que se prueba mientras alguna página lo traiga.
+///
+/// **Un PDF escaneado no tiene ni una letra**: es un álbum de fotos de
+/// páginas. Ahí es donde entra `ocrExtractor`, si se lo pasa: cuando
+/// *ninguna* página trajo texto propio, cada página se renderiza como imagen
+/// y se le pide el mismo reconocimiento óptico que ya usa `ImageTransformer`
+/// para una foto suelta —Google ML Kit en Android, Tesseract en la web y en
+/// escritorio—. Sin `ocrExtractor` —o si el reconocimiento tampoco encuentra
+/// nada, un escaneo de verdad en blanco— el documento sale vacío en vez de
+/// fallar: el archivo original queda guardado, que es lo que importa.
 class PdfParser implements DocumentParser {
-  const PdfParser({PdfEngineInitializer? initialize})
-    : _initialize = initialize ?? pdfrxInitialize;
+  const PdfParser({
+    PdfEngineInitializer? initialize,
+    ImageTextExtractor? ocrExtractor,
+    FileStore? ocrFileStore,
+  }) : _initialize = initialize ?? pdfrxFlutterInitialize,
+       _ocrExtractor = ocrExtractor,
+       _ocrFileStore = ocrFileStore;
 
   /// Cómo se prepara el motor nativo.
   ///
   /// Se inyecta para poder apuntar a una copia concreta de PDFium en las
-  /// pruebas. En la app es [pdfrxInitialize], que la resuelve sola.
+  /// pruebas. En la app es [pdfrxFlutterInitialize] y no [pdfrxInitialize]:
+  /// la segunda es la versión pensada para un programa de Dart de escritorio
+  /// sin Flutter, y para encontrar dónde cachear resuelve el directorio con
+  /// `Platform.environment['HOME']` —que en Android y iOS no existe—, así
+  /// que revienta con un null-check antes incluso de abrir el archivo, en
+  /// cualquier PDF, sin que el archivo tenga nada de malo. La versión de
+  /// Flutter resuelve ese directorio con `path_provider`, que sí funciona en
+  /// todas las plataformas que soporta la app.
   final PdfEngineInitializer _initialize;
+
+  /// El reconocimiento óptico para el respaldo de páginas escaneadas. `null`
+  /// en las pruebas que no lo necesitan: un PDF sin texto sale vacío como
+  /// siempre, en vez de reventar por no tener con qué reconocer nada.
+  final ImageTextExtractor? _ocrExtractor;
+
+  /// Dónde escribir, de paso, la imagen renderizada de cada página que se
+  /// manda a reconocer. [ImageTextExtractor.extractText] pide una ruta, no
+  /// bytes —lo mismo que ya resuelve `ImageTransformer` para una foto real—,
+  /// así que hace falta un lugar donde esa imagen exista, aunque sea un
+  /// instante.
+  final FileStore? _ocrFileStore;
+
+  /// A cuánto se renderiza cada página para el OCR, relativo a su tamaño a
+  /// 72 dpi. Los 72 dpi nativos son ilegibles para un motor de
+  /// reconocimiento; 2.5x (180 dpi aprox.) es el punto donde Tesseract y ML
+  /// Kit reconocen bien un documento escaneado típico sin generar una
+  /// imagen tan pesada que la vuelva lenta página por página.
+  static const _ocrRenderScale = 2.5;
 
   @override
   bool canParse(FileFormat format) => format == FileFormat.pdf;
@@ -44,6 +85,15 @@ class PdfParser implements DocumentParser {
         if (cleaned.isNotEmpty) pages.add(cleaned);
       }
 
+      // Ninguna página trajo texto propio: puede ser un escaneo. Antes de
+      // darlo por vacío, se intenta reconocer el texto de cada imagen de
+      // página. Si alguna página sí tenía texto, no se toca nada: mezclar
+      // texto real con lo que reconoce un OCR —que siempre tiene algún
+      // error— degradaría la única parte que ya se sabe exacta.
+      if (pages.isEmpty) {
+        pages.addAll(await _ocrPages(document));
+      }
+
       return ParsedDocument(
         markdown: pages.join('\n\n---\n\n'),
         pageCount: document.pages.length,
@@ -55,9 +105,93 @@ class PdfParser implements DocumentParser {
     }
   }
 
+  Future<List<String>> _ocrPages(PdfDocument document) async {
+    final extractor = _ocrExtractor;
+    final files = _ocrFileStore;
+    if (extractor == null || files == null) return const [];
+
+    final pages = <String>[];
+    for (final page in document.pages) {
+      try {
+        final text = await _ocrPage(page, files, extractor);
+        final cleaned = cleanPdfPageText(text);
+        if (cleaned.isNotEmpty) pages.add(cleaned);
+        // Una página que no se pudo renderizar o reconocer no tira abajo
+        // el resto del documento: se sigue con la próxima, y lo que sí se
+        // reconoció queda igual. Ninguna de las dos fallas tiene un tipo
+        // propio en Dart —vienen de PDFium y de un motor de OCR de
+        // terceros—.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {
+        continue;
+      }
+    }
+    return pages;
+  }
+
+  Future<String> _ocrPage(
+    PdfPage page,
+    FileStore files,
+    ImageTextExtractor extractor,
+  ) async {
+    final rendered = await page.render(
+      fullWidth: page.width * _ocrRenderScale,
+      fullHeight: page.height * _ocrRenderScale,
+    );
+    if (rendered == null) return '';
+
+    final String tempPath;
+    try {
+      final png = img.encodePng(
+        img.Image.fromBytes(
+          width: rendered.width,
+          height: rendered.height,
+          bytes: rendered.pixels.buffer,
+          order: img.ChannelOrder.bgra,
+          numChannels: 4,
+        ),
+      );
+
+      tempPath = await files.save(
+        bytes: Uint8List.fromList(png),
+        suggestedName: 'pagina-${page.pageNumber}.png',
+        id: 'ocr-pdf-${DateTime.now().microsecondsSinceEpoch}',
+      );
+    } finally {
+      rendered.dispose();
+    }
+
+    try {
+      final extractorPath = kIsWeb ? tempPath : await files.resolve(tempPath);
+      return await extractor.extractText(extractorPath);
+    } finally {
+      await files.delete(tempPath);
+    }
+  }
+
   Future<PdfDocument> _open(Uint8List bytes) async {
     try {
-      return await PdfDocument.openData(bytes);
+      return await PdfDocument.openData(
+        bytes,
+        // Por debajo de este tamaño, `pdfrx_engine` copia los bytes a
+        // memoria nativa de una vez (`FPDF_LoadMemDocument`) — el mismo
+        // camino, simple y bien probado, que usa para abrir un archivo del
+        // disco. Por encima, en cambio, pasa a leer por bloques a través de
+        // un callback de Dart hacia el código nativo
+        // (`FPDF_LoadCustomDocument`), un camino mucho más nuevo y más
+        // frágil: ahí es donde fallan PDFs que PDFium abre sin problema por
+        // cualquier otra vía, sin que el archivo tenga nada de malo. Como
+        // los bytes ya están enteros acá
+        // —el llamador ya los leyó del almacén—, no hay ningún ahorro de
+        // memoria real en evitar la copia; subir el umbral bien por encima
+        // de lo que pesa un documento típico es forzar el camino robusto
+        // sin costo. Se deja un techo (64 MB) para no intentarlo con un
+        // archivo verdaderamente enorme, donde sí importa no duplicarlo en
+        // memoria nativa de una sola vez.
+        maxSizeToCacheOnMemory: bytes.length <= _maxDirectLoadBytes
+            ? bytes.length
+            : null,
+      );
       // PDFium informa sus fallos de varias formas —archivo corrupto, cifrado,
       // versión no soportada— y ninguna tiene un tipo propio en Dart.
       // ignore: avoid_catches_without_on_clauses
@@ -66,6 +200,14 @@ class PdfParser implements DocumentParser {
     }
   }
 }
+
+/// Hasta acá, se fuerza la carga directa a memoria nativa en vez del camino
+/// de lectura por bloques (ver [PdfParser._open]). 64 MB cubre con margen
+/// cualquier PDF de texto o escaneado a resolución normal — un libro de
+/// varios cientos de páginas escaneadas ronda las decenas de MB, no el
+/// centenar—, así que el camino frágil queda reservado para el caso
+/// verdaderamente atípico.
+const _maxDirectLoadBytes = 64 * 1024 * 1024;
 
 /// Deja el texto de una página de PDF en algo legible.
 ///

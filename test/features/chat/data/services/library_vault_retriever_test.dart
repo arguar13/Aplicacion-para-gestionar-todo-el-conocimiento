@@ -127,4 +127,43 @@ void main() {
     expect(sources.single.excerpt.length, lessThan(('palabra ' * 200).length));
     expect(sources.single.excerpt, endsWith('…'));
   });
+
+  test(
+    'una pregunta larga en lenguaje natural encuentra igual lo que '
+    'menciona una sola de sus palabras',
+    () async {
+      // Es el caso real que falla si la pregunta se busca como una sola
+      // consulta con AND implícito entre sus palabras (ver `buildSearchQuery`):
+      // ninguna nota real contiene las quince palabras exactas de la
+      // pregunta, pero sí menciona "religión".
+      await seed(
+        'Sobre la fe',
+        content: 'Un texto que habla de religión y de historia.',
+      );
+      await seed('Receta de cocina', content: 'Ingredientes y pasos.');
+
+      final sources = await retriever.retrieve(
+        'Contame qué dice mi bóveda sobre religión, por favor',
+      );
+
+      expect(sources, hasLength(1));
+      expect(sources.single.itemTitle, 'Sobre la fe');
+    },
+  );
+
+  test(
+    'un elemento que menciona varias palabras de la pregunta queda antes '
+    'que uno que solo menciona una',
+    () async {
+      await seed(
+        'Habla de las dos cosas',
+        content: 'Se explican la religión y la filosofía juntas.',
+      );
+      await seed('Solo una de las dos', content: 'Se explica la religión.');
+
+      final sources = await retriever.retrieve('religión filosofía');
+
+      expect(sources.first.itemTitle, 'Habla de las dos cosas');
+    },
+  );
 }

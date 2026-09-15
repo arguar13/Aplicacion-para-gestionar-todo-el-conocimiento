@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,16 +22,89 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+/// De qué se trata lo que se está por guardar, elegido a propósito antes de
+/// mostrar ningún campo.
+///
+/// Es una decisión de la interfaz, no del dominio: por debajo, seguir siendo
+/// [CaptureRequest.text] o [CaptureRequest.file] no cambia, y quién reconoce
+/// de verdad qué se guardó sigue siendo el registro de adaptadores — elegir
+/// "Video" acá no le miente al sistema si lo pegado termina siendo otra cosa,
+/// solo elige qué campo mostrar y con qué texto de ayuda. Ese reparto es lo
+/// que evita el problema que tenía la pantalla anterior: un único formulario
+/// con todo a la vista todo el tiempo, aunque quien guarda un libro no tenga
+/// ningún uso para un cuadro de texto enorme.
+enum _CaptureKind {
+  video,
+  post,
+  webPage,
+  book,
+  image,
+  audio,
+  pasteText;
+
+  IconData get icon => switch (this) {
+    _CaptureKind.video => Icons.smart_display_outlined,
+    _CaptureKind.post => Icons.forum_outlined,
+    _CaptureKind.webPage => Icons.article_outlined,
+    _CaptureKind.book => Icons.menu_book_outlined,
+    _CaptureKind.image => Icons.image_outlined,
+    _CaptureKind.audio => Icons.graphic_eq,
+    _CaptureKind.pasteText => Icons.content_paste,
+  };
+
+  String label(AppLocalizations l10n) => switch (this) {
+    _CaptureKind.video => l10n.captureTypeVideo,
+    _CaptureKind.post => l10n.captureTypePost,
+    _CaptureKind.webPage => l10n.captureTypeWebPage,
+    _CaptureKind.book => l10n.captureTypeBook,
+    _CaptureKind.image => l10n.captureTypeImage,
+    _CaptureKind.audio => l10n.captureTypeAudio,
+    _CaptureKind.pasteText => l10n.captureTypePasteText,
+  };
+
+  /// Si este paso pide un enlace en una sola línea.
+  bool get isLink => switch (this) {
+    _CaptureKind.video || _CaptureKind.post || _CaptureKind.webPage => true,
+    _ => false,
+  };
+
+  /// Si este paso abre el selector de archivos del sistema.
+  bool get isFile => switch (this) {
+    _CaptureKind.book || _CaptureKind.image || _CaptureKind.audio => true,
+    _ => false,
+  };
+}
+
+/// A qué [_CaptureKind] corresponde cada [SourceKind], para preseleccionar
+/// el paso correcto cuando algo llega ya reconocido —compartido desde otra
+/// app, o soltado sobre la pantalla— en vez de obligar a elegir de nuevo
+/// algo que ya se sabe.
+_CaptureKind _kindFor(SourceKind kind) => switch (kind) {
+  SourceKind.youtube || SourceKind.video => _CaptureKind.video,
+  SourceKind.socialPost => _CaptureKind.post,
+  SourceKind.webPage => _CaptureKind.webPage,
+  SourceKind.document => _CaptureKind.book,
+  SourceKind.image => _CaptureKind.image,
+  SourceKind.audio => _CaptureKind.audio,
+  SourceKind.manualNote => _CaptureKind.pasteText,
+};
+
 /// Meter algo en la bóveda.
 ///
-/// Un solo campo grande, sin elegir antes de qué se trata: quien captura pega
-/// lo que tiene y la app reconoce qué es. Obligar a declarar "esto es un
-/// enlace" o "esto es una nota" convertiría un gesto de dos segundos en un
-/// formulario.
+/// El primer paso es elegir de qué se trata, con botones — video,
+/// publicación, página web, libro, imagen, audio, texto para pegar, o una
+/// nota propia. Recién ahí aparece lo que hace falta para guardar *eso*: un
+/// campo de enlace angosto para un video, el selector de archivos para un
+/// libro, el cuadro grande solo para cuando de verdad se va a pegar un
+/// texto largo. Mostrar los ocho caminos a la vez —como hacía el cuadro
+/// único de antes— es ruido para los siete octavos que no se van a usar en
+/// esa captura.
 ///
-/// Lo que sí se muestra es *qué entendió* la app, y en vivo. Ver "se va a
-/// guardar como YouTube" antes de apretar nada evita la sorpresa de
-/// descubrir después que algo quedó clasificado donde no iba.
+/// Lo que sí se conserva del diseño anterior es la honestidad sobre lo que
+/// se entendió: con un enlace pegado, se sigue mostrando en vivo "se va a
+/// guardar como X" antes de guardar nada, porque quien elige "Video" y pega
+/// un enlace que en realidad es de una publicación merece saberlo antes de
+/// apretar el botón, no después.
 class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
@@ -42,11 +117,16 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
 
+  /// `null` mientras se está eligiendo qué tipo de cosa es. Una vez elegido,
+  /// decide qué campo se ve.
+  _CaptureKind? _kind;
+
   /// El archivo elegido, si hay uno.
   ///
-  /// Vive en la pantalla y no en el notifier porque es estado de la pantalla:
-  /// mientras no se apriete guardar, no le incumbe a nadie más. Lo que sí
-  /// sale de acá es que la captura pasa a ser de archivo y no de texto.
+  /// Vive en la pantalla y no en el notifier porque es estado de la
+  /// pantalla: mientras no se apriete guardar, no le incumbe a nadie más. Lo
+  /// que sí sale de acá es que la captura pasa a ser de archivo y no de
+  /// texto.
   CapturedFile? _file;
 
   /// Si hay algo arrastrado encima de la pantalla ahora mismo, para dibujar
@@ -71,7 +151,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   }
 
   /// Si algo llegó compartido desde otra app, lo deja cargado para revisar
-  /// —tal cual si el usuario lo hubiera pegado o elegido a mano.
+  /// —tal cual si el usuario lo hubiera pegado o elegido a mano— y elige
+  /// por su cuenta el paso que corresponde, para que no haga falta
+  /// atravesar el selector de tipo con algo que ya se sabe qué es.
   ///
   /// Se pide una sola vez, acá: [SharedContentController.takeNext] ya lo
   /// saca de la cola al llamarlo, así que no hay riesgo de que una
@@ -87,8 +169,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       switch (request) {
         case TextCapture(:final rawInput):
           _inputController.text = rawInput;
+          final detected = _detectedKind;
+          _kind = detected != null
+              ? _kindFor(detected)
+              : _CaptureKind.pasteText;
         case FileCapture(:final file):
           _file = file;
+          _kind = _kindFor(file.format.sourceKind);
       }
     });
   }
@@ -119,6 +206,19 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         .read(sourceAdapterRegistryProvider)
         .resolve(CaptureRequest.text(rawInput: input))
         .producesKind;
+  }
+
+  void _selectKind(_CaptureKind kind) {
+    setState(() => _kind = kind);
+    if (kind.isFile) unawaited(_chooseFile());
+  }
+
+  void _changeKind() {
+    setState(() {
+      _kind = null;
+      _file = null;
+      _inputController.clear();
+    });
   }
 
   /// Abre el selector del sistema.
@@ -168,7 +268,11 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     final bytes = await item.readAsBytes();
     if (!mounted) return;
 
-    setState(() => _file = CapturedFile(name: item.name, bytes: bytes));
+    final file = CapturedFile(name: item.name, bytes: bytes);
+    setState(() {
+      _file = file;
+      _kind = _kindFor(file.format.sourceKind);
+    });
   }
 
   Future<void> _submit() async {
@@ -216,7 +320,6 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final state = ref.watch(captureNotifierProvider);
 
     ref.listen<CaptureState>(captureNotifierProvider, (previous, next) {
@@ -228,9 +331,6 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
           );
       }
     });
-
-    final detected = _detectedKind;
-    final file = _file;
 
     return DropTarget(
       onDragEntered: (_) => setState(() => _isDraggingFile = true),
@@ -248,106 +348,306 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
               // hasta que alguien lo probara por las dudas.
               decoration: BoxDecoration(
                 border: _isDraggingFile
-                    ? Border.all(color: theme.colorScheme.primary, width: 2)
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      )
                     : Border.all(color: Colors.transparent, width: 2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  TextField(
-                    controller: _inputController,
-                    // El foco automático solo cuando se va a escribir: con un
-                    // archivo ya elegido, abrir el teclado sobre un campo
-                    // desactivado tapa media pantalla para nada.
-                    autofocus: file == null,
-                    enabled: file == null,
-                    minLines: 5,
-                    maxLines: 12,
-                    keyboardType: TextInputType.multiline,
-                    decoration: InputDecoration(
-                      hintText: file == null
-                          ? l10n.captureHint
-                          : l10n.captureFileBlocksText,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Alto reservado aunque no haya nada que decir, para que el
-                  // formulario no salte al empezar a escribir.
-                  SizedBox(
-                    height: 24,
-                    child: detected == null || file != null
-                        ? null
-                        : Row(
-                            children: [
-                              Icon(
-                                detected.icon,
-                                size: 16,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.captureWillSaveAs(detected.label(l10n)),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (file == null)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _chooseFile,
-                          icon: const Icon(Icons.attach_file),
-                          label: Text(l10n.captureChooseFile),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push<void>(
-                            MaterialPageRoute(
-                              builder: (context) => const BlockEditorScreen(),
-                            ),
-                          ),
-                          icon: const Icon(Icons.view_agenda_outlined),
-                          label: Text(l10n.captureBlocksNote),
-                        ),
-                      ],
-                    )
-                  else
-                    _ChosenFileCard(
-                      file: file,
-                      onRemove: () => setState(() => _file = null),
-                    ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: l10n.captureOptionalTitleLabel,
-                    controller: _titleController,
-                    validator: (_) => null,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 16),
-                  CustomTextField(
-                    label: l10n.captureOptionalNoteLabel,
-                    controller: _noteController,
-                    validator: (_) => null,
-                    textInputAction: TextInputAction.done,
-                  ),
-                  const SizedBox(height: 24),
-                  PrimaryButton(
-                    label: l10n.captureAction,
-                    isLoading: state is CaptureSaving,
-                    onPressed: _submit,
-                  ),
-                ],
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _kind == null
+                    ? _TypeSelector(
+                        key: const ValueKey('selector'),
+                        onSelected: _selectKind,
+                      )
+                    : _CaptureForm(
+                        key: ValueKey(_kind),
+                        kind: _kind!,
+                        inputController: _inputController,
+                        titleController: _titleController,
+                        noteController: _noteController,
+                        file: _file,
+                        detectedKind: _detectedKind,
+                        isSaving: state is CaptureSaving,
+                        onChangeKind: _changeKind,
+                        onChooseFile: _chooseFile,
+                        onRemoveFile: () => setState(() => _file = null),
+                        onSubmit: _submit,
+                      ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El primer paso: elegir de qué se trata lo que se va a guardar.
+///
+/// Una grilla de tarjetas y no un menú desplegable: son solo ocho opciones,
+/// todas caben en pantalla a la vez, y tocar directamente la que corresponde
+/// es un gesto más corto que abrir un selector para después elegir adentro.
+class _TypeSelector extends StatelessWidget {
+  const _TypeSelector({required this.onSelected, super.key});
+
+  final ValueChanged<_CaptureKind> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      shrinkWrap: true,
+      children: [
+        Text(l10n.captureTypePrompt, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 16),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.5,
+          children: [
+            for (final kind in _CaptureKind.values)
+              _TypeCard(
+                icon: kind.icon,
+                label: kind.label(l10n),
+                onTap: () => onSelected(kind),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (context) => const BlockEditorScreen()),
+          ),
+          icon: Icon(SourceKind.manualNote.icon),
+          label: Text(l10n.captureTypeNote),
+        ),
+      ],
+    );
+  }
+}
+
+class _TypeCard extends StatelessWidget {
+  const _TypeCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 28, color: theme.colorScheme.primary),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelLarge,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// El segundo paso: lo necesario para guardar justo el tipo elegido, y nada
+/// más que eso.
+class _CaptureForm extends StatelessWidget {
+  const _CaptureForm({
+    required this.kind,
+    required this.inputController,
+    required this.titleController,
+    required this.noteController,
+    required this.file,
+    required this.detectedKind,
+    required this.isSaving,
+    required this.onChangeKind,
+    required this.onChooseFile,
+    required this.onRemoveFile,
+    required this.onSubmit,
+    super.key,
+  });
+
+  final _CaptureKind kind;
+  final TextEditingController inputController;
+  final TextEditingController titleController;
+  final TextEditingController noteController;
+  final CapturedFile? file;
+  final SourceKind? detectedKind;
+  final bool isSaving;
+  final VoidCallback onChangeKind;
+  final Future<void> Function() onChooseFile;
+  final VoidCallback onRemoveFile;
+  final Future<void> Function() onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      shrinkWrap: true,
+      children: [
+        Row(
+          children: [
+            Icon(kind.icon, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(kind.label(l10n), style: theme.textTheme.titleMedium),
+            ),
+            TextButton(
+              onPressed: onChangeKind,
+              child: Text(l10n.captureChangeType),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (kind.isLink) ...[
+          TextField(
+            controller: inputController,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(
+              labelText: l10n.captureLinkLabel,
+              hintText: _hintFor(kind, l10n),
+              prefixIcon: const Icon(Icons.link),
+            ),
+          ),
+          _DetectedKindPreview(
+            detectedKind: detectedKind,
+            theme: theme,
+            l10n: l10n,
+          ),
+        ] else if (kind == _CaptureKind.pasteText) ...[
+          TextField(
+            controller: inputController,
+            autofocus: true,
+            minLines: 5,
+            maxLines: 12,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(
+              hintText: l10n.captureTypePasteTextHint,
+            ),
+          ),
+          _DetectedKindPreview(
+            detectedKind: detectedKind,
+            theme: theme,
+            l10n: l10n,
+          ),
+        ] else if (kind.isFile) ...[
+          if (file == null)
+            OutlinedButton.icon(
+              onPressed: onChooseFile,
+              icon: const Icon(Icons.attach_file),
+              label: Text(l10n.captureChooseFileAction),
+            )
+          else
+            _ChosenFileCard(file: file!, onRemove: onRemoveFile),
+        ],
+        const SizedBox(height: 16),
+        CustomTextField(
+          label: l10n.captureOptionalTitleLabel,
+          controller: titleController,
+          validator: (_) => null,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 16),
+        CustomTextField(
+          label: l10n.captureOptionalNoteLabel,
+          controller: noteController,
+          validator: (_) => null,
+          textInputAction: TextInputAction.done,
+        ),
+        const SizedBox(height: 24),
+        PrimaryButton(
+          label: l10n.captureAction,
+          isLoading: isSaving,
+          onPressed: onSubmit,
+        ),
+      ],
+    );
+  }
+
+  String _hintFor(_CaptureKind kind, AppLocalizations l10n) => switch (kind) {
+    _CaptureKind.video => l10n.captureTypeVideoHint,
+    _CaptureKind.post => l10n.captureTypePostHint,
+    _CaptureKind.webPage => l10n.captureTypeWebPageHint,
+    _ => '',
+  };
+}
+
+/// La línea "se va a guardar como X", común a los pasos que arrancan de
+/// texto —enlace o texto suelto—: los dos alimentan al mismo detector, así
+/// que los dos merecen la misma honestidad sobre qué va a pasar.
+///
+/// Alto reservado aunque no haya nada que decir, para que el formulario no
+/// salte al empezar a escribir.
+class _DetectedKindPreview extends StatelessWidget {
+  const _DetectedKindPreview({
+    required this.detectedKind,
+    required this.theme,
+    required this.l10n,
+  });
+
+  final SourceKind? detectedKind;
+  final ThemeData theme;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final detected = detectedKind;
+
+    return SizedBox(
+      height: 24,
+      child: detected == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    detected.icon,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.captureWillSaveAs(detected.label(l10n)),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

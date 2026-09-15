@@ -8,6 +8,8 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 
+import '../../../../support/fake_image_text_extractor.dart';
+import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/sample_files.dart';
 
 /// Dónde está la librería nativa de PDFium.
@@ -135,6 +137,26 @@ void main() {
       expect(result.pageCount, 2);
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
+    test('un PDF de más de 1 MB también se abre entero', () async {
+      // Por debajo de 1 MB, `pdfrx_engine` copia los bytes a memoria nativa
+      // de una — el camino simple y bien probado. Por encima, pasa a leer
+      // por bloques con un callback de Dart hacia el código nativo, un
+      // camino mucho más nuevo y frágil (ver el comentario en
+      // `PdfParser._open`). Este PDF fuerza ese umbral a propósito, para
+      // comprobar que el techo levantado en `_maxDirectLoadBytes` de verdad
+      // hace que se use el camino robusto también acá.
+      final bulky = buildPdf(
+        pageTexts: List.generate(60, (i) => 'Pagina $i ' * 3000),
+      );
+      expect(bulky.length, greaterThan(1024 * 1024));
+
+      final result = await parser.parse(bulky);
+
+      expect(result.pageCount, 60);
+      expect(result.markdown, contains('Pagina 0'));
+      expect(result.markdown, contains('Pagina 59'));
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
     test('algo que no es un PDF lanza en vez de reventar', () async {
       final basura = Uint8List.fromList(utf8.encode('esto no es un pdf'));
 
@@ -142,6 +164,69 @@ void main() {
         parser.parse(basura),
         throwsA(isA<UnreadableDocumentException>()),
       );
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+  });
+
+  group('respaldo de OCR para paginas escaneadas', () {
+    test(
+      'reconoce el texto de cada pagina con el extractor inyectado',
+      () async {
+        final extractor = FakeImageTextExtractor(text: 'texto reconocido');
+        final files = InMemoryFileStore();
+        final parserConOcr = PdfParser(
+          initialize: () async {
+            Pdfrx.pdfiumModulePath = _pdfiumPath;
+            await pdfrxInitialize();
+          },
+          ocrExtractor: extractor,
+          ocrFileStore: files,
+        );
+
+        final result = await parserConOcr.parse(
+          buildPdf(pageTexts: ['', '']),
+        );
+
+        expect(result.markdown, contains('texto reconocido'));
+        expect(result.pageCount, 2);
+        // Ninguna imagen temporal de la pagina queda en el almacen: se
+        // limpia apenas se termina de reconocer.
+        expect(files.paths, isEmpty);
+      },
+      skip: _pdfiumPath == null ? _missingPdfium : null,
+    );
+
+    test('si el OCR tampoco encuentra nada, sigue vacio', () async {
+      final parserConOcr = PdfParser(
+        initialize: () async {
+          Pdfrx.pdfiumModulePath = _pdfiumPath;
+          await pdfrxInitialize();
+        },
+        ocrExtractor: FakeImageTextExtractor(),
+        ocrFileStore: InMemoryFileStore(),
+      );
+
+      final result = await parserConOcr.parse(buildPdf(pageTexts: ['', '']));
+
+      expect(result.isEmpty, isTrue);
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('una pagina con texto propio no pasa por OCR', () async {
+      final extractor = FakeImageTextExtractor(text: 'no debería aparecer');
+      final parserConOcr = PdfParser(
+        initialize: () async {
+          Pdfrx.pdfiumModulePath = _pdfiumPath;
+          await pdfrxInitialize();
+        },
+        ocrExtractor: extractor,
+        ocrFileStore: InMemoryFileStore(),
+      );
+
+      final result = await parserConOcr.parse(
+        buildPdf(pageTexts: ['Hola mundo']),
+      );
+
+      expect(result.markdown, contains('Hola mundo'));
+      expect(extractor.requested, isEmpty);
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
   });
 }

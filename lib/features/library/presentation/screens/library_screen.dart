@@ -17,6 +17,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -35,6 +37,29 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
+/// En qué forma se ve la biblioteca: la lista de siempre, una tabla al
+/// estilo de una base de datos de Notion, o un tablero que agrupa por
+/// espacio.
+///
+/// Vive fuera de cualquier provider a propósito: es una preferencia de la
+/// sesión, no un dato que otra pantalla necesite conocer, así que no
+/// amerita más que el estado local de este widget.
+enum LibraryViewMode { list, table, kanban }
+
+extension _LibraryViewModePresentation on LibraryViewMode {
+  IconData get icon => switch (this) {
+    LibraryViewMode.list => Icons.view_list_outlined,
+    LibraryViewMode.table => Icons.table_chart_outlined,
+    LibraryViewMode.kanban => Icons.view_kanban_outlined,
+  };
+
+  String label(AppLocalizations l10n) => switch (this) {
+    LibraryViewMode.list => l10n.libraryViewList,
+    LibraryViewMode.table => l10n.libraryViewTable,
+    LibraryViewMode.kanban => l10n.libraryViewKanban,
+  };
+}
+
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// Vacío significa "no está en modo selección", no "seleccionó todo y
   /// después nada". Entrar al modo pasando por acá, y no por un booleano
@@ -42,6 +67,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// qué arrancó".
   final Set<String> _selectedIds = {};
   var _selectionModeActive = false;
+  var _viewMode = LibraryViewMode.list;
+
+  /// La última tanda que sí llegó a buen puerto, y con qué consulta.
+  ///
+  /// `libraryItemsProvider` es `family` por consulta (ver el comentario en
+  /// `library_providers.dart`): pedir "cargar más" cambia el límite, y eso es
+  /// una consulta distinta para Riverpod, así que por un instante no hay
+  /// ningún valor todavía. Sin este resguardo, la lista entera parpadearía a
+  /// un spinner cada vez que se pide la próxima tanda — se guarda lo último
+  /// que sí se vio para seguir mostrándolo mientras se trae lo nuevo, pero
+  /// solo cuando la consulta nueva es la misma de antes con más límite: un
+  /// cambio de filtro de verdad no debe mostrar por un instante la lista del
+  /// filtro anterior.
+  LibraryQuery? _lastLoadedQuery;
+  List<KnowledgeItem> _lastLoadedItems = const [];
+
+  bool _isMorePageOf(LibraryQuery query) {
+    final last = _lastLoadedQuery;
+    return last != null && last.copyWith(limit: query.limit) == query;
+  }
 
   @override
   void initState() {
@@ -94,7 +139,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     // el alto igual, dejando una franja vacía debajo de los filtros de tipo.
     final hasTags =
         (ref.watch(allTagsProvider).valueOrNull ?? const []).isNotEmpty;
-    final loadedItems = items.valueOrNull ?? const <KnowledgeItem>[];
+
+    if (items.hasValue) {
+      _lastLoadedQuery = query;
+      _lastLoadedItems = items.value!;
+    }
+    final isLoadingMore = !items.hasValue && _isMorePageOf(query);
+    final loadedItems = items.valueOrNull ??
+        (isLoadingMore ? _lastLoadedItems : const <KnowledgeItem>[]);
 
     return Scaffold(
       appBar: _selectionModeActive
@@ -106,13 +158,36 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           : AppBar(
               title: Text(l10n.libraryTitle),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.checklist),
-                  tooltip: l10n.librarySelectTooltip,
-                  // Sin nada elegido todavía: entrar al modo alcanza, no
-                  // hace falta que el primer toque también elija algo.
-                  onPressed: () => setState(() => _selectionModeActive = true),
+                PopupMenuButton<LibraryViewMode>(
+                  icon: Icon(_viewMode.icon),
+                  tooltip: l10n.libraryViewList,
+                  initialValue: _viewMode,
+                  onSelected: (mode) => setState(() => _viewMode = mode),
+                  itemBuilder: (context) => [
+                    for (final mode in LibraryViewMode.values)
+                      PopupMenuItem(
+                        value: mode,
+                        child: ListTile(
+                          leading: Icon(mode.icon),
+                          title: Text(mode.label(l10n)),
+                          selected: mode == _viewMode,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                  ],
                 ),
+                // Seleccionar de a varios solo tiene sentido en la lista: en
+                // la tabla no hay casillas que ofrecer, y en el tablero
+                // arrastrar una tarjeta ya es la forma de actuar sobre ella.
+                if (_viewMode == LibraryViewMode.list)
+                  IconButton(
+                    icon: const Icon(Icons.checklist),
+                    tooltip: l10n.librarySelectTooltip,
+                    // Sin nada elegido todavía: entrar al modo alcanza, no
+                    // hace falta que el primer toque también elija algo.
+                    onPressed: () =>
+                        setState(() => _selectionModeActive = true),
+                  ),
               ],
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(hasTags ? 216 : 168),
@@ -126,22 +201,60 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               icon: const Icon(Icons.add),
               label: Text(l10n.captureAction),
             ),
-      body: items.when(
-        // Solo se ve en el primer instante: después, el stream re-emite sin
-        // volver a pasar por "cargando", así que la lista no parpadea cada
-        // vez que se guarda algo.
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => _LibraryError(error: error),
-        data: (list) => list.isEmpty
-            ? _EmptyState(query: query)
-            : _ItemList(
-                items: list,
-                selectionMode: _selectionModeActive,
-                selectedIds: _selectedIds,
-                onLongPressItem: _enterSelectionMode,
-                onSelectedChanged: _setSelected,
-              ),
-      ),
+      // Mientras se trae la próxima tanda de "cargar más" se sigue mostrando
+      // lo que ya había —ver `_lastLoadedItems`— en vez de reemplazarlo por
+      // el spinner de carga inicial: no hay nada "cargando" desde el punto
+      // de vista de quien mira, solo se está por sumar un poco más.
+      body: isLoadingMore
+          ? _buildLoadedBody(query, loadedItems, isLoadingMore: true)
+          : items.when(
+              // Solo se ve en el primer instante: después, el stream
+              // re-emite sin volver a pasar por "cargando", así que la
+              // lista no parpadea cada vez que se guarda algo.
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => _LibraryError(error: error),
+              data: (list) =>
+                  _buildLoadedBody(query, list, isLoadingMore: false),
+            ),
+    );
+  }
+
+  Widget _buildLoadedBody(
+    LibraryQuery query,
+    List<KnowledgeItem> list, {
+    required bool isLoadingMore,
+  }) {
+    if (list.isEmpty) return _EmptyState(query: query);
+
+    // Con `limit`, "vinieron tantas como se pidieron" es la única pista
+    // disponible sin una consulta de conteo aparte: si vinieron menos, no
+    // hay más que traer. Si vinieron justo las pedidas puede que sí haya
+    // más — y si no las hay, el próximo toque de "cargar más" lo aclara
+    // solo, sin costarle al usuario nada peor que un toque de más.
+    final canLoadMore = query.limit != null && list.length >= query.limit!;
+
+    return Column(
+      children: [
+        Expanded(
+          child: switch (_viewMode) {
+            LibraryViewMode.list => _ItemList(
+              items: list,
+              selectionMode: _selectionModeActive,
+              selectedIds: _selectedIds,
+              onLongPressItem: _enterSelectionMode,
+              onSelectedChanged: _setSelected,
+            ),
+            LibraryViewMode.table => LibraryTableView(items: list),
+            LibraryViewMode.kanban => LibraryKanbanView(items: list),
+          },
+        ),
+        if (canLoadMore)
+          _LoadMoreBar(
+            isLoading: isLoadingMore,
+            onPressed: () =>
+                ref.read(libraryQueryNotifierProvider.notifier).loadMore(),
+          ),
+      ],
     );
   }
 
@@ -338,31 +451,15 @@ class _SearchAndFilters extends ConsumerWidget {
 
   Future<void> _createSpace(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
-    final controller = TextEditingController();
 
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.spacesNewTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.spacesNameHint),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: Text(l10n.spacesNewAction),
-          ),
-        ],
+      builder: (context) => _TextPromptDialog(
+        title: l10n.spacesNewTitle,
+        hint: l10n.spacesNameHint,
+        confirmLabel: l10n.spacesNewAction,
       ),
     );
-    controller.dispose();
     if (name == null || name.trim().isEmpty || !context.mounted) return;
 
     final result = await ref.read(organizeRepositoryProvider).createSpace(name);
@@ -374,8 +471,23 @@ class _SearchAndFilters extends ConsumerWidget {
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
       // El espacio recién creado queda elegido: quien lo crea casi siempre
       // lo hace para empezar a usarlo enseguida, no solo para que exista.
-      (space) =>
-          ref.read(libraryQueryNotifierProvider.notifier).selectSpace(space.id),
+      //
+      // El cambio de filtro se posterga al próximo frame a propósito: acá
+      // todavía puede seguir en curso la animación de salida de la ruta del
+      // diálogo que se acaba de cerrar, y elegir el espacio nuevo cambia de
+      // golpe la lista de resultados (de la biblioteca entera a "vacío,
+      // todavía no hay nada en este espacio"). Mutar el árbol con esa forma
+      // distinta en el mismo cuadro en que `Navigator` está desmontando el
+      // diálogo hace que un `InheritedElement` quede con dependientes que
+      // nunca llegan a soltarlo —el error de Flutter
+      // `'_dependents.isEmpty': is not true`—, porque la reconstrucción
+      // "adelanta" a la desactivación de la ruta saliente. Esperar al
+      // siguiente frame dilata la selección lo justo para que la transición
+      // de salida ya haya terminado de verdad.
+      (space) => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ref.read(libraryQueryNotifierProvider.notifier).selectSpace(space.id);
+      }),
     );
   }
 
@@ -418,31 +530,16 @@ class _SearchAndFilters extends ConsumerWidget {
     Space space,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final controller = TextEditingController(text: space.name);
 
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.spacesRenameAction),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: l10n.spacesNameHint),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: Text(l10n.detailSave),
-          ),
-        ],
+      builder: (context) => _TextPromptDialog(
+        title: l10n.spacesRenameAction,
+        hint: l10n.spacesNameHint,
+        confirmLabel: l10n.detailSave,
+        initialValue: space.name,
       ),
     );
-    controller.dispose();
     if (name == null || name.trim().isEmpty || !context.mounted) return;
 
     final result = await ref
@@ -497,6 +594,73 @@ class _SearchAndFilters extends ConsumerWidget {
 
 enum _SpaceAction { rename, delete }
 
+/// Un diálogo con un solo campo de texto, para crear o renombrar un espacio.
+///
+/// El `TextEditingController` se crea y se destruye acá adentro, atado al
+/// ciclo de vida real de este `State` — y no afuera, en la función que abre
+/// el diálogo con `showDialog` y lo destruye a mano apenas el `Future`
+/// vuelve. Esa segunda forma parece inofensiva pero no lo es: `pop()`
+/// resuelve el `Future` antes de que termine la animación de salida de la
+/// ruta, así que el `TextField` todavía sigue montado un instante más
+/// mientras se desvanece — y si el controller ya se destruyó para
+/// entonces, ese `TextField` sigue vivo intenta usar un
+/// `TextEditingController` ya destruido, lo que a su vez deja el árbol de
+/// widgets en un estado inconsistente ("`_dependents.isEmpty`: is not
+/// true"). Atar el controller al propio `State` de este widget hace que
+/// Flutter lo destruya en el momento que le corresponde: cuando termina de
+/// desmontar la ruta de verdad, no antes.
+class _TextPromptDialog extends StatefulWidget {
+  const _TextPromptDialog({
+    required this.title,
+    required this.hint,
+    required this.confirmLabel,
+    this.initialValue,
+  });
+
+  final String title;
+  final String hint;
+  final String confirmLabel;
+  final String? initialValue;
+
+  @override
+  State<_TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends State<_TextPromptDialog> {
+  late final _controller = TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(hintText: widget.hint),
+        onSubmitted: (value) => Navigator.of(context).pop(value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
+  }
+}
+
 class _ItemList extends StatelessWidget {
   const _ItemList({
     required this.items,
@@ -534,6 +698,43 @@ class _ItemList extends StatelessWidget {
               onSelectedChanged(item.id, selected: value),
         );
       },
+    );
+  }
+}
+
+/// El pie de "cargar más": trae la próxima tanda sin tener que desplazarse
+/// para descubrir que hay una.
+///
+/// Un botón explícito y no una carga automática al llegar al final del
+/// scroll a propósito: las tres vistas —lista, tabla, tablero— comparten
+/// este mismo pie, y solo una de ellas tiene un único scroll vertical del
+/// que "llegar al final" tendría un sentido obvio.
+class _LoadMoreBar extends StatelessWidget {
+  const _LoadMoreBar({required this.isLoading, required this.onPressed});
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : OutlinedButton(
+                  onPressed: onPressed,
+                  child: Text(l10n.libraryLoadMore),
+                ),
+        ),
+      ),
     );
   }
 }

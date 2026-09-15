@@ -842,14 +842,44 @@ sigue con
 [`directory_services_web.dart`](../lib/features/export/data/services/directory_services_web.dart)
 sin tocarse.
 
-**Lo que tienen en común los cinco.** Ninguno lo iba a encontrar
+**Ningún PDF ni documento se podía extraer en Android, de ningún tamaño.**
+Guardar cualquier PDF —chico o grande, de texto o escaneado— terminaba en
+"No se pudo extraer" en el teléfono, mientras `flutter test` pasaba en
+verde. El logcat real mostró la causa: `PdfParser.parse` llamaba a
+`pdfrxInitialize()`, la versión de `pdfrx_engine` pensada para un programa
+de Dart de escritorio sin Flutter. Para decidir dónde cachear, esa función
+resuelve el directorio con `Platform.environment['HOME']!` —con un
+null-check forzado—, y Android (a diferencia de Windows, con
+`LOCALAPPDATA`, o Linux/macOS de escritorio, con `HOME`) no define esa
+variable de entorno: revienta con "Null check operator used on a null
+value" antes de llegar siquiera a abrir el archivo, para cualquier PDF,
+sin que el archivo tenga nada de malo. Nunca se vio en las pruebas
+automáticas porque estas inyectan explícitamente `pdfrxInitialize` desde
+`pdf_parser_test.dart`, corriendo en la máquina de escritorio donde esa
+variable sí existe — exactamente lo que hacía falta para las pruebas, pero
+también lo que escondía el problema real de la app. `pdfrx` (el paquete
+Flutter, ya una dependencia del visor) expone `pdfrxFlutterInitialize`,
+que resuelve ese directorio con `path_provider` en vez de una variable de
+entorno, y es lo que la propia documentación del paquete indica usar
+"para Flutter" en vez de la versión de Dart puro. Cambiar el inicializador
+que usa [`PdfParser`](../lib/features/transform/data/documents/pdf_parser.dart)
+por defecto resolvió el problema de punta a punta, verificado con un PDF
+chico, un PDF de más de 1 MB y un `.docx` reales guardados desde el
+selector de archivos del emulador. El umbral de 64 MB de la decisión
+anterior en este mismo archivo seguía siendo necesario —cubre un defecto
+distinto, en el camino de lectura por bloques de PDFium— pero por sí solo
+nunca iba a arreglar esto: el `null` reventaba antes de que ese código
+llegara a ejecutarse.
+
+**Lo que tienen en común los seis.** Ninguno lo iba a encontrar
 `flutter analyze` ni una prueba con un doble: el primero necesitaba HTML
 de una página real con años de historia; el segundo, un permiso de
 Android real, mal otorgado; el tercero, una transcripción más larga que
 una pantalla; el cuarto, leer el mismo botón en dos contextos distintos
 de la misma pantalla; el quinto, una carpeta real de Android con reglas
-de almacenamiento propias. Es la razón concreta detrás de "nunca des algo
-por probado si se puede probar de verdad": los cinco pasaron
+de almacenamiento propias; el sexto, una variable de entorno que
+Android simplemente no tiene. Es la razón concreta detrás de "nunca des
+algo por probado si se puede probar de verdad": los seis pasaron
 `flutter test` en verde antes de esta validación.
 
 ### 15. Windows como tercera plataforma real, y OCR de escritorio sobre el Tesseract del sistema
@@ -1237,6 +1267,27 @@ tu conexión" que escondía la verdadera causa. Sigue siendo gratis —el
 token es de una cuenta sin costo, nunca una clave paga—, pero deja de ser
 "un botón y listo": hace falta un paso de cuenta la primera vez, con
 instrucciones en la propia pantalla.
+
+**Segunda corrección posterior: Gemma 4 E4B en vez de Gemma 3 1B.** En uso
+real, la 1B contestaba con una redacción pobre y vaga —resúmenes genéricos
+que no llegaban a nombrar los documentos citados, aun con el prompt
+insistiendo en citar por número entre corchetes—, un límite conocido de los
+modelos por debajo de los mil millones de parámetros que esta misma
+decisión ya anticipaba ("por debajo de mil millones de parámetros la
+redacción en español se degrada notoriamente"). Se cambió a **Gemma 4 E4B**
+—la variante "elástica" de 4B efectivos de la familia siguiente, también en
+formato LiteRT-LM— siguiendo la salida que esta decisión ya dejaba abierta:
+"nada impide que una variante de escritorio más grande se sume después
+como una opción". En los hechos se hizo **reemplazo, no opción**: pesa
+unos 4 GB contra los cientos de MB de la 1B, y un teléfono de gama baja
+puede no tener memoria para correrla — una prioridad consciente hacia la
+calidad de la respuesta, sabiendo el costo. `GemmaChatModelManager` pasó
+de instalar un único archivo (`fromNetwork` a una URL fija) a resolver el
+**manifiesto de despliegue** del repositorio (`fromHuggingFace(repo)` sin
+`file`): Gemma 4 publica ese manifiesto porque una misma variante "elástica"
+puede resolver a artefactos distintos según la plataforma, así que
+hardcodear un nombre de archivo —como sí tenía sentido para el único
+`.litertlm` de la 1B— se volvió tanto innecesario como frágil.
 
 ---
 

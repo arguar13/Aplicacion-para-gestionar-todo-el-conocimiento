@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/export/data/exporters/bibtex_exporter.dart';
+import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/plain_text_exporter.dart';
@@ -22,6 +24,8 @@ final exporterRegistryProvider = Provider<ExporterRegistry>((ref) {
     _markdownExporter,
     PlainTextExporter(),
     PdfExporter(),
+    BibtexExporter(),
+    DocxExporter(),
   ]);
 });
 

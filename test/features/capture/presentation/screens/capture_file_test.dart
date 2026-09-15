@@ -33,8 +33,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> chooseFile(WidgetTester tester) async {
-    await tester.tap(find.text(es.captureChooseFile));
+  /// Elige el tipo "Libro o documento". Eso ya dispara el selector de
+  /// archivos por su cuenta —ver `_selectKind` en `capture_screen.dart`—, así
+  /// que no hace falta tocar ningún botón aparte para el primer intento.
+  Future<void> chooseBookType(WidgetTester tester) async {
+    final finder = find.text(es.captureTypeBook);
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
     await tester.pumpAndSettle();
   }
 
@@ -48,7 +54,7 @@ void main() {
       final harness = await LibraryHarness.create(chosenFile: pdf());
       await pumpCapture(tester, harness);
 
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       expect(find.text('La tesis de Ana.pdf'), findsOneWidget);
       expect(find.textContaining('PDF'), findsWidgets);
@@ -63,10 +69,10 @@ void main() {
       final harness = await LibraryHarness.create();
       await pumpCapture(tester, harness);
 
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       expect(harness.fileChooser.timesOpened, 1);
-      expect(find.text(es.captureChooseFile), findsOneWidget);
+      expect(find.text(es.captureChooseFileAction), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
     });
 
@@ -78,37 +84,21 @@ void main() {
       );
       await pumpCapture(tester, harness);
 
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       expect(find.text(es.captureFileAccessDenied), findsOneWidget);
     });
 
-    testWidgets('se puede quitar y volver a escribir texto', (tester) async {
+    testWidgets('se puede quitar y volver a elegir otro', (tester) async {
       final harness = await LibraryHarness.create(chosenFile: pdf());
       await pumpCapture(tester, harness);
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       await tester.tap(find.byTooltip(es.captureFileRemove));
       await tester.pumpAndSettle();
 
       expect(find.text('La tesis de Ana.pdf'), findsNothing);
-      expect(find.text(es.captureChooseFile), findsOneWidget);
-    });
-
-    testWidgets('con un archivo elegido, el campo de texto se desactiva', (
-      tester,
-    ) async {
-      // Guardar las dos cosas a la vez no significa nada: o se guarda el
-      // archivo o se guarda el texto. Desactivarlo lo dice sin un mensaje de
-      // error despues de haber escrito.
-      final harness = await LibraryHarness.create(chosenFile: pdf());
-      await pumpCapture(tester, harness);
-
-      await chooseFile(tester);
-
-      final field = tester.widget<TextField>(find.byType(TextField).first);
-      expect(field.enabled, isFalse);
-      expect(find.text(es.captureFileBlocksText), findsOneWidget);
+      expect(find.text(es.captureChooseFileAction), findsOneWidget);
     });
   });
 
@@ -116,7 +106,7 @@ void main() {
     testWidgets('queda en la biblioteca con su procedencia', (tester) async {
       final harness = await LibraryHarness.create(chosenFile: pdf());
       await pumpCapture(tester, harness);
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       await tester.tap(find.text(es.captureAction));
       await tester.pumpAndSettle();
@@ -141,7 +131,7 @@ void main() {
     testWidgets('entra en la cola para que le saquen el texto', (tester) async {
       final harness = await LibraryHarness.create(chosenFile: pdf());
       await pumpCapture(tester, harness);
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       await tester.tap(find.text(es.captureAction));
       await tester.pumpAndSettle();
@@ -156,10 +146,10 @@ void main() {
         chosenFile: pdf(name: 'descarga (3).pdf'),
       );
       await pumpCapture(tester, harness);
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       await tester.enterText(
-        find.byType(TextField).at(1),
+        find.widgetWithText(TextField, es.captureOptionalTitleLabel),
         'La tesis que me paso Ana',
       );
       await tester.tap(find.text(es.captureAction));
@@ -181,7 +171,7 @@ void main() {
         chosenFile: CapturedFile(name: 'vacio.pdf', bytes: Uint8List(0)),
       );
       await pumpCapture(tester, harness);
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       await tester.tap(find.text(es.captureAction));
       await tester.pumpAndSettle();
@@ -196,7 +186,7 @@ void main() {
       );
       await pumpCapture(tester, harness);
 
-      await chooseFile(tester);
+      await chooseBookType(tester);
 
       expect(find.textContaining('EPUB'), findsWidgets);
     });

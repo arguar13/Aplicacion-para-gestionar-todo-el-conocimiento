@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 // Con prefijo: el paquete trae su propia `VideoUnavailableException`, que
 // colisiona con la del dominio. El prefijo desambigua y, de paso, deja a la
@@ -52,6 +54,29 @@ class YoutubeExplodeClient implements YouTubeClient {
     } finally {
       // Cierra el cliente HTTP interno. Sin esto, cada video procesado deja
       // una conexión abierta y una cola larga las acumula todas.
+      yt.close();
+    }
+  }
+
+  @override
+  Future<Uint8List> fetchAudio(String videoId) async {
+    final yt = yt_api.YoutubeExplode();
+
+    try {
+      final manifest = await yt.videos.streams.getManifest(videoId);
+      // La de mayor bitrate entre las que traen solo audio: no hace falta
+      // el video para escuchar ni para transcribir, y bajar el archivo
+      // completo pesaría muchas veces más para nada que se vaya a usar.
+      final audioStream = manifest.audioOnly.withHighestBitrate();
+
+      final chunks = <int>[];
+      await for (final chunk in yt.videos.streams.get(audioStream)) {
+        chunks.addAll(chunk);
+      }
+      return Uint8List.fromList(chunks);
+    } on yt_api.VideoUnplayableException {
+      throw VideoUnavailableException(videoId);
+    } finally {
       yt.close();
     }
   }

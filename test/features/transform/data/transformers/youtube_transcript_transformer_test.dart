@@ -9,14 +9,18 @@ import 'package:sinapsis/features/transform/data/transformers/youtube_transcript
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
 
 void main() {
   final now = DateTime(2026, 9, 11, 10);
   late FakeIdGenerator ids;
+  late InMemoryFileStore files;
 
   setUp(() {
     ids = FakeIdGenerator();
+    files = InMemoryFileStore();
   });
 
   KnowledgeItem videoItem({
@@ -36,7 +40,13 @@ void main() {
   );
 
   YouTubeTranscriptTransformer build(FakeYouTubeClient client) =>
-      YouTubeTranscriptTransformer(client: client, ids: ids, clock: () => now);
+      YouTubeTranscriptTransformer(
+        client: client,
+        files: files,
+        ids: ids,
+        clock: () => now,
+        logger: const SilentLogger(),
+      );
 
   group('a qué se aplica', () {
     test('a un video de YouTube sin contenido todavía', () {
@@ -184,6 +194,46 @@ void main() {
       expect(result.title, 'Un video mudo');
       expect(result.source.authorName, 'Alguien');
     });
+  });
+
+  group('el audio', () {
+    test('se baja y se guarda junto con la transcripción', () async {
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(title: 'Un video'),
+      );
+
+      final result = await build(client).transform(videoItem());
+
+      expect(client.audioRequested, ['dQw4w9WgXcQ']);
+      expect(result.source.originalFilePath, isNotNull);
+      expect(
+        await files.exists(result.source.originalFilePath!),
+        isTrue,
+      );
+    });
+
+    test(
+      'si falla, no le cuesta la transcripción al usuario',
+      () async {
+        // Un video protegido o restringido en su región no puede bajar el
+        // audio, pero eso no tiene por qué tirar abajo lo que sí se
+        // consiguió: la transcripción.
+        final client = FakeYouTubeClient(
+          data: const YouTubeVideoData(
+            title: 'Un video',
+            transcript: [
+              TranscriptLine(offset: Duration.zero, text: 'Primera frase'),
+            ],
+          ),
+          audioError: Exception('no se pudo'),
+        );
+
+        final result = await build(client).transform(videoItem());
+
+        expect(result.source.originalFilePath, isNull);
+        expect(result.renditions, isNotEmpty);
+      },
+    );
   });
 
   group('formato de la transcripción', () {

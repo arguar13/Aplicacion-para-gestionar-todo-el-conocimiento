@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/app.dart';
@@ -67,6 +69,19 @@ Future<void> bootstrap() async {
       // sola vez, para que `ThemeModeNotifier` pueda leer/guardar la
       // preferencia de tema de forma síncrona el resto del tiempo.
       final prefs = await SharedPreferences.getInstance();
+
+      // Requisito del propio paquete: ninguna otra API de `flutter_gemma`
+      // —`installModel`, `hasActiveModel`, `getActiveModel`— funciona sin
+      // esto. Sin inicializar, cualquier llamada revienta con un
+      // `StateError` interno del paquete que no tiene nada que ver con la
+      // red ni con el token, y termina mostrándose como el mismo error
+      // genérico de "no se pudo descargar" sin importar la causa real —el
+      // bug real detrás de una falla que se probó en un dispositivo real y
+      // persistía con cualquier token. `LiteRtLmEngine` es el motor que
+      // entiende el formato `.litertlm` que usa Gemma acá (ver la decisión
+      // 20 en docs/arquitectura.md); sin registrarlo, `installModel`
+      // tampoco sabría qué hacer con la descarga.
+      await FlutterGemma.initialize(inferenceEngines: [const LiteRtLmEngine()]);
 
       runApp(
         ProviderScope(

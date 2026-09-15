@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El texto de una forma de contenido, subrayable.
@@ -39,8 +40,31 @@ class HighlightableText extends ConsumerStatefulWidget {
 }
 
 class _HighlightableTextState extends ConsumerState<HighlightableText> {
+  /// El contenido crudo, renderizado con formato —títulos, negrita,
+  /// cursiva, viñetas— sin perder la correspondencia con las posiciones
+  /// del texto original: es lo que hace posible mostrar formato de verdad
+  /// sin romper los resaltados existentes, que guardan sus rangos contra
+  /// [HighlightableText.content] tal cual llega, no contra lo que se ve.
+  late var _rendered = RenderedMarkdown.parse(widget.content);
+
+  @override
+  void didUpdateWidget(HighlightableText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content) {
+      _rendered = RenderedMarkdown.parse(widget.content);
+    }
+  }
+
   Future<void> _highlightSelection(TextSelection selection) async {
-    final excerpt = selection.textInside(widget.content);
+    // La selección llega en posiciones del texto **renderizado** —lo que
+    // el usuario ve y tocó—, así que hay que traducirla al contenido crudo
+    // antes de guardar: es ahí donde vive el resto del sistema de
+    // resaltados, y donde tiene que seguir viviendo para que exportar,
+    // buscar o abrir el mismo elemento en otra pantalla encuentre el mismo
+    // fragmento.
+    final startOffset = _rendered.renderToRaw(selection.start);
+    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
+    final excerpt = widget.content.substring(startOffset, endOffset);
 
     // `null` es "se canceló". Una nota vacía sigue siendo una confirmación
     // válida —resaltar sin explicar por qué es perfectamente legítimo— y se
@@ -56,8 +80,8 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
         .read(organizeRepositoryProvider)
         .createHighlight(
           renditionId: widget.renditionId,
-          startOffset: selection.start,
-          endOffset: selection.end,
+          startOffset: startOffset,
+          endOffset: endOffset,
           excerpt: excerpt,
           note: note.isEmpty ? null : note,
         );
@@ -102,12 +126,22 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
             .watch(renditionHighlightsProvider(widget.renditionId))
             .valueOrNull ??
         const <Highlight>[];
+    // Se ignoran los resaltados cuyo rango ya no entra en el texto actual:
+    // si la rendition se regeneró —una transcripción rehecha con un modelo
+    // mejor— sus índices pueden apuntar más allá de donde ahora termina el
+    // texto, y usarlos tal cual pintaría un resaltado corrido hasta el
+    // final en vez de mostrar el texto igual, sin ese resaltado.
+    final validHighlights = highlights.where(
+      (h) => h.endOffset <= widget.content.length,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SelectableText.rich(
-          _buildSpans(theme, highlights),
+          _rendered.buildSpans(theme, [
+            for (final h in validHighlights) (h.startOffset, h.endOffset),
+          ]),
           contextMenuBuilder: _buildContextMenu,
         ),
         if (highlights.isNotEmpty) ...[
@@ -153,53 +187,6 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     await ref
         .read(organizeRepositoryProvider)
         .updateHighlightNote(id: highlight.id, note: result);
-  }
-
-  /// Corta el contenido en tramos planos y resaltados, alternados.
-  ///
-  /// Se ignoran los resaltados cuyo rango ya no entra en el texto actual: si
-  /// la rendition se regeneró —una transcripción rehecha con un modelo
-  /// mejor— sus índices pueden apuntar más allá de donde ahora termina el
-  /// texto, y usarlos tal cual rompería con un error de rango en vez de
-  /// mostrar el texto igual, sin ese resaltado.
-  TextSpan _buildSpans(ThemeData theme, List<Highlight> highlights) {
-    final content = widget.content;
-    final valid = highlights.where((h) => h.endOffset <= content.length);
-
-    final spans = <TextSpan>[];
-    var cursor = 0;
-
-    for (final highlight in valid) {
-      if (highlight.startOffset < cursor) continue; // se solapa con el anterior
-
-      if (highlight.startOffset > cursor) {
-        spans.add(
-          TextSpan(text: content.substring(cursor, highlight.startOffset)),
-        );
-      }
-
-      spans.add(
-        TextSpan(
-          text: content.substring(highlight.startOffset, highlight.endOffset),
-          style: TextStyle(
-            backgroundColor: theme.colorScheme.tertiaryContainer,
-          ),
-        ),
-      );
-
-      cursor = highlight.endOffset;
-    }
-
-    if (cursor < content.length) {
-      spans.add(TextSpan(text: content.substring(cursor)));
-    }
-
-    return TextSpan(
-      style: theme.textTheme.bodyLarge?.copyWith(
-        color: theme.colorScheme.onSurface,
-      ),
-      children: spans,
-    );
   }
 }
 

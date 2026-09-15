@@ -9,6 +9,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/transform/data/archive/html_page_archiver.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_resource_fetcher.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
+import 'package:sinapsis/features/transform/data/clients/html_social_post_client.dart';
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/clients/youtube_explode_client.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
@@ -18,10 +19,12 @@ import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dar
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
+import 'package:sinapsis/features/transform/data/transformers/social_post_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/youtube_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
 import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
+import 'package:sinapsis/features/transform/domain/clients/social_post_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -48,6 +51,10 @@ final articleExtractorProvider = Provider<ArticleExtractor>((ref) {
 
 final resourceFetcherProvider = Provider<ResourceFetcher>((ref) {
   return DioResourceFetcher(ref.watch(resourceFetchDioProvider));
+});
+
+final socialPostClientProvider = Provider<SocialPostClient>((ref) {
+  return HtmlSocialPostClient(ref.watch(webPageClientProvider));
 });
 
 final pageArchiverProvider = Provider<PageArchiver>((ref) {
@@ -86,8 +93,18 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
   return TransformerRegistry([
     YouTubeTranscriptTransformer(
       client: ref.watch(youTubeClientProvider),
+      files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
+      logger: ref.watch(appLoggerProvider),
+    ),
+    SocialPostTransformer(
+      client: ref.watch(socialPostClientProvider),
+      fetcher: ref.watch(resourceFetcherProvider),
+      files: ref.watch(fileStoreProvider),
+      ids: ids,
+      clock: clock,
+      logger: ref.watch(appLoggerProvider),
     ),
     WebArticleTransformer(
       client: ref.watch(webPageClientProvider),
@@ -125,7 +142,15 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
 /// pisa con otro. Se mantiene la lista igual para que agregar uno nuevo sea
 /// una línea.
 final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
-  return const [PdfParser(), DocxParser(), EpubParser(), PlainTextParser()];
+  return [
+    PdfParser(
+      ocrExtractor: ref.watch(imageTextExtractorProvider),
+      ocrFileStore: ref.watch(fileStoreProvider),
+    ),
+    const DocxParser(),
+    const EpubParser(),
+    const PlainTextParser(),
+  ];
 });
 
 final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {

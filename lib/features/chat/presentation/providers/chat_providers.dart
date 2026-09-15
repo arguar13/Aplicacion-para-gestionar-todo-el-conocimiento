@@ -7,6 +7,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
@@ -28,6 +29,12 @@ final chatModelProvider = Provider<ChatModel>((ref) {
 });
 
 final flashcardGeneratorProvider = Provider<FlashcardGenerator>((ref) {
+  return ref.watch(_gemmaModelProvider);
+});
+
+final relationSuggestionServiceProvider = Provider<RelationSuggestionService>((
+  ref,
+) {
   return ref.watch(_gemmaModelProvider);
 });
 

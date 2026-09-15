@@ -38,6 +38,21 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Elige un tipo en el primer paso, tocando su tarjeta.
+  ///
+  /// El selector es una grilla desplazable —hacen falta ocho tarjetas y un
+  /// botón más en una pantalla que no siempre entra todo—, así que hace
+  /// falta desplazarla a la vista antes de tocarla: una tarjeta más abajo
+  /// en la grilla puede quedar fuera del viewport en una pantalla chica,
+  /// igual que le pasaría a quien usa la app de verdad.
+  Future<void> selectType(WidgetTester tester, String label) async {
+    final finder = find.text(label);
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
+
   Finder mainField() => find.byType(TextField).first;
 
   /// Simula soltar [files] sobre la pantalla, llamando directo al callback
@@ -69,15 +84,105 @@ void main() {
   Future<List<String>> savedTitles() async =>
       (await savedItems()).map((i) => i.title).toList();
 
+  group('selector de tipo', () {
+    testWidgets('arranca mostrando los botones, sin ningún campo todavía', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      expect(find.text(es.captureTypePrompt), findsOneWidget);
+      expect(find.text(es.captureTypeVideo), findsOneWidget);
+      expect(find.text(es.captureTypePost), findsOneWidget);
+      expect(find.text(es.captureTypeWebPage), findsOneWidget);
+      expect(find.text(es.captureTypeBook), findsOneWidget);
+      expect(find.text(es.captureTypeImage), findsOneWidget);
+      expect(find.text(es.captureTypeAudio), findsOneWidget);
+      expect(find.text(es.captureTypePasteText), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('elegir "Video" muestra un campo de enlace con su propia '
+        'ayuda', (tester) async {
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeVideo);
+
+      expect(mainField(), findsOneWidget);
+      expect(find.text(es.captureTypeVideoHint), findsOneWidget);
+    });
+
+    testWidgets('elegir "Página web" muestra el mismo tipo de campo, con su '
+        'propia ayuda', (tester) async {
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeWebPage);
+
+      expect(mainField(), findsOneWidget);
+      expect(find.text(es.captureTypeWebPageHint), findsOneWidget);
+    });
+
+    testWidgets('"Cambiar tipo" vuelve al selector y limpia lo escrito', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeVideo);
+      await tester.enterText(mainField(), 'https://youtu.be/dQw4w9WgXcQ');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.captureChangeType));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.captureTypePrompt), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+
+      // Y si se vuelve a elegir el mismo tipo, no quedó nada de antes.
+      await selectType(tester, es.captureTypeVideo);
+      expect(tester.widget<TextField>(mainField()).controller?.text, '');
+    });
+
+    testWidgets('"Texto para pegar" muestra el cuadro grande de siempre', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypePasteText);
+
+      expect(find.text(es.captureTypePasteTextHint), findsOneWidget);
+    });
+
+    testWidgets(
+      'elegir "Libro o documento" abre el selector de archivos solo',
+      (tester) async {
+        harness = await LibraryHarness.create(
+          chosenFile: CapturedFile(
+            name: 'manual.pdf',
+            bytes: Uint8List.fromList([1, 2, 3]),
+          ),
+        );
+        await pumpCapture(tester);
+
+        await selectType(tester, es.captureTypeBook);
+
+        // No hace falta tocar nada más: elegir el tipo ya disparó el
+        // selector, y el archivo elegido —de mentira, puesto en el
+        // harness— queda mostrado directo.
+        expect(find.text('manual.pdf'), findsOneWidget);
+      },
+    );
+  });
+
   group('reconocimiento en vivo', () {
     testWidgets('con el campo vacío no promete nada', (tester) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
 
       expect(find.textContaining('Se va a guardar'), findsNothing);
     });
 
     testWidgets('un texto suelto se va a guardar como nota', (tester) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
 
       await tester.enterText(mainField(), 'una idea que se me ocurrió');
       await tester.pumpAndSettle();
@@ -90,6 +195,7 @@ void main() {
 
     testWidgets('un enlace se va a guardar como página web', (tester) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypeWebPage);
 
       await tester.enterText(mainField(), 'https://ejemplo.org/un-articulo');
       await tester.pumpAndSettle();
@@ -103,6 +209,7 @@ void main() {
     testWidgets('un enlace de YouTube se reconoce como tal, no como página '
         'web cualquiera', (tester) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypeVideo);
 
       await tester.enterText(
         mainField(),
@@ -121,6 +228,7 @@ void main() {
       // Si la pantalla tuviera su propia copia de las reglas, las dos
       // versiones terminarían discrepando y la promesa dejaría de cumplirse.
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypeVideo);
 
       await tester.enterText(mainField(), 'https://youtu.be/dQw4w9WgXcQ');
       await tester.pumpAndSettle();
@@ -140,6 +248,7 @@ void main() {
   group('guardar', () {
     testWidgets('una nota queda guardada con su contenido', (tester) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
 
       await tester.enterText(
         mainField(),
@@ -155,6 +264,7 @@ void main() {
       tester,
     ) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypeWebPage);
 
       await tester.enterText(mainField(), 'https://ejemplo.org/algo');
       await tester.enterText(
@@ -171,6 +281,7 @@ void main() {
       tester,
     ) async {
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
 
       await tester.tap(find.text(es.captureAction));
       await tester.pumpAndSettle();
@@ -186,6 +297,7 @@ void main() {
 
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
+      await selectType(tester, es.captureTypePasteText);
 
       await tester.enterText(mainField(), 'Algo recién capturado');
       await tester.tap(find.text(es.captureAction));
@@ -203,6 +315,7 @@ void main() {
       // texto. Si la captura no encolara, el elemento quedaría esperando
       // para siempre sin que nada lo intente.
       await pumpCapture(tester);
+      await selectType(tester, es.captureTypeWebPage);
 
       await tester.enterText(mainField(), 'https://ejemplo.org/un-articulo');
       await tester.tap(find.text(es.captureAction));
@@ -227,6 +340,7 @@ void main() {
       harness.goTo(RoutePaths.capture);
       await tester.pumpAndSettle();
       expect(find.byType(CaptureScreen), findsOneWidget);
+      await selectType(tester, es.captureTypePasteText);
 
       await tester.enterText(mainField(), 'capturado desde un enlace directo');
       await tester.tap(find.text(es.captureAction));
@@ -252,6 +366,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CaptureScreen), findsOneWidget);
+      // Llega ya con el tipo adivinado —página web—, sin pasar por el
+      // selector.
       expect(find.text('https://ejemplo.org/algo'), findsOneWidget);
     });
 
@@ -292,7 +408,7 @@ void main() {
     });
 
     testWidgets('se ofrece una sola vez: entrar de nuevo por el botón de '
-        'siempre no repite lo mismo', (tester) async {
+        'siempre vuelve a pedir el tipo', (tester) async {
       harness = await LibraryHarness.create(
         initialSharedContent: [
           const CaptureRequest.text(rawInput: 'una nota compartida'),
@@ -309,7 +425,9 @@ void main() {
       harness.pushTo(RoutePaths.capture);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<TextField>(mainField()).controller?.text, '');
+      // Sin nada precargado, vuelve a arrancar en el selector de tipo.
+      expect(find.text(es.captureTypePrompt), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
     });
   });
 
@@ -322,9 +440,8 @@ void main() {
     DropItemFile fakeDroppedFile(String name, {Uint8List? bytes}) =>
         DropItemFile.fromData(bytes ?? Uint8List(0), path: name);
 
-    testWidgets('deja el archivo elegido, igual que el selector', (
-      tester,
-    ) async {
+    testWidgets('deja el archivo elegido, igual que el selector, sin pasar '
+        'por el selector de tipo', (tester) async {
       await pumpCapture(tester);
 
       await dropFiles(tester, [
@@ -361,12 +478,9 @@ void main() {
       ]);
 
       expect(find.text(es.captureDropSingleFileOnly), findsOneWidget);
-      // Ningún archivo quedó elegido: el botón para elegir uno sigue
-      // ahí, tal cual antes del intento de soltar dos a la vez.
-      expect(
-        find.widgetWithText(OutlinedButton, es.captureChooseFile),
-        findsOneWidget,
-      );
+      // Ningún archivo quedó elegido: el selector de tipo sigue ahí, tal
+      // cual antes del intento de soltar dos a la vez.
+      expect(find.text(es.captureTypePrompt), findsOneWidget);
     });
 
     testWidgets('soltar una carpeta avisa igual que soltar varios archivos', (

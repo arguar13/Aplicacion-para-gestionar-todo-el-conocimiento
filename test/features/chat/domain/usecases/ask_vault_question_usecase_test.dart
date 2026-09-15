@@ -54,6 +54,14 @@ class _FakeChatModel implements ChatModel {
     if (err != null) throw err;
     return response!;
   }
+
+  @override
+  Future<FreeConversation> startConversation() =>
+      throw UnimplementedError('no lo usa este caso de uso');
+
+  @override
+  Future<VaultConversation> startVaultConversation() =>
+      throw UnimplementedError('no lo usa este caso de uso');
 }
 
 void main() {

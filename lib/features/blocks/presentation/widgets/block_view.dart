@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 
 /// Muestra una nota de bloques ya guardada, de solo lectura.
 ///
@@ -35,14 +36,14 @@ class _BlockLine extends StatelessWidget {
     final theme = Theme.of(context);
 
     return switch (block) {
-      ParagraphBlock(:final text) => Text(
-        text,
+      ParagraphBlock(:final text) => _FormattedText(
+        text: text,
         style: theme.textTheme.bodyLarge,
       ),
       HeadingBlock(:final text, :final level) => Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: Text(
-          text,
+        child: _FormattedText(
+          text: text,
           style: level <= 1
               ? theme.textTheme.headlineSmall
               : theme.textTheme.titleLarge,
@@ -60,8 +61,8 @@ class _BlockLine extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
+            child: _FormattedText(
+              text: text,
               style: theme.textTheme.bodyLarge?.copyWith(
                 decoration: checked ? TextDecoration.lineThrough : null,
                 color: checked ? theme.colorScheme.onSurfaceVariant : null,
@@ -77,8 +78,8 @@ class _BlockLine extends StatelessWidget {
             left: BorderSide(color: theme.colorScheme.outline, width: 3),
           ),
         ),
-        child: Text(
-          text,
+        child: _FormattedText(
+          text: text,
           style: theme.textTheme.bodyLarge?.copyWith(
             fontStyle: FontStyle.italic,
             color: theme.colorScheme.onSurfaceVariant,
@@ -106,8 +107,33 @@ class _ListLine extends StatelessWidget {
           width: 20,
           child: Text(bullet, style: theme.textTheme.bodyLarge),
         ),
-        Expanded(child: Text(text, style: theme.textTheme.bodyLarge)),
+        Expanded(
+          child: _FormattedText(text: text, style: theme.textTheme.bodyLarge),
+        ),
       ],
+    );
+  }
+}
+
+/// El texto de un bloque, con **negrita** y *cursiva* renderizadas de
+/// verdad en vez de mostrar los asteriscos sueltos.
+///
+/// A diferencia de `HighlightableText`, acá no hace falta traducir
+/// posiciones entre lo crudo y lo renderizado: una nota de bloques no
+/// tiene resaltados propios —los subrayados son sobre el contenido
+/// importado, no sobre lo que se escribe a mano en el editor—, así que
+/// alcanza con un `Text.rich` de solo lectura.
+class _FormattedText extends StatelessWidget {
+  const _FormattedText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final rendered = RenderedMarkdown.parse(text);
+    return Text.rich(
+      rendered.buildSpans(Theme.of(context), const [], baseStyle: style),
     );
   }
 }

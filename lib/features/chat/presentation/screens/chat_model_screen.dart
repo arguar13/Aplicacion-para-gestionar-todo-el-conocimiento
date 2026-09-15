@@ -13,7 +13,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// un token. Se muestra como texto seleccionable y no como enlace: abrir un
 /// navegador desde acá exigiría un paquete aparte (`url_launcher`) solo
 /// para esto.
-const _modelPageUrl = 'https://huggingface.co/litert-community/Gemma3-1B-IT';
+const _modelPageUrl =
+    'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm';
 const _tokenPageUrl = 'https://huggingface.co/settings/tokens';
 
 /// Si el modelo de lenguaje del chat está descargado, y descargarlo si no.

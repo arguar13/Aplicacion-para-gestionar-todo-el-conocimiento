@@ -241,6 +241,18 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
             child: ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               itemCount: _blocks.length + 1,
+              // Sacar el foco antes de que arranque el arrastre: un
+              // `TextField` con foco activo es un `Element` que depende de
+              // su `FocusScope` (un `InheritedWidget`). `ReorderableListView`
+              // desmonta y remonta ese `Element` en otra posición del árbol
+              // para animar el reordenamiento, y si todavía tiene ese
+              // vínculo activo, Flutter revienta con
+              // "'_dependents.isEmpty': is not true" al desmontarlo —un bug
+              // conocido de la propia librería cuando el ítem arrastrado
+              // tiene un campo de texto enfocado—. Sin foco, no hay
+              // dependencia que sobreviva al desmontaje.
+              onReorderStart: (_) => FocusManager.instance.primaryFocus
+                  ?.unfocus(),
               onReorderItem: (oldIndex, newIndex) {
                 // El título ocupa el índice 0 y no participa del
                 // reordenamiento: se lo trata aparte, restando uno a cada

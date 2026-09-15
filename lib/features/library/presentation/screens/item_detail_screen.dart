@@ -11,12 +11,15 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
+import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -29,6 +32,7 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un elemento por dentro: su contenido y, sobre todo, de dónde salió.
@@ -205,10 +209,7 @@ class _DetailBody extends StatelessWidget {
                 if (rendition.kind == RenditionKind.blocks)
                   _BlocksRendition(item: item, rendition: rendition)
                 else
-                  HighlightableText(
-                    renditionId: rendition.id,
-                    content: rendition.content,
-                  ),
+                  _TextRenditionView(item: item, rendition: rendition),
                 const SizedBox(height: 16),
               ],
 
@@ -216,6 +217,8 @@ class _DetailBody extends StatelessWidget {
             FlashcardSection(item: item),
             const SizedBox(height: 24),
             RelationsSection(item: item),
+            const SizedBox(height: 24),
+            CitationSection(item: item),
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
@@ -223,6 +226,69 @@ class _DetailBody extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Una rendition de texto plano, Markdown o la transcripción de un video o
+/// audio: se muestra con [HighlightableText] y, si tiene marcas de tiempo
+/// —`[mm:ss]` al principio de cada línea, las pone `formatTranscript` en
+/// `youtube_transcript_transformer.dart`—, con un botón para quitarlas y
+/// dejar el texto corrido.
+class _TextRenditionView extends ConsumerWidget {
+  const _TextRenditionView({required this.item, required this.rendition});
+
+  final KnowledgeItem item;
+  final TextRendition rendition;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasTimestamps(rendition.content))
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.timer_off_outlined, size: 18),
+              label: Text(l10n.detailRemoveTimestamps),
+              onPressed: () => _removeTimestamps(context, ref),
+            ),
+          ),
+        HighlightableText(
+          renditionId: rendition.id,
+          content: rendition.content,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _removeTimestamps(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    final cleaned = stripTimestamps(rendition.content);
+
+    final updated = item.copyWith(
+      renditions: [
+        for (final r in item.renditions)
+          if (r.id == rendition.id && r is TextRendition)
+            r.copyWith(content: cleaned)
+          else
+            r,
+      ],
+    );
+
+    final result = await ref.read(libraryRepositoryProvider).save(updated);
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      (_) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.detailTimestampsRemoved))),
     );
   }
 }
@@ -414,11 +480,37 @@ class _Provenance extends ConsumerWidget {
               originalFileNameOf(source.originalFilePath!),
             ),
           ),
-          TextButton.icon(
-            onPressed: () =>
-                _openOriginalFile(context, ref, source.originalFilePath!),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: Text(l10n.detailOpenFile),
+          Wrap(
+            spacing: 8,
+            children: [
+              // En la web no hay una ruta absoluta de la que leer bytes
+              // sueltos para reconocer el formato —`FileStore.resolve()`
+              // lanza ahí a propósito—, así que el visor integrado queda
+              // solo para el resto de las plataformas; "Abrir con..." ya
+              // cubre la web con `WebDownloadFileOpener`.
+              if (!kIsWeb)
+                FilledButton.tonalIcon(
+                  onPressed: () => _openInViewer(context, ref, item),
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: Text(l10n.detailViewFile),
+                ),
+              TextButton.icon(
+                onPressed: () =>
+                    _openOriginalFile(context, ref, source.originalFilePath!),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: Text(l10n.detailOpenFile),
+              ),
+              // Solo para video y audio: son los formatos pesados donde
+              // vale la pena quedarse con el texto y soltar el archivo. Un
+              // PDF o un EPUB **son** la fuente —borrarlos no deja nada
+              // equivalente atrás— así que ahí no se ofrece.
+              if (_hasKeepableText(item))
+                TextButton.icon(
+                  onPressed: () => _deleteOriginalFile(context, ref, item),
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: Text(l10n.detailDeleteOriginalFile),
+                ),
+            ],
           ),
         ],
         if (source.url != null) ...[
@@ -427,6 +519,21 @@ class _Provenance extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  /// Abre el visor integrado que corresponda —PDF, imagen, audio, video o
+  /// el texto ya extraído de un DOCX/EPUB—. Si no hay ninguno para este
+  /// archivo, cae en "Abrir con..." en vez de no hacer nada: alguien que
+  /// tocó un botón espera que pase algo.
+  Future<void> _openInViewer(
+    BuildContext context,
+    WidgetRef ref,
+    KnowledgeItem item,
+  ) async {
+    final handled = await openDocumentViewer(context, ref, item);
+    if (handled || !context.mounted) return;
+
+    await _openOriginalFile(context, ref, item.source.originalFilePath!);
   }
 
   /// Pide al almacén la ruta absoluta y se la pasa a la app del sistema.
@@ -461,6 +568,68 @@ class _Provenance extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
+  ///
+  /// Hace falta que el original sea video o audio —los formatos pesados,
+  /// donde soltar el archivo cambia algo— y que ya haya una forma de texto
+  /// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
+  /// el contenido del elemento.
+  bool _hasKeepableText(KnowledgeItem item) {
+    const keepable = {
+      SourceKind.youtube,
+      SourceKind.audio,
+      SourceKind.video,
+      SourceKind.socialPost,
+    };
+    if (!keepable.contains(item.source.kind)) return false;
+
+    return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
+  }
+
+  Future<void> _deleteOriginalFile(
+    BuildContext context,
+    WidgetRef ref,
+    KnowledgeItem item,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(l10n.detailDeleteOriginalFileConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.detailDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final relativePath = item.source.originalFilePath!;
+    await ref.read(fileStoreProvider).delete(relativePath);
+
+    final updated = item.copyWith(
+      source: item.source.copyWith(originalFilePath: null),
+    );
+    final result = await ref.read(libraryRepositoryProvider).save(updated);
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      (_) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
+    );
   }
 }
 

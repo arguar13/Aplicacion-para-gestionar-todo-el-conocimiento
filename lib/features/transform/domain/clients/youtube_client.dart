@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'youtube_client.freezed.dart';
@@ -40,7 +42,6 @@ sealed class YouTubeVideoData with _$YouTubeVideoData {
 /// Se abstrae para poder probar el transformador sin salir a la red. Un test
 /// que dependiera de YouTube fallaría sin conexión, cambiaría de resultado
 /// cuando cambie el video, y tardaría segundos en cada corrida.
-// ignore: one_member_abstracts
 abstract interface class YouTubeClient {
   /// Metadatos y subtítulos de un video.
   ///
@@ -51,6 +52,13 @@ abstract interface class YouTubeClient {
     String videoId, {
     List<String> preferredLanguages,
   });
+
+  /// El audio del video, para escucharlo y transcribirlo en la app cuando no
+  /// tenía subtítulos.
+  ///
+  /// Solo el audio y no el video completo: es lo único que hace falta para
+  /// las dos cosas —oírlo, transcribirlo—, y baja una fracción del peso.
+  Future<Uint8List> fetchAudio(String videoId);
 }
 
 /// El video no existe, es privado o fue dado de baja.

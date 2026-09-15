@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
 import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
+import 'package:sinapsis/features/transform/domain/clients/social_post_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
@@ -21,7 +22,7 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 /// Un test que pidiera videos de verdad fallaría sin conexión, cambiaría de
 /// resultado cuando cambie el video y tardaría segundos en cada corrida.
 class FakeYouTubeClient implements YouTubeClient {
-  FakeYouTubeClient({this.data, this.error});
+  FakeYouTubeClient({this.data, this.error, this.audio, this.audioError});
 
   /// Lo que devuelve. Si es `null` y no hay [error], responde un video mínimo.
   final YouTubeVideoData? data;
@@ -29,8 +30,19 @@ class FakeYouTubeClient implements YouTubeClient {
   /// Si está, se lanza en vez de responder.
   final Object? error;
 
+  /// Los bytes que devuelve [fetchAudio]. `null` sin [audioError] responde
+  /// un audio mínimo, para que probar la transcripción no obligue a
+  /// configurar también el audio en cada test.
+  final Uint8List? audio;
+
+  /// Si está, [fetchAudio] lo lanza en vez de responder.
+  final Object? audioError;
+
   /// Los identificadores que se le pidieron, en orden.
   final requested = <String>[];
+
+  /// Los identificadores para los que se pidió el audio, en orden.
+  final audioRequested = <String>[];
 
   @override
   Future<YouTubeVideoData> fetchVideo(
@@ -41,6 +53,14 @@ class FakeYouTubeClient implements YouTubeClient {
     if (error != null) throw error!;
 
     return data ?? const YouTubeVideoData(title: 'Un video');
+  }
+
+  @override
+  Future<Uint8List> fetchAudio(String videoId) async {
+    audioRequested.add(videoId);
+    if (audioError != null) throw audioError!;
+
+    return audio ?? Uint8List.fromList([1, 2, 3]);
   }
 }
 
@@ -148,6 +168,27 @@ class FakeResourceFetcher implements ResourceFetcher {
   Future<Uint8List?> fetchBytes(Uri url) async {
     requested.add(url);
     return byUrl[url.toString()];
+  }
+}
+
+/// Devuelve lo que se le diga para una publicación social, sin raspar nada.
+class FakeSocialPostClient implements SocialPostClient {
+  FakeSocialPostClient({this.data, this.error});
+
+  /// Lo que devuelve. Si es `null` y no hay [error], responde vacío.
+  final SocialPostData? data;
+
+  /// Si está, se lanza en vez de responder.
+  final Object? error;
+
+  final requested = <Uri>[];
+
+  @override
+  Future<SocialPostData> fetchPost(Uri url) async {
+    requested.add(url);
+    if (error != null) throw error!;
+
+    return data ?? const SocialPostData();
   }
 }
 

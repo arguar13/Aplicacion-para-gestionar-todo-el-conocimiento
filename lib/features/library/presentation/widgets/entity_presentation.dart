@@ -67,6 +67,20 @@ extension RelationKindPresentation on RelationKind {
     RelationKind.summarizes => Icons.short_text,
   };
 
+  /// Un color propio por tipo de vínculo, para el grafo: la línea que une
+  /// dos nodos dice de un vistazo si es una simple relación, una
+  /// continuación, una contradicción o una cita, sin tener que acercarse a
+  /// leer la etiqueta. Sale de los roles del tema y no de una paleta fija,
+  /// para que cambie igual de bien entre modo claro y oscuro que el resto de
+  /// la app.
+  Color color(ColorScheme scheme) => switch (this) {
+    RelationKind.relatedTo => scheme.outline,
+    RelationKind.continues => scheme.primary,
+    RelationKind.contradicts => scheme.error,
+    RelationKind.cites => scheme.tertiary,
+    RelationKind.summarizes => scheme.secondary,
+  };
+
   /// Un nombre corto, sin dirección: para el selector donde se elige qué
   /// clase de vínculo crear, antes de que exista un "origen" y un "destino"
   /// que mostrar.

@@ -8,7 +8,15 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 /// para que la barra de búsqueda, los filtros y la lista no tengan que
 /// mantener cada uno su pedacito y sincronizarlo con los demás.
 class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
-  LibraryQueryNotifier() : super(const LibraryQuery());
+  LibraryQueryNotifier() : super(const LibraryQuery(limit: pageSize));
+
+  /// Cuántos elementos se piden por tanda.
+  ///
+  /// Sin un límite, una biblioteca de miles de elementos se trae entera cada
+  /// vez que algo cambia en la base —guardar una etiqueta, procesar un
+  /// elemento de la cola— aunque la pantalla solo pueda mostrar unos pocos a
+  /// la vez. Ver el comentario de `limit` en `LibraryQuery`.
+  static const pageSize = 100;
 
   void search(String text) {
     final trimmed = text.trim();
@@ -23,6 +31,10 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
       // tenga que aprender que existe un orden por relevancia y acordarse de
       // elegirlo cada vez.
       sortBy: trimmed.isEmpty ? LibrarySort.capturedAt : LibrarySort.relevance,
+      // Una consulta nueva vuelve a arrancar desde la primera tanda: seguir
+      // pidiendo las mil filas que se habían acumulado paginando la consulta
+      // anterior no tiene sentido para una búsqueda distinta.
+      limit: pageSize,
     );
   }
 
@@ -30,25 +42,32 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
   void toggleSourceKind(SourceKind kind) {
     final kinds = Set<SourceKind>.from(state.sourceKinds);
     if (!kinds.remove(kind)) kinds.add(kind);
-    state = state.copyWith(sourceKinds: kinds);
+    state = state.copyWith(sourceKinds: kinds, limit: pageSize);
   }
 
   /// Suma o quita una etiqueta del filtro.
   void toggleTagId(String tagId) {
     final tagIds = Set<String>.from(state.tagIds);
     if (!tagIds.remove(tagId)) tagIds.add(tagId);
-    state = state.copyWith(tagIds: tagIds);
+    state = state.copyWith(tagIds: tagIds, limit: pageSize);
   }
 
   /// Entra o sale de un espacio, como una carpeta: elegir el que ya está
   /// activo vuelve a "todos", a diferencia de las etiquetas —que se
   /// combinan— acá solo tiene sentido mirar un espacio a la vez.
   void selectSpace(String? spaceId) {
-    state = state.copyWith(spaceId: state.spaceId == spaceId ? null : spaceId);
+    state = state.copyWith(
+      spaceId: state.spaceId == spaceId ? null : spaceId,
+      limit: pageSize,
+    );
   }
 
   void sortBy(LibrarySort sort, {bool descending = true}) {
-    state = state.copyWith(sortBy: sort, descending: descending);
+    state = state.copyWith(
+      sortBy: sort,
+      descending: descending,
+      limit: pageSize,
+    );
   }
 
   /// Quita los filtros pero conserva la búsqueda.
@@ -61,7 +80,18 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
       sourceKinds: const {},
       tagIds: const {},
       processingStates: const {},
+      limit: pageSize,
     );
+  }
+
+  /// Trae la próxima tanda.
+  ///
+  /// Sumar al límite en vez de guardar una lista aparte: el repositorio ya
+  /// sabe traer "las primeras N que cumplen la consulta", así que pedir más
+  /// es simplemente pedir un N más grande — no hace falta un mecanismo de
+  /// paginación distinto del que ya existe.
+  void loadMore() {
+    state = state.copyWith(limit: (state.limit ?? pageSize) + pageSize);
   }
 
   bool get hasActiveFilters =>

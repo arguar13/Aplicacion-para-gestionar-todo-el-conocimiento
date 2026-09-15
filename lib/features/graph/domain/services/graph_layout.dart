@@ -18,11 +18,22 @@ Map<String, Offset> computeGraphLayout({
   required List<(String from, String to)> edges,
   Size canvasSize = const Size(900, 900),
   int iterations = 300,
+  // Cuánto se aleja cada nodo del borde del lienzo: no es un margen
+  // estético, es la mitad del ancho de la etiqueta que dibuja `GraphScreen`
+  // bajo cada nodo. Sin este margen, un nodo cuyo centro cae en (0, y) o
+  // cerca del borde queda dibujado a medias —o entero— fuera del `Stack`
+  // que lo contiene, y `Stack` recorta lo que se sale de su tamaño.
+  double edgeMargin = 70,
 }) {
   if (nodeIds.isEmpty) return {};
   if (nodeIds.length == 1) {
     return {nodeIds.single: canvasSize.center(Offset.zero)};
   }
+
+  final minX = math.min(edgeMargin, canvasSize.width / 2);
+  final maxX = math.max(canvasSize.width - edgeMargin, canvasSize.width / 2);
+  final minY = math.min(edgeMargin, canvasSize.height / 2);
+  final maxY = math.max(canvasSize.height - edgeMargin, canvasSize.height / 2);
 
   final area = canvasSize.width * canvasSize.height;
   // La distancia "ideal" entre dos nodos si se repartiera el área del
@@ -87,8 +98,8 @@ Map<String, Offset> computeGraphLayout({
 
       final next = positions[id]! + capped;
       positions[id] = Offset(
-        next.dx.clamp(0, canvasSize.width),
-        next.dy.clamp(0, canvasSize.height),
+        next.dx.clamp(minX, maxX),
+        next.dy.clamp(minY, maxY),
       );
     }
 

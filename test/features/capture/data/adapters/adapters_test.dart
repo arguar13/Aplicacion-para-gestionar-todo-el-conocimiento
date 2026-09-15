@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/provisional_titles.dart';
+import 'package:sinapsis/features/capture/data/adapters/social_post_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
@@ -28,6 +29,8 @@ void main() {
   WebLinkAdapter webLink() => WebLinkAdapter(ids: ids, clock: () => now);
   YouTubeLinkAdapter youtube() =>
       YouTubeLinkAdapter(ids: ids, clock: () => now);
+  SocialPostLinkAdapter socialPost() =>
+      SocialPostLinkAdapter(ids: ids, clock: () => now);
 
   group('CaptureRequest.asUrl', () {
     test('reconoce una dirección http y https', () {
@@ -285,6 +288,67 @@ void main() {
       expect(item.source.kind, SourceKind.youtube);
       expect(item.processingState, ProcessingState.pending);
       expect(item.title, contains('dQw4w9WgXcQ'));
+    });
+  });
+
+  group('SocialPostLinkAdapter', () {
+    test('reconoce videos y reels de TikTok', () {
+      for (final url in [
+        'https://www.tiktok.com/@alguien/video/7123456789012345678',
+        'https://vm.tiktok.com/ZMabcdefg/',
+      ]) {
+        expect(
+          socialPost().canHandle(CaptureRequest.text(rawInput: url)),
+          isTrue,
+          reason: 'debería reconocer $url',
+        );
+      }
+    });
+
+    test('reconoce reels, publicaciones e IGTV de Instagram', () {
+      for (final url in [
+        'https://www.instagram.com/reel/Cabcdefghij/',
+        'https://www.instagram.com/p/Cabcdefghij/',
+        'https://www.instagram.com/tv/Cabcdefghij/',
+      ]) {
+        expect(
+          socialPost().canHandle(CaptureRequest.text(rawInput: url)),
+          isTrue,
+          reason: 'debería reconocer $url',
+        );
+      }
+    });
+
+    test('el perfil de un usuario no cuenta: no hay una sola publicación '
+        'que raspar', () {
+      expect(
+        socialPost().canHandle(
+          const CaptureRequest.text(
+            rawInput: 'https://www.instagram.com/alguien/',
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('un dominio ajeno no cuenta', () {
+      expect(
+        socialPost().canHandle(
+          const CaptureRequest.text(rawInput: 'https://ejemplo.org/video/1'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('lo marca como publicación social y lo deja pendiente', () async {
+      final item = await socialPost().adapt(
+        const CaptureRequest.text(
+          rawInput: 'https://www.tiktok.com/@alguien/video/123',
+        ),
+      );
+
+      expect(item.source.kind, SourceKind.socialPost);
+      expect(item.processingState, ProcessingState.pending);
     });
   });
 

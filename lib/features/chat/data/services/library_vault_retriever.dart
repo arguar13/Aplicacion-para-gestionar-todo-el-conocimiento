@@ -26,21 +26,62 @@ class LibraryVaultRetriever implements VaultRetriever {
 
   @override
   Future<List<ChatSource>> retrieve(String question, {int limit = 4}) async {
-    final trimmed = question.trim();
-    if (trimmed.isEmpty) return const [];
+    final terms = question
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((term) => term.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) return const [];
 
-    final result = await _library.list(
-      LibraryQuery(
-        searchText: trimmed,
-        sortBy: LibrarySort.relevance,
-        limit: limit,
-      ),
-    );
+    // Una palabra por consulta, no la pregunta entera de una: `LibraryQuery`
+    // arma sus términos con AND implícito (ver `buildSearchQuery`), que
+    // tiene sentido para la barra de búsqueda —dos palabras sueltas, se
+    // espera lo que tenga las dos— pero no acá. Exigir que las quince
+    // palabras de "contame qué dice mi bóveda sobre religión" aparezcan
+    // TODAS juntas en el mismo elemento no encuentra casi nunca nada; lo
+    // único que importa es qué palabras de la pregunta aparecen en algún
+    // lado, no que aparezcan todas a la vez.
+    final itemsById = <String, KnowledgeItem>{};
+    // Cuántas palabras DISTINTAS de la pregunta trajeron a este elemento.
+    // Es lo primero que decide el orden: un elemento que toca dos temas de
+    // la pregunta importa más que uno que solo toca uno, sin importar en
+    // qué puesto haya salido cada búsqueda suelta.
+    final matchedTerms = <String, int>{};
+    // Desempate dentro del mismo número de palabras: la suma de en qué
+    // puesto salió en cada búsqueda que sí lo encontró —temprano vale más
+    // que tarde—, lo más parecido a "relevancia" que se puede armar sin
+    // sumar un modelo de embeddings (ver la decisión 20).
+    final rankScore = <String, int>{};
 
-    return result.match(
-      (_) => const [],
-      (items) => items.map(_toSource).toList(),
-    );
+    for (final term in terms) {
+      final result = await _library.list(
+        LibraryQuery(
+          searchText: term,
+          sortBy: LibrarySort.relevance,
+          limit: limit,
+        ),
+      );
+      result.match((_) {}, (items) {
+        for (var rank = 0; rank < items.length; rank++) {
+          final item = items[rank];
+          itemsById[item.id] = item;
+          matchedTerms[item.id] = (matchedTerms[item.id] ?? 0) + 1;
+          rankScore[item.id] =
+              (rankScore[item.id] ?? 0) + (items.length - rank);
+        }
+      });
+    }
+
+    final ranked = itemsById.values.toList()
+      ..sort((a, b) {
+        final byTermCount = (matchedTerms[b.id] ?? 0).compareTo(
+          matchedTerms[a.id] ?? 0,
+        );
+        if (byTermCount != 0) return byTermCount;
+        return (rankScore[b.id] ?? 0).compareTo(rankScore[a.id] ?? 0);
+      });
+
+    return ranked.take(limit).map(_toSource).toList();
   }
 
   ChatSource _toSource(KnowledgeItem item) {

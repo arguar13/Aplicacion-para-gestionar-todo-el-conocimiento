@@ -17,6 +17,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -24,12 +25,15 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import 'fake_chat_model.dart';
+import 'fake_chat_model_manager.dart';
 import 'fake_directory_chooser.dart';
 import 'fake_directory_writer.dart';
 import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
+import 'fake_relation_suggestion_service.dart';
 import 'fake_shared_content_listener.dart';
 import 'fake_whisper_model_manager.dart';
 import 'in_memory_file_store.dart';
@@ -55,6 +59,9 @@ class LibraryHarness {
     this.notebookLmDirectoryWriter,
     this.sharedContent,
     this.whisperModel,
+    this.chatModel,
+    this.chatModelManager,
+    this.relationSuggestionService,
   );
 
   /// Prepara todo y programa la limpieza. Llamar desde `setUp`.
@@ -81,6 +88,13 @@ class LibraryHarness {
 
     /// Si el modelo de transcripción "ya está descargado" al arrancar.
     bool whisperModelReady = false,
+
+    /// Si el modelo de chat "ya está descargado" al arrancar.
+    bool chatModelReady = false,
+
+    /// Lo que "contesta" el modelo de chat de mentira, tanto en el modo con
+    /// la bóveda como en una conversación libre.
+    String? chatModelResponse,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -102,6 +116,9 @@ class LibraryHarness {
       initial: initialSharedContent,
     );
     final whisperModel = FakeWhisperModelManager(ready: whisperModelReady);
+    final chatModel = FakeChatModel(response: chatModelResponse);
+    final chatModelManager = FakeChatModelManager(ready: chatModelReady);
+    final relationSuggestionService = FakeRelationSuggestionService();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
     final container = ProviderContainer(
@@ -135,6 +152,14 @@ class LibraryHarness {
         // El modelo de Whisper pesa cientos de megas y se baja de una URL de
         // verdad: nada de eso tiene sentido en una prueba de pantalla.
         whisperModelManagerProvider.overrideWithValue(whisperModel),
+        // Mismo motivo que el modelo de Whisper: `flutter_gemma` no tiene
+        // con qué hablar en un test, y ni el chat ni las flashcards lo
+        // necesitan de verdad para probar la pantalla.
+        chatModelProvider.overrideWithValue(chatModel),
+        chatModelManagerProvider.overrideWithValue(chatModelManager),
+        relationSuggestionServiceProvider.overrideWithValue(
+          relationSuggestionService,
+        ),
         clockProvider.overrideWithValue(() => fixedNow),
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
@@ -172,6 +197,9 @@ class LibraryHarness {
       directoryWriter,
       sharedContent,
       whisperModel,
+      chatModel,
+      chatModelManager,
+      relationSuggestionService,
     );
   }
 
@@ -204,6 +232,19 @@ class LibraryHarness {
 
   /// El modelo de transcripción de mentira, para simular su descarga.
   final FakeWhisperModelManager whisperModel;
+
+  /// El modelo de chat de mentira, para comprobar qué se le preguntó —tanto
+  /// en el modo con la bóveda como en una conversación libre— y controlar
+  /// qué contesta.
+  final FakeChatModel chatModel;
+
+  /// El estado del modelo de chat de mentira, para simular que ya está
+  /// descargado o no.
+  final FakeChatModelManager chatModelManager;
+
+  /// El servicio de sugerencias de vínculos de mentira, para comprobar qué
+  /// se le pidió al "asistente con IA" del grafo y controlar qué contesta.
+  final FakeRelationSuggestionService relationSuggestionService;
 
   /// La cola inerte, para comprobar qué se le pidió procesar.
   ///

@@ -6,5 +6,7 @@ extension ExportFormatPresentation on ExportFormat {
     ExportFormat.markdown => l10n.exportFormatMarkdown,
     ExportFormat.plainText => l10n.exportFormatPlainText,
     ExportFormat.pdf => l10n.exportFormatPdf,
+    ExportFormat.bibtex => l10n.exportFormatBibtex,
+    ExportFormat.docx => l10n.exportFormatDocx,
   };
 }

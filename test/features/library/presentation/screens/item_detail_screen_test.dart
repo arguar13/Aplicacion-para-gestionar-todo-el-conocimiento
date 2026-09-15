@@ -53,6 +53,18 @@ void main() {
   }
 
   Future<void> pumpDetail(WidgetTester tester, String id) async {
+    // Con la cita bibliográfica sumada al detalle, el contenido ya no
+    // entra en el tamaño de ventana por defecto de las pruebas de widget
+    // (800x600): un texto que quedaba visible sin scrollear pasaría a
+    // estar fuera del viewport, y `ListView` ni siquiera lo construiría
+    // —es perezoso también con una lista de hijos fija—. Agrandar la
+    // ventana de la prueba es más simple y menos frágil que agregar un
+    // `scrollUntilVisible` en cada prueba que mira algo del pie de la
+    // pantalla.
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(harness.wrap(ItemDetailScreen(itemId: id)));
     await tester.pumpAndSettle();
   }
@@ -114,16 +126,23 @@ void main() {
       // La sección de procedencia queda más abajo que el "cache extent" por
       // defecto de un `ListView` en test —lo que ya obliga a scrollear para
       // las pruebas de más abajo—, así que hay que llegar hasta ella antes
-      // de poder afirmar que está.
+      // de poder afirmar que está. `.first`: la propia `SelectableText` de
+      // la cita bibliográfica —y la del contenido— envuelven su texto en
+      // un `Scrollable` propio para su desplazamiento interno, así que ya
+      // no alcanza con "el" `Scrollable` a secas; el primero en el árbol
+      // sigue siendo el de la lista de toda la pantalla.
       await tester.scrollUntilVisible(
         find.text(es.detailProvenance),
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
 
       expect(find.text(es.detailProvenance), findsOneWidget);
       expect(find.text(es.sourceKindWebPage), findsOneWidget);
-      expect(find.textContaining('https://ejemplo.org'), findsOneWidget);
+      // La cita bibliográfica, más arriba en la pantalla, también menciona
+      // la URL —es parte legítima de una cita—, así que el enlace de la
+      // procedencia en sí ya no es el único lugar que la muestra.
+      expect(find.textContaining('https://ejemplo.org'), findsWidgets);
     });
 
     testWidgets('una nota escrita a mano no inventa un enlace de origen', (
@@ -171,7 +190,7 @@ void main() {
       await tester.scrollUntilVisible(
         copyLinkButton,
         300,
-        scrollable: find.byType(Scrollable),
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
       await tester.tap(copyLinkButton);
@@ -830,7 +849,10 @@ void main() {
     /// selección por código: es la única forma de probar esto que también
     /// ejercita el callback `onSelectionChanged` de verdad.
     Future<void> selectFirstWord(WidgetTester tester) async {
-      final topLeft = tester.getTopLeft(find.byType(SelectableText));
+      // `.first`: la sección de cita bibliográfica también tiene su propio
+      // `SelectableText` más abajo en la pantalla, y este helper siempre
+      // quiere el del contenido, que es el que aparece primero.
+      final topLeft = tester.getTopLeft(find.byType(SelectableText).first);
       await tester.longPressAt(topLeft + const Offset(8, 8));
       await tester.pumpAndSettle();
     }
