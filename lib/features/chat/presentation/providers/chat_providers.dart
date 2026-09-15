@@ -6,6 +6,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -13,8 +14,14 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 /// Deliberadamente NO autoDispose, mismo motivo que
 /// `whisperModelManagerProvider`: descartarlo al cerrar la pantalla de
 /// descarga perdería el progreso de una descarga en curso.
+///
+/// Depende de [chatModelOptionNotifierProvider] para saber a qué opción
+/// apuntar: cambiar la opción elegida en la pantalla de descarga arma una
+/// instancia nueva apuntando al repositorio que corresponde, en vez de que
+/// el manager cargue con un modelo fijo de una vez para siempre.
 final chatModelManagerProvider = Provider<ChatModelManager>((ref) {
-  return const GemmaChatModelManager();
+  final option = ref.watch(chatModelOptionNotifierProvider);
+  return GemmaChatModelManager(option: option);
 });
 
 /// El modelo de Gemma en sí queda cargado en memoria entre usos —ver

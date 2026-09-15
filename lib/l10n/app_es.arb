@@ -1103,6 +1103,26 @@
   "@chatModelTokenGenerate": {
     "description": "Paso 2: generar un token de acceso en Hugging Face."
   },
+  "chatModelOptionTitle": "Modelo",
+  "@chatModelOptionTitle": {
+    "description": "Encabezado del selector de qué modelo de chat usar."
+  },
+  "chatModelOptionGemma4Title": "Gemma 4 E4B",
+  "@chatModelOptionGemma4Title": {
+    "description": "Nombre corto de la opción de modelo por defecto, en el selector."
+  },
+  "chatModelOptionGemma4Description": "La opción por defecto: rápida de instalar y con buena calidad de respuesta. Pesa unos 4.3 GB.",
+  "@chatModelOptionGemma4Description": {
+    "description": "Descripción de la opción de modelo por defecto, debajo del selector."
+  },
+  "chatModelOptionGemma3nTitle": "Gemma 3n E4B",
+  "@chatModelOptionGemma3nTitle": {
+    "description": "Nombre corto de la opción de modelo más pesada, en el selector."
+  },
+  "chatModelOptionGemma3nDescription": "La opción más inteligente: mejor redacción, a costa de más espacio y más memoria. Pesa unos 4.9 GB.",
+  "@chatModelOptionGemma3nDescription": {
+    "description": "Descripción de la opción de modelo más pesada, debajo del selector."
+  },
   "chatModelTokenLabel": "Token de Hugging Face",
   "@chatModelTokenLabel": {
     "description": "Etiqueta del campo para pegar el token de acceso."

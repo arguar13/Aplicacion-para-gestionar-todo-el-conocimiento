@@ -1329,6 +1329,11 @@
     "description": "Paso 1: aceptar la licencia del modelo en su página de Hugging Face."
   },
   "chatModelTokenGenerate": "2. Generate a token here",
+  "chatModelOptionTitle": "Model",
+  "chatModelOptionGemma4Title": "Gemma 4 E4B",
+  "chatModelOptionGemma4Description": "The default option: quick to install, with good response quality. About 4.3 GB.",
+  "chatModelOptionGemma3nTitle": "Gemma 3n E4B",
+  "chatModelOptionGemma3nDescription": "The smartest option: better writing, at the cost of more space and memory. About 4.9 GB.",
   "@chatModelTokenGenerate": {
     "description": "Paso 2: generar un token de acceso en Hugging Face."
   },

@@ -4,17 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La página del modelo en Hugging Face, para aceptar su licencia y generar
-/// un token. Se muestra como texto seleccionable y no como enlace: abrir un
-/// navegador desde acá exigiría un paquete aparte (`url_launcher`) solo
-/// para esto.
-const _modelPageUrl =
-    'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm';
+/// La página del modelo en Hugging Face, para aceptar su licencia, según
+/// cuál [ChatModelOption] esté elegida — las dos viven en repositorios
+/// protegidos distintos, así que la licencia que hay que aceptar es
+/// distinta según cuál se vaya a bajar. Se muestra como texto seleccionable
+/// y no como enlace: abrir un navegador desde acá exigiría un paquete
+/// aparte (`url_launcher`) solo para esto.
+String _modelPageUrl(ChatModelOption option) => switch (option) {
+  ChatModelOption.gemma4E4b =>
+    'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm',
+  ChatModelOption.gemma3nE4b =>
+    'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm',
+};
 const _tokenPageUrl = 'https://huggingface.co/settings/tokens';
 
 /// Si el modelo de lenguaje del chat está descargado, y descargarlo si no.
@@ -82,6 +90,28 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
     setState(() => _downloadSizeInBytes = size);
   }
 
+  /// Cambia qué [ChatModelOption] gestiona esta pantalla y vuelve a
+  /// consultar su estado desde cero: una opción recién elegida puede estar
+  /// lista, a medio bajar de una sesión anterior, o sin empezar, y nada de
+  /// eso tiene por qué coincidir con lo que valía para la opción anterior.
+  Future<void> _selectOption(ChatModelOption option) async {
+    if (option == ref.read(chatModelOptionNotifierProvider)) return;
+
+    await _downloadSubscription?.cancel();
+    _downloadSubscription = null;
+    await ref.read(chatModelOptionNotifierProvider.notifier).select(option);
+    if (!mounted) return;
+
+    setState(() {
+      _checkingStatus = true;
+      _isReady = false;
+      _downloadSizeInBytes = null;
+      _downloadProgress = null;
+      _error = null;
+    });
+    await _checkStatus();
+  }
+
   void _startDownload() {
     unawaited(
       ref
@@ -124,6 +154,7 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final selectedOption = ref.watch(chatModelOptionNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.chatModelTitle)),
@@ -133,9 +164,26 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: _checkingStatus
-                  ? const Center(child: CircularProgressIndicator())
-                  : _body(l10n),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ModelOptionSelector(
+                    selected: selectedOption,
+                    // Cambiar de opción a mitad de una descarga la
+                    // cancela (ver `_selectOption`), así que se
+                    // deshabilita mientras hay una en curso: elegirla por
+                    // accidente ahí perdería el progreso sin avisar.
+                    onSelected: _downloadProgress == null
+                        ? _selectOption
+                        : null,
+                  ),
+                  const SizedBox(height: 24),
+                  if (_checkingStatus)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    _body(l10n, selectedOption),
+                ],
+              ),
             ),
           ),
         ),
@@ -143,7 +191,7 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
     );
   }
 
-  Widget _body(AppLocalizations l10n) {
+  Widget _body(AppLocalizations l10n, ChatModelOption option) {
     if (_isReady) return _ReadyView(message: l10n.chatModelReady);
 
     final progress = _downloadProgress;
@@ -185,13 +233,75 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
           ],
           const SizedBox(height: 24),
         ],
-        _TokenSection(controller: _tokenController),
+        _TokenSection(controller: _tokenController, option: option),
         const SizedBox(height: 24),
         PrimaryButton(
           label: error == null
               ? l10n.chatModelDownloadAction
               : l10n.chatModelRetryAction,
           onPressed: _startDownload,
+        ),
+      ],
+    );
+  }
+}
+
+/// Elegir entre las opciones de [ChatModelOption], antes de mostrar nada
+/// sobre la descarga en sí: la opción elegida decide qué repositorio, qué
+/// licencia y qué tamaño le siguen a esto, así que va primero.
+///
+/// Un [SegmentedButton] y no dos botones sueltos: dejan clarísimo que es
+/// una elección excluyente entre dos caminos, no dos acciones
+/// independientes que se puedan tocar las dos.
+class _ModelOptionSelector extends StatelessWidget {
+  const _ModelOptionSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ChatModelOption selected;
+
+  /// `null` mientras hay una descarga en curso: cambiar de opción ahí la
+  /// cancelaría sin avisar, así que el selector se deshabilita en vez de
+  /// permitirlo.
+  final ValueChanged<ChatModelOption>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.chatModelOptionTitle, style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        SegmentedButton<ChatModelOption>(
+          segments: [
+            ButtonSegment(
+              value: ChatModelOption.gemma4E4b,
+              label: Text(l10n.chatModelOptionGemma4Title),
+            ),
+            ButtonSegment(
+              value: ChatModelOption.gemma3nE4b,
+              label: Text(l10n.chatModelOptionGemma3nTitle),
+            ),
+          ],
+          selected: {selected},
+          onSelectionChanged: onSelected == null
+              ? null
+              : (selection) => onSelected!(selection.single),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          switch (selected) {
+            ChatModelOption.gemma4E4b => l10n.chatModelOptionGemma4Description,
+            ChatModelOption.gemma3nE4b =>
+              l10n.chatModelOptionGemma3nDescription,
+          },
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -206,9 +316,10 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
 /// autenticarse—, así que no tiene sentido dejar que alguien lo intente a
 /// ciegas una vez para recién ahí pedirle el token.
 class _TokenSection extends StatelessWidget {
-  const _TokenSection({required this.controller});
+  const _TokenSection({required this.controller, required this.option});
 
   final TextEditingController controller;
+  final ChatModelOption option;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +336,10 @@ class _TokenSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _LinkText(label: l10n.chatModelTokenAcceptLicense, url: _modelPageUrl),
+        _LinkText(
+          label: l10n.chatModelTokenAcceptLicense,
+          url: _modelPageUrl(option),
+        ),
         _LinkText(label: l10n.chatModelTokenGenerate, url: _tokenPageUrl),
         const SizedBox(height: 12),
         TextField(

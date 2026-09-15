@@ -17,6 +17,8 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -61,6 +63,7 @@ class LibraryHarness {
     this.whisperModel,
     this.chatModel,
     this.chatModelManager,
+    this.chatModelManagerGemma3n,
     this.relationSuggestionService,
   );
 
@@ -118,6 +121,7 @@ class LibraryHarness {
     final whisperModel = FakeWhisperModelManager(ready: whisperModelReady);
     final chatModel = FakeChatModel(response: chatModelResponse);
     final chatModelManager = FakeChatModelManager(ready: chatModelReady);
+    final chatModelManagerGemma3n = FakeChatModelManager();
     final relationSuggestionService = FakeRelationSuggestionService();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
@@ -156,7 +160,20 @@ class LibraryHarness {
         // con qué hablar en un test, y ni el chat ni las flashcards lo
         // necesitan de verdad para probar la pantalla.
         chatModelProvider.overrideWithValue(chatModel),
-        chatModelManagerProvider.overrideWithValue(chatModelManager),
+        // Uno de mentira por opción, no un solo `overrideWithValue`: así
+        // `ChatModelScreen` puede probarse consultando y "descargando" la
+        // opción que corresponde según lo que elija quien la mira, en vez
+        // de que las dos opciones compartan sin querer el mismo estado. La
+        // gran mayoría de las pruebas no le presta atención a esto —usan
+        // `chatModelReady`, que sigue controlando solo la opción por
+        // defecto, exactamente como antes de este cambio—.
+        chatModelManagerProvider.overrideWith((ref) {
+          final option = ref.watch(chatModelOptionNotifierProvider);
+          return switch (option) {
+            ChatModelOption.gemma4E4b => chatModelManager,
+            ChatModelOption.gemma3nE4b => chatModelManagerGemma3n,
+          };
+        }),
         relationSuggestionServiceProvider.overrideWithValue(
           relationSuggestionService,
         ),
@@ -199,6 +216,7 @@ class LibraryHarness {
       whisperModel,
       chatModel,
       chatModelManager,
+      chatModelManagerGemma3n,
       relationSuggestionService,
     );
   }
@@ -238,9 +256,16 @@ class LibraryHarness {
   /// qué contesta.
   final FakeChatModel chatModel;
 
-  /// El estado del modelo de chat de mentira, para simular que ya está
-  /// descargado o no.
+  /// El estado del modelo de chat de mentira para la opción por defecto
+  /// ([ChatModelOption.gemma4E4b]), para simular que ya está descargado o
+  /// no.
   final FakeChatModelManager chatModelManager;
+
+  /// El estado del modelo de chat de mentira para la otra opción
+  /// ([ChatModelOption.gemma3nE4b]) — independiente del de arriba, para
+  /// probar que cambiar de opción en `ChatModelScreen` de verdad consulta
+  /// y descarga la que corresponde, no siempre la misma.
+  final FakeChatModelManager chatModelManagerGemma3n;
 
   /// El servicio de sugerencias de vínculos de mentira, para comprobar qué
   /// se le pidió al "asistente con IA" del grafo y controlar qué contesta.

@@ -1289,6 +1289,30 @@ puede resolver a artefactos distintos según la plataforma, así que
 hardcodear un nombre de archivo —como sí tenía sentido para el único
 `.litertlm` de la 1B— se volvió tanto innecesario como frágil.
 
+**Tercera corrección posterior: elegir entre dos modelos, no uno solo.**
+Quien no tiene problema de espacio ni de memoria en su equipo pidió poder
+elegir un modelo todavía más grande que Gemma 4 E4B. Se sumó **Gemma 3n
+E4B** (~4.9 GB, repositorio `google/gemma-3n-E4B-it-litert-lm`) como
+**segunda opción**, no como reemplazo: `ChatModelOption` (dominio) tiene
+las dos, `ChatModelOptionNotifier` recuerda cuál se eligió entre reinicios
+—mismo patrón que `ThemeModeNotifier`—, y `GemmaChatModelManager` recibe
+la opción por constructor en vez de tener un modelo fijo adentro.
+`chatModelManagerProvider` arma una instancia nueva cada vez que cambia la
+opción elegida, así que el chat, las flashcards y las sugerencias de
+vínculos del grafo —los tres consumen `chatModelManagerProvider`/
+`chatModelProvider` sin saber nada de esto— siguen a la opción activa sin
+ningún cambio de su lado.
+
+Un detalle no obvio: `ModelType.gemmaIt` —el tipo genérico de la familia
+Gemma 3 en `flutter_gemma`— es compartido por la vieja Gemma 3 1B (la
+primera opción de esta app, antes de la corrección anterior) y por Gemma
+3n E4B. Comparar solo el tipo de modelo activo, como alcanzaba para
+distinguir Gemma 4 del resto, no alcanza acá: un teléfono con la 1B
+todavía activa de una instalación vieja se leería como "ya tengo la Gemma
+3n lista" sin serlo. `GemmaChatModelManager.isReady()` compara también un
+fragmento del nombre del archivo activo (`nameContains`) para las
+opciones donde el tipo no alcanza a distinguir.
+
 ---
 
 ### 21. Flashcards con SM-2: el estado de repaso vive en la tarjeta, y la IA solo sugiere
