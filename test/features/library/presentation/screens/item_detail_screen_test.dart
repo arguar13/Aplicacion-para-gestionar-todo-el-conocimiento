@@ -116,6 +116,37 @@ void main() {
 
       expect(find.text(es.detailNoContentYet), findsOneWidget);
     });
+
+    testWidgets('el contenido completo se puede copiar con un solo botón', (
+      tester,
+    ) async {
+      final id = await captureAndGetId(
+        'Un título\n\nY el cuerpo con la idea completa.',
+      );
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailCopyContent));
+      await tester.pumpAndSettle();
+
+      expect(copied, 'Un título\n\nY el cuerpo con la idea completa.');
+      expect(find.text(es.detailContentCopied), findsOneWidget);
+    });
   });
 
   group('procedencia', () {
@@ -829,7 +860,14 @@ void main() {
       harness.goTo('${RoutePaths.library}/$id');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(ListTile));
+      final relationTile = find.byType(ListTile);
+      await tester.scrollUntilVisible(
+        relationTile,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(relationTile);
       await tester.pumpAndSettle();
 
       // No alcanza con buscar el texto: el origen sigue en la pila de

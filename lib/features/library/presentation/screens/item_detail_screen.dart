@@ -248,21 +248,41 @@ class _TextRenditionView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasTimestamps(rendition.content))
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              icon: const Icon(Icons.timer_off_outlined, size: 18),
-              label: Text(l10n.detailRemoveTimestamps),
-              onPressed: () => _removeTimestamps(context, ref),
-            ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: 4,
+            children: [
+              if (hasTimestamps(rendition.content))
+                TextButton.icon(
+                  icon: const Icon(Icons.timer_off_outlined, size: 18),
+                  label: Text(l10n.detailRemoveTimestamps),
+                  onPressed: () => _removeTimestamps(context, ref),
+                ),
+              TextButton.icon(
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                label: Text(l10n.detailCopyContent),
+                onPressed: () => _copyContent(context),
+              ),
+            ],
           ),
+        ),
         HighlightableText(
           renditionId: rendition.id,
           content: rendition.content,
         ),
       ],
     );
+  }
+
+  Future<void> _copyContent(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    await Clipboard.setData(ClipboardData(text: rendition.content));
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.detailContentCopied)));
   }
 
   Future<void> _removeTimestamps(BuildContext context, WidgetRef ref) async {

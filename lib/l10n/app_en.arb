@@ -394,6 +394,8 @@
   },
   "detailRemoveTimestamps": "Remove timestamps",
   "detailTimestampsRemoved": "Timestamps removed",
+  "detailCopyContent": "Copy all",
+  "detailContentCopied": "Content copied",
   "detailDeleteOriginalFile": "Delete file, keep the text",
   "@detailDeleteOriginalFile": {
     "description": "Button that deletes the original video or audio file of an item and keeps its transcript."
