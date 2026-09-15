@@ -60,6 +60,18 @@
       }
     }
   },
+  "documentReaderSmallerText": "Smaller text",
+  "@documentReaderSmallerText": {
+    "description": "Tooltip for the button that decreases the reader's font size."
+  },
+  "documentReaderLargerText": "Larger text",
+  "@documentReaderLargerText": {
+    "description": "Tooltip for the button that increases the reader's font size."
+  },
+  "documentReaderGoToPage": "Go to page",
+  "@documentReaderGoToPage": {
+    "description": "Title of the page-jump dialog, and its confirm button label."
+  },
   "librarySearchEmpty": "Nothing matches \"{query}\"",
   "@librarySearchEmpty": {
     "description": "Shown when a search returns no results",

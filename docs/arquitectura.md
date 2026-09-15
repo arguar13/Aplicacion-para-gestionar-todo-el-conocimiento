@@ -1496,6 +1496,34 @@ específicamente para eso, y es donde paginar rinde más.
 
 ---
 
+### 24. El modo de lectura: tamaño de letra e ir a página
+
+Con la paginación de la decisión 23 ya puesta, dos cosas seguían faltando
+para que el modo de lectura se sintiera como el de un lector de libros de
+verdad, y no solo como una pantalla que ya no traba: elegir el tamaño de
+la letra, y llegar directo a una página lejana sin tener que pasar todas
+las de en medio.
+
+**El tamaño de letra se recuerda entre lecturas, no solo entre páginas del
+mismo libro.** `ReaderFontScaleNotifier` guarda la escala elegida en
+`SharedPreferences` con el mismo patrón que `ThemeModeNotifier` —ver la
+decisión original del tema—: quien agranda la letra para leer más cómodo
+no debería tener que repetirlo cada vez que abre otro documento. Un
+escalar entre 0.8× y 1.6× sobre `bodyLarge`, no un tamaño en puntos fijo:
+así la relación con el resto de la tipografía de la app se mantiene sin
+importar la configuración de accesibilidad del sistema.
+
+**Ir a página, con un control deslizante y no un campo de número.** En un
+libro de cientos de páginas, escribir "347" a mano exige ya saber el
+número exacto —algo que rara vez se sabe—, mientras que arrastrar hasta
+la zona aproximada del libro es exactamente cómo se hojea un libro de
+papel para encontrar un lugar recordado a medias. El mismo indicador
+"Página X de Y" que ya mostraba dónde se está parado (decisión 23) ahora
+también abre este selector al tocarlo: un solo elemento que informa y que
+actúa, en vez de sumar un botón aparte solo para esto.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido

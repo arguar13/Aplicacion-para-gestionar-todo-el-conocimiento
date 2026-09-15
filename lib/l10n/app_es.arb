@@ -24,6 +24,18 @@
       }
     }
   },
+  "documentReaderSmallerText": "Letra más chica",
+  "@documentReaderSmallerText": {
+    "description": "Tooltip del botón que achica la letra del modo de lectura."
+  },
+  "documentReaderLargerText": "Letra más grande",
+  "@documentReaderLargerText": {
+    "description": "Tooltip del botón que agranda la letra del modo de lectura."
+  },
+  "documentReaderGoToPage": "Ir a página",
+  "@documentReaderGoToPage": {
+    "description": "Título del diálogo para saltar a una página, y el texto de su botón de confirmar."
+  },
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
