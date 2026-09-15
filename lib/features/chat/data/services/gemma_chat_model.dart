@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
@@ -252,8 +254,15 @@ class _GemmaFreeConversation implements FreeConversation {
   final InferenceChat _chat;
 
   @override
-  Future<String> send(String message) async {
-    await _chat.addQueryChunk(Message.text(text: message, isUser: true));
+  Future<String> send(
+    String message, {
+    List<Uint8List> images = const [],
+  }) async {
+    await _chat.addQueryChunk(
+      images.isEmpty
+          ? Message.text(text: message, isUser: true)
+          : Message.withImages(text: message, imageBytes: images, isUser: true),
+    );
     final response = await _chat.generateChatResponse();
 
     return switch (response) {
@@ -281,9 +290,13 @@ class _GemmaVaultConversation implements VaultConversation {
   Future<String> send({
     required String message,
     required List<ChatSource> sources,
+    List<Uint8List> images = const [],
   }) async {
+    final prompt = _buildVaultPrompt(message, sources);
     await _chat.addQueryChunk(
-      Message.text(text: _buildVaultPrompt(message, sources), isUser: true),
+      images.isEmpty
+          ? Message.text(text: prompt, isUser: true)
+          : Message.withImages(text: prompt, imageBytes: images, isUser: true),
     );
     final response = await _chat.generateChatResponse();
 

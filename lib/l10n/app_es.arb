@@ -1155,6 +1155,76 @@
   "@chatModelTokenHint": {
     "description": "Texto de ejemplo del campo del token."
   },
+  "chatHistoryTooltip": "Historial de conversaciones",
+  "@chatHistoryTooltip": {
+    "description": "Tooltip del ícono que abre el historial de conversaciones del chat."
+  },
+  "chatHistoryTitle": "Historial",
+  "@chatHistoryTitle": {
+    "description": "Título del panel de historial de conversaciones."
+  },
+  "chatHistoryEmpty": "Todavía no hay conversaciones guardadas en este modo.",
+  "@chatHistoryEmpty": {
+    "description": "Mensaje cuando el historial de un modo del chat está vacío."
+  },
+  "chatHistoryUntitled": "Conversación sin título",
+  "@chatHistoryUntitled": {
+    "description": "Título mostrado para una conversación que todavía no tiene mensajes del usuario."
+  },
+  "chatHistoryNewAction": "Nueva conversación",
+  "@chatHistoryNewAction": {
+    "description": "Botón que arranca una conversación nueva desde el historial."
+  },
+  "chatHistoryDeleteTooltip": "Borrar conversación",
+  "@chatHistoryDeleteTooltip": {
+    "description": "Tooltip del botón para borrar una conversación del historial."
+  },
+  "chatHistoryDeleteConfirmTitle": "¿Borrar esta conversación?",
+  "@chatHistoryDeleteConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de borrar una conversación."
+  },
+  "chatHistoryDeleteConfirmBody": "Se borran también todos sus mensajes. Esto no se puede deshacer.",
+  "@chatHistoryDeleteConfirmBody": {
+    "description": "Cuerpo del diálogo de confirmación antes de borrar una conversación."
+  },
+  "chatHistoryDeleteConfirmAction": "Borrar",
+  "@chatHistoryDeleteConfirmAction": {
+    "description": "Botón de confirmar el borrado de una conversación."
+  },
+  "chatAttachTooltip": "Adjuntar",
+  "@chatAttachTooltip": {
+    "description": "Tooltip del botón para adjuntar una imagen o un documento al mensaje."
+  },
+  "chatAttachImageAction": "Imagen",
+  "@chatAttachImageAction": {
+    "description": "Opción del menú de adjuntar para elegir una imagen."
+  },
+  "chatAttachDocumentAction": "Documento",
+  "@chatAttachDocumentAction": {
+    "description": "Opción del menú de adjuntar para elegir un documento."
+  },
+  "chatAttachRemoveTooltip": "Quitar adjunto",
+  "@chatAttachRemoveTooltip": {
+    "description": "Tooltip del botón para quitar un adjunto antes de enviar el mensaje."
+  },
+  "chatAttachReading": "Leyendo {name}…",
+  "@chatAttachReading": {
+    "description": "Mensaje mientras se extrae el texto de un documento adjunto.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatAttachUnreadable": "No se pudo leer {name}.",
+  "@chatAttachUnreadable": {
+    "description": "Mensaje cuando un documento adjunto no se pudo leer.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "navLibrary": "Biblioteca",
   "@navLibrary": {
     "description": "Etiqueta corta del destino de biblioteca en la navegación principal."

@@ -2,6 +2,8 @@
 // porque `Exception` y `Error` no comparten más supertipo que ese.
 // ignore_for_file: only_throw_errors
 
+import 'dart:typed_data';
+
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 
@@ -64,11 +66,19 @@ class FakeFreeConversation implements FreeConversation {
   /// Cada mensaje que se mandó con [send], en orden.
   final sent = <String>[];
 
+  /// Las imágenes que acompañaron a cada mensaje, en el mismo orden que
+  /// [sent].
+  final sentImages = <List<Uint8List>>[];
+
   bool closed = false;
 
   @override
-  Future<String> send(String message) async {
+  Future<String> send(
+    String message, {
+    List<Uint8List> images = const [],
+  }) async {
     sent.add(message);
+    sentImages.add(images);
     final err = error;
     if (err != null) throw err;
     return response ?? '';
@@ -96,15 +106,21 @@ class FakeVaultConversation implements VaultConversation {
   /// [sent].
   final sentSources = <List<ChatSource>>[];
 
+  /// Las imágenes que acompañaron a cada mensaje, en el mismo orden que
+  /// [sent].
+  final sentImages = <List<Uint8List>>[];
+
   bool closed = false;
 
   @override
   Future<String> send({
     required String message,
     required List<ChatSource> sources,
+    List<Uint8List> images = const [],
   }) async {
     sent.add(message);
     sentSources.add(sources);
+    sentImages.add(images);
     final err = error;
     if (err != null) throw err;
     return response ?? '';

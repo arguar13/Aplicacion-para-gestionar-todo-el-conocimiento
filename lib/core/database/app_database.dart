@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/database/tables/chat_messages.dart';
+import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/core/database/tables/tags.dart';
 // tablas donde cada enum se declara. Sin esto, `app_database.g.dart` no
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -34,6 +37,8 @@ part 'app_database.g.dart';
     Highlights,
     Spaces,
     Flashcards,
+    Conversations,
+    ChatMessages,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -60,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,6 +88,13 @@ class AppDatabase extends _$AppDatabase {
       // valor por defecto que inventar.
       if (from < 3) {
         await migrator.createTable(flashcards);
+      }
+      // Historial del chat: dos tablas nuevas, sin tocar ninguna existente
+      // — nada que migrar en una bóveda que ya tenía conversaciones, porque
+      // hasta ahora el chat no guardaba nada.
+      if (from < 4) {
+        await migrator.createTable(conversations);
+        await migrator.createTable(chatMessages);
       }
     },
     beforeOpen: (details) async {

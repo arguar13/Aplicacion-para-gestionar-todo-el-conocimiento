@@ -1,45 +1,51 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/domain/entities/chat_answer.dart';
+import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Un intercambio de la conversación: lo que se preguntó y, cuando ya está,
-/// lo que contestó — o `null` mientras se está procesando.
-class _ChatTurn {
-  _ChatTurn({required this.question});
+/// Cuántos caracteres del texto extraído de un documento adjunto se le
+/// mandan al modelo. Un libro entero adjunto desbordaría la ventana de
+/// contexto del modelo antes de llegar a la pregunta misma; con un tope, el
+/// modelo ve el principio del documento —donde suele estar lo más
+/// relevante para orientarse— y el resto sigue disponible desde la
+/// biblioteca si hace falta más.
+const _kAttachmentTextBudget = 6000;
 
-  final String question;
-  ChatAnswer? answer;
-  String? error;
+/// Un adjunto ya elegido y guardado, listo para mandarse con el próximo
+/// mensaje.
+///
+/// Guarda los bytes además de [attachment] —que ya tiene su
+/// [ChatAttachment.relativePath] en el almacén— para no tener que releerlos
+/// del disco al armar el mensaje multimodal ni al dibujar la miniatura en
+/// el compositor.
+class _PendingAttachment {
+  const _PendingAttachment({required this.attachment, required this.bytes});
+
+  final ChatAttachment attachment;
+  final Uint8List bytes;
 }
 
-/// Un intercambio de la conversación libre: sin fuentes, solo pregunta y
-/// respuesta en lenguaje natural.
-class _FreeTurn {
-  _FreeTurn({required this.message});
-
-  final String message;
-  String? answer;
-  String? error;
-  bool done = false;
-}
-
-/// Los dos modos del chat. Cada uno lleva su propio historial, en vez de
-/// mezclarse en una sola lista: son dos conversaciones distintas, con
-/// reglas distintas —una cita fuentes y nunca inventa nada que no esté en
-/// la bóveda, la otra es una charla común y corriente—, y verlas juntas
-/// confundiría cuál es cuál.
-enum _ChatMode { vault, free }
-
-/// El chat de la app, en dos modos.
+/// El chat de la app, en dos modos, con historial persistente.
 ///
 /// **Con mi bóveda**: busca qué hay guardado y, si el modelo de lenguaje ya
 /// está descargado, redacta una respuesta que cita esas fuentes. Sin el
@@ -51,6 +57,14 @@ enum _ChatMode { vault, free }
 /// hay red de contención: sin el modelo descargado no hay nada que
 /// contestar, porque no existe una "búsqueda" de respaldo para una charla
 /// que no busca nada.
+///
+/// Cada modo guarda su propio historial de conversaciones —ver la decisión
+/// 26 en docs/arquitectura.md—: abrir una conversación pasada arma una
+/// sesión nueva del modelo, así que no recuerda lo hablado antes de
+/// reabrirla, aunque el historial completo se siga mostrando en pantalla.
+/// Es una limitación aceptada y no un error: `flutter_gemma` no ofrece
+/// forma de recargar una sesión ya cerrada con su historial previo sin
+/// volver a pedirle una respuesta por cada mensaje viejo.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -59,24 +73,30 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final List<_ChatTurn> _vaultTurns = [];
-  final List<_FreeTurn> _freeTurns = [];
-  var _mode = _ChatMode.vault;
+  final List<_PendingAttachment> _pendingAttachments = [];
+  var _mode = ChatConversationMode.vault;
   var _modelReady = false;
   var _asking = false;
+  var _attaching = false;
+
+  String? _vaultConversationId;
+  String? _freeConversationId;
 
   /// La sesión de la conversación libre en curso. Vive mientras dure la
   /// charla —no se abre y se cierra pregunta a pregunta—, para que el
   /// modelo tenga todo lo dicho antes como contexto.
   FreeConversation? _conversation;
 
-  /// Lo mismo, para el modo con la bóveda: solo existe cuando el modelo
-  /// está descargado —sin él, cada pregunta pasa por
-  /// `AskVaultQuestionUseCase`, que no necesita memoria porque no redacta
-  /// nada, solo busca—.
+  /// Lo mismo, para el modo con la bóveda.
   VaultConversation? _vaultConversation;
+
+  String? get _currentConversationId => switch (_mode) {
+    ChatConversationMode.vault => _vaultConversationId,
+    ChatConversationMode.free => _freeConversationId,
+  };
 
   @override
   void initState() {
@@ -105,77 +125,343 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     unawaited(_refreshModelStatus());
   }
 
-  void _changeMode(_ChatMode mode) {
+  void _changeMode(ChatConversationMode mode) {
     if (mode == _mode) return;
     setState(() => _mode = mode);
   }
 
-  /// Cierra la sesión del modo activo y borra su historial, para empezar de
-  /// cero sin que el modelo siga arrastrando lo que se habló antes.
+  /// Deja el modo activo listo para arrancar una conversación nueva y
+  /// vacía, sin borrar ninguna de las guardadas: la próxima vez que se
+  /// mande un mensaje, se crea una fila nueva en el historial.
   void _newConversation() {
     switch (_mode) {
-      case _ChatMode.free:
+      case ChatConversationMode.free:
         unawaited(_conversation?.close());
         setState(() {
           _conversation = null;
-          _freeTurns.clear();
+          _freeConversationId = null;
         });
-      case _ChatMode.vault:
+      case ChatConversationMode.vault:
         unawaited(_vaultConversation?.close());
         setState(() {
           _vaultConversation = null;
-          _vaultTurns.clear();
+          _vaultConversationId = null;
         });
     }
+  }
+
+  void _openConversation(ChatConversation conversation) {
+    switch (conversation.mode) {
+      case ChatConversationMode.free:
+        unawaited(_conversation?.close());
+        setState(() {
+          _conversation = null;
+          _freeConversationId = conversation.id;
+        });
+      case ChatConversationMode.vault:
+        unawaited(_vaultConversation?.close());
+        setState(() {
+          _vaultConversation = null;
+          _vaultConversationId = conversation.id;
+        });
+    }
+    Navigator.of(context).pop();
+    _scrollToEnd();
+  }
+
+  Future<void> _deleteConversation(ChatConversation conversation) async {
+    await ref
+        .read(chatConversationRepositoryProvider)
+        .deleteConversation(conversation.id);
+    if (!mounted) return;
+    if (conversation.id == _currentConversationId) {
+      switch (conversation.mode) {
+        case ChatConversationMode.free:
+          unawaited(_conversation?.close());
+          setState(() {
+            _conversation = null;
+            _freeConversationId = null;
+          });
+        case ChatConversationMode.vault:
+          unawaited(_vaultConversation?.close());
+          setState(() {
+            _vaultConversation = null;
+            _vaultConversationId = null;
+          });
+      }
+    }
+  }
+
+  Future<void> _pickAttachmentKind() async {
+    final l10n = AppLocalizations.of(context)!;
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: Text(l10n.chatAttachImageAction),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_addAttachment());
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(l10n.chatAttachDocumentAction),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                unawaited(_addAttachment());
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Trae un archivo del selector del sistema y lo clasifica **por sus
+  /// bytes**, no por cuál de las dos opciones del menú se tocó: los dos
+  /// caminos abren el mismo selector sin filtrar —igual que
+  /// `SystemFileChooser`, que tampoco confía en la extensión— y es
+  /// [FileFormat.sourceKind] quien decide si es una imagen o un documento.
+  Future<void> _addAttachment() async {
+    final l10n = AppLocalizations.of(context)!;
+    final chosen = await ref.read(fileChooserProvider).pickOne();
+    if (chosen == null || !mounted) return;
+
+    if (chosen.isTooLarge) {
+      _showSnack(
+        l10n.globalErrorFileTooLarge(
+          (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
+        ),
+      );
+      return;
+    }
+
+    final format = chosen.format;
+    if (format.sourceKind == SourceKind.image) {
+      final ids = ref.read(idGeneratorProvider);
+      final relativePath = await ref
+          .read(fileStoreProvider)
+          .save(
+            bytes: chosen.bytes,
+            suggestedName: chosen.name,
+            id: ids.next(),
+          );
+      if (!mounted) return;
+      setState(() {
+        _pendingAttachments.add(
+          _PendingAttachment(
+            attachment: ChatAttachment(
+              name: chosen.name,
+              kind: ChatAttachmentKind.image,
+              relativePath: relativePath,
+            ),
+            bytes: chosen.bytes,
+          ),
+        );
+      });
+      return;
+    }
+
+    final parser = ref
+        .read(documentParsersProvider)
+        .where((p) => p.canParse(format))
+        .firstOrNull;
+    if (parser == null) {
+      _showSnack(l10n.chatAttachUnreadable(chosen.name));
+      return;
+    }
+
+    setState(() => _attaching = true);
+    try {
+      final parsed = await parser.parse(chosen.bytes);
+      final ids = ref.read(idGeneratorProvider);
+      final relativePath = await ref
+          .read(fileStoreProvider)
+          .save(
+            bytes: chosen.bytes,
+            suggestedName: chosen.name,
+            id: ids.next(),
+          );
+      if (!mounted) return;
+      setState(() {
+        _pendingAttachments.add(
+          _PendingAttachment(
+            attachment: ChatAttachment(
+              name: chosen.name,
+              kind: ChatAttachmentKind.document,
+              relativePath: relativePath,
+              extractedText: parsed.markdown,
+            ),
+            bytes: chosen.bytes,
+          ),
+        );
+      });
+      // `DocumentParser.parse` declara que lanza `UnreadableDocumentException`
+      // ante bytes corruptos: un archivo así no es un defecto del programa.
+    } on UnreadableDocumentException {
+      if (!mounted) return;
+      _showSnack(l10n.chatAttachUnreadable(chosen.name));
+    } finally {
+      if (mounted) setState(() => _attaching = false);
+    }
+  }
+
+  void _removeAttachment(_PendingAttachment attachment) {
+    setState(() => _pendingAttachments.remove(attachment));
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _asking) return;
+    final attachments = List<_PendingAttachment>.of(_pendingAttachments);
+    if ((text.isEmpty && attachments.isEmpty) || _asking) return;
 
-    switch (_mode) {
-      case _ChatMode.vault:
-        await _askVault(text);
-      case _ChatMode.free:
-        await _askFree(text);
-    }
-  }
+    final l10n = AppLocalizations.of(context)!;
+    final repo = ref.read(chatConversationRepositoryProvider);
+    final ids = ref.read(idGeneratorProvider);
+    final clock = ref.read(clockProvider);
+    final mode = _mode;
 
-  Future<void> _askVault(String question) async {
-    final turn = _ChatTurn(question: question);
     setState(() {
-      _vaultTurns.add(turn);
-      _controller.clear();
       _asking = true;
+      _controller.clear();
+      _pendingAttachments.clear();
     });
     _scrollToEnd();
 
-    // Sin el modelo, esto es un buscador y nada más (principio 4: degradar
-    // antes que fallar) — el mismo camino de siempre, sin sesión ni
-    // historial porque no hay nada que redactar.
-    if (!_modelReady) {
-      final result = await ref.read(askVaultQuestionUseCaseProvider)(question);
-      if (!mounted) return;
-
-      final l10n = AppLocalizations.of(context)!;
-      setState(() {
-        result.match(
-          (failure) => turn.error = failure.localizedMessage(l10n),
-          (answer) => turn.answer = answer,
-        );
-        _asking = false;
-      });
-      _scrollToEnd();
-      return;
+    var conversationId = _currentConversationId;
+    if (conversationId == null) {
+      final conversation = await repo.createConversation(mode);
+      conversationId = conversation.id;
+      _setConversationId(mode, conversationId);
     }
 
-    // Con el modelo: una charla de verdad, no una pregunta suelta cada vez.
-    // La sesión se mantiene entre mensajes para que "¿y qué más dice sobre
-    // eso?" tenga sentido sin repetir el contexto a mano; lo que sí se
-    // busca de nuevo en cada vuelta es la bóveda, porque cada mensaje puede
-    // hablar de algo distinto.
+    await repo.addMessage(
+      PersistedChatMessage(
+        id: ids.next(),
+        conversationId: conversationId,
+        isUser: true,
+        text: text,
+        createdAt: clock(),
+        attachments: [for (final a in attachments) a.attachment],
+      ),
+    );
+    _scrollToEnd();
+
+    final promptText = _buildPrompt(text, attachments);
+    final images = [
+      for (final a in attachments)
+        if (a.attachment.kind == ChatAttachmentKind.image) a.bytes,
+    ];
+
+    final answer = switch (mode) {
+      ChatConversationMode.vault => await _answerVault(
+        text: text,
+        promptText: promptText,
+        images: images,
+        conversationId: conversationId,
+        id: ids.next(),
+        clock: clock,
+        l10n: l10n,
+      ),
+      ChatConversationMode.free => await _answerFree(
+        promptText: promptText,
+        images: images,
+        conversationId: conversationId,
+        id: ids.next(),
+        clock: clock,
+        l10n: l10n,
+      ),
+    };
+
+    await repo.addMessage(answer);
+    if (!mounted) return;
+    setState(() => _asking = false);
+    _scrollToEnd();
+  }
+
+  void _setConversationId(ChatConversationMode mode, String id) {
+    switch (mode) {
+      case ChatConversationMode.vault:
+        _vaultConversationId = id;
+      case ChatConversationMode.free:
+        _freeConversationId = id;
+    }
+  }
+
+  /// El mensaje que ve el modelo: el texto del usuario más, si adjuntó
+  /// documentos, el contenido que se les extrajo —recortado a
+  /// [_kAttachmentTextBudget]—. Lo que se guarda en [PersistedChatMessage]
+  /// y se muestra en pantalla es solo [text], sin este agregado: la persona
+  /// que preguntó no necesita releer el documento entero que ella misma
+  /// adjuntó.
+  String _buildPrompt(String text, List<_PendingAttachment> attachments) {
+    final docs = [
+      for (final a in attachments)
+        if (a.attachment.kind == ChatAttachmentKind.document &&
+            (a.attachment.extractedText ?? '').isNotEmpty)
+          a.attachment,
+    ];
+    if (docs.isEmpty) return text;
+
+    final content = docs
+        .map((doc) {
+          final extracted = doc.extractedText!;
+          final truncated = extracted.length > _kAttachmentTextBudget
+              ? '${extracted.substring(0, _kAttachmentTextBudget)}…'
+              : extracted;
+          return '### ${doc.name}\n$truncated';
+        })
+        .join('\n\n');
+
+    final prefix = text.isEmpty ? '' : '$text\n\n';
+    return '${prefix}Contenido de los documentos adjuntos:\n\n$content';
+  }
+
+  Future<PersistedChatMessage> _answerVault({
+    required String text,
+    required String promptText,
+    required List<Uint8List> images,
+    required String conversationId,
+    required String id,
+    required DateTime Function() clock,
+    required AppLocalizations l10n,
+  }) async {
+    final query = text.isEmpty ? promptText : text;
+
+    if (!_modelReady) {
+      final result = await ref.read(askVaultQuestionUseCaseProvider)(query);
+      return result.match(
+        (failure) => PersistedChatMessage(
+          id: id,
+          conversationId: conversationId,
+          isUser: false,
+          text: '',
+          createdAt: clock(),
+          error: failure.localizedMessage(l10n),
+        ),
+        (answer) => PersistedChatMessage(
+          id: id,
+          conversationId: conversationId,
+          isUser: false,
+          text: answer.text ?? '',
+          sources: answer.sources,
+          createdAt: clock(),
+        ),
+      );
+    }
+
     try {
-      final sources = await ref.read(vaultRetrieverProvider).retrieve(question);
+      final sources = await ref.read(vaultRetrieverProvider).retrieve(query);
 
       var conversation = _vaultConversation;
       conversation ??= await ref
@@ -183,78 +469,81 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .startVaultConversation();
       _vaultConversation = conversation;
 
-      final text = await conversation.send(message: question, sources: sources);
-      if (!mounted) return;
-      setState(() {
-        turn.answer = ChatAnswer(text: text, sources: sources);
-        _asking = false;
-      });
+      final text = await conversation.send(
+        message: promptText,
+        sources: sources,
+        images: images,
+      );
+      return PersistedChatMessage(
+        id: id,
+        conversationId: conversationId,
+        isUser: false,
+        text: text,
+        sources: sources,
+        createdAt: clock(),
+      );
       // El motor de inferencia es de terceros (flutter_gemma); puede fallar
       // de formas que no tienen un tipo propio en Dart.
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      setState(() {
-        turn.error = l10n.globalErrorUnexpected;
-        _asking = false;
-      });
+      return PersistedChatMessage(
+        id: id,
+        conversationId: conversationId,
+        isUser: false,
+        text: '',
+        createdAt: clock(),
+        error: l10n.globalErrorUnexpected,
+      );
     }
-    _scrollToEnd();
   }
 
-  Future<void> _askFree(String message) async {
-    final l10n = AppLocalizations.of(context)!;
-    final turn = _FreeTurn(message: message);
-
+  Future<PersistedChatMessage> _answerFree({
+    required String promptText,
+    required List<Uint8List> images,
+    required String conversationId,
+    required String id,
+    required DateTime Function() clock,
+    required AppLocalizations l10n,
+  }) async {
     // Sin el modelo no hay con qué contestar: a diferencia del modo con la
     // bóveda, acá no hay ninguna búsqueda de respaldo que ofrecer.
     if (!_modelReady) {
-      setState(() {
-        _freeTurns.add(
-          turn
-            ..error = l10n.chatFreeModelRequired
-            ..done = true,
-        );
-        _controller.clear();
-      });
-      _scrollToEnd();
-      return;
+      return PersistedChatMessage(
+        id: id,
+        conversationId: conversationId,
+        isUser: false,
+        text: '',
+        createdAt: clock(),
+        error: l10n.chatFreeModelRequired,
+      );
     }
-
-    setState(() {
-      _freeTurns.add(turn);
-      _controller.clear();
-      _asking = true;
-    });
-    _scrollToEnd();
 
     try {
       var conversation = _conversation;
       conversation ??= await ref.read(chatModelProvider).startConversation();
       _conversation = conversation;
 
-      final answer = await conversation.send(message);
-      if (!mounted) return;
-      setState(() {
-        turn
-          ..answer = answer
-          ..done = true;
-        _asking = false;
-      });
+      final answer = await conversation.send(promptText, images: images);
+      return PersistedChatMessage(
+        id: id,
+        conversationId: conversationId,
+        isUser: false,
+        text: answer,
+        createdAt: clock(),
+      );
       // El motor de inferencia es de terceros (flutter_gemma); puede fallar
       // de formas que no tienen un tipo propio en Dart.
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        turn
-          ..error = l10n.globalErrorUnexpected
-          ..done = true;
-        _asking = false;
-      });
+      return PersistedChatMessage(
+        id: id,
+        conversationId: conversationId,
+        isUser: false,
+        text: '',
+        createdAt: clock(),
+        error: l10n.globalErrorUnexpected,
+      );
     }
-    _scrollToEnd();
   }
 
   void _scrollToEnd() {
@@ -271,13 +560,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isFree = _mode == _ChatMode.free;
+    final isFree = _mode == ChatConversationMode.free;
+    final conversationId = _currentConversationId;
 
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: _HistoryDrawer(
+        mode: _mode,
+        activeConversationId: conversationId,
+        onSelect: _openConversation,
+        onNew: () {
+          _newConversation();
+          Navigator.of(context).pop();
+        },
+        onDelete: _deleteConversation,
+      ),
       appBar: AppBar(
         title: Text(l10n.chatTitle),
         actions: [
-          if (isFree ? _freeTurns.isNotEmpty : _vaultTurns.isNotEmpty)
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: l10n.chatHistoryTooltip,
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          ),
+          if (conversationId != null)
             IconButton(
               icon: const Icon(Icons.add_comment_outlined),
               tooltip: l10n.chatNewConversationTooltip,
@@ -296,15 +602,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Center(
-              child: SegmentedButton<_ChatMode>(
+              child: SegmentedButton<ChatConversationMode>(
                 segments: [
                   ButtonSegment(
-                    value: _ChatMode.vault,
+                    value: ChatConversationMode.vault,
                     label: Text(l10n.chatModeVault),
                     icon: const Icon(Icons.folder_outlined, size: 18),
                   ),
                   ButtonSegment(
-                    value: _ChatMode.free,
+                    value: ChatConversationMode.free,
                     label: Text(l10n.chatModeFree),
                     icon: const Icon(Icons.chat_bubble_outline, size: 18),
                   ),
@@ -327,11 +633,138 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 actionLabel: l10n.chatModelDownloadAction,
                 onDownload: _openModelScreen,
               ),
-            Expanded(child: isFree ? _freeBody(l10n) : _vaultBody(l10n)),
+            Expanded(
+              child: conversationId == null
+                  ? _EmptyState(
+                      explanation: isFree
+                          ? l10n.chatFreeEmptyExplanation
+                          : l10n.chatEmptyExplanation,
+                    )
+                  : _MessagesList(
+                      conversationId: conversationId,
+                      mode: _mode,
+                      asking: _asking,
+                      scrollController: _scrollController,
+                    ),
+            ),
+            if (_pendingAttachments.isNotEmpty)
+              _AttachmentChips(
+                attachments: _pendingAttachments,
+                onRemove: _removeAttachment,
+              ),
             _Composer(
               controller: _controller,
               enabled: !_asking,
+              attaching: _attaching,
               onSend: _send,
+              onAttach: _attaching ? null : _pickAttachmentKind,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryDrawer extends ConsumerWidget {
+  const _HistoryDrawer({
+    required this.mode,
+    required this.activeConversationId,
+    required this.onSelect,
+    required this.onNew,
+    required this.onDelete,
+  });
+
+  final ChatConversationMode mode;
+  final String? activeConversationId;
+  final ValueChanged<ChatConversation> onSelect;
+  final VoidCallback onNew;
+  final ValueChanged<ChatConversation> onDelete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final conversationsAsync = ref.watch(chatConversationsProvider(mode));
+
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.chatHistoryTitle,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_comment_outlined),
+                    tooltip: l10n.chatHistoryNewAction,
+                    onPressed: onNew,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: conversationsAsync.when(
+                data: (conversations) {
+                  if (conversations.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          l10n.chatHistoryEmpty,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final locale = Localizations.localeOf(context).toString();
+                  final dateFormat = DateFormat.MMMd(locale).add_Hm();
+
+                  return ListView.builder(
+                    itemCount: conversations.length,
+                    itemBuilder: (context, index) {
+                      final conversation = conversations[index];
+                      final selected = conversation.id == activeConversationId;
+                      return ListTile(
+                        selected: selected,
+                        leading: Icon(
+                          mode == ChatConversationMode.vault
+                              ? Icons.folder_outlined
+                              : Icons.chat_bubble_outline,
+                        ),
+                        title: Text(
+                          conversation.title ?? l10n.chatHistoryUntitled,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          dateFormat.format(conversation.updatedAt),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: l10n.chatHistoryDeleteTooltip,
+                          onPressed: () =>
+                              _confirmDelete(context, l10n, conversation),
+                        ),
+                        onTap: () => onSelect(conversation),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, stackTrace) =>
+                    Center(child: Text(l10n.globalErrorUnexpected)),
+              ),
             ),
           ],
         ),
@@ -339,27 +772,82 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _vaultBody(AppLocalizations l10n) {
-    if (_vaultTurns.isEmpty) {
-      return _EmptyState(explanation: l10n.chatEmptyExplanation);
-    }
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: _vaultTurns.length,
-      itemBuilder: (context, index) => _TurnView(turn: _vaultTurns[index]),
+  Future<void> _confirmDelete(
+    BuildContext context,
+    AppLocalizations l10n,
+    ChatConversation conversation,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.chatHistoryDeleteConfirmTitle),
+        content: Text(l10n.chatHistoryDeleteConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.chatHistoryDeleteConfirmAction),
+          ),
+        ],
+      ),
     );
+    if (confirmed ?? false) onDelete(conversation);
   }
+}
 
-  Widget _freeBody(AppLocalizations l10n) {
-    if (_freeTurns.isEmpty) {
-      return _EmptyState(explanation: l10n.chatFreeEmptyExplanation);
-    }
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: _freeTurns.length,
-      itemBuilder: (context, index) => _FreeTurnView(turn: _freeTurns[index]),
+class _MessagesList extends ConsumerWidget {
+  const _MessagesList({
+    required this.conversationId,
+    required this.mode,
+    required this.asking,
+    required this.scrollController,
+  });
+
+  final String conversationId;
+  final ChatConversationMode mode;
+  final bool asking;
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final messagesAsync = ref.watch(chatMessagesProvider(conversationId));
+
+    ref.listen(chatMessagesProvider(conversationId), (previous, next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!scrollController.hasClients) return;
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      });
+    });
+
+    return messagesAsync.when(
+      data: (messages) {
+        if (messages.isEmpty && !asking) {
+          return _EmptyState(
+            explanation: mode == ChatConversationMode.free
+                ? l10n.chatFreeEmptyExplanation
+                : l10n.chatEmptyExplanation,
+          );
+        }
+        return ListView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount: messages.length + (asking ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index >= messages.length) return const _TypingBubble();
+            return _MessageBubble(message: messages[index]);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, stackTrace) => Center(child: Text(l10n.globalErrorUnexpected)),
     );
   }
 }
@@ -426,62 +914,95 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _TurnView extends StatelessWidget {
-  const _TurnView({required this.turn});
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
 
-  final _ChatTurn turn;
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 24),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message});
+
+  final PersistedChatMessage message;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final answer = turn.answer;
-    final error = turn.error;
 
+    if (message.isUser) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (message.attachments.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final attachment in message.attachments)
+                      _AttachmentPreview(attachment: attachment),
+                  ],
+                ),
+              ),
+            if (message.text.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    message.text,
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final error = message.error;
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 480),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                turn.question,
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           if (error != null)
             Text(error, style: TextStyle(color: theme.colorScheme.error))
-          else if (answer == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (answer.text != null) ...[
-            // Con el modelo conversando, una respuesta redactada es la
-            // respuesta —haya podido citar fuentes o no—: a diferencia del
-            // buscador sin modelo, acá "no encontré nada específico" ya es
-            // parte de lo que el propio modelo puede decir con naturalidad,
-            // no un mensaje aparte que lo reemplace.
-            Text(answer.text!, style: theme.textTheme.bodyLarge),
-            if (answer.sources.isNotEmpty) ...[
+          else if (message.text.isNotEmpty) ...[
+            Text(message.text, style: theme.textTheme.bodyLarge),
+            if (message.sources.isNotEmpty) ...[
               const SizedBox(height: 12),
-              for (final source in answer.sources) _SourceCard(source: source),
+              for (final source in message.sources) _SourceCard(source: source),
             ],
-          ] else if (answer.sources.isNotEmpty) ...[
+          ] else if (message.sources.isNotEmpty) ...[
             Text(
               l10n.chatSourcesOnlyExplanation,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -489,10 +1010,84 @@ class _TurnView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            for (final source in answer.sources) _SourceCard(source: source),
+            for (final source in message.sources) _SourceCard(source: source),
           ] else
             Text(l10n.chatNoSourcesFound, style: theme.textTheme.bodyMedium),
         ],
+      ),
+    );
+  }
+}
+
+class _AttachmentPreview extends ConsumerWidget {
+  const _AttachmentPreview({required this.attachment});
+
+  final ChatAttachment attachment;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    if (attachment.kind == ChatAttachmentKind.image) {
+      final bytesAsync = ref.watch(
+        chatAttachmentBytesProvider(attachment.relativePath),
+      );
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: bytesAsync.maybeWhen(
+          data: (bytes) => bytes == null
+              ? _AttachmentPlaceholder(theme: theme)
+              : Image.memory(
+                  bytes,
+                  width: 96,
+                  height: 96,
+                  fit: BoxFit.cover,
+                  // Bytes corruptos o truncados no deberían tirar abajo el
+                  // mensaje entero: un ícono genérico es peor que una
+                  // miniatura, pero mucho mejor que una pantalla roja.
+                  errorBuilder: (context, error, stackTrace) =>
+                      _AttachmentPlaceholder(theme: theme),
+                ),
+          orElse: () => _AttachmentPlaceholder(theme: theme),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.description_outlined, size: 18),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(attachment.name, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentPlaceholder extends StatelessWidget {
+  const _AttachmentPlaceholder({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      color: theme.colorScheme.surfaceContainerHigh,
+      child: Icon(
+        Icons.image_outlined,
+        color: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -543,52 +1138,46 @@ class _SourceCard extends StatelessWidget {
   }
 }
 
-/// Un intercambio de la conversación libre: sin tarjetas de fuentes, solo el
-/// mensaje y la respuesta —lo mismo que se espera de cualquier chat de
-/// texto común—.
-class _FreeTurnView extends StatelessWidget {
-  const _FreeTurnView({required this.turn});
+class _AttachmentChips extends StatelessWidget {
+  const _AttachmentChips({required this.attachments, required this.onRemove});
 
-  final _FreeTurn turn;
+  final List<_PendingAttachment> attachments;
+  final void Function(_PendingAttachment) onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 480),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
+          for (final pending in attachments)
+            InputChip(
+              avatar: pending.attachment.kind == ChatAttachmentKind.image
+                  ? ClipOval(
+                      child: Image.memory(
+                        pending.bytes,
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.image_outlined, size: 18),
+                      ),
+                    )
+                  : const Icon(Icons.description_outlined, size: 18),
+              label: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  pending.attachment.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Text(
-                turn.message,
-                style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
-              ),
+              deleteButtonTooltipMessage: l10n.chatAttachRemoveTooltip,
+              onDeleted: () => onRemove(pending),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (turn.error != null)
-            Text(turn.error!, style: TextStyle(color: theme.colorScheme.error))
-          else if (!turn.done)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else
-            Text(turn.answer ?? '', style: theme.textTheme.bodyLarge),
         ],
       ),
     );
@@ -599,12 +1188,16 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.enabled,
+    required this.attaching,
     required this.onSend,
+    required this.onAttach,
   });
 
   final TextEditingController controller;
   final bool enabled;
+  final bool attaching;
   final VoidCallback onSend;
+  final VoidCallback? onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -614,6 +1207,17 @@ class _Composer extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
+          IconButton(
+            icon: attaching
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.attach_file),
+            tooltip: l10n.chatAttachTooltip,
+            onPressed: onAttach,
+          ),
           Expanded(
             child: TextField(
               controller: controller,

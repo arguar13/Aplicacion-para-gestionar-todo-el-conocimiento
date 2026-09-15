@@ -1,7 +1,18 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
 import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
+import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
@@ -57,3 +68,40 @@ final askVaultQuestionUseCaseProvider =
         modelManager: ref.watch(chatModelManagerProvider),
       ),
     );
+
+final chatConversationRepositoryProvider = Provider<ChatConversationRepository>(
+  (ref) {
+    return ChatConversationRepositoryImpl(
+      database: ref.watch(appDatabaseProvider),
+      telemetry: ref.watch(telemetryServiceProvider),
+      ids: ref.watch(idGeneratorProvider),
+      clock: ref.watch(clockProvider),
+    );
+  },
+);
+
+/// Las conversaciones guardadas de un modo, más nueva primero — para el
+/// menú de historial.
+final chatConversationsProvider = StreamProvider.autoDispose
+    .family<List<ChatConversation>, ChatConversationMode>((ref, mode) {
+      return ref
+          .watch(chatConversationRepositoryProvider)
+          .watchConversations(mode);
+    });
+
+/// Los mensajes guardados de una conversación abierta.
+final chatMessagesProvider = StreamProvider.autoDispose
+    .family<List<PersistedChatMessage>, String>((ref, conversationId) {
+      return ref
+          .watch(chatConversationRepositoryProvider)
+          .watchMessages(conversationId);
+    });
+
+/// Los bytes de un adjunto ya guardado, para dibujar su miniatura en un
+/// mensaje del historial. `autoDispose` y cacheado por ruta: varios mensajes
+/// que compartieran el mismo adjunto —no pasa hoy, pero tampoco cuesta
+/// nada— no repetirían la lectura de disco.
+final chatAttachmentBytesProvider = FutureProvider.autoDispose
+    .family<Uint8List?, String>((ref, relativePath) {
+      return ref.watch(fileStoreProvider).read(relativePath);
+    });

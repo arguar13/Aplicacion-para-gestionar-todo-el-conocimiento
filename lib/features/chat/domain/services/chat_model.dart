@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 
 /// Redacta una respuesta en lenguaje natural a partir de una pregunta y las
@@ -45,7 +47,12 @@ abstract interface class ChatModel {
 abstract interface class FreeConversation {
   /// Manda [message] y espera la respuesta, con todo lo dicho antes en esta
   /// misma conversación como contexto.
-  Future<String> send(String message);
+  ///
+  /// [images] son fotos adjuntas al mensaje —vacío si no se adjuntó
+  /// ninguna—: Gemma 3n E4B y Gemma 4 E4B son multimodales, así que
+  /// mandarlas junto con el texto deja que el modelo las describa o
+  /// responda preguntas sobre ellas, no solo sobre lo escrito.
+  Future<String> send(String message, {List<Uint8List> images = const []});
 
   /// Libera lo que haya quedado abierto. Después de esto, [send] no vuelve
   /// a llamarse sobre esta instancia.
@@ -60,9 +67,12 @@ abstract interface class VaultConversation {
   /// vacía no corta la conversación en seco: el modelo puede decir
   /// honestamente que no encontró nada específico y seguir charlando, en
   /// vez de negarse a contestar.
+  ///
+  /// [images] son fotos adjuntas al mensaje —ver [FreeConversation.send]—.
   Future<String> send({
     required String message,
     required List<ChatSource> sources,
+    List<Uint8List> images = const [],
   });
 
   /// Libera lo que haya quedado abierto.

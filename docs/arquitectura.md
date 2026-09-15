@@ -1568,6 +1568,76 @@ uno-a-muchos ni muchos-a-muchos con esa precisión, y forzar esa notación
 sobre vínculos que son, en los hechos, simples aristas dirigidas habría
 sido decoración sin información real detrás.
 
+### 26. El chat: historial persistente y adjuntos
+
+Hasta acá el chat vivía enteramente en memoria: `_ChatTurn`/`_FreeTurn` eran
+campos de `State`, y cerrar la pantalla —o la app— borraba la conversación
+sin dejar rastro. Se pidió explícitamente un historial de verdad, al estilo
+de cualquier chat moderno, más la posibilidad de adjuntar una imagen o un
+documento al mensaje.
+
+**Dos tablas nuevas, `Conversations` y `ChatMessages`** (schemaVersion 4).
+Cada modo del chat (`ChatConversationMode.vault`/`.free`) guarda sus
+conversaciones por separado —la columna `mode`, indexada— porque son dos
+historiales con reglas distintas, igual que ya eran dos historiales en
+memoria antes de este cambio. `sourcesJson`/`attachmentsJson` van como texto
+en la fila del mensaje, no en tablas relacionadas aparte: son listas chicas,
+propias de un solo mensaje, que nunca se consultan por su cuenta —mismo
+criterio que ya usa `Rendition.text` para los bloques de una nota, ver
+`encodeContentBlocks`—. `ChatConversationMode` se movió del enum privado que
+tenía `ChatScreen` a `lib/core/domain/entities/`: ahora también lo necesita
+la persistencia, no solo la pantalla.
+
+**El título de una conversación sale solo, del primer mensaje del
+usuario** (`ChatConversationRepositoryImpl._autoTitle`, recortado a 48
+caracteres). No hay ningún cuadro para escribir un título a mano: pedirlo
+sería una fricción de más para algo que el propio mensaje ya dice.
+
+**Reabrir una conversación pasada arranca una sesión nueva del modelo, sin
+memoria de lo hablado antes de reabrirla —aunque el historial completo
+se siga mostrando en pantalla.** Es una limitación aceptada, documentada
+también en el doc-comment de `ChatScreen`, y no un error: `flutter_gemma`
+no ofrece forma de recargar una `InferenceChat` ya cerrada con su
+historial previo sin volver a pedirle una respuesta real por cada mensaje
+viejo —lo que además tendría un costo de inferencia que nadie pidió pagar
+solo por reabrir una charla vieja—.
+
+**El menú de historial es un `Drawer`, no un desplegable de verdad.** El
+pedido original decía "menú desplegable al estilo ChatGPT", pero ChatGPT
+mismo usa una barra lateral para esto, no un `DropdownButton`: un panel
+lateral con título, fecha y borrado por conversación necesita más espacio
+del que un desplegable da cómodamente, y es el patrón que la propia
+referencia usa en los hechos. Cada modo lista solo sus propias
+conversaciones (`chatConversationsProvider(mode)`, más nueva primero por
+`updatedAt`), consistente con que ya eran historiales separados antes de
+este cambio.
+
+**Los adjuntos se clasifican por sus bytes, no por qué botón del menú se
+tocó.** El menú ofrece "Imagen" o "Documento" por claridad de la interfaz,
+pero los dos abren el mismo `FileChooser.pickOne()` sin filtrar —igual que
+`SystemFileChooser`, que tampoco confía en la extensión— y es
+`FileFormat.sourceKind` quien decide de verdad qué es lo que se eligió.
+Un documento se lee con `documentParsersProvider` —el mismo registro de
+lectores que usa la biblioteca— y su texto se suma al mensaje que ve el
+modelo, recortado a 6000 caracteres (`_kAttachmentTextBudget`): un libro
+entero adjunto desbordaría la ventana de contexto antes de llegar a la
+pregunta misma. Lo que la persona escribió y lo que el modelo recibe se
+guardan por separado —`PersistedChatMessage.text` nunca lleva el contenido
+extraído— para que releer el historial no obligue a releer también el
+documento que una misma ya adjuntó.
+
+**Una imagen adjunta se manda como imagen de verdad, no como una mención
+de texto.** `ChatModel.FreeConversation.send`/`VaultConversation.send`
+ganaron un parámetro `images` opcional (`List<Uint8List>`, vacío por
+defecto): con imágenes, `GemmaChatModel` arma el mensaje con
+`Message.withImages` en vez de `Message.text`, la API multimodal real de
+`flutter_gemma`. Gemma 4 E4B y Gemma 3n E4B son las dos multimodales —el
+"E4B" de ambas es justamente esa familia—, así que no hizo falta una
+bandera de "este modelo sí, este no" en `ChatModelOption`: si algún modelo
+futuro no soportara imágenes, `flutter_gemma` fallaría al pedirle una
+respuesta y ese mensaje quedaría con `error` seteado, el mismo camino que
+ya cubre cualquier otro fallo del motor de inferencia.
+
 ---
 
 ## Estado y orden de construcción
