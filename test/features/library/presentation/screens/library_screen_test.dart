@@ -25,6 +25,32 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Abre el panel de filtros de tipo y etiquetas: viven detrás de ese botón
+  /// y no sueltos en la barra —ver `_FiltersSheet` en `library_screen.dart`—,
+  /// así que cualquier prueba que necesite tocar uno de esos chips pasa por
+  /// acá primero.
+  Future<void> openFilters(WidgetTester tester) async {
+    await tester.tap(find.byTooltip(es.libraryFiltersTooltip));
+    await tester.pumpAndSettle();
+  }
+
+  /// Cierra ese mismo panel.
+  ///
+  /// Hace falta antes de mirar lo que queda debajo en algunos casos: cuando
+  /// el filtro recién elegido deja la lista vacía, el panel —todavía
+  /// abierto— y el estado vacío de atrás ofrecen los dos un botón "Limpiar
+  /// filtros" con el mismo texto, y sin cerrar el panel ese texto deja de
+  /// ser único en la pantalla.
+  Future<void> closeFilters(WidgetTester tester) async {
+    // No se toca la posición del velo de atrás: con `isScrollControlled` el
+    // panel puede ocupar buena parte del alto de la pantalla, y ahí el
+    // centro geométrico del velo cae justo debajo del panel en vez de en la
+    // franja que sí sigue destapada. Cerrarlo por el `Navigator` en vez de
+    // por un toque evita depender de esa geometría.
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
+    await tester.pumpAndSettle();
+  }
+
   group('estados vacíos', () {
     testWidgets('una biblioteca recién estrenada explica para qué sirve la '
         'app', (tester) async {
@@ -55,8 +81,10 @@ void main() {
       await harness.capture('una nota');
       await pumpLibrary(tester);
 
+      await openFilters(tester);
       await tester.tap(find.text(es.sourceKindYoutube));
       await tester.pumpAndSettle();
+      await closeFilters(tester);
 
       expect(find.text(es.libraryFilterEmpty), findsOneWidget);
       expect(find.text(es.libraryClearFilters), findsOneWidget);
@@ -66,8 +94,10 @@ void main() {
       await harness.capture('una nota');
       await pumpLibrary(tester);
 
+      await openFilters(tester);
       await tester.tap(find.text(es.sourceKindYoutube));
       await tester.pumpAndSettle();
+      await closeFilters(tester);
       await tester.tap(find.text(es.libraryClearFilters));
       await tester.pumpAndSettle();
 
@@ -137,6 +167,7 @@ void main() {
       await harness.capture('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
       await pumpLibrary(tester);
 
+      await openFilters(tester);
       await tester.tap(find.text(es.sourceKindYoutube));
       await tester.pumpAndSettle();
 
@@ -144,22 +175,38 @@ void main() {
       expect(find.textContaining('dQw4w9WgXcQ'), findsOneWidget);
     });
 
-    testWidgets('sin ninguna etiqueta puesta, no se reserva lugar para la '
-        'fila que las filtra', (tester) async {
-      // Mostrarla vacía sería ocupar espacio para decir "no hay nada por lo
-      // que filtrar", que no es información que alguien necesite ver
-      // siempre — y menos en una biblioteca recién estrenada. Se comprueba
-      // el alto reservado en el `AppBar` y no solo la ausencia de chips: sin
-      // etiquetas, la fila entera de por medio tampoco debería estar.
-      await harness.capture('una nota sin etiquetas');
-      await pumpLibrary(tester);
+    testWidgets(
+      'sin ninguna etiqueta puesta, el panel de filtros no ofrece una '
+      'sección de etiquetas',
+      (tester) async {
+        // Mostrarla vacía sería ocupar lugar para decir "no hay nada por lo
+        // que filtrar", que no es información que alguien necesite ver
+        // siempre — y menos en una biblioteca recién estrenada.
+        await harness.capture('una nota sin etiquetas');
+        await pumpLibrary(tester);
 
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.bottom!.preferredSize.height, 168);
-      expect(find.byIcon(Icons.label_outline), findsNothing);
-    });
+        // La barra ya no crece ni se achica según haya o no etiquetas: tipo
+        // y etiquetas viven las dos detrás del mismo botón — ver
+        // `_FiltersSheet`.
+        final appBar = tester.widget<AppBar>(find.byType(AppBar));
+        expect(appBar.bottom!.preferredSize.height, 120);
 
-    testWidgets('con al menos una etiqueta, sí se reserva el lugar', (
+        await openFilters(tester);
+
+        // Los encabezados de sección se muestran en mayúsculas — ver
+        // `_FilterSectionLabel`.
+        expect(
+          find.text(es.libraryFilterTypeLabel.toUpperCase()),
+          findsOneWidget,
+        );
+        expect(
+          find.text(es.libraryFilterTagsLabel.toUpperCase()),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('con al menos una etiqueta, el panel sí la ofrece', (
       tester,
     ) async {
       await harness.capture('algo etiquetado');
@@ -169,7 +216,15 @@ void main() {
       await pumpLibrary(tester);
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.bottom!.preferredSize.height, 216);
+      expect(appBar.bottom!.preferredSize.height, 120);
+
+      await openFilters(tester);
+
+      expect(
+        find.text(es.libraryFilterTagsLabel.toUpperCase()),
+        findsOneWidget,
+      );
+      expect(find.text('Cualquiera'), findsOneWidget);
     });
 
     testWidgets('el filtro por etiqueta deja solo lo que corresponde', (
@@ -196,6 +251,7 @@ void main() {
           .save(filosofico.copyWith(tags: [tag]));
 
       await pumpLibrary(tester);
+      await openFilters(tester);
       await tester.tap(find.text('Filosofía'));
       await tester.pumpAndSettle();
 
@@ -216,8 +272,10 @@ void main() {
             .getOrCreateTag('Sin uso');
 
         await pumpLibrary(tester);
+        await openFilters(tester);
         await tester.tap(find.text('Sin uso'));
         await tester.pumpAndSettle();
+        await closeFilters(tester);
 
         expect(find.text(es.libraryFilterEmpty), findsOneWidget);
 
@@ -469,9 +527,7 @@ void main() {
       expect(find.text('Algo que se queda'), findsOneWidget);
     });
 
-    testWidgets('mover a un espacio lo deja asignado y avisa', (
-      tester,
-    ) async {
+    testWidgets('mover a un espacio lo deja asignado y avisa', (tester) async {
       await harness.capture('Por mover');
       final space =
           (await harness.container
@@ -498,10 +554,7 @@ void main() {
                   .list(const LibraryQuery()))
               .getRight()
               .toNullable()!;
-      expect(
-        items.firstWhere((i) => i.title == 'Por mover').spaceId,
-        space.id,
-      );
+      expect(items.firstWhere((i) => i.title == 'Por mover').spaceId, space.id);
     });
 
     testWidgets('exportar pasa por el mismo selector de guardado', (

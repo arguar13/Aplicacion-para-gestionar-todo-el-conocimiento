@@ -87,6 +87,18 @@
     "description": "Shown when the active filters leave no results"
   },
   "libraryClearFilters": "Clear filters",
+  "libraryFiltersTooltip": "Filters",
+  "@libraryFiltersTooltip": {
+    "description": "Tooltip del botón que abre el panel de filtros de tipo y etiquetas, y título de ese panel."
+  },
+  "libraryFilterTypeLabel": "Type",
+  "@libraryFilterTypeLabel": {
+    "description": "Encabezado de la sección de tipos de fuente dentro del panel de filtros."
+  },
+  "libraryFilterTagsLabel": "Tags",
+  "@libraryFilterTagsLabel": {
+    "description": "Encabezado de la sección de etiquetas dentro del panel de filtros."
+  },
   "libraryLoadMore": "Load more",
   "@libraryLoadMore": {
     "description": "Button at the bottom of the list that fetches the next batch of items, in a library with more than what's shown initially."
@@ -972,62 +984,62 @@
   "@vaultBackupImportCloseAppAction": {
     "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
   },
-  "spacesNewAction": "New space",
+  "spacesNewAction": "New topic",
   "@spacesNewAction": {
-    "description": "Chip y botón para crear un espacio nuevo."
+    "description": "Chip y botón para crear un tema nuevo."
   },
-  "spacesNewTitle": "New space",
+  "spacesNewTitle": "New topic",
   "@spacesNewTitle": {
-    "description": "Título del diálogo para crear un espacio."
+    "description": "Título del diálogo para crear un tema."
   },
-  "spacesNameHint": "Space name",
+  "spacesNameHint": "Topic name",
   "@spacesNameHint": {
-    "description": "Placeholder del campo de nombre al crear o renombrar un espacio."
+    "description": "Placeholder del campo de nombre al crear o renombrar un tema."
   },
   "spacesRenameAction": "Rename",
   "@spacesRenameAction": {
-    "description": "Opción para renombrar un espacio."
+    "description": "Opción para renombrar un tema."
   },
   "spacesDeleteAction": "Delete",
   "@spacesDeleteAction": {
-    "description": "Opción para eliminar un espacio."
+    "description": "Opción para eliminar un tema."
   },
-  "spacesDeleteConfirm": "Delete the space \"{name}\"? Its items become unfiled, they aren't deleted.",
+  "spacesDeleteConfirm": "Delete the topic \"{name}\"? Its items become unfiled, they aren't deleted.",
   "@spacesDeleteConfirm": {
-    "description": "Mensaje de confirmación antes de eliminar un espacio.",
+    "description": "Mensaje de confirmación antes de eliminar un tema.",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "detailSpaceLabel": "Space",
+  "detailSpaceLabel": "Topic",
   "@detailSpaceLabel": {
-    "description": "Etiqueta de la sección de espacio en el detalle de un elemento."
+    "description": "Etiqueta de la sección de tema en el detalle de un elemento."
   },
   "detailSpaceNone": "Unfiled",
   "@detailSpaceNone": {
-    "description": "Texto cuando el elemento no pertenece a ningún espacio."
+    "description": "Texto cuando el elemento no pertenece a ningún tema."
   },
-  "detailSpaceChoose": "Choose space",
+  "detailSpaceChoose": "Choose topic",
   "@detailSpaceChoose": {
-    "description": "Título del selector de espacio en el detalle de un elemento."
+    "description": "Título del selector de tema en el detalle de un elemento."
   },
   "libraryViewList": "List",
   "libraryViewTable": "Table",
   "libraryViewKanban": "Board",
   "libraryColumnTitle": "Title",
   "libraryColumnType": "Type",
-  "libraryColumnSpace": "Space",
+  "libraryColumnSpace": "Topic",
   "libraryColumnTags": "Tags",
   "libraryColumnStatus": "Status",
   "libraryColumnCaptured": "Captured",
-  "libraryKanbanDropHint": "Drop here to move to this space",
+  "libraryKanbanDropHint": "Drop here to move to this topic",
   "citationTitle": "Citation",
   "citationCopyAction": "Copy citation",
   "citationCopied": "Citation copied",
   "libraryItemMenuTooltip": "More options",
-  "libraryItemMoveToSpace": "Move to space",
+  "libraryItemMoveToSpace": "Move to topic",
   "libraryItemExportAs": "Export as {format}",
   "@libraryItemExportAs": {
     "placeholders": {
@@ -1139,25 +1151,25 @@
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
   },
-  "graphScopeEmpty": "There are no links for this space and degree. Try another space or a wider degree.",
+  "graphScopeEmpty": "There are no links for this topic and degree. Try another topic or a wider degree.",
   "@graphScopeEmpty": {
-    "description": "Mensaje cuando el filtro de espacio y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
+    "description": "Mensaje cuando el filtro de tema y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
   },
-  "graphSpaceFilterAll": "All spaces",
+  "graphSpaceFilterAll": "All topics",
   "@graphSpaceFilterAll": {
-    "description": "Opción del selector de espacio del grafo que no filtra por ninguno."
+    "description": "Opción del selector de tema del grafo que no filtra por ninguno."
   },
-  "graphSpaceFilterNone": "No space",
+  "graphSpaceFilterNone": "No topic",
   "@graphSpaceFilterNone": {
-    "description": "Opción del selector de espacio del grafo para los elementos sin espacio asignado."
+    "description": "Opción del selector de tema del grafo para los elementos sin tema asignado."
   },
-  "graphSpaceFilterTooltip": "Filter by space",
+  "graphSpaceFilterTooltip": "Filter by topic",
   "@graphSpaceFilterTooltip": {
-    "description": "Tooltip del selector de espacio del grafo."
+    "description": "Tooltip del selector de tema del grafo."
   },
   "graphDegreeLabel": "Degree",
   "@graphDegreeLabel": {
-    "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el espacio elegido."
+    "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el tema elegido."
   },
   "graphDegreeAll": "All",
   "@graphDegreeAll": {
@@ -1203,9 +1215,9 @@
   "@graphLegendTooltip": {
     "description": "Tooltip del botón que abre las referencias de colores del grafo."
   },
-  "graphLegendSpacesTitle": "Spaces",
+  "graphLegendSpacesTitle": "Topics",
   "@graphLegendSpacesTitle": {
-    "description": "Encabezado de la sección de espacios en las referencias del grafo."
+    "description": "Encabezado de la sección de temas en las referencias del grafo."
   },
   "graphLegendRelationsTitle": "Link types",
   "@graphLegendRelationsTitle": {

@@ -39,6 +39,18 @@
   "librarySearchEmpty": "No hay nada que coincida con \"{query}\"",
   "libraryFilterEmpty": "No hay nada que coincida con estos filtros",
   "libraryClearFilters": "Limpiar filtros",
+  "libraryFiltersTooltip": "Filtros",
+  "@libraryFiltersTooltip": {
+    "description": "Tooltip del botón que abre el panel de filtros de tipo y etiquetas, y título de ese panel."
+  },
+  "libraryFilterTypeLabel": "Tipo",
+  "@libraryFilterTypeLabel": {
+    "description": "Encabezado de la sección de tipos de fuente dentro del panel de filtros."
+  },
+  "libraryFilterTagsLabel": "Etiquetas",
+  "@libraryFilterTagsLabel": {
+    "description": "Encabezado de la sección de etiquetas dentro del panel de filtros."
+  },
   "libraryLoadMore": "Cargar más",
   "@libraryLoadMore": {
     "description": "Botón al pie de la lista que trae la próxima tanda de elementos, en una biblioteca con más de los que se muestran de entrada."
@@ -678,46 +690,46 @@
   "@vaultBackupImportCloseAppAction": {
     "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
   },
-  "spacesNewAction": "Nuevo espacio",
+  "spacesNewAction": "Nuevo tema",
   "@spacesNewAction": {
-    "description": "Chip y botón para crear un espacio nuevo."
+    "description": "Chip y botón para crear un tema nuevo."
   },
-  "spacesNewTitle": "Nuevo espacio",
+  "spacesNewTitle": "Nuevo tema",
   "@spacesNewTitle": {
-    "description": "Título del diálogo para crear un espacio."
+    "description": "Título del diálogo para crear un tema."
   },
-  "spacesNameHint": "Nombre del espacio",
+  "spacesNameHint": "Nombre del tema",
   "@spacesNameHint": {
-    "description": "Placeholder del campo de nombre al crear o renombrar un espacio."
+    "description": "Placeholder del campo de nombre al crear o renombrar un tema."
   },
   "spacesRenameAction": "Renombrar",
   "@spacesRenameAction": {
-    "description": "Opción para renombrar un espacio."
+    "description": "Opción para renombrar un tema."
   },
   "spacesDeleteAction": "Eliminar",
   "@spacesDeleteAction": {
-    "description": "Opción para eliminar un espacio."
+    "description": "Opción para eliminar un tema."
   },
-  "spacesDeleteConfirm": "¿Eliminar el espacio \"{name}\"? Los elementos que tenía quedan sin clasificar, no se borran.",
+  "spacesDeleteConfirm": "¿Eliminar el tema \"{name}\"? Los elementos que tenía quedan sin clasificar, no se borran.",
   "@spacesDeleteConfirm": {
-    "description": "Mensaje de confirmación antes de eliminar un espacio.",
+    "description": "Mensaje de confirmación antes de eliminar un tema.",
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "detailSpaceLabel": "Espacio",
+  "detailSpaceLabel": "Tema",
   "@detailSpaceLabel": {
-    "description": "Etiqueta de la sección de espacio en el detalle de un elemento."
+    "description": "Etiqueta de la sección de tema en el detalle de un elemento."
   },
   "detailSpaceNone": "Sin clasificar",
   "@detailSpaceNone": {
-    "description": "Texto cuando el elemento no pertenece a ningún espacio."
+    "description": "Texto cuando el elemento no pertenece a ningún tema."
   },
-  "detailSpaceChoose": "Elegir espacio",
+  "detailSpaceChoose": "Elegir tema",
   "@detailSpaceChoose": {
-    "description": "Título del selector de espacio en el detalle de un elemento."
+    "description": "Título del selector de tema en el detalle de un elemento."
   },
   "libraryViewList": "Lista",
   "@libraryViewList": {
@@ -739,7 +751,7 @@
   "@libraryColumnType": {
     "description": "Encabezado de columna en la vista de tabla de la biblioteca."
   },
-  "libraryColumnSpace": "Espacio",
+  "libraryColumnSpace": "Tema",
   "@libraryColumnSpace": {
     "description": "Encabezado de columna en la vista de tabla de la biblioteca."
   },
@@ -755,7 +767,7 @@
   "@libraryColumnCaptured": {
     "description": "Encabezado de columna en la vista de tabla de la biblioteca."
   },
-  "libraryKanbanDropHint": "Soltá acá para mover de espacio",
+  "libraryKanbanDropHint": "Soltá acá para mover de tema",
   "@libraryKanbanDropHint": {
     "description": "Mensaje breve que explica el arrastre entre columnas del tablero kanban."
   },
@@ -775,9 +787,9 @@
   "@libraryItemMenuTooltip": {
     "description": "Tooltip del botón de tres puntos sobre cada fila de la biblioteca."
   },
-  "libraryItemMoveToSpace": "Mover a espacio",
+  "libraryItemMoveToSpace": "Mover a tema",
   "@libraryItemMoveToSpace": {
-    "description": "Acción del menú de una fila de la biblioteca para cambiarle el espacio."
+    "description": "Acción del menú de una fila de la biblioteca para cambiarle el tema."
   },
   "libraryItemExportAs": "Exportar como {format}",
   "@libraryItemExportAs": {
@@ -791,7 +803,7 @@
   },
   "libraryItemMoved": "Movido a {space}",
   "@libraryItemMoved": {
-    "description": "Confirmación tras mover un elemento a un espacio desde el menú de la biblioteca.",
+    "description": "Confirmación tras mover un elemento a un tema desde el menú de la biblioteca.",
     "placeholders": {
       "space": {
         "type": "String",
@@ -895,25 +907,25 @@
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
   },
-  "graphScopeEmpty": "No hay vínculos para este espacio y este grado. Probá otro espacio o ampliá el grado.",
+  "graphScopeEmpty": "No hay vínculos para este tema y este grado. Probá otro tema o ampliá el grado.",
   "@graphScopeEmpty": {
-    "description": "Mensaje cuando el filtro de espacio y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
+    "description": "Mensaje cuando el filtro de tema y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
   },
-  "graphSpaceFilterAll": "Todos los espacios",
+  "graphSpaceFilterAll": "Todos los temas",
   "@graphSpaceFilterAll": {
-    "description": "Opción del selector de espacio del grafo que no filtra por ninguno."
+    "description": "Opción del selector de tema del grafo que no filtra por ninguno."
   },
-  "graphSpaceFilterNone": "Sin espacio",
+  "graphSpaceFilterNone": "Sin tema",
   "@graphSpaceFilterNone": {
-    "description": "Opción del selector de espacio del grafo para los elementos sin espacio asignado."
+    "description": "Opción del selector de tema del grafo para los elementos sin tema asignado."
   },
-  "graphSpaceFilterTooltip": "Filtrar por espacio",
+  "graphSpaceFilterTooltip": "Filtrar por tema",
   "@graphSpaceFilterTooltip": {
-    "description": "Tooltip del selector de espacio del grafo."
+    "description": "Tooltip del selector de tema del grafo."
   },
   "graphDegreeLabel": "Grado",
   "@graphDegreeLabel": {
-    "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el espacio elegido."
+    "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el tema elegido."
   },
   "graphDegreeAll": "Todos",
   "@graphDegreeAll": {
@@ -959,9 +971,9 @@
   "@graphLegendTooltip": {
     "description": "Tooltip del botón que abre las referencias de colores del grafo."
   },
-  "graphLegendSpacesTitle": "Espacios",
+  "graphLegendSpacesTitle": "Temas",
   "@graphLegendSpacesTitle": {
-    "description": "Encabezado de la sección de espacios en las referencias del grafo."
+    "description": "Encabezado de la sección de temas en las referencias del grafo."
   },
   "graphLegendRelationsTitle": "Tipos de vínculo",
   "@graphLegendRelationsTitle": {

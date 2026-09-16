@@ -39,7 +39,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 /// En qué forma se ve la biblioteca: la lista de siempre, una tabla al
 /// estilo de una base de datos de Notion, o un tablero que agrupa por
-/// espacio.
+/// tema.
 ///
 /// Vive fuera de cualquier provider a propósito: es una preferencia de la
 /// sesión, no un dato que otra pantalla necesite conocer, así que no
@@ -134,18 +134,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final query = ref.watch(libraryQueryNotifierProvider);
     final items = ref.watch(libraryItemsProvider(query));
 
-    // La fila de etiquetas solo ocupa lugar cuando hay algo que mostrar en
-    // ella: sin esto, una biblioteca sin una sola etiqueta puesta reservaría
-    // el alto igual, dejando una franja vacía debajo de los filtros de tipo.
-    final hasTags =
-        (ref.watch(allTagsProvider).valueOrNull ?? const []).isNotEmpty;
-
     if (items.hasValue) {
       _lastLoadedQuery = query;
       _lastLoadedItems = items.value!;
     }
     final isLoadingMore = !items.hasValue && _isMorePageOf(query);
-    final loadedItems = items.valueOrNull ??
+    final loadedItems =
+        items.valueOrNull ??
         (isLoadingMore ? _lastLoadedItems : const <KnowledgeItem>[]);
 
     return Scaffold(
@@ -189,9 +184,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         setState(() => _selectionModeActive = true),
                   ),
               ],
-              bottom: PreferredSize(
-                preferredSize: Size.fromHeight(hasTags ? 216 : 168),
-                child: const _SearchAndFilters(),
+              // Dos filas fijas: la búsqueda —con el botón de filtros al
+              // lado, no una fila propia— y los temas. Tipo y etiquetas se
+              // mudaron al panel que abre ese botón — ver `_FiltersSheet`—,
+              // así que esta barra ya no crece según haya o no etiquetas.
+              bottom: const PreferredSize(
+                preferredSize: Size.fromHeight(120),
+                child: _SearchAndFilters(),
               ),
             ),
       floatingActionButton: _selectionModeActive
@@ -357,19 +356,53 @@ class _SearchAndFilters extends ConsumerWidget {
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
     final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
+    // Tipo y etiquetas se combinan en un solo número: los dos son "filtros"
+    // en el sentido que le da `LibraryQueryNotifier.hasActiveFilters" —
+    // acotan qué se ve—, a diferencia del tema, que es más una carpeta en la
+    // que se está parado que algo que se "activa" o "desactiva".
+    final activeFilterCount = query.sourceKinds.length + query.tagIds.length;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Antes eran cuatro filas apiladas —búsqueda, temas, tipo y, si
+        // había alguna, etiquetas— todas con el mismo peso visual y cada una
+        // con su propio desplazamiento horizontal: mucho para leer de una,
+        // y encima costaba distinguir cuál fila era cuál. Tipo y etiquetas
+        // —los filtros que se prenden y apagan de a varios— se mudaron a un
+        // panel aparte, detrás de un solo botón con un número que dice
+        // cuántos hay activos ahora mismo. El tema —la carpeta en la que se
+        // está— se queda arriba, visible siempre: es la forma principal de
+        // moverse por la biblioteca, no un filtro más.
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(
-            onChanged: ref.read(libraryQueryNotifierProvider.notifier).search,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: l10n.librarySearchHint,
-              prefixIcon: const Icon(Icons.search),
-              isDense: true,
-            ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  onChanged: ref
+                      .read(libraryQueryNotifierProvider.notifier)
+                      .search,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: l10n.librarySearchHint,
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Badge(
+                label: Text('$activeFilterCount'),
+                isLabelVisible: activeFilterCount > 0,
+                child: IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: l10n.libraryFiltersTooltip,
+                  isSelected: activeFilterCount > 0,
+                  onPressed: () => _showFilters(context, tags),
+                ),
+              ),
+            ],
           ),
         ),
         SizedBox(
@@ -401,51 +434,19 @@ class _SearchAndFilters extends ConsumerWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              for (final kind in SourceKind.values) ...[
-                FilterChip(
-                  avatar: Icon(kind.icon, size: 18),
-                  label: Text(kind.label(l10n)),
-                  selected: query.sourceKinds.contains(kind),
-                  onSelected: (_) => ref
-                      .read(libraryQueryNotifierProvider.notifier)
-                      .toggleSourceKind(kind),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-        // Sin nada en el vocabulario todavía, esta fila no tiene qué
-        // mostrar: ocuparía espacio para decir "no hay etiquetas por las que
-        // filtrar", que no es información que alguien necesite ver siempre.
-        if (tags.isNotEmpty)
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              children: [
-                for (final tag in tags) ...[
-                  FilterChip(
-                    avatar: const Icon(Icons.label_outline, size: 18),
-                    label: Text(tag.name),
-                    selected: query.tagIds.contains(tag.id),
-                    onSelected: (_) => ref
-                        .read(libraryQueryNotifierProvider.notifier)
-                        .toggleTagId(tag.id),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
       ],
+    );
+  }
+
+  Future<void> _showFilters(BuildContext context, List<Tag> tags) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      // Sin esto, el panel queda topeado a la mitad de la pantalla aunque
+      // haya de sobra más abajo: con muchas etiquetas puestas, ese tope fijo
+      // es lo que obligaría a desplazarse antes de lo necesario.
+      isScrollControlled: true,
+      builder: (context) => _FiltersSheet(tags: tags),
     );
   }
 
@@ -469,14 +470,14 @@ class _SearchAndFilters extends ConsumerWidget {
       (failure) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      // El espacio recién creado queda elegido: quien lo crea casi siempre
+      // El tema recién creado queda elegido: quien lo crea casi siempre
       // lo hace para empezar a usarlo enseguida, no solo para que exista.
       //
       // El cambio de filtro se posterga al próximo frame a propósito: acá
       // todavía puede seguir en curso la animación de salida de la ruta del
-      // diálogo que se acaba de cerrar, y elegir el espacio nuevo cambia de
+      // diálogo que se acaba de cerrar, y elegir el tema nuevo cambia de
       // golpe la lista de resultados (de la biblioteca entera a "vacío,
-      // todavía no hay nada en este espacio"). Mutar el árbol con esa forma
+      // todavía no hay nada en este tema"). Mutar el árbol con esa forma
       // distinta en el mismo cuadro en que `Navigator` está desmontando el
       // diálogo hace que un `InheritedElement` quede con dependientes que
       // nunca llegan a soltarlo —el error de Flutter
@@ -580,8 +581,8 @@ class _SearchAndFilters extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    // Si era el espacio que se estaba mirando, hay que salir de esa vista:
-    // de lo contrario la biblioteca quedaría filtrando por un espacio que
+    // Si era el tema que se estaba mirando, hay que salir de esa vista:
+    // de lo contrario la biblioteca quedaría filtrando por un tema que
     // ya no existe, mostrando siempre una lista vacía sin decir por qué.
     final notifier = ref.read(libraryQueryNotifierProvider.notifier);
     if (ref.read(libraryQueryNotifierProvider).spaceId == space.id) {
@@ -594,7 +595,120 @@ class _SearchAndFilters extends ConsumerWidget {
 
 enum _SpaceAction { rename, delete }
 
-/// Un diálogo con un solo campo de texto, para crear o renombrar un espacio.
+/// El panel de filtros de tipo y etiquetas, detrás del botón con el ícono
+/// de perilla —ver `_SearchAndFilters`—.
+///
+/// `Wrap` y no el desplazamiento horizontal que usan las filas de arriba: acá
+/// no hay una altura de una sola fila que cuidar, así que todas las opciones
+/// pueden quedar a la vista de una, en las líneas que hagan falta, en vez de
+/// esconder las últimas detrás de un scroll que nadie sabe que está ahí.
+class _FiltersSheet extends ConsumerWidget {
+  const _FiltersSheet({required this.tags});
+
+  final List<Tag> tags;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final query = ref.watch(libraryQueryNotifierProvider);
+    final notifier = ref.read(libraryQueryNotifierProvider.notifier);
+    final hasActiveFilters =
+        query.sourceKinds.isNotEmpty || query.tagIds.isNotEmpty;
+
+    // `SingleChildScrollView` y no un `Column` a secas: cuántas líneas
+    // ocupan los chips de tipo y de etiquetas depende de cuántas etiquetas
+    // existan y de qué tan angosta sea la pantalla, y un panel que no puede
+    // crecer más allá de lo que el sistema le da de entrada —un teléfono en
+    // horizontal, una ventana partida— tiene que poder desplazarse en vez de
+    // desbordar.
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.libraryFiltersTooltip,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                if (hasActiveFilters)
+                  TextButton(
+                    onPressed: notifier.clearFilters,
+                    child: Text(l10n.libraryClearFilters),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _FilterSectionLabel(l10n.libraryFilterTypeLabel),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final kind in SourceKind.values)
+                  FilterChip(
+                    avatar: Icon(kind.icon, size: 18),
+                    label: Text(kind.label(l10n)),
+                    selected: query.sourceKinds.contains(kind),
+                    onSelected: (_) => notifier.toggleSourceKind(kind),
+                  ),
+              ],
+            ),
+            // Sin nada en el vocabulario todavía, esta sección no tiene qué
+            // mostrar: ocuparía lugar para decir "no hay etiquetas por las
+            // que filtrar", que no es información que alguien necesite ver
+            // siempre.
+            if (tags.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              _FilterSectionLabel(l10n.libraryFilterTagsLabel),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final tag in tags)
+                    FilterChip(
+                      avatar: const Icon(Icons.label_outline, size: 18),
+                      label: Text(tag.name),
+                      selected: query.tagIds.contains(tag.id),
+                      onSelected: (_) => notifier.toggleTagId(tag.id),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterSectionLabel extends StatelessWidget {
+  const _FilterSectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Text(
+      text.toUpperCase(),
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+/// Un diálogo con un solo campo de texto, para crear o renombrar un tema.
 ///
 /// El `TextEditingController` se crea y se destruye acá adentro, atado al
 /// ciclo de vida real de este `State` — y no afuera, en la función que abre
