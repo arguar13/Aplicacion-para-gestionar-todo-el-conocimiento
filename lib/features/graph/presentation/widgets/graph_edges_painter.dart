@@ -4,13 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 
-/// Una arista tal cual la necesita el pintor: de dónde a dónde, y con qué
-/// tipo de vínculo — el tipo es lo que decide de qué color sale la línea.
-typedef GraphEdge = (String from, String to, RelationKind kind);
+/// Una arista tal cual la necesita el pintor: de dónde a dónde, con qué tipo
+/// de vínculo —el tipo es lo que decide de qué color sale la línea— y con
+/// qué etiqueta mostrar sobre la línea. La etiqueta se recibe ya resuelta
+/// —`kind.shortLabel(l10n)`— en vez de que el pintor conozca `RelationKind`
+/// y `AppLocalizations` los dos: un `CustomPainter` no tiene `BuildContext`
+/// del que sacar el idioma actual.
+typedef GraphEdge = (String from, String to, RelationKind kind, String label);
 
 /// Dibuja las aristas del grafo: una línea por vínculo, coloreada según su
 /// tipo, con una punta de flecha chica que marca el sentido —de dónde
-/// viene, hacia dónde va—.
+/// viene, hacia dónde va— y su nombre en una etiqueta a mitad de camino, al
+/// estilo de la relación con nombre de un diagrama entidad-relación.
 ///
 /// Cada nodo se dibuja como una tarjeta rectangular, al estilo de una
 /// entidad en un diagrama entidad-relación (ver `_GraphNode` en
@@ -48,7 +53,7 @@ class GraphEdgesPainter extends CustomPainter {
     final halfWidth = nodeSize.width / 2;
     final halfHeight = nodeSize.height / 2;
 
-    for (final (from, to, kind) in edges) {
+    for (final (from, to, kind, label) in edges) {
       final start = positions[from];
       final end = positions[to];
       if (start == null || end == null) continue;
@@ -106,7 +111,75 @@ class GraphEdgesPainter extends CustomPainter {
           ..close(),
         arrowPaint,
       );
+
+      _paintLabel(
+        canvas,
+        label: label,
+        at: Offset.lerp(lineStart, lineEnd, 0.5)!,
+        color: color,
+        dimmed: dimmed,
+      );
     }
+  }
+
+  /// El nombre del vínculo, a mitad de camino de la línea, dentro de una
+  /// píldora que "rompe" la línea en vez de taparla —el mismo recurso que
+  /// usa Graphviz y cualquier diagramador de entidad-relación para que la
+  /// etiqueta se lea aunque varias líneas se crucen en el mismo punto—.
+  void _paintLabel(
+    Canvas canvas, {
+    required String label,
+    required Offset at,
+    required Color color,
+    required bool dimmed,
+  }) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.1,
+          color: dimmed ? color : colorScheme.onSurface,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    const paddingH = 6.0;
+    const paddingV = 2.5;
+    final pillSize = Size(
+      textPainter.width + paddingH * 2,
+      textPainter.height + paddingV * 2,
+    );
+    final pillRect = Rect.fromCenter(
+      center: at,
+      width: pillSize.width,
+      height: pillSize.height,
+    );
+    final pillRRect = RRect.fromRectAndRadius(
+      pillRect,
+      Radius.circular(pillSize.height / 2),
+    );
+
+    canvas
+      ..drawRRect(
+        pillRRect,
+        Paint()
+          ..color = colorScheme.surface.withValues(alpha: dimmed ? 0.55 : 0.96),
+      )
+      ..drawRRect(
+        pillRRect,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    textPainter.paint(
+      canvas,
+      at - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
@@ -11,8 +12,10 @@ import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_layout.dart';
+import 'package:sinapsis/features/graph/domain/services/graph_node_thumbnail.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
+import 'package:sinapsis/features/graph/presentation/providers/graph_providers.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/graph_edges_painter.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/space_color.dart';
@@ -29,7 +32,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// cálculo del margen del lienzo, el pintor de aristas y el widget que
 /// dibuja el nodo: si se desincronizan, vuelve el recorte en el borde que
 /// arregló esta constante.
-const _kNodeSize = Size(164, 60);
+///
+/// Cuatro filas, como una tabla en miniatura con su vista previa arriba:
+/// portada, encabezado, tipo de fuente y una línea de pie con la fecha — ver
+/// `_GraphNode`.
+const _kNodeSize = Size(184, 132);
 
 /// Cuánto se aleja cada nodo del borde del lienzo y del visor al encuadrar:
 /// la mitad de la diagonal de la tarjeta, con margen de sobra para que la
@@ -99,6 +106,14 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
   String? _selectedSpaceId;
   int? _degree;
   String? _focusedNodeId;
+
+  /// El nodo que se está arrastrando a mano, o `null` fuera de un arrastre.
+  ///
+  /// Mientras haya uno, se apaga el paneo de `InteractiveViewer` —ver
+  /// `_buildCanvas`—: sin esto, el reconocedor de gestos del lienzo entero y
+  /// el del nodo compiten por el mismo arrastre, y el nodo se mueve a los
+  /// tirones en vez de seguir al dedo o al mouse de punta a punta.
+  String? _draggingNodeId;
 
   /// Qué componente conexo se está mirando —ver `computeConnectedComponents`—,
   /// como índice dentro de la lista que devuelve esa función para el
@@ -353,8 +368,8 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     final nodeIds = scope.nodeIds.where(itemsById.containsKey).toList();
 
     final canvasSize = Size(
-      math.max(900, nodeIds.length * 190.0),
-      math.max(900, nodeIds.length * 190.0),
+      math.max(900, nodeIds.length * 230.0),
+      math.max(900, nodeIds.length * 230.0),
     );
     // El nodo se dibuja centrado en su posición: el margen tiene que cubrir
     // lo que la tarjeta sobresale del centro en cada dirección para que
@@ -401,6 +416,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     }
 
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return GestureDetector(
       onTap: () {
@@ -412,6 +428,10 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         boundaryMargin: const EdgeInsets.all(200),
         minScale: 0.1,
         maxScale: 3,
+        // Se apaga mientras se arrastra un nodo a mano — ver
+        // `_draggingNodeId` — para que ese gesto no compita con el paneo del
+        // lienzo entero y el nodo siga al dedo sin tirones.
+        panEnabled: _draggingNodeId == null,
         child: SizedBox(
           width: canvasSize.width,
           height: canvasSize.height,
@@ -422,7 +442,12 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                 painter: GraphEdgesPainter(
                   edges: [
                     for (final edge in scope.edges)
-                      (edge.fromItemId, edge.toItemId, edge.kind),
+                      (
+                        edge.fromItemId,
+                        edge.toItemId,
+                        edge.kind,
+                        edge.kind.shortLabel(l10n),
+                      ),
                   ],
                   positions: positions,
                   nodeSize: _kNodeSize,
@@ -437,9 +462,14 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   center: positions[id]!,
                   dimmed: dimmedNodeIds?.contains(id) ?? false,
                   focused: focused == id,
+                  dragging: _draggingNodeId == id,
                   onTap: () => context.push(RoutePaths.itemDetail(id)),
                   onLongPress: () => setState(() {
                     _focusedNodeId = _focusedNodeId == id ? null : id;
+                  }),
+                  onDragStart: () => setState(() => _draggingNodeId = id),
+                  onDragEnd: () => setState(() {
+                    if (_draggingNodeId == id) _draggingNodeId = null;
                   }),
                   onDragUpdate: (delta) {
                     final scale = _transformController.value
@@ -949,22 +979,27 @@ class _LegendChip extends StatelessWidget {
 /// "entidad", al estilo de una tabla en un diagrama entidad-relación de
 /// base de datos— en vez de un círculo con una etiqueta suelta debajo.
 ///
-/// Dos filas, como una tabla en miniatura: un encabezado con el color del
-/// espacio —el mismo rol que cumple el nombre de la tabla— con el título
-/// del elemento, y una fila de "columna" mostrando su tipo de fuente. Es
-/// más información al mismo golpe de vista que un ícono solo, y la forma
-/// rectangular dis­tingue de entrada un nodo de una arista, que ya usa
-/// líneas y puntas de flecha rectas —el mismo lenguaje visual que cualquier
-/// diagrama entidad-relación—.
+/// Cuatro filas, como una tabla en miniatura con su portada arriba: una
+/// vista previa del contenido —la foto, la primera página del PDF, la
+/// miniatura del video—, un encabezado con el color del espacio —el mismo
+/// rol que cumple el nombre de la tabla— con el título del elemento, una
+/// fila de "columna" con su tipo de fuente, y un pie con cuándo se actualizó
+/// por última vez. Es más información al mismo golpe de vista que un ícono
+/// solo, y la forma rectangular distingue de entrada un nodo de una arista,
+/// que ya usa líneas y puntas de flecha rectas —el mismo lenguaje visual que
+/// cualquier diagrama entidad-relación—.
 class _GraphNode extends StatelessWidget {
   const _GraphNode({
     required this.item,
     required this.center,
     required this.dimmed,
     required this.focused,
+    required this.dragging,
     required this.onTap,
     required this.onLongPress,
+    required this.onDragStart,
     required this.onDragUpdate,
+    required this.onDragEnd,
     super.key,
   });
 
@@ -972,19 +1007,32 @@ class _GraphNode extends StatelessWidget {
   final Offset center;
   final bool dimmed;
   final bool focused;
+
+  /// Si este nodo es el que se está arrastrando ahora mismo — ver
+  /// `_draggingNodeId` en `_GraphBodyState`. Mientras dure, la tarjeta se
+  /// levanta un poco con sombra y escala, como si se la tomara de la mesa.
+  final bool dragging;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onDragStart;
   final ValueChanged<Offset> onDragUpdate;
+  final VoidCallback onDragEnd;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final locale = Localizations.localeOf(context).toString();
     final fill = spaceNodeColor(item.spaceId, theme.colorScheme);
     final foreground = spaceNodeForeground(item.spaceId, theme.colorScheme);
+    final elevated = focused || dragging;
     final borderColor = focused
         ? theme.colorScheme.primary
+        : dragging
+        ? theme.colorScheme.primary.withValues(alpha: 0.6)
         : theme.colorScheme.outlineVariant;
+    final stateLabel = item.processingState.label(l10n);
+    final stateColor = item.processingState.color(theme.colorScheme);
 
     return Positioned(
       left: center.dx - _kNodeSize.width / 2,
@@ -994,78 +1042,249 @@ class _GraphNode extends StatelessWidget {
       child: AnimatedOpacity(
         opacity: dimmed ? 0.25 : 1,
         duration: const Duration(milliseconds: 200),
-        child: GestureDetector(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          onPanUpdate: (details) => onDragUpdate(details.delta),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: borderColor, width: focused ? 2 : 1),
-              boxShadow: [
-                BoxShadow(
-                  color: focused
-                      ? theme.colorScheme.primary.withValues(alpha: 0.35)
-                      : theme.colorScheme.shadow.withValues(alpha: 0.12),
-                  blurRadius: focused ? 16 : 6,
-                  spreadRadius: focused ? 1 : 0,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // El "nombre de la tabla": el color del espacio identifica
-                // de qué carpeta es sin tener que leer nada, igual que ya
-                // hacía el relleno del círculo anterior.
-                Container(
-                  color: fill,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
+        child: MouseRegion(
+          cursor: dragging
+              ? SystemMouseCursors.grabbing
+              : SystemMouseCursors.grab,
+          child: GestureDetector(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            onPanStart: (_) => onDragStart(),
+            onPanUpdate: (details) => onDragUpdate(details.delta),
+            onPanEnd: (_) => onDragEnd(),
+            onPanCancel: onDragEnd,
+            child: AnimatedScale(
+              scale: dragging ? 1.045 : 1.0,
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: borderColor,
+                    width: focused ? 2 : 1,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(item.source.kind.icon, size: 14, color: foreground),
-                      const SizedBox(width: 6),
-                      Expanded(
+                  boxShadow: [
+                    BoxShadow(
+                      color: elevated
+                          ? (focused
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.shadow)
+                                .withValues(alpha: focused ? 0.35 : 0.28)
+                          : theme.colorScheme.shadow.withValues(alpha: 0.12),
+                      blurRadius: elevated ? (dragging ? 20 : 16) : 6,
+                      spreadRadius: elevated ? 1 : 0,
+                      offset: Offset(0, dragging ? 6 : 2),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // La "portada": una vista previa real cuando se puede
+                    // conseguir barata, o el ícono del tipo de fuente sobre
+                    // un fondo tenue cuando no — ver `_NodeThumbnail`.
+                    SizedBox(
+                      height: 54,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _NodeThumbnail(item: item, tint: fill),
+                          if (stateColor != null)
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: Tooltip(
+                                message: stateLabel ?? '',
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: stateColor,
+                                    border: Border.all(
+                                      color: theme.colorScheme.surface,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // El "nombre de la tabla": el color del espacio
+                    // identifica de qué carpeta es sin tener que leer nada,
+                    // igual que ya hacía el relleno del círculo anterior.
+                    Container(
+                      color: fill,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item.source.kind.icon,
+                            size: 14,
+                            color: foreground,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: foreground,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // La única "columna" visible de la tabla: de qué tipo
+                    // de fuente es, la misma etiqueta que ya usa la
+                    // biblioteca.
+                    Expanded(
+                      child: Container(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Text(
-                          item.title,
+                          item.source.kind.label(l10n),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: foreground,
-                            fontWeight: FontWeight.w600,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                // La única "columna" visible de la tabla: de qué tipo de
-                // fuente es, la misma etiqueta que ya usa la biblioteca.
-                Expanded(
-                  child: Container(
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      item.source.kind.label(l10n),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    // El pie: cuándo se actualizó por última vez, y cuántas
+                    // etiquetas tiene si tiene alguna — una segunda señal
+                    // aparte del color del espacio, sin agregar otra fila
+                    // de texto largo que no entraría en 184px de ancho.
+                    Container(
+                      height: 22,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 11,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              DateFormat.MMMd(locale).format(item.updatedAt),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          if (item.tags.isNotEmpty) ...[
+                            Icon(
+                              Icons.label_outline,
+                              size: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${item.tags.length}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// La vista previa de la portada de un nodo: una imagen real cuando se
+/// puede conseguir barata —ver `GraphNodeThumbnailResolver`— o el ícono del
+/// tipo de fuente sobre un fondo tenue mientras tanto o si no hay ninguna.
+///
+/// El ícono de respaldo se dibuja siempre, debajo de la imagen: así la
+/// tarjeta nunca queda con un hueco en blanco mientras la vista previa
+/// carga, y si la miniatura de YouTube falla por no haber red —esta es una
+/// app que guarda todo para leer sin conexión— queda un resultado con
+/// sentido en vez de un ícono roto.
+class _NodeThumbnail extends ConsumerWidget {
+  const _NodeThumbnail({required this.item, required this.tint});
+
+  final KnowledgeItem item;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final thumbnail = ref.watch(graphNodeThumbnailProvider(item)).valueOrNull;
+
+    return ColoredBox(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: Icon(
+              item.source.kind.icon,
+              size: 26,
+              color: tint.withValues(alpha: 0.65),
+            ),
+          ),
+          switch (thumbnail) {
+            GraphNodeThumbnailBytes(:final bytes) =>
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 220),
+                builder: (context, opacity, child) =>
+                    Opacity(opacity: opacity, child: child),
+                child: Image.memory(bytes, fit: BoxFit.cover),
+              ),
+            GraphNodeThumbnailUrl(:final url) => Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.shrink(),
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (wasSynchronouslyLoaded) return child;
+                return AnimatedOpacity(
+                  opacity: frame == null ? 0 : 1,
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOut,
+                  child: child,
+                );
+              },
+            ),
+            GraphNodeThumbnailNone() || null => const SizedBox.shrink(),
+          },
+        ],
       ),
     );
   }
