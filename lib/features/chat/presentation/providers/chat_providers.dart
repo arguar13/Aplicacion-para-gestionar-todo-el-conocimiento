@@ -1,16 +1,19 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
+import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
+import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
@@ -33,7 +36,22 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 /// el manager cargue con un modelo fijo de una vez para siempre.
 final chatModelManagerProvider = Provider<ChatModelManager>((ref) {
   final option = ref.watch(chatModelOptionNotifierProvider);
-  return GemmaChatModelManager(option: option);
+  return GemmaChatModelManager(
+    option: option,
+    downloader: ref.watch(gemmaModelDownloaderProvider),
+  );
+});
+
+/// El que de verdad baja el modelo — ver `HttpGemmaModelDownloader` para el
+/// motivo por el que esto no se le deja a `flutter_gemma`. NO autoDispose,
+/// mismo motivo que [chatModelManagerProvider]: una instancia nueva en
+/// medio de una descarga perdería el archivo parcial que ya se estaba
+/// retomando.
+final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
+  return HttpGemmaModelDownloader(
+    dio: ref.watch(gemmaModelDioProvider),
+    rootDirectory: getApplicationDocumentsDirectory,
+  );
 });
 
 /// El modelo de Gemma en sí queda cargado en memoria entre usos —ver

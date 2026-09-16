@@ -61,10 +61,10 @@ packages:
     dependency: transitive
     description:
       name: background_downloader
-      sha256: "42daf57fc33453f03c8c9c9af4d0f68cb203e3c20041678f005a4c528c8bed1f"
+      sha256: f82729d0458f58e888f235bc0e0c0b94d9381362852e57b0b614b96199fb6ed0
       url: "https://pub.dev"
     source: hosted
-    version: "9.6.1"
+    version: "9.6.2"
   barcode:
     dependency: transitive
     description:
@@ -426,10 +426,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_gemma
-      sha256: e8634024a95d7a7f8edbf34ae8ab049bcb7cb75c913b74e3d4b3480d3b12f097
+      sha256: "35708ea9005504433db7eb0a81ed899691fea988a2b07f626cd30b0ef0bd481e"
       url: "https://pub.dev"
     source: hosted
-    version: "1.8.2"
+    version: "1.8.3"
   flutter_gemma_embeddings:
     dependency: transitive
     description:
@@ -442,10 +442,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_gemma_litertlm
-      sha256: "6926612c00ade0e5c79b66a92d302567565991901596c0baddd03be98d711f89"
+      sha256: "4b119e3518b488dabaa8b0ab7bbd8a08121d35dbd8495ff5b3af60b792f8a34b"
       url: "https://pub.dev"
     source: hosted
-    version: "1.6.3"
+    version: "1.6.4"
   flutter_localizations:
     dependency: "direct main"
     description: flutter

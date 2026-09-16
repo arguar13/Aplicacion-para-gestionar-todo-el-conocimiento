@@ -108,3 +108,22 @@ final whisperModelDioProvider = Provider<Dio>((ref) {
     ),
   )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
 });
+
+/// Cliente HTTP para descargar el modelo de chat — mismo criterio que
+/// [whisperModelDioProvider], separado nomás porque son dos descargas que no
+/// tienen por qué compartir el mismo cliente. Sin límite de tiempo de
+/// recepción: estos modelos pesan de varios cientos de megas a unos pocos
+/// gigas, y una conexión lenta no es un error — ver
+/// `HttpGemmaModelDownloader`.
+final gemmaModelDioProvider = Provider<Dio>((ref) {
+  final logger = ref.watch(appLoggerProvider);
+
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      headers: const {
+        'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)',
+      },
+    ),
+  )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
+});

@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart'
     as domain;
@@ -30,10 +32,11 @@ class _ModelSpec {
   final String repo;
 
   /// `null` cuando el repositorio publica un manifiesto de despliegue y
-  /// conviene dejar que `flutter_gemma` resuelva la variante exacta —ver el
-  /// comentario de Gemma 4 en `_specs`—. Cuando el repositorio expone un
-  /// único archivo fijo sin manifiesto —como el de Gemma 3n—, va nombrado
-  /// acá para no depender de una resolución que ese repositorio no ofrece.
+  /// conviene resolver la variante exacta con `FlutterGemma.
+  /// resolveHuggingFace` —ver el comentario de Gemma 4 en `_specs`—. Cuando
+  /// el repositorio expone un único archivo fijo sin manifiesto —como el de
+  /// Gemma 3n— va nombrado acá, porque no hay ningún manifiesto que
+  /// resolver.
   final String? file;
 
   final String? nameContains;
@@ -61,24 +64,29 @@ const _specs = {
   ),
 };
 
-/// [domain.ChatModelManager] sobre `flutter_gemma`: el mismo mecanismo de
-/// descarga bajo pedido explícito en Android y en Windows —
-/// `flutter_gemma_litertlm` es lo que hace que el formato LiteRT-LM también
-/// funcione en escritorio, ver la decisión 20 en docs/arquitectura.md—,
-/// para cualquiera de las opciones de [ChatModelOption].
+/// [domain.ChatModelManager] sobre `flutter_gemma`, con la descarga bajada
+/// a mano en vez de delegada al paquete — ver [HttpGemmaModelDownloader]
+/// para el motivo completo: en Android, la descarga que hace `flutter_gemma`
+/// por dentro pasa por WorkManager, que corta cualquier tarea a los ~9
+/// minutos, y Hugging Face no admite retomarla ahí donde quedó. Para estos
+/// modelos —de varios cientos de megas a unos pocos gigas— eso significa
+/// que una conexión que no llegue a bajarlos enteros en esos 9 minutos
+/// nunca termina, sin importar cuántas veces se reintente.
 ///
-/// A diferencia de `HttpWhisperModelManager`, que baja los archivos a mano
-/// con `dio`, acá se delega la descarga al propio `flutter_gemma`: ya trae
-/// reintentos, progreso y —en Android— un servicio en primer plano para
-/// descargas largas, así que reimplementar eso a mano sería duplicar
-/// trabajo que el paquete ya resuelve bien.
+/// Lo único que sigue viniendo de `flutter_gemma` es **resolver** qué
+/// archivo exacto le corresponde a este dispositivo —`resolveHuggingFace`,
+/// para las dos opciones que publican un manifiesto— e **instalarlo** una
+/// vez que ya está entero en el disco, con `fromFile`. La parte que de
+/// verdad necesitaba ser propia era la descarga en sí.
 class GemmaChatModelManager implements domain.ChatModelManager {
-  const GemmaChatModelManager({required this.option});
+  const GemmaChatModelManager({required this.option, required this.downloader});
 
   /// Qué modelo gestiona esta instancia. La pantalla de descarga crea una
   /// instancia distinta por cada opción que muestra, no una que cambie de
   /// opción sobre la marcha.
   final ChatModelOption option;
+
+  final HttpGemmaModelDownloader downloader;
 
   _ModelSpec get _spec => _specs[option]!;
 
@@ -99,47 +107,105 @@ class GemmaChatModelManager implements domain.ChatModelManager {
 
   @override
   Future<int?> downloadSizeInBytes() async {
-    // `flutter_gemma` no expone el tamaño de antemano: lo sabe recién
-    // durante la descarga, por el progreso que reporta `withProgress`. Un
-    // tamaño aproximado fijo en el código sería mentir apenas el modelo
-    // cambie de variante o de cuantización. El tamaño aproximado que sí ve
-    // quien elige la opción está en el texto de la pantalla, no acá.
+    // El tamaño exacto solo se sabe resolviendo el manifiesto —o, para el
+    // archivo fijo de Gemma 3n, pidiéndoselo al servidor—, y las dos cosas
+    // valen la pena solo cuando la descarga arranca de verdad. El tamaño
+    // aproximado que sí ve quien elige la opción está en el texto de la
+    // pantalla, no acá.
     return null;
   }
 
   @override
   Stream<double> download({String? huggingFaceToken}) {
     final controller = StreamController<double>();
-    final spec = _spec;
-
-    // `fromHuggingFace` resuelve el archivo solo (por manifiesto) cuando
-    // `file` queda en null, y usa el nombrado a mano cuando no —ver el
-    // comentario de `_ModelSpec.file`—.
-    unawaited(
-      FlutterGemma.installModel(
-            modelType: spec.modelType,
-            fileType: ModelFileType.litertlm,
-          )
-          .fromHuggingFace(spec.repo, file: spec.file, token: huggingFaceToken)
-          .withProgress((int progress) {
-            if (!controller.isClosed) controller.add(progress / 100);
-          })
-          .install()
-          .then((_) => controller.close())
-          .catchError((Object e, StackTrace stackTrace) {
-            controller.addError(_toDomainError(e), stackTrace);
-          }),
-    );
-
+    unawaited(_runDownload(controller, huggingFaceToken));
     return controller.stream;
   }
 
+  Future<void> _runDownload(
+    StreamController<double> controller,
+    String? token,
+  ) async {
+    try {
+      final spec = _spec;
+      final resolved = await _resolve(spec, token);
+
+      final progress = downloader.download(
+        url: resolved.url,
+        fileName: '${option.name}.litertlm',
+        token: token,
+        expectedSizeBytes: resolved.sizeBytes,
+      );
+
+      await for (final value in progress) {
+        if (!controller.isClosed) controller.add(value);
+      }
+
+      final file = await downloader.targetFile('${option.name}.litertlm');
+      await FlutterGemma.installModel(
+        modelType: spec.modelType,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(file.path).install();
+
+      if (!controller.isClosed) await controller.close();
+      // Catch-all deliberado: la resolución del manifiesto, la descarga y
+      // la instalación pueden fallar cada una por su cuenta, y las tres
+      // tienen que llegar como el mismo tipo de error a la pantalla.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      if (!controller.isClosed) {
+        controller.addError(_toDomainError(e), stackTrace);
+      }
+      if (!controller.isClosed) await controller.close();
+    }
+  }
+
+  /// La URL exacta a bajar, y —cuando se sabe de antemano— su tamaño.
+  ///
+  /// Con [_ModelSpec.file] puesto no hay ningún manifiesto que resolver: la
+  /// URL sale de armar la ruta a mano, igual que lo haría `flutter_gemma`
+  /// puesto a resolver un archivo explícito. Sin él, hace falta
+  /// `resolveHuggingFace` para saber qué variante le corresponde a este
+  /// dispositivo.
+  Future<({String url, int? sizeBytes})> _resolve(
+    _ModelSpec spec,
+    String? token,
+  ) async {
+    final explicitFile = spec.file;
+    if (explicitFile != null) {
+      final encodedPath = explicitFile
+          .split('/')
+          .map(Uri.encodeComponent)
+          .join('/');
+      return (
+        url: 'https://huggingface.co/${spec.repo}/resolve/main/$encodedPath',
+        sizeBytes: null,
+      );
+    }
+
+    final resolved = await FlutterGemma.resolveHuggingFace(
+      spec.repo,
+      fileType: ModelFileType.litertlm,
+      token: token,
+    );
+    return (url: resolved.url, sizeBytes: resolved.sizeBytes);
+  }
+
+  /// Traduce lo que salga mal —resolviendo el manifiesto, bajando el
+  /// archivo o instalándolo— a algo que la pantalla pueda mostrar sin
+  /// necesitar saber nada de HTTP ni de `flutter_gemma`.
+  ///
   /// El repositorio de Gemma está protegido (ver el comentario de
-  /// `_specs`): `flutter_gemma` distingue el motivo exacto de una falla
-  /// —401/403 no es lo mismo que sin conexión— y acá se traduce a algo que
-  /// la pantalla pueda mostrar sin necesitar saber nada de HTTP ni de este
-  /// paquete en particular.
+  /// `_specs`), así que un 401/403 —de la descarga propia, con `dio`, o de
+  /// `flutter_gemma` resolviendo el manifiesto— significa lo mismo: hace
+  /// falta un token de Hugging Face válido, no reintentar.
   domain.ChatModelDownloadError _toDomainError(Object e) {
+    if (e is DioException) {
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        return const domain.ChatModelNeedsAuthentication();
+      }
+    }
     if (e is DownloadException &&
         (e.error is UnauthorizedError || e.error is ForbiddenError)) {
       return const domain.ChatModelNeedsAuthentication();

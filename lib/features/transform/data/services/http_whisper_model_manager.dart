@@ -87,6 +87,16 @@ class HttpWhisperModelManager implements WhisperModelManager {
     return controller.stream;
   }
 
+  /// Cuántas veces se reintenta un archivo que falló por algo transitorio
+  /// —la conexión se cortó un instante, el servidor contestó 5xx— antes de
+  /// rendirse y dejar que el error llegue a la pantalla.
+  ///
+  /// A quien usa la app no le molesta que la descarga tarde —son
+  /// [_files] con nombres que pesan hasta un par de cientos de megas cada
+  /// uno—, le molesta que un corte de red de un segundo, de esos que se
+  /// resuelven solos, la mande de vuelta a la pantalla de error entera.
+  static const _maxAttemptsPerFile = 4;
+
   Future<void> _runDownload(StreamController<double> controller) async {
     try {
       final dir = await _modelDirectory();
@@ -101,6 +111,18 @@ class HttpWhisperModelManager implements WhisperModelManager {
       for (var i = 0; i < _files.length; i++) {
         final name = _files[i];
         final expectedSize = sizes[i];
+        final finalPath = p.join(dir.path, name);
+
+        // Un archivo que ya quedó completo de un intento anterior no se
+        // vuelve a bajar: reintentar después de un corte retoma desde el
+        // archivo que falló, no desde el primero de los tres — ver
+        // `isReady()`, que usa el mismo criterio para saber qué falta.
+        if (File(finalPath).existsSync()) {
+          completedBytes += expectedSize;
+          if (total > 0) controller.add(completedBytes / total);
+          continue;
+        }
+
         final bytesBeforeThisFile = completedBytes;
 
         // Nombre provisorio: si la app se cierra a mitad de una descarga,
@@ -108,16 +130,16 @@ class HttpWhisperModelManager implements WhisperModelManager {
         // uno completo.
         final tempPath = p.join(dir.path, '.$name.descargando');
 
-        await _dio.download(
-          '$_baseUrl/$name',
-          tempPath,
+        await _downloadFileWithRetry(
+          url: '$_baseUrl/$name',
+          tempPath: tempPath,
           onReceiveProgress: (received, _) {
             if (total <= 0) return;
             controller.add((bytesBeforeThisFile + received) / total);
           },
         );
 
-        await File(tempPath).rename(p.join(dir.path, name));
+        await File(tempPath).rename(finalPath);
         completedBytes += expectedSize;
       }
 
@@ -131,6 +153,32 @@ class HttpWhisperModelManager implements WhisperModelManager {
     } catch (e, stackTrace) {
       controller.addError(e, stackTrace);
       await controller.close();
+    }
+  }
+
+  /// Baja un archivo a [tempPath], reintentando hasta [_maxAttemptsPerFile]
+  /// veces si `dio` lo corta por algo transitorio —sin resumir desde donde
+  /// se cortó, que reintentar entero sigue siendo mucho más barato que
+  /// perder los otros dos archivos que sí llegaron enteros—, con una espera
+  /// creciente entre intento e intento: un corte de un segundo no necesita
+  /// el mismo respiro que uno de treinta.
+  Future<void> _downloadFileWithRetry({
+    required String url,
+    required String tempPath,
+    required void Function(int received, int total) onReceiveProgress,
+  }) async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        await _dio.download(
+          url,
+          tempPath,
+          onReceiveProgress: onReceiveProgress,
+        );
+        return;
+      } on DioException {
+        if (attempt >= _maxAttemptsPerFile) rethrow;
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
     }
   }
 }
