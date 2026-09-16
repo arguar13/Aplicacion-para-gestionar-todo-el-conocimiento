@@ -84,7 +84,17 @@ class ReceiveSharingIntentListener implements SharedContentListener {
 
   Uint8List? _readBytes(String path) {
     try {
-      return File(path).readAsBytesSync();
+      final file = File(path);
+      // El tamaño se consulta sin leer el archivo: uno de cientos de megas
+      // compartido desde otra app se descarta acá, antes de cargarlo entero
+      // en memoria para terminar rechazándolo igual —ver `CapturedFile.
+      // maxBytes`—. No hay a quién avisarle acá —esto corre en segundo
+      // plano, sin ninguna pantalla mirando— así que se lo trata como el
+      // caso de abajo: la copia ya no sirve, y no se produce ningún
+      // `CaptureRequest`.
+      if (file.lengthSync() > CapturedFile.maxBytes) return null;
+
+      return file.readAsBytesSync();
       // El plugin copia lo compartido a una carpeta temporal antes de
       // avisar, pero esa copia puede haber desaparecido si el sistema
       // limpió la caché entre que se compartió y que Sinapsis la leyó.

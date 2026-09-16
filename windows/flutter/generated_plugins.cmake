@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audio_decoder
   connectivity_plus
   desktop_drop
+  file_selector_windows
   flutter_gemma
   flutter_secure_storage_windows
   flutter_tts

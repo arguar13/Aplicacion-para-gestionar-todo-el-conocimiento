@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/features/blocks/presentation/screens/block_editor_scree
 import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_notifier.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -40,7 +43,12 @@ enum _CaptureKind {
   book,
   image,
   audio,
-  pasteText;
+  pasteText,
+
+  /// Sacar una foto en el momento, en vez de elegir una que ya existe. Al
+  /// final de la lista a propósito: es la opción más nueva, y las que
+  /// vienen desde antes ya tienen un orden que quien usa la app aprendió.
+  camera;
 
   IconData get icon => switch (this) {
     _CaptureKind.video => Icons.smart_display_outlined,
@@ -50,6 +58,7 @@ enum _CaptureKind {
     _CaptureKind.image => Icons.image_outlined,
     _CaptureKind.audio => Icons.graphic_eq,
     _CaptureKind.pasteText => Icons.content_paste,
+    _CaptureKind.camera => Icons.photo_camera_outlined,
   };
 
   String label(AppLocalizations l10n) => switch (this) {
@@ -60,6 +69,7 @@ enum _CaptureKind {
     _CaptureKind.image => l10n.captureTypeImage,
     _CaptureKind.audio => l10n.captureTypeAudio,
     _CaptureKind.pasteText => l10n.captureTypePasteText,
+    _CaptureKind.camera => l10n.captureTypeCamera,
   };
 
   /// Si este paso pide un enlace en una sola línea.
@@ -68,11 +78,22 @@ enum _CaptureKind {
     _ => false,
   };
 
-  /// Si este paso abre el selector de archivos del sistema.
+  /// Si este paso trae un archivo —del selector del sistema o de la
+  /// cámara— y por eso muestra la tarjeta de "archivo elegido" en vez de un
+  /// campo de texto.
   bool get isFile => switch (this) {
-    _CaptureKind.book || _CaptureKind.image || _CaptureKind.audio => true,
+    _CaptureKind.book ||
+    _CaptureKind.image ||
+    _CaptureKind.audio ||
+    _CaptureKind.camera => true,
     _ => false,
   };
+
+  /// Si este paso trae el archivo sacándole una foto a algo, en vez de
+  /// eligiéndolo del almacenamiento del dispositivo. Decide qué acción
+  /// dispara al elegir la tarjeta, y qué botón mostrar mientras no haya
+  /// ninguna foto todavía.
+  bool get isCamera => this == _CaptureKind.camera;
 }
 
 /// A qué [_CaptureKind] corresponde cada [SourceKind], para preseleccionar
@@ -88,6 +109,17 @@ _CaptureKind _kindFor(SourceKind kind) => switch (kind) {
   SourceKind.audio => _CaptureKind.audio,
   SourceKind.manualNote => _CaptureKind.pasteText,
 };
+
+/// Si hay una cámara de verdad detrás de `ImageSource.camera` en esta
+/// plataforma — ver el comentario de `image_picker` en `pubspec.yaml`.
+/// Windows, macOS y Linux resuelven el paquete igual, pero ninguno tiene una
+/// implementación real de la cámara: ofrecer la tarjeta ahí terminaría en un
+/// botón que revienta al tocarlo, así que se la saca de la grilla en vez de
+/// mostrarla deshabilitada.
+bool get _cameraIsSupported =>
+    kIsWeb ||
+    defaultTargetPlatform == TargetPlatform.android ||
+    defaultTargetPlatform == TargetPlatform.iOS;
 
 /// Meter algo en la bóveda.
 ///
@@ -210,7 +242,11 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
   void _selectKind(_CaptureKind kind) {
     setState(() => _kind = kind);
-    if (kind.isFile) unawaited(_chooseFile());
+    if (kind.isCamera) {
+      unawaited(_takePhoto());
+    } else if (kind.isFile) {
+      unawaited(_chooseFile());
+    }
   }
 
   void _changeKind() {
@@ -241,6 +277,43 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
+    } on FileTooLargeException {
+      if (!mounted) return;
+
+      _showFileTooLarge(l10n);
+    }
+  }
+
+  void _showFileTooLarge(AppLocalizations l10n) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.globalErrorFileTooLarge(
+              (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
+            ),
+          ),
+        ),
+      );
+  }
+
+  /// Abre la cámara del sistema. El mismo criterio que [_chooseFile]:
+  /// cancelar sin sacar ninguna foto no es un error y no muestra nada.
+  Future<void> _takePhoto() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    try {
+      final photo = await ref.read(cameraChooserProvider).takePhoto();
+      if (photo == null || !mounted) return;
+
+      setState(() => _file = photo);
+    } on CameraAccessDeniedException {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.captureCameraAccessDenied)));
     }
   }
 
@@ -265,6 +338,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     }
 
     final item = dropped.single;
+
+    // `length()` solo consulta el tamaño del archivo, sin leerlo: se
+    // rechaza acá, antes de `readAsBytes()`, por el mismo motivo que
+    // `SystemFileChooser` — no cargar en memoria un archivo de cientos de
+    // megas que se va a descartar de todos modos.
+    if (await item.length() > CapturedFile.maxBytes) {
+      if (!mounted) return;
+      _showFileTooLarge(l10n);
+      return;
+    }
+
     final bytes = await item.readAsBytes();
     if (!mounted) return;
 
@@ -372,7 +456,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                         detectedKind: _detectedKind,
                         isSaving: state is CaptureSaving,
                         onChangeKind: _changeKind,
-                        onChooseFile: _chooseFile,
+                        onChooseFile: _kind!.isCamera
+                            ? _takePhoto
+                            : _chooseFile,
                         onRemoveFile: () => setState(() => _file = null),
                         onSubmit: _submit,
                       ),
@@ -415,11 +501,12 @@ class _TypeSelector extends StatelessWidget {
           childAspectRatio: 1.5,
           children: [
             for (final kind in _CaptureKind.values)
-              _TypeCard(
-                icon: kind.icon,
-                label: kind.label(l10n),
-                onTap: () => onSelected(kind),
-              ),
+              if (!kind.isCamera || _cameraIsSupported)
+                _TypeCard(
+                  icon: kind.icon,
+                  label: kind.label(l10n),
+                  onTap: () => onSelected(kind),
+                ),
           ],
         ),
         const SizedBox(height: 12),
@@ -566,8 +653,14 @@ class _CaptureForm extends StatelessWidget {
           if (file == null)
             OutlinedButton.icon(
               onPressed: onChooseFile,
-              icon: const Icon(Icons.attach_file),
-              label: Text(l10n.captureChooseFileAction),
+              icon: Icon(
+                kind.isCamera ? Icons.photo_camera_outlined : Icons.attach_file,
+              ),
+              label: Text(
+                kind.isCamera
+                    ? l10n.captureTakePhotoAction
+                    : l10n.captureChooseFileAction,
+              ),
             )
           else
             _ChosenFileCard(file: file!, onRemove: onRemoveFile),

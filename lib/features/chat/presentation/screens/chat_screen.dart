@@ -16,6 +16,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -228,10 +229,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// [FileFormat.sourceKind] quien decide si es una imagen o un documento.
   Future<void> _addAttachment() async {
     final l10n = AppLocalizations.of(context)!;
-    final chosen = await ref.read(fileChooserProvider).pickOne();
+
+    final CapturedFile? chosen;
+    try {
+      chosen = await ref.read(fileChooserProvider).pickOne();
+    } on FileTooLargeException {
+      if (!mounted) return;
+      _showSnack(
+        l10n.globalErrorFileTooLarge(
+          (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
+        ),
+      );
+      return;
+    } on FileAccessDeniedException {
+      if (!mounted) return;
+      _showSnack(l10n.captureFileAccessDenied);
+      return;
+    }
     if (chosen == null || !mounted) return;
 
-    if (chosen.isTooLarge) {
+    // Una vez más allá del `null`, se guarda en su propia variable: la
+    // promoción de `chosen` a no anulable no sobrevive dentro de los
+    // cierres de `setState` de más abajo, porque quedó asignada dentro de
+    // un `try` — a esta, asignada de una sola vez y nunca dentro de un
+    // `try`, sí se la puede usar sin `!` en cualquier lado.
+    final file = chosen;
+
+    // El selector ya rechazó por su cuenta lo que pesa de más —ver
+    // `FileTooLargeException` arriba—, pero `isTooLarge` se deja como red
+    // final: en la web el archivo ya se leyó igual al elegirlo, así que ahí
+    // el chequeo de tamaño no puede evitar la lectura, solo el resto.
+    if (file.isTooLarge) {
       _showSnack(
         l10n.globalErrorFileTooLarge(
           (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
@@ -240,26 +268,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    final format = chosen.format;
+    final format = file.format;
     if (format.sourceKind == SourceKind.image) {
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)
-          .save(
-            bytes: chosen.bytes,
-            suggestedName: chosen.name,
-            id: ids.next(),
-          );
+          .save(bytes: file.bytes, suggestedName: file.name, id: ids.next());
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
           _PendingAttachment(
             attachment: ChatAttachment(
-              name: chosen.name,
+              name: file.name,
               kind: ChatAttachmentKind.image,
               relativePath: relativePath,
             ),
-            bytes: chosen.bytes,
+            bytes: file.bytes,
           ),
         );
       });
@@ -271,32 +295,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .where((p) => p.canParse(format))
         .firstOrNull;
     if (parser == null) {
-      _showSnack(l10n.chatAttachUnreadable(chosen.name));
+      _showSnack(l10n.chatAttachUnreadable(file.name));
       return;
     }
 
     setState(() => _attaching = true);
     try {
-      final parsed = await parser.parse(chosen.bytes);
+      final parsed = await parser.parse(file.bytes);
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)
-          .save(
-            bytes: chosen.bytes,
-            suggestedName: chosen.name,
-            id: ids.next(),
-          );
+          .save(bytes: file.bytes, suggestedName: file.name, id: ids.next());
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
           _PendingAttachment(
             attachment: ChatAttachment(
-              name: chosen.name,
+              name: file.name,
               kind: ChatAttachmentKind.document,
               relativePath: relativePath,
               extractedText: parsed.markdown,
             ),
-            bytes: chosen.bytes,
+            bytes: file.bytes,
           ),
         );
       });
@@ -304,7 +324,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       // ante bytes corruptos: un archivo así no es un defecto del programa.
     } on UnreadableDocumentException {
       if (!mounted) return;
-      _showSnack(l10n.chatAttachUnreadable(chosen.name));
+      _showSnack(l10n.chatAttachUnreadable(file.name));
     } finally {
       if (mounted) setState(() => _attaching = false);
     }

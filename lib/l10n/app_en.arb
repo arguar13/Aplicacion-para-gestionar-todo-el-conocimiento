@@ -272,6 +272,10 @@
   "@captureTypeNote": {
     "description": "Botón del selector de tipo: una nota propia con bloques."
   },
+  "captureTypeCamera": "Camera",
+  "@captureTypeCamera": {
+    "description": "Botón del selector de tipo: sacar una foto en el momento con la cámara del dispositivo."
+  },
   "captureChangeType": "Change type",
   "@captureChangeType": {
     "description": "Botón que vuelve al selector de tipo de captura."
@@ -279,6 +283,14 @@
   "captureChooseFileAction": "Choose file",
   "@captureChooseFileAction": {
     "description": "Botón que abre el selector de archivos, dentro del paso ya elegido (libro, imagen o audio)."
+  },
+  "captureTakePhotoAction": "Take photo",
+  "@captureTakePhotoAction": {
+    "description": "Botón que abre la cámara, dentro del paso \"Cámara\" ya elegido."
+  },
+  "captureCameraAccessDenied": "Sinapsis doesn't have permission to use the camera. You can grant it in your system settings.",
+  "@captureCameraAccessDenied": {
+    "description": "Se muestra cuando el sistema niega el acceso a la cámara."
   },
   "captureLinkLabel": "Link",
   "@captureLinkLabel": {

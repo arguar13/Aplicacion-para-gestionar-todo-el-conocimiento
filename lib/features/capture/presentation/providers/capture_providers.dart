@@ -7,8 +7,10 @@ import 'package:sinapsis/features/capture/data/adapters/social_post_link_adapter
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/services/receive_sharing_intent_listener.dart';
+import 'package:sinapsis/features/capture/data/services/system_camera_chooser.dart';
 import 'package:sinapsis/features/capture/data/services/system_file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
+import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
@@ -51,6 +53,14 @@ final captureItemUseCaseProvider = Provider<CaptureItemUseCase>((ref) {
 /// puede probar.
 final fileChooserProvider = Provider<FileChooser>(
   (ref) => const SystemFileChooser(),
+);
+
+/// La cámara del sistema operativo.
+///
+/// Se sobreescribe en las pruebas, por la misma razón que
+/// [fileChooserProvider]: abrirla de verdad necesita una cámara real detrás.
+final cameraChooserProvider = Provider<CameraChooser>(
+  (ref) => const SystemCameraChooser(),
 );
 
 /// Lo que trae el botón de compartir de otra app.

@@ -38,6 +38,13 @@ class SystemFileChooser implements FileChooser {
     final picked = result?.files.singleOrNull;
     if (picked == null) return null;
 
+    // El selector ya informa el tamaño sin haber leído el contenido: se
+    // rechaza acá, antes de `_readFrom`, para no cargar en memoria un
+    // archivo de cientos de megas que se va a descartar de todos modos.
+    if (picked.size > CapturedFile.maxBytes) {
+      throw const FileTooLargeException();
+    }
+
     final bytes = picked.bytes ?? await _readFrom(picked.path);
     if (bytes == null) return null;
 

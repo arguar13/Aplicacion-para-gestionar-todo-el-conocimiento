@@ -28,6 +28,7 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import 'fake_camera_chooser.dart';
 import 'fake_chat_model.dart';
 import 'fake_chat_model_manager.dart';
 import 'fake_directory_chooser.dart';
@@ -57,6 +58,7 @@ class LibraryHarness {
     this.database,
     this.ids,
     this.fileChooser,
+    this.cameraChooser,
     this.files,
     this.fileOpener,
     this.fileSaver,
@@ -84,6 +86,13 @@ class LibraryHarness {
 
     /// Si está, el selector lanza esto en vez de devolver.
     Object? fileChooserError,
+
+    /// Lo que devuelve la cámara. `null` —el valor por defecto— simula que
+    /// el usuario la abre y cierra sin sacar ninguna foto.
+    CapturedFile? chosenPhoto,
+
+    /// Si está, la cámara lanza esto en vez de devolver.
+    Object? cameraChooserError,
 
     /// La carpeta que "elige" quien prueba el paquete de NotebookLM. `null`
     /// —el valor por defecto, igual que con el archivo elegido más arriba—
@@ -132,6 +141,10 @@ class LibraryHarness {
     final database = AppDatabase(NativeDatabase.memory());
     final ids = FakeIdGenerator();
     final chooser = FakeFileChooser(file: chosenFile, error: fileChooserError);
+    final camera = FakeCameraChooser(
+      photo: chosenPhoto,
+      error: cameraChooserError,
+    );
     final files = InMemoryFileStore();
     final opener = FakeFileOpener();
     final saver = FakeFileSaver();
@@ -163,6 +176,9 @@ class LibraryHarness {
         // El selector del sistema necesita una ventana: es lo único de este
         // camino que no se puede probar.
         fileChooserProvider.overrideWithValue(chooser),
+        // Mismo motivo: abrir la cámara de verdad necesita una cámara real
+        // detrás.
+        cameraChooserProvider.overrideWithValue(camera),
         // El almacén real escribe en la carpeta de documentos de la app, y
         // esa ruta la resuelve un canal de plataforma que en un test no
         // existe: la llamada nunca contesta y la prueba se cuelga. Además,
@@ -242,6 +258,7 @@ class LibraryHarness {
       database,
       ids,
       chooser,
+      camera,
       files,
       opener,
       saver,
@@ -265,6 +282,10 @@ class LibraryHarness {
 
   /// El selector de archivos de mentira, para comprobar que se abrió.
   final FakeFileChooser fileChooser;
+
+  /// La cámara de mentira, para comprobar que se abrió y controlar qué foto
+  /// "saca".
+  final FakeCameraChooser cameraChooser;
 
   /// El almacén en memoria, para comprobar qué archivo quedó guardado.
   final InMemoryFileStore files;

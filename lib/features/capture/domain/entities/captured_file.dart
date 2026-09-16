@@ -40,3 +40,22 @@ class CapturedFile {
 
   bool get isTooLarge => sizeInBytes > maxBytes;
 }
+
+/// El archivo que se está por traer pesa más que [CapturedFile.maxBytes],
+/// según el tamaño que ya informa el origen —el selector del sistema, el
+/// archivo soltado sobre la ventana, lo que llegó por el botón de
+/// compartir— sin necesidad de abrirlo.
+///
+/// Se lanza **antes** de leer esos bytes del disco, no después:
+/// [CapturedFile.isTooLarge] ya existe para el caso en que el archivo se
+/// leyó igual, pero confiar solo
+/// en ese chequeo significaría cargar en memoria un archivo de varios
+/// cientos de megas solo para terminar descartándolo por pesado — el mismo
+/// desperdicio que puede hacer que la app se quede sin memoria y se cierre
+/// en un teléfono modesto, en vez de mostrar el aviso de siempre.
+class FileTooLargeException implements Exception {
+  const FileTooLargeException();
+
+  @override
+  String toString() => 'El archivo pesa más de ${CapturedFile.maxBytes} bytes';
+}

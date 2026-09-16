@@ -77,6 +77,17 @@ dependencies:
   # `ImageTransformer` (ver `PdfParser`, que le pide OCR a una página sin
   # texto en vez de darla por perdida).
   image: ^4.9.2
+  # Abrir la cámara para sacarle una foto a algo —un cartel, una pizarra, la
+  # página de un libro sin escanear— y guardarla igual que cualquier otro
+  # archivo elegido a mano. BSD-3-Clause y del propio equipo de Flutter,
+  # igual que `video_player` y `webview_flutter`: el mismo criterio de
+  # siempre, nada que dependa de que un tercero lo siga manteniendo.
+  # `ImageSource.camera` —a diferencia de elegir de la galería— solo está
+  # implementado de verdad en Android, iOS y web; en Windows, macOS y Linux
+  # no hay ninguna cámara detrás del selector, así que la tarjeta de cámara
+  # en la captura se oculta fuera de esas tres plataformas en vez de ofrecer
+  # un botón que reviente al tocarlo.
+  image_picker: ^1.1.2
   intl: ^0.20.2
   json_annotation: ^4.12.0
   logger: ^2.5.0

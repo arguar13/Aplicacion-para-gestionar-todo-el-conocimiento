@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -8,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -170,6 +170,123 @@ void main() {
         expect(find.text('manual.pdf'), findsOneWidget);
       },
     );
+
+    testWidgets('un archivo demasiado pesado avisa en vez de quedar elegido', (
+      tester,
+    ) async {
+      // El selector de mentira lanza esto directo, sin devolver ningún
+      // archivo: es lo que hace `SystemFileChooser` de verdad cuando el
+      // tamaño que ya informa el sistema —sin haber leído nada todavía—
+      // pasa el máximo. Ver `FileTooLargeException`.
+      harness = await LibraryHarness.create(
+        fileChooserError: const FileTooLargeException(),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeBook);
+
+      expect(
+        find.text(
+          es.globalErrorFileTooLarge(
+            (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
+          ),
+        ),
+        findsOneWidget,
+      );
+      // Ningún archivo quedó elegido: sigue ofreciendo el botón de
+      // siempre, no la tarjeta de "archivo elegido".
+      expect(find.text(es.captureChooseFileAction), findsOneWidget);
+    });
+  });
+
+  group('cámara', () {
+    testWidgets('en una plataforma con cámara de verdad, el selector ofrece la '
+        'tarjeta', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await pumpCapture(tester);
+
+      expect(find.text(es.captureTypeCamera), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
+      'en escritorio, sin cámara de verdad detrás, la tarjeta no se ofrece',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        await pumpCapture(tester);
+
+        expect(find.text(es.captureTypeCamera), findsNothing);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+
+    testWidgets('elegir "Cámara" abre la cámara sola, sin tocar nada más', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      harness = await LibraryHarness.create(
+        chosenPhoto: CapturedFile(
+          name: 'foto.jpg',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeCamera);
+
+      expect(find.text('foto.jpg'), findsOneWidget);
+      expect(harness.cameraChooser.timesOpened, 1);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
+      'cerrar la cámara sin sacar ninguna foto ofrece volver a intentar',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        await pumpCapture(tester);
+
+        await selectType(tester, es.captureTypeCamera);
+
+        expect(find.text(es.captureTakePhotoAction), findsOneWidget);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+
+    testWidgets('sin permiso de cámara, avisa en vez de quedarse sin decir '
+        'nada', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      harness = await LibraryHarness.create(
+        cameraChooserError: const CameraAccessDeniedException(),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeCamera);
+
+      expect(find.text(es.captureCameraAccessDenied), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('una foto sacada con la cámara se guarda como imagen', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      harness = await LibraryHarness.create(
+        chosenPhoto: CapturedFile(
+          name: 'pizarra.jpg',
+          bytes: Uint8List.fromList([1, 2, 3]),
+        ),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeCamera);
+      await tester.tap(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+
+      // El título provisional sale del nombre del archivo, igual que
+      // cualquier otra captura de archivo — ver `titleFromFileName`.
+      expect(await savedTitles(), ['Pizarra']);
+      debugDefaultTargetPlatformOverride = null;
+    });
   });
 
   group('reconocimiento en vivo', () {
@@ -437,8 +554,15 @@ void main() {
     // ver cross_file/src/types/io.dart. Un archivo de verdad soltado sí trae
     // una ruta real, así que en la app esto nunca pasa; acá hay que pasar el
     // nombre como ruta para que la ficha de prueba se comporte igual.
-    DropItemFile fakeDroppedFile(String name, {Uint8List? bytes}) =>
-        DropItemFile.fromData(bytes ?? Uint8List(0), path: name);
+    DropItemFile fakeDroppedFile(
+      String name, {
+      Uint8List? bytes,
+      int? length,
+    }) => DropItemFile.fromData(
+      bytes ?? Uint8List(0),
+      path: name,
+      length: length,
+    );
 
     testWidgets('deja el archivo elegido, igual que el selector, sin pasar '
         'por el selector de tipo', (tester) async {
@@ -452,6 +576,31 @@ void main() {
       ]);
 
       expect(find.text('foto.jpg'), findsOneWidget);
+    });
+
+    testWidgets('soltar un archivo demasiado pesado avisa, sin leerlo', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      // `length:` simula el tamaño que ya informa el sistema al arrastrar
+      // —el mismo que consulta `XFile.length()` sin abrir el archivo—,
+      // sin tener que reservar de verdad los 200 MB del límite en la
+      // prueba.
+      await dropFiles(tester, [
+        fakeDroppedFile('enorme.pdf', length: CapturedFile.maxBytes + 1),
+      ]);
+
+      expect(
+        find.text(
+          es.globalErrorFileTooLarge(
+            (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
+          ),
+        ),
+        findsOneWidget,
+      );
+      // Sin ningún archivo elegido, sigue en el selector de tipo.
+      expect(find.text(es.captureTypePrompt), findsOneWidget);
     });
 
     testWidgets('reemplaza el archivo ya elegido, no lo duplica', (

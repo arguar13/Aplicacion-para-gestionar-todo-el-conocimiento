@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:sinapsis/features/capture/data/services/receive_sharing_intent_listener.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 
 void main() {
   // El plugin habla por un MethodChannel/EventChannel de verdad, y eso
@@ -36,6 +37,18 @@ void main() {
 
   File writeFile(String name, String content) =>
       File('${tempDir.path}/$name')..writeAsStringSync(content);
+
+  /// Un archivo del tamaño que se pida, sin escribir de verdad esos bytes
+  /// en disco: `truncateSync` extiende el archivo a [length] dejando un
+  /// hueco, no reservando contenido — de sobra para que `File.lengthSync()`
+  /// —lo único que lee el chequeo de tamaño— informe lo que hace falta.
+  File writeFileOfSize(String name, int length) {
+    final file = File('${tempDir.path}/$name')..createSync();
+    file.openSync(mode: FileMode.write)
+      ..truncateSync(length)
+      ..closeSync();
+    return file;
+  }
 
   group('initial()', () {
     test('un enlace compartido se ofrece como texto, igual que si se '
@@ -119,6 +132,20 @@ void main() {
             path: '${tempDir.path}/ya-no-existe.pdf',
             type: SharedMediaType.file,
           ),
+        ],
+        mediaStream: const Stream.empty(),
+      );
+
+      final requests = await listener.initial();
+
+      expect(requests, isEmpty);
+    });
+
+    test('un archivo demasiado pesado se descarta sin leerlo entero', () async {
+      final file = writeFileOfSize('enorme.pdf', CapturedFile.maxBytes + 1);
+      ReceiveSharingIntent.setMockValues(
+        initialMedia: [
+          SharedMediaFile(path: file.path, type: SharedMediaType.file),
         ],
         mediaStream: const Stream.empty(),
       );
