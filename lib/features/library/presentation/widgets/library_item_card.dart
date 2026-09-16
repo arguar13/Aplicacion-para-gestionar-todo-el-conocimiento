@@ -317,8 +317,8 @@ class _ExportAction extends _ItemMenuAction {
 
 /// La portada de la fila: una imagen real cuando se puede conseguir barata
 /// —ver `ItemThumbnailResolver`, la misma que arma la portada de cada
-/// tarjeta del grafo— o el ícono del tipo de fuente sobre un fondo circular
-/// tenue mientras tanto o si no hay ninguna.
+/// tarjeta del grafo— o el ícono del tipo de fuente sobre un fondo tenue
+/// mientras tanto o si no hay ninguna.
 ///
 /// El ícono de respaldo se dibuja siempre, debajo de la imagen: así la fila
 /// nunca queda con un hueco en blanco mientras la vista previa carga, y le
@@ -334,7 +334,8 @@ class _ItemThumbnailBadge extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     final thumbnail = ref.watch(itemThumbnailProvider(item)).valueOrNull;
 
-    return ClipOval(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         width: 40,
         height: 40,

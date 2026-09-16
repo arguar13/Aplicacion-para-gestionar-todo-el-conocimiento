@@ -180,52 +180,61 @@ class _DetailBody extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(item.title, style: theme.textTheme.headlineSmall),
-            if (item.subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                item.subtitle!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(item.title, style: theme.textTheme.headlineSmall),
+              if (item.subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  item.subtitle!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            SpacePicker(item: item),
-            const SizedBox(height: 24),
-            TagEditor(item: item),
-            const SizedBox(height: 24),
-
-            if (item.notes?.isNotEmpty ?? false) ...[
-              _UserNote(note: item.notes!),
+              ],
+              const SizedBox(height: 16),
+              SpacePicker(item: item),
               const SizedBox(height: 24),
-            ],
+              TagEditor(item: item),
+              const SizedBox(height: 24),
 
-            if (texts.isEmpty)
-              _NoContentYet(item: item)
-            else
-              for (final rendition in texts) ...[
-                if (rendition.kind == RenditionKind.blocks)
-                  _BlocksRendition(item: item, rendition: rendition)
-                else
-                  _TextRenditionView(item: item, rendition: rendition),
-                const SizedBox(height: 16),
+              if (item.notes?.isNotEmpty ?? false) ...[
+                _UserNote(note: item.notes!),
+                const SizedBox(height: 24),
               ],
 
-            const SizedBox(height: 16),
-            FlashcardSection(item: item),
-            const SizedBox(height: 24),
-            RelationsSection(item: item),
-            const SizedBox(height: 24),
-            CitationSection(item: item),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            _Provenance(item: item),
-          ],
+              // Los botones para ver o abrir el archivo original van acá,
+              // antes del contenido: con textos largos —un libro entero, una
+              // transcripción— quedarían a muchas pantallas de distancia si
+              // se dejaran junto al resto de la procedencia, al final.
+              _FileActions(item: item),
+
+              if (texts.isEmpty)
+                _NoContentYet(item: item)
+              else
+                for (final rendition in texts) ...[
+                  if (rendition.kind == RenditionKind.blocks)
+                    _BlocksRendition(item: item, rendition: rendition)
+                  else
+                    _TextRenditionView(item: item, rendition: rendition),
+                  const SizedBox(height: 16),
+                ],
+
+              const SizedBox(height: 16),
+              FlashcardSection(item: item),
+              const SizedBox(height: 24),
+              RelationsSection(item: item),
+              const SizedBox(height: 24),
+              CitationSection(item: item),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+              _Provenance(item: item),
+            ],
+          ),
         ),
       ),
     );
@@ -470,92 +479,44 @@ class _NoContentYet extends ConsumerWidget {
   }
 }
 
-class _Provenance extends ConsumerWidget {
-  const _Provenance({required this.item});
+/// Los botones para ver el archivo en el visor integrado o abrirlo con la
+/// app del sistema, aparte del resto de la procedencia —ver `_Provenance`—
+/// porque son los que se usan más seguido y conviene tenerlos a mano sin
+/// bajar hasta el final.
+class _FileActions extends ConsumerWidget {
+  const _FileActions({required this.item});
 
   final KnowledgeItem item;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final source = item.source;
+    final path = item.source.originalFilePath;
+    if (path == null) return const SizedBox.shrink();
 
-    // La fecha se formatea con el idioma activo: "11 sept 2026" en español y
-    // "Sep 11, 2026" en inglés, en vez de un formato fijo que se lee raro en
-    // uno de los dos.
-    final locale = Localizations.localeOf(context).toString();
-    final captured = DateFormat.yMMMd(locale).format(source.capturedAt);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.detailProvenance,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _ProvenanceRow(icon: source.kind.icon, text: source.kind.label(l10n)),
-        if (source.authorName != null)
-          _ProvenanceRow(
-            icon: Icons.person_outline,
-            text: l10n.detailAuthor(source.authorName!),
-          ),
-        _ProvenanceRow(
-          icon: Icons.event_outlined,
-          text: l10n.detailCapturedOn(captured),
-        ),
-        // Para un PDF o un libro no hay ningún enlace al que volver: el
-        // archivo **es** la fuente. Sin esta fila, el detalle no diría en
-        // ninguna parte que la copia original está a salvo, y el usuario
-        // tendría que confiar en que sí.
-        if (source.originalFilePath != null) ...[
-          _ProvenanceRow(
-            icon: Icons.folder_outlined,
-            text: l10n.detailOriginalFile(
-              originalFileNameOf(source.originalFilePath!),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Wrap(
+        spacing: 8,
+        children: [
+          // En la web no hay una ruta absoluta de la que leer bytes sueltos
+          // para reconocer el formato —`FileStore.resolve()` lanza ahí a
+          // propósito—, así que el visor integrado queda solo para el resto
+          // de las plataformas; "Abrir con..." ya cubre la web con
+          // `WebDownloadFileOpener`.
+          if (!kIsWeb)
+            FilledButton.tonalIcon(
+              onPressed: () => _openInViewer(context, ref, item),
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              label: Text(l10n.detailViewFile),
             ),
-          ),
-          Wrap(
-            spacing: 8,
-            children: [
-              // En la web no hay una ruta absoluta de la que leer bytes
-              // sueltos para reconocer el formato —`FileStore.resolve()`
-              // lanza ahí a propósito—, así que el visor integrado queda
-              // solo para el resto de las plataformas; "Abrir con..." ya
-              // cubre la web con `WebDownloadFileOpener`.
-              if (!kIsWeb)
-                FilledButton.tonalIcon(
-                  onPressed: () => _openInViewer(context, ref, item),
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
-                  label: Text(l10n.detailViewFile),
-                ),
-              TextButton.icon(
-                onPressed: () =>
-                    _openOriginalFile(context, ref, source.originalFilePath!),
-                icon: const Icon(Icons.open_in_new, size: 18),
-                label: Text(l10n.detailOpenFile),
-              ),
-              // Solo para video y audio: son los formatos pesados donde
-              // vale la pena quedarse con el texto y soltar el archivo. Un
-              // PDF o un EPUB **son** la fuente —borrarlos no deja nada
-              // equivalente atrás— así que ahí no se ofrece.
-              if (_hasKeepableText(item))
-                TextButton.icon(
-                  onPressed: () => _deleteOriginalFile(context, ref, item),
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                  label: Text(l10n.detailDeleteOriginalFile),
-                ),
-            ],
+          TextButton.icon(
+            onPressed: () => _openOriginalFile(context, ref, path),
+            icon: const Icon(Icons.open_in_new, size: 18),
+            label: Text(l10n.detailOpenFile),
           ),
         ],
-        if (source.url != null) ...[
-          const SizedBox(height: 12),
-          _OriginalLink(url: source.url!),
-        ],
-      ],
+      ),
     );
   }
 
@@ -606,6 +567,79 @@ class _Provenance extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _Provenance extends ConsumerWidget {
+  const _Provenance({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final source = item.source;
+
+    // La fecha se formatea con el idioma activo: "11 sept 2026" en español y
+    // "Sep 11, 2026" en inglés, en vez de un formato fijo que se lee raro en
+    // uno de los dos.
+    final locale = Localizations.localeOf(context).toString();
+    final captured = DateFormat.yMMMd(locale).format(source.capturedAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.detailProvenance,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _ProvenanceRow(icon: source.kind.icon, text: source.kind.label(l10n)),
+        if (source.authorName != null)
+          _ProvenanceRow(
+            icon: Icons.person_outline,
+            text: l10n.detailAuthor(source.authorName!),
+          ),
+        _ProvenanceRow(
+          icon: Icons.event_outlined,
+          text: l10n.detailCapturedOn(captured),
+        ),
+        // Para un PDF o un libro no hay ningún enlace al que volver: el
+        // archivo **es** la fuente. Sin esta fila, el detalle no diría en
+        // ninguna parte que la copia original está a salvo, y el usuario
+        // tendría que confiar en que sí.
+        if (source.originalFilePath != null) ...[
+          _ProvenanceRow(
+            icon: Icons.folder_outlined,
+            text: l10n.detailOriginalFile(
+              originalFileNameOf(source.originalFilePath!),
+            ),
+          ),
+          // "Ver" y "Abrir archivo" viven arriba de todo, en `_FileActions`:
+          // son los que se usan más seguido. Acá solo queda la acción
+          // destructiva, que sí tiene sentido dejar junto al resto de la
+          // procedencia.
+          //
+          // Solo para video y audio: son los formatos pesados donde vale la
+          // pena quedarse con el texto y soltar el archivo. Un PDF o un
+          // EPUB **son** la fuente —borrarlos no deja nada equivalente
+          // atrás— así que ahí no se ofrece.
+          if (_hasKeepableText(item))
+            TextButton.icon(
+              onPressed: () => _deleteOriginalFile(context, ref, item),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: Text(l10n.detailDeleteOriginalFile),
+            ),
+        ],
+        if (source.url != null) ...[
+          const SizedBox(height: 12),
+          _OriginalLink(url: source.url!),
+        ],
+      ],
+    );
   }
 
   /// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".

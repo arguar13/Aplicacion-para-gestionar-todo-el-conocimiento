@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -25,13 +26,15 @@ typedef GraphEdge = (String from, String to, RelationKind kind, String label);
 /// nodo ancho y bajo tiene un borde mucho más cerca del centro por arriba
 /// que por los costados. [clipToRectBorder] es ese cálculo.
 class GraphEdgesPainter extends CustomPainter {
-  const GraphEdgesPainter({
+  GraphEdgesPainter({
     required this.edges,
     required this.positions,
     required this.nodeSize,
     required this.colorScheme,
     this.dimmedNodeIds,
-  });
+    this.draggingNodeId,
+    this.liveDragPosition,
+  }) : super(repaint: liveDragPosition);
 
   final List<GraphEdge> edges;
   final Map<String, Offset> positions;
@@ -48,14 +51,28 @@ class GraphEdgesPainter extends CustomPainter {
   /// intensidad.
   final Set<String>? dimmedNodeIds;
 
+  /// El nodo que se está arrastrando a mano ahora mismo, o `null`.
+  ///
+  /// Mientras dura el arrastre, su posición no sale de `positions` —que
+  /// recién se actualiza al soltar, ver `_GraphBodyState`— sino de
+  /// [liveDragPosition], así las aristas lo siguen sin esperar a ese
+  /// repintado completo del lienzo.
+  final String? draggingNodeId;
+  final ValueListenable<Offset?>? liveDragPosition;
+
+  Offset? _positionOf(String id) {
+    if (id == draggingNodeId) return liveDragPosition?.value ?? positions[id];
+    return positions[id];
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final halfWidth = nodeSize.width / 2;
     final halfHeight = nodeSize.height / 2;
 
     for (final (from, to, kind, label) in edges) {
-      final start = positions[from];
-      final end = positions[to];
+      final start = _positionOf(from);
+      final end = _positionOf(to);
       if (start == null || end == null) continue;
 
       final dimmed =
@@ -188,7 +205,8 @@ class GraphEdgesPainter extends CustomPainter {
       oldDelegate.positions != positions ||
       oldDelegate.nodeSize != nodeSize ||
       oldDelegate.colorScheme != colorScheme ||
-      oldDelegate.dimmedNodeIds != dimmedNodeIds;
+      oldDelegate.dimmedNodeIds != dimmedNodeIds ||
+      oldDelegate.draggingNodeId != draggingNodeId;
 }
 
 /// Dónde cruza el borde de una tarjeta rectangular centrada en [center] el

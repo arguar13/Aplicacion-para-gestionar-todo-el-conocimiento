@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -115,6 +116,21 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
   /// tirones en vez de seguir al dedo o al mouse de punta a punta.
   String? _draggingNodeId;
 
+  /// La posición del nodo que se está arrastrando, mientras dura el
+  /// arrastre.
+  ///
+  /// Aparte de `_pinnedPositions` y no una entrada más ahí: escribir en
+  /// `_pinnedPositions` en cada píxel de arrastre —como se hacía antes—
+  /// obliga a un `setState` en todo `_GraphBodyState`, que reconstruye cada
+  /// tarjeta del lienzo entero y repinta todas las aristas en cada frame.
+  /// Con el grafo cargado, eso es justo el tirón que describían como "está
+  /// duro". Este notifier en cambio solo lo escuchan la tarjeta que se está
+  /// moviendo —envuelta en un `ValueListenableBuilder`— y el pintor de
+  /// aristas —vía `CustomPaint.repaint`—, así que un arrastre no toca el
+  /// resto del árbol para nada. Recién al soltar (`onDragEnd`) se vuelca a
+  /// `_pinnedPositions` con un `setState` de verdad.
+  final ValueNotifier<Offset?> _liveDragPosition = ValueNotifier(null);
+
   /// Qué componente conexo se está mirando —ver `computeConnectedComponents`—,
   /// como índice dentro de la lista que devuelve esa función para el
   /// recorte actual. `null` es "todos juntos": la vista de siempre, sin
@@ -160,6 +176,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
   @override
   void dispose() {
     _transformController.dispose();
+    _liveDragPosition.dispose();
     super.dispose();
   }
 
@@ -453,6 +470,8 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   nodeSize: _kNodeSize,
                   colorScheme: theme.colorScheme,
                   dimmedNodeIds: dimmedNodeIds,
+                  draggingNodeId: _draggingNodeId,
+                  liveDragPosition: _liveDragPosition,
                 ),
               ),
               for (final id in nodeIds)
@@ -463,21 +482,29 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   dimmed: dimmedNodeIds?.contains(id) ?? false,
                   focused: focused == id,
                   dragging: _draggingNodeId == id,
+                  liveDragPosition: _liveDragPosition,
                   onTap: () => context.push(RoutePaths.itemDetail(id)),
                   onLongPress: () => setState(() {
                     _focusedNodeId = _focusedNodeId == id ? null : id;
                   }),
-                  onDragStart: () => setState(() => _draggingNodeId = id),
+                  onDragStart: () => setState(() {
+                    _draggingNodeId = id;
+                    _liveDragPosition.value = positions[id];
+                  }),
                   onDragEnd: () => setState(() {
-                    if (_draggingNodeId == id) _draggingNodeId = null;
+                    if (_draggingNodeId == id) {
+                      _pinnedPositions[id] =
+                          _liveDragPosition.value ?? positions[id]!;
+                      _draggingNodeId = null;
+                    }
+                    _liveDragPosition.value = null;
                   }),
                   onDragUpdate: (delta) {
+                    if (_draggingNodeId != id) return;
                     final scale = _transformController.value
                         .getMaxScaleOnAxis();
-                    final current = positions[id]!;
-                    setState(() {
-                      _pinnedPositions[id] = current + delta / scale;
-                    });
+                    final current = _liveDragPosition.value ?? positions[id]!;
+                    _liveDragPosition.value = current + delta / scale;
                   },
                 ),
             ],
@@ -995,6 +1022,7 @@ class _GraphNode extends StatelessWidget {
     required this.dimmed,
     required this.focused,
     required this.dragging,
+    required this.liveDragPosition,
     required this.onTap,
     required this.onLongPress,
     required this.onDragStart,
@@ -1012,6 +1040,18 @@ class _GraphNode extends StatelessWidget {
   /// `_draggingNodeId` en `_GraphBodyState`. Mientras dure, la tarjeta se
   /// levanta un poco con sombra y escala, como si se la tomara de la mesa.
   final bool dragging;
+
+  /// La posición en vivo del nodo que se está arrastrando —el mismo
+  /// notifier para los tres, ver `_liveDragPosition` en `_GraphBodyState`—.
+  ///
+  /// Se escucha siempre, no solo cuando [dragging] es cierto: envolver el
+  /// `Positioned` en un `ValueListenableBuilder` incondicional —en vez de
+  /// agregarlo solo para el nodo que se arrastra— mantiene la forma del
+  /// árbol de widgets igual en cualquier momento del gesto. Si en cambio
+  /// el nodo dejara de estar envuelto de golpe al empezar a arrastrarlo,
+  /// Flutter desmontaría y volvería a montar su `GestureDetector` a mitad
+  /// de camino, y el arrastre se cortaría en el primer píxel.
+  final ValueListenable<Offset?> liveDragPosition;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final VoidCallback onDragStart;
@@ -1034,207 +1074,243 @@ class _GraphNode extends StatelessWidget {
     final stateLabel = item.processingState.label(l10n);
     final stateColor = item.processingState.color(theme.colorScheme);
 
-    return Positioned(
-      left: center.dx - _kNodeSize.width / 2,
-      top: center.dy - _kNodeSize.height / 2,
-      width: _kNodeSize.width,
-      height: _kNodeSize.height,
-      child: AnimatedOpacity(
-        opacity: dimmed ? 0.25 : 1,
-        duration: const Duration(milliseconds: 200),
-        child: MouseRegion(
-          cursor: dragging
-              ? SystemMouseCursors.grabbing
-              : SystemMouseCursors.grab,
-          child: GestureDetector(
-            onTap: onTap,
-            onLongPress: onLongPress,
-            onPanStart: (_) => onDragStart(),
-            onPanUpdate: (details) => onDragUpdate(details.delta),
-            onPanEnd: (_) => onDragEnd(),
-            onPanCancel: onDragEnd,
-            child: AnimatedScale(
-              scale: dragging ? 1.045 : 1.0,
-              duration: const Duration(milliseconds: 140),
-              curve: Curves.easeOutCubic,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: borderColor,
-                    width: focused ? 2 : 1,
+    // El `Positioned` con la posición de verdad se arma más abajo, en el
+    // `ValueListenableBuilder` — ver el comentario de [liveDragPosition].
+    // Esto de acá es todo lo que NO depende de esa posición: separarlo
+    // como `child` fijo es lo que deja que un arrastre repinte solo el
+    // `Positioned`, sin reconstruir el resto de la tarjeta en cada frame.
+    final content = AnimatedOpacity(
+      opacity: dimmed ? 0.25 : 1,
+      duration: const Duration(milliseconds: 200),
+      child: MouseRegion(
+        cursor: dragging
+            ? SystemMouseCursors.grabbing
+            : SystemMouseCursors.grab,
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          onPanStart: (_) => onDragStart(),
+          onPanUpdate: (details) => onDragUpdate(details.delta),
+          onPanEnd: (_) => onDragEnd(),
+          onPanCancel: onDragEnd,
+          child: AnimatedScale(
+            scale: dragging ? 1.045 : 1.0,
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor, width: focused ? 2 : 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: elevated
+                        ? (focused
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.shadow)
+                              .withValues(alpha: focused ? 0.35 : 0.28)
+                        : theme.colorScheme.shadow.withValues(alpha: 0.12),
+                    blurRadius: elevated ? (dragging ? 20 : 16) : 6,
+                    spreadRadius: elevated ? 1 : 0,
+                    offset: Offset(0, dragging ? 6 : 2),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: elevated
-                          ? (focused
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.shadow)
-                                .withValues(alpha: focused ? 0.35 : 0.28)
-                          : theme.colorScheme.shadow.withValues(alpha: 0.12),
-                      blurRadius: elevated ? (dragging ? 20 : 16) : 6,
-                      spreadRadius: elevated ? 1 : 0,
-                      offset: Offset(0, dragging ? 6 : 2),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // La "portada": una vista previa real cuando se puede
-                    // conseguir barata, o el ícono del tipo de fuente sobre
-                    // un fondo tenue cuando no — ver `_NodeThumbnail`.
-                    SizedBox(
-                      height: 54,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _NodeThumbnail(item: item, tint: fill),
-                          if (stateColor != null)
-                            Positioned(
-                              top: 5,
-                              right: 5,
-                              child: Tooltip(
-                                message: stateLabel ?? '',
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: stateColor,
-                                    border: Border.all(
-                                      color: theme.colorScheme.surface,
-                                      width: 1.5,
-                                    ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                // Antes la tarjeta tenía una altura fija y esta columna la
+                // llenaba entera; ahora que el título puede pasar a varias
+                // líneas, la tarjeta crece con su contenido en vez de al
+                // revés — sin este `min`, `Column` intentaría estirarse
+                // hasta el alto (enorme) del lienzo del grafo.
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // La "portada": una vista previa real cuando se puede
+                  // conseguir barata, o el ícono del tipo de fuente sobre
+                  // un fondo tenue cuando no — ver `_NodeThumbnail`.
+                  SizedBox(
+                    height: 54,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _NodeThumbnail(item: item, tint: fill),
+                        if (stateColor != null)
+                          Positioned(
+                            top: 5,
+                            right: 5,
+                            child: Tooltip(
+                              message: stateLabel ?? '',
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: stateColor,
+                                  border: Border.all(
+                                    color: theme.colorScheme.surface,
+                                    width: 1.5,
                                   ),
                                 ),
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                    // El "nombre de la tabla": el color del espacio
-                    // identifica de qué carpeta es sin tener que leer nada,
-                    // igual que ya hacía el relleno del círculo anterior.
-                    Container(
-                      color: fill,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
+                  ),
+                  // El "nombre de la tabla": el color del espacio
+                  // identifica de qué carpeta es sin tener que leer nada,
+                  // igual que ya hacía el relleno del círculo anterior.
+                  Container(
+                    color: fill,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(
                             item.source.kind.icon,
                             size: 14,
                             color: foreground,
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: foreground,
-                                fontWeight: FontWeight.w600,
-                              ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Sin `maxLines`/`overflow` a propósito: el título
+                        // se ve completo aunque ocupe varias filas, en vez
+                        // de cortado con puntos suspensivos.
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: foreground,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // La única "columna" visible de la tabla: de qué tipo
+                  // de fuente es, la misma etiqueta que ya usa la
+                  // biblioteca.
+                  Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    child: Text(
+                      item.source.kind.label(l10n),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    // La única "columna" visible de la tabla: de qué tipo
-                    // de fuente es, la misma etiqueta que ya usa la
-                    // biblioteca.
-                    Expanded(
-                      child: Container(
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          item.source.kind.label(l10n),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  // El pie: cuándo se actualizó por última vez, y cuántas
+                  // etiquetas tiene si tiene alguna — una segunda señal
+                  // aparte del color del espacio, sin agregar otra fila
+                  // de texto largo que no entraría en 184px de ancho.
+                  Container(
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
                           ),
                         ),
                       ),
                     ),
-                    // El pie: cuándo se actualizó por última vez, y cuántas
-                    // etiquetas tiene si tiene alguna — una segunda señal
-                    // aparte del color del espacio, sin agregar otra fila
-                    // de texto largo que no entraría en 184px de ancho.
-                    Container(
-                      height: 22,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(
-                            color: theme.colorScheme.outlineVariant.withValues(
-                              alpha: 0.5,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          size: 11,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            DateFormat.MMMd(locale).format(item.updatedAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
+                        if (item.tags.isNotEmpty) ...[
                           Icon(
-                            Icons.schedule,
+                            Icons.label_outline,
                             size: 11,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              DateFormat.MMMd(locale).format(item.updatedAt),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          if (item.tags.isNotEmpty) ...[
-                            Icon(
-                              Icons.label_outline,
-                              size: 11,
+                          const SizedBox(width: 2),
+                          Text(
+                            '${item.tags.length}',
+                            style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${item.tags.length}',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
     );
+
+    return ValueListenableBuilder<Offset?>(
+      valueListenable: liveDragPosition,
+      builder: (context, liveOffset, child) {
+        final effectiveCenter = dragging ? (liveOffset ?? center) : center;
+        return Positioned(
+          left: effectiveCenter.dx - _kNodeSize.width / 2,
+          // Sin `height` fijo a propósito: un título largo pasa a varias
+          // líneas —ver el `Text` del encabezado, más arriba— y la tarjeta
+          // crece hacia abajo para mostrarlo entero, en vez de cortarlo con
+          // puntos suspensivos. `top` se sigue calculando con la altura de
+          // siempre como referencia, así que el punto que calculó el
+          // layout de fuerzas queda arriba de la tarjeta y no en un centro
+          // que ya no es fijo.
+          top: effectiveCenter.dy - _kNodeSize.height / 2,
+          width: _kNodeSize.width,
+          child: child!,
+        );
+      },
+      child: content,
+    );
   }
 }
 
 /// La vista previa de la portada de un nodo: una imagen real cuando se
 /// puede conseguir barata —ver `ItemThumbnailResolver`— o el ícono del
-/// tipo de fuente sobre un fondo tenue mientras tanto o si no hay ninguna.
+/// tipo de fuente sobre un degradé con el color del espacio mientras tanto
+/// o si no hay ninguna.
 ///
-/// El ícono de respaldo se dibuja siempre, debajo de la imagen: así la
-/// tarjeta nunca queda con un hueco en blanco mientras la vista previa
-/// carga, y si la miniatura de YouTube falla por no haber red —esta es una
-/// app que guarda todo para leer sin conexión— queda un resultado con
-/// sentido en vez de un ícono roto.
+/// El ícono de respaldo solo se dibuja cuando no hay imagen —a diferencia
+/// de antes, que lo dejaba siempre detrás—: con `BoxFit.contain` la imagen
+/// no llena todo el recuadro, y el ícono se vería asomado por los costados
+/// de una foto o un video que sí se pudo conseguir. El degradé de fondo,
+/// en cambio, se ve siempre: es lo que reemplaza el hueco gris liso de
+/// antes, y de paso hace de marco parejo alrededor de una imagen que no
+/// llena el recuadro.
+///
+/// `BoxFit.contain` y no `BoxFit.cover`: la portada de un video o una foto
+/// se ve completa, encuadrada entera, en vez de recortada para llenar el
+/// espacio.
 class _NodeThumbnail extends ConsumerWidget {
   const _NodeThumbnail({required this.item, required this.tint});
 
@@ -1245,30 +1321,40 @@ class _NodeThumbnail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final thumbnail = ref.watch(graphNodeThumbnailProvider(item)).valueOrNull;
+    final hasImage =
+        thumbnail is ItemThumbnailBytes || thumbnail is ItemThumbnailUrl;
 
-    return ColoredBox(
-      color: theme.colorScheme.surfaceContainerHighest,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          colors: [
+            tint.withValues(alpha: 0.3),
+            theme.colorScheme.surfaceContainerHighest,
+          ],
+        ),
+      ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Center(
-            child: Icon(
-              item.source.kind.icon,
-              size: 26,
-              color: tint.withValues(alpha: 0.65),
+          if (!hasImage)
+            Center(
+              child: Icon(
+                item.source.kind.icon,
+                size: 30,
+                color: tint.withValues(alpha: 0.75),
+              ),
             ),
-          ),
           switch (thumbnail) {
             ItemThumbnailBytes(:final bytes) => TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 220),
               builder: (context, opacity, child) =>
                   Opacity(opacity: opacity, child: child),
-              child: Image.memory(bytes, fit: BoxFit.cover),
+              child: Image.memory(bytes, fit: BoxFit.contain),
             ),
             ItemThumbnailUrl(:final url) => Image.network(
               url,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) =>
                   const SizedBox.shrink(),
               frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
