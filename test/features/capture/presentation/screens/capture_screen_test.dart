@@ -119,6 +119,43 @@ void main() {
       expect(find.text(es.captureTypeVideoHint), findsOneWidget);
     });
 
+    testWidgets(
+      'el paso "Video" también ofrece elegir un video del dispositivo, '
+      'sin abrir el selector solo por entrar al paso',
+      (tester) async {
+        await pumpCapture(tester);
+
+        await selectType(tester, es.captureTypeVideo);
+
+        // A diferencia de "Libro" o "Imagen", elegir "Video" no dispara el
+        // selector de archivos solo: la mayoría de las veces lo que se va
+        // a pegar es un enlace, así que el campo de texto sigue siendo lo
+        // primero que se ve.
+        expect(mainField(), findsOneWidget);
+        expect(find.text(es.captureChooseVideoFileAction), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'elegir un video del dispositivo en el paso "Video" lo deja elegido, '
+      'igual que un enlace',
+      (tester) async {
+        harness = await LibraryHarness.create(
+          chosenFile: CapturedFile(
+            name: 'cumpleaños.mp4',
+            bytes: Uint8List.fromList([1, 2, 3]),
+          ),
+        );
+        await pumpCapture(tester);
+
+        await selectType(tester, es.captureTypeVideo);
+        await tester.tap(find.text(es.captureChooseVideoFileAction));
+        await tester.pumpAndSettle();
+
+        expect(find.text('cumpleaños.mp4'), findsOneWidget);
+      },
+    );
+
     testWidgets('elegir "Página web" muestra el mismo tipo de campo, con su '
         'propia ayuda', (tester) async {
       await pumpCapture(tester);

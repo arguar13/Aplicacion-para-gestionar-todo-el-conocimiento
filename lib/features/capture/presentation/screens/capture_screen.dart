@@ -701,6 +701,38 @@ class _CaptureForm extends StatelessWidget {
             theme: theme,
             l10n: l10n,
           ),
+          // Solo "Video": un enlace de YouTube o TikTok es lo más común,
+          // pero no siempre hay un enlace — a veces el video ya está en el
+          // teléfono, grabado o descargado antes. Las dos formas conviven
+          // en el mismo paso en vez de ser pasos separados: es la misma
+          // idea ("un video"), solo cambia de dónde sale.
+          if (kind == _CaptureKind.video) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    l10n.captureOrDivider,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (file == null)
+              OutlinedButton.icon(
+                onPressed: onChooseFile,
+                icon: const Icon(Icons.video_file_outlined),
+                label: Text(l10n.captureChooseVideoFileAction),
+              )
+            else
+              _ChosenFileCard(file: file!, onRemove: onRemoveFile),
+          ],
         ] else if (kind == _CaptureKind.pasteText) ...[
           TextField(
             controller: inputController,

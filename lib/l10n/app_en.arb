@@ -334,6 +334,14 @@
   "@captureChooseFileAction": {
     "description": "Botón que abre el selector de archivos, dentro del paso ya elegido (libro, imagen o audio)."
   },
+  "captureChooseVideoFileAction": "Choose video from device",
+  "@captureChooseVideoFileAction": {
+    "description": "Botón que abre el selector de archivos para elegir un video ya guardado en el dispositivo, como alternativa a pegar un enlace."
+  },
+  "captureOrDivider": "or",
+  "@captureOrDivider": {
+    "description": "Separador entre pegar un enlace y elegir un archivo del dispositivo, en el paso de Video."
+  },
   "captureTakePhotoAction": "Take photo",
   "@captureTakePhotoAction": {
     "description": "Botón que abre la cámara, dentro del paso \"Cámara\" ya elegido."
