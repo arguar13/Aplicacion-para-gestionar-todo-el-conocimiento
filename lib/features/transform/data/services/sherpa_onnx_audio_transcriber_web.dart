@@ -90,14 +90,7 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
       );
       final samples = pcm16ToFloat32Samples(pcmBytes);
 
-      final stream = recognizer.createStream();
-      try {
-        stream.acceptWaveform(samples: samples, sampleRate: _sampleRate);
-        recognizer.decode(stream);
-        return recognizer.getResult(stream).text;
-      } finally {
-        stream.free();
-      }
+      return transcribeInChunks(recognizer, samples);
     } finally {
       recognizer.free();
     }

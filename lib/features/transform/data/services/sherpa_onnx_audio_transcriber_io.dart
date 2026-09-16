@@ -35,6 +35,12 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 /// `pcm16ToFloat32Samples`. Acá el WAV lo sigue escribiendo `audio_decoder`
 /// con su cabecera RIFF de siempre, así que se la saltea.
 ///
+/// La decodificación en sí pasa por `transcribeInChunks`, no por un solo
+/// `OfflineStream` con el audio entero adentro: Whisper está entrenado
+/// sobre una ventana fija de 30 segundos, y un audio más largo que eso se
+/// recortaba en silencio a esos primeros 30 segundos sin avisar nada. Ver
+/// el comentario de esa función para el porqué completo.
+///
 /// Sin pruebas propias, igual que `MlKitImageTextExtractor` y
 /// `HttpWhisperModelManager`: envuelve un motor real —FFI nativo, en un
 /// isolate— que no tiene con qué correr en un test. Lo que sí se prueba es
@@ -109,13 +115,9 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
           headerBytes: _wavHeaderBytes,
         );
 
-        final stream = recognizer.createStream();
         try {
-          stream.acceptWaveform(samples: samples, sampleRate: _sampleRate);
-          recognizer.decode(stream);
-          return recognizer.getResult(stream).text;
+          return transcribeInChunks(recognizer, samples);
         } finally {
-          stream.free();
           recognizer.free();
         }
       });
