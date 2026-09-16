@@ -211,6 +211,20 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     return watchDue().map((cards) => cards.length);
   }
 
+  @override
+  Future<Either<Failure, List<Flashcard>>> getAll() async {
+    try {
+      final rows = await (_db.select(
+        _db.flashcards,
+      )..orderBy([(f) => OrderingTerm(expression: f.createdAt)])).get();
+      return right(rows.map(_toEntity).toList());
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.getAll'));
+    }
+  }
+
   Flashcard _toEntity(FlashcardRow row) => Flashcard(
     id: row.id,
     itemId: row.itemId,

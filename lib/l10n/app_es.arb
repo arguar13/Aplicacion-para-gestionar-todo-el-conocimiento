@@ -1469,6 +1469,10 @@
   "@reviewTitle": {
     "description": "Título de la pantalla de repaso de tarjetas."
   },
+  "reviewExportToAnkiTooltip": "Exportar mazo a Anki",
+  "@reviewExportToAnkiTooltip": {
+    "description": "Tooltip del botón que exporta todas las flashcards a un archivo .apkg de Anki."
+  },
   "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -976,7 +977,6 @@ class _EmptyState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final notifier = ref.read(libraryQueryNotifierProvider.notifier);
 
     final (icon, title, message, action) = switch (query) {
@@ -1000,42 +1000,12 @@ class _EmptyState extends ConsumerWidget {
       ),
     };
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(height: 24),
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              if (message != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              if (action != null) ...[
-                const SizedBox(height: 24),
-                FilledButton.tonal(
-                  onPressed: action.$2,
-                  child: Text(action.$1),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return EmptyStateView(
+      icon: icon,
+      title: title,
+      message: message,
+      actionLabel: action?.$1,
+      onAction: action?.$2,
     );
   }
 }

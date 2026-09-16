@@ -34,6 +34,13 @@ abstract interface class FlashcardRepository {
   /// Las tarjetas de un elemento, en el orden en que se crearon.
   Stream<List<Flashcard>> watchForItem(String itemId);
 
+  /// Todas las tarjetas de la bóveda, sin importar si ya toca repasarlas.
+  ///
+  /// A diferencia de [watchDue], no filtra por fecha: es lo que necesita
+  /// exportar el mazo completo a Anki, donde el repaso sigue después de
+  /// exportado y no solo lo que vence hoy.
+  Future<Either<Failure, List<Flashcard>>> getAll();
+
   /// Las tarjetas de toda la bóveda que ya toca repasar —`dueAt` vencido—,
   /// para la pantalla de repaso diario.
   Stream<List<Flashcard>> watchDue();

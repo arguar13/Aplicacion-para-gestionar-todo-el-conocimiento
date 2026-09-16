@@ -10,9 +10,9 @@ import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_layout.dart';
-import 'package:sinapsis/features/graph/domain/services/graph_node_thumbnail.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/graph/presentation/providers/graph_providers.dart';
@@ -1227,7 +1227,7 @@ class _GraphNode extends StatelessWidget {
 }
 
 /// La vista previa de la portada de un nodo: una imagen real cuando se
-/// puede conseguir barata —ver `GraphNodeThumbnailResolver`— o el ícono del
+/// puede conseguir barata —ver `ItemThumbnailResolver`— o el ícono del
 /// tipo de fuente sobre un fondo tenue mientras tanto o si no hay ninguna.
 ///
 /// El ícono de respaldo se dibuja siempre, debajo de la imagen: así la
@@ -1259,15 +1259,14 @@ class _NodeThumbnail extends ConsumerWidget {
             ),
           ),
           switch (thumbnail) {
-            GraphNodeThumbnailBytes(:final bytes) =>
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 220),
-                builder: (context, opacity, child) =>
-                    Opacity(opacity: opacity, child: child),
-                child: Image.memory(bytes, fit: BoxFit.cover),
-              ),
-            GraphNodeThumbnailUrl(:final url) => Image.network(
+            ItemThumbnailBytes(:final bytes) => TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              builder: (context, opacity, child) =>
+                  Opacity(opacity: opacity, child: child),
+              child: Image.memory(bytes, fit: BoxFit.cover),
+            ),
+            ItemThumbnailUrl(:final url) => Image.network(
               url,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
@@ -1282,7 +1281,7 @@ class _NodeThumbnail extends ConsumerWidget {
                 );
               },
             ),
-            GraphNodeThumbnailNone() || null => const SizedBox.shrink(),
+            ItemThumbnailNone() || null => const SizedBox.shrink(),
           },
         ],
       ),

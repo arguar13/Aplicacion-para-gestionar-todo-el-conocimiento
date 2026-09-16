@@ -6,16 +6,20 @@ import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/plain_text_exporter.dart';
+import 'package:sinapsis/features/export/data/services/anki_package_builder.dart';
 import 'package:sinapsis/features/export/data/services/directory_services.dart';
 import 'package:sinapsis/features/export/data/services/system_file_saver.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter_registry.dart';
 import 'package:sinapsis/features/export/domain/notebooklm/notebooklm_package_builder.dart';
+import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/services/directory_chooser.dart';
 import 'package:sinapsis/features/export/domain/services/directory_writer.dart';
 import 'package:sinapsis/features/export/domain/services/file_saver.dart';
+import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_notebooklm_usecase_factory.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 
 const _markdownExporter = MarkdownExporter();
 
@@ -74,3 +78,16 @@ final exportItemUseCaseProvider = Provider<ExportItemUseCase>((ref) {
     saver: ref.watch(fileSaverProvider),
   );
 });
+
+final ankiDeckBuilderProvider = Provider<AnkiDeckBuilder>((ref) {
+  return const AnkiPackageBuilder();
+});
+
+final exportFlashcardsToAnkiUseCaseProvider =
+    Provider<ExportFlashcardsToAnkiUseCase>((ref) {
+      return ExportFlashcardsToAnkiUseCase(
+        flashcards: ref.watch(flashcardRepositoryProvider),
+        builder: ref.watch(ankiDeckBuilderProvider),
+        saver: ref.watch(fileSaverProvider),
+      );
+    });

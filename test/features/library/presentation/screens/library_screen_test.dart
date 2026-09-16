@@ -1,5 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -24,6 +30,12 @@ void main() {
     await tester.pumpWidget(harness.wrap(const LibraryScreen()));
     await tester.pumpAndSettle();
   }
+
+  /// Un PNG real de un solo píxel, no bytes inventados: la portada de la
+  /// fila pasa los bytes guardados por `Image.memory`, que revienta si no
+  /// son una imagen de verdad.
+  Uint8List fakePngBytes() =>
+      Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
 
   /// Abre el panel de filtros de tipo y etiquetas: viven detrás de ese botón
   /// y no sueltos en la barra —ver `_FiltersSheet` en `library_screen.dart`—,
@@ -142,6 +154,30 @@ void main() {
 
       expect(find.text(es.processingPending), findsNothing);
       expect(find.text(es.processingFailed), findsNothing);
+    });
+
+    testWidgets('una imagen guardada muestra su propia foto como portada', (
+      tester,
+    ) async {
+      final result = await harness.container.read(captureItemUseCaseProvider)(
+        CaptureRequest.file(
+          file: CapturedFile(name: 'foto.png', bytes: fakePngBytes()),
+        ),
+      );
+      expect(result.isRight(), isTrue);
+
+      await pumpLibrary(tester);
+
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('una nota de texto se queda con el ícono, sin portada', (
+      tester,
+    ) async {
+      await harness.capture('una nota sin ningún archivo');
+      await pumpLibrary(tester);
+
+      expect(find.byType(Image), findsNothing);
     });
   });
 

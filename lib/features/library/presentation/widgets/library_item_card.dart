@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
+import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
+import 'package:sinapsis/core/domain/services/item_thumbnail_providers.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
@@ -90,7 +92,7 @@ class LibraryItemCard extends StatelessWidget {
                   ),
                 )
               else
-                _IconBadge(icon: item.source.kind.icon),
+                _ItemThumbnailBadge(item: item),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -313,28 +315,68 @@ class _ExportAction extends _ItemMenuAction {
   final ExportFormat format;
 }
 
-/// El ícono del tipo de fuente, con más presencia que un ícono suelto: un
-/// fondo circular tenue lo separa del texto y le da al ojo un punto de
-/// anclaje fijo por el que reconocer la fila, aunque el título cambie de
-/// largo entre una y otra.
-class _IconBadge extends StatelessWidget {
-  const _IconBadge({required this.icon});
+/// La portada de la fila: una imagen real cuando se puede conseguir barata
+/// —ver `ItemThumbnailResolver`, la misma que arma la portada de cada
+/// tarjeta del grafo— o el ícono del tipo de fuente sobre un fondo circular
+/// tenue mientras tanto o si no hay ninguna.
+///
+/// El ícono de respaldo se dibuja siempre, debajo de la imagen: así la fila
+/// nunca queda con un hueco en blanco mientras la vista previa carga, y le
+/// da al ojo un punto de anclaje fijo por el que reconocer la fila aunque
+/// el título cambie de largo entre una y otra.
+class _ItemThumbnailBadge extends ConsumerWidget {
+  const _ItemThumbnailBadge({required this.item});
 
-  final IconData icon;
+  final KnowledgeItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
+    final thumbnail = ref.watch(itemThumbnailProvider(item)).valueOrNull;
 
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
+    return ClipOval(
+      child: Container(
+        width: 40,
+        height: 40,
         color: colors.secondaryContainer,
-        shape: BoxShape.circle,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: Icon(
+                item.source.kind.icon,
+                size: 20,
+                color: colors.onSecondaryContainer,
+              ),
+            ),
+            switch (thumbnail) {
+              ItemThumbnailBytes(:final bytes) => TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 220),
+                builder: (context, opacity, child) =>
+                    Opacity(opacity: opacity, child: child),
+                child: Image.memory(bytes, fit: BoxFit.cover),
+              ),
+              ItemThumbnailUrl(:final url) => Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const SizedBox.shrink(),
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded) return child;
+                  return AnimatedOpacity(
+                    opacity: frame == null ? 0 : 1,
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOut,
+                    child: child,
+                  );
+                },
+              ),
+              ItemThumbnailNone() || null => const SizedBox.shrink(),
+            },
+          ],
+        ),
       ),
-      alignment: Alignment.center,
-      child: Icon(icon, size: 20, color: colors.onSecondaryContainer),
     );
   }
 }

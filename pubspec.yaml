@@ -24,6 +24,13 @@ dependencies:
   # mediados de 2025 y no le confiaría a un paquete abandonado la conversión
   # que hace falta antes de transcribir. MIT.
   audio_decoder: ^0.8.1
+  # Ya venía como dependencia transitiva; se declara explícita porque ahora
+  # el código del proyecto la usa directamente: el SHA-1 que arma el índice
+  # de duplicados de una nota de Anki al exportar el mazo de flashcards
+  # (ver `AnkiPackageBuilder`), con el mismo algoritmo que usa `genanki`. No
+  # es para nada sensible a la seguridad — solo hay que coincidir con lo que
+  # Anki espera leer.
+  crypto: ^3.0.7
   # PBKDF2-HMAC-SHA256 para derivar el hash del PIN de la bóveda. Se usa un
   # paquete mantenido en vez de implementar el KDF a mano: escribir
   # criptografía propia es una mala idea aunque el algoritmo sea simple.
@@ -164,6 +171,13 @@ dependencies:
   # modelo en sí no viene con el paquete: se elige y se descarga aparte, ver
   # la decisión 8 en docs/arquitectura.md.
   sherpa_onnx: ^1.13.8
+  # Ya venía como dependencia transitiva de `drift_flutter`; se declara
+  # explícita porque ahora el código del proyecto la usa directamente:
+  # `AnkiPackageBuilder` arma a mano la base SQLite de un mazo de Anki
+  # (`collection.anki2`, esquema legado que entienden todas las versiones
+  # de Anki), en vez de pasar por Drift, que no tiene con qué generar una
+  # base con el esquema exacto que exige un formato ajeno.
+  sqlite3: ^3.5.2
   # UUID v7 para los identificadores: a diferencia del v4, son ordenables por
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.

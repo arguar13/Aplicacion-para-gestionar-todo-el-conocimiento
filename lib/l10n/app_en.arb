@@ -1677,6 +1677,10 @@
   "@reviewTitle": {
     "description": "Título de la pantalla de repaso de tarjetas."
   },
+  "reviewExportToAnkiTooltip": "Export deck to Anki",
+  "@reviewExportToAnkiTooltip": {
+    "description": "Tooltip del botón que exporta todas las flashcards a un archivo .apkg de Anki."
+  },
   "reviewAllDone": "Nothing to review right now. Check back later.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

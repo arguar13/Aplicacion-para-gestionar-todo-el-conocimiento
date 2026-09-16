@@ -6,22 +6,22 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/features/graph/domain/services/graph_node_thumbnail.dart';
+import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
 
-import '../../../../support/in_memory_file_store.dart';
+import '../../../support/in_memory_file_store.dart';
 
 void main() {
   late InMemoryFileStore files;
   Uint8List? renderedPage;
   var renderCalls = 0;
 
-  late GraphNodeThumbnailResolver resolver;
+  late ItemThumbnailResolver resolver;
 
   setUp(() {
     files = InMemoryFileStore();
     renderedPage = Uint8List.fromList([1, 2, 3]);
     renderCalls = 0;
-    resolver = GraphNodeThumbnailResolver(
+    resolver = ItemThumbnailResolver(
       files: files,
       renderPdfFirstPage: (bytes) async {
         renderCalls++;
@@ -61,9 +61,9 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailBytes>());
+    expect(thumbnail, isA<ItemThumbnailBytes>());
     expect(
-      (thumbnail as GraphNodeThumbnailBytes).bytes,
+      (thumbnail as ItemThumbnailBytes).bytes,
       Uint8List.fromList([9, 9, 9]),
     );
   });
@@ -73,7 +73,7 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailNone>());
+    expect(thumbnail, isA<ItemThumbnailNone>());
   });
 
   test('un PDF renderiza su primera página', () async {
@@ -86,8 +86,8 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailBytes>());
-    expect((thumbnail as GraphNodeThumbnailBytes).bytes, renderedPage);
+    expect(thumbnail, isA<ItemThumbnailBytes>());
+    expect((thumbnail as ItemThumbnailBytes).bytes, renderedPage);
     expect(renderCalls, 1);
   });
 
@@ -101,7 +101,7 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailNone>());
+    expect(thumbnail, isA<ItemThumbnailNone>());
     expect(renderCalls, 0);
   });
 
@@ -113,9 +113,9 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailUrl>());
+    expect(thumbnail, isA<ItemThumbnailUrl>());
     expect(
-      (thumbnail as GraphNodeThumbnailUrl).url,
+      (thumbnail as ItemThumbnailUrl).url,
       'https://i.ytimg.com/vi/abc123XYZ/mqdefault.jpg',
     );
   });
@@ -128,7 +128,7 @@ void main() {
 
     final thumbnail = await resolver.resolve(item);
 
-    expect(thumbnail, isA<GraphNodeThumbnailNone>());
+    expect(thumbnail, isA<ItemThumbnailNone>());
   });
 
   test('una página web, un audio o una nota no tienen miniatura', () async {
@@ -140,7 +140,7 @@ void main() {
       SourceKind.manualNote,
     ]) {
       final thumbnail = await resolver.resolve(itemWith(kind: kind));
-      expect(thumbnail, isA<GraphNodeThumbnailNone>());
+      expect(thumbnail, isA<ItemThumbnailNone>());
     }
   });
 }

@@ -4,10 +4,10 @@ import 'package:image/image.dart' as img;
 import 'package:pdfrx/pdfrx.dart';
 
 /// A cuánto se renderiza la miniatura de un PDF: de sobra para el ancho de
-/// una tarjeta del grafo a cualquier densidad de pantalla razonable, y chico
-/// para que renderizar no demore ni pese como una página de lectura — el
-/// mismo criterio que `PdfParser._ocrRenderScale`, pero pensado para mostrar,
-/// no para reconocer texto.
+/// una tarjeta a cualquier densidad de pantalla razonable, y chico para que
+/// renderizar no demore ni pese como una página de lectura — el mismo
+/// criterio que `PdfParser._ocrRenderScale`, pero pensado para mostrar, no
+/// para reconocer texto.
 const _thumbnailWidth = 240.0;
 
 /// Renderiza la primera página de [pdfBytes] como PNG, con el mismo motor
@@ -16,7 +16,7 @@ const _thumbnailWidth = 240.0;
 ///
 /// `null` ante cualquier fallo: un PDF cifrado, corrupto, o simplemente sin
 /// páginas. Una tarjeta sin miniatura cae en su ícono de siempre, así que no
-/// hace falta distinguir el motivo — ver `GraphNodeThumbnailResolver`.
+/// hace falta distinguir el motivo — ver `ItemThumbnailResolver`.
 Future<Uint8List?> renderPdfFirstPageThumbnail(Uint8List pdfBytes) async {
   await pdfrxFlutterInitialize();
 

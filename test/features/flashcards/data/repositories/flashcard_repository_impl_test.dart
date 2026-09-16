@@ -313,4 +313,33 @@ void main() {
       },
     );
   });
+
+  group('todas las tarjetas', () {
+    test('trae las de toda la bóveda, no solo las que vencieron', () async {
+      final itemA = await seedItem();
+      final itemB = await seedItem();
+      final due = (await repository.create(
+        itemId: itemA,
+        front: 'vencida',
+        back: 'b',
+      )).getRight().toNullable()!;
+      final notDueYet = (await repository.create(
+        itemId: itemB,
+        front: 'todavía no',
+        back: 'b',
+      )).getRight().toNullable()!;
+      await repository.review(id: notDueYet.id, grade: ReviewGrade.good);
+
+      final result = await repository.getAll();
+
+      final cards = result.getRight().toNullable()!;
+      expect(cards.map((c) => c.id), containsAll([due.id, notDueYet.id]));
+    });
+
+    test('sin tarjetas todavía, trae una lista vacía', () async {
+      final result = await repository.getAll();
+
+      expect(result.getRight().toNullable(), isEmpty);
+    });
+  });
 }

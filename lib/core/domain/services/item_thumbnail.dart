@@ -7,35 +7,36 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
 
-/// Qué mostrar en la fila de vista previa de una tarjeta del grafo.
+/// Qué mostrar en la vista previa de un elemento: una tarjeta del grafo, una
+/// fila de la biblioteca, cualquier lugar que necesite una portada.
 ///
 /// Tres formas y no una imagen anulable: "no hay nada que mostrar" es un
 /// resultado tan válido como los otros dos, y una imagen `null` lo
 /// confundiría con "todavía no se resolvió" mientras el `FutureProvider`
 /// que la trae sigue cargando.
-sealed class GraphNodeThumbnail {
-  const GraphNodeThumbnail();
+sealed class ItemThumbnail {
+  const ItemThumbnail();
 }
 
 /// Bytes ya decodificables con `Image.memory`: la foto original de una
 /// imagen guardada, o la primera página de un PDF ya renderizada.
-class GraphNodeThumbnailBytes extends GraphNodeThumbnail {
-  const GraphNodeThumbnailBytes(this.bytes);
+class ItemThumbnailBytes extends ItemThumbnail {
+  const ItemThumbnailBytes(this.bytes);
 
   final Uint8List bytes;
 }
 
 /// Una miniatura que vive en la web y hay que pedir por red: la miniatura
 /// pública de un video de YouTube.
-class GraphNodeThumbnailUrl extends GraphNodeThumbnail {
-  const GraphNodeThumbnailUrl(this.url);
+class ItemThumbnailUrl extends ItemThumbnail {
+  const ItemThumbnailUrl(this.url);
 
   final String url;
 }
 
 /// Nada que mostrar: la tarjeta cae en su ícono de siempre.
-class GraphNodeThumbnailNone extends GraphNodeThumbnail {
-  const GraphNodeThumbnailNone();
+class ItemThumbnailNone extends ItemThumbnail {
+  const ItemThumbnailNone();
 }
 
 /// Renderiza la primera página de un PDF como PNG, a tamaño de miniatura.
@@ -43,7 +44,7 @@ class GraphNodeThumbnailNone extends GraphNodeThumbnail {
 /// mismo criterio que `PdfEngineInitializer` en `PdfParser`.
 typedef RenderPdfFirstPage = Future<Uint8List?> Function(Uint8List pdfBytes);
 
-/// Decide y trae la vista previa de un elemento para su tarjeta en el grafo.
+/// Decide y trae la vista previa de un elemento para mostrarlo con portada.
 ///
 /// Solo cubre los casos baratos: una imagen ya guardada se lee tal cual, la
 /// miniatura de YouTube es una URL pública conocida a partir del ID del
@@ -54,9 +55,9 @@ typedef RenderPdfFirstPage = Future<Uint8List?> Function(Uint8List pdfBytes);
 /// Un documento que no sea PDF (`.docx`, `.epub`, un audio, una página web)
 /// se queda sin miniatura a propósito: generarle una implicaría abrir un
 /// motor de renderizado distinto por formato, un costo que no se paga solo
-/// para una vista previa chica en un grafo.
-class GraphNodeThumbnailResolver {
-  const GraphNodeThumbnailResolver({
+/// para una vista previa chica.
+class ItemThumbnailResolver {
+  const ItemThumbnailResolver({
     required FileStore files,
     required RenderPdfFirstPage renderPdfFirstPage,
   }) : _files = files,
@@ -65,7 +66,7 @@ class GraphNodeThumbnailResolver {
   final FileStore _files;
   final RenderPdfFirstPage _renderPdfFirstPage;
 
-  Future<GraphNodeThumbnail> resolve(KnowledgeItem item) async {
+  Future<ItemThumbnail> resolve(KnowledgeItem item) async {
     switch (item.source.kind) {
       case SourceKind.image:
         return _fromOriginalFile(item);
@@ -78,46 +79,42 @@ class GraphNodeThumbnailResolver {
       case SourceKind.audio:
       case SourceKind.video:
       case SourceKind.manualNote:
-        return const GraphNodeThumbnailNone();
+        return const ItemThumbnailNone();
     }
   }
 
-  Future<GraphNodeThumbnail> _fromOriginalFile(KnowledgeItem item) async {
+  Future<ItemThumbnail> _fromOriginalFile(KnowledgeItem item) async {
     final path = item.source.originalFilePath;
-    if (path == null) return const GraphNodeThumbnailNone();
+    if (path == null) return const ItemThumbnailNone();
 
     final bytes = await _files.read(path);
     return bytes == null
-        ? const GraphNodeThumbnailNone()
-        : GraphNodeThumbnailBytes(bytes);
+        ? const ItemThumbnailNone()
+        : ItemThumbnailBytes(bytes);
   }
 
-  Future<GraphNodeThumbnail> _fromPdfFirstPage(KnowledgeItem item) async {
+  Future<ItemThumbnail> _fromPdfFirstPage(KnowledgeItem item) async {
     final path = item.source.originalFilePath;
-    if (path == null) return const GraphNodeThumbnailNone();
+    if (path == null) return const ItemThumbnailNone();
 
     final bytes = await _files.read(path);
-    if (bytes == null) return const GraphNodeThumbnailNone();
+    if (bytes == null) return const ItemThumbnailNone();
 
     final format = detectFileFormat(bytes, name: p.basename(path));
-    if (format != FileFormat.pdf) return const GraphNodeThumbnailNone();
+    if (format != FileFormat.pdf) return const ItemThumbnailNone();
 
     final page = await _renderPdfFirstPage(bytes);
-    return page == null
-        ? const GraphNodeThumbnailNone()
-        : GraphNodeThumbnailBytes(page);
+    return page == null ? const ItemThumbnailNone() : ItemThumbnailBytes(page);
   }
 
-  GraphNodeThumbnail _fromYouTubeThumbnail(KnowledgeItem item) {
+  ItemThumbnail _fromYouTubeThumbnail(KnowledgeItem item) {
     final url = item.source.url;
-    if (url == null) return const GraphNodeThumbnailNone();
+    if (url == null) return const ItemThumbnailNone();
 
     final uri = Uri.tryParse(url);
     final videoId = uri == null ? null : YouTubeUrl.videoIdOf(uri);
-    if (videoId == null) return const GraphNodeThumbnailNone();
+    if (videoId == null) return const ItemThumbnailNone();
 
-    return GraphNodeThumbnailUrl(
-      'https://i.ytimg.com/vi/$videoId/mqdefault.jpg',
-    );
+    return ItemThumbnailUrl('https://i.ytimg.com/vi/$videoId/mqdefault.jpg');
   }
 }

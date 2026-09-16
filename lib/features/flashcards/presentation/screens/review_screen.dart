@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -19,6 +23,7 @@ class ReviewScreen extends ConsumerStatefulWidget {
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   var _revealed = false;
   var _grading = false;
+  var _exporting = false;
 
   Future<void> _grade(String cardId, ReviewGrade grade) async {
     setState(() => _grading = true);
@@ -32,13 +37,48 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     });
   }
 
+  /// No distingue "canceló el diálogo de guardado" de "lo guardó" — igual
+  /// que el resto de las exportaciones de la app (ver `ExportItemUseCase`).
+  /// Solo avisa cuando algo salió mal de verdad.
+  Future<void> _exportToAnki() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _exporting = true);
+
+    final result = await ref.read(exportFlashcardsToAnkiUseCaseProvider)(
+      const NoParams(),
+    );
+    if (!mounted) return;
+    setState(() => _exporting = false);
+
+    result.match((failure) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+    }, (_) {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final due = ref.watch(dueFlashcardsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.reviewTitle)),
+      appBar: AppBar(
+        title: Text(l10n.reviewTitle),
+        actions: [
+          IconButton(
+            icon: _exporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.ios_share),
+            tooltip: l10n.reviewExportToAnkiTooltip,
+            onPressed: _exporting ? null : _exportToAnki,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -71,23 +111,7 @@ class _AllDoneView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle_outline,
-            size: 48,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center),
-        ],
-      ),
-    );
+    return EmptyStateView(icon: Icons.check_circle_outline, title: message);
   }
 }
 
