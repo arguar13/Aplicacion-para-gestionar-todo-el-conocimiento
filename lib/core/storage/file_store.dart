@@ -34,6 +34,16 @@ abstract interface class FileStore {
   /// copia del original.
   Future<Uint8List?> read(String relativePath);
 
+  /// Los primeros [maxBytes] bytes de lo guardado en [relativePath], o
+  /// `null` si ya no está — para reconocer el formato de un archivo sin
+  /// cargarlo entero en memoria.
+  ///
+  /// Separado de [read] por el mismo motivo que [exists]: un video o un PDF
+  /// de varios cientos de megas no tiene por qué pasar completo por acá
+  /// solo para confirmar, por ejemplo, que es un `.mp4` — con los primeros
+  /// bytes alcanza.
+  Future<Uint8List?> readHead(String relativePath, {int maxBytes = 4096});
+
   /// Si [relativePath] todavía está guardado, sin leer su contenido.
   ///
   /// Separado de [read] a propósito: un transformador que solo necesita

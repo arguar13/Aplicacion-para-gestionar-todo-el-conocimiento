@@ -63,6 +63,27 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<Uint8List?> readHead(
+    String relativePath, {
+    int maxBytes = 4096,
+  }) async {
+    final file = File(await resolve(relativePath));
+    if (!file.existsSync()) return null;
+
+    // `RandomAccessFile.read()` y no `File.openRead()`: el stream con rango
+    // de bytes deja el handle abierto hasta que algo lo cierre
+    // explícitamente —acá no hay un `Stream.listen` que lo haga por su
+    // cuenta—, y en algunas combinaciones de sistema de archivos eso
+    // alcanza para que la lectura nunca se dé por terminada.
+    final handle = await file.open();
+    try {
+      return await handle.read(maxBytes);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  @override
   Future<bool> exists(String relativePath) async {
     return File(await resolve(relativePath)).existsSync();
   }

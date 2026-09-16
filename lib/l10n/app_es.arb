@@ -340,9 +340,13 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
-  "detailViewFile": "Ver",
-  "@detailViewFile": {
-    "description": "Botón que abre el visor integrado del archivo original (PDF, imagen, audio, video o documento)."
+  "detailExpandViewer": "Ver a pantalla completa",
+  "@detailExpandViewer": {
+    "description": "Tooltip del botón que expande el visor embebido del archivo original a pantalla completa."
+  },
+  "detailReadingMode": "Modo lectura",
+  "@detailReadingMode": {
+    "description": "Botón que abre el contenido extraído de un documento en el lector paginado, con tipografía grande."
   },
   "detailOpenFile": "Abrir archivo",
   "@detailOpenFile": {

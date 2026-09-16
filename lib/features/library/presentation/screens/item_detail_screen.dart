@@ -34,6 +34,9 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -206,11 +209,12 @@ class _DetailBody extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
 
-              // Los botones para ver o abrir el archivo original van acá,
-              // antes del contenido: con textos largos —un libro entero, una
-              // transcripción— quedarían a muchas pantallas de distancia si
-              // se dejaran junto al resto de la procedencia, al final.
-              _FileActions(item: item),
+              // El archivo original, visible directo acá arriba —antes del
+              // contenido— para lo que de verdad agrega algo sobre el texto
+              // ya extraído: una foto, un video, un PDF con su maquetación,
+              // la página archivada. Sin botón "Ver" de por medio: si hay
+              // algo que mostrar, ya se está mostrando.
+              EmbeddedFileViewer(item: item),
 
               if (texts.isEmpty)
                 _NoContentYet(item: item)
@@ -255,6 +259,14 @@ class _TextRenditionView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    // Este texto viene de un DOCX, un EPUB o similar cuando ese es el
+    // primario: ahí "Modo lectura" abre el mismo contenido, paginado y con
+    // tipografía grande, en vez de repetirlo embebido en el detalle como sí
+    // vale la pena para una foto, un video o un PDF — ver
+    // `EmbeddedFileViewer`.
+    final resolved = ref.watch(resolvedFileViewerProvider(item)).valueOrNull;
+    final hasReadingMode =
+        rendition.isPrimary && resolved is TextResolvedViewer;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,6 +288,12 @@ class _TextRenditionView extends ConsumerWidget {
                 label: Text(l10n.detailCopyContent),
                 onPressed: () => _copyContent(context),
               ),
+              if (hasReadingMode)
+                TextButton.icon(
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  label: Text(l10n.detailReadingMode),
+                  onPressed: () => openDocumentViewer(context, ref, item),
+                ),
             ],
           ),
         ),
@@ -479,97 +497,6 @@ class _NoContentYet extends ConsumerWidget {
   }
 }
 
-/// Los botones para ver el archivo en el visor integrado o abrirlo con la
-/// app del sistema, aparte del resto de la procedencia —ver `_Provenance`—
-/// porque son los que se usan más seguido y conviene tenerlos a mano sin
-/// bajar hasta el final.
-class _FileActions extends ConsumerWidget {
-  const _FileActions({required this.item});
-
-  final KnowledgeItem item;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final path = item.source.originalFilePath;
-    if (path == null) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Wrap(
-        spacing: 8,
-        children: [
-          // En la web no hay una ruta absoluta de la que leer bytes sueltos
-          // para reconocer el formato —`FileStore.resolve()` lanza ahí a
-          // propósito—, así que el visor integrado queda solo para el resto
-          // de las plataformas; "Abrir con..." ya cubre la web con
-          // `WebDownloadFileOpener`.
-          if (!kIsWeb)
-            FilledButton.tonalIcon(
-              onPressed: () => _openInViewer(context, ref, item),
-              icon: const Icon(Icons.visibility_outlined, size: 18),
-              label: Text(l10n.detailViewFile),
-            ),
-          TextButton.icon(
-            onPressed: () => _openOriginalFile(context, ref, path),
-            icon: const Icon(Icons.open_in_new, size: 18),
-            label: Text(l10n.detailOpenFile),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Abre el visor integrado que corresponda —PDF, imagen, audio, video o
-  /// el texto ya extraído de un DOCX/EPUB—. Si no hay ninguno para este
-  /// archivo, cae en "Abrir con..." en vez de no hacer nada: alguien que
-  /// tocó un botón espera que pase algo.
-  Future<void> _openInViewer(
-    BuildContext context,
-    WidgetRef ref,
-    KnowledgeItem item,
-  ) async {
-    final handled = await openDocumentViewer(context, ref, item);
-    if (handled || !context.mounted) return;
-
-    await _openOriginalFile(context, ref, item.source.originalFilePath!);
-  }
-
-  /// Pide al almacén la ruta absoluta y se la pasa a la app del sistema.
-  ///
-  /// Solo avisa cuando algo sale mal: si se abrió, el sistema ya está
-  /// mostrando el archivo y una confirmación encima sería ruido.
-  ///
-  /// En la web no hay una ruta absoluta que pedir —`resolve()` lanza a
-  /// propósito, ver `OpfsFileStore`—, así que se le pasa directo la ruta
-  /// relativa: `WebDownloadFileOpener` lee los bytes por su cuenta.
-  Future<void> _openOriginalFile(
-    BuildContext context,
-    WidgetRef ref,
-    String relativePath,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final path = kIsWeb
-        ? relativePath
-        : await ref.read(fileStoreProvider).resolve(relativePath);
-    final result = await ref.read(fileOpenerProvider).open(path);
-    if (!context.mounted) return;
-
-    final message = switch (result) {
-      FileOpenResult.done => null,
-      FileOpenResult.fileNotFound => l10n.detailOpenFileNotFound,
-      FileOpenResult.noAppAvailable => l10n.detailOpenFileNoApp,
-      FileOpenResult.failed => l10n.detailOpenFileFailed,
-    };
-    if (message == null) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
 class _Provenance extends ConsumerWidget {
   const _Provenance({required this.item});
 
@@ -618,21 +545,33 @@ class _Provenance extends ConsumerWidget {
               originalFileNameOf(source.originalFilePath!),
             ),
           ),
-          // "Ver" y "Abrir archivo" viven arriba de todo, en `_FileActions`:
-          // son los que se usan más seguido. Acá solo queda la acción
-          // destructiva, que sí tiene sentido dejar junto al resto de la
-          // procedencia.
-          //
-          // Solo para video y audio: son los formatos pesados donde vale la
-          // pena quedarse con el texto y soltar el archivo. Un PDF o un
-          // EPUB **son** la fuente —borrarlos no deja nada equivalente
-          // atrás— así que ahí no se ofrece.
-          if (_hasKeepableText(item))
-            TextButton.icon(
-              onPressed: () => _deleteOriginalFile(context, ref, item),
-              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-              label: Text(l10n.detailDeleteOriginalFile),
-            ),
+          Wrap(
+            spacing: 8,
+            children: [
+              // Ver el archivo ya no necesita este botón —se ve directo
+              // arriba, en `EmbeddedFileViewer`, o desde ahí con el ícono
+              // de pantalla completa—: lo que sigue teniendo sentido acá es
+              // "abrir con la app del sistema", para editar en Word o en
+              // el lector de PDF de siempre, algo que un visor integrado
+              // no ofrece.
+              TextButton.icon(
+                onPressed: () =>
+                    _openOriginalFile(context, ref, source.originalFilePath!),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: Text(l10n.detailOpenFile),
+              ),
+              // Solo para video y audio: son los formatos pesados donde
+              // vale la pena quedarse con el texto y soltar el archivo. Un
+              // PDF o un EPUB **son** la fuente —borrarlos no deja nada
+              // equivalente atrás— así que ahí no se ofrece.
+              if (_hasKeepableText(item))
+                TextButton.icon(
+                  onPressed: () => _deleteOriginalFile(context, ref, item),
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: Text(l10n.detailDeleteOriginalFile),
+                ),
+            ],
+          ),
         ],
         if (source.url != null) ...[
           const SizedBox(height: 12),
@@ -640,6 +579,40 @@ class _Provenance extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  /// Pide al almacén la ruta absoluta y se la pasa a la app del sistema.
+  ///
+  /// Solo avisa cuando algo sale mal: si se abrió, el sistema ya está
+  /// mostrando el archivo y una confirmación encima sería ruido.
+  ///
+  /// En la web no hay una ruta absoluta que pedir —`resolve()` lanza a
+  /// propósito, ver `OpfsFileStore`—, así que se le pasa directo la ruta
+  /// relativa: `WebDownloadFileOpener` lee los bytes por su cuenta.
+  Future<void> _openOriginalFile(
+    BuildContext context,
+    WidgetRef ref,
+    String relativePath,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final path = kIsWeb
+        ? relativePath
+        : await ref.read(fileStoreProvider).resolve(relativePath);
+    final result = await ref.read(fileOpenerProvider).open(path);
+    if (!context.mounted) return;
+
+    final message = switch (result) {
+      FileOpenResult.done => null,
+      FileOpenResult.fileNotFound => l10n.detailOpenFileNotFound,
+      FileOpenResult.noAppAvailable => l10n.detailOpenFileNoApp,
+      FileOpenResult.failed => l10n.detailOpenFileFailed,
+    };
+    if (message == null) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".

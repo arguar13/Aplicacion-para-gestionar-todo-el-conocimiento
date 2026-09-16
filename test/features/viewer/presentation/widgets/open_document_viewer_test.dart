@@ -40,6 +40,19 @@ class _RealFileStore implements FileStore {
   @override
   Future<Uint8List?> read(String relativePath) => throw UnimplementedError();
   @override
+  Future<Uint8List?> readHead(
+    String relativePath, {
+    int maxBytes = 4096,
+  }) async {
+    final handle = await File(path).open();
+    try {
+      return await handle.read(maxBytes);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  @override
   Future<String> save({
     required Uint8List bytes,
     required String suggestedName,

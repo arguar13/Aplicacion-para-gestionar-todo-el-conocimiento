@@ -98,6 +98,34 @@ class OpfsFileStore implements FileStore {
   }
 
   @override
+  Future<Uint8List?> readHead(
+    String relativePath, {
+    int maxBytes = 4096,
+  }) async {
+    final segments = relativePath.split('/');
+    final fileName = segments.removeLast();
+
+    final directory = await _findDirectory(segments);
+    if (directory == null) return null;
+
+    try {
+      final fileHandle = await directory.getFileHandle(fileName).toDart;
+      final file = await fileHandle.getFile().toDart;
+      // `Blob.slice` recorta antes de leer: no hace falta traer el archivo
+      // entero a memoria de JavaScript solo para mirarle los primeros
+      // bytes.
+      final head = file.slice(0, maxBytes);
+      final buffer = await head.arrayBuffer().toDart;
+      return buffer.toDart.asUint8List();
+      // El archivo no existe, o dejó de existir entre que se resolvió el
+      // directorio y se pidió abrirlo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<bool> exists(String relativePath) async {
     final segments = relativePath.split('/');
     final fileName = segments.removeLast();

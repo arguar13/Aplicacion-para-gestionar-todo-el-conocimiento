@@ -284,12 +284,22 @@ void main() {
   group('archivos originales', () {
     /// Guarda un elemento que vino de un archivo, como lo dejaría el
     /// adaptador de archivos.
+    ///
+    /// El contenido no tiene ninguna firma de formato reconocible a
+    /// propósito —ni PDF, ni DOCX, ni ningún otro—: este grupo prueba la
+    /// procedencia (nombre, "abrir con...", borrar el original), no la
+    /// vista previa embebida de un formato puntual, que ya tiene sus
+    /// propias pruebas en `open_document_viewer_test.dart`. Un archivo que
+    /// sí sniffeara como PDF de verdad disparía el visor de `pdfrx`, que
+    /// necesita PDFium nativo puesto a mano (`tool/fetch_pdfium.sh`) para
+    /// no colgarse bajo `flutter test` — algo que este grupo no tiene por
+    /// qué pedir.
     Future<String> captureFile({String name = 'La tesis de Ana.pdf'}) async {
       final result = await harness.container.read(captureItemUseCaseProvider)(
         CaptureRequest.file(
           file: CapturedFile(
             name: name,
-            bytes: Uint8List.fromList(utf8.encode('%PDF-1.7 contenido')),
+            bytes: Uint8List.fromList(utf8.encode('contenido de prueba')),
           ),
         ),
       );

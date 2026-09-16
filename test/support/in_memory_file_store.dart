@@ -42,6 +42,17 @@ class InMemoryFileStore implements FileStore {
   Future<Uint8List?> read(String relativePath) async => _contents[relativePath];
 
   @override
+  Future<Uint8List?> readHead(
+    String relativePath, {
+    int maxBytes = 4096,
+  }) async {
+    final bytes = _contents[relativePath];
+    if (bytes == null) return null;
+
+    return bytes.length <= maxBytes ? bytes : bytes.sublist(0, maxBytes);
+  }
+
+  @override
   Future<bool> exists(String relativePath) async =>
       _contents.containsKey(relativePath);
 

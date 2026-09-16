@@ -472,7 +472,8 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
-  "detailViewFile": "View",
+  "detailExpandViewer": "View fullscreen",
+  "detailReadingMode": "Reading mode",
   "detailOpenFile": "Open file",
   "@detailOpenFile": {
     "description": "Botón que abre el archivo original con la aplicación del sistema."
