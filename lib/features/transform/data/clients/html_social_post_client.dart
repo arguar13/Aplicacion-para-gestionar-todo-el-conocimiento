@@ -59,6 +59,13 @@ class HtmlSocialPostClient implements SocialPostClient {
 
       final video = item['video'];
       final playAddr = video is Map ? video['playAddr'] : null;
+      // La carátula: solo hace falta si el video no se pudo conseguir —un
+      // TikTok siempre trae video, pero `playAddr` puede faltar por la
+      // misma razón que cualquier otro campo de este JSON— para no dejar
+      // la publicación sin nada que mostrar.
+      final cover = video is Map
+          ? (video['cover'] ?? video['originCover'])
+          : null;
       final author = item['author'];
       final username = author is Map ? author['uniqueId'] : null;
 
@@ -66,6 +73,9 @@ class HtmlSocialPostClient implements SocialPostClient {
         caption: item['desc'] is String ? item['desc'] as String : null,
         authorName: username is String ? username : null,
         videoUrl: playAddr is String ? Uri.tryParse(playAddr) : null,
+        imageUrl: playAddr == null && cover is String
+            ? Uri.tryParse(cover)
+            : null,
       );
       // El JSON de una plataforma ajena puede cambiar de forma sin aviso:
       // cualquier tropiezo acá —una clave que ya no está, un tipo distinto
@@ -95,12 +105,20 @@ class HtmlSocialPostClient implements SocialPostClient {
     final videoUrl =
         _metaContent(html, 'og:video:secure_url') ??
         _metaContent(html, 'og:video');
+    // Solo se guarda si no hay video: entre las dos, el video es el
+    // contenido más completo, y `og:image` en una publicación con video
+    // suele ser apenas un fotograma de portada, no algo que valga la pena
+    // guardar aparte.
+    final imageUrl = videoUrl == null ? _metaContent(html, 'og:image') : null;
 
     return SocialPostData(
       caption: _metaContent(html, 'og:description'),
       authorName: _metaContent(html, 'og:title'),
       videoUrl: videoUrl != null
           ? Uri.tryParse(_unescapeHtmlEntities(videoUrl))
+          : null,
+      imageUrl: imageUrl != null
+          ? Uri.tryParse(_unescapeHtmlEntities(imageUrl))
           : null,
     );
   }

@@ -1,15 +1,31 @@
 /// Lo que se pudo sacar de una publicación: TikTok, Instagram o cualquier
 /// otra red que ponga las mismas etiquetas Open Graph en su HTML.
 ///
-/// Cualquiera de los tres campos puede faltar — no todas las publicaciones
-/// tienen video, no todas dejan leer el texto sin iniciar sesión — y eso no
-/// es un error: es lo que hay.
+/// Cualquiera de los campos puede faltar — no todas las publicaciones tienen
+/// video, no todas dejan leer el texto sin iniciar sesión — y eso no es un
+/// error: es lo que hay.
 class SocialPostData {
-  const SocialPostData({this.caption, this.authorName, this.videoUrl});
+  const SocialPostData({
+    this.caption,
+    this.authorName,
+    this.videoUrl,
+    this.imageUrl,
+  });
 
   final String? caption;
   final String? authorName;
   final Uri? videoUrl;
+
+  /// La foto de portada de la publicación, o la única foto en una que no
+  /// tiene video — de `og:image`, la misma etiqueta que arma la vista
+  /// previa cuando se comparte el enlace en cualquier otra parte.
+  ///
+  /// Un carrusel con varias fotos solo entrega esta, la primera: el HTML
+  /// público de la página no trae las demás sin iniciar sesión, ni con
+  /// Open Graph ni con el JSON propio de la plataforma — verlas todas
+  /// pediría la API privada de cada red, algo que queda fuera de lo que
+  /// este cliente puede raspar del HTML.
+  final Uri? imageUrl;
 }
 
 /// Trae lo que se pueda de una publicación de una red social.

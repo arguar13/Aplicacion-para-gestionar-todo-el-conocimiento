@@ -57,24 +57,51 @@ class FileViewerResolver {
         // El audio es un extra sobre la transcripción (ver
         // `YouTubeTranscriptTransformer`): si se pudo bajar, se puede
         // escuchar.
-        return MediaResolvedViewer(
-          path: await _files.resolve(relativePath),
-          isVideo: false,
-        );
+        return _resolveDownloadedMedia(relativePath, defaultIsVideo: false);
 
       case SourceKind.socialPost:
         // Como con YouTube: si `SocialPostTransformer` consiguió bajar el
-        // video del reel o la publicación, se puede ver.
-        return MediaResolvedViewer(
-          path: await _files.resolve(relativePath),
-          isVideo: true,
-        );
+        // video del reel o la publicación, se puede ver — o, si no había
+        // video, la foto de portada que bajó en su lugar.
+        return _resolveDownloadedMedia(relativePath, defaultIsVideo: true);
 
       case SourceKind.manualNote:
         // No trae un archivo original que mostrar aparte del contenido que
         // ya se ve en el propio detalle.
         return const NoResolvedViewer();
     }
+  }
+
+  /// Para YouTube y las publicaciones sociales, el archivo bajado puede ser
+  /// audio, video o —desde que `SocialPostTransformer` guarda la carátula
+  /// cuando no consiguió el video— una foto sola. Sniffear el formato acá,
+  /// en vez de asumirlo por el `SourceKind`, es lo que evita forzar un
+  /// reproductor de video sobre una foto: se vería una pantalla negra en
+  /// vez de la imagen.
+  ///
+  /// [defaultIsVideo] solo importa cuando el formato no se pudo reconocer
+  /// —un archivo vacío, algo que se cortó a mitad de la descarga—: ahí se
+  /// mantiene la suposición de siempre para ese `SourceKind`, en vez de
+  /// arriesgar una decisión con nada que la respalde.
+  Future<ResolvedViewer> _resolveDownloadedMedia(
+    String relativePath, {
+    required bool defaultIsVideo,
+  }) async {
+    final head = await _files.readHead(relativePath);
+    final format = head == null
+        ? FileFormat.unknown
+        : detectFileFormat(head, name: p.basename(relativePath));
+
+    if (format.sourceKind == SourceKind.image) {
+      return ImageResolvedViewer(await _files.resolve(relativePath));
+    }
+
+    return MediaResolvedViewer(
+      path: await _files.resolve(relativePath),
+      isVideo: format == FileFormat.unknown
+          ? defaultIsVideo
+          : format.sourceKind == SourceKind.video,
+    );
   }
 
   Future<ResolvedViewer> _resolveDocument(

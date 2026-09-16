@@ -132,17 +132,68 @@ void main() {
     );
   });
 
-  test('una publicación social resuelve a un reproductor con video', () async {
-    final item = buildItem(
-      kind: SourceKind.socialPost,
-      originalFilePath: 'originales/item-1/reel.mp4',
+  test(
+    'una publicación social sin bytes guardados resuelve a un reproductor '
+    'con video: no hay nada que sniffear, gana la suposición de siempre',
+    () async {
+      final item = buildItem(
+        kind: SourceKind.socialPost,
+        originalFilePath: 'originales/item-1/reel.mp4',
+      );
+
+      final resolved = await resolver.resolve(item);
+
+      expect(
+        resolved,
+        isA<MediaResolvedViewer>().having((v) => v.isVideo, 'isVideo', isTrue),
+      );
+    },
+  );
+
+  test('una publicación social con un video real guardado resuelve a un '
+      'reproductor con video', () async {
+    // Cabecera mínima de un contenedor ISO-BMFF (MP4): cuatro bytes
+    // cualquiera de tamaño, "ftyp" y una marca que no sea de HEIC.
+    final path = await files.save(
+      bytes: Uint8List.fromList([
+        0,
+        0,
+        0,
+        0x18,
+        ...'ftyp'.codeUnits,
+        ...'isom'.codeUnits,
+      ]),
+      suggestedName: 'reel.mp4',
+      id: 'item-1',
     );
+    final item = buildItem(kind: SourceKind.socialPost, originalFilePath: path);
 
     final resolved = await resolver.resolve(item);
 
     expect(
       resolved,
       isA<MediaResolvedViewer>().having((v) => v.isVideo, 'isVideo', isTrue),
+    );
+  });
+
+  test('una publicación social sin video pero con una foto guardada resuelve '
+      'a la imagen, no a un reproductor de video', () async {
+    final path = await files.save(
+      bytes: Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0]),
+      suggestedName: 'portada.jpg',
+      id: 'item-1',
+    );
+    final item = buildItem(kind: SourceKind.socialPost, originalFilePath: path);
+
+    final resolved = await resolver.resolve(item);
+
+    expect(
+      resolved,
+      isA<ImageResolvedViewer>().having(
+        (v) => v.path,
+        'path',
+        '/memoria/$path',
+      ),
     );
   });
 

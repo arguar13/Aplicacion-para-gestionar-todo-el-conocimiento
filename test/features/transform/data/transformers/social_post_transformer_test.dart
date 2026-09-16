@@ -160,7 +160,7 @@ void main() {
       expect(result.source.originalFilePath, isNotNull);
     });
 
-    test('ni texto ni video: falla, para poder reintentar', () async {
+    test('ni texto, ni video, ni foto: falla, para poder reintentar', () async {
       final client = FakeSocialPostClient(data: const SocialPostData());
 
       await expectLater(
@@ -168,5 +168,77 @@ void main() {
         throwsA(isA<SocialPostUnavailableException>()),
       );
     });
+
+    test('sin video, baja la foto de portada y la guarda', () async {
+      final imageUrl = Uri.parse('https://p16.tiktokcdn.com/portada.jpg');
+      final client = FakeSocialPostClient(
+        data: SocialPostData(caption: 'Algo', imageUrl: imageUrl),
+      );
+      final fetcher = FakeResourceFetcher(
+        byUrl: {
+          imageUrl.toString(): Uint8List.fromList([1, 2, 3]),
+        },
+      );
+
+      final result = await build(
+        client: client,
+        fetcher: fetcher,
+      ).transform(postItem());
+
+      expect(result.source.originalFilePath, isNotNull);
+      expect(await files.exists(result.source.originalFilePath!), isTrue);
+    });
+
+    test('con video Y foto, se queda con el video: es el contenido más '
+        'completo', () async {
+      final videoUrl = Uri.parse('https://v16.tiktokcdn.com/video.mp4');
+      final imageUrl = Uri.parse('https://p16.tiktokcdn.com/portada.jpg');
+      final client = FakeSocialPostClient(
+        data: SocialPostData(
+          caption: 'Algo',
+          videoUrl: videoUrl,
+          imageUrl: imageUrl,
+        ),
+      );
+      final fetcher = FakeResourceFetcher(
+        byUrl: {
+          videoUrl.toString(): Uint8List.fromList([1, 2, 3]),
+          imageUrl.toString(): Uint8List.fromList([4, 5, 6]),
+        },
+      );
+
+      final result = await build(
+        client: client,
+        fetcher: fetcher,
+      ).transform(postItem());
+
+      expect(result.source.originalFilePath, endsWith('.mp4'));
+      // La foto nunca se pidió: bajarla habría sido trabajo de más para
+      // algo que no se iba a usar.
+      expect(fetcher.requested, [videoUrl]);
+    });
+
+    test(
+      'sin texto y sin video, pero con foto: no hace falta reintentar',
+      () async {
+        final imageUrl = Uri.parse('https://p16.tiktokcdn.com/portada.jpg');
+        final client = FakeSocialPostClient(
+          data: SocialPostData(imageUrl: imageUrl),
+        );
+        final fetcher = FakeResourceFetcher(
+          byUrl: {
+            imageUrl.toString(): Uint8List.fromList([1, 2, 3]),
+          },
+        );
+
+        final result = await build(
+          client: client,
+          fetcher: fetcher,
+        ).transform(postItem());
+
+        expect(result.renditions, isEmpty);
+        expect(result.source.originalFilePath, isNotNull);
+      },
+    );
   });
 }
