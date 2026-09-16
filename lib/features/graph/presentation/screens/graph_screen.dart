@@ -37,7 +37,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// Cuatro filas, como una tabla en miniatura con su vista previa arriba:
 /// portada, encabezado, tipo de fuente y una línea de pie con la fecha — ver
 /// `_GraphNode`.
-const _kNodeSize = Size(184, 132);
+///
+/// La portada —`_NodeThumbnail`— es la fila más alta de las cuatro a
+/// propósito: una miniatura chica no deja apreciar la foto, el fotograma
+/// del video o la primera página de un documento, y termina pareciendo un
+/// detalle decorativo en vez de la vista previa real que es.
+const _kNodeSize = Size(220, 208);
 
 /// Cuánto se aleja cada nodo del borde del lienzo y del visor al encuadrar:
 /// la mitad de la diagonal de la tarjeta, con margen de sobra para que la
@@ -1131,7 +1136,7 @@ class _GraphNode extends StatelessWidget {
                   // conseguir barata, o el ícono del tipo de fuente sobre
                   // un fondo tenue cuando no — ver `_NodeThumbnail`.
                   SizedBox(
-                    height: 54,
+                    height: 130,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
