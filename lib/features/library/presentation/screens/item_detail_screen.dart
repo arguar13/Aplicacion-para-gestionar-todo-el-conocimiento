@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +13,6 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
@@ -34,10 +32,7 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
-import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
-import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un elemento por dentro: su contenido y, sobre todo, de dónde salió.
@@ -185,59 +180,85 @@ class _DetailBody extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 720),
         child: Scrollbar(
           thumbVisibility: true,
-          child: ListView(
+          // `SingleChildScrollView` con una `Column`, no un `ListView`: un
+          // `ListView` arma un `SliverList`, que construye —y mide— sus
+          // hijos de a poco a medida que entran en pantalla, y mientras
+          // alguno no se construyó todavía estima cuánto mide el resto
+          // promediando lo que ya vio. Con una sola forma de contenido mucho
+          // más alta que el resto —un libro entero en un solo bloque de
+          // texto, frente al título o las etiquetas— esa estimación queda
+          // muy corta durante casi toda la lectura y se corrige de golpe
+          // cerca del final: la barra de desplazamiento avanza poquísimo al
+          // principio y salta de repente al llegar. `SingleChildScrollView`
+          // mide a su hijo entero de una sola vez, así que la barra queda
+          // siempre exacta — y el costo real es el mismo, porque esta
+          // pantalla nunca tiene miles de hijos, solo unos pocos, uno de
+          // ellos largo.
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            children: [
-              Text(item.title, style: theme.textTheme.headlineSmall),
-              if (item.subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  item.subtitle!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.title, style: theme.textTheme.headlineSmall),
+                if (item.subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item.subtitle!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SpacePicker(item: item),
-              const SizedBox(height: 24),
-              TagEditor(item: item),
-              const SizedBox(height: 24),
-
-              if (item.notes?.isNotEmpty ?? false) ...[
-                _UserNote(note: item.notes!),
+                ],
+                const SizedBox(height: 16),
+                SpacePicker(item: item),
                 const SizedBox(height: 24),
-              ],
+                TagEditor(item: item),
+                const SizedBox(height: 24),
 
-              // El archivo original, visible directo acá arriba —antes del
-              // contenido— para lo que de verdad agrega algo sobre el texto
-              // ya extraído: una foto, un video, un PDF con su maquetación,
-              // la página archivada. Sin botón "Ver" de por medio: si hay
-              // algo que mostrar, ya se está mostrando.
-              EmbeddedFileViewer(item: item),
-
-              if (texts.isEmpty)
-                _NoContentYet(item: item)
-              else
-                for (final rendition in texts) ...[
-                  if (rendition.kind == RenditionKind.blocks)
-                    _BlocksRendition(item: item, rendition: rendition)
-                  else
-                    _TextRenditionView(item: item, rendition: rendition),
-                  const SizedBox(height: 16),
+                if (item.notes?.isNotEmpty ?? false) ...[
+                  _UserNote(note: item.notes!),
+                  const SizedBox(height: 24),
                 ],
 
-              const SizedBox(height: 16),
-              FlashcardSection(item: item),
-              const SizedBox(height: 24),
-              RelationsSection(item: item),
-              const SizedBox(height: 24),
-              CitationSection(item: item),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 16),
-              _Provenance(item: item),
-            ],
+                // El archivo original, visible directo acá arriba —antes del
+                // contenido— para lo que de verdad agrega algo sobre el texto
+                // ya extraído: una foto, un video, un PDF con su maquetación,
+                // la página archivada. Sin botón "Ver" de por medio: si hay
+                // algo que mostrar, ya se está mostrando.
+                EmbeddedFileViewer(item: item),
+
+                // Justo debajo de donde se está viendo o escuchando el
+                // archivo, no perdido al final de la procedencia: es la
+                // acción que sigue naturalmente a mirarlo, no algo que se
+                // decide desde una lista de metadatos.
+                if (_hasKeepableText(item)) ...[
+                  const SizedBox(height: 4),
+                  _DeleteOriginalFileButton(item: item),
+                ],
+
+                if (texts.isEmpty)
+                  _NoContentYet(item: item)
+                else
+                  for (final rendition in texts) ...[
+                    if (rendition.kind == RenditionKind.blocks)
+                      _BlocksRendition(item: item, rendition: rendition)
+                    else
+                      _TextRenditionView(item: item, rendition: rendition),
+                    const SizedBox(height: 16),
+                  ],
+
+                const SizedBox(height: 16),
+                FlashcardSection(item: item),
+                const SizedBox(height: 24),
+                RelationsSection(item: item),
+                const SizedBox(height: 24),
+                CitationSection(item: item),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                _Provenance(item: item),
+              ],
+            ),
           ),
         ),
       ),
@@ -264,10 +285,6 @@ class _TextRenditionView extends ConsumerWidget {
     // tipografía grande, en vez de repetirlo embebido en el detalle como sí
     // vale la pena para una foto, un video o un PDF — ver
     // `EmbeddedFileViewer`.
-    final resolved = ref.watch(resolvedFileViewerProvider(item)).valueOrNull;
-    final hasReadingMode =
-        rendition.isPrimary && resolved is TextResolvedViewer;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -288,12 +305,6 @@ class _TextRenditionView extends ConsumerWidget {
                 label: Text(l10n.detailCopyContent),
                 onPressed: () => _copyContent(context),
               ),
-              if (hasReadingMode)
-                TextButton.icon(
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  label: Text(l10n.detailReadingMode),
-                  onPressed: () => openDocumentViewer(context, ref, item),
-                ),
             ],
           ),
         ),
@@ -538,41 +549,16 @@ class _Provenance extends ConsumerWidget {
         // archivo **es** la fuente. Sin esta fila, el detalle no diría en
         // ninguna parte que la copia original está a salvo, y el usuario
         // tendría que confiar en que sí.
-        if (source.originalFilePath != null) ...[
+        // Ni "Ver" ni "Abrir archivo" hacen falta acá: el archivo ya se ve
+        // directo arriba, en `EmbeddedFileViewer`, con su propio ícono de
+        // pantalla completa para quien quiera más lugar.
+        if (source.originalFilePath != null)
           _ProvenanceRow(
             icon: Icons.folder_outlined,
             text: l10n.detailOriginalFile(
               originalFileNameOf(source.originalFilePath!),
             ),
           ),
-          Wrap(
-            spacing: 8,
-            children: [
-              // Ver el archivo ya no necesita este botón —se ve directo
-              // arriba, en `EmbeddedFileViewer`, o desde ahí con el ícono
-              // de pantalla completa—: lo que sigue teniendo sentido acá es
-              // "abrir con la app del sistema", para editar en Word o en
-              // el lector de PDF de siempre, algo que un visor integrado
-              // no ofrece.
-              TextButton.icon(
-                onPressed: () =>
-                    _openOriginalFile(context, ref, source.originalFilePath!),
-                icon: const Icon(Icons.open_in_new, size: 18),
-                label: Text(l10n.detailOpenFile),
-              ),
-              // Solo para video y audio: son los formatos pesados donde
-              // vale la pena quedarse con el texto y soltar el archivo. Un
-              // PDF o un EPUB **son** la fuente —borrarlos no deja nada
-              // equivalente atrás— así que ahí no se ofrece.
-              if (_hasKeepableText(item))
-                TextButton.icon(
-                  onPressed: () => _deleteOriginalFile(context, ref, item),
-                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-                  label: Text(l10n.detailDeleteOriginalFile),
-                ),
-            ],
-          ),
-        ],
         if (source.url != null) ...[
           const SizedBox(height: 12),
           _OriginalLink(url: source.url!),
@@ -580,102 +566,95 @@ class _Provenance extends ConsumerWidget {
       ],
     );
   }
+}
 
-  /// Pide al almacén la ruta absoluta y se la pasa a la app del sistema.
-  ///
-  /// Solo avisa cuando algo sale mal: si se abrió, el sistema ya está
-  /// mostrando el archivo y una confirmación encima sería ruido.
-  ///
-  /// En la web no hay una ruta absoluta que pedir —`resolve()` lanza a
-  /// propósito, ver `OpfsFileStore`—, así que se le pasa directo la ruta
-  /// relativa: `WebDownloadFileOpener` lee los bytes por su cuenta.
-  Future<void> _openOriginalFile(
-    BuildContext context,
-    WidgetRef ref,
-    String relativePath,
-  ) async {
+/// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
+///
+/// Hace falta que el original sea video o audio —los formatos pesados,
+/// donde soltar el archivo cambia algo— y que ya haya una forma de texto
+/// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
+/// el contenido del elemento.
+bool _hasKeepableText(KnowledgeItem item) {
+  const keepable = {
+    SourceKind.youtube,
+    SourceKind.audio,
+    SourceKind.video,
+    SourceKind.socialPost,
+  };
+  if (!keepable.contains(item.source.kind)) return false;
+
+  return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
+}
+
+/// El botón para soltar el archivo pesado y quedarse solo con el texto ya
+/// extraído.
+///
+/// Vive justo debajo de donde ese archivo se está viendo o escuchando —ver
+/// `EmbeddedFileViewer` en `_DetailBody`—, no al final de la procedencia:
+/// es la acción que sigue naturalmente a mirarlo, no un dato más en una
+/// lista de metadatos.
+class _DeleteOriginalFileButton extends ConsumerWidget {
+  const _DeleteOriginalFileButton({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
 
-    final path = kIsWeb
-        ? relativePath
-        : await ref.read(fileStoreProvider).resolve(relativePath);
-    final result = await ref.read(fileOpenerProvider).open(path);
-    if (!context.mounted) return;
-
-    final message = switch (result) {
-      FileOpenResult.done => null,
-      FileOpenResult.fileNotFound => l10n.detailOpenFileNotFound,
-      FileOpenResult.noAppAvailable => l10n.detailOpenFileNoApp,
-      FileOpenResult.failed => l10n.detailOpenFileFailed,
-    };
-    if (message == null) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
-  ///
-  /// Hace falta que el original sea video o audio —los formatos pesados,
-  /// donde soltar el archivo cambia algo— y que ya haya una forma de texto
-  /// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
-  /// el contenido del elemento.
-  bool _hasKeepableText(KnowledgeItem item) {
-    const keepable = {
-      SourceKind.youtube,
-      SourceKind.audio,
-      SourceKind.video,
-      SourceKind.socialPost,
-    };
-    if (!keepable.contains(item.source.kind)) return false;
-
-    return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
-  }
-
-  Future<void> _deleteOriginalFile(
-    BuildContext context,
-    WidgetRef ref,
-    KnowledgeItem item,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.detailDeleteOriginalFileConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.detailDelete),
-          ),
-        ],
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: () => _deleteOriginalFile(context, ref, item),
+        icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+        label: Text(l10n.detailDeleteOriginalFile),
       ),
     );
-    if (confirmed != true || !context.mounted) return;
-
-    final relativePath = item.source.originalFilePath!;
-    await ref.read(fileStoreProvider).delete(relativePath);
-
-    final updated = item.copyWith(
-      source: item.source.copyWith(originalFilePath: null),
-    );
-    final result = await ref.read(libraryRepositoryProvider).save(updated);
-    if (!context.mounted) return;
-
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      (_) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
-    );
   }
+}
+
+Future<void> _deleteOriginalFile(
+  BuildContext context,
+  WidgetRef ref,
+  KnowledgeItem item,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(l10n.detailDeleteOriginalFileConfirm),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l10n.detailDelete),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  final relativePath = item.source.originalFilePath!;
+  await ref.read(fileStoreProvider).delete(relativePath);
+
+  final updated = item.copyWith(
+    source: item.source.copyWith(originalFilePath: null),
+  );
+  final result = await ref.read(libraryRepositoryProvider).save(updated);
+  if (!context.mounted) return;
+
+  result.match(
+    (failure) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+    (_) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
+  );
 }
 
 class _ProvenanceRow extends StatelessWidget {

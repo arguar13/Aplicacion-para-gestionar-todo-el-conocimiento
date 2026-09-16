@@ -473,11 +473,6 @@
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
   "detailExpandViewer": "View fullscreen",
-  "detailReadingMode": "Reading mode",
-  "detailOpenFile": "Open file",
-  "@detailOpenFile": {
-    "description": "Botón que abre el archivo original con la aplicación del sistema."
-  },
   "detailExportTooltip": "Export",
   "@detailExportTooltip": {
     "description": "Botón que abre el menú de formatos de exportación en el detalle."
@@ -487,18 +482,6 @@
   "exportFormatPdf": "PDF",
   "exportFormatBibtex": "BibTeX",
   "exportFormatDocx": "Word",
-  "detailOpenFileNotFound": "The original file is no longer on this device.",
-  "@detailOpenFileNotFound": {
-    "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."
-  },
-  "detailOpenFileNoApp": "This device has no app to open this file.",
-  "@detailOpenFileNoApp": {
-    "description": "Aviso al intentar abrir un archivo cuyo tipo no tiene ninguna aplicación asociada."
-  },
-  "detailOpenFileFailed": "The file couldn't be opened.",
-  "@detailOpenFileFailed": {
-    "description": "Aviso genérico cuando abrir el archivo original falla por cualquier otro motivo."
-  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

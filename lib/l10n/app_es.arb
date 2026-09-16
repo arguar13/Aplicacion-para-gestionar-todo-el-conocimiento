@@ -344,14 +344,6 @@
   "@detailExpandViewer": {
     "description": "Tooltip del botón que expande el visor embebido del archivo original a pantalla completa."
   },
-  "detailReadingMode": "Modo lectura",
-  "@detailReadingMode": {
-    "description": "Botón que abre el contenido extraído de un documento en el lector paginado, con tipografía grande."
-  },
-  "detailOpenFile": "Abrir archivo",
-  "@detailOpenFile": {
-    "description": "Botón que abre el archivo original con la aplicación del sistema."
-  },
   "detailExportTooltip": "Exportar",
   "@detailExportTooltip": {
     "description": "Botón que abre el menú de formatos de exportación en el detalle."
@@ -366,18 +358,6 @@
   "exportFormatDocx": "Word",
   "@exportFormatDocx": {
     "description": "Nombre del formato de exportación .docx, para abrir en Word o similares."
-  },
-  "detailOpenFileNotFound": "El archivo original ya no está en este dispositivo.",
-  "@detailOpenFileNotFound": {
-    "description": "Aviso al intentar abrir un archivo original que ya no existe en el disco."
-  },
-  "detailOpenFileNoApp": "El dispositivo no tiene ninguna aplicación para abrir este archivo.",
-  "@detailOpenFileNoApp": {
-    "description": "Aviso al intentar abrir un archivo cuyo tipo no tiene ninguna aplicación asociada."
-  },
-  "detailOpenFileFailed": "No se pudo abrir el archivo.",
-  "@detailOpenFileFailed": {
-    "description": "Aviso genérico cuando abrir el archivo original falla por cualquier otro motivo."
   },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {

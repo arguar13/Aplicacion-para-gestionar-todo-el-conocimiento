@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
-import 'package:sinapsis/core/storage/file_opener.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -287,9 +286,9 @@ void main() {
     ///
     /// El contenido no tiene ninguna firma de formato reconocible a
     /// propósito —ni PDF, ni DOCX, ni ningún otro—: este grupo prueba la
-    /// procedencia (nombre, "abrir con...", borrar el original), no la
-    /// vista previa embebida de un formato puntual, que ya tiene sus
-    /// propias pruebas en `open_document_viewer_test.dart`. Un archivo que
+    /// procedencia (nombre, borrar el original), no la vista previa
+    /// embebida de un formato puntual, que ya tiene sus propias pruebas en
+    /// `open_document_viewer_test.dart`. Un archivo que
     /// sí sniffeara como PDF de verdad disparía el visor de `pdfrx`, que
     /// necesita PDFium nativo puesto a mano (`tool/fetch_pdfium.sh`) para
     /// no colgarse bajo `flutter test` — algo que este grupo no tiene por
@@ -362,96 +361,6 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.text(es.detailNoContentYet), findsOneWidget);
-    });
-
-    testWidgets('un elemento sin archivo no ofrece abrir nada', (tester) async {
-      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
-
-      await pumpDetail(tester, id);
-
-      expect(find.text(es.detailOpenFile), findsNothing);
-    });
-
-    testWidgets('el botón de abrir le pasa al sistema la ruta absoluta, no la '
-        'relativa que guarda la base', (tester) async {
-      final id = await captureFile();
-      // La ruta relativa la decide el adaptador de archivos, con un
-      // identificador propio de la fuente — no hay por qué coincidir con el
-      // del elemento. Se pide la de verdad en vez de reconstruirla a mano.
-      final repository = harness.container.read(libraryRepositoryProvider);
-      final item = (await repository.findById(id)).getRight().toNullable()!;
-      final relativePath = item.source.originalFilePath!;
-
-      await pumpDetail(tester, id);
-      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
-      await tester.ensureVisible(openFileButton);
-      await tester.pumpAndSettle();
-      await tester.tap(openFileButton);
-      await tester.pumpAndSettle();
-
-      expect(harness.fileOpener.requested, [
-        await harness.files.resolve(relativePath),
-      ]);
-    });
-
-    testWidgets('si se pudo abrir, no hace falta avisar nada más', (
-      tester,
-    ) async {
-      final id = await captureFile();
-      harness.fileOpener.result = FileOpenResult.done;
-
-      await pumpDetail(tester, id);
-      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
-      await tester.ensureVisible(openFileButton);
-      await tester.pumpAndSettle();
-      await tester.tap(openFileButton);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SnackBar), findsNothing);
-    });
-
-    testWidgets('si el archivo ya no está, lo dice', (tester) async {
-      final id = await captureFile();
-      harness.fileOpener.result = FileOpenResult.fileNotFound;
-
-      await pumpDetail(tester, id);
-      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
-      await tester.ensureVisible(openFileButton);
-      await tester.pumpAndSettle();
-      await tester.tap(openFileButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.detailOpenFileNotFound), findsOneWidget);
-    });
-
-    testWidgets('si no hay ninguna aplicación para ese tipo, lo dice', (
-      tester,
-    ) async {
-      final id = await captureFile();
-      harness.fileOpener.result = FileOpenResult.noAppAvailable;
-
-      await pumpDetail(tester, id);
-      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
-      await tester.ensureVisible(openFileButton);
-      await tester.pumpAndSettle();
-      await tester.tap(openFileButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.detailOpenFileNoApp), findsOneWidget);
-    });
-
-    testWidgets('cualquier otro fallo tiene un aviso genérico', (tester) async {
-      final id = await captureFile();
-      harness.fileOpener.result = FileOpenResult.failed;
-
-      await pumpDetail(tester, id);
-      final openFileButton = find.widgetWithText(TextButton, es.detailOpenFile);
-      await tester.ensureVisible(openFileButton);
-      await tester.pumpAndSettle();
-      await tester.tap(openFileButton);
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.detailOpenFileFailed), findsOneWidget);
     });
   });
 

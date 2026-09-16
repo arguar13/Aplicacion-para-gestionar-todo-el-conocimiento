@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/image_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
@@ -13,27 +14,25 @@ import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_vi
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El archivo original de un elemento, visible directo en su detalle — sin
-/// tener que tocar un botón "Ver" para recién ahí abrirlo.
+/// tener que tocar ningún botón para recién ahí abrirlo.
 ///
-/// Solo para las formas de archivo que **agregan algo** sobre el texto que
-/// el detalle ya muestra más abajo: una foto, un video, un audio, un PDF con
-/// su maquetación de verdad, la página web archivada con sus imágenes en su
-/// lugar. Un DOCX o un EPUB no entran acá —`resolvedFileViewerProvider`
-/// resuelve esos como `TextResolvedViewer`, y esta clase no dibuja nada para
-/// ese caso— porque su contenido extraído es exactamente lo que ya se lee
-/// en el cuerpo del detalle; embeber además el modo de lectura paginado
-/// mostraría lo mismo dos veces. Ese modo de lectura sigue estando a un
-/// toque —ver el enlace "Modo lectura" en `_TextRenditionView`— para quien
-/// prefiera la tipografía grande y el paginado a un libro entero, que es un
-/// beneficio real y no solo repetir el mismo texto con otro formato.
+/// Cada `SourceKind` con algo que mostrar se ve en su forma natural: una
+/// foto o un video se ven como tales, un PDF con su maquetación de verdad,
+/// la página web archivada con sus imágenes en su lugar, y un DOCX o un
+/// EPUB con el mismo formato paginado y con tipografía de libro que ya
+/// tenía el viejo "Modo lectura" —ver `DocumentReaderView`—, en vez del
+/// texto corrido sin forma que se ve más abajo con `HighlightableText`.
+/// Ese texto corrido sigue estando —es lo que permite subrayar y buscar—,
+/// pero ya no es la única manera de leerlo: arriba se ve como el documento
+/// que es.
 ///
 /// Ocupa un marco de alto acotado, no lo que le haga falta: un PDF o un
 /// video no tienen por qué apoderarse de la pantalla del detalle, y cada
-/// visor —`PdfViewerView`, `MediaPlayerView`— ya sabe manejarse dentro de
-/// cualquier alto que se le dé, con su propio scroll o paginado por dentro.
-/// Quien quiera más lugar toca el botón de expandir, que lleva a la misma
-/// pantalla completa que abriría el viejo botón "Ver" — ver
-/// `openDocumentViewer`.
+/// visor —`PdfViewerView`, `MediaPlayerView`, `DocumentReaderView`— ya sabe
+/// manejarse dentro de cualquier alto que se le dé, con su propio scroll o
+/// paginado por dentro. Quien quiera más lugar toca el botón de expandir,
+/// que lleva a la misma pantalla completa que abriría el viejo botón "Ver"
+/// — ver `openDocumentViewer`.
 class EmbeddedFileViewer extends ConsumerWidget {
   const EmbeddedFileViewer({required this.item, super.key});
 
@@ -41,11 +40,15 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Los visores de acá adentro leen el archivo directo del disco
-    // (`dart:io`): no tienen con qué trabajar en la web, donde el almacén
-    // vive en OPFS y no hay una ruta de archivo real que abrir. Ahí "Abrir
-    // con..." —ver `_Provenance`— sigue siendo el único camino.
-    if (kIsWeb) return const SizedBox.shrink();
+    // Todos los visores salvo el de documentos leen el archivo directo del
+    // disco (`dart:io`): no tienen con qué trabajar en la web, donde el
+    // almacén vive en OPFS y no hay una ruta de archivo real que abrir. El
+    // de documentos es la excepción —`DocumentReaderView` solo necesita el
+    // contenido ya extraído, no una ruta— así que ahí sí vale la pena
+    // seguir adelante.
+    if (kIsWeb && item.source.kind != SourceKind.document) {
+      return const SizedBox.shrink();
+    }
 
     // Una nota manual no tiene archivo original del que hablar.
     if (item.source.kind == SourceKind.manualNote) {
@@ -72,7 +75,12 @@ class EmbeddedFileViewer extends ConsumerWidget {
     void expand() => openDocumentViewer(context, ref, item);
 
     return switch (resolved) {
-      NoResolvedViewer() || TextResolvedViewer() => const SizedBox.shrink(),
+      NoResolvedViewer() => const SizedBox.shrink(),
+      TextResolvedViewer(:final content) => _EmbeddedViewerFrame(
+        tall: true,
+        onExpand: expand,
+        child: DocumentReaderView(content: content),
+      ),
       ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(
         onExpand: expand,
         child: ImageViewerView(path: path),
