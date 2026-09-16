@@ -57,6 +57,11 @@ abstract interface class LibraryRepository {
   /// Borra un elemento y todo lo que cuelga de él.
   Future<Either<Failure, Unit>> delete(String id);
 
+  /// Lo mismo que [delete], para varios elementos de una sola vez —el modo
+  /// de selección múltiple de la biblioteca—. Las filas se van todas juntas
+  /// o ninguna: una única transacción, no [ids] llamadas sueltas a [delete].
+  Future<Either<Failure, Unit>> deleteMany(List<String> ids);
+
   /// Mueve un elemento a [spaceId], o lo deja sin clasificar si es `null`.
   ///
   /// Aparte de [save] a propósito: mover de carpeta no debería tocar ni
@@ -64,6 +69,12 @@ abstract interface class LibraryRepository {
   /// `save` al sincronizarlas — acá alcanza con una sola columna.
   Future<Either<Failure, Unit>> assignSpace({
     required String itemId,
+    required String? spaceId,
+  });
+
+  /// Lo mismo que [assignSpace], para varios elementos de una sola vez.
+  Future<Either<Failure, Unit>> assignSpaceMany({
+    required List<String> itemIds,
     required String? spaceId,
   });
 }

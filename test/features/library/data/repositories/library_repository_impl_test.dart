@@ -337,6 +337,142 @@ void main() {
       expect(files.deleted, isEmpty);
     });
   });
+
+  group('borrar varios de una vez', () {
+    test('borra los elementos pedidos y deja los demás intactos', () async {
+      final a = buildItem(id: 'item-a');
+      final b = buildItem(id: 'item-b');
+      final c = buildItem(id: 'item-c');
+      await repository.save(a);
+      await repository.save(b);
+      await repository.save(c);
+
+      final result = await repository.deleteMany(['item-a', 'item-b']);
+
+      expect(result.isRight(), isTrue);
+      final remaining = await db.select(db.items).get();
+      expect(remaining.map((r) => r.id), ['item-c']);
+    });
+
+    test('borra el archivo original de cada uno', () async {
+      final a = buildItem(id: 'item-a');
+      final pathA = await files.save(
+        bytes: Uint8List.fromList([1]),
+        suggestedName: 'a.pdf',
+        id: a.source.id,
+      );
+      final b = buildItem(id: 'item-b');
+      final pathB = await files.save(
+        bytes: Uint8List.fromList([2]),
+        suggestedName: 'b.pdf',
+        id: b.source.id,
+      );
+      await repository.save(
+        a.copyWith(source: a.source.copyWith(originalFilePath: pathA)),
+      );
+      await repository.save(
+        b.copyWith(source: b.source.copyWith(originalFilePath: pathB)),
+      );
+
+      await repository.deleteMany(['item-a', 'item-b']);
+
+      expect(files.deleted, unorderedEquals([pathA, pathB]));
+    });
+
+    test('un archivo compartido entre dos de los elementos borrados se borra '
+        'una sola vez, no cero ni dos', () async {
+      final a = buildItem(id: 'item-a');
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'compartido.pdf',
+        id: a.source.id,
+      );
+      final source = a.source.copyWith(originalFilePath: path);
+      await repository.save(a.copyWith(source: source));
+      await repository.save(buildItem(id: 'item-b').copyWith(source: source));
+
+      await repository.deleteMany(['item-a', 'item-b']);
+
+      expect(files.deleted, [path]);
+    });
+
+    test('si el disco se resiste en uno, los demás se borran igual', () async {
+      final a = buildItem(id: 'item-a');
+      final path = await files.save(
+        bytes: Uint8List.fromList([1]),
+        suggestedName: 'a.pdf',
+        id: a.source.id,
+      );
+      await repository.save(
+        a.copyWith(source: a.source.copyWith(originalFilePath: path)),
+      );
+      await repository.save(buildItem(id: 'item-b'));
+      files.deleteError = const FileSystemException('volumen desmontado');
+
+      final result = await repository.deleteMany(['item-a', 'item-b']);
+
+      expect(result.isRight(), isTrue);
+      expect(await db.select(db.items).get(), isEmpty);
+    });
+  });
+
+  group('mover varios a un tema de una vez', () {
+    Future<void> createSpace(String id, String name) => db
+        .into(db.spaces)
+        .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+
+    test('asigna el mismo tema a todos los elementos pedidos', () async {
+      await createSpace('space-1', 'Filosofía');
+      final a = buildItem(id: 'item-a');
+      final b = buildItem(id: 'item-b');
+      final c = buildItem(id: 'item-c');
+      await repository.save(a);
+      await repository.save(b);
+      await repository.save(c);
+
+      final result = await repository.assignSpaceMany(
+        itemIds: ['item-a', 'item-b'],
+        spaceId: 'space-1',
+      );
+
+      expect(result.isRight(), isTrue);
+      final foundA = (await repository.findById(
+        'item-a',
+      )).getRight().toNullable();
+      final foundB = (await repository.findById(
+        'item-b',
+      )).getRight().toNullable();
+      final foundC = (await repository.findById(
+        'item-c',
+      )).getRight().toNullable();
+      expect(foundA!.spaceId, 'space-1');
+      expect(foundB!.spaceId, 'space-1');
+      expect(foundC!.spaceId, isNull);
+    });
+
+    test('con spaceId nulo, deja a todos sin clasificar', () async {
+      await createSpace('space-1', 'Filosofía');
+      final a = buildItem(id: 'item-a');
+      final b = buildItem(id: 'item-b');
+      await repository.save(a.copyWith(spaceId: 'space-1'));
+      await repository.save(b.copyWith(spaceId: 'space-1'));
+
+      await repository.assignSpaceMany(
+        itemIds: ['item-a', 'item-b'],
+        spaceId: null,
+      );
+
+      final foundA = (await repository.findById(
+        'item-a',
+      )).getRight().toNullable();
+      final foundB = (await repository.findById(
+        'item-b',
+      )).getRight().toNullable();
+      expect(foundA!.spaceId, isNull);
+      expect(foundB!.spaceId, isNull);
+    });
+  });
+
   group('filtrar', () {
     Future<void> seed() async {
       final yt = buildItem(

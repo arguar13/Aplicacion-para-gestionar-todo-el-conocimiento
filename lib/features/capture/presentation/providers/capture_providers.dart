@@ -6,11 +6,13 @@ import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart'
 import 'package:sinapsis/features/capture/data/adapters/social_post_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
+import 'package:sinapsis/features/capture/data/services/pdf_document_scan_assembler.dart';
 import 'package:sinapsis/features/capture/data/services/receive_sharing_intent_listener.dart';
 import 'package:sinapsis/features/capture/data/services/system_camera_chooser.dart';
 import 'package:sinapsis/features/capture/data/services/system_file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
+import 'package:sinapsis/features/capture/domain/services/document_scan_assembler.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
@@ -61,6 +63,14 @@ final fileChooserProvider = Provider<FileChooser>(
 /// [fileChooserProvider]: abrirla de verdad necesita una cámara real detrás.
 final cameraChooserProvider = Provider<CameraChooser>(
   (ref) => const SystemCameraChooser(),
+);
+
+/// Junta las páginas de un escaneo en un solo documento. Sin necesidad de
+/// sobreescribirlo en las pruebas: a diferencia del selector de archivos o
+/// la cámara, arma el PDF en el propio proceso de Dart, sin pedirle nada al
+/// sistema operativo.
+final documentScanAssemblerProvider = Provider<DocumentScanAssembler>(
+  (ref) => const PdfDocumentScanAssembler(),
 );
 
 /// Lo que trae el botón de compartir de otra app.

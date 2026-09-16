@@ -2,6 +2,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -54,6 +55,13 @@ void main() {
   }
 
   Finder mainField() => find.byType(TextField).first;
+
+  /// Una imagen chica de verdad, no bytes cualquiera: la tira de páginas
+  /// escaneadas las muestra con `Image.memory`, y eso necesita poder
+  /// decodificarlas — un byte inventado tira "Invalid image data" en vez de
+  /// ejercitar la pantalla.
+  Uint8List fakePhotoBytes() =>
+      Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)));
 
   /// Simula soltar [files] sobre la pantalla, llamando directo al callback
   /// que le pasa a `DropTarget`: no hay forma de fabricar un evento nativo
@@ -225,16 +233,13 @@ void main() {
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       harness = await LibraryHarness.create(
-        chosenPhoto: CapturedFile(
-          name: 'foto.jpg',
-          bytes: Uint8List.fromList([1, 2, 3]),
-        ),
+        chosenPhoto: CapturedFile(name: 'foto.jpg', bytes: fakePhotoBytes()),
       );
       await pumpCapture(tester);
 
       await selectType(tester, es.captureTypeCamera);
 
-      expect(find.text('foto.jpg'), findsOneWidget);
+      expect(find.text(es.captureScanPagesCount(1)), findsOneWidget);
       expect(harness.cameraChooser.timesOpened, 1);
       debugDefaultTargetPlatformOverride = null;
     });
@@ -266,15 +271,12 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('una foto sacada con la cámara se guarda como imagen', (
+    testWidgets('una sola foto sacada con la cámara se guarda como imagen', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       harness = await LibraryHarness.create(
-        chosenPhoto: CapturedFile(
-          name: 'pizarra.jpg',
-          bytes: Uint8List.fromList([1, 2, 3]),
-        ),
+        chosenPhoto: CapturedFile(name: 'pizarra.jpg', bytes: fakePhotoBytes()),
       );
       await pumpCapture(tester);
 
@@ -282,11 +284,78 @@ void main() {
       await tester.tap(find.text(es.captureAction));
       await tester.pumpAndSettle();
 
-      // El título provisional sale del nombre del archivo, igual que
-      // cualquier otra captura de archivo — ver `titleFromFileName`.
-      expect(await savedTitles(), ['Pizarra']);
+      // El título provisional sale del nombre provisorio de una foto sola
+      // —ver `capturePhotoFileName`—, no del que traiga la cámara: una vez
+      // que se guardan solo los bytes en `_scannedPages`, ese nombre
+      // original ya no está.
+      expect(await savedTitles(), [es.capturePhotoFileName]);
+
+      final saved = (await savedItems()).single;
+      expect(saved.source.kind, SourceKind.image);
       debugDefaultTargetPlatformOverride = null;
     });
+
+    testWidgets('sacar una segunda foto la suma a la lista, no la reemplaza', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      harness = await LibraryHarness.create(
+        chosenPhoto: CapturedFile(name: 'pagina.jpg', bytes: fakePhotoBytes()),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeCamera);
+      await tester.tap(find.byTooltip(es.captureScanAddPage));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.captureScanPagesCount(2)), findsOneWidget);
+      expect(harness.cameraChooser.timesOpened, 2);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('quitar una página la saca de la lista', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      harness = await LibraryHarness.create(
+        chosenPhoto: CapturedFile(name: 'pagina.jpg', bytes: fakePhotoBytes()),
+      );
+      await pumpCapture(tester);
+
+      await selectType(tester, es.captureTypeCamera);
+      await tester.tap(find.byTooltip(es.captureScanAddPage));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(es.captureScanRemovePage).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.captureScanPagesCount(1)), findsOneWidget);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets(
+      'dos o más páginas se combinan en un solo documento al guardar',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        harness = await LibraryHarness.create(
+          chosenPhoto: CapturedFile(
+            name: 'pagina.jpg',
+            bytes: fakePhotoBytes(),
+          ),
+        );
+        await pumpCapture(tester);
+
+        await selectType(tester, es.captureTypeCamera);
+        await tester.tap(find.byTooltip(es.captureScanAddPage));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(es.captureAction));
+        await tester.pumpAndSettle();
+
+        // Un solo elemento, no dos: las dos fotos se combinaron en un único
+        // documento en vez de guardarse como dos capturas sueltas.
+        expect(await savedTitles(), [es.captureScanFileName]);
+        final saved = (await savedItems()).single;
+        expect(saved.source.kind, SourceKind.document);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
   });
 
   group('reconocimiento en vivo', () {

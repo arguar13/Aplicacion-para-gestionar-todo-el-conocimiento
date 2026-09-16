@@ -494,6 +494,105 @@ void main() {
         expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
       },
     );
+
+    testWidgets('sin nada elegido, mover y eliminar están deshabilitados', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+
+      final move = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.drive_file_move_outline),
+      );
+      final delete = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.delete_outline),
+      );
+      expect(move.onPressed, isNull);
+      expect(delete.onPressed, isNull);
+    });
+
+    testWidgets('mueve lo elegido a un tema y confirma, de una vez', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await harness.capture('Dos');
+      await harness.capture('Tres');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createSpace('Filosofía');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.drive_file_move_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Filosofía'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryBulkMoved(2, 'Filosofía')), findsOneWidget);
+      // Terminado el movimiento, no queda nada seleccionado.
+      expect(find.byIcon(Icons.checklist), findsOneWidget);
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final movedTitles = items
+          .where((i) => i.spaceId != null)
+          .map((i) => i.title)
+          .toSet();
+      expect(movedTitles, {'Uno', 'Dos'});
+    });
+
+    testWidgets('elimina lo elegido de una vez, con confirmación', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await harness.capture('Dos');
+      await harness.capture('Tres');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryBulkDeleteConfirm(2)), findsOneWidget);
+
+      await tester.tap(find.text(es.detailDelete));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Uno'), findsNothing);
+      expect(find.text('Dos'), findsNothing);
+      expect(find.text('Tres'), findsOneWidget);
+      expect(find.text(es.libraryBulkDeleted(2)), findsOneWidget);
+    });
+
+    testWidgets('cancelar la confirmación de eliminar no borra nada', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Uno'), findsOneWidget);
+      expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+    });
   });
 
   group('el menú de tres puntos de cada fila', () {

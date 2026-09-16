@@ -9,6 +9,7 @@ import 'package:sinapsis/features/export/presentation/providers/export_providers
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -239,38 +240,14 @@ class _ItemMenuButton extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final spaces = ref.read(allSpacesProvider).valueOrNull ?? const <Space>[];
 
-    final chosen = await showModalBottomSheet<(bool, String?)>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text(l10n.detailSpaceChoose), dense: true),
-            ListTile(
-              leading: const Icon(Icons.folder_off_outlined),
-              title: Text(l10n.detailSpaceNone),
-              selected: item.spaceId == null,
-              onTap: () => Navigator.of(context).pop((true, null)),
-            ),
-            for (final space in spaces)
-              ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: Text(space.name),
-                selected: item.spaceId == space.id,
-                onTap: () => Navigator.of(context).pop((true, space.id)),
-              ),
-          ],
-        ),
-      ),
+    final chosen = await showSpacePickerSheet(
+      context,
+      spaces: spaces,
+      selectedSpaceId: item.spaceId,
     );
-    // A diferencia de un `String?` a secas, el booleano distingue "cerró sin
-    // elegir" de "eligió sin clasificar": las dos vuelven `null` de
-    // `Navigator.pop`, y acá sí importa no confundirlas —"sin clasificar" es
-    // una fila más de la lista, y hay que poder elegirla sin que se lea como
-    // un cierre accidental—.
     if (chosen == null || !context.mounted) return;
 
-    final (_, spaceId) = chosen;
+    final (spaceId,) = chosen;
     if (spaceId == item.spaceId) return;
 
     final result = await ref

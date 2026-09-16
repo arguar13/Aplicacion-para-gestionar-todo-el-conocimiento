@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart'
@@ -17,6 +18,11 @@ import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
+// Solo para el enlace [DocumentScanAssembler] del comentario de
+// `_fileToSubmit`; el análisis estático no ve esa referencia dentro de un
+// doc comment.
+// ignore: unused_import
+import 'package:sinapsis/features/capture/domain/services/document_scan_assembler.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_notifier.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -161,6 +167,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   /// texto.
   CapturedFile? _file;
 
+  /// Las fotos que se sacaron en esta sesión de escaneo, en el orden en que
+  /// se sacaron. Solo tiene sentido mientras [_kind] es
+  /// [_CaptureKind.camera]: los demás pasos que traen un archivo (Libro,
+  /// Imagen, Audio) siguen usando [_file] solo, porque ahí no existe la
+  /// noción de "una página más" — se elige un archivo que ya existe, no se
+  /// arma uno nuevo a fuerza de fotos.
+  ///
+  /// Una sola foto se guarda tal cual, como imagen; dos o más se combinan
+  /// en un solo documento PDF al guardar — ver [_fileToSubmit].
+  final List<Uint8List> _scannedPages = [];
+
   /// Si hay algo arrastrado encima de la pantalla ahora mismo, para dibujar
   /// el borde que avisa que soltar acá va a funcionar.
   var _isDraggingFile = false;
@@ -253,6 +270,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     setState(() {
       _kind = null;
       _file = null;
+      _scannedPages.clear();
       _inputController.clear();
     });
   }
@@ -298,8 +316,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       );
   }
 
-  /// Abre la cámara del sistema. El mismo criterio que [_chooseFile]:
-  /// cancelar sin sacar ninguna foto no es un error y no muestra nada.
+  /// Abre la cámara del sistema y suma lo que salga a [_scannedPages]. El
+  /// mismo criterio que [_chooseFile]: cancelar sin sacar ninguna foto no es
+  /// un error y no muestra nada.
+  ///
+  /// Sirve igual para la primera foto que para "agregar otra página": las
+  /// dos acciones son la misma, sacar una foto más y sumarla a la lista, así
+  /// que no hace falta un método aparte para la segunda en adelante.
   Future<void> _takePhoto() async {
     final l10n = AppLocalizations.of(context)!;
 
@@ -307,7 +330,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       final photo = await ref.read(cameraChooserProvider).takePhoto();
       if (photo == null || !mounted) return;
 
-      setState(() => _file = photo);
+      setState(() => _scannedPages.add(photo.bytes));
     } on CameraAccessDeniedException {
       if (!mounted) return;
 
@@ -315,6 +338,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.captureCameraAccessDenied)));
     }
+  }
+
+  void _removeScannedPage(int index) {
+    setState(() => _scannedPages.removeAt(index));
   }
 
   /// Lo que se soltó sobre la pantalla, igual que si se hubiera elegido con
@@ -359,9 +386,40 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
     });
   }
 
+  /// El archivo que se manda a guardar: [_file] tal cual para cualquier paso
+  /// que no sea la cámara, o lo que corresponda armar con [_scannedPages]
+  /// para ese paso —una foto sola se guarda como imagen, dos o más se
+  /// combinan en un solo documento PDF, con [DocumentScanAssembler]—.
+  ///
+  /// Combinar acá y no en cada foto —un PDF nuevo por cada página que se
+  /// suma— evita rehacer ese trabajo una y otra vez mientras se sigue
+  /// escaneando: recién hace falta el resultado final cuando se aprieta
+  /// guardar.
+  Future<CapturedFile?> _fileToSubmit() async {
+    if (_kind != _CaptureKind.camera) return _file;
+    if (_scannedPages.isEmpty) return null;
+
+    final l10n = AppLocalizations.of(context)!;
+    if (_scannedPages.length == 1) {
+      return CapturedFile(
+        name: '${l10n.capturePhotoFileName}.jpg',
+        bytes: _scannedPages.single,
+      );
+    }
+
+    final pdfBytes = await ref
+        .read(documentScanAssemblerProvider)
+        .assemble(_scannedPages);
+    return CapturedFile(
+      name: '${l10n.captureScanFileName}.pdf',
+      bytes: pdfBytes,
+    );
+  }
+
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
-    final file = _file;
+    final file = await _fileToSubmit();
+    if (!mounted) return;
 
     if (file == null && _inputController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
@@ -453,6 +511,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                         titleController: _titleController,
                         noteController: _noteController,
                         file: _file,
+                        scannedPages: _scannedPages,
                         detectedKind: _detectedKind,
                         isSaving: state is CaptureSaving,
                         onChangeKind: _changeKind,
@@ -460,6 +519,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                             ? _takePhoto
                             : _chooseFile,
                         onRemoveFile: () => setState(() => _file = null),
+                        onRemoveScanPage: _removeScannedPage,
                         onSubmit: _submit,
                       ),
               ),
@@ -572,11 +632,13 @@ class _CaptureForm extends StatelessWidget {
     required this.titleController,
     required this.noteController,
     required this.file,
+    required this.scannedPages,
     required this.detectedKind,
     required this.isSaving,
     required this.onChangeKind,
     required this.onChooseFile,
     required this.onRemoveFile,
+    required this.onRemoveScanPage,
     required this.onSubmit,
     super.key,
   });
@@ -586,11 +648,17 @@ class _CaptureForm extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController noteController;
   final CapturedFile? file;
+
+  /// Las fotos escaneadas hasta ahora — ver el comentario de
+  /// `_CaptureScreenState._scannedPages`. Solo se mira cuando [kind] es
+  /// [_CaptureKind.camera].
+  final List<Uint8List> scannedPages;
   final SourceKind? detectedKind;
   final bool isSaving;
   final VoidCallback onChangeKind;
   final Future<void> Function() onChooseFile;
   final VoidCallback onRemoveFile;
+  final ValueChanged<int> onRemoveScanPage;
   final Future<void> Function() onSubmit;
 
   @override
@@ -649,18 +717,25 @@ class _CaptureForm extends StatelessWidget {
             theme: theme,
             l10n: l10n,
           ),
+        ] else if (kind.isCamera) ...[
+          if (scannedPages.isEmpty)
+            OutlinedButton.icon(
+              onPressed: onChooseFile,
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(l10n.captureTakePhotoAction),
+            )
+          else
+            _ScanPagesReview(
+              pages: scannedPages,
+              onAddPage: onChooseFile,
+              onRemovePage: onRemoveScanPage,
+            ),
         ] else if (kind.isFile) ...[
           if (file == null)
             OutlinedButton.icon(
               onPressed: onChooseFile,
-              icon: Icon(
-                kind.isCamera ? Icons.photo_camera_outlined : Icons.attach_file,
-              ),
-              label: Text(
-                kind.isCamera
-                    ? l10n.captureTakePhotoAction
-                    : l10n.captureChooseFileAction,
-              ),
+              icon: const Icon(Icons.attach_file),
+              label: Text(l10n.captureChooseFileAction),
             )
           else
             _ChosenFileCard(file: file!, onRemove: onRemoveFile),
@@ -695,6 +770,146 @@ class _CaptureForm extends StatelessWidget {
     _CaptureKind.webPage => l10n.captureTypeWebPageHint,
     _ => '',
   };
+}
+
+/// La tira de páginas ya escaneadas, con una miniatura por foto —cada una
+/// se puede quitar— y una tarjeta al final para sacar una más.
+///
+/// Aparece igual con una sola página que con varias: no hay un paso
+/// intermedio donde "todavía es solo una foto" se vea distinto de "ya es un
+/// documento de varias" — esa decisión se toma sola, en silencio, recién al
+/// guardar (ver `_CaptureScreenState._fileToSubmit`), así que la interfaz
+/// no tiene por qué anticiparla.
+class _ScanPagesReview extends StatelessWidget {
+  const _ScanPagesReview({
+    required this.pages,
+    required this.onAddPage,
+    required this.onRemovePage,
+  });
+
+  final List<Uint8List> pages;
+  final Future<void> Function() onAddPage;
+  final ValueChanged<int> onRemovePage;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.captureScanPagesCount(pages.length),
+          style: theme.textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 96,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (var i = 0; i < pages.length; i++) ...[
+                _ScanPageThumbnail(
+                  bytes: pages[i],
+                  onRemove: () => onRemovePage(i),
+                ),
+                const SizedBox(width: 8),
+              ],
+              _AddScanPageTile(onTap: onAddPage),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.captureScanHint,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Una página ya escaneada, con su botón para quitarla encima.
+class _ScanPageThumbnail extends StatelessWidget {
+  const _ScanPageThumbnail({required this.bytes, required this.onRemove});
+
+  final Uint8List bytes;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: 72,
+      height: 96,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              bytes,
+              width: 72,
+              height: 96,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: Material(
+              color: theme.colorScheme.surface.withValues(alpha: 0.9),
+              shape: const CircleBorder(),
+              child: IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                tooltip: l10n.captureScanRemovePage,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onPressed: onRemove,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// La tarjeta al final de la tira, para sacar una página más.
+class _AddScanPageTile extends StatelessWidget {
+  const _AddScanPageTile({required this.onTap});
+
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: 72,
+      height: 96,
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Tooltip(
+            message: l10n.captureScanAddPage,
+            child: Icon(
+              Icons.add_a_photo_outlined,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// La línea "se va a guardar como X", común a los pasos que arrancan de

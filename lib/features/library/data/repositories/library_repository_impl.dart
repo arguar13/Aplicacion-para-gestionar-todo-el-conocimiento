@@ -193,6 +193,42 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, Unit>> deleteMany(List<String> ids) async {
+    try {
+      // Las filas se borran todas dentro de la misma transacción —o quedan
+      // todas o no queda ninguna—; los archivos, después y fuera de ella: el
+      // disco no es transaccional, y que uno se resista a borrarse no
+      // debería deshacer el borrado de los demás que sí funcionaron.
+      //
+      // `_originalFilePathOf` se pregunta por cada id ANTES de borrar esa
+      // fila, dentro del mismo recorrido: si dos de los [ids] comparten
+      // fuente —el mismo PDF capturado dos veces—, la pregunta para el
+      // segundo ya ve borrada la fila del primero, así que el archivo se
+      // borra una sola vez, no cero ni dos.
+      final filesToDelete = <(String id, String path)>[];
+      await _db.transaction(() async {
+        for (final id in ids) {
+          final filePath = await _originalFilePathOf(id);
+          if (filePath != null) filesToDelete.add((id, filePath));
+          await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
+        }
+      });
+
+      for (final (id, path) in filesToDelete) {
+        await _deleteFileQuietly(path, id);
+      }
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.deleteMany'),
+      );
+    }
+  }
+
   /// La ruta del archivo original de un elemento, si tenía uno.
   ///
   /// La fuente puede estar compartida por varios elementos —el mismo PDF
@@ -232,6 +268,27 @@ class LibraryRepositoryImpl implements LibraryRepository {
     } catch (e, stackTrace) {
       return left(
         _unexpected(e, stackTrace, 'LibraryRepositoryImpl.assignSpace'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> assignSpaceMany({
+    required List<String> itemIds,
+    required String? spaceId,
+  }) async {
+    try {
+      // Un único `UPDATE ... WHERE id IN (...)`, no [itemIds] llamadas
+      // sueltas a [assignSpace]: la misma columna para todos a la vez.
+      await (_db.update(_db.items)..where((i) => i.id.isIn(itemIds))).write(
+        ItemsCompanion(spaceId: Value(spaceId)),
+      );
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.assignSpaceMany'),
       );
     }
   }

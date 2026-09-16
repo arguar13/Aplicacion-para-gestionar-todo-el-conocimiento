@@ -140,6 +140,44 @@
       }
     }
   },
+  "libraryBulkMoveTooltip": "Move to topic",
+  "@libraryBulkMoveTooltip": {
+    "description": "Botón que mueve los elementos seleccionados a un tema, en el modo de selección múltiple."
+  },
+  "libraryBulkDeleteTooltip": "Delete",
+  "@libraryBulkDeleteTooltip": {
+    "description": "Botón que elimina los elementos seleccionados, en el modo de selección múltiple."
+  },
+  "libraryBulkDeleteConfirm": "{count, plural, =1{Delete this item and everything in it? This can't be undone.} other{Delete these {count} items and everything in them? This can't be undone.}}",
+  "@libraryBulkDeleteConfirm": {
+    "description": "Pregunta de confirmación antes de eliminar varios elementos a la vez.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryBulkDeleted": "{count, plural, =1{Item deleted} other{{count} items deleted}}",
+  "@libraryBulkDeleted": {
+    "description": "Confirmación tras eliminar varios elementos a la vez.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryBulkMoved": "{count, plural, =1{Item moved to {space}} other{{count} items moved to {space}}}",
+  "@libraryBulkMoved": {
+    "description": "Confirmación tras mover varios elementos a la vez a un tema.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "space": {
+        "type": "String"
+      }
+    }
+  },
   "libraryFilterByTag": "By tag",
   "@libraryFilterByTag": {
     "description": "Encabezado de la fila de chips de filtro por etiqueta en la biblioteca."
@@ -303,6 +341,35 @@
   "captureCameraAccessDenied": "Sinapsis doesn't have permission to use the camera. You can grant it in your system settings.",
   "@captureCameraAccessDenied": {
     "description": "Se muestra cuando el sistema niega el acceso a la cámara."
+  },
+  "captureScanHint": "Take one photo per page. They'll be combined into a single document when you save.",
+  "@captureScanHint": {
+    "description": "Texto de ayuda bajo el botón de sacar foto, en el paso \"Cámara\"."
+  },
+  "captureScanAddPage": "Add page",
+  "@captureScanAddPage": {
+    "description": "Botón que saca una foto más, sumándola a las páginas ya escaneadas."
+  },
+  "captureScanRemovePage": "Remove page",
+  "@captureScanRemovePage": {
+    "description": "Tooltip del botón que quita una página ya escaneada, antes de guardar."
+  },
+  "captureScanPagesCount": "{count, plural, =1{1 page} other{{count} pages}}",
+  "@captureScanPagesCount": {
+    "description": "Cuántas páginas se llevan escaneadas, en el paso \"Cámara\".",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "captureScanFileName": "Scanned document",
+  "@captureScanFileName": {
+    "description": "Nombre provisorio del documento armado con varias páginas escaneadas."
+  },
+  "capturePhotoFileName": "Photo",
+  "@capturePhotoFileName": {
+    "description": "Nombre provisorio de una sola foto sacada con la cámara, sin combinar con otras."
   },
   "captureLinkLabel": "Link",
   "@captureLinkLabel": {

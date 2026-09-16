@@ -19,6 +19,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -133,6 +134,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
     final items = ref.watch(libraryItemsProvider(query));
+    // Se mira acá, no adentro de `_moveSelection`, aunque el único lugar que
+    // lo necesita sea ese método: `allSpacesProvider` es `autoDispose`, y en
+    // modo selección `_SearchAndFilters` —su otro mirón— ni siquiera está
+    // montado (la barra pasa a ser `_SelectionAppBar`). Sin este `watch`
+    // acá, entrar al modo de selección lo dejaría sin nadie mirándolo, se
+    // descartaría, y "mover a tema" abriría el selector siempre vacío.
+    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
     if (items.hasValue) {
       _lastLoadedQuery = query;
@@ -149,6 +157,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               selectedCount: _selectedIds.length,
               onCancel: _exitSelectionMode,
               onExport: () => _exportSelection(context, loadedItems),
+              onMove: () => _moveSelection(context, spaces),
+              onDelete: () => _deleteSelection(context),
             )
           : AppBar(
               title: Text(l10n.libraryTitle),
@@ -303,20 +313,108 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       },
     );
   }
+
+  Future<void> _moveSelection(BuildContext context, List<Space> spaces) async {
+    final l10n = AppLocalizations.of(context)!;
+    final count = _selectedIds.length;
+    if (count == 0) return;
+
+    // Sin `selectedSpaceId`: los elementos elegidos pueden estar hoy en
+    // temas distintos —o algunos sin clasificar—, así que no hay una sola
+    // fila que tenga sentido resaltar como "la actual".
+    final chosen = await showSpacePickerSheet(context, spaces: spaces);
+    if (chosen == null || !context.mounted) return;
+
+    final (spaceId,) = chosen;
+    final result = await ref
+        .read(libraryRepositoryProvider)
+        .assignSpaceMany(itemIds: _selectedIds.toList(), spaceId: spaceId);
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      (_) {
+        setState(() {
+          _selectionModeActive = false;
+          _selectedIds.clear();
+        });
+        final spaceName =
+            spaces.where((s) => s.id == spaceId).firstOrNull?.name ??
+            l10n.detailSpaceNone;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.libraryBulkMoved(count, spaceName))),
+          );
+      },
+    );
+  }
+
+  Future<void> _deleteSelection(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final count = _selectedIds.length;
+    if (count == 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(l10n.libraryBulkDeleteConfirm(count)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.detailDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final result = await ref
+        .read(libraryRepositoryProvider)
+        .deleteMany(_selectedIds.toList());
+    if (!context.mounted) return;
+
+    result.match(
+      (failure) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+      (_) {
+        setState(() {
+          _selectionModeActive = false;
+          _selectedIds.clear();
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.libraryBulkDeleted(count))),
+          );
+      },
+    );
+  }
 }
 
 /// La barra superior mientras se seleccionan elementos: cuenta cuántos hay,
-/// deja cancelar y ofrece la única acción que tiene sentido en este modo.
+/// deja cancelar y ofrece las acciones que tienen sentido en este modo.
 class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _SelectionAppBar({
     required this.selectedCount,
     required this.onCancel,
     required this.onExport,
+    required this.onMove,
+    required this.onDelete,
   });
 
   final int selectedCount;
   final VoidCallback onCancel;
   final VoidCallback onExport;
+  final VoidCallback onMove;
+  final VoidCallback onDelete;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -324,6 +422,10 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Deshabilitadas en cero: pedirle al caso de uso una lista vacía solo
+    // volvería con el mismo fallo de validación, sin que el usuario haya
+    // podido hacer nada distinto para evitarlo.
+    final hasSelection = selectedCount > 0;
 
     return AppBar(
       leading: IconButton(
@@ -334,12 +436,19 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text(l10n.librarySelectedCount(selectedCount)),
       actions: [
         IconButton(
+          icon: const Icon(Icons.drive_file_move_outline),
+          tooltip: l10n.libraryBulkMoveTooltip,
+          onPressed: hasSelection ? onMove : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: l10n.libraryBulkDeleteTooltip,
+          onPressed: hasSelection ? onDelete : null,
+        ),
+        IconButton(
           icon: const Icon(Icons.upload_file_outlined),
           tooltip: l10n.libraryExportSelectedTooltip,
-          // Deshabilitado en cero: pedirle al caso de uso una lista vacía
-          // solo volvería con el mismo fallo de validación, sin que el
-          // usuario haya podido hacer nada distinto para evitarlo.
-          onPressed: selectedCount == 0 ? null : onExport,
+          onPressed: hasSelection ? onExport : null,
         ),
       ],
     );
