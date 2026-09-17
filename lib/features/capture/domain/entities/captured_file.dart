@@ -13,9 +13,10 @@ import 'package:sinapsis/core/storage/file_format.dart';
 ///
 /// Tiene un costo: un archivo de mil megas ocuparía mil megas de memoria. Por
 /// eso la captura rechaza lo que pase de [maxBytes] con un mensaje claro, en
-/// vez de que la app muera sin explicación. Cuando lleguen el audio y el
-/// video largos —fase 7— van a necesitar una variante que copie por partes
-/// sin pasar por memoria.
+/// vez de que la app muera sin explicación. Una variante que copie por
+/// partes sin pasar por memoria —para audio y video de horas de verdad, sin
+/// ningún tope— sigue siendo trabajo pendiente: subir [maxBytes] ayuda hasta
+/// donde ayuda cargar todo de una vez, no lo reemplaza.
 class CapturedFile {
   const CapturedFile({required this.name, required this.bytes});
 
@@ -31,12 +32,15 @@ class CapturedFile {
 
   int get sizeInBytes => bytes.length;
 
-  /// Lo más grande que se acepta: 200 MB.
+  /// Lo más grande que se acepta: 500 MB.
   ///
-  /// Cubre de sobra cualquier documento —un PDF escaneado de mil páginas
-  /// ronda los 100 MB— y deja afuera lo que no entra en la memoria de un
-  /// teléfono modesto.
-  static const maxBytes = 200 * 1024 * 1024;
+  /// Cubre un documento escaneado de miles de páginas —mil páginas rondan
+  /// los 100 MB— y varias horas de audio a un bitrate normal; un video
+  /// largo de verdad, comprimido, puede seguir sin entrar. Subirlo más allá
+  /// de esto empieza a arriesgar la memoria de un teléfono modesto, porque
+  /// el archivo entero se carga de una sola vez —ver el comentario de la
+  /// clase—, no en partes.
+  static const maxBytes = 500 * 1024 * 1024;
 
   bool get isTooLarge => sizeInBytes > maxBytes;
 }

@@ -75,16 +75,16 @@ class HtmlPageArchiver implements PageArchiver {
     required Uri baseUri,
     required _Budget budget,
   }) async {
-    for (final img in document.querySelectorAll('img')) {
+    await _forEachConcurrently(document.querySelectorAll('img'), (img) async {
       final src = img.attributes['src'];
-      if (src == null || src.isEmpty) continue;
+      if (src == null || src.isEmpty) return;
 
       final resolved = _resolve(baseUri, src);
-      if (resolved == null) continue;
+      if (resolved == null) return;
 
       final dataUri = await _fetchAsDataUri(resolved, budget: budget);
       if (dataUri != null) img.attributes['src'] = dataUri;
-    }
+    });
   }
 
   Future<void> _embedLinkedStylesheets(
@@ -92,29 +92,32 @@ class HtmlPageArchiver implements PageArchiver {
     required Uri baseUri,
     required _Budget budget,
   }) async {
-    for (final link in document.querySelectorAll('link[rel="stylesheet"]')) {
-      final href = link.attributes['href'];
-      if (href == null || href.isEmpty) continue;
+    await _forEachConcurrently(
+      document.querySelectorAll('link[rel="stylesheet"]'),
+      (link) async {
+        final href = link.attributes['href'];
+        if (href == null || href.isEmpty) return;
 
-      final resolved = _resolve(baseUri, href);
-      if (resolved == null) continue;
+        final resolved = _resolve(baseUri, href);
+        if (resolved == null) return;
 
-      final bytes = await _fetcher.fetchBytes(resolved);
-      if (bytes == null || !budget.spend(bytes.length)) continue;
+        final bytes = await _fetcher.fetchBytes(resolved);
+        if (bytes == null || !budget.spend(bytes.length)) return;
 
-      // Las referencias relativas de la hoja se resuelven contra la propia
-      // hoja, no contra la página: un `url(../fuentes/icono.woff)` en
-      // `/css/tema.css` apunta a `/fuentes/icono.woff`, no a donde esté la
-      // página que la enlazó.
-      final css = utf8.decode(bytes, allowMalformed: true);
-      final rewritten = await _rewriteCssUrls(
-        css,
-        baseUri: resolved,
-        budget: budget,
-      );
+        // Las referencias relativas de la hoja se resuelven contra la
+        // propia hoja, no contra la página: un `url(../fuentes/icono.woff)`
+        // en `/css/tema.css` apunta a `/fuentes/icono.woff`, no a donde
+        // esté la página que la enlazó.
+        final css = utf8.decode(bytes, allowMalformed: true);
+        final rewritten = await _rewriteCssUrls(
+          css,
+          baseUri: resolved,
+          budget: budget,
+        );
 
-      link.replaceWith(Element.tag('style')..text = rewritten);
-    }
+        link.replaceWith(Element.tag('style')..text = rewritten);
+      },
+    );
   }
 
   Future<void> _embedInlineStyles(
@@ -122,42 +125,48 @@ class HtmlPageArchiver implements PageArchiver {
     required Uri baseUri,
     required _Budget budget,
   }) async {
-    for (final style in document.querySelectorAll('style')) {
+    await _forEachConcurrently(document.querySelectorAll('style'), (
+      style,
+    ) async {
       style.text = await _rewriteCssUrls(
         style.text,
         baseUri: baseUri,
         budget: budget,
       );
-    }
+    });
   }
 
   /// Reemplaza cada `url(...)` de [css] por el dato incrustado que se pueda.
   ///
-  /// Primero se resuelven todas las referencias, de a una, y recién después
-  /// se reescribe el texto en un solo paso. Reemplazar sobre índices que van
-  /// cambiando de longitud a medida que se recorre el texto es la forma
-  /// clásica de terminar escribiendo en el lugar equivocado — y además hace
-  /// falta: `String.replaceAllMapped` no acepta una función asíncrona, así
-  /// que no hay manera de resolver y reemplazar en el mismo paso.
+  /// Primero se resuelven todas las referencias —cada una que no sea
+  /// repetida, a la vez que las demás— y recién después se reescribe el
+  /// texto en un solo paso. Reemplazar sobre índices que van cambiando de
+  /// longitud a medida que se recorre el texto es la forma clásica de
+  /// terminar escribiendo en el lugar equivocado — y además hace falta:
+  /// `String.replaceAllMapped` no acepta una función asíncrona, así que no
+  /// hay manera de resolver y reemplazar en el mismo paso.
   Future<String> _rewriteCssUrls(
     String css, {
     required Uri baseUri,
     required _Budget budget,
   }) async {
+    // Un `Set`, no una lista: una hoja de estilo repite la misma URL de
+    // ícono o de fuente muchas veces, y traerla una sola vez por referencia
+    // distinta —no por aparición— es lo que evita pedirla de más.
+    final rawUrls = _cssUrlPattern
+        .allMatches(css)
+        .map((match) => match.group(2)!.trim())
+        .where((url) => !url.startsWith('data:'))
+        .toSet();
+
     final replacements = <String, String>{};
-
-    for (final match in _cssUrlPattern.allMatches(css)) {
-      final rawUrl = match.group(2)!.trim();
-      if (rawUrl.startsWith('data:') || replacements.containsKey(rawUrl)) {
-        continue;
-      }
-
+    await _forEachConcurrently(rawUrls, (rawUrl) async {
       final resolved = _resolve(baseUri, rawUrl);
-      if (resolved == null) continue;
+      if (resolved == null) return;
 
       final dataUri = await _fetchAsDataUri(resolved, budget: budget);
       if (dataUri != null) replacements[rawUrl] = dataUri;
-    }
+    });
 
     if (replacements.isEmpty) return css;
 
@@ -192,6 +201,42 @@ class HtmlPageArchiver implements PageArchiver {
       return null;
     }
   }
+}
+
+/// Cuántas descargas de recursos —imágenes, hojas de estilo, fuentes
+/// dentro de un `url(...)` de CSS— corren al mismo tiempo, como mucho.
+///
+/// Sin este tope, archivar una página con muchas imágenes las pedía de a
+/// una: con una docena de recursos y un rato de ida y vuelta por cada uno,
+/// eso solo alcanzaba para sumar segundos —a veces minutos— al momento en
+/// que el elemento pasaba a "listo". Un número muy alto tampoco ayuda: la
+/// mayoría de los servidores (y el propio cliente HTTP) empiezan a
+/// encolar o a cortar conexiones mucho antes de las decenas.
+const _archiveConcurrency = 6;
+
+/// Corre [action] sobre cada elemento de [items], sin más de
+/// [_archiveConcurrency] llamadas en vuelo al mismo tiempo.
+///
+/// Un puñado de "trabajadores" comparten el mismo iterador: en cuanto uno
+/// termina su recurso, toma el siguiente que quede, en vez de que cada
+/// recurso espere a que termine el anterior. `moveNext()`/`current` son
+/// síncronos, así que dos trabajadores nunca pueden tomar el mismo
+/// elemento a la vez, aunque corran "a la vez" en el sentido de Dart —un
+/// único hilo que va turnándose entre `Future`s en cada `await`—.
+Future<void> _forEachConcurrently<T>(
+  Iterable<T> items,
+  Future<void> Function(T item) action, {
+  int concurrency = _archiveConcurrency,
+}) async {
+  final iterator = items.iterator;
+
+  Future<void> worker() async {
+    while (iterator.moveNext()) {
+      await action(iterator.current);
+    }
+  }
+
+  await Future.wait(List.generate(concurrency, (_) => worker()));
 }
 
 /// Cuánto queda del tope total.

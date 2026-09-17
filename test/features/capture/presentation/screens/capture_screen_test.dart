@@ -691,7 +691,7 @@ void main() {
 
       // `length:` simula el tamaño que ya informa el sistema al arrastrar
       // —el mismo que consulta `XFile.length()` sin abrir el archivo—,
-      // sin tener que reservar de verdad los 200 MB del límite en la
+      // sin tener que reservar de verdad los megas del límite en la
       // prueba.
       await dropFiles(tester, [
         fakeDroppedFile('enorme.pdf', length: CapturedFile.maxBytes + 1),

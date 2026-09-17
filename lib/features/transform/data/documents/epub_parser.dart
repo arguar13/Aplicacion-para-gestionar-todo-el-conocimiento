@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -32,8 +33,15 @@ class EpubParser implements DocumentParser {
   @override
   bool canParse(FileFormat format) => format == FileFormat.epub;
 
+  // Ver el mismo cambio y el mismo motivo en `DocxParser.parse`: nada acá
+  // adentro espera una E/S de verdad, así que un libro de miles de páginas
+  // se procesa en otro isolate en vez de congelar la interfaz mientras
+  // dura.
   @override
-  Future<ParsedDocument> parse(Uint8List bytes) async {
+  Future<ParsedDocument> parse(Uint8List bytes) =>
+      Isolate.run(() => _parse(bytes));
+
+  ParsedDocument _parse(Uint8List bytes) {
     final archive = _decode(bytes);
 
     final opfPath = _findOpfPath(archive);

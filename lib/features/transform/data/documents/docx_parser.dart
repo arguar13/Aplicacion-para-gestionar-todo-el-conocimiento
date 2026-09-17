@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -23,8 +24,20 @@ class DocxParser implements DocumentParser {
   @override
   bool canParse(FileFormat format) => format == FileFormat.docx;
 
+  // `Isolate.run` y no un método `async` con trabajo síncrono adentro: nada
+  // de lo que hace `_parse` —descomprimir el ZIP, recorrer el XML, armar el
+  // Markdown— espera nunca una E/S de verdad, así que sin esto un documento
+  // de cientos de páginas congela la interfaz entera durante todo ese
+  // tiempo, por más que la firma diga `Future`. Es seguro moverlo a otro
+  // isolate porque `DocxParser` no tiene estado propio —es un `const` sin
+  // campos— y todo lo que entra y sale (`Uint8List`, `ParsedDocument`, la
+  // excepción de documento ilegible) son datos simples, transferibles entre
+  // isolates sin depender de ningún canal de plataforma.
   @override
-  Future<ParsedDocument> parse(Uint8List bytes) async {
+  Future<ParsedDocument> parse(Uint8List bytes) =>
+      Isolate.run(() => _parse(bytes));
+
+  ParsedDocument _parse(Uint8List bytes) {
     final archive = _decode(bytes);
 
     final documentXml = _textEntry(archive, 'word/document.xml');

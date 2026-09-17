@@ -23,12 +23,18 @@ class YoutubeExplodeClient implements YouTubeClient {
     final yt = yt_api.YoutubeExplode();
 
     try {
-      final video = await yt.videos.get(videoId);
-      final transcript = await _fetchTranscript(
+      // Las dos llamadas son independientes —una trae metadata del video,
+      // la otra la pista de subtítulos— así que arrancan las dos antes de
+      // esperar cualquiera de las dos: esperarlas una detrás de la otra
+      // sumaría su tiempo en vez de superponerlo.
+      final videoFuture = yt.videos.get(videoId);
+      final transcriptFuture = _fetchTranscript(
         yt,
         videoId,
         preferredLanguages,
       );
+      final video = await videoFuture;
+      final transcript = await transcriptFuture;
 
       return YouTubeVideoData(
         title: video.title,
