@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +20,7 @@ void main() {
       expect(computeGraphLayout(nodeIds: const [], edges: const []), isEmpty);
     });
 
-    test('cada nodo termina con una posición dentro del lienzo', () {
+    test('cada nodo termina en una posición finita, sin números raros', () {
       final positions = computeGraphLayout(
         nodeIds: ['a', 'b', 'c', 'd', 'e'],
         edges: const [('a', 'b'), ('b', 'c')],
@@ -28,9 +29,33 @@ void main() {
 
       expect(positions.keys, unorderedEquals(['a', 'b', 'c', 'd', 'e']));
       for (final position in positions.values) {
-        expect(position.dx, inInclusiveRange(0, 500));
-        expect(position.dy, inInclusiveRange(0, 500));
+        expect(position.dx.isFinite, isTrue);
+        expect(position.dy.isFinite, isTrue);
       }
+    });
+
+    test('sin ningún vínculo que los atraiga de vuelta, muchos nodos se '
+        'separan más que el lienzo de partida: ya no quedan atrapados en un '
+        'rectángulo fijo', () {
+      // Sin aristas, la repulsión entre nodos sueltos no tiene nada que
+      // la contrarreste: antes, el clamp duro los frenaba en el borde de
+      // `canvasSize`; ahora se separan lo que la física del layout pide.
+      final nodeIds = [for (var i = 0; i < 12; i++) 'n$i'];
+      final positions = computeGraphLayout(
+        nodeIds: nodeIds,
+        edges: const [],
+        canvasSize: const Size(300, 300),
+      );
+
+      const center = Offset(150, 150);
+      final maxDistance = positions.values
+          .map((p) => (p - center).distance)
+          .reduce(math.max);
+
+      // La mitad de la diagonal de un lienzo de 300x300 es ~212: que
+      // algún nodo termine más lejos que eso del centro demuestra que el
+      // layout puede crecer más allá del rectángulo de partida.
+      expect(maxDistance, greaterThan(212));
     });
 
     test('dos nodos vinculados terminan más cerca que dos que no lo están', () {

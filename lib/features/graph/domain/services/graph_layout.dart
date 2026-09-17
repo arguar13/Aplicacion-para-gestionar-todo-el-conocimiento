@@ -13,27 +13,28 @@ import 'dart:ui';
 /// mismas aristas producen exactamente el mismo resultado. Un layout con
 /// azar de verdad haría que el grafo "saltara" cada vez que se abre la
 /// pantalla, que es peor que una disposición imperfecta pero estable.
+///
+/// [canvasSize] no es un límite: las posiciones finales pueden terminar
+/// afuera de ese rectángulo sin que nada las recorte —quien llama a esta
+/// función ya no clampa nada—. Solo sirve para dos cosas al arrancar: dónde
+/// pone el círculo inicial de nodos y qué tan separados "deberían" quedar en
+/// promedio (la constante `k`, más abajo). Antes sí clampaba cada posición a
+/// ese rectángulo en cada iteración; eso hacía que un grafo con muchos nodos
+/// —o con componentes sueltos que se repelen sin nada que los atraiga de
+/// vuelta— chocara contra un borde artificial en vez de separarse lo que la
+/// física del layout pedía. `GraphScreen` es quien decide, con `Clip.none` y
+/// un `boundaryMargin` sin tope, que ese resultado —por más grande que
+/// termine siendo— siempre se vea entero.
 Map<String, Offset> computeGraphLayout({
   required List<String> nodeIds,
   required List<(String from, String to)> edges,
   Size canvasSize = const Size(900, 900),
   int iterations = 300,
-  // Cuánto se aleja cada nodo del borde del lienzo: no es un margen
-  // estético, es la mitad del ancho de la etiqueta que dibuja `GraphScreen`
-  // bajo cada nodo. Sin este margen, un nodo cuyo centro cae en (0, y) o
-  // cerca del borde queda dibujado a medias —o entero— fuera del `Stack`
-  // que lo contiene, y `Stack` recorta lo que se sale de su tamaño.
-  double edgeMargin = 70,
 }) {
   if (nodeIds.isEmpty) return {};
   if (nodeIds.length == 1) {
     return {nodeIds.single: canvasSize.center(Offset.zero)};
   }
-
-  final minX = math.min(edgeMargin, canvasSize.width / 2);
-  final maxX = math.max(canvasSize.width - edgeMargin, canvasSize.width / 2);
-  final minY = math.min(edgeMargin, canvasSize.height / 2);
-  final maxY = math.max(canvasSize.height - edgeMargin, canvasSize.height / 2);
 
   final area = canvasSize.width * canvasSize.height;
   // La distancia "ideal" entre dos nodos si se repartiera el área del
@@ -96,11 +97,7 @@ Map<String, Offset> computeGraphLayout({
       final distance = math.max(disp.distance, 0.01);
       final capped = disp / distance * math.min(distance, temperature);
 
-      final next = positions[id]! + capped;
-      positions[id] = Offset(
-        next.dx.clamp(minX, maxX),
-        next.dy.clamp(minY, maxY),
-      );
+      positions[id] = positions[id]! + capped;
     }
 
     temperature *= 0.97;

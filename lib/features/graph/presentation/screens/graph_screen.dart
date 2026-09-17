@@ -189,7 +189,6 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     required List<String> nodeIds,
     required List<RelationEdge> edges,
     required Size canvasSize,
-    required double edgeMargin,
   }) {
     final nodeSet = nodeIds.toSet();
     final edgeIdSet = edges.map((e) => e.id).toSet();
@@ -211,7 +210,6 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
       nodeIds: nodeIds,
       edges: [for (final edge in edges) (edge.fromItemId, edge.toItemId)],
       canvasSize: canvasSize,
-      edgeMargin: edgeMargin,
     );
     _lastNodeIds = nodeSet;
     _lastEdgeIds = edgeIdSet;
@@ -389,21 +387,20 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     final itemsById = {for (final item in widget.items) item.id: item};
     final nodeIds = scope.nodeIds.where(itemsById.containsKey).toList();
 
+    // Ya no es un límite —ver el comentario de `computeGraphLayout`—, solo
+    // la escala de partida del cálculo de fuerzas: crece con la cantidad de
+    // nodos para que la separación inicial entre ellos tenga sentido, pero
+    // el resultado final puede terminar siendo más grande que esto sin que
+    // nada lo recorte. `SizedBox`, `CustomPaint` e `InteractiveViewer`, más
+    // abajo, usan este mismo tamaño como lienzo lógico, pero con
+    // `Clip.none` y un `boundaryMargin` sin tope nada de lo que se dibuje
+    // fuera de ese rectángulo queda cortado ni fuera de alcance del paneo.
     final canvasSize = Size(
       math.max(900, nodeIds.length * 230.0),
       math.max(900, nodeIds.length * 230.0),
     );
-    // El nodo se dibuja centrado en su posición: el margen tiene que cubrir
-    // lo que la tarjeta sobresale del centro en cada dirección para que
-    // ninguna quede a medias fuera del lienzo.
-    final edgeMargin = _kNodeMargin;
 
-    _ensureLayout(
-      nodeIds: nodeIds,
-      edges: scope.edges,
-      canvasSize: canvasSize,
-      edgeMargin: edgeMargin,
-    );
+    _ensureLayout(nodeIds: nodeIds, edges: scope.edges, canvasSize: canvasSize);
 
     final positions = {
       for (final id in nodeIds)
@@ -447,7 +444,12 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
       child: InteractiveViewer(
         transformationController: _transformController,
         constrained: false,
-        boundaryMargin: const EdgeInsets.all(200),
+        // Sin tope: con un margen fijo, un grafo que ya llenó el
+        // rectángulo de partida —o un nodo arrastrado bien afuera de
+        // él— se queda sin adónde desplazarse para seguir viéndolo. Un
+        // lienzo "sin límites" de verdad necesita que el paneo tampoco
+        // los tenga.
+        boundaryMargin: const EdgeInsets.all(double.infinity),
         minScale: 0.1,
         maxScale: 3,
         // Se apaga mientras se arrastra un nodo a mano — ver
@@ -458,6 +460,12 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
           width: canvasSize.width,
           height: canvasSize.height,
           child: Stack(
+            // Sin recorte: `canvasSize` es solo la escala de partida del
+            // layout —ver más arriba—, no un marco real. Un grafo con
+            // muchos nodos, o un nodo arrastrado a mano bien afuera de ese
+            // rectángulo, se sigue viendo entero en vez de cortarse en el
+            // borde.
+            clipBehavior: Clip.none,
             children: [
               CustomPaint(
                 size: canvasSize,
