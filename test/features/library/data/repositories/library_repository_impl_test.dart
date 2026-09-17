@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -475,6 +476,20 @@ void main() {
 
   group('filtrar', () {
     Future<void> seed() async {
+      // La categoría tiene que existir antes: `_syncProperties` solo
+      // sincroniza valores y su relación con el elemento, no crea la
+      // categoría — eso es trabajo de `OrganizeRepository`, ver la
+      // decisión 31 en docs/arquitectura.md.
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-region',
+              name: 'Región',
+              createdAt: now,
+            ),
+          );
+
       final yt = buildItem(
         title: 'Charla sobre paradigmas',
         sourceKind: SourceKind.youtube,
@@ -506,6 +521,22 @@ void main() {
           tags: [
             Tag(id: 'tag-filo', name: 'filosofía', createdAt: now),
             Tag(id: 'tag-bio', name: 'biología', createdAt: now),
+          ],
+          properties: [
+            ItemProperty(
+              definitionId: 'def-region',
+              definitionName: 'Región',
+              valueId: 'val-roma',
+              value: 'Roma',
+              createdAt: now,
+            ),
+            ItemProperty(
+              definitionId: 'def-region',
+              definitionName: 'Región',
+              valueId: 'val-egipto',
+              value: 'Egipto',
+              createdAt: now,
+            ),
           ],
         ),
       );
@@ -570,6 +601,29 @@ void main() {
 
       final titles = await titlesOf(
         const LibraryQuery(tagIds: {'tag-filo', 'tag-bio'}),
+      );
+
+      expect(titles.where((t) => t == 'Un PDF pendiente'), hasLength(1));
+    });
+
+    test('por valor de propiedad', () async {
+      await seed();
+
+      final titles = await titlesOf(
+        const LibraryQuery(propertyValueIds: {'val-roma'}),
+      );
+
+      expect(titles, ['Un PDF pendiente']);
+    });
+
+    test('un elemento con VARIOS de los valores buscados '
+        'aparece una sola vez', () async {
+      // Mismo motivo que con las etiquetas: sin subconsulta, el PDF —que
+      // tiene Roma y Egipto— saldría dos veces.
+      await seed();
+
+      final titles = await titlesOf(
+        const LibraryQuery(propertyValueIds: {'val-roma', 'val-egipto'}),
       );
 
       expect(titles.where((t) => t == 'Un PDF pendiente'), hasLength(1));

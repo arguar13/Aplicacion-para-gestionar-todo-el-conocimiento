@@ -558,6 +558,21 @@ class LibraryRepositoryImpl implements LibraryRepository {
         ),
       );
     }
+    if (query.propertyValueIds.isNotEmpty) {
+      // Mismo criterio que [query.tagIds]: subconsulta, no join, por la
+      // misma razón de duplicados.
+      select.where(
+        _db.items.id.isInQuery(
+          _db.selectOnly(_db.itemPropertyValues)
+            ..addColumns([_db.itemPropertyValues.itemId])
+            ..where(
+              _db.itemPropertyValues.propertyValueId.isIn(
+                query.propertyValueIds,
+              ),
+            ),
+        ),
+      );
+    }
 
     // Con orden por relevancia, el criterio ya lo puso FTS5 y no hay ORDER BY
     // que lo reproduzca: se ordena en Dart según la posición que traía cada

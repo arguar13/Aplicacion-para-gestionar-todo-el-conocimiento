@@ -52,6 +52,11 @@ sealed class LibraryQuery with _$LibraryQuery {
     @Default(<SourceKind>{}) Set<SourceKind> sourceKinds,
     @Default(<String>{}) Set<String> tagIds,
 
+    /// Igual que [tagIds]: cualquiera de estos valores de propiedad basta,
+    /// sin importar de qué categoría sea cada uno. Filtrar por categoría
+    /// completa no hace falta —elegir sus valores ya lo implica.
+    @Default(<String>{}) Set<String> propertyValueIds,
+
     /// A qué espacio limitar la vista. `null` es "todos" — a diferencia de
     /// las etiquetas, que se combinan, acá tiene sentido mirar un espacio a
     /// la vez, como una carpeta.
