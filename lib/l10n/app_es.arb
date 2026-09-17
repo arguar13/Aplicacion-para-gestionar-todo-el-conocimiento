@@ -332,6 +332,35 @@
       }
     }
   },
+  "detailPropertiesTitle": "Propiedades",
+  "@detailPropertiesTitle": {
+    "description": "Encabezado de la sección de propiedades tipadas en el detalle."
+  },
+  "detailAddProperty": "Agregar propiedad",
+  "@detailAddProperty": {
+    "description": "Tooltip/label del botón que abre el diálogo para agregar una propiedad, y título de ese diálogo."
+  },
+  "detailPropertyCategoryHint": "Categoría (Época, Región, Tema...)",
+  "@detailPropertyCategoryHint": {
+    "description": "Texto de ayuda del campo de categoría en el diálogo de agregar propiedad."
+  },
+  "detailPropertyValueHint": "Valor",
+  "@detailPropertyValueHint": {
+    "description": "Texto de ayuda del campo de valor en el diálogo de agregar propiedad."
+  },
+  "detailRemoveProperty": "Quitar \"{value}\"",
+  "@detailRemoveProperty": {
+    "description": "Tooltip del botón que quita un valor de propiedad de un elemento.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "detailNoPropertiesYet": "Todavía no hay ninguna propiedad puesta.",
+  "@detailNoPropertiesYet": {
+    "description": "Mensaje cuando un elemento no tiene ninguna propiedad tipada asignada."
+  },
   "@detailOriginalFile": {
     "description": "Fila de procedencia que muestra el nombre del archivo original guardado.",
     "placeholders": {

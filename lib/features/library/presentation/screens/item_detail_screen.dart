@@ -31,6 +31,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
@@ -216,6 +217,8 @@ class _DetailBody extends StatelessWidget {
                 SpacePicker(item: item),
                 const SizedBox(height: 24),
                 TagEditor(item: item),
+                const SizedBox(height: 24),
+                PropertyEditor(item: item),
                 const SizedBox(height: 24),
 
                 if (item.notes?.isNotEmpty ?? false) ...[

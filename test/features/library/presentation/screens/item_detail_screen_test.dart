@@ -603,6 +603,230 @@ void main() {
     });
   });
 
+  group('propiedades', () {
+    testWidgets('un elemento recién guardado no tiene ninguna', (tester) async {
+      final id = await captureAndGetId('una nota cualquiera');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.detailNoPropertiesYet), findsOneWidget);
+    });
+
+    testWidgets('agregar una categoría nueva con su valor la deja guardada', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('una nota sobre historia romana');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddProperty));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+        'Región',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyValueHint),
+        'Roma',
+      );
+      await tester.tap(find.text(es.detailAddProperty).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Región'), findsOneWidget);
+      expect(find.text('Roma'), findsOneWidget);
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      expect(item.properties, hasLength(1));
+      expect(item.properties.single.definitionName, 'Región');
+      expect(item.properties.single.value, 'Roma');
+    });
+
+    testWidgets('cancelar el diálogo no agrega nada', (tester) async {
+      final id = await captureAndGetId('una nota');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddProperty));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+        'Región',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyValueHint),
+        'Roma',
+      );
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Roma'), findsNothing);
+    });
+
+    testWidgets('con el valor en blanco, confirmar no cierra el diálogo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('una nota');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailAddProperty));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+        'Región',
+      );
+      await tester.tap(find.text(es.detailAddProperty).last);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+    });
+
+    testWidgets(
+      'escribir el nombre de una categoría que ya existe en otro elemento '
+      'la reutiliza, en vez de crear otra',
+      (tester) async {
+        final existing = await captureAndGetId('el primer elemento');
+        final existingItem =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(existing))
+                .getRight()
+                .toNullable()!;
+        final definition =
+            (await harness.container
+                    .read(organizeRepositoryProvider)
+                    .getOrCreatePropertyDefinition('Región'))
+                .getRight()
+                .toNullable()!;
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .assignProperty(
+              itemId: existingItem.id,
+              definitionId: definition.id,
+              value: 'Roma',
+            );
+
+        final id = await captureAndGetId('un segundo elemento');
+        await pumpDetail(tester, id);
+        await tester.tap(find.text(es.detailAddProperty));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+          'región',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyValueHint),
+          'Egipto',
+        );
+        await tester.tap(find.text(es.detailAddProperty).last);
+        await tester.pumpAndSettle();
+
+        // Una sola categoría "Región" en toda la base, con los dos valores
+        // que le pusieron los dos elementos.
+        final allDefinitions = await harness.database
+            .select(harness.database.propertyDefinitions)
+            .get();
+        expect(allDefinitions, hasLength(1));
+      },
+    );
+
+    testWidgets(
+      'un elemento puede tener dos valores bajo la misma categoría a la vez',
+      (tester) async {
+        final id = await captureAndGetId('un video sobre dos regiones');
+        await pumpDetail(tester, id);
+
+        await tester.tap(find.text(es.detailAddProperty));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+          'Región',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyValueHint),
+          'Roma',
+        );
+        await tester.tap(find.text(es.detailAddProperty).last);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(es.detailAddProperty));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+          'Región',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyValueHint),
+          'Egipto',
+        );
+        await tester.tap(find.text(es.detailAddProperty).last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Roma'), findsOneWidget);
+        expect(find.text('Egipto'), findsOneWidget);
+        final item =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(id))
+                .getRight()
+                .toNullable()!;
+        expect(item.properties.map((p) => p.value), {'Roma', 'Egipto'});
+      },
+    );
+
+    testWidgets('quitar un valor lo saca de la lista, sin afectar a otro '
+        'elemento que lo tenga puesto', (tester) async {
+      final definition =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .getOrCreatePropertyDefinition('Región'))
+              .getRight()
+              .toNullable()!;
+
+      final idA = await captureAndGetId('un elemento');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .assignProperty(
+            itemId: idA,
+            definitionId: definition.id,
+            value: 'Roma',
+          );
+      final idB = await captureAndGetId('otro elemento');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .assignProperty(
+            itemId: idB,
+            definitionId: definition.id,
+            value: 'Roma',
+          );
+
+      await pumpDetail(tester, idA);
+      expect(find.text('Roma'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.detailRemoveProperty('Roma')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Roma'), findsNothing);
+      final reloadedA =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById(idA))
+              .getRight()
+              .toNullable()!;
+      final reloadedB =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById(idB))
+              .getRight()
+              .toNullable()!;
+      expect(reloadedA.properties, isEmpty);
+      expect(reloadedB.properties, hasLength(1));
+    });
+  });
+
   group('relaciones', () {
     testWidgets('sin nada vinculado, no muestra ninguna fila', (tester) async {
       final id = await captureAndGetId('un elemento cualquiera');

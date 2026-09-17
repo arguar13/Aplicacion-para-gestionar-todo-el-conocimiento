@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -55,3 +57,20 @@ final allSpacesProvider = StreamProvider.autoDispose<List<Space>>((ref) {
 final allRelationEdgesProvider = StreamProvider.autoDispose<List<RelationEdge>>(
   (ref) => ref.watch(organizeRepositoryProvider).watchAllRelations(),
 );
+
+/// Todas las categorías de propiedad que existen, actualizándose solas.
+final allPropertyDefinitionsProvider =
+    StreamProvider.autoDispose<List<PropertyDefinition>>((ref) {
+      return ref
+          .watch(organizeRepositoryProvider)
+          .watchAllPropertyDefinitions();
+    });
+
+/// Los valores que ya existen bajo una categoría, actualizándose solos —
+/// para sugerir mientras se escribe uno nuevo.
+final propertyValuesProvider = StreamProvider.autoDispose
+    .family<List<PropertyValue>, String>((ref, definitionId) {
+      return ref
+          .watch(organizeRepositoryProvider)
+          .watchPropertyValues(definitionId);
+    });
