@@ -20,8 +20,16 @@ void main() {
 
   final now = DateTime(2026, 9, 11, 10);
 
+  // Un contador y no `DateTime.now().microsecondsSinceEpoch`: en Windows la
+  // resolución real del reloj del sistema es más gruesa que un microsegundo,
+  // así que dos inserciones seguidas dentro del mismo test podían recibir el
+  // mismo id y romper con una violación de UNIQUE que nada tiene que ver con
+  // lo que el test intenta verificar.
+  var counter = 0;
+
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
+    counter = 0;
   });
 
   tearDown(() => db.close());
@@ -30,7 +38,7 @@ void main() {
     SourceKind kind = SourceKind.webPage,
     String? url = 'https://ejemplo.org/articulo',
   }) async {
-    final id = 'src-${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'src-${counter++}';
     await db
         .into(db.sources)
         .insert(
@@ -49,7 +57,7 @@ void main() {
     String title = 'Un artículo cualquiera',
     String? subtitle,
   }) async {
-    final id = 'item-${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'item-${counter++}';
     await db
         .into(db.items)
         .insert(
@@ -70,7 +78,7 @@ void main() {
     required String itemId,
     required String content,
   }) async {
-    final id = 'rend-${DateTime.now().microsecondsSinceEpoch}';
+    final id = 'rend-${counter++}';
     await db
         .into(db.renditions)
         .insert(
