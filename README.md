@@ -183,7 +183,7 @@ La base está construida y verificada. El producto, no todavía.
   propio dispositivo —Google ML Kit en Android, Tesseract en WebAssembly en
   la web—. Una nota de voz, un podcast o un video: transcriptos con Whisper,
   también corriendo enteramente en el dispositivo en las dos plataformas,
-  sin mandar el audio a ningún lado. El modelo pesa unos 160 MB y no viene
+  sin mandar el audio a ningún lado. El modelo pesa unos 375 MB y no viene
   con la app —se descarga aparte, una sola vez, con tu permiso explícito y
   mostrando el progreso—. Nada de esto bloquea la interfaz mientras trabaja.
 

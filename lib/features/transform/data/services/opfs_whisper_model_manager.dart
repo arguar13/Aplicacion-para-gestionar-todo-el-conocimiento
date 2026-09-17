@@ -9,7 +9,7 @@ import 'package:web/web.dart' as web;
 
 /// `WhisperModelManager` para la web: el modelo se guarda en el Origin
 /// Private File System (OPFS), igual que `OpfsFileStore`, pero en su propia
-/// carpeta —`modelos/whisper-base/`—, separada de `originales/`: un modelo
+/// carpeta —`modelos/whisper-small/`—, separada de `originales/`: un modelo
 /// de reconocimiento de voz no es un archivo original de ningún elemento de
 /// la biblioteca, y mezclar los dos en la misma carpeta confundiría a
 /// cualquiera que la mirara.
@@ -32,14 +32,14 @@ class OpfsWhisperModelManager implements WhisperModelManager {
   final Dio _dio;
 
   static const _baseUrl =
-      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main';
+      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main';
 
-  static const _encoderFile = 'base-encoder.int8.onnx';
-  static const _decoderFile = 'base-decoder.int8.onnx';
-  static const _tokensFile = 'base-tokens.txt';
+  static const _encoderFile = 'small-encoder.int8.onnx';
+  static const _decoderFile = 'small-decoder.int8.onnx';
+  static const _tokensFile = 'small-tokens.txt';
   static const _files = [_encoderFile, _decoderFile, _tokensFile];
 
-  static const _folder = ['modelos', 'whisper-base'];
+  static const _folder = ['modelos', 'whisper-small'];
 
   /// Rutas sin ningún significado fuera del sistema de archivos virtual de
   /// sherpa-onnx: no hace falta que coincidan con nada de OPFS, alcanza con

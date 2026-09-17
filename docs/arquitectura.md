@@ -384,7 +384,7 @@ antes que en profundizar las dos que sí se usan. Si el día de mañana hay un
 iPhone de por medio, la Share Extension se agrega con la misma prolijidad
 que todo lo demás; hasta entonces, no es una prioridad.
 
-### 8. Whisper "base" multilingüe, traído aparte y con permiso explícito
+### 8. Whisper "small" multilingüe, traído aparte y con permiso explícito
 
 Transcribir voz en el dispositivo, sin mandar audio a ningún servidor, es
 justamente lo que pide el principio 1 — pero exige tres decisiones propias
@@ -392,14 +392,26 @@ que no se resuelven solas.
 
 **Qué tamaño de modelo.** [`sherpa_onnx`](https://pub.dev/packages/sherpa_onnx)
 (Apache 2.0) corre Whisper en el dispositivo vía FFI, y ofrece varios
-tamaños ya exportados a ONNX. Se eligió "base" multilingüe —unos 160 MB
-entre encoder, decoder y vocabulario, cuantizados a int8— en vez de "tiny"
-—bastante más chico—: en español, que es el idioma principal de quien usa
-esta app, "tiny" pierde precisión de forma notoria, y "base" sigue siendo
-liviano para lo que es un modelo de reconocimiento de voz. Los tres
-archivos se traen sueltos de Hugging Face (el repositorio de quien mantiene
-`sherpa-onnx`), no el paquete `.tar.bz2` de sus releases de GitHub: es la
-misma fuente, sin tener que descomprimir bzip2 en el dispositivo.
+tamaños ya exportados a ONNX. Se eligió "small" multilingüe —unos 375 MB
+entre encoder, decoder y vocabulario, cuantizados a int8— en vez de "base"
+—bastante más chico, ~160 MB, la elección original—: en español, que es el
+idioma principal de quien usa esta app, la ganancia de precisión de "base"
+a "small" es notoria, y el dispositivo hace ese trabajo una sola vez por
+transcripción, no en tiempo real, así que el costo extra de CPU no se nota
+tanto como pesa la descarga. Los tres archivos se traen sueltos de Hugging
+Face (el repositorio de quien mantiene `sherpa-onnx`), no el paquete
+`.tar.bz2` de sus releases de GitHub: es la misma fuente, sin tener que
+descomprimir bzip2 en el dispositivo.
+
+**Idioma fijado, no autodetectado.** `OfflineWhisperModelConfig.language`
+queda en `'es'` —antes vacío, que en sherpa-onnx significa "autodetectar"—
+porque esa autodetección corre por separado en **cada** ventana de 30
+segundos en la que se corta un audio largo —ver `transcribeInChunks` en
+`pcm16_samples.dart`—, y no en el audio completo una sola vez. Sin fijarlo,
+un fragmento corto, con ruido o con un nombre propio en otro idioma puede
+hacer que Whisper "cambie de idioma" a mitad de una transcripción en
+español. `task` queda en `'transcribe'` por el mismo motivo: explícito, no
+librado al valor por defecto.
 
 **Cómo llega el audio hasta ahí.** `sherpa_onnx` sólo sabe leer WAV
 —`readWave()` no entiende MP3, M4A ni la pista de audio de un video—, así
@@ -412,7 +424,7 @@ lugar,
 cualquier formato común —incluido el audio de un MP4— a PCM crudo usando
 las APIs nativas de cada sistema operativo, sin empaquetar FFmpeg.
 
-**Cuándo se descarga.** 160 MB es demasiado para bajarlos solos la primera
+**Cuándo se descarga.** 375 MB es demasiado para bajarlos solos la primera
 vez que alguien toca "transcribir": el principio 1 permite conexiones
 salientes cuando el usuario las pide explícitamente, y esta es exactamente
 esa excepción, no un atajo alrededor de la regla. Por eso el modelo no se

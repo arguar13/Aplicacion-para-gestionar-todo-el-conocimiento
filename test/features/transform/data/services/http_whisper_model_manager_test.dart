@@ -35,7 +35,7 @@ void main() {
   tearDown(() => tempDir.deleteSync(recursive: true));
 
   Directory modelDir() => Directory(
-    '${tempDir.path}/modelos/whisper-base'.replaceAll(
+    '${tempDir.path}/modelos/whisper-small'.replaceAll(
       '/',
       Platform.pathSeparator,
     ),
@@ -43,10 +43,10 @@ void main() {
 
   test('un archivo que ya está completo de un intento anterior no se vuelve a '
       'pedir', () async {
-    // Simula que "base-encoder.int8.onnx" ya había quedado bien la vez
+    // Simula que "small-encoder.int8.onnx" ya había quedado bien la vez
     // pasada: el segundo intento no debería pedirlo de nuevo.
     final dir = modelDir()..createSync(recursive: true);
-    File('${dir.path}/base-encoder.int8.onnx').writeAsStringSync('ya está');
+    File('${dir.path}/small-encoder.int8.onnx').writeAsStringSync('ya está');
 
     when(
       () => dio.download(
@@ -72,7 +72,7 @@ void main() {
     ).captured;
     expect(requested, hasLength(2));
     expect(
-      requested.cast<String>().any((url) => url.contains('base-encoder')),
+      requested.cast<String>().any((url) => url.contains('small-encoder')),
       isFalse,
     );
   });

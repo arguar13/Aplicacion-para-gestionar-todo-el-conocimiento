@@ -101,6 +101,15 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
               whisper: sherpa_onnx.OfflineWhisperModelConfig(
                 encoder: encoderPath,
                 decoder: decoderPath,
+                // Sin esto, Whisper redetecta el idioma en cada ventana de
+                // 30 segundos por separado —ver `transcribeInChunks`—, y en
+                // un audio largo eso puede hacer que el idioma "flote"
+                // entre fragmentos, sobre todo en los más cortos, con
+                // ruido, o con nombres propios en otro idioma. Fijarlo en
+                // español, el idioma principal de quien usa esta app, evita
+                // esa redetección innecesaria.
+                language: 'es',
+                task: 'transcribe',
               ),
               tokens: tokensPath,
               modelType: 'whisper',

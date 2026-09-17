@@ -5,12 +5,12 @@ import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
-/// El modelo Whisper multilingüe "base", cuantizado a int8: unos 160 MB en
-/// total. Se prefiere a "tiny" —bastante más liviano— porque en español,
-/// que es el idioma principal de quien usa esta app, "tiny" pierde
-/// precisión de forma notoria; "base" sigue siendo chico para lo que es un
-/// modelo de reconocimiento de voz. Ver la decisión 8 en
-/// docs/arquitectura.md.
+/// El modelo Whisper multilingüe "small", cuantizado a int8: unos 375 MB en
+/// total. Se prefiere a "base" —bastante más liviano, ~160 MB— porque en
+/// español, que es el idioma principal de quien usa esta app, la ganancia
+/// de precisión de "base" a "small" es notoria, y el dispositivo hace el
+/// trabajo una sola vez por transcripción, no en tiempo real. Ver la
+/// decisión 8 en docs/arquitectura.md.
 ///
 /// Los archivos se traen sueltos de Hugging Face —no el paquete .tar.bz2 de
 /// las release de GitHub— para no tener que descomprimir bzip2 en el
@@ -27,16 +27,16 @@ class HttpWhisperModelManager implements WhisperModelManager {
   final Future<Directory> Function() _rootDirectory;
 
   static const _baseUrl =
-      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main';
+      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main';
 
-  static const _encoderFile = 'base-encoder.int8.onnx';
-  static const _decoderFile = 'base-decoder.int8.onnx';
-  static const _tokensFile = 'base-tokens.txt';
+  static const _encoderFile = 'small-encoder.int8.onnx';
+  static const _decoderFile = 'small-decoder.int8.onnx';
+  static const _tokensFile = 'small-tokens.txt';
   static const _files = [_encoderFile, _decoderFile, _tokensFile];
 
   Future<Directory> _modelDirectory() async {
     final root = await _rootDirectory();
-    return Directory(p.join(root.path, 'modelos', 'whisper-base'));
+    return Directory(p.join(root.path, 'modelos', 'whisper-small'));
   }
 
   @override

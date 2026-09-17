@@ -641,7 +641,7 @@
   },
   "transcriptionModelSize": "Pesa {size}.",
   "@transcriptionModelSize": {
-    "description": "Tamaño de la descarga, ya formateado (\"160 MB\").",
+    "description": "Tamaño de la descarga, ya formateado (\"375 MB\").",
     "placeholders": {
       "size": {
         "type": "String"

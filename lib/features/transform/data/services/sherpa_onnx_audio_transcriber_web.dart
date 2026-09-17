@@ -68,6 +68,11 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
           whisper: sherpa_onnx.OfflineWhisperModelConfig(
             encoder: modelPaths.encoder,
             decoder: modelPaths.decoder,
+            // Ver el comentario del mismo cambio en
+            // `SherpaOnnxAudioTranscriberIo`: sin esto, Whisper redetecta
+            // el idioma en cada ventana de 30 segundos por separado.
+            language: 'es',
+            task: 'transcribe',
           ),
           tokens: modelPaths.tokens,
           modelType: 'whisper',
