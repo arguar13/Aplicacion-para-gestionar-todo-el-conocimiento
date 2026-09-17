@@ -1887,6 +1887,43 @@ remoción día a día, sin embargo, pasan por `OrganizeRepository.
 assignProperty`/`removeItemProperty` directo —análogo a cómo un vínculo
 o un resaltado se crean sin pasar por `LibraryRepository.save`—.
 
+### 32. El Explorador pasa de carpetas a filtros
+
+Se pidió reemplazar por completo la navegación por carpetas del
+Explorador —decisión 29— por una vista de filtrado, siguiendo la misma
+lógica que llevó a las propiedades tipadas (decisión 31): la
+organización real de una bóveda vive en lo que cada elemento ya tiene
+puesto —sus etiquetas, sus propiedades, su tipo—, no en dónde alguien
+decidió archivarlo a mano.
+
+**Se eliminó toda la infraestructura de carpetas, no se la dejó en
+desuso.** `Folder`, `ExplorerRepository`, y las tablas `Folders`/
+`ItemFolders` desaparecieron del código; `AppDatabase.schemaVersion`
+subió a 7 con una migración que las dropea (`from < 7`). El paso
+histórico que las creaba (`from < 5`) se sacó también: para cualquier
+bóveda que migre desde antes de la versión 5, crearlas y borrarlas en
+la misma sesión de migración no deja rastro, así que mantener ese paso
+solo habría sido código muerto. `ExplorerScreen` sigue siendo el mismo
+nombre de clase, en el mismo archivo y la misma rama del router —el
+reemplazo no tocó `RoutePaths.explorer` ni la navegación principal—,
+pero por dentro es una pantalla nueva.
+
+**`ExplorerQueryNotifier` es a esta pantalla lo que
+`LibraryQueryNotifier` es a la Biblioteca —mismo patrón, sin búsqueda de
+texto ni paginación—, y ambas comparten la misma `LibraryQuery`.** No
+hay un filtro paralelo propio del Explorador: se sumó `propertyValueIds`
+a `LibraryQuery` (mismo criterio que `tagIds` —dentro del filtro vale
+cualquiera de los valores, resuelto con una subconsulta contra
+`ItemPropertyValues` para que un elemento con varios de los valores
+buscados no aparezca duplicado—), y el Explorador simplemente arranca la
+consulta con `processingStates: {ProcessingState.ready}` fijo —acá no
+hay cola de trabajo que mostrar, solo la vitrina de lo que ya
+terminó—. El panel de filtros (tipo, categorías con sus valores,
+etiquetas) es el mismo `_FiltersSheet` de `library_screen.dart` con una
+sección más, observando el notifier como provider en vez de recibir el
+estado por parámetro, para que marcar un chip se refleje al instante en
+la lista de atrás aunque el panel siga abierto.
+
 ---
 
 ## Estado y orden de construcción
@@ -2017,21 +2054,21 @@ o un resaltado se crean sin pasar por `LibraryRepository.save`—.
   de quiebre que define Material 3. Idioma, tema, modelo de transcripción,
   copia de seguridad y bloqueo de la bóveda —antes nueve íconos amontonados
   en un solo AppBar— quedan agrupados en Ajustes.
-- **El Explorador.** Carpetas jerárquicas para lo ya procesado, al estilo
-  de un explorador de archivos —ver la decisión 29—: crear, renombrar y
-  borrar carpetas, navegarlas con migas de pan tocables, y agregar o
-  quitar un elemento de una carpeta desde su propio menú, con un selector
-  que muestra el árbol entero indentado. Un elemento puede estar en varias
-  carpetas a la vez —copiar, no solo mover— y uno que todavía no se
-  organizó aparece igual, sin carpeta, en la raíz. Dentro de cada carpeta,
-  sus elementos se agrupan solos por tipo de fuente —redes sociales,
-  documentos, videos de YouTube, notas...— para que una carpeta con
-  cientos de elementos siga siendo navegable sin paginar ni buscar.
 - **Enlaces `[[ ]]` en el editor de bloques.** Escribir `[[Título]]` en
   una nota —a mano, o con el botón de enlazar— crea, al guardar, un
   vínculo real hacia ese elemento —ver la decisión 30—, resuelto por
   título contra toda la biblioteca. Reutiliza el mismo `Relations`/Grafo
   que ya existía, no una red de conexiones aparte.
+- **Propiedades tipadas.** Categorías con valor —"Época: Siglo I a.C.",
+  "Región: Roma"—, junto a las etiquetas de siempre y no en su lugar —ver
+  la decisión 31—: un elemento puede tener varios valores bajo la misma
+  categoría a la vez, editables desde su propio panel en el detalle, con
+  sugerencias de categorías y valores ya usados mientras se escribe uno
+  nuevo.
+- **El Explorador, de carpetas a filtros.** Lo ya procesado, filtrable
+  por tipo, etiqueta y propiedad —ver la decisión 32—, sin ninguna
+  carpeta que crear ni mantener a mano: la organización sale sola de lo
+  que cada elemento ya tiene puesto.
 
 ### Por construir
 

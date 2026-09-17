@@ -4,7 +4,6 @@ import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
-import 'package:sinapsis/core/database/tables/folders.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
@@ -41,8 +40,6 @@ part 'app_database.g.dart';
     Flashcards,
     Conversations,
     ChatMessages,
-    Folders,
-    ItemFolders,
     PropertyDefinitions,
     PropertyValues,
     ItemPropertyValues,
@@ -72,7 +69,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -103,14 +100,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(conversations);
         await migrator.createTable(chatMessages);
       }
-      // El Explorador: dos tablas nuevas, sin tocar ninguna existente — un
-      // elemento que no se haya llevado a ninguna carpeta simplemente no
-      // tiene fila en `ItemFolders`, y aparece como "sin carpeta" en la
-      // raíz del Explorador sin que haga falta ningún valor por defecto.
-      if (from < 5) {
-        await migrator.createTable(folders);
-        await migrator.createTable(itemFolders);
-      }
+      // El paso que iba acá creaba las tablas de carpetas del Explorador
+      // (`from < 5`). El paso `from < 7`, más abajo, las elimina — para
+      // cualquiera que migre desde antes de la versión 5, crearlas y
+      // borrarlas en la misma sesión de migración no deja rastro, así que
+      // el paso completo se sacó en vez de dejarlo sin efecto.
+      //
       // Propiedades tipadas: tres tablas nuevas, sin tocar ninguna
       // existente — conviven con las etiquetas planas de siempre, no las
       // reemplazan.
@@ -118,6 +113,14 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(propertyDefinitions);
         await migrator.createTable(propertyValues);
         await migrator.createTable(itemPropertyValues);
+      }
+      // El Explorador cambió de carpetas a filtros: las tablas que
+      // ubicaban un elemento dentro de una carpeta ya no tienen para qué
+      // existir. Los elementos en sí no se tocan — solo pierden una
+      // ubicación que ya no significa nada.
+      if (from < 7) {
+        await migrator.deleteTable('item_folders');
+        await migrator.deleteTable('folders');
       }
     },
     beforeOpen: (details) async {

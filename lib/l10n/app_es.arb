@@ -1488,93 +1488,25 @@
   "@navSettings": {
     "description": "Etiqueta corta del destino de ajustes en la navegación principal."
   },
-  "explorerRootBreadcrumb": "Explorador",
-  "@explorerRootBreadcrumb": {
-    "description": "Primer eslabón de las migas de pan del Explorador, la raíz."
+  "explorerTitle": "Explorador",
+  "@explorerTitle": {
+    "description": "Título de la pantalla del Explorador."
   },
-  "explorerEmptyRootTitle": "Todavía no organizaste nada",
-  "@explorerEmptyRootTitle": {
-    "description": "Título del estado vacío en la raíz del Explorador, sin ninguna carpeta creada."
+  "explorerFilterPropertiesLabel": "Categorías",
+  "@explorerFilterPropertiesLabel": {
+    "description": "Encabezado de la sección de propiedades tipadas en el panel de filtros del Explorador."
   },
-  "explorerEmptyRootMessage": "Creá una carpeta para empezar a organizar lo que ya procesaste por temas.",
-  "@explorerEmptyRootMessage": {
-    "description": "Mensaje del estado vacío en la raíz del Explorador."
+  "explorerEmptyTitle": "Todavía no hay nada procesado",
+  "@explorerEmptyTitle": {
+    "description": "Título del estado vacío del Explorador cuando no hay ningún elemento listo, sin importar los filtros."
   },
-  "explorerEmptyFolderMessage": "Esta carpeta está vacía. Creá una subcarpeta o agregá elementos desde el botón de cada uno.",
-  "@explorerEmptyFolderMessage": {
-    "description": "Mensaje del estado vacío dentro de una carpeta sin subcarpetas ni elementos."
+  "explorerEmptyMessage": "Acá aparece lo que ya terminó de procesarse. Capturá algo y volvé cuando esté listo.",
+  "@explorerEmptyMessage": {
+    "description": "Mensaje del estado vacío del Explorador cuando no hay ningún elemento listo todavía."
   },
-  "explorerNewFolder": "Nueva carpeta",
-  "@explorerNewFolder": {
-    "description": "Acción y título del diálogo para crear una carpeta nueva."
-  },
-  "explorerFolderName": "Nombre de la carpeta",
-  "@explorerFolderName": {
-    "description": "Etiqueta del campo de texto para el nombre de una carpeta, al crearla o renombrarla."
-  },
-  "explorerRenameFolder": "Renombrar carpeta",
-  "@explorerRenameFolder": {
-    "description": "Acción y título del diálogo para renombrar una carpeta."
-  },
-  "explorerDeleteFolder": "Eliminar carpeta",
-  "@explorerDeleteFolder": {
-    "description": "Acción para eliminar una carpeta."
-  },
-  "explorerDeleteFolderConfirm": "¿Eliminar \"{name}\"? Sus subcarpetas se eliminan con ella, pero los elementos que tenía adentro no se borran: solo dejan de estar organizados ahí.",
-  "@explorerDeleteFolderConfirm": {
-    "description": "Confirmación antes de eliminar una carpeta.",
-    "placeholders": {
-      "name": {
-        "type": "String",
-        "example": "Filosofía"
-      }
-    }
-  },
-  "explorerAddToFolder": "Agregar a una carpeta",
-  "@explorerAddToFolder": {
-    "description": "Acción del menú de un elemento para agregarlo a una carpeta del Explorador."
-  },
-  "explorerRemoveFromFolder": "Quitar de esta carpeta",
-  "@explorerRemoveFromFolder": {
-    "description": "Acción del menú de un elemento, visible solo dentro de una carpeta, para sacarlo de ella sin borrarlo."
-  },
-  "explorerPickFolderTitle": "Elegir carpeta",
-  "@explorerPickFolderTitle": {
-    "description": "Título del selector de carpetas al agregar un elemento a una carpeta."
-  },
-  "explorerPickFolderRoot": "Nivel raíz",
-  "@explorerPickFolderRoot": {
-    "description": "Opción del selector de carpetas para el nivel más alto, sin ninguna carpeta contenedora."
-  },
-  "explorerPickFolderNewFolder": "Nueva carpeta aquí",
-  "@explorerPickFolderNewFolder": {
-    "description": "Botón del selector de carpetas para crear una carpeta nueva en el nivel que se está mirando."
-  },
-  "explorerItemAddedToFolder": "Agregado a \"{folder}\"",
-  "@explorerItemAddedToFolder": {
-    "description": "Confirmación de que un elemento se agregó a una carpeta.",
-    "placeholders": {
-      "folder": {
-        "type": "String",
-        "example": "Filosofía"
-      }
-    }
-  },
-  "explorerItemRemovedFromFolder": "Quitado de la carpeta",
-  "@explorerItemRemovedFromFolder": {
-    "description": "Confirmación de que un elemento se sacó de la carpeta actual."
-  },
-  "explorerFoldersSectionTitle": "Carpetas",
-  "@explorerFoldersSectionTitle": {
-    "description": "Encabezado de la lista de subcarpetas dentro del Explorador."
-  },
-  "explorerKindsSectionTitle": "Por tipo de recurso",
-  "@explorerKindsSectionTitle": {
-    "description": "Encabezado de la agrupación automática por tipo de fuente dentro del Explorador."
-  },
-  "explorerEmptyKindMessage": "Ya no hay elementos de este tipo acá.",
-  "@explorerEmptyKindMessage": {
-    "description": "Estado vacío al entrar a una subcarpeta automática de tipo que se quedó sin elementos."
+  "explorerEmptyFilteredTitle": "Nada coincide con estos filtros",
+  "@explorerEmptyFilteredTitle": {
+    "description": "Título del estado vacío del Explorador cuando los filtros activos no dejan pasar ningún elemento."
   },
   "commonCreate": "Crear",
   "@commonCreate": {

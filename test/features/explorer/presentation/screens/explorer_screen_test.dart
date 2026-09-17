@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -14,167 +16,131 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
+  /// Igual que en `item_detail_screen_test.dart`: se identifica por
+  /// diferencia de conjuntos, no "el primero de la lista", porque dos
+  /// capturas en la misma prueba comparten el mismo instante bajo el reloj
+  /// fijo de las pruebas.
+  Future<String> captureAndGetId(String input) async {
+    Future<Set<String>> currentIds() async =>
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .list(const LibraryQuery()))
+            .getRight()
+            .toNullable()!
+            .map((i) => i.id)
+            .toSet();
+
+    final before = await currentIds();
+    await harness.capture(input);
+    final after = await currentIds();
+
+    return after.difference(before).single;
+  }
+
   Future<void> pumpExplorer(WidgetTester tester) async {
     await tester.pumpWidget(harness.wrap(const ExplorerScreen()));
     await tester.pumpAndSettle();
   }
 
-  // El FAB y —en la raíz vacía— el botón del estado vacío dicen los dos
-  // "Nueva carpeta": hace falta apuntar al FAB en concreto para no toparse
-  // con la ambigüedad de `find.text`.
-  Finder newFolderFab() =>
-      find.widgetWithText(FloatingActionButton, es.explorerNewFolder);
-
-  testWidgets('sin ninguna carpeta ni elemento, explica que no hay nada '
-      'organizado', (tester) async {
-    await pumpExplorer(tester);
-
-    expect(find.text(es.explorerEmptyRootTitle), findsOneWidget);
-  });
-
-  testWidgets(
-    'un elemento recién capturado aparece en la raíz sin carpeta, agrupado '
-    'por su tipo de fuente',
-    (tester) async {
-      await harness.capture('Una nota cualquiera');
-
-      await pumpExplorer(tester);
-
-      // Nunca una lista plana: primero aparece la subcarpeta automática de
-      // su tipo, con el conteo de lo que tiene adentro.
-      expect(find.text('Una nota cualquiera'), findsNothing);
-      expect(find.text(es.sourceKindNote), findsOneWidget);
-      expect(find.text('1'), findsOneWidget);
-
-      await tester.tap(find.text(es.sourceKindNote));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Una nota cualquiera'), findsOneWidget);
-      // Las migas de pan suman el tipo como último eslabón.
-      expect(find.text(es.explorerRootBreadcrumb), findsOneWidget);
-    },
-  );
-
-  testWidgets('crear una carpeta la muestra en la grilla', (tester) async {
-    await pumpExplorer(tester);
-
-    await tester.tap(newFolderFab());
+  /// El panel de filtros vive detrás de este botón, igual que en
+  /// `library_screen.dart` —ver `openFilters`/`closeFilters` ahí—.
+  Future<void> openFilters(WidgetTester tester) async {
+    await tester.tap(find.byTooltip(es.libraryFiltersTooltip));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Filosofía');
-    await tester.tap(find.text(es.commonCreate));
+  }
+
+  Future<void> closeFilters(WidgetTester tester) async {
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
     await tester.pumpAndSettle();
+  }
 
-    expect(find.text('Filosofía'), findsOneWidget);
-    // Se fue el estado vacío: ya hay algo que mostrar.
-    expect(find.text(es.explorerEmptyRootTitle), findsNothing);
-  });
-
-  testWidgets('entrar a una carpeta la agrega a las migas de pan, y crear una '
-      'subcarpeta ahí no aparece en la raíz', (tester) async {
-    await harness.container
-        .read(explorerRepositoryProvider)
-        .createFolder(name: 'Filosofía', parentId: null);
-
-    await pumpExplorer(tester);
-    await tester.tap(find.text('Filosofía'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(newFolderFab());
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Ética');
-    await tester.tap(find.text(es.commonCreate));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ética'), findsOneWidget);
-
-    await tester.tap(find.text(es.explorerRootBreadcrumb));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ética'), findsNothing);
-    expect(find.text('Filosofía'), findsOneWidget);
-  });
-
-  testWidgets(
-    'agregar un elemento a una carpeta lo saca de la raíz y lo lleva a esa '
-    'carpeta',
-    (tester) async {
-      await harness.capture('Una nota cualquiera');
-      await pumpExplorer(tester);
-      await tester.tap(newFolderFab());
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Trabajo');
-      await tester.tap(find.text(es.commonCreate));
-      await tester.pumpAndSettle();
-
-      // Entrar a su subcarpeta automática de tipo para llegar hasta el
-      // elemento y poder agregarlo a una carpeta.
-      await tester.tap(find.text(es.sourceKindNote));
-      await tester.pumpAndSettle();
-
-      await tester.longPress(find.text('Una nota cualquiera'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.explorerAddToFolder));
-      await tester.pumpAndSettle();
-      // La misma "Trabajo" aparece tanto en la grilla (detrás) como en cada
-      // fila de la hoja de elegir carpeta (encima): la fila del selector es
-      // la que está dentro de un `ListTile`, la de la grilla no.
-      await tester.tap(find.widgetWithText(ListTile, 'Trabajo'));
-      await tester.pumpAndSettle();
-
-      // Esta subcarpeta de tipo, en la raíz, se quedó sin nada: el
-      // elemento se fue a la carpeta.
-      expect(find.text(es.explorerEmptyKindMessage), findsOneWidget);
-
-      await tester.tap(find.text(es.explorerRootBreadcrumb));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Trabajo'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.sourceKindNote));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Una nota cualquiera'), findsOneWidget);
-    },
-  );
-
-  testWidgets('eliminar una carpeta no borra el elemento: vuelve a la raíz', (
+  testWidgets('sin nada procesado todavía, explica qué va a aparecer acá', (
     tester,
   ) async {
-    await harness.capture('Una nota cualquiera');
     await pumpExplorer(tester);
-    await tester.tap(newFolderFab());
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Efímera');
-    await tester.tap(find.text(es.commonCreate));
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.text(es.sourceKindNote));
-    await tester.pumpAndSettle();
-    await tester.longPress(find.text('Una nota cualquiera'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(es.explorerAddToFolder));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Efímera'));
-    await tester.pumpAndSettle();
-
-    // De vuelta a la raíz para llegar al menú de la carpeta: acá adentro,
-    // en su subcarpeta de tipo ahora vacía, no hay ninguna tarjeta de
-    // carpeta que ofrezca ese menú.
-    await tester.tap(find.text(es.explorerRootBreadcrumb));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.more_vert));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(es.explorerDeleteFolder));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(es.commonDelete));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Efímera'), findsNothing);
-    expect(find.text(es.sourceKindNote), findsOneWidget);
-
-    await tester.tap(find.text(es.sourceKindNote));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Una nota cualquiera'), findsOneWidget);
+    expect(find.text(es.explorerEmptyTitle), findsOneWidget);
   });
+
+  testWidgets('lo ya procesado aparece en una lista, sin ninguna carpeta '
+      'que abrir primero', (tester) async {
+    await captureAndGetId('una nota cualquiera');
+
+    await pumpExplorer(tester);
+
+    expect(find.text('una nota cualquiera'), findsOneWidget);
+  });
+
+  testWidgets('filtrar por etiqueta deja solo lo que la tiene puesta', (
+    tester,
+  ) async {
+    final tagged = await captureAndGetId('sobre epistemología');
+    await captureAndGetId('sobre otra cosa');
+    final item =
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .findById(tagged))
+            .getRight()
+            .toNullable()!;
+    final tag =
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .getOrCreateTag('Filosofía'))
+            .getRight()
+            .toNullable()!;
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(item.copyWith(tags: [tag]));
+
+    await pumpExplorer(tester);
+    await openFilters(tester);
+    await tester.tap(find.text('Filosofía'));
+    await closeFilters(tester);
+
+    expect(find.text('sobre epistemología'), findsOneWidget);
+    expect(find.text('sobre otra cosa'), findsNothing);
+  });
+
+  testWidgets('filtrar por valor de propiedad deja solo lo que lo tiene '
+      'asignado', (tester) async {
+    final roman = await captureAndGetId('sobre las tácticas de César');
+    await captureAndGetId('sobre otra cosa');
+    final organize = harness.container.read(organizeRepositoryProvider);
+    final definition = (await organize.getOrCreatePropertyDefinition(
+      'Región',
+    )).getRight().toNullable()!;
+    await organize.assignProperty(
+      itemId: roman,
+      definitionId: definition.id,
+      value: 'Roma',
+    );
+
+    await pumpExplorer(tester);
+    await openFilters(tester);
+    await tester.tap(find.text('Roma'));
+    await closeFilters(tester);
+
+    expect(find.text('sobre las tácticas de César'), findsOneWidget);
+    expect(find.text('sobre otra cosa'), findsNothing);
+  });
+
+  testWidgets(
+    'unos filtros que no dejan pasar nada ofrecen limpiarlos, sin perder '
+    'lo que ya estaba',
+    (tester) async {
+      await captureAndGetId('una nota cualquiera');
+
+      await pumpExplorer(tester);
+      await openFilters(tester);
+      await tester.tap(find.text(es.sourceKindDocument));
+      await closeFilters(tester);
+
+      expect(find.text(es.explorerEmptyFilteredTitle), findsOneWidget);
+
+      await tester.tap(find.text(es.libraryClearFilters));
+      await tester.pumpAndSettle();
+
+      expect(find.text('una nota cualquiera'), findsOneWidget);
+    },
+  );
 }

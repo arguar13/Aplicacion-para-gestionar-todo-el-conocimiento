@@ -1,45 +1,56 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sinapsis/core/database/database_provider.dart';
-import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
-import 'package:sinapsis/core/util/util_providers.dart';
-import 'package:sinapsis/features/explorer/data/repositories/explorer_repository_impl.dart';
-import 'package:sinapsis/features/explorer/domain/entities/folder.dart';
-import 'package:sinapsis/features/explorer/domain/repositories/explorer_repository.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
-/// Cascada de inyección del feature. La capa de presentación depende de este
-/// repositorio; nunca de la base de datos directamente.
-final explorerRepositoryProvider = Provider<ExplorerRepository>((ref) {
-  return ExplorerRepositoryImpl(
-    database: ref.watch(appDatabaseProvider),
-    telemetry: ref.watch(telemetryServiceProvider),
-    ids: ref.watch(idGeneratorProvider),
-    clock: ref.watch(clockProvider),
-  );
-});
-
-/// Todas las carpetas que existen, actualizándose solas.
+/// Qué recorte del Explorador se está mirando: solo lo ya procesado
+/// (`ProcessingState.ready` —esto es la vitrina de resultados, no la cola
+/// de trabajo—), acotado por los filtros de tipo, etiqueta y propiedad que
+/// el usuario vaya sumando.
 ///
-/// `autoDispose` porque el stream mantiene abierta una suscripción a los
-/// cambios de la base: sin esto, seguiría recomponiéndose para siempre
-/// aunque ninguna pantalla la esté mostrando.
-final allFoldersProvider = StreamProvider.autoDispose<List<Folder>>((ref) {
-  return ref.watch(explorerRepositoryProvider).watchAllFolders();
-});
+/// Mismo patrón que `LibraryQueryNotifier`, pero sin búsqueda de texto ni
+/// paginación: acá el punto es explorar filtrando, no buscar algo puntual
+/// ni recorrer miles de elementos por tandas.
+class ExplorerQueryNotifier extends StateNotifier<LibraryQuery> {
+  ExplorerQueryNotifier()
+    : super(const LibraryQuery(processingStates: {ProcessingState.ready}));
 
-/// Los `id` de los elementos guardados directamente en una carpeta (`null`
-/// para "sin carpeta"), actualizándose solos.
-final folderItemIdsProvider = StreamProvider.autoDispose
-    .family<Set<String>, String?>((ref, folderId) {
-      return ref
-          .watch(explorerRepositoryProvider)
-          .watchItemIdsInFolder(folderId);
-    });
+  /// Suma o quita un tipo de fuente del filtro.
+  void toggleSourceKind(SourceKind kind) {
+    final kinds = Set<SourceKind>.from(state.sourceKinds);
+    if (!kinds.remove(kind)) kinds.add(kind);
+    state = state.copyWith(sourceKinds: kinds);
+  }
 
-/// En qué carpetas está un elemento, actualizándose solo. Para el selector
-/// de mover/copiar.
-final itemFolderIdsProvider = StreamProvider.autoDispose
-    .family<Set<String>, String>((ref, itemId) {
-      return ref
-          .watch(explorerRepositoryProvider)
-          .watchFolderIdsForItem(itemId);
-    });
+  /// Suma o quita una etiqueta del filtro.
+  void toggleTagId(String tagId) {
+    final tagIds = Set<String>.from(state.tagIds);
+    if (!tagIds.remove(tagId)) tagIds.add(tagId);
+    state = state.copyWith(tagIds: tagIds);
+  }
+
+  /// Suma o quita un valor de propiedad del filtro.
+  void togglePropertyValueId(String valueId) {
+    final ids = Set<String>.from(state.propertyValueIds);
+    if (!ids.remove(valueId)) ids.add(valueId);
+    state = state.copyWith(propertyValueIds: ids);
+  }
+
+  void clearFilters() {
+    state = state.copyWith(
+      sourceKinds: const {},
+      tagIds: const {},
+      propertyValueIds: const {},
+    );
+  }
+
+  bool get hasActiveFilters =>
+      state.sourceKinds.isNotEmpty ||
+      state.tagIds.isNotEmpty ||
+      state.propertyValueIds.isNotEmpty;
+}
+
+final explorerQueryNotifierProvider =
+    StateNotifierProvider.autoDispose<ExplorerQueryNotifier, LibraryQuery>(
+      (ref) => ExplorerQueryNotifier(),
+    );
