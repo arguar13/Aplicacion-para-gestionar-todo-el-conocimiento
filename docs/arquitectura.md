@@ -1849,6 +1849,44 @@ cubre que la interfaz arma bien el pedido —ver
 `block_editor_screen_test.dart`, el grupo "crear el vínculo real, sin
 widgets" separado del de interfaz—.
 
+### 31. Propiedades tipadas: categorías con valor, junto a las etiquetas, no en vez de ellas
+
+Se pidió poder clasificar un elemento con categorías propias —"Época:
+Siglo I a.C.", "Región: Roma"— para filtrar y explorar la bóveda sin
+depender de carpetas, al estilo de las propiedades de una base de datos
+de Notion.
+
+**`PropertyDefinition`/`PropertyValue` son entidades nuevas, no una
+convención de nombres sobre `Tag`.** Se pudo haber resuelto escribiendo
+etiquetas con un prefijo ("Región: Roma") y dejando que la convención
+hiciera el trabajo, pero eso no deja *filtrar por categoría* de forma
+estructurada —"todo lo que tiene alguna Región puesta", o listar qué
+categorías existen— sin parsear texto. `PropertyDefinition` es la
+categoría (creada por el usuario, a diferencia de `SourceKind` o
+`RelationKind`, que son fijos); `PropertyValue` es un valor concreto bajo
+esa categoría, único dentro de ella —mismo criterio que `Tag.name`, pero
+con el `definitionId` como parte de la unicidad—; `ItemPropertyValues` es
+la tabla de unión entre un elemento y un valor, calcada de `ItemTags`.
+
+**Un elemento puede tener varios valores bajo la misma categoría a la
+vez.** Es la razón de ser del pedido: un video sobre las tácticas
+militares de Julio César *y* la economía egipcia tiene que poder llevar
+"Región: Roma" y "Región: Egipto" a la vez, no obligar a elegir uno. Por
+eso `ItemPropertyValues` es una tabla de unión N-a-N —como `ItemTags`—
+y no una columna nullable como `Items.spaceId`.
+
+**`properties` vive embebido en `KnowledgeItem`, igual que `tags`, no
+aparte como `Relations`/`Highlights`.** La distinción que ya hacía
+`OrganizeRepository` —relaciones y resaltados no son parte del agregado
+porque no hace falta cargarlos para mostrar un elemento en una lista—
+no aplica acá: las propiedades, igual que las etiquetas, tienen que
+poder verse y filtrarse desde la Biblioteca sin un viaje aparte a la
+base. `LibraryRepositoryImpl._syncProperties` resincroniza la tabla de
+unión completa al guardar, mismo patrón que `_syncTags`; la asignación y
+remoción día a día, sin embargo, pasan por `OrganizeRepository.
+assignProperty`/`removeItemProperty` directo —análogo a cómo un vínculo
+o un resaltado se crean sin pasar por `LibraryRepository.save`—.
+
 ---
 
 ## Estado y orden de construcción

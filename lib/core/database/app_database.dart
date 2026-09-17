@@ -7,6 +7,7 @@ import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/folders.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
 import 'package:sinapsis/core/database/tables/sources.dart';
@@ -42,6 +43,9 @@ part 'app_database.g.dart';
     ChatMessages,
     Folders,
     ItemFolders,
+    PropertyDefinitions,
+    PropertyValues,
+    ItemPropertyValues,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -68,7 +72,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -106,6 +110,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         await migrator.createTable(folders);
         await migrator.createTable(itemFolders);
+      }
+      // Propiedades tipadas: tres tablas nuevas, sin tocar ninguna
+      // existente — conviven con las etiquetas planas de siempre, no las
+      // reemplazan.
+      if (from < 6) {
+        await migrator.createTable(propertyDefinitions);
+        await migrator.createTable(propertyValues);
+        await migrator.createTable(itemPropertyValues);
       }
     },
     beforeOpen: (details) async {

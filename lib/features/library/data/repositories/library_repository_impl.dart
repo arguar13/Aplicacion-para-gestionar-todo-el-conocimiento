@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -36,6 +37,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _upsertItem(item);
         await _syncRenditions(item);
         await _syncTags(item);
+        await _syncProperties(item);
       });
       return right(item);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -151,7 +153,15 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Stream<T> _watching<T>(Future<T> Function() read, {required String hint}) {
     return watchQuery<T>(
       db: _db,
-      tables: [_db.items, _db.sources, _db.renditions, _db.tags, _db.itemTags],
+      tables: [
+        _db.items,
+        _db.sources,
+        _db.renditions,
+        _db.tags,
+        _db.itemTags,
+        _db.propertyValues,
+        _db.itemPropertyValues,
+      ],
       read: read,
       telemetry: _telemetry,
       hint: hint,
@@ -440,6 +450,41 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }
   }
 
+  /// Deja los valores de propiedad del elemento igual a los de la
+  /// entidad. Mismo patrón que [_syncTags]: se rehace la relación entera,
+  /// y de paso se hace upsert de cada valor —por si llegó de un lugar que
+  /// todavía no lo había persistido— sin tocar la categoría a la que
+  /// pertenece.
+  Future<void> _syncProperties(KnowledgeItem item) async {
+    for (final property in item.properties) {
+      await _db
+          .into(_db.propertyValues)
+          .insertOnConflictUpdate(
+            PropertyValuesCompanion.insert(
+              id: property.valueId,
+              definitionId: property.definitionId,
+              value: property.value,
+              createdAt: property.createdAt,
+            ),
+          );
+    }
+
+    await (_db.delete(
+      _db.itemPropertyValues,
+    )..where((it) => it.itemId.equals(item.id))).go();
+
+    for (final property in item.properties) {
+      await _db
+          .into(_db.itemPropertyValues)
+          .insert(
+            ItemPropertyValuesCompanion.insert(
+              itemId: item.id,
+              propertyValueId: property.valueId,
+            ),
+          );
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Lectura
   // ---------------------------------------------------------------------
@@ -625,6 +670,32 @@ class LibraryRepositoryImpl implements LibraryRepository {
       (tagsByItem[itemId] ??= []).add(_toTag(row.readTable(_db.tags)));
     }
 
+    final propertyRows = await (_db.select(_db.itemPropertyValues).join([
+      innerJoin(
+        _db.propertyValues,
+        _db.propertyValues.id.equalsExp(_db.itemPropertyValues.propertyValueId),
+      ),
+      innerJoin(
+        _db.propertyDefinitions,
+        _db.propertyDefinitions.id.equalsExp(_db.propertyValues.definitionId),
+      ),
+    ])..where(_db.itemPropertyValues.itemId.isIn(itemIds))).get();
+    final propertiesByItem = <String, List<ItemProperty>>{};
+    for (final row in propertyRows) {
+      final itemId = row.readTable(_db.itemPropertyValues).itemId;
+      final valueRow = row.readTable(_db.propertyValues);
+      final definitionRow = row.readTable(_db.propertyDefinitions);
+      (propertiesByItem[itemId] ??= []).add(
+        ItemProperty(
+          definitionId: definitionRow.id,
+          definitionName: definitionRow.name,
+          valueId: valueRow.id,
+          value: valueRow.value,
+          createdAt: valueRow.createdAt,
+        ),
+      );
+    }
+
     return itemRows.map((row) {
       return KnowledgeItem(
         id: row.id,
@@ -637,6 +708,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         updatedAt: row.updatedAt,
         renditions: renditionsByItem[row.id] ?? const [],
         tags: tagsByItem[row.id] ?? const [],
+        properties: propertiesByItem[row.id] ?? const [],
         spaceId: row.spaceId,
       );
     }).toList();

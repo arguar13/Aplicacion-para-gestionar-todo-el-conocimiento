@@ -755,4 +755,226 @@ void main() {
       expect(remaining, isEmpty);
     });
   });
+
+  group('propiedades', () {
+    group('categorías', () {
+      test(
+        'listar todas, ordenadas alfabéticamente, actualizándose solo',
+        () async {
+          final stream = repository.watchAllPropertyDefinitions();
+          final queue = StreamQueue(stream);
+
+          expect(await queue.next, isEmpty);
+
+          await repository.getOrCreatePropertyDefinition('Tema');
+          expect((await queue.next).map((d) => d.name), ['Tema']);
+
+          await repository.getOrCreatePropertyDefinition('Época');
+          expect((await queue.next).map((d) => d.name), ['Tema', 'Época']);
+
+          await queue.cancel();
+        },
+      );
+
+      test('un nombre nuevo se crea', () async {
+        final result = await repository.getOrCreatePropertyDefinition('Región');
+
+        expect(result.getRight().toNullable()!.name, 'Región');
+      });
+
+      test('un nombre repetido, sin distinguir mayúsculas, devuelve la '
+          'misma categoría en vez de crear otra', () async {
+        final first = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+
+        final second = await repository.getOrCreatePropertyDefinition('región');
+
+        expect(second.getRight().toNullable()!.id, first.id);
+      });
+
+      test('un nombre vacío falla', () async {
+        final result = await repository.getOrCreatePropertyDefinition('   ');
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('borrar una categoría se lleva sus valores y las asignaciones '
+          'que tenía puestas', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+
+        await repository.deletePropertyDefinition(definition.id);
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, isEmpty);
+      });
+
+      test('borrar una que no existe no falla', () async {
+        final result = await repository.deletePropertyDefinition('no-existe');
+
+        expect(result.isRight(), isTrue);
+      });
+    });
+
+    group('asignar valores', () {
+      test('un valor nuevo se crea y queda en el elemento', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        final result = await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+
+        expect(result.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, hasLength(1));
+        expect(reloaded.properties.single.value, 'Roma');
+        expect(reloaded.properties.single.definitionName, 'Región');
+      });
+
+      test('el mismo valor, sin distinguir mayúsculas, se reutiliza en vez '
+          'de crear uno nuevo', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final itemA = await seedItem();
+        final itemB = await seedItem();
+
+        await repository.assignProperty(
+          itemId: itemA.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: itemB.id,
+          definitionId: definition.id,
+          value: 'roma',
+        );
+
+        final valueIdA = (await libraryRepository.findById(
+          itemA.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+        final valueIdB = (await libraryRepository.findById(
+          itemB.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+        expect(valueIdA, valueIdB);
+      });
+
+      test('un elemento puede tener varios valores bajo la misma '
+          'categoría a la vez', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Egipto',
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.map((p) => p.value), {'Roma', 'Egipto'});
+      });
+
+      test('asignar el mismo valor dos veces no falla ni lo duplica', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final second = await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+
+        expect(second.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, hasLength(1));
+      });
+
+      test('un valor vacío falla', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        final result = await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: '   ',
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+    });
+
+    group('quitar valores', () {
+      test('saca el valor del elemento sin borrarlo para los demás', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final itemA = await seedItem();
+        final itemB = await seedItem();
+        await repository.assignProperty(
+          itemId: itemA.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: itemB.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final valueId = (await libraryRepository.findById(
+          itemA.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+
+        await repository.removeItemProperty(
+          itemId: itemA.id,
+          propertyValueId: valueId,
+        );
+
+        final reloadedA = (await libraryRepository.findById(
+          itemA.id,
+        )).getRight().toNullable()!;
+        final reloadedB = (await libraryRepository.findById(
+          itemB.id,
+        )).getRight().toNullable()!;
+        expect(reloadedA.properties, isEmpty);
+        expect(reloadedB.properties, hasLength(1));
+      });
+    });
+  });
 }

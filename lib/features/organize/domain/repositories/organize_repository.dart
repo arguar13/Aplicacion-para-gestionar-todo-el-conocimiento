@@ -1,6 +1,8 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -139,4 +141,48 @@ abstract interface class OrganizeRepository {
   /// clasificar — la cascada de la columna es `SET NULL`, no `CASCADE`:
   /// borrar una carpeta no debería borrar lo que había adentro.
   Future<Either<Failure, Unit>> deleteSpace(String id);
+
+  // ---------------------------------------------------------------------
+  // Propiedades
+  // ---------------------------------------------------------------------
+
+  /// Todas las categorías de propiedad que existen —"Época", "Región",
+  /// "Tema"—, ordenadas alfabéticamente.
+  Stream<List<PropertyDefinition>> watchAllPropertyDefinitions();
+
+  /// La categoría que se llama [name], sin distinguir mayúsculas. Si no
+  /// existe, la crea. Devuelve un fallo si el nombre queda vacío.
+  Future<Either<Failure, PropertyDefinition>> getOrCreatePropertyDefinition(
+    String name,
+  );
+
+  /// Borra una categoría entera, con todos sus valores y las asignaciones
+  /// que tenía puestas. A diferencia de un espacio, acá sí se borra en
+  /// cascada: la categoría y sus valores son la propiedad en sí, no una
+  /// carpeta que contiene elementos ajenos a ella.
+  Future<Either<Failure, Unit>> deletePropertyDefinition(String id);
+
+  /// Los valores que ya existen bajo [definitionId], ordenados
+  /// alfabéticamente — para sugerir mientras se escribe uno nuevo, y para
+  /// armar los filtros de la vista de propiedades.
+  Stream<List<PropertyValue>> watchPropertyValues(String definitionId);
+
+  /// Pone el valor [value] bajo la categoría [definitionId] en el
+  /// elemento [itemId]. Crea el valor si todavía no existía bajo esa
+  /// categoría —mismo criterio que [getOrCreateTag]: escribir "Roma"
+  /// donde ya existe "Roma" tiene que terminar en el mismo valor, no en
+  /// dos que compiten por lo mismo—. No falla si el elemento ya lo tenía
+  /// puesto.
+  Future<Either<Failure, Unit>> assignProperty({
+    required String itemId,
+    required String definitionId,
+    required String value,
+  });
+
+  /// Saca un valor de propiedad de un elemento. El valor en sí sigue
+  /// existiendo para los demás elementos que lo tengan puesto.
+  Future<Either<Failure, Unit>> removeItemProperty({
+    required String itemId,
+    required String propertyValueId,
+  });
 }

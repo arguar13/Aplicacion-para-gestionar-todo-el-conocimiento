@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -32,6 +33,12 @@ sealed class KnowledgeItem with _$KnowledgeItem {
     /// enlace y su título, y la transcripción llega después.
     @Default(<Rendition>[]) List<Rendition> renditions,
     @Default(<Tag>[]) List<Tag> tags,
+
+    /// Los valores de propiedad puestos —"Época: Siglo I a.C.", "Región:
+    /// Roma"—. A diferencia de [tags], puede haber varios bajo la misma
+    /// categoría a la vez: un elemento que habla de dos regiones no tiene
+    /// que elegir una.
+    @Default(<ItemProperty>[]) List<ItemProperty> properties,
     String? subtitle,
 
     /// Lo que escribió el usuario sobre esto, aparte del contenido en sí.

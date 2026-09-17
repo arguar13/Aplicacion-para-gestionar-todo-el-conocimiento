@@ -4,6 +4,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -569,6 +571,188 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   // ---------------------------------------------------------------------
+  // Propiedades
+  // ---------------------------------------------------------------------
+
+  @override
+  Stream<List<PropertyDefinition>> watchAllPropertyDefinitions() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.propertyDefinitions],
+      read: () async {
+        final rows = await (_db.select(
+          _db.propertyDefinitions,
+        )..orderBy([(d) => OrderingTerm(expression: d.name)])).get();
+        return rows.map(_toPropertyDefinition).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'OrganizeRepositoryImpl.watchAllPropertyDefinitions',
+    );
+  }
+
+  @override
+  Future<Either<Failure, PropertyDefinition>> getOrCreatePropertyDefinition(
+    String name,
+  ) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El nombre no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final existing =
+          await (_db.select(_db.propertyDefinitions)
+                ..where((d) => d.name.lower().equals(trimmed.toLowerCase())))
+              .getSingleOrNull();
+      if (existing != null) return right(_toPropertyDefinition(existing));
+
+      final definition = PropertyDefinition(
+        id: _ids.next(),
+        name: trimmed,
+        createdAt: _clock(),
+      );
+      await _db
+          .into(_db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: definition.id,
+              name: definition.name,
+              createdAt: definition.createdAt,
+            ),
+          );
+
+      return right(definition);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.getOrCreatePropertyDefinition',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> deletePropertyDefinition(String id) async {
+    try {
+      await (_db.delete(
+        _db.propertyDefinitions,
+      )..where((d) => d.id.equals(id))).go();
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.deletePropertyDefinition',
+        ),
+      );
+    }
+  }
+
+  @override
+  Stream<List<PropertyValue>> watchPropertyValues(String definitionId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.propertyValues],
+      read: () async {
+        final rows =
+            await (_db.select(_db.propertyValues)
+                  ..where((v) => v.definitionId.equals(definitionId))
+                  ..orderBy([(v) => OrderingTerm(expression: v.value)]))
+                .get();
+        return rows.map(_toPropertyValue).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'OrganizeRepositoryImpl.watchPropertyValues',
+    );
+  }
+
+  @override
+  Future<Either<Failure, Unit>> assignProperty({
+    required String itemId,
+    required String definitionId,
+    required String value,
+  }) async {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El valor no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final existing =
+          await (_db.select(_db.propertyValues)..where(
+                (v) =>
+                    v.definitionId.equals(definitionId) &
+                    v.value.lower().equals(trimmed.toLowerCase()),
+              ))
+              .getSingleOrNull();
+
+      final propertyValueId = existing?.id ?? _ids.next();
+      if (existing == null) {
+        await _db
+            .into(_db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: propertyValueId,
+                definitionId: definitionId,
+                value: trimmed,
+                createdAt: _clock(),
+              ),
+            );
+      }
+
+      await _db
+          .into(_db.itemPropertyValues)
+          .insertOnConflictUpdate(
+            ItemPropertyValuesCompanion.insert(
+              itemId: itemId,
+              propertyValueId: propertyValueId,
+            ),
+          );
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.assignProperty'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> removeItemProperty({
+    required String itemId,
+    required String propertyValueId,
+  }) async {
+    try {
+      await (_db.delete(_db.itemPropertyValues)..where(
+            (it) =>
+                it.itemId.equals(itemId) &
+                it.propertyValueId.equals(propertyValueId),
+          ))
+          .go();
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.removeItemProperty'),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
 
@@ -577,6 +761,16 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
 
   Space _toSpace(SpaceRow row) =>
       Space(id: row.id, name: row.name, createdAt: row.createdAt);
+
+  PropertyDefinition _toPropertyDefinition(PropertyDefinitionRow row) =>
+      PropertyDefinition(id: row.id, name: row.name, createdAt: row.createdAt);
+
+  PropertyValue _toPropertyValue(PropertyValueRow row) => PropertyValue(
+    id: row.id,
+    definitionId: row.definitionId,
+    value: row.value,
+    createdAt: row.createdAt,
+  );
 
   Highlight _toHighlight(HighlightRow row) => Highlight(
     id: row.id,
