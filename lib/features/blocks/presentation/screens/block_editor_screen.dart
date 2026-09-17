@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Crea o edita una nota armada con bloques: encabezados, párrafos, listas,
@@ -127,6 +131,45 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     });
   }
 
+  /// Abre el buscador de la biblioteca y, con lo elegido, inserta
+  /// `[[Título]]` en el bloque [blockIndex] —en la posición del cursor, o
+  /// al final si el campo nunca tuvo foco—.
+  ///
+  /// Solo escribe el texto: el vínculo de verdad (`Relations`, el que
+  /// alimenta el Grafo) se crea recién al guardar —ver `_save`—, porque acá
+  /// una nota nueva todavía no tiene el `id` propio con el que vincularse a
+  /// nada.
+  Future<void> _insertLink(int blockIndex) async {
+    final itemId = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          PickItemDialog(excludeItemId: widget.existingItem?.id),
+    );
+    if (itemId == null || !mounted) return;
+
+    // `findById`, no `libraryItemsProvider`: ese es un `StreamProvider`
+    // pensado para que un widget lo mire con `ref.watch` desde su propio
+    // `build`, no para leerlo una sola vez desde un método imperativo como
+    // este — hacerlo así deja una suscripción activa que `autoDispose`
+    // nunca llega a soltar, y la próxima operación contra la base que
+    // dependa de esa misma conexión se queda esperando para siempre.
+    final result = await ref.read(libraryRepositoryProvider).findById(itemId);
+    final target = result.getRight().toNullable();
+    if (target == null || !mounted) return;
+
+    final controller = _blocks[blockIndex].controller;
+    final text = controller.text;
+    final selection = controller.selection;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final insertion = '[[${target.title}]]';
+
+    controller.value = TextEditingValue(
+      text: text.replaceRange(start, end, insertion),
+      selection: TextSelection.collapsed(offset: start + insertion.length),
+    );
+  }
+
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context)!;
     final title = _titleController.text.trim();
@@ -193,20 +236,51 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
 
     final result = await ref.read(libraryRepositoryProvider).save(item);
     if (!mounted) return;
-    setState(() => _saving = false);
 
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      // `canPop`: esta pantalla siempre llega apilada sobre otra —la
-      // captura o el detalle—, pero un `pop()` a secas sobre la única ruta
-      // de la pila revienta el `Navigator` en vez de no hacer nada. Mismo
-      // cuidado que `CaptureScreen._submit`.
-      (_) {
-        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-      },
-    );
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      return;
+    }
+
+    // Cada `[[Título]]` que sigue apareciendo en el texto final —lo haya
+    // escrito `_insertLink` o a mano— se convierte en un vínculo de
+    // verdad. Se escanea el texto guardado, no un registro aparte de "qué
+    // se insertó": si alguien borra el `[[ ]]` antes de guardar, no debe
+    // quedar un vínculo fantasma sin ningún enlace visible que lo explique.
+    //
+    // `list()`, no `libraryItemsProvider`: ver el comentario de
+    // `_insertLink` sobre por qué un `StreamProvider` no es para leerse una
+    // sola vez desde un método imperativo.
+    final linkedTitles = extractLinkedTitles(blocks);
+    if (linkedTitles.isNotEmpty) {
+      final allItems =
+          (await ref.read(libraryRepositoryProvider).list(const LibraryQuery()))
+              .getRight()
+              .toNullable() ??
+          const <KnowledgeItem>[];
+      final organize = ref.read(organizeRepositoryProvider);
+      for (final other in allItems) {
+        if (other.id == itemId) continue;
+        if (!linkedTitles.contains(other.title.trim().toLowerCase())) continue;
+        await organize.createRelation(
+          fromItemId: itemId,
+          toItemId: other.id,
+          kind: RelationKind.relatedTo,
+        );
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+    // `canPop`: esta pantalla siempre llega apilada sobre otra —la captura
+    // o el detalle—, pero un `pop()` a secas sobre la única ruta de la
+    // pila revienta el `Navigator` en vez de no hacer nada. Mismo cuidado
+    // que `CaptureScreen._submit`.
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
   @override
@@ -251,8 +325,8 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
               // conocido de la propia librería cuando el ítem arrastrado
               // tiene un campo de texto enfocado—. Sin foco, no hay
               // dependencia que sobreviva al desmontaje.
-              onReorderStart: (_) => FocusManager.instance.primaryFocus
-                  ?.unfocus(),
+              onReorderStart: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               onReorderItem: (oldIndex, newIndex) {
                 // El título ocupa el índice 0 y no participa del
                 // reordenamiento: se lo trata aparte, restando uno a cada
@@ -290,6 +364,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
                   onChangeType: (build) => _changeType(blockIndex, build),
                   onDelete: () => _removeBlock(blockIndex),
                   onAddAfter: () => _addBlockAfter(blockIndex),
+                  onInsertLink: () => _insertLink(blockIndex),
                 );
               },
             ),
@@ -309,6 +384,7 @@ class _BlockRow extends StatelessWidget {
     required this.onChangeType,
     required this.onDelete,
     required this.onAddAfter,
+    required this.onInsertLink,
     super.key,
   });
 
@@ -317,6 +393,7 @@ class _BlockRow extends StatelessWidget {
   final void Function(ContentBlock Function(String text) build) onChangeType;
   final VoidCallback onDelete;
   final VoidCallback onAddAfter;
+  final VoidCallback onInsertLink;
 
   @override
   Widget build(BuildContext context) {
@@ -359,6 +436,11 @@ class _BlockRow extends StatelessWidget {
                 hintText: _hintFor(l10n, type),
               ),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.link, size: 20),
+            tooltip: l10n.blocksInsertLink,
+            onPressed: onInsertLink,
           ),
           IconButton(
             icon: const Icon(Icons.add, size: 20),
@@ -464,4 +546,24 @@ class _BlockRow extends StatelessWidget {
 
     onChangeType(choice);
   }
+}
+
+final _linkPattern = RegExp(r'\[\[(.+?)\]\]');
+
+/// Los títulos —sin distinguir mayúsculas, recortados— que aparecen entre
+/// `[[ ]]` en cualquier bloque.
+///
+/// Función aparte de `_save`, y no un método privado del `State`, para que
+/// se pueda probar sola con datos concretos, sin montar el editor entero:
+/// es la única parte de la extracción de enlaces con lógica real, el resto
+/// es E/S contra la base.
+Set<String> extractLinkedTitles(List<ContentBlock> blocks) {
+  final titles = <String>{};
+  for (final block in blocks) {
+    for (final match in _linkPattern.allMatches(block.text)) {
+      final title = match.group(1)!.trim().toLowerCase();
+      if (title.isNotEmpty) titles.add(title);
+    }
+  }
+  return titles;
 }

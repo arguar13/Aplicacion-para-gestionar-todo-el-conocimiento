@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Convierte el Markdown crudo de una rendition en algo que se ve con
@@ -23,6 +24,15 @@ import 'package:flutter/material.dart';
 /// —títulos con `#`, **negrita**, *cursiva*, viñetas con `-`/`*`, citas con
 /// `>`, y el separador `---` que `PdfParser` pone entre páginas— es
 /// exactamente lo que este renderer entiende.
+///
+/// `[[Título]]` es la excepción: nadie la genera al importar contenido, solo
+/// el editor de bloques, cuando alguien enlaza una nota con otra sin salir
+/// del texto que está escribiendo —ver `BlockEditorScreen._insertLink`—.
+/// Acá se reconoce igual que negrita o cursiva —el marcado desaparece, queda
+/// el título tal cual—, pero con un `TapGestureRecognizer` en vez de un
+/// estilo fijo: [buildSpans] recibe [onLinkTap] y lo invoca con el título
+/// tocado, dejando que quien lo use decida cómo resolverlo a un elemento de
+/// verdad.
 class RenderedMarkdown {
   RenderedMarkdown._(this._segments, this.displayText);
 
@@ -101,6 +111,7 @@ class RenderedMarkdown {
     ThemeData theme,
     List<(int startOffset, int endOffset)> highlightRanges, {
     TextStyle? baseStyle,
+    ValueChanged<String>? onLinkTap,
   }) {
     final resolvedBaseStyle =
         baseStyle ??
@@ -115,6 +126,29 @@ class RenderedMarkdown {
             .where((r) => r.$2 > r.$1)
             .toList()
           ..sort((a, b) => a.$1.compareTo(b.$1));
+
+    // Un `[[Título]]` puede quedar partido en dos o tres `TextSpan` si un
+    // resaltado cae encima de él —ver el bucle de abajo—; cada trozo
+    // necesita su propio `TapGestureRecognizer`, pero los tres tienen que
+    // llevar a lo mismo: el título completo del segmento, no el trozo
+    // parcial que le tocó a ese `TextSpan`.
+    TapGestureRecognizer? recognizerFor(_Segment segment) {
+      if (!segment.style.link || onLinkTap == null) return null;
+      return TapGestureRecognizer()..onTap = () => onLinkTap(segment.text);
+    }
+
+    TextStyle? styleFor(_Segment segment, {bool highlighted = false}) {
+      var style = segment.style.toTextStyle(theme, resolvedBaseStyle);
+      if (highlighted) style = style?.copyWith(backgroundColor: highlightColor);
+      if (segment.style.link) {
+        style = style?.copyWith(
+          color: theme.colorScheme.primary,
+          decoration: TextDecoration.underline,
+          decorationColor: theme.colorScheme.primary,
+        );
+      }
+      return style;
+    }
 
     final spans = <TextSpan>[];
     for (final segment in _segments) {
@@ -133,16 +167,16 @@ class RenderedMarkdown {
           spans.add(
             TextSpan(
               text: segment.text.substring(cursor - segStart, start - segStart),
-              style: segment.style.toTextStyle(theme, resolvedBaseStyle),
+              style: styleFor(segment),
+              recognizer: recognizerFor(segment),
             ),
           );
         }
         spans.add(
           TextSpan(
             text: segment.text.substring(start - segStart, end - segStart),
-            style: segment.style
-                .toTextStyle(theme, resolvedBaseStyle)
-                ?.copyWith(backgroundColor: highlightColor),
+            style: styleFor(segment, highlighted: true),
+            recognizer: recognizerFor(segment),
           ),
         );
         cursor = end;
@@ -152,7 +186,8 @@ class RenderedMarkdown {
         spans.add(
           TextSpan(
             text: segment.text.substring(cursor - segStart),
-            style: segment.style.toTextStyle(theme, resolvedBaseStyle),
+            style: styleFor(segment),
+            recognizer: recognizerFor(segment),
           ),
         );
       }
@@ -265,7 +300,14 @@ class RenderedMarkdown {
     _parseInline(raw, lineStart, lineEnd, const _RunStyle(), segments);
   }
 
-  static final _emphasisPattern = RegExp(r'\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_');
+  // El enlace va primero en la alternancia: con las cuatro seguidas en el
+  // mismo `RegExp`, cada posición del texto solo puede matchear una —la
+  // primera que encaje, de izquierda a derecha entre las alternativas—, así
+  // que `[[Texto]]` nunca termina interpretado como dos pares de corchetes
+  // sueltos ni como si `*` de énfasis pudiera colarse adentro.
+  static final _emphasisPattern = RegExp(
+    r'\[\[(.+?)\]\]|\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_',
+  );
 
   static void _parseInline(
     String raw,
@@ -289,9 +331,11 @@ class RenderedMarkdown {
         );
       }
 
-      final isBold = match.group(1) != null;
-      final content = match.group(1) ?? match.group(2) ?? match.group(3)!;
-      final markerLength = isBold ? 2 : 1;
+      final isLink = match.group(1) != null;
+      final isBold = match.group(2) != null;
+      final content =
+          match.group(1) ?? match.group(2) ?? match.group(3) ?? match.group(4)!;
+      final markerLength = isLink || isBold ? 2 : 1;
       final contentStart = start + match.start + markerLength;
 
       segments
@@ -303,10 +347,12 @@ class RenderedMarkdown {
             rawStart: contentStart,
             rawEnd: contentStart + content.length,
             text: content,
-            style: baseStyle.copyWith(
-              bold: isBold || baseStyle.bold,
-              italic: !isBold || baseStyle.italic,
-            ),
+            style: isLink
+                ? const _RunStyle(link: true)
+                : baseStyle.copyWith(
+                    bold: isBold || baseStyle.bold,
+                    italic: !isBold || baseStyle.italic,
+                  ),
           ),
         )
         ..add(
@@ -361,8 +407,12 @@ class _Segment {
   int renderStart;
 }
 
-/// El formato acumulado de un tramo: título, negrita, cursiva, cita o
-/// separador, combinables salvo [rule] —un separador no lleva nada más—.
+/// El formato acumulado de un tramo: título, negrita, cursiva, cita,
+/// separador o enlace, combinables salvo [rule] —un separador no lleva nada
+/// más— y salvo [link], que tampoco se combina con nada: un `[[Título]]`
+/// dentro de una cita o un título no hereda cursiva ni tamaño, se ve
+/// siempre igual a sí mismo para que sea reconocible como enlace en
+/// cualquier lugar donde aparezca.
 class _RunStyle {
   const _RunStyle({
     this.heading = 0,
@@ -370,6 +420,7 @@ class _RunStyle {
     this.italic = false,
     this.quote = false,
     this.rule = false,
+    this.link = false,
   });
 
   /// 0 quiere decir "no es un título"; 1, 2 o 3 es el nivel de `#`.
@@ -378,6 +429,7 @@ class _RunStyle {
   final bool italic;
   final bool quote;
   final bool rule;
+  final bool link;
 
   _RunStyle copyWith({bool? bold, bool? italic}) => _RunStyle(
     heading: heading,
@@ -385,6 +437,7 @@ class _RunStyle {
     italic: italic ?? this.italic,
     quote: quote,
     rule: rule,
+    link: link,
   );
 
   TextStyle? toTextStyle(ThemeData theme, TextStyle? base) {
@@ -394,6 +447,11 @@ class _RunStyle {
         letterSpacing: 2,
       );
     }
+    // El color y el subrayado del enlace se aplican en `buildSpans`, no
+    // acá: son los mismos sin importar si el enlace cae dentro de una cita
+    // o un título, y `toTextStyle` no sabe nada de `ColorScheme.primary`
+    // hasta que `buildSpans` se lo pide con el tema puesto.
+    if (link) return base;
 
     var style = base;
     if (heading > 0) {

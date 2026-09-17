@@ -8,9 +8,16 @@ import 'package:sinapsis/features/organize/presentation/widgets/markdown_display
 /// selección de tipo ni reordenamiento — es una lista de widgets simples,
 /// cada uno resuelto según el tipo del bloque que le tocó.
 class BlockView extends StatelessWidget {
-  const BlockView({required this.blocks, super.key});
+  const BlockView({required this.blocks, this.onLinkTap, super.key});
 
   final List<ContentBlock> blocks;
+
+  /// Qué hacer al tocar un `[[Título]]` dentro de cualquier bloque, con el
+  /// título tal cual quedó escrito. `null` deja los enlaces sin ninguna
+  /// acción —se ven distinguibles del resto del texto, pero no responden
+  /// al toque—, para donde mostrar una nota de bloques no tiene sentido de
+  /// navegación, como una vista previa.
+  final ValueChanged<String>? onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +25,7 @@ class BlockView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final block in blocks) ...[
-          _BlockLine(block: block),
+          _BlockLine(block: block, onLinkTap: onLinkTap),
           const SizedBox(height: 8),
         ],
       ],
@@ -27,9 +34,10 @@ class BlockView extends StatelessWidget {
 }
 
 class _BlockLine extends StatelessWidget {
-  const _BlockLine({required this.block});
+  const _BlockLine({required this.block, required this.onLinkTap});
 
   final ContentBlock block;
+  final ValueChanged<String>? onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +47,7 @@ class _BlockLine extends StatelessWidget {
       ParagraphBlock(:final text) => _FormattedText(
         text: text,
         style: theme.textTheme.bodyLarge,
+        onLinkTap: onLinkTap,
       ),
       HeadingBlock(:final text, :final level) => Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -47,10 +56,19 @@ class _BlockLine extends StatelessWidget {
           style: level <= 1
               ? theme.textTheme.headlineSmall
               : theme.textTheme.titleLarge,
+          onLinkTap: onLinkTap,
         ),
       ),
-      BulletItemBlock(:final text) => _ListLine(bullet: '•', text: text),
-      NumberedItemBlock(:final text) => _ListLine(bullet: '—', text: text),
+      BulletItemBlock(:final text) => _ListLine(
+        bullet: '•',
+        text: text,
+        onLinkTap: onLinkTap,
+      ),
+      NumberedItemBlock(:final text) => _ListLine(
+        bullet: '—',
+        text: text,
+        onLinkTap: onLinkTap,
+      ),
       ChecklistItemBlock(:final text, :final checked) => Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -67,6 +85,7 @@ class _BlockLine extends StatelessWidget {
                 decoration: checked ? TextDecoration.lineThrough : null,
                 color: checked ? theme.colorScheme.onSurfaceVariant : null,
               ),
+              onLinkTap: onLinkTap,
             ),
           ),
         ],
@@ -84,6 +103,7 @@ class _BlockLine extends StatelessWidget {
             fontStyle: FontStyle.italic,
             color: theme.colorScheme.onSurfaceVariant,
           ),
+          onLinkTap: onLinkTap,
         ),
       ),
     };
@@ -91,10 +111,15 @@ class _BlockLine extends StatelessWidget {
 }
 
 class _ListLine extends StatelessWidget {
-  const _ListLine({required this.bullet, required this.text});
+  const _ListLine({
+    required this.bullet,
+    required this.text,
+    required this.onLinkTap,
+  });
 
   final String bullet;
   final String text;
+  final ValueChanged<String>? onLinkTap;
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +133,11 @@ class _ListLine extends StatelessWidget {
           child: Text(bullet, style: theme.textTheme.bodyLarge),
         ),
         Expanded(
-          child: _FormattedText(text: text, style: theme.textTheme.bodyLarge),
+          child: _FormattedText(
+            text: text,
+            style: theme.textTheme.bodyLarge,
+            onLinkTap: onLinkTap,
+          ),
         ),
       ],
     );
@@ -116,7 +145,8 @@ class _ListLine extends StatelessWidget {
 }
 
 /// El texto de un bloque, con **negrita** y *cursiva* renderizadas de
-/// verdad en vez de mostrar los asteriscos sueltos.
+/// verdad en vez de mostrar los asteriscos sueltos, y `[[Título]]` como un
+/// enlace tocable —ver `RenderedMarkdown`—.
 ///
 /// A diferencia de `HighlightableText`, acá no hace falta traducir
 /// posiciones entre lo crudo y lo renderizado: una nota de bloques no
@@ -124,16 +154,26 @@ class _ListLine extends StatelessWidget {
 /// importado, no sobre lo que se escribe a mano en el editor—, así que
 /// alcanza con un `Text.rich` de solo lectura.
 class _FormattedText extends StatelessWidget {
-  const _FormattedText({required this.text, required this.style});
+  const _FormattedText({
+    required this.text,
+    required this.style,
+    required this.onLinkTap,
+  });
 
   final String text;
   final TextStyle? style;
+  final ValueChanged<String>? onLinkTap;
 
   @override
   Widget build(BuildContext context) {
     final rendered = RenderedMarkdown.parse(text);
     return Text.rich(
-      rendered.buildSpans(Theme.of(context), const [], baseStyle: style),
+      rendered.buildSpans(
+        Theme.of(context),
+        const [],
+        baseStyle: style,
+        onLinkTap: onLinkTap,
+      ),
     );
   }
 }

@@ -794,6 +794,16 @@
   "@detailSpaceChoose": {
     "description": "Título del selector de tema en el detalle de un elemento."
   },
+  "detailLinkNotFound": "No se encontró ningún elemento llamado \"{title}\".",
+  "@detailLinkNotFound": {
+    "description": "Aviso al tocar un enlace [[ ]] de una nota de bloques que ya no coincide con el título de ningún elemento.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Colonialismo Británico"
+      }
+    }
+  },
   "libraryViewList": "Lista",
   "@libraryViewList": {
     "description": "Nombre de la vista de biblioteca en lista, para el selector de vistas."
@@ -913,6 +923,10 @@
   "blocksAddBlock": "Agregar bloque",
   "@blocksAddBlock": {
     "description": "Tooltip del botón que agrega un bloque nuevo debajo del actual."
+  },
+  "blocksInsertLink": "Enlazar con otro elemento",
+  "@blocksInsertLink": {
+    "description": "Tooltip del botón que inserta un enlace [[ ]] a otro elemento de la biblioteca."
   },
   "blocksDeleteBlock": "Eliminar bloque",
   "@blocksDeleteBlock": {

@@ -1803,6 +1803,52 @@ capturado, así que no hay nada ahí que pueda desincronizarse. Es una hoja
 del árbol: entrar a una subcarpeta de tipo muestra sus elementos y nada
 más, sin subcarpetas —reales ni de tipo— debajo.
 
+### 30. Enlaces `[[ ]]` dentro del texto: sobre lo que ya existía, no una red aparte
+
+Se pidió acercar la app al estilo Zettelkasten/Notion: escribir
+`[[Colonialismo Británico]]` dentro de una nota y que eso cree un vínculo
+de verdad con ese elemento, sin salir del texto a armar la relación aparte.
+
+**No es una red nueva: es una forma de crear una `Relation` que ya
+existía (decisión 19, el Grafo) sin salir del editor.** La bóveda ya
+tenía vínculos tipados y su propia visualización; lo que faltaba era
+poder crearlos *desde adentro de la prosa*, no un segundo sistema de
+conexiones en paralelo. Escribir `[[Título]]` —a mano, o con el botón de
+enlazar que abre el mismo `PickItemDialog` que ya usan el Grafo y el
+detalle— crea una `RelationKind.relatedTo` real al guardar, resuelta por
+título (sin distinguir mayúsculas) contra la biblioteca completa. Si el
+título ya no coincide con nada —el elemento se borró, o le cambiaron el
+nombre después de escrito el enlace—, el texto se ve igual pero deja de
+ser tocable: se avisa en vez de fallar en silencio, porque la `Relation`
+en sí (la que alimenta el Grafo) ya quedó creada al escribirlo, y solo el
+texto de la nota quedó desactualizado.
+
+**El reconocimiento vive en `RenderedMarkdown`, al lado de negrita y
+cursiva, no en un parser aparte.** `[[Texto]]` se trata como una marca
+inline más —el `[[`/`]]` desaparece igual que los `**`—, pero con un
+`TapGestureRecognizer` en vez de un estilo fijo: quien llama a
+`buildSpans` decide qué hacer al tocarlo (`onLinkTap`), y el propio
+parser no sabe nada de elementos ni de navegación.
+
+**Un hallazgo de testing que vale la pena dejar escrito, para no volver a
+gastar el tiempo en diagnosticarlo:** un `testWidgets` que hace, dentro
+del mismo callback de un botón, dos o más operaciones seguidas contra
+`NativeDatabase.memory()` —guardar, después listar, después crear una
+relación— se cuelga bajo el reloj simulado de `flutter_test` hasta su
+timeout (`TimeoutException`, con `dart:isolate _RawReceivePort._handleMessage`
+en la pila), aunque la misma secuencia, con el mismo repositorio y el
+mismo contenido, funcione perfecto —y en milisegundos— tanto en un `test`
+puro de Dart como en un `testWidgets` con un widget trivial. No se llegó
+a aislar la causa exacta —parece relacionada con los triggers de FTS5
+sobre contenido de texto real combinados con el manejo de isolates del
+motor bajo el binding de test, no con la lógica en sí—, pero el patrón
+para evitarlo es claro: la lógica que encadena varias operaciones contra
+la base se prueba aparte, contra el repositorio directo (como ya hacen
+`organize_repository_impl_test.dart` y el resto), y el `testWidgets` solo
+cubre que la interfaz arma bien el pedido —ver
+`block_editor_screen_test.dart`, el grupo "crear el vínculo real, sin
+widgets" separado del de interfaz—.
+
 ---
 
 ## Estado y orden de construcción
@@ -1943,6 +1989,11 @@ más, sin subcarpetas —reales ni de tipo— debajo.
   sus elementos se agrupan solos por tipo de fuente —redes sociales,
   documentos, videos de YouTube, notas...— para que una carpeta con
   cientos de elementos siga siendo navegable sin paginar ni buscar.
+- **Enlaces `[[ ]]` en el editor de bloques.** Escribir `[[Título]]` en
+  una nota —a mano, o con el botón de enlazar— crea, al guardar, un
+  vínculo real hacia ese elemento —ver la decisión 30—, resuelto por
+  título contra toda la biblioteca. Reutiliza el mismo `Relations`/Grafo
+  que ya existía, no una red de conexiones aparte.
 
 ### Por construir
 

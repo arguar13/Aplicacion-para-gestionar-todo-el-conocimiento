@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
@@ -45,10 +46,7 @@ void main() {
     });
 
     test('##  y ### también, hasta tres niveles', () {
-      expect(
-        RenderedMarkdown.parse('## Subtítulo').displayText,
-        'Subtítulo',
-      );
+      expect(RenderedMarkdown.parse('## Subtítulo').displayText, 'Subtítulo');
       expect(
         RenderedMarkdown.parse('### Menor todavía').displayText,
         'Menor todavía',
@@ -75,6 +73,91 @@ void main() {
       final rendered = RenderedMarkdown.parse('> lo que alguien dijo');
 
       expect(rendered.displayText, 'lo que alguien dijo');
+    });
+  });
+
+  group('enlaces [[ ]]', () {
+    test('pierde los corchetes dobles, queda solo el título', () {
+      final rendered = RenderedMarkdown.parse(
+        'Esto viene del [[Colonialismo Británico]] de la época.',
+      );
+
+      expect(
+        rendered.displayText,
+        'Esto viene del Colonialismo Británico de la época.',
+      );
+    });
+
+    test('varios enlaces en la misma línea, todos se resuelven', () {
+      final rendered = RenderedMarkdown.parse(
+        '[[Uno]] y [[Dos]] están relacionados',
+      );
+
+      expect(rendered.displayText, 'Uno y Dos están relacionados');
+    });
+
+    test('no se confunde con énfasis: el asterisco no entra adentro', () {
+      final rendered = RenderedMarkdown.parse('Ver [[Tema *importante*]]');
+
+      // El contenido entre corchetes se toma tal cual, sin además
+      // interpretar el `*` que tiene adentro como cursiva: un enlace es
+      // una sola unidad, no una mezcla de marcados.
+      expect(rendered.displayText, 'Ver Tema *importante*');
+    });
+
+    test('buildSpans arma un span tocable con el título completo, y '
+        'tocarlo avisa con ese mismo título', () {
+      final rendered = RenderedMarkdown.parse(
+        'Ver [[Colonialismo Británico]] acá',
+      );
+      final theme = ThemeData.light();
+      String? tapped;
+
+      final span = rendered.buildSpans(
+        theme,
+        const [],
+        onLinkTap: (title) => tapped = title,
+      );
+
+      final linkSpan = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.text == 'Colonialismo Británico',
+      );
+      (linkSpan.recognizer! as TapGestureRecognizer).onTap!();
+
+      expect(tapped, 'Colonialismo Británico');
+    });
+
+    test('sin onLinkTap, el span no lleva ningún recognizer', () {
+      final rendered = RenderedMarkdown.parse('Ver [[Algo]] acá');
+      final theme = ThemeData.light();
+
+      final span = rendered.buildSpans(theme, const []);
+
+      final linkSpan = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.text == 'Algo',
+      );
+      expect(linkSpan.recognizer, isNull);
+    });
+
+    test('un resaltado que cae encima de un enlace no le hace perder el '
+        'toque: la parte resaltada también avisa el título completo', () {
+      const raw = 'Ver [[Colonialismo Británico]] acá';
+      final rendered = RenderedMarkdown.parse(raw);
+      final theme = ThemeData.light();
+      String? tapped;
+
+      // "Colonial" dentro del título, en el renderizado: empieza en 4
+      // (después de "Ver ") y dura 8 caracteres.
+      final span = rendered.buildSpans(theme, [
+        (rendered.renderToRaw(4), rendered.renderToRaw(12)),
+      ], onLinkTap: (title) => tapped = title);
+
+      final highlighted = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.style?.backgroundColor != null,
+      );
+      (highlighted.recognizer! as TapGestureRecognizer).onTap!();
+
+      expect(tapped, 'Colonialismo Británico');
     });
   });
 
@@ -111,10 +194,7 @@ void main() {
       final renderStart = rendered.rawToRender(7);
       final renderEnd = rendered.rawToRender(12);
 
-      expect(
-        rendered.displayText.substring(renderStart, renderEnd),
-        'mundo',
-      );
+      expect(rendered.displayText.substring(renderStart, renderEnd), 'mundo');
     });
 
     test('un resaltado guardado sobre texto plano se traduce sin cambios '
@@ -152,9 +232,9 @@ void main() {
       final theme = ThemeData.light();
 
       final span = rendered.buildSpans(theme, [(8, 15)]);
-      final highlighted = span.children!
-          .cast<TextSpan>()
-          .firstWhere((s) => s.style?.backgroundColor != null);
+      final highlighted = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.style?.backgroundColor != null,
+      );
 
       expect(highlighted.text, 'negrita');
     });
@@ -165,9 +245,9 @@ void main() {
 
       final span = rendered.buildSpans(theme, const []);
 
-      final anyHighlighted = span.children!
-          .cast<TextSpan>()
-          .any((s) => s.style?.backgroundColor != null);
+      final anyHighlighted = span.children!.cast<TextSpan>().any(
+        (s) => s.style?.backgroundColor != null,
+      );
       expect(anyHighlighted, isFalse);
     });
   });

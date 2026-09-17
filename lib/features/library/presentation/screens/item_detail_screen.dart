@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
@@ -362,14 +365,14 @@ class _TextRenditionView extends ConsumerWidget {
 /// Aparte del resto de las formas de texto —que se muestran directo con
 /// `HighlightableText`— porque el contenido guardado es JSON, no texto para
 /// leer tal cual; hay que decodificarlo antes.
-class _BlocksRendition extends StatelessWidget {
+class _BlocksRendition extends ConsumerWidget {
   const _BlocksRendition({required this.item, required this.rendition});
 
   final KnowledgeItem item;
   final TextRendition rendition;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final blocks = decodeContentBlocks(rendition.content);
     // Un resumen o una lectura en voz alta no distinguen encabezados de
@@ -399,11 +402,54 @@ class _BlocksRendition extends StatelessWidget {
             ],
           ),
         ),
-        BlockView(blocks: blocks),
+        BlockView(
+          blocks: blocks,
+          onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
+        ),
         const SizedBox(height: 8),
         NarrationPlayer(text: plainText),
       ],
     );
+  }
+
+  /// Busca un elemento por título exacto —sin distinguir mayúsculas— y
+  /// navega a su detalle. Un `[[Título]]` que ya no coincide con nada
+  /// —porque el elemento se borró, o porque le cambiaron el nombre después
+  /// de escrito el enlace— avisa en vez de fallar en silencio: el vínculo
+  /// de verdad (`Relations`, el que alimenta el Grafo) ya quedó creado al
+  /// escribirlo, así que solo el texto quedó desactualizado.
+  ///
+  /// `list()`, no `libraryItemsProvider`: ese es un `StreamProvider`
+  /// pensado para que un widget lo mire con `ref.watch` desde su propio
+  /// `build`, no para leerlo una sola vez desde un manejador de toque como
+  /// este — hacerlo así deja una suscripción activa que `autoDispose`
+  /// nunca llega a soltar, y la próxima operación contra la base que
+  /// dependa de esa misma conexión se queda esperando para siempre.
+  Future<void> _openLink(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final normalized = title.trim().toLowerCase();
+    final allItems =
+        (await ref.read(libraryRepositoryProvider).list(const LibraryQuery()))
+            .getRight()
+            .toNullable() ??
+        const <KnowledgeItem>[];
+    final target = allItems
+        .where((i) => i.title.trim().toLowerCase() == normalized)
+        .firstOrNull;
+    if (!context.mounted) return;
+
+    if (target == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.detailLinkNotFound(title))));
+      return;
+    }
+
+    unawaited(context.push(RoutePaths.itemDetail(target.id)));
   }
 }
 
