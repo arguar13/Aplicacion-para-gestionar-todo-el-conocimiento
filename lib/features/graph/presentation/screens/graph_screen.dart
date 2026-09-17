@@ -390,11 +390,10 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
     // Ya no es un límite —ver el comentario de `computeGraphLayout`—, solo
     // la escala de partida del cálculo de fuerzas: crece con la cantidad de
     // nodos para que la separación inicial entre ellos tenga sentido, pero
-    // el resultado final puede terminar siendo más grande que esto sin que
-    // nada lo recorte. `SizedBox`, `CustomPaint` e `InteractiveViewer`, más
-    // abajo, usan este mismo tamaño como lienzo lógico, pero con
-    // `Clip.none` y un `boundaryMargin` sin tope nada de lo que se dibuje
-    // fuera de ese rectángulo queda cortado ni fuera de alcance del paneo.
+    // el resultado final puede terminar siendo más grande que esto. El
+    // tamaño real del `Stack` de más abajo NO es este —ver `_canvasBounds`—:
+    // usarlo tal cual dejaría nodos fuera de alcance del toque aunque se
+    // sigan viendo, que es justo el bug que corrigió este cálculo aparte.
     final canvasSize = Size(
       math.max(900, nodeIds.length * 230.0),
       math.max(900, nodeIds.length * 230.0),
@@ -407,6 +406,16 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         id: _pinnedPositions[id] ?? _layoutPositions[id] ?? Offset.zero,
     };
 
+    // El `Stack` de más abajo solo se dimensiona con `canvasSize` como
+    // semilla; acá se recalcula su tamaño real a partir de dónde terminaron
+    // los nodos de verdad —ver el comentario de `_canvasBounds` sobre por
+    // qué hace falta—. `renderPositions` es la misma `positions` pero
+    // corrida para que el punto más arriba-izquierda caiga en (0,0) del
+    // `Stack`: todo lo que se dibuja o se mide de acá en más usa esta
+    // versión, nunca `positions` directamente.
+    final bounds = _canvasBounds(positions);
+    final renderPositions = _shiftPositions(positions, bounds.origin);
+
     if (_pendingFit) {
       _pendingFit = false;
       // Recién en el próximo frame, no acá: el visor ya tiene su tamaño
@@ -416,7 +425,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _transformController.value = computeFitTransform(
-          positions: positions,
+          positions: renderPositions,
           viewportSize: viewportSize,
           contentMargin: _kNodeMargin,
         );
@@ -457,18 +466,17 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         // lienzo entero y el nodo siga al dedo sin tirones.
         panEnabled: _draggingNodeId == null,
         child: SizedBox(
-          width: canvasSize.width,
-          height: canvasSize.height,
+          width: bounds.size.width,
+          height: bounds.size.height,
           child: Stack(
-            // Sin recorte: `canvasSize` es solo la escala de partida del
-            // layout —ver más arriba—, no un marco real. Un grafo con
-            // muchos nodos, o un nodo arrastrado a mano bien afuera de ese
-            // rectángulo, se sigue viendo entero en vez de cortarse en el
-            // borde.
+            // Sin recorte: por más que el `Stack` ya se dimensiona para
+            // contener a todos los nodos —ver `_canvasBounds`—, un arrastre
+            // en curso puede sacar a uno de ese rectángulo por un instante,
+            // antes de que el próximo build lo vuelva a ajustar.
             clipBehavior: Clip.none,
             children: [
               CustomPaint(
-                size: canvasSize,
+                size: bounds.size,
                 painter: GraphEdgesPainter(
                   edges: [
                     for (final edge in scope.edges)
@@ -479,7 +487,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                         edge.kind.shortLabel(l10n),
                       ),
                   ],
-                  positions: positions,
+                  positions: renderPositions,
                   nodeSize: _kNodeSize,
                   colorScheme: theme.colorScheme,
                   dimmedNodeIds: dimmedNodeIds,
@@ -491,7 +499,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                 _GraphNode(
                   key: ValueKey(id),
                   item: itemsById[id]!,
-                  center: positions[id]!,
+                  center: renderPositions[id]!,
                   dimmed: dimmedNodeIds?.contains(id) ?? false,
                   focused: focused == id,
                   dragging: _draggingNodeId == id,
@@ -502,12 +510,17 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   }),
                   onDragStart: () => setState(() {
                     _draggingNodeId = id;
-                    _liveDragPosition.value = positions[id];
+                    _liveDragPosition.value = renderPositions[id];
                   }),
                   onDragEnd: () => setState(() {
                     if (_draggingNodeId == id) {
-                      _pinnedPositions[id] =
-                          _liveDragPosition.value ?? positions[id]!;
+                      // De vuelta a coordenadas absolutas —sin el corrimiento
+                      // de este build— antes de guardarlo: `_pinnedPositions`
+                      // tiene que sobrevivir al próximo build, donde
+                      // `bounds.origin` puede haber cambiado.
+                      final liveRender =
+                          _liveDragPosition.value ?? renderPositions[id]!;
+                      _pinnedPositions[id] = liveRender + bounds.origin;
                       _draggingNodeId = null;
                     }
                     _liveDragPosition.value = null;
@@ -516,7 +529,8 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                     if (_draggingNodeId != id) return;
                     final scale = _transformController.value
                         .getMaxScaleOnAxis();
-                    final current = _liveDragPosition.value ?? positions[id]!;
+                    final current =
+                        _liveDragPosition.value ?? renderPositions[id]!;
                     _liveDragPosition.value = current + delta / scale;
                   },
                 ),
@@ -525,6 +539,48 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         ),
       ),
     );
+  }
+
+  /// El rectángulo que necesita el `Stack` del lienzo para contener TODAS
+  /// las posiciones actuales, con el mismo margen que ya usa el encuadre
+  /// automático.
+  ///
+  /// Hace falta porque un `Stack` con `Clip.none` deja de pintar recortado
+  /// lo que cae afuera de su propio tamaño, pero Flutter igual rechaza de
+  /// entrada cualquier toque fuera de ese rectángulo —antes de preguntarle
+  /// a los hijos— sin importar qué tan afuera esté un `Positioned`. Con el
+  /// layout de fuerzas ya sin límite (ver `computeGraphLayout`), un nodo
+  /// lejos del centro podía terminar afuera de la semilla de siempre y
+  /// quedar visible pero "fijado": se veía, pero ningún toque le llegaba.
+  /// Medir el `Stack` según dónde terminaron los nodos de verdad, en cada
+  /// build, es lo que evita que vuelva a pasar sin importar cuán separado
+  /// termine el grafo.
+  ({Offset origin, Size size}) _canvasBounds(Map<String, Offset> positions) {
+    if (positions.isEmpty) {
+      return (origin: Offset.zero, size: const Size(900, 900));
+    }
+
+    final xs = positions.values.map((p) => p.dx);
+    final ys = positions.values.map((p) => p.dy);
+    final minX = xs.reduce(math.min) - _kNodeMargin;
+    final maxX = xs.reduce(math.max) + _kNodeMargin;
+    final minY = ys.reduce(math.min) - _kNodeMargin;
+    final maxY = ys.reduce(math.max) + _kNodeMargin;
+
+    return (origin: Offset(minX, minY), size: Size(maxX - minX, maxY - minY));
+  }
+
+  /// [positions] corrida para que quede en el sistema de coordenadas local
+  /// del `Stack` —donde (0,0) es la esquina superior izquierda de
+  /// [origin]—, que es lo que de verdad esperan `Positioned` y
+  /// `CustomPaint`.
+  Map<String, Offset> _shiftPositions(
+    Map<String, Offset> positions,
+    Offset origin,
+  ) {
+    return {
+      for (final entry in positions.entries) entry.key: entry.value - origin,
+    };
   }
 
   /// Acerca o aleja el zoom por [factor] —mayor que 1 acerca, menor aleja—
@@ -565,10 +621,16 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
       for (final id in _lastNodeIds)
         id: _pinnedPositions[id] ?? _layoutPositions[id] ?? Offset.zero,
     };
+    // Mismo corrimiento que aplica `_buildCanvas` al armar el `Stack`: el
+    // encuadre tiene que apuntar al mismo sistema de coordenadas que se
+    // está dibujando de verdad ahora mismo, no al de `positions` sin
+    // corregir.
+    final bounds = _canvasBounds(positions);
+    final renderPositions = _shiftPositions(positions, bounds.origin);
 
     setState(() {
       _transformController.value = computeFitTransform(
-        positions: positions,
+        positions: renderPositions,
         viewportSize: viewport,
         contentMargin: _kNodeMargin,
       );

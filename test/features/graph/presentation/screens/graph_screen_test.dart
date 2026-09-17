@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/graph_edges_painter.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -330,6 +332,78 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Un tercer elemento suelto'), findsOneWidget);
+    });
+  });
+
+  group('arrastrar nodos', () {
+    testWidgets('arrastrar un nodo bien lejos agranda el lienzo para seguir '
+        'alcanzándolo con el toque, en vez de dejarlo fijado fuera de rango', (
+      tester,
+    ) async {
+      await harness.capture('El artículo original');
+      await harness.capture('La respuesta');
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final itemA = items.firstWhere((i) => i.title == 'El artículo original');
+      final itemB = items.firstWhere((i) => i.title == 'La respuesta');
+
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: itemA.id,
+            toItemId: itemB.id,
+            kind: RelationKind.relatedTo,
+          );
+
+      await pumpGraph(tester);
+
+      // El único `CustomPaint` de las aristas del grafo: su tamaño es
+      // justo el rectángulo que arma `_canvasBounds` a partir de las
+      // posiciones de verdad, el mismo que usa el `Stack` que contiene
+      // a los nodos.
+      Finder edgesPaint() => find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is GraphEdgesPainter,
+      );
+
+      final sizeBefore = tester.widget<CustomPaint>(edgesPaint()).size;
+      final centerBefore = tester.getCenter(find.text('El artículo original'));
+
+      // Arrastrar bien lejos: el layout de fuerzas ya no tiene límite
+      // (ver `computeGraphLayout`), y este mismo arrastre a mano es la
+      // otra forma en la que un nodo puede terminar bien afuera del
+      // rectángulo con el que arrancó el lienzo.
+      //
+      // Paso a paso con `startGesture`/`moveBy`, no `tester.drag()`: cada
+      // movimiento dispara un `setState` —ver el comentario de
+      // `_liveDragPosition`— y sin un `pump()` propio entre cada uno,
+      // `drag()` los manda todos de corrido antes de que el primer
+      // `setState` llegue a aplicarse, y el gesto se pierde entero contra
+      // este árbol en particular.
+      final gesture = await tester.startGesture(centerBefore);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+        await gesture.moveBy(const Offset(150, 150));
+      }
+      await tester.pump(const Duration(milliseconds: 30));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final sizeAfter = tester.widget<CustomPaint>(edgesPaint()).size;
+
+      // El lienzo tiene que haber crecido para seguir conteniendo al
+      // nodo recién arrastrado: si se hubiera quedado con el tamaño de
+      // siempre, el nodo se seguiría viendo —`Clip.none`— pero ya no
+      // respondería a ningún toque, porque Flutter rechaza de entrada
+      // cualquier gesto fuera del tamaño propio de un `Stack`, sin
+      // llegar a preguntarle a sus hijos.
+      expect(sizeAfter.width, greaterThan(sizeBefore.width + 400));
+      expect(sizeAfter.height, greaterThan(sizeBefore.height + 400));
     });
   });
 
