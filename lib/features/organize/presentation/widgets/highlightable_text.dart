@@ -2,7 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -27,11 +33,16 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// vez de en un lugar fijo.
 class HighlightableText extends ConsumerStatefulWidget {
   const HighlightableText({
+    required this.itemId,
     required this.renditionId,
     required this.content,
     super.key,
   });
 
+  /// El elemento al que pertenece esta forma de contenido. Hace falta para
+  /// "Extraer como nota": la nota nueva queda vinculada a este con
+  /// [RelationKind.extractedFrom].
+  final String itemId;
   final String renditionId;
   final String content;
 
@@ -87,11 +98,11 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
         );
   }
 
-  /// Agrega "Resaltar" al menú de selección que Flutter ya arma para
-  /// Copiar/Compartir, en vez de dibujar uno propio: mismo look nativo del
-  /// resto del menú, y Flutter lo posiciona solo junto a la selección
-  /// activa, sea cual sea el punto de un texto largo donde el usuario esté
-  /// parado.
+  /// Agrega "Resaltar" y "Extraer como nota" al menú de selección que
+  /// Flutter ya arma para Copiar/Compartir, en vez de dibujar uno propio:
+  /// mismo look nativo del resto del menú, y Flutter lo posiciona solo
+  /// junto a la selección activa, sea cual sea el punto de un texto largo
+  /// donde el usuario esté parado.
   Widget _buildContextMenu(
     BuildContext context,
     EditableTextState editableTextState,
@@ -100,7 +111,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     final selection = editableTextState.textEditingValue.selection;
 
     final buttonItems = [
-      if (!selection.isCollapsed)
+      if (!selection.isCollapsed) ...[
         ContextMenuButtonItem(
           onPressed: () {
             ContextMenuController.removeAny();
@@ -108,6 +119,14 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           },
           label: l10n.detailHighlightSelection,
         ),
+        ContextMenuButtonItem(
+          onPressed: () {
+            ContextMenuController.removeAny();
+            unawaited(_extractSelection(selection));
+          },
+          label: l10n.detailExtractSelection,
+        ),
+      ],
       ...editableTextState.contextMenuButtonItems,
     ];
 
@@ -115,6 +134,59 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       anchors: editableTextState.contextMenuAnchors,
       buttonItems: buttonItems,
     );
+  }
+
+  /// Crea una nota atómica nueva con el fragmento seleccionado, vinculada
+  /// al elemento actual como su fuente.
+  ///
+  /// Pasa por [captureItemUseCaseProvider] —el mismo camino de entrada que
+  /// cualquier captura manual— en vez de armar el `KnowledgeItem` a mano:
+  /// así la nota nueva recibe el mismo tratamiento (id, timestamps,
+  /// guardado atómico) que cualquier otra, sin duplicar esa lógica acá.
+  Future<void> _extractSelection(TextSelection selection) async {
+    final startOffset = _rendered.renderToRaw(selection.start);
+    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
+    final excerpt = widget.content.substring(startOffset, endOffset);
+
+    final result = await ref.read(captureItemUseCaseProvider)(
+      CaptureRequest.text(rawInput: excerpt),
+    );
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      return;
+    }
+    final newItem = result.getRight().toNullable()!;
+
+    await ref
+        .read(organizeRepositoryProvider)
+        .createRelation(
+          fromItemId: newItem.id,
+          toItemId: widget.itemId,
+          kind: RelationKind.extractedFrom,
+        );
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.detailExtractedNoteCreated(newItem.title)),
+          action: SnackBarAction(
+            label: l10n.detailExtractedNoteView,
+            onPressed: () {
+              if (context.mounted) {
+                context.push(RoutePaths.itemDetail(newItem.id));
+              }
+            },
+          ),
+        ),
+      );
   }
 
   @override

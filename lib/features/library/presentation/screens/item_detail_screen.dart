@@ -315,6 +315,7 @@ class _TextRenditionView extends ConsumerWidget {
           ),
         ),
         HighlightableText(
+          itemId: item.id,
           renditionId: rendition.id,
           content: rendition.content,
         ),

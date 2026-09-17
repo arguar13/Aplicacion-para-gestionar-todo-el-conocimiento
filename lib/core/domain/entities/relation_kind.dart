@@ -20,4 +20,8 @@ enum RelationKind {
 
   /// El origen es un resumen del destino.
   summarizes,
+
+  /// El origen es un fragmento atómico extraído del destino, a mano,
+  /// seleccionando un pedazo de su texto.
+  extractedFrom,
 }

@@ -1924,6 +1924,42 @@ sección más, observando el notifier como provider en vez de recibir el
 estado por parámetro, para que marcar un chip se refleje al instante en
 la lista de atrás aunque el panel siga abierto.
 
+### 33. Notas atómicas: extraer una selección, no partir un texto entero
+
+Se pidió poder partir una transcripción o nota larga en varias notas de
+una sola idea —el otro pilar del Zettelkasten, junto a los enlaces
+`[[ ]]` (decisión 30) y las propiedades tipadas (decisión 31)—. Se
+evaluaron dos modos, manual (seleccionar un fragmento y extraerlo) y
+automático (una IA propone varias notas de una transcripción larga de
+una vez); **se implementó solo el manual**, a pedido explícito.
+
+**"Extraer como nota" vive en el mismo menú contextual que "Resaltar",
+no en un botón aparte.** `HighlightableText._buildContextMenu` ya
+inyectaba un ítem en el menú de selección nativo de Flutter
+(Copiar/Compartir); esto suma un segundo ítem al lado, reutilizando el
+mismo cálculo de offsets del texto crudo que ya hacía
+`_highlightSelection`. Mismo criterio que llevó a poner "Resaltar" ahí
+en primer lugar: cualquier otro lugar de la pantalla queda a miles de
+píxeles de la selección real en un texto largo.
+
+**No se construyó un camino de guardado nuevo: la nota atómica pasa por
+`CaptureItemUseCase`, el mismo que cualquier captura manual.** Construir
+un `KnowledgeItem` a mano se hubiera salteado el id, los timestamps y el
+guardado atómico que ese caso de uso ya garantiza para todo lo que
+entra a la bóveda — duplicar esa lógica acá hubiera sido el tipo de
+atajo que rompe el día que alguien cambie cómo se arma un elemento
+nuevo.
+
+**La relación hacia el original usa un tipo nuevo,
+`RelationKind.extractedFrom`, no `cites`.** Una nota atómica no está
+*citando* una fuente externa: es literalmente un fragmento que estaba
+adentro del texto original, y confundir las dos cosas en el grafo le
+resta precisión justo al tipo de vínculo que un sistema de notas
+atómicas más necesita distinguir. Se crea automáticamente al extraer,
+sin ningún diálogo intermedio: a diferencia de una relación cualquiera
+—donde hay que elegir con qué otro elemento vincular y de qué tipo—,
+acá los dos lados ya se conocen de antemano.
+
 ---
 
 ## Estado y orden de construcción
@@ -2069,6 +2105,11 @@ la lista de atrás aunque el panel siga abierto.
   por tipo, etiqueta y propiedad —ver la decisión 32—, sin ninguna
   carpeta que crear ni mantener a mano: la organización sale sola de lo
   que cada elemento ya tiene puesto.
+- **Notas atómicas, extraídas a mano.** Seleccionar un fragmento de
+  cualquier forma de texto y elegir "Extraer como nota" en el mismo menú
+  de Resaltar/Copiar/Compartir —ver la decisión 33— crea una nota nueva
+  con ese fragmento, vinculada al original con el tipo de relación
+  `extractedFrom`.
 
 ### Por construir
 

@@ -632,9 +632,49 @@
   "@relationKindLabelSummarizes": {
     "description": "Nombre corto del tipo de vínculo, para el selector."
   },
+  "relationKindExtractedFromOutgoing": "Extraída de {name}",
+  "@relationKindExtractedFromOutgoing": {
+    "description": "Este elemento es un fragmento extraído del otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindExtractedFromIncoming": "Fuente de {name}",
+  "@relationKindExtractedFromIncoming": {
+    "description": "El otro elemento es un fragmento extraído de este.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindLabelExtractedFrom": "Extraída de",
+  "@relationKindLabelExtractedFrom": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
   "detailHighlightSelection": "Resaltar",
   "@detailHighlightSelection": {
     "description": "Botón que aparece al seleccionar texto, para subrayarlo."
+  },
+  "detailExtractSelection": "Extraer como nota",
+  "@detailExtractSelection": {
+    "description": "Botón que aparece al seleccionar texto, para crear una nota atómica nueva con ese fragmento."
+  },
+  "detailExtractedNoteCreated": "Nota creada: \"{title}\"",
+  "@detailExtractedNoteCreated": {
+    "description": "Confirmación tras extraer una selección como nota nueva, con el título que le tocó.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "sobre epistemología"
+      }
+    }
+  },
+  "detailExtractedNoteView": "Ver",
+  "@detailExtractedNoteView": {
+    "description": "Acción del aviso de nota extraída, para ir directo a verla."
   },
   "detailHighlightsTitle": "Resaltados",
   "@detailHighlightsTitle": {

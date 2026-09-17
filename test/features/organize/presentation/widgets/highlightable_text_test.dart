@@ -4,12 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
+import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
+
+class _MockCaptureItemUseCase extends Mock implements CaptureItemUseCase {}
 
 /// Verifica que resaltar funcione de punta a punta desde el menú de
 /// selección, no un botón aparte.
@@ -21,10 +31,16 @@ class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
 /// práctica. `contextMenuBuilder` lo agrega al propio menú de
 /// Copiar/Compartir, que Flutter ya posiciona junto a la selección.
 void main() {
+  setUpAll(() {
+    registerFallbackValue(RelationKind.relatedTo);
+  });
+
   late _MockOrganizeRepository repository;
+  late _MockCaptureItemUseCase captureUseCase;
 
   setUp(() {
     repository = _MockOrganizeRepository();
+    captureUseCase = _MockCaptureItemUseCase();
     when(
       () => repository.watchHighlightsForRendition(any()),
     ).thenAnswer((_) => Stream.value(const []));
@@ -33,12 +49,16 @@ void main() {
   Future<void> pumpHighlightableText(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [organizeRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          organizeRepositoryProvider.overrideWithValue(repository),
+          captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+        ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: HighlightableText(
+              itemId: 'item-1',
               renditionId: 'rendition-1',
               content: 'Conocemos bien el amor y las reglas del juego.',
             ),
@@ -121,21 +141,73 @@ void main() {
     expect(find.text('Highlight'), findsNothing);
   });
 
+  testWidgets('seleccionar texto y elegir Extract as note la crea vinculada al '
+      'elemento actual', (tester) async {
+    final newItem = KnowledgeItem(
+      id: 'item-extracted',
+      title: 'Conocemos',
+      source: Source(
+        id: 'src-extracted',
+        kind: SourceKind.manualNote,
+        capturedAt: DateTime(2026),
+      ),
+      processingState: ProcessingState.ready,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
+    when(
+      () =>
+          captureUseCase.call(const CaptureRequest.text(rawInput: 'Conocemos')),
+    ).thenAnswer((_) async => right(newItem));
+    when(
+      () => repository.createRelation(
+        fromItemId: any(named: 'fromItemId'),
+        toItemId: any(named: 'toItemId'),
+        kind: any(named: 'kind'),
+      ),
+    ).thenAnswer((_) async => right(unit));
+
+    await pumpHighlightableText(tester);
+
+    final state = tester.state<EditableTextState>(find.byType(EditableText));
+    state.userUpdateTextEditingValue(
+      state.textEditingValue.copyWith(
+        selection: const TextSelection(baseOffset: 0, extentOffset: 9),
+      ),
+      SelectionChangedCause.tap,
+    );
+    state.showToolbar();
+    await tester.pumpAndSettle();
+
+    // En inglés, ídem "Highlight" más arriba — el entorno de test no fija
+    // un locale.
+    await tester.tap(find.text('Extract as note'));
+    await tester.pumpAndSettle();
+
+    verify(
+      () => repository.createRelation(
+        fromItemId: 'item-extracted',
+        toItemId: 'item-1',
+        kind: RelationKind.extractedFrom,
+      ),
+    ).called(1);
+    expect(find.textContaining('Conocemos'), findsWidgets);
+  });
+
   group('formato de Markdown', () {
-    Future<void> pumpWithMarkdown(
-      WidgetTester tester,
-      String content,
-    ) async {
+    Future<void> pumpWithMarkdown(WidgetTester tester, String content) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             organizeRepositoryProvider.overrideWithValue(repository),
+            captureItemUseCaseProvider.overrideWithValue(captureUseCase),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: HighlightableText(
+                itemId: 'item-1',
                 renditionId: 'rendition-1',
                 content: content,
               ),
