@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 
 /// Decide qué visor le corresponde al archivo original de un elemento.
@@ -21,11 +22,13 @@ import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 /// `webview_flutter`) que no sabe trabajar con otra cosa. Un documento de
 /// texto —DOCX, EPUB, texto suelto— no pide ninguna: lo que hace falta ya
 /// está en `item.renditions`, y reconocer si es un PDF usa
-/// `FileStore.readHead()`, no una ruta absoluta ni `dart:io` directo. La
-/// diferencia importa de verdad en la web, donde `OpfsFileStore.resolve()`
-/// no tiene ninguna ruta que devolver —ver esa clase—: pedirla sin
-/// necesitarla de verdad rompería ahí lo que en cualquier otra plataforma
-/// nunca hacía falta.
+/// `FileStore.readHead()`, no una ruta absoluta ni `dart:io` directo. Un
+/// video de YouTube tampoco pide ninguna: su vista previa se arma con la
+/// URL original, no con ningún archivo guardado — ver el comentario de
+/// `YoutubeEmbedResolvedViewer`. La diferencia importa de verdad en la web,
+/// donde `OpfsFileStore.resolve()` no tiene ninguna ruta que devolver —ver
+/// esa clase—: pedirla sin necesitarla de verdad rompería ahí lo que en
+/// cualquier otra plataforma nunca hacía falta.
 class FileViewerResolver {
   const FileViewerResolver({required FileStore files}) : _files = files;
 
@@ -33,36 +36,40 @@ class FileViewerResolver {
 
   Future<ResolvedViewer> resolve(KnowledgeItem item) async {
     final relativePath = item.source.originalFilePath;
-    if (relativePath == null) return const NoResolvedViewer();
 
     switch (item.source.kind) {
       case SourceKind.image:
+        if (relativePath == null) return const NoResolvedViewer();
         return ImageResolvedViewer(await _files.resolve(relativePath));
 
       case SourceKind.audio:
       case SourceKind.video:
+        if (relativePath == null) return const NoResolvedViewer();
         return MediaResolvedViewer(
           path: await _files.resolve(relativePath),
           isVideo: item.source.kind == SourceKind.video,
         );
 
       case SourceKind.document:
+        if (relativePath == null) return const NoResolvedViewer();
         return _resolveDocument(item, relativePath);
 
       case SourceKind.webPage:
+        if (relativePath == null) return const NoResolvedViewer();
         // La página archivada es un HTML de verdad, no texto extraído.
         return WebPageResolvedViewer(await _files.resolve(relativePath));
 
       case SourceKind.youtube:
-        // El audio es un extra sobre la transcripción (ver
-        // `YouTubeTranscriptTransformer`): si se pudo bajar, se puede
-        // escuchar.
-        return _resolveDownloadedMedia(relativePath, defaultIsVideo: false);
+        // A diferencia de todos los demás casos, no depende de
+        // `relativePath` en absoluto — ver el comentario de
+        // `YoutubeEmbedResolvedViewer` sobre por qué.
+        return _resolveYoutube(item.source.url);
 
       case SourceKind.socialPost:
-        // Como con YouTube: si `SocialPostTransformer` consiguió bajar el
-        // video del reel o la publicación, se puede ver — o, si no había
-        // video, la foto de portada que bajó en su lugar.
+        if (relativePath == null) return const NoResolvedViewer();
+        // Si `SocialPostTransformer` consiguió bajar el video del reel o
+        // la publicación, se puede ver — o, si no había video, la foto de
+        // portada que bajó en su lugar.
         return _resolveDownloadedMedia(relativePath, defaultIsVideo: true);
 
       case SourceKind.manualNote:
@@ -70,6 +77,21 @@ class FileViewerResolver {
         // ya se ve en el propio detalle.
         return const NoResolvedViewer();
     }
+  }
+
+  /// La vista previa de YouTube no necesita ningún archivo guardado, solo
+  /// que [url] sea reconocible como un video de YouTube — algo que
+  /// `YouTubeTranscriptTransformer.canTransform` ya exige para que un
+  /// elemento llegue a existir con este `SourceKind` en primer lugar, así
+  /// que en la práctica esto casi nunca da `NoResolvedViewer`.
+  ResolvedViewer _resolveYoutube(String? url) {
+    if (url == null) return const NoResolvedViewer();
+
+    final uri = Uri.tryParse(url);
+    final videoId = uri == null ? null : YouTubeUrl.videoIdOf(uri);
+    if (videoId == null) return const NoResolvedViewer();
+
+    return YoutubeEmbedResolvedViewer(videoId: videoId, url: url);
   }
 
   /// Para YouTube y las publicaciones sociales, el archivo bajado puede ser

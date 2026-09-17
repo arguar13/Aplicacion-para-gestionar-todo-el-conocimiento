@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/util/external_url_launcher.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
@@ -56,6 +57,13 @@ Future<bool> openDocumentViewer(
         context,
         DocumentReaderScreen(title: item.title, content: content),
       );
+
+    // Sin pantalla propia: para YouTube, "abrir el visor a pantalla
+    // completa" es exactamente lo mismo que tocar la vista previa
+    // embebida — ver `YoutubeEmbedView`. Abre el video de verdad, en vez
+    // de empujar una pantalla de esta app.
+    case YoutubeEmbedResolvedViewer(:final url):
+      return launchExternalUrl(url);
   }
 }
 

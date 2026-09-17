@@ -178,6 +178,11 @@ dependencies:
   # de Anki), en vez de pasar por Drift, que no tiene con qué generar una
   # base con el esquema exacto que exige un formato ajeno.
   sqlite3: ^3.5.2
+  # Ya venía como dependencia transitiva de `pdfrx`; se declara explícita
+  # porque ahora el código del proyecto la usa directamente, para abrir el
+  # video real de YouTube —en la app o en el navegador— desde la vista
+  # previa embebida en el detalle de un elemento.
+  url_launcher: ^6.3.2
   # UUID v7 para los identificadores: a diferencia del v4, son ordenables por
   # tiempo, lo que mantiene los índices compactos en vez de dispersar cada
   # inserción por todo el árbol.

@@ -11,6 +11,7 @@ import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_viewer_view.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/youtube_embed_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El archivo original de un elemento, visible directo en su detalle — sin
@@ -24,7 +25,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// texto corrido sin forma que se ve más abajo con `HighlightableText`.
 /// Ese texto corrido sigue estando —es lo que permite subrayar y buscar—,
 /// pero ya no es la única manera de leerlo: arriba se ve como el documento
-/// que es.
+/// que es. Un video de YouTube es la única excepción real: lo que se ve es
+/// su miniatura, no un reproductor propio, porque lo que hay para mostrar
+/// no es un archivo de este elemento sino el video original — ver
+/// `YoutubeEmbedView`.
 ///
 /// Ocupa un marco de alto acotado, no lo que le haga falta: un PDF o un
 /// video no tienen por qué apoderarse de la pantalla del detalle, y cada
@@ -40,13 +44,16 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Todos los visores salvo el de documentos leen el archivo directo del
-    // disco (`dart:io`): no tienen con qué trabajar en la web, donde el
-    // almacén vive en OPFS y no hay una ruta de archivo real que abrir. El
-    // de documentos es la excepción —`DocumentReaderView` solo necesita el
-    // contenido ya extraído, no una ruta— así que ahí sí vale la pena
-    // seguir adelante.
-    if (kIsWeb && item.source.kind != SourceKind.document) {
+    // Todos los visores salvo el de documentos y el de YouTube leen el
+    // archivo directo del disco (`dart:io`): no tienen con qué trabajar en
+    // la web, donde el almacén vive en OPFS y no hay una ruta de archivo
+    // real que abrir. Los otros dos son la excepción —`DocumentReaderView`
+    // solo necesita el contenido ya extraído, y la vista previa de YouTube
+    // solo necesita la URL original, ninguno pide una ruta de archivo— así
+    // que ahí sí vale la pena seguir adelante.
+    if (kIsWeb &&
+        item.source.kind != SourceKind.document &&
+        item.source.kind != SourceKind.youtube) {
       return const SizedBox.shrink();
     }
 
@@ -54,7 +61,13 @@ class EmbeddedFileViewer extends ConsumerWidget {
     if (item.source.kind == SourceKind.manualNote) {
       return const SizedBox.shrink();
     }
-    if (item.source.originalFilePath == null) return const SizedBox.shrink();
+    // La vista previa de YouTube tampoco depende de un archivo original
+    // —ver el comentario de `YoutubeEmbedResolvedViewer`—, así que es la
+    // única que sigue adelante sin uno.
+    if (item.source.originalFilePath == null &&
+        item.source.kind != SourceKind.youtube) {
+      return const SizedBox.shrink();
+    }
 
     final resolved = ref.watch(resolvedFileViewerProvider(item));
 
@@ -99,6 +112,13 @@ class EmbeddedFileViewer extends ConsumerWidget {
         onExpand: expand,
         child: WebPageViewerView(path: path),
       ),
+      // Sin `onExpand`: tocar la vista previa ya hace lo único que tiene
+      // sentido hacer con un video ajeno —abrirlo en YouTube—, así que no
+      // hay una pantalla completa propia de la app a la que expandirla.
+      YoutubeEmbedResolvedViewer(:final videoId, :final url) =>
+        _EmbeddedViewerFrame(
+          child: YoutubeEmbedView(videoId: videoId, url: url),
+        ),
     };
   }
 }

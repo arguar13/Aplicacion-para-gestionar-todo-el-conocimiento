@@ -39,6 +39,24 @@ class PdfResolvedViewer extends ResolvedViewer {
   final String path;
 }
 
+/// La vista previa de un video de YouTube: su miniatura, para tocar y
+/// abrir el video de verdad —en la app de YouTube o en el navegador—, no
+/// un reproductor propio.
+///
+/// Aparte de [MediaResolvedViewer] a propósito: lo que hay para mostrar acá
+/// no es un archivo que este elemento tenga guardado —el audio que
+/// `YouTubeTranscriptTransformer` baja es solo para transcribir, nunca fue
+/// pensado como algo que alguien fuera a escuchar desde la app—, sino el
+/// video original, completo, que ya existe en YouTube. Por eso no depende
+/// de que ese audio se haya podido bajar: [videoId] sale de [url], que
+/// cualquier elemento de este origen tiene siempre.
+class YoutubeEmbedResolvedViewer extends ResolvedViewer {
+  const YoutubeEmbedResolvedViewer({required this.videoId, required this.url});
+
+  final String videoId;
+  final String url;
+}
+
 /// La página archivada, tal como quedó guardada —con sus imágenes y sus
 /// estilos incrustados—, no el Markdown que ya se ve en el detalle.
 class WebPageResolvedViewer extends ResolvedViewer {

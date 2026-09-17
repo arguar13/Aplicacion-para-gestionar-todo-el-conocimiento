@@ -24,6 +24,7 @@ void main() {
   KnowledgeItem buildItem({
     required SourceKind kind,
     String? originalFilePath,
+    String? url,
     List<Rendition> renditions = const [],
   }) {
     return KnowledgeItem(
@@ -34,6 +35,7 @@ void main() {
         kind: kind,
         capturedAt: DateTime(2026, 9, 14),
         originalFilePath: originalFilePath,
+        url: url,
       ),
       processingState: ProcessingState.ready,
       createdAt: DateTime(2026, 9, 14),
@@ -118,19 +120,67 @@ void main() {
     );
   });
 
-  test('un video de YouTube resuelve a un reproductor sin video', () async {
+  test('un video de YouTube resuelve a su miniatura, sin importar si hay '
+      'audio bajado', () async {
     final item = buildItem(
       kind: SourceKind.youtube,
-      originalFilePath: 'originales/item-1/audio.m4a',
+      // Sin `originalFilePath`: la vista previa de YouTube no depende
+      // de que la descarga de audio para transcribir se haya podido
+      // hacer.
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
 
     final resolved = await resolver.resolve(item);
 
     expect(
       resolved,
-      isA<MediaResolvedViewer>().having((v) => v.isVideo, 'isVideo', isFalse),
+      isA<YoutubeEmbedResolvedViewer>()
+          .having((v) => v.videoId, 'videoId', 'dQw4w9WgXcQ')
+          .having(
+            (v) => v.url,
+            'url',
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          ),
     );
   });
+
+  test('un video de YouTube igual resuelve a su miniatura cuando el audio '
+      'sí se pudo bajar', () async {
+    final item = buildItem(
+      kind: SourceKind.youtube,
+      originalFilePath: 'originales/item-1/audio.m4a',
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+    );
+
+    final resolved = await resolver.resolve(item);
+
+    expect(
+      resolved,
+      isA<YoutubeEmbedResolvedViewer>().having(
+        (v) => v.videoId,
+        'videoId',
+        'dQw4w9WgXcQ',
+      ),
+    );
+  });
+
+  test('un elemento de YouTube sin URL no resuelve a nada', () async {
+    final item = buildItem(kind: SourceKind.youtube);
+
+    expect(await resolver.resolve(item), const NoResolvedViewer());
+  });
+
+  test(
+    'una URL que no es de YouTube de verdad tampoco resuelve a nada',
+    () async {
+      final item = buildItem(
+        kind: SourceKind.youtube,
+        url: 'https://ejemplo.org/no-es-youtube',
+      );
+
+      expect(await resolver.resolve(item), const NoResolvedViewer());
+    },
+  );
 
   test(
     'una publicación social sin bytes guardados resuelve a un reproductor '

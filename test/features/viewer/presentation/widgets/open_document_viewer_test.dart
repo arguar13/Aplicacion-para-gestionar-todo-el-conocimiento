@@ -196,6 +196,15 @@ void main() {
 
   group('fuentes sin archivo que mostrar', () {
     for (final kind in [
+      // A diferencia de los otros tres, YouTube no necesita ningún archivo
+      // para resolver algo —ver `FileViewerResolver._resolveYoutube`—, pero
+      // acá tampoco tiene ninguna URL (`buildItem` no la pone), así que
+      // termina en el mismo `NoResolvedViewer()` por el mismo motivo que
+      // cualquier otro elemento sin nada que mostrar. El camino con URL sí
+      // —abrir el video de verdad— tiene su propia cobertura en
+      // `file_viewer_resolver_test.dart`; probarlo hasta el final acá
+      // exigiría mockear el plugin nativo de `url_launcher`, que en
+      // Windows no habla por un `MethodChannel` mockeable.
       SourceKind.youtube,
       SourceKind.webPage,
       SourceKind.socialPost,

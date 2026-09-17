@@ -481,6 +481,10 @@
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
   "detailExpandViewer": "View fullscreen",
+  "detailYoutubeOpenFailed": "Couldn't open YouTube.",
+  "@detailYoutubeOpenFailed": {
+    "description": "Aviso al tocar la vista previa de un video de YouTube y no poder abrirlo, ni en la app ni en el navegador."
+  },
   "detailExportTooltip": "Export",
   "@detailExportTooltip": {
     "description": "Botón que abre el menú de formatos de exportación en el detalle."

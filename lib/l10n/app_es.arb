@@ -352,6 +352,10 @@
   "@detailExpandViewer": {
     "description": "Tooltip del botón que expande el visor embebido del archivo original a pantalla completa."
   },
+  "detailYoutubeOpenFailed": "No se pudo abrir YouTube.",
+  "@detailYoutubeOpenFailed": {
+    "description": "Aviso al tocar la vista previa de un video de YouTube y no poder abrirlo, ni en la app ni en el navegador."
+  },
   "detailExportTooltip": "Exportar",
   "@detailExportTooltip": {
     "description": "Botón que abre el menú de formatos de exportación en el detalle."
