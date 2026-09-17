@@ -5,12 +5,14 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/explorer/domain/entities/folder.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/folder_picker_sheet.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -24,6 +26,14 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// carpeta aparece igual, en la raíz, para que nada quede inalcanzable
 /// desde acá — el mismo criterio que un explorador de archivos de verdad,
 /// donde un archivo siempre vive en algún lado, aunque sea el escritorio.
+///
+/// Ningún nivel muestra jamás una lista plana de elementos, ni siquiera la
+/// raíz: los de cada carpeta se agrupan solos por [SourceKind] —redes
+/// sociales, documentos, videos de YouTube, notas...— en subcarpetas que
+/// nadie crea a mano, calculadas al vuelo a partir de lo que ya hay. Es lo
+/// que mantiene navegable una bóveda con cientos de elementos sin que el
+/// usuario tenga que ir organizando cada uno por su cuenta: la carpeta
+/// dice el tema, el tipo de recurso lo dice esta capa automática.
 class ExplorerScreen extends ConsumerStatefulWidget {
   const ExplorerScreen({super.key});
 
@@ -37,6 +47,13 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
   /// su propia URL — a diferencia del detalle de un elemento, que sí puede
   /// llegar por un enlace directo.
   String? _currentFolderId;
+
+  /// La subcarpeta automática de tipo que se está mirando dentro de
+  /// [_currentFolderId], o `null` si se está mirando el nivel de la carpeta
+  /// en sí —sus subcarpetas reales más las de tipo, nunca los elementos
+  /// sueltos—. Es una hoja del árbol: no hay nada debajo de un tipo salvo
+  /// sus propios elementos.
+  SourceKind? _currentKind;
 
   @override
   Widget build(BuildContext context) {
@@ -65,38 +82,95 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
               )
               .toList();
 
+    // La misma lista de siempre, agrupada por tipo de fuente — la capa
+    // automática que reemplaza cualquier lista plana. Se arma acá, no en
+    // el repositorio: es puramente una forma de mostrar lo que ya se trajo,
+    // no un dato que haga falta guardar ni que otra pantalla necesite.
+    final itemsByKind = <SourceKind, List<KnowledgeItem>>{};
+    for (final item in items ?? const <KnowledgeItem>[]) {
+      (itemsByKind[item.source.kind] ??= []).add(item);
+    }
+
     return Scaffold(
-      // Sin `title`: el breadcrumb de abajo ya dice "Explorador" en la raíz
-      // y la carpeta actual en cualquier otro nivel — repetirlo en la barra
-      // sería el mismo texto dos veces, una encima de la otra.
+      // Sin `title`: el breadcrumb de abajo ya dice "Explorador" en la raíz,
+      // la carpeta actual, o el tipo actual — repetirlo en la barra sería
+      // el mismo texto dos veces, una encima de la otra.
       appBar: AppBar(
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: _Breadcrumb(
             path: path,
-            onSelect: (id) => setState(() => _currentFolderId = id),
+            currentKind: _currentKind,
+            onSelectFolder: (id) => setState(() {
+              _currentFolderId = id;
+              _currentKind = null;
+            }),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createFolder(context),
-        icon: const Icon(Icons.create_new_folder_outlined),
-        label: Text(l10n.explorerNewFolder),
-      ),
+      // Sin botón dentro de una subcarpeta de tipo: es una agrupación
+      // automática, no un lugar donde tenga sentido crear una carpeta a
+      // mano.
+      floatingActionButton: _currentKind != null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _createFolder(context),
+              icon: const Icon(Icons.create_new_folder_outlined),
+              label: Text(l10n.explorerNewFolder),
+            ),
       body: (itemIds == null || allItems == null)
           ? const Center(child: CircularProgressIndicator())
-          : _buildBody(context, subfolders: subfolders, items: items!),
+          : _buildBody(
+              context,
+              subfolders: subfolders,
+              itemsByKind: itemsByKind,
+            ),
     );
   }
 
   Widget _buildBody(
     BuildContext context, {
     required List<Folder> subfolders,
-    required List<KnowledgeItem> items,
+    required Map<SourceKind, List<KnowledgeItem>> itemsByKind,
   }) {
     final l10n = AppLocalizations.of(context)!;
+    final currentKind = _currentKind;
 
-    if (subfolders.isEmpty && items.isEmpty) {
+    if (currentKind != null) {
+      final items = itemsByKind[currentKind] ?? const <KnowledgeItem>[];
+      if (items.isEmpty) {
+        // Puede pasar si, mientras se mira esta subcarpeta, el último
+        // elemento de este tipo se mueve o se borra desde otra pantalla.
+        return EmptyStateView(
+          icon: currentKind.icon,
+          title: l10n.explorerEmptyKindMessage,
+        );
+      }
+
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+        itemCount: items.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return LibraryItemCard(
+            item: item,
+            onTap: () => context.push(RoutePaths.itemDetail(item.id)),
+            onLongPress: () => _showItemFolderActions(context, item),
+          );
+        },
+      );
+    }
+
+    // El nivel de una carpeta —o la raíz—: sus subcarpetas reales arriba,
+    // la agrupación automática por tipo debajo. Nunca una lista plana acá,
+    // sin importar cuántos elementos termine teniendo la carpeta.
+    final kinds = [
+      for (final kind in SourceKind.values)
+        if (itemsByKind[kind]?.isNotEmpty ?? false) kind,
+    ];
+
+    if (subfolders.isEmpty && kinds.isEmpty) {
       return EmptyStateView(
         icon: Icons.folder_open_outlined,
         title: _currentFolderId == null
@@ -133,8 +207,10 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) => _FolderTile(
                   folder: subfolders[index],
-                  onOpen: () =>
-                      setState(() => _currentFolderId = subfolders[index].id),
+                  onOpen: () => setState(() {
+                    _currentFolderId = subfolders[index].id;
+                    _currentKind = null;
+                  }),
                   onRename: () => _renameFolder(context, subfolders[index]),
                   onDelete: () => _deleteFolder(context, subfolders[index]),
                 ),
@@ -143,26 +219,30 @@ class _ExplorerScreenState extends ConsumerState<ExplorerScreen> {
             ),
           ),
         ],
-        if (items.isNotEmpty) ...[
+        if (kinds.isNotEmpty) ...[
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
             sliver: SliverToBoxAdapter(
-              child: _SectionLabel(l10n.explorerItemsSectionTitle),
+              child: _SectionLabel(l10n.explorerKindsSectionTitle),
             ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
-            sliver: SliverList.separated(
-              itemCount: items.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return LibraryItemCard(
-                  item: item,
-                  onTap: () => context.push(RoutePaths.itemDetail(item.id)),
-                  onLongPress: () => _showItemFolderActions(context, item),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220,
+                mainAxisExtent: 72,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final kind = kinds[index];
+                return _KindTile(
+                  kind: kind,
+                  count: itemsByKind[kind]!.length,
+                  onOpen: () => setState(() => _currentKind = kind),
                 );
-              },
+              }, childCount: kinds.length),
             ),
           ),
         ],
@@ -370,19 +450,30 @@ class _RemoveAction extends _ItemFolderAction {
   const _RemoveAction();
 }
 
-/// Las migas de pan: la raíz y cada carpeta hasta la actual, tocables para
-/// volver a cualquiera de ellas de un salto.
+/// Las migas de pan: la raíz, cada carpeta hasta la actual y, si se está
+/// mirando una, el tipo de recurso — tocables para volver a cualquiera de
+/// ellas de un salto. Solo el último eslabón queda sin tocar: es donde ya
+/// se está parado.
 class _Breadcrumb extends StatelessWidget {
-  const _Breadcrumb({required this.path, required this.onSelect});
+  const _Breadcrumb({
+    required this.path,
+    required this.currentKind,
+    required this.onSelectFolder,
+  });
 
   final List<Folder> path;
-  final ValueChanged<String?> onSelect;
+  final SourceKind? currentKind;
+  final ValueChanged<String?> onSelectFolder;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    // El tipo, cuando hay uno, es siempre el último eslabón: ahí es donde
+    // "estar parado" deja de significar "en esta carpeta" y pasa a
+    // significar "en esta subcarpeta automática".
+    final onKindLevel = currentKind != null;
 
     return SizedBox(
       height: 48,
@@ -392,15 +483,23 @@ class _Breadcrumb extends StatelessWidget {
         children: [
           _BreadcrumbChip(
             label: l10n.explorerRootBreadcrumb,
-            isCurrent: path.isEmpty,
-            onTap: () => onSelect(null),
+            isCurrent: path.isEmpty && !onKindLevel,
+            onTap: () => onSelectFolder(null),
           ),
           for (final folder in path) ...[
             Icon(Icons.chevron_right, size: 18, color: colors.onSurfaceVariant),
             _BreadcrumbChip(
               label: folder.name,
-              isCurrent: folder.id == path.last.id,
-              onTap: () => onSelect(folder.id),
+              isCurrent: folder.id == path.last.id && !onKindLevel,
+              onTap: () => onSelectFolder(folder.id),
+            ),
+          ],
+          if (currentKind != null) ...[
+            Icon(Icons.chevron_right, size: 18, color: colors.onSurfaceVariant),
+            _BreadcrumbChip(
+              label: currentKind!.label(l10n),
+              isCurrent: true,
+              onTap: () {},
             ),
           ],
         ],
@@ -458,6 +557,81 @@ class _SectionLabel extends StatelessWidget {
       style: theme.textTheme.labelMedium?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
         letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+/// La agrupación automática por tipo de recurso: a diferencia de
+/// `_FolderTile`, nadie la crea a mano — aparece sola en cuanto hay al
+/// menos un elemento de ese tipo en la carpeta actual, y por eso no tiene
+/// menú de renombrar ni de borrar, solo tocarla para entrar. El color
+/// secundario —contra el primario de las carpetas reales— es a propósito:
+/// distingue de un vistazo "una carpeta que yo armé" de "un agrupamiento
+/// automático", sin que haga falta leer para notar la diferencia.
+class _KindTile extends StatelessWidget {
+  const _KindTile({
+    required this.kind,
+    required this.count,
+    required this.onOpen,
+  });
+
+  final SourceKind kind;
+  final int count;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Material(
+      color: colors.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onOpen,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Icon(kind.icon, color: colors.secondary, size: 26),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  kind.label(l10n),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colors.secondaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$count',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSecondaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

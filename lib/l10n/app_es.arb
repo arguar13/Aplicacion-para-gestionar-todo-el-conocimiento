@@ -1525,9 +1525,13 @@
   "@explorerFoldersSectionTitle": {
     "description": "Encabezado de la lista de subcarpetas dentro del Explorador."
   },
-  "explorerItemsSectionTitle": "Elementos",
-  "@explorerItemsSectionTitle": {
-    "description": "Encabezado de la lista de elementos procesados dentro del Explorador."
+  "explorerKindsSectionTitle": "Por tipo de recurso",
+  "@explorerKindsSectionTitle": {
+    "description": "Encabezado de la agrupación automática por tipo de fuente dentro del Explorador."
+  },
+  "explorerEmptyKindMessage": "Ya no hay elementos de este tipo acá.",
+  "@explorerEmptyKindMessage": {
+    "description": "Estado vacío al entrar a una subcarpeta automática de tipo que se quedó sin elementos."
   },
   "commonCreate": "Crear",
   "@commonCreate": {

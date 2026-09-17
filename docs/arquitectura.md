@@ -1788,6 +1788,21 @@ la pantalla, cruzando los `id` que trae `ExplorerRepository` con los datos
 completos que ya expone `libraryItemsProvider`, en vez de duplicar en el
 Explorador la lógica de ensamblado de `LibraryRepositoryImpl`.
 
+**Ningún nivel muestra una lista plana: los elementos se agrupan solos por
+`SourceKind`, en subcarpetas que nadie crea a mano.** Con cientos de
+elementos en una sola carpeta —el caso que importa a medida que crece la
+bóveda—, una lista larga es lo primero que deja de ser navegable. En vez
+de paginarla o buscar dentro de ella, cada carpeta (y la raíz) agrupa sus
+elementos directos por tipo de fuente —redes sociales, documentos, videos
+de YouTube, notas...— y solo muestra la subcarpeta de un tipo si tiene
+algo adentro. Es una capa puramente de presentación: `ExplorerScreen`
+arma el agrupamiento en el propio `build()`, a partir de la lista que ya
+trae `libraryItemsProvider`, sin ningún dato nuevo que guardar ni
+sincronizar — el tipo de un elemento no cambia nunca después de
+capturado, así que no hay nada ahí que pueda desincronizarse. Es una hoja
+del árbol: entrar a una subcarpeta de tipo muestra sus elementos y nada
+más, sin subcarpetas —reales ni de tipo— debajo.
+
 ---
 
 ## Estado y orden de construcción
@@ -1924,7 +1939,10 @@ Explorador la lógica de ensamblado de `LibraryRepositoryImpl`.
   quitar un elemento de una carpeta desde su propio menú, con un selector
   que muestra el árbol entero indentado. Un elemento puede estar en varias
   carpetas a la vez —copiar, no solo mover— y uno que todavía no se
-  organizó aparece igual, sin carpeta, en la raíz.
+  organizó aparece igual, sin carpeta, en la raíz. Dentro de cada carpeta,
+  sus elementos se agrupan solos por tipo de fuente —redes sociales,
+  documentos, videos de YouTube, notas...— para que una carpeta con
+  cientos de elementos siga siendo navegable sin paginar ni buscar.
 
 ### Por construir
 

@@ -32,15 +32,28 @@ void main() {
     expect(find.text(es.explorerEmptyRootTitle), findsOneWidget);
   });
 
-  testWidgets('un elemento recién capturado aparece en la raíz sin carpeta', (
-    tester,
-  ) async {
-    await harness.capture('Una nota cualquiera');
+  testWidgets(
+    'un elemento recién capturado aparece en la raíz sin carpeta, agrupado '
+    'por su tipo de fuente',
+    (tester) async {
+      await harness.capture('Una nota cualquiera');
 
-    await pumpExplorer(tester);
+      await pumpExplorer(tester);
 
-    expect(find.text('Una nota cualquiera'), findsOneWidget);
-  });
+      // Nunca una lista plana: primero aparece la subcarpeta automática de
+      // su tipo, con el conteo de lo que tiene adentro.
+      expect(find.text('Una nota cualquiera'), findsNothing);
+      expect(find.text(es.sourceKindNote), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.tap(find.text(es.sourceKindNote));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Una nota cualquiera'), findsOneWidget);
+      // Las migas de pan suman el tipo como último eslabón.
+      expect(find.text(es.explorerRootBreadcrumb), findsOneWidget);
+    },
+  );
 
   testWidgets('crear una carpeta la muestra en la grilla', (tester) async {
     await pumpExplorer(tester);
@@ -93,6 +106,11 @@ void main() {
       await tester.tap(find.text(es.commonCreate));
       await tester.pumpAndSettle();
 
+      // Entrar a su subcarpeta automática de tipo para llegar hasta el
+      // elemento y poder agregarlo a una carpeta.
+      await tester.tap(find.text(es.sourceKindNote));
+      await tester.pumpAndSettle();
+
       await tester.longPress(find.text('Una nota cualquiera'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.explorerAddToFolder));
@@ -103,10 +121,15 @@ void main() {
       await tester.tap(find.widgetWithText(ListTile, 'Trabajo'));
       await tester.pumpAndSettle();
 
-      // La raíz ya no lo muestra: se fue a la carpeta.
-      expect(find.text('Una nota cualquiera'), findsNothing);
+      // Esta subcarpeta de tipo, en la raíz, se quedó sin nada: el
+      // elemento se fue a la carpeta.
+      expect(find.text(es.explorerEmptyKindMessage), findsOneWidget);
 
+      await tester.tap(find.text(es.explorerRootBreadcrumb));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Trabajo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.sourceKindNote));
       await tester.pumpAndSettle();
 
       expect(find.text('Una nota cualquiera'), findsOneWidget);
@@ -123,11 +146,20 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Efímera');
     await tester.tap(find.text(es.commonCreate));
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text(es.sourceKindNote));
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Una nota cualquiera'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(es.explorerAddToFolder));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Efímera'));
+    await tester.pumpAndSettle();
+
+    // De vuelta a la raíz para llegar al menú de la carpeta: acá adentro,
+    // en su subcarpeta de tipo ahora vacía, no hay ninguna tarjeta de
+    // carpeta que ofrezca ese menú.
+    await tester.tap(find.text(es.explorerRootBreadcrumb));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.more_vert));
@@ -138,6 +170,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Efímera'), findsNothing);
+    expect(find.text(es.sourceKindNote), findsOneWidget);
+
+    await tester.tap(find.text(es.sourceKindNote));
+    await tester.pumpAndSettle();
+
     expect(find.text('Una nota cualquiera'), findsOneWidget);
   });
 }
