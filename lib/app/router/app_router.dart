@@ -11,6 +11,7 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -91,7 +92,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.chatModel,
         builder: (context, state) => const ChatModelScreen(),
       ),
-      // Los cinco destinos principales, cada uno con su propio `Navigator` —
+      // Los seis destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de
       // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
       // celular, un riel al costado en escritorio. Reemplaza al AppBar de
@@ -121,6 +122,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         ItemDetailScreen(itemId: state.pathParameters['id']!),
                   ),
                 ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.explorer,
+                name: RouteNames.explorer,
+                builder: (context, state) => const ExplorerScreen(),
               ),
             ],
           ),

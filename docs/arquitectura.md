@@ -1739,6 +1739,55 @@ ya se desmontó. La prueba de "cerrar corta la lectura" lo hizo saltar de
 inmediato; la solución fue guardar el servicio una sola vez en un campo
 `late final` durante `initState`, no volver a pedirlo en cada uso.
 
+### 29. El Explorador: carpetas jerárquicas, no una extensión de Espacios
+
+Se pidió una pantalla nueva que mostrara solo el resultado de lo ya
+procesado —texto, imágenes, enlaces y citas—, organizado por temas al
+estilo de un explorador de archivos: con carpetas de verdad, que a su vez
+pueden tener subcarpetas, y donde un mismo elemento se pueda llevar a más
+de una a la vez ("copiar") o mover de una a otra.
+
+**`Folder`/`Folders` es una entidad nueva, no una extensión de `Space`.**
+Un espacio (decisión 17) es deliberadamente plano y de-uno-a-lo-sumo-uno:
+sin jerarquía y con una sola columna nullable en `Items`. Forzarlo a
+soportar subcarpetas habría significado agregarle un `parentId`
+autorreferenciado a una tabla pensada para no tenerlo, y forzar la
+relación a muchos-a-muchos para poder "copiar" habría roto la propia
+premisa de espacios ("es una carpeta, no una marca") para el código que sí
+la necesita. `Folders` se autorreferencia por `parentId` para el árbol, y
+una tabla de unión nueva —`ItemFolders`, calcada de `ItemTags`— permite que
+un elemento esté en varias carpetas a la vez. Las dos tablas conviven con
+`Spaces` sin tocarla: son formas de organizar independientes, no una en
+reemplazo de la otra.
+
+**Borrar una carpeta borra sus subcarpetas en cascada, pero nunca los
+elementos.** Mismo principio que ya regía en espacios —"borrar la carpeta
+no debería borrar lo que había adentro"—, llevado a un árbol: la cascada
+de `parentId` sobre `Folders` se lleva puestas las subcarpetas (son
+estructura, no contenido, igual que una carpeta vacía de Windows
+desaparece con su padre), y la cascada de `ItemFolders` hacia `folderId`
+solo borra la fila que ubicaba a un elemento ahí. El elemento en sí, en
+`Items`, nunca tiene una fila que referencie a `Folders`: no hay cascada
+posible que lo alcance. Un elemento sin ninguna fila en `ItemFolders`
+—porque nunca se archivó, o porque la única carpeta que lo tenía se
+borró— aparece solo, en la raíz del Explorador, para que nada quede
+inalcanzable desde ahí.
+
+**El árbol entero se trae de una sola vez, plano, no nivel por nivel.**
+`watchAllFolders()` es el único stream de lectura de carpetas que expone
+el repositorio: una bóveda personal no va a tener miles de ellas, así que
+traerlas todas y agruparlas por `parentId` del lado de Dart —para la
+vista actual, las migas de pan y el selector de destino al agregar un
+elemento— es más simple que streams por nivel, sin ningún costo real.
+
+**El Explorador solo muestra lo que ya terminó de procesarse.** A
+diferencia de la Biblioteca —todo lo guardado, en cualquier estado, con
+filtros de tipo y etiqueta—, acá se filtra a `ProcessingState.ready`: es
+la vitrina de resultados, no la cola de trabajo. La combinación se hace en
+la pantalla, cruzando los `id` que trae `ExplorerRepository` con los datos
+completos que ya expone `libraryItemsProvider`, en vez de duplicar en el
+Explorador la lógica de ensamblado de `LibraryRepositoryImpl`.
+
 ---
 
 ## Estado y orden de construcción
@@ -1862,13 +1911,20 @@ inmediato; la solución fue guardar el servicio una sola vez en un campo
   que muestra cuántas tocan hoy —ver la decisión 21—. Tarjetas a mano
   desde el detalle de cualquier elemento, o generadas por IA a partir de
   su contenido, siempre con revisión antes de guardarse.
-- **Navegación adaptativa.** Biblioteca, Grafo, Chat, Repaso y una nueva
-  pantalla de Ajustes como los cinco destinos principales, cada uno con su
-  propio `Navigator` —ver la decisión 22—. `NavigationBar` abajo en
+- **Navegación adaptativa.** Biblioteca, Explorador, Grafo, Chat, Repaso y
+  una pantalla de Ajustes como los seis destinos principales, cada uno con
+  su propio `Navigator` —ver la decisión 22—. `NavigationBar` abajo en
   celular, `NavigationRail` al costado en escritorio, con el mismo punto
   de quiebre que define Material 3. Idioma, tema, modelo de transcripción,
   copia de seguridad y bloqueo de la bóveda —antes nueve íconos amontonados
   en un solo AppBar— quedan agrupados en Ajustes.
+- **El Explorador.** Carpetas jerárquicas para lo ya procesado, al estilo
+  de un explorador de archivos —ver la decisión 29—: crear, renombrar y
+  borrar carpetas, navegarlas con migas de pan tocables, y agregar o
+  quitar un elemento de una carpeta desde su propio menú, con un selector
+  que muestra el árbol entero indentado. Un elemento puede estar en varias
+  carpetas a la vez —copiar, no solo mover— y uno que todavía no se
+  organizó aparece igual, sin carpeta, en la raíz.
 
 ### Por construir
 

@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
+import 'package:sinapsis/core/database/tables/folders.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
@@ -39,6 +40,8 @@ part 'app_database.g.dart';
     Flashcards,
     Conversations,
     ChatMessages,
+    Folders,
+    ItemFolders,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -65,7 +68,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,6 +98,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await migrator.createTable(conversations);
         await migrator.createTable(chatMessages);
+      }
+      // El Explorador: dos tablas nuevas, sin tocar ninguna existente — un
+      // elemento que no se haya llevado a ninguna carpeta simplemente no
+      // tiene fila en `ItemFolders`, y aparece como "sin carpeta" en la
+      // raíz del Explorador sin que haga falta ningún valor por defecto.
+      if (from < 5) {
+        await migrator.createTable(folders);
+        await migrator.createTable(itemFolders);
       }
     },
     beforeOpen: (details) async {

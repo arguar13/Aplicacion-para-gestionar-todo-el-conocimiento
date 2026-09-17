@@ -19,6 +19,9 @@ abstract final class RoutePaths {
 
   static String itemDetail(String id) => '$library/$id';
 
+  /// El Explorador: lo ya procesado, organizado en carpetas.
+  static const explorer = '/explorer';
+
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
@@ -51,6 +54,7 @@ abstract final class RouteNames {
   static const vaultUnlock = 'vault-unlock';
   static const library = 'library';
   static const itemDetail = 'item-detail';
+  static const explorer = 'explorer';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';
