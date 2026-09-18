@@ -23,6 +23,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
+import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -33,6 +34,7 @@ import 'fake_chat_model.dart';
 import 'fake_chat_model_manager.dart';
 import 'fake_directory_chooser.dart';
 import 'fake_directory_writer.dart';
+import 'fake_embedding_model_manager.dart';
 import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
@@ -71,6 +73,7 @@ class LibraryHarness {
     this.chatModelManager,
     this.chatModelManagerGemma3n,
     this.chatModelManagerGemma412b,
+    this.embeddingModelManager,
     this.relationSuggestionService,
     this.summarizationService,
     this.propertySuggestionService,
@@ -111,6 +114,10 @@ class LibraryHarness {
 
     /// Si el modelo de chat "ya está descargado" al arrancar.
     bool chatModelReady = false,
+
+    /// Si el modelo de embeddings del motor de relaciones "ya está
+    /// descargado" al arrancar.
+    bool embeddingModelReady = false,
 
     /// Lo que "contesta" el modelo de chat de mentira, tanto en el modo con
     /// la bóveda como en una conversación libre.
@@ -162,6 +169,9 @@ class LibraryHarness {
     final chatModelManager = FakeChatModelManager(ready: chatModelReady);
     final chatModelManagerGemma3n = FakeChatModelManager();
     final chatModelManagerGemma412b = FakeChatModelManager();
+    final embeddingModelManager = FakeEmbeddingModelManager(
+      ready: embeddingModelReady,
+    );
     final relationSuggestionService = FakeRelationSuggestionService();
     final summarizationService = FakeSummarizationService(
       response: summarizeResponse,
@@ -224,6 +234,7 @@ class LibraryHarness {
             ChatModelOption.gemma412b => chatModelManagerGemma412b,
           };
         }),
+        embeddingModelManagerProvider.overrideWithValue(embeddingModelManager),
         relationSuggestionServiceProvider.overrideWithValue(
           relationSuggestionService,
         ),
@@ -276,6 +287,7 @@ class LibraryHarness {
       chatModelManager,
       chatModelManagerGemma3n,
       chatModelManagerGemma412b,
+      embeddingModelManager,
       relationSuggestionService,
       summarizationService,
       propertySuggestionService,
@@ -337,6 +349,11 @@ class LibraryHarness {
   /// ([ChatModelOption.gemma412b]) — independiente de las otras dos, por
   /// el mismo motivo.
   final FakeChatModelManager chatModelManagerGemma412b;
+
+  /// El estado del modelo de embeddings de mentira, para simular que ya
+  /// está descargado o no en las pruebas que tocan `EmbeddingModelScreen`
+  /// o el motor de relaciones.
+  final FakeEmbeddingModelManager embeddingModelManager;
 
   /// El servicio de sugerencias de vínculos de mentira, para comprobar qué
   /// se le pidió al "asistente con IA" del grafo y controlar qué contesta.

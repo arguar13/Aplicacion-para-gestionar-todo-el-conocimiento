@@ -1333,6 +1333,60 @@
   "@chatModelTokenHint": {
     "description": "Texto de ejemplo del campo del token."
   },
+  "relationsEmbeddingModelTooltip": "Modelo del motor de relaciones",
+  "@relationsEmbeddingModelTooltip": {
+    "description": "Título de la entrada de Ajustes que lleva a la pantalla del modelo de embeddings."
+  },
+  "embeddingModelTitle": "Modelo del motor de relaciones",
+  "@embeddingModelTitle": {
+    "description": "Título de la pantalla de descarga del modelo de embeddings."
+  },
+  "embeddingModelReady": "El modelo ya está descargado. Las fuentes nuevas se revisan solas en busca de elementos relacionados.",
+  "@embeddingModelReady": {
+    "description": "Mensaje cuando el modelo de embeddings ya está listo para usarse."
+  },
+  "embeddingModelExplanation": "Para sugerir vínculos con elementos relacionados de forma automática, el motor de relaciones necesita un modelo. Se descarga una sola vez y después funciona sin conexión.",
+  "@embeddingModelExplanation": {
+    "description": "Explica para qué sirve el modelo, antes de pedir la descarga."
+  },
+  "embeddingModelSize": "Pesa {size}.",
+  "@embeddingModelSize": {
+    "description": "Tamaño de la descarga, ya formateado.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "embeddingModelDownloadAction": "Descargar",
+  "@embeddingModelDownloadAction": {
+    "description": "Botón que empieza la descarga del modelo de embeddings."
+  },
+  "embeddingModelDownloading": "Descargando… {percent}%",
+  "@embeddingModelDownloading": {
+    "description": "Texto junto a la barra de progreso mientras se descarga el modelo.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "embeddingModelError": "No se pudo descargar el modelo. Comprobá tu conexión e intentá de nuevo.",
+  "@embeddingModelError": {
+    "description": "Mensaje cuando falla la descarga del modelo de embeddings."
+  },
+  "embeddingModelRetryAction": "Reintentar",
+  "@embeddingModelRetryAction": {
+    "description": "Botón para reintentar la descarga del modelo tras un error."
+  },
+  "embeddingModelAuthRequired": "Este modelo requiere una cuenta gratuita de Hugging Face. Aceptá su licencia y pegá tu token de acceso abajo.",
+  "@embeddingModelAuthRequired": {
+    "description": "Mensaje cuando la descarga falla porque falta autenticarse contra Hugging Face."
+  },
+  "embeddingModelTokenExplanation": "El modelo de embeddings vive en un repositorio protegido: hace falta una cuenta gratuita de Hugging Face para descargarlo.",
+  "@embeddingModelTokenExplanation": {
+    "description": "Explica por qué hace falta un token de Hugging Face."
+  },
   "chatHistoryTooltip": "Historial de conversaciones",
   "@chatHistoryTooltip": {
     "description": "Tooltip del ícono que abre el historial de conversaciones del chat."

@@ -43,6 +43,11 @@ abstract final class RoutePaths {
   /// Si el modelo de lenguaje del chat está descargado, y descargarlo.
   static const chatModel = '/chat/model';
 
+  /// Si el modelo de embeddings del motor de relaciones está descargado,
+  /// y descargarlo. Ruta plana bajo `/relations`, mismo criterio que
+  /// [chatModel]: es una lente sobre datos, no un destino de navegación.
+  static const embeddingModel = '/relations/embedding-model';
+
   /// Repasar las tarjetas que ya tocan.
   static const review = '/review';
 
@@ -65,6 +70,7 @@ abstract final class RouteNames {
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';
+  static const embeddingModel = 'embedding-model';
   static const review = 'review';
   static const settings = 'settings';
 }
