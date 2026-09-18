@@ -17,6 +17,7 @@ import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
 import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
+import 'package:sinapsis/core/database/tables/merged_provenances.dart';
 import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
@@ -76,6 +77,7 @@ part 'app_database.g.dart';
     Embeddings,
     MigrationIssues,
     Suggestions,
+    MergedProvenances,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -102,7 +104,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -244,6 +246,38 @@ class AppDatabase extends _$AppDatabase {
       // espejo en F3 (`from < 10`).
       if (from < 12) {
         await backfillSourceChunks(this, ids: const UuidV7Generator());
+      }
+      // Deduplicación (F7): `dedupHash` (SHA-256 sobre texto normalizado,
+      // distinto de `KnowledgeSources.contentHash`, que hashea el texto
+      // crudo y sirve un propósito aparte —guarda de idempotencia del
+      // chunking—) en las dos tablas, `simhash` nuevo en `note` —en
+      // `source` ya existía, reservado desde F1, sin calcular hasta
+      // ahora—, y la tabla de procedencias fusionadas. Todo nullable:
+      // los fingerprints se calculan la primera vez que cada generador
+      // corre sobre un elemento desde acá en adelante, sin backfill de
+      // lo ya capturado en esta ronda.
+      if (from < 13) {
+        // Quien migra desde antes de v8 nunca pasa por `addColumn` para
+        // estas dos: el `createTable` de más arriba (`from < 8`) ya las
+        // crea con las columnas que la clase Dart tiene HOY —`dedupHash`/
+        // `simhash` incluidas—, así que agregarlas de nuevo acá
+        // reventaría con "duplicate column name". Solo hace falta para
+        // quien ya tenía la tabla de una migración anterior.
+        if (from >= 8) {
+          await migrator.addColumn(
+            knowledgeSources,
+            knowledgeSources.dedupHash,
+          );
+          await migrator.addColumn(knowledgeNotes, knowledgeNotes.dedupHash);
+          await migrator.addColumn(knowledgeNotes, knowledgeNotes.simhash);
+        }
+        // Los índices, en cambio, `createTable` nunca los incluye —a
+        // diferencia de `createAll()`—, así que van siempre, sin importar
+        // por dónde entró.
+        await migrator.createIndex(idxKnowledgeSourcesDedupHash);
+        await migrator.createIndex(idxKnowledgeNotesDedupHash);
+        await migrator.createTable(mergedProvenances);
+        await migrator.createIndex(idxMergedProvenancesItem);
       }
     },
     beforeOpen: (details) async {

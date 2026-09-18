@@ -14,10 +14,8 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 /// esta tabla duplica los datos de una fuente compartida, una fila por
 /// cada `item` que la referenciaba.
 @DataClassName('KnowledgeSourceRow')
-@TableIndex(
-  name: 'idx_knowledge_sources_content_hash',
-  columns: {#contentHash},
-)
+@TableIndex(name: 'idx_knowledge_sources_content_hash', columns: {#contentHash})
+@TableIndex(name: 'idx_knowledge_sources_dedup_hash', columns: {#dedupHash})
 @TableIndex(
   name: 'idx_knowledge_sources_processing_status',
   columns: {#processingStatus},
@@ -39,11 +37,18 @@ class KnowledgeSources extends Table {
   /// El texto ÍNTEGRO, para siempre. Nunca se resume ni se reescribe.
   TextColumn get fullText => text().withDefault(const Constant(''))();
 
-  /// SHA-256 de [fullText], para detectar duplicados exactos en una fase
-  /// futura.
+  /// SHA-256 de [fullText] SIN normalizar — sirve de guarda de
+  /// idempotencia para el chunking (`chunkAndPersistSource`: "¿ya
+  /// corrió?"), no para comparar contra otro elemento.
   TextColumn get contentHash => text()();
 
-  /// Para casi-duplicados, en una fase futura. Sin calcular en F1.
+  /// SHA-256 de [fullText] normalizado (minúsculas, sin puntuación,
+  /// espacios colapsados) — F7, deduplicación: detecta duplicados
+  /// exactos entre dos elementos aunque difieran en formato.
+  TextColumn get dedupHash => text().nullable()();
+
+  /// Huella de 64 bits para casi-duplicados — F7, deduplicación. Ver
+  /// `DedupFingerprint`.
   TextColumn get simhash => text().nullable()();
 
   TextColumn get processingStatus => textEnum<SourceProcessingStatus>()();
