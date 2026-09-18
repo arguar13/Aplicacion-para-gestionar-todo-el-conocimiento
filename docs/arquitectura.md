@@ -2390,6 +2390,65 @@ fuera del alcance de esta fase.
 
 ---
 
+### 39. F6 del grafo local y notas mapa: panel embebido, pantalla con pan y zoom, y la entrada preferida de una nota mapa
+
+Sexta fase del refactor de siete fases (ver la decisión 34), otra que
+llegó sin más que una frase de encargo ("grafo local y notas mapa").
+Tres ambigüedades se resolvieron con quien encargó el trabajo antes de
+planear: el grafo local vive en dos lugares —un panel embebido en el
+detalle de CUALQUIER elemento, y una pantalla completa con pan y zoom
+real, a la que se llega tocando el panel—; una nota se marca como mapa
+a mano desde su propio detalle, sin ninguna vía de captura nueva; y una
+nota mapa recibe trato especial de tres formas —insignia visual, punto
+de entrada preferido al grafo local, y una vista propia de sus vínculos
+agrupada por tipo—.
+
+**`noteKind` se lee y escribe desde `InboxRepository`, no desde
+`OrganizeRepository`.** Ya era, por su propio rol, "primer lector y
+escritor real" de `item`/`source`/`note`, y ya leía `noteKind`/
+`maturity` — sumarle las dos escrituras que le faltaban completó un rol
+que ya tenía, en vez de abrirle una responsabilidad nueva a
+`OrganizeRepository`.
+
+**Desmarcar una nota mapa la deja siempre en `NoteKind.living`, nunca
+restaura el tipo anterior.** Ninguna columna guarda "qué era antes de
+ser mapa", y agregar una para esto habría sido la única pieza de
+esquema nueva de toda la fase por un caso marginal; volver a `atomic`
+sería además semánticamente falso — esa marca dice "no crece", y una
+nota que se usó de índice ya dejó de cumplir esa promesa.
+
+**`MapNoteLinksSection` no duplica el grafo, solo reagrupa la lista de
+vínculos por `RelationKind`.** El panel de grafo local ya se embebe en
+el detalle de cualquier elemento, notas mapa incluidas — mostrarlo de
+nuevo adentro de esta sección pintaría el mismo grafo dos veces en la
+misma pantalla. Comparte `RelationTile`/`addRelationFlow` con
+`RelationsSection`, extraídos a nivel de archivo sin cambiar su
+comportamiento.
+
+**El punto de entrada preferido es una regla de navegación, no solo un
+color.** Dentro de cualquier vista de grafo local —panel o pantalla
+completa—, tocar un nodo que es una nota mapa entra al grafo local
+centrado en esa nota (`openLocalGraphNode`) en vez de ir a su detalle;
+es la lectura literal del propio docstring de `NoteKind.map`, "da
+puntos de entrada al grafo". La lista de vínculos nunca aplica esta
+regla: tocar una fila siempre va al detalle plano, la distinción vive
+solo en las vistas de grafo — `CompactGraphNode`, compartido por el
+panel (`LocalGraphPanel`, sin pan/zoom) y la pantalla completa
+(`LocalGraphScreen`, con `InteractiveViewer` igual que `GraphScreen`).
+
+**Sin migración de esquema.** La columna `note.note_kind` acepta
+`NoteKind.map` desde `schemaVersion` 8 (F1); F6 es la primera fase que
+la expone para escritura, no la primera que la crea.
+
+**La insignia de nota mapa en `LibraryItemCard` es una excepción
+consciente a la decisión 36.** F3 dejó escrito a propósito que una
+quinta cosa reactiva por fila no valía el costo en una lista larga;
+acá está explícitamente pedida, mitigada con el mismo `autoDispose` que
+ya usa el thumbnail de la fila. Sin trabajo aparte para el Explorador:
+ya reusa `LibraryItemCard`, así que la insignia aparece ahí gratis.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -2574,6 +2633,15 @@ fuera del alcance de esta fase.
   lo ya capturado, y la pantalla de Tensión —ver la decisión 38—. Los
   embeddings son solo preselección; el diálogo manual del grafo queda
   intacto como vía aparte.
+- **F6 del grafo local y notas mapa: panel embebido, pantalla con pan y
+  zoom.** Un panel embebido en el detalle de cualquier elemento —fuente
+  o nota— con los vecinos directos, y una pantalla completa navegable
+  con pan y zoom real a la que se llega tocándolo —ver la decisión 39—.
+  Marcar una nota como mapa a mano desde su propio detalle le da tres
+  cosas: insignia en la biblioteca y el Explorador, punto de entrada
+  preferido al grafo local desde cualquier vecino, y una vista propia
+  de sus vínculos agrupada por tipo en vez de la lista cronológica de
+  siempre.
 
 ### Por construir
 
@@ -2582,10 +2650,9 @@ Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
 Lo que sigue es el refactor de la capa de organización en curso (ver la
-decisión 34): F1, F2, F3, F4 y F5 cerrados —modelo Fuente/Nota,
-vocabulario controlado, estados y Bandeja de entrada, clasificación
-asistida de a un elemento, motor de relaciones y Tensión—; las
-sugerencias en lote (deferidas de F4), F6 (grafo local y notas mapa) y
-F7 (deduplicación) siguen, cada una recién planeada —plan breve,
-aprobado, después código— cuando se confirme avanzar con ella, tal
-como pidió el propio encargo.
+decisión 34): F1 a F6 cerrados —modelo Fuente/Nota, vocabulario
+controlado, estados y Bandeja de entrada, clasificación asistida de a
+un elemento, motor de relaciones y Tensión, grafo local y notas mapa—;
+las sugerencias en lote (deferidas de F4) y F7 (deduplicación) siguen,
+cada una recién planeada —plan breve, aprobado, después código— cuando
+se confirme avanzar con ella, tal como pidió el propio encargo.
