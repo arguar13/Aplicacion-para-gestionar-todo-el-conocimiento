@@ -42,6 +42,13 @@ abstract final class RoutePaths {
   /// una lente sobre datos que ya vive en el grafo, no un destino propio.
   static const graphTension = '$graph/tension';
 
+  /// El grafo local de un elemento puntual, con pan y zoom. Se arma con
+  /// [graphLocal] para no escribir la interpolación a mano en cada sitio
+  /// que navega hasta acá.
+  static const graphLocalPattern = '$graph/local/:id';
+
+  static String graphLocal(String itemId) => '$graph/local/$itemId';
+
   /// Preguntarle algo a la bóveda.
   static const chat = '/chat';
 
@@ -82,6 +89,7 @@ abstract final class RouteNames {
   static const embeddingModel = 'embedding-model';
   static const embeddingBackfill = 'embedding-backfill';
   static const graphTension = 'graph-tension';
+  static const graphLocal = 'graph-local';
   static const review = 'review';
   static const settings = 'settings';
 }
