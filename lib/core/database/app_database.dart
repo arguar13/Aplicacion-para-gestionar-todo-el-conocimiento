@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
+import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
@@ -200,6 +201,11 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(propertyAliases);
         await migrator.createIndex(idxPropertyAliasesValue);
         await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
+        await migrateTagsToPropertyValues(
+          this,
+          ids: const UuidV7Generator(),
+          logger: ConsoleAppLogger(),
+        );
       }
     },
     beforeOpen: (details) async {

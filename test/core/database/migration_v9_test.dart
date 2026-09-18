@@ -1,21 +1,23 @@
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 import '../../generated_migrations/schema.dart';
+import '../../support/silent_logger.dart';
 
 /// La migración de esquema 8→9 —vocabulario controlado tipado: columnas
 /// nuevas en `PropertyDefinitions`/`PropertyValues`, la tabla
-/// `PropertyAliases`, y la siembra de "Tema"/"Fecha del hecho"—, probada
-/// con `SchemaVerifier`, mismo patrón que `migration_v8_test.dart`.
-///
-/// Sin migrar las etiquetas existentes todavía —eso es un paso
-/// posterior—.
+/// `PropertyAliases`, la siembra de "Tema"/"Fecha del hecho", y la
+/// migración de etiquetas existentes a `PropertyValue` bajo "Tema"—,
+/// probada con `SchemaVerifier`, mismo patrón que `migration_v8_test.dart`.
 void main() {
   final verifier = SchemaVerifier(GeneratedHelper());
 
@@ -280,5 +282,169 @@ void main() {
       expect(temas.single.id, original.id);
       expect(temas.single.isSystem, isTrue);
     });
+  });
+
+  group('migrateTagsToPropertyValues', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() => db.close());
+
+    Future<String> seedItem() async {
+      final now = DateTime(2026, 9, 17);
+      final n = DateTime.now().microsecondsSinceEpoch;
+      await db
+          .into(db.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: 'src-$n',
+              kind: SourceKind.webPage,
+              capturedAt: now,
+            ),
+          );
+      await db
+          .into(db.items)
+          .insert(
+            ItemsCompanion.insert(
+              id: 'item-$n',
+              title: 'Un elemento',
+              sourceId: 'src-$n',
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      return 'item-$n';
+    }
+
+    Future<String> temaId() async => (await (db.select(
+      db.propertyDefinitions,
+    )..where((d) => d.name.equals('Tema'))).getSingle()).id;
+
+    test(
+      'cada etiqueta migra a un valor bajo Tema, sin tocar Tags/ItemTags',
+      () async {
+        final now = DateTime(2026, 9, 17);
+        final itemId = await seedItem();
+        await db
+            .into(db.tags)
+            .insert(
+              TagsCompanion.insert(
+                id: 'tag-1',
+                name: 'Filosofía',
+                createdAt: now,
+              ),
+            );
+        await db
+            .into(db.itemTags)
+            .insert(ItemTagsCompanion.insert(itemId: itemId, tagId: 'tag-1'));
+
+        await migrateTagsToPropertyValues(
+          db,
+          ids: const UuidV7Generator(),
+          logger: const SilentLogger(),
+        );
+
+        final tema = await temaId();
+        final value = await (db.select(
+          db.propertyValues,
+        )..where((v) => v.definitionId.equals(tema))).getSingle();
+        final assignment =
+            await (db.select(db.itemPropertyValues)..where(
+                  (a) =>
+                      a.itemId.equals(itemId) &
+                      a.propertyValueId.equals(value.id),
+                ))
+                .getSingleOrNull();
+
+        expect(value.value, 'Filosofía');
+        expect(value.id, isNot('tag-1'), reason: 'id nuevo, no el del Tag');
+        expect(assignment, isNotNull);
+        expect(await db.select(db.tags).get(), hasLength(1));
+        expect(await db.select(db.itemTags).get(), hasLength(1));
+      },
+    );
+
+    test('una etiqueta cuyo nombre ya existe como valor bajo Tema reusa esa '
+        'fila', () async {
+      final now = DateTime(2026, 9, 17);
+      final itemId = await seedItem();
+      final tema = await temaId();
+      await db
+          .into(db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: 'val-preexistente',
+              definitionId: tema,
+              value: 'Filosofía',
+              createdAt: now,
+            ),
+          );
+      await db
+          .into(db.tags)
+          .insert(
+            TagsCompanion.insert(
+              id: 'tag-1',
+              name: 'filosofía',
+              createdAt: now,
+            ),
+          );
+      await db
+          .into(db.itemTags)
+          .insert(ItemTagsCompanion.insert(itemId: itemId, tagId: 'tag-1'));
+
+      await migrateTagsToPropertyValues(
+        db,
+        ids: const UuidV7Generator(),
+        logger: const SilentLogger(),
+      );
+
+      final values = await (db.select(
+        db.propertyValues,
+      )..where((v) => v.definitionId.equals(tema))).get();
+      expect(values, hasLength(1));
+      expect(values.single.id, 'val-preexistente');
+    });
+
+    test(
+      'una etiqueta con nombre vacío se reporta y no rompe el resto',
+      () async {
+        final now = DateTime(2026, 9, 17);
+        await db
+            .into(db.tags)
+            .insert(
+              TagsCompanion.insert(id: 'tag-1', name: ' ', createdAt: now),
+            );
+        await db
+            .into(db.tags)
+            .insert(
+              TagsCompanion.insert(
+                id: 'tag-2',
+                name: 'Historia',
+                createdAt: now,
+              ),
+            );
+
+        await migrateTagsToPropertyValues(
+          db,
+          ids: const UuidV7Generator(),
+          logger: const SilentLogger(),
+        );
+
+        final tema = await temaId();
+        final values = await (db.select(
+          db.propertyValues,
+        )..where((v) => v.definitionId.equals(tema))).get();
+        final issues = await db.select(db.migrationIssues).get();
+
+        expect(values.map((v) => v.value), ['Historia']);
+        expect(issues, hasLength(1));
+        expect(issues.single.stage, 'migrate_tags');
+        expect(issues.single.itemId, 'tag-1');
+      },
+    );
   });
 }
