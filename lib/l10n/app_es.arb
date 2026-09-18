@@ -1387,6 +1387,51 @@
   "@embeddingModelTokenExplanation": {
     "description": "Explica por qué hace falta un token de Hugging Face."
   },
+  "embeddingBackfillAction": "Revisar lo ya guardado",
+  "@embeddingBackfillAction": {
+    "description": "Botón en la pantalla del modelo de embeddings, una vez listo, que lleva al backfill."
+  },
+  "embeddingBackfillTitle": "Revisar lo ya guardado",
+  "@embeddingBackfillTitle": {
+    "description": "Título de la pantalla de backfill de embeddings."
+  },
+  "embeddingBackfillExplanation": "Lo guardado antes de descargar el modelo todavía no se revisó en busca de elementos relacionados. Esto lo recorre una vez —puede tardar según cuánto haya guardado—.",
+  "@embeddingBackfillExplanation": {
+    "description": "Explica para qué sirve el backfill, antes de empezarlo."
+  },
+  "embeddingBackfillStartAction": "Empezar",
+  "@embeddingBackfillStartAction": {
+    "description": "Botón que empieza el backfill de embeddings."
+  },
+  "embeddingBackfillStarting": "Empezando…",
+  "@embeddingBackfillStarting": {
+    "description": "Texto mientras se prepara el backfill, antes del primer progreso."
+  },
+  "embeddingBackfillProgress": "{processed} de {total} elementos",
+  "@embeddingBackfillProgress": {
+    "description": "Progreso del backfill de embeddings.",
+    "placeholders": {
+      "processed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "embeddingBackfillDone": "{count, plural, =0{Sin elementos nuevos para vincular} =1{1 elemento nuevo revisado} other{{count} elementos nuevos revisados}}",
+  "@embeddingBackfillDone": {
+    "description": "Mensaje al terminar el backfill, con cuántos chunks se indexaron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "embeddingBackfillNothingToDo": "Nada que revisar: todavía no hay elementos con texto guardado.",
+  "@embeddingBackfillNothingToDo": {
+    "description": "Mensaje cuando el backfill termina sin haber encontrado ninguna fuente con chunks."
+  },
   "chatHistoryTooltip": "Historial de conversaciones",
   "@chatHistoryTooltip": {
     "description": "Tooltip del ícono que abre el historial de conversaciones del chat."

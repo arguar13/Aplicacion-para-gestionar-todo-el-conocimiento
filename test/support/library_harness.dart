@@ -35,6 +35,7 @@ import 'fake_chat_model_manager.dart';
 import 'fake_directory_chooser.dart';
 import 'fake_directory_writer.dart';
 import 'fake_embedding_model_manager.dart';
+import 'fake_embedding_service.dart';
 import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
@@ -74,6 +75,7 @@ class LibraryHarness {
     this.chatModelManagerGemma3n,
     this.chatModelManagerGemma412b,
     this.embeddingModelManager,
+    this.embeddingService,
     this.relationSuggestionService,
     this.summarizationService,
     this.propertySuggestionService,
@@ -172,6 +174,7 @@ class LibraryHarness {
     final embeddingModelManager = FakeEmbeddingModelManager(
       ready: embeddingModelReady,
     );
+    final embeddingService = FakeEmbeddingService();
     final relationSuggestionService = FakeRelationSuggestionService();
     final summarizationService = FakeSummarizationService(
       response: summarizeResponse,
@@ -235,6 +238,7 @@ class LibraryHarness {
           };
         }),
         embeddingModelManagerProvider.overrideWithValue(embeddingModelManager),
+        embeddingServiceProvider.overrideWithValue(embeddingService),
         relationSuggestionServiceProvider.overrideWithValue(
           relationSuggestionService,
         ),
@@ -288,6 +292,7 @@ class LibraryHarness {
       chatModelManagerGemma3n,
       chatModelManagerGemma412b,
       embeddingModelManager,
+      embeddingService,
       relationSuggestionService,
       summarizationService,
       propertySuggestionService,
@@ -354,6 +359,11 @@ class LibraryHarness {
   /// está descargado o no en las pruebas que tocan `EmbeddingModelScreen`
   /// o el motor de relaciones.
   final FakeEmbeddingModelManager embeddingModelManager;
+
+  /// El servicio de embeddings de mentira, para las pruebas que tocan el
+  /// indexador o el backfill del motor de relaciones sin depender de
+  /// `flutter_gemma`.
+  final FakeEmbeddingService embeddingService;
 
   /// El servicio de sugerencias de vínculos de mentira, para comprobar qué
   /// se le pidió al "asistente con IA" del grafo y controlar qué contesta.

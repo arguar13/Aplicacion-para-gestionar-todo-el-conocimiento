@@ -1,15 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_service.dart';
 import 'package:sinapsis/features/relations/data/services/relation_candidate_selector_impl.dart';
+import 'package:sinapsis/features/relations/data/usecases/backfill_embeddings_usecase_impl.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
+import 'package:sinapsis/features/relations/domain/usecases/backfill_embeddings_usecase.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
 /// `chatModelManagerProvider`: descartarlo al cerrar la pantalla de
@@ -45,3 +48,12 @@ final relationCandidateSelectorProvider = Provider<RelationCandidateSelector>((
     database: ref.watch(appDatabaseProvider),
   );
 });
+
+final backfillEmbeddingsUseCaseProvider =
+    Provider.autoDispose<BackfillEmbeddingsUseCase>((ref) {
+      return BackfillEmbeddingsUseCaseImpl(
+        database: ref.watch(appDatabaseProvider),
+        indexer: ref.watch(chunkEmbeddingIndexerProvider),
+        telemetry: ref.watch(telemetryServiceProvider),
+      );
+    });

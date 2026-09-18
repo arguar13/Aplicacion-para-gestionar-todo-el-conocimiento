@@ -48,6 +48,10 @@ abstract final class RoutePaths {
   /// [chatModel]: es una lente sobre datos, no un destino de navegación.
   static const embeddingModel = '/relations/embedding-model';
 
+  /// Calcular bajo demanda los embeddings que le falten a lo ya
+  /// capturado antes de tener el modelo descargado.
+  static const embeddingBackfill = '/relations/embedding-backfill';
+
   /// Repasar las tarjetas que ya tocan.
   static const review = '/review';
 
@@ -71,6 +75,7 @@ abstract final class RouteNames {
   static const chat = 'chat';
   static const chatModel = 'chat-model';
   static const embeddingModel = 'embedding-model';
+  static const embeddingBackfill = 'embedding-backfill';
   static const review = 'review';
   static const settings = 'settings';
 }

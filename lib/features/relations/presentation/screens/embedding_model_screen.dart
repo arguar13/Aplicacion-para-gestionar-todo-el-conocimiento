@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
@@ -150,7 +152,19 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
   }
 
   Widget _body(AppLocalizations l10n) {
-    if (_isReady) return _ReadyView(message: l10n.embeddingModelReady);
+    if (_isReady) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ReadyView(message: l10n.embeddingModelReady),
+          const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: () => context.push(RoutePaths.embeddingBackfill),
+            child: Text(l10n.embeddingBackfillAction),
+          ),
+        ],
+      );
+    }
 
     final progress = _downloadProgress;
     if (progress != null) {
