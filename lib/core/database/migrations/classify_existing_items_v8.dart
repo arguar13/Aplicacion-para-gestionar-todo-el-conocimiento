@@ -1,12 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
-import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 /// Clasifica cada `Items`/`Sources` existente como fuente o nota en las
@@ -44,7 +41,7 @@ Future<void> classifyExistingItems(
     // La FK de `Items.sourceId` lo impide: no debería poder pasar.
     if (source == null) continue;
 
-    final isNote = source.kind == SourceKind.manualNote;
+    final isNote = itemKindFor(source.kind) == ItemKind.note;
 
     await db
         .into(db.knowledgeEntries)
@@ -55,7 +52,7 @@ Future<void> classifyExistingItems(
             subtitle: Value(item.subtitle),
             spaceId: Value(item.spaceId),
             kind: isNote ? ItemKind.note : ItemKind.source,
-            state: _itemStateOf(item.processingState),
+            state: initialItemStateFor(item.processingState),
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
             deviceId: deviceId,
@@ -91,23 +88,8 @@ Future<void> classifyExistingItems(
             // identidad de la fuente, no algo razonable de dejar vacío
             // silenciosamente—, así que el placeholder es explícito.
             contentHash: '',
-            processingStatus: _sourceProcessingStatusOf(item.processingState),
+            processingStatus: sourceProcessingStatusFor(item.processingState),
           ),
         );
   }
 }
-
-ItemState _itemStateOf(ProcessingState state) => switch (state) {
-  ProcessingState.ready => ItemState.processed,
-  ProcessingState.pending ||
-  ProcessingState.processing ||
-  ProcessingState.failed => ItemState.captured,
-};
-
-SourceProcessingStatus _sourceProcessingStatusOf(ProcessingState state) =>
-    switch (state) {
-      ProcessingState.pending => SourceProcessingStatus.pending,
-      ProcessingState.processing => SourceProcessingStatus.running,
-      ProcessingState.ready => SourceProcessingStatus.done,
-      ProcessingState.failed => SourceProcessingStatus.failed,
-    };
