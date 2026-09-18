@@ -54,12 +54,12 @@ void main() {
     addTearDown(db.close);
 
     // El segundo argumento tiene que ser la versión REAL de
-    // `AppDatabase.schemaVersion` (hoy 9, por F2) y no la versión que da
+    // `AppDatabase.schemaVersion` (hoy 11, por F4) y no la versión que da
     // nombre a este archivo: `AppDatabase` siempre migra hasta su propio
     // `schemaVersion` al abrirse, nunca se detiene a mitad de camino —así
     // que el esquema resultante solo puede compararse contra el snapshot
     // de la versión a la que de verdad llega.
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 11);
 
     expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     expect(await db.select(db.knowledgeSources).get(), isEmpty);
@@ -105,7 +105,7 @@ void main() {
     // Mismo motivo que en el test anterior: se valida contra la versión
     // real a la que `AppDatabase` converge, no contra el número que da
     // nombre a este archivo.
-    await verifier.migrateAndValidate(db, 9);
+    await verifier.migrateAndValidate(db, 11);
 
     final items = await db.select(db.items).get();
     final sources = await db.select(db.sources).get();

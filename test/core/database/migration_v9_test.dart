@@ -50,7 +50,10 @@ void main() {
     final db = AppDatabase(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 9);
+    // El segundo argumento es la versión REAL de `AppDatabase.schemaVersion`
+    // (hoy 11, por F4), no la versión que da nombre a este archivo —
+    // `AppDatabase` siempre migra hasta su propio `schemaVersion`.
+    await verifier.migrateAndValidate(db, 11);
 
     expect(await db.select(db.propertyAliases).get(), isEmpty);
     await expectSystemCategories(db);
@@ -83,7 +86,9 @@ void main() {
           ),
         );
 
-    await verifier.migrateAndValidate(db, 9);
+    // Mismo motivo que el test anterior: versión real, no la del nombre
+    // del archivo.
+    await verifier.migrateAndValidate(db, 11);
 
     final definition = await (db.select(
       db.propertyDefinitions,

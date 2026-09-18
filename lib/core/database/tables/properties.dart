@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
@@ -145,6 +146,12 @@ class ItemPropertyValues extends Table {
 
   TextColumn get propertyValueId =>
       text().references(PropertyValues, #id, onDelete: KeyAction.cascade)();
+
+  /// Cómo llegó a estar puesta: a mano, heredada de la fuente al
+  /// extraer una nota, o una sugerencia del modelo ya aceptada. Ver
+  /// `ItemPropertyOrigin`.
+  TextColumn get origin =>
+      textEnum<ItemPropertyOrigin>().withDefault(const Constant('manual'))();
 
   @override
   Set<Column<Object>> get primaryKey => {itemId, propertyValueId};

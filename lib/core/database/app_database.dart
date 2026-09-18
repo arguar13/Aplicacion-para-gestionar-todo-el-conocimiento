@@ -22,6 +22,7 @@ import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
 import 'package:sinapsis/core/database/tables/sources.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
+import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/tables/tags.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
 // generado es un `part` de este archivo y hereda sus imports, no los de las
@@ -31,6 +32,7 @@ import 'package:sinapsis/core/database/tables/tags.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
@@ -40,6 +42,8 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
+import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
+import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
@@ -70,6 +74,7 @@ part 'app_database.g.dart';
     Chunks,
     Embeddings,
     MigrationIssues,
+    Suggestions,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -96,7 +101,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -215,6 +220,20 @@ class AppDatabase extends _$AppDatabase {
       // porque el espejo en vivo todavía no existía.
       if (from < 10) {
         await mirrorUnmirroredItems(this);
+      }
+      // Clasificación asistida (F4): de dónde viene una propiedad puesta
+      // —a mano, heredada al extraer una nota, o una sugerencia
+      // aceptada—, y la cola de sugerencias del modelo, todavía sin
+      // aplicar. Sin backfill: `origin` trae su propio valor por
+      // defecto (`manual`, la única procedencia que podía tener algo
+      // ya asignado antes de que esta columna existiera) y
+      // `Suggestions` nace vacía — nada que migrar.
+      if (from < 11) {
+        await migrator.addColumn(itemPropertyValues, itemPropertyValues.origin);
+        await migrator.createTable(suggestions);
+        // `createTable` no crea los índices de `@TableIndex` solo — ver
+        // el mismo recordatorio más arriba, en el paso `from < 8`.
+        await migrator.createIndex(idxSuggestionsTargetStatus);
       }
     },
     beforeOpen: (details) async {
