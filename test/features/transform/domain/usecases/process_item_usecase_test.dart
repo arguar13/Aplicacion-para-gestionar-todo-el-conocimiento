@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,6 +13,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
+import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
@@ -36,12 +39,17 @@ void main() {
 
   tearDown(() => db.close());
 
-  ProcessItemUseCase build(TransformerRegistry registry) => ProcessItemUseCase(
+  ProcessItemUseCase build(
+    TransformerRegistry registry, {
+    FakePropertySuggestionGenerator? suggestionGenerator,
+  }) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
     logger: const SilentLogger(),
     telemetry: MockTelemetryService(),
     clock: () => now,
+    suggestionGenerator:
+        suggestionGenerator ?? FakePropertySuggestionGenerator(),
   );
 
   Future<KnowledgeItem> seedPending() async {
@@ -151,6 +159,77 @@ void main() {
       );
 
       expect(result.isLeft(), isTrue);
+    });
+  });
+
+  group('genera sugerencias de propiedades al terminar', () {
+    test('sin transformador que aplique, llama al generador con el '
+        'elemento guardado', () async {
+      final item = await seedPending();
+      final generator = FakePropertySuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer(accepts: false)]),
+        suggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, [item.id]);
+    });
+
+    test('con transformador, llama al generador con el elemento ya '
+        'transformado', () async {
+      final item = await seedPending();
+      final generator = FakePropertySuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer()]),
+        suggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, [item.id]);
+    });
+
+    test('al terminar en failed, no llama al generador', () async {
+      final item = await seedPending();
+      final generator = FakePropertySuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer(error: Exception('sin red'))]),
+        suggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test(
+      'un generador que lanza no le cuesta el resultado a _process()',
+      () async {
+        final item = await seedPending();
+        final generator = FakePropertySuggestionGenerator(
+          error: Exception('el modelo explotó'),
+        );
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          suggestionGenerator: generator,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+      },
+    );
+
+    test('un generador cuyo Future nunca completa no bloquea _process(): '
+        'es fire-and-forget de verdad', () async {
+      final item = await seedPending();
+      final generator = FakePropertySuggestionGenerator()
+        ..hang = Completer<void>();
+
+      final result = await build(
+        TransformerRegistry([FakeTransformer()]),
+        suggestionGenerator: generator,
+      )(item.id);
+
+      expect(result.isRight(), isTrue);
     });
   });
 }

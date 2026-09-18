@@ -18,6 +18,7 @@ import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 
+import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 
@@ -113,6 +114,7 @@ void main() {
         logger: const SilentLogger(),
         telemetry: MockTelemetryService(),
         clock: () => now,
+        suggestionGenerator: FakePropertySuggestionGenerator(),
       ),
       repository: repository,
       logger: const SilentLogger(),
