@@ -2106,6 +2106,74 @@ label del descartado ya es alias de un tercero—; y
 `getOrCreateHistoricalPropertyValue`, que valida el tipo de la categoría y
 hace el get-or-create por el label calculado.
 
+### 36. F3 de estados y bandeja de entrada: el espejo en vivo, y el primer lector real del modelo nuevo
+
+Tercera fase del refactor de siete fases (ver la decisión 34). Activa lo
+que F1 dejó documentado como pendiente: `LibraryRepositoryImpl.save`/
+`delete`/`deleteMany` ahora mantienen `item`/`source`/`note`
+sincronizados en cada escritura, dentro de la misma transacción —
+dual-write, la opción más simple de las dos que dejó anotadas la
+decisión 34—, usando el mismo id que esas filas ya comparten con
+`Items`/`Sources` desde el backfill de F1.
+
+**Qué se sobreescribe siempre y qué se preserva.** Los campos que son un
+reflejo directo de `KnowledgeItem` (título, subtítulo, espacio, y los
+campos estructurales de `source`) se sobreescriben en cada `save()`. Los
+que una fase futura —o la propia Bandeja— escribe directo contra el
+espejo se preservan leyendo la fila existente antes de escribir encima:
+`item.state`, `source.fullText`/`contentHash` (F5/F7 los llenan de
+verdad), `note.noteKind`/`maturity`. El único avance automático de
+`state` es `captured → processed` cuando `ProcessingState` llega a
+`ready`; nunca retrocede ni pisa una decisión de triaje ya tomada —
+`ProcessItemUseCase` llama `save()` más de una vez por elemento (en
+curso, listo), así que recalcular el estado en cada escritura habría
+devuelto en silencio a `processed` cualquier elemento que el usuario ya
+hubiera triado.
+
+**Migración de catch-up, `schemaVersion` 9→10, sin tabla ni columna
+nueva.** Todo lo capturado entre el backfill de F1 y este commit no
+tenía fila en `item` —nunca pasó por `classifyExistingItems`—;
+`mirrorUnmirroredItems` reusa el mismo mapeo puro que el espejo en vivo
+(`knowledge_mirror_mapping.dart`, compartido también por
+`classifyExistingItems`) para clasificarlo, sin fragmentar en chunks ni
+calcular `fullText`/`contentHash`: ese trabajo sigue siendo de F5/F7. Sin
+snapshot de esquema nuevo para v10 —a diferencia de v8/v9, esta
+migración no cambia la forma del esquema, solo la puebla—.
+
+**La Bandeja de entrada muestra solo fuentes en `processed`** —no
+notas—: su progreso se mide con `maturity`, no con el flujo de triaje,
+que el propio encargo describe en términos de fuentes. Tres acciones de
+un toque: descartar (`→ discarded`), extraer nota (reusa
+`HighlightableText` y el camino de captura existente, sin lógica de
+extracción nueva) y vincular a nota viva (`createRelation` con
+`RelationKind.cites`, nota→fuente). Cada toque es la decisión de triaje
+en sí misma —transiciona a `triaged` (o `discarded`) en el momento del
+toque, no cuando termina el flujo secundario que sigue—, consistente con
+el propio docstring de `ItemState.triaged`. La cuarta acción del encargo
+original, "aceptar propiedades sugeridas", queda explícitamente para F4:
+no existe todavía ni la tabla `suggestion` ni el pipeline de Gemma para
+propiedades. Por la misma razón, ningún elemento llega a `distilled` a
+través de F3.
+
+**`InboxRepository` nuevo**, no métodos agregados a `LibraryRepository` u
+`OrganizeRepository`: es el primer lector y escritor real de
+`item`/`source`/`note` desde que existen. `OrganizeRepositoryImpl.
+createRelation` gana un efecto lateral acotado —un vínculo
+`extractedFrom` marca `noteKind: atomic` en la nota de origen—, que
+corrige de paso el clasificado del flujo de extracción que ya existía
+desde antes de F1.
+
+**`maturity` visible en el detalle de una nota**, no en la tarjeta de la
+biblioteca: la tarjeta declara explícitamente que muestra "cuatro
+cosas", y una quinta reactiva por fila no vale el costo en una lista
+larga.
+
+**La Bandeja de entrada como séptimo destino de navegación**, justo
+después de Biblioteca. Su ícono es `move_to_inbox`, no `inbox_outlined`:
+ese ya lo usan los estados vacíos de Biblioteca y Explorador, y
+coincidir los dejaba ambiguos en pantalla ancha, donde el riel y un
+estado vacío conviven en la misma pantalla.
+
 ---
 
 ## Estado y orden de construcción
@@ -2268,12 +2336,24 @@ hace el get-or-create por el label calculado.
   sistema sembradas desde el arranque y las etiquetas existentes migradas
   por abajo a valores de propiedad. Sin ningún cambio visible todavía: el
   vocabulario controlado llega antes que su UI.
+- **F3 de estados y Bandeja de entrada.** El espejo `item`/`source`/`note`
+  ya vivo —F1 lo dejaba solo poblado una vez—, y su primer lector real:
+  la Bandeja de entrada, un elemento a la vez, con tres acciones de un
+  toque —ver la decisión 36—. Primera superficie visible de todo el
+  refactor de organización: un séptimo destino en la navegación
+  principal, con insignia de pendientes, y la madurez de una nota
+  visible en su detalle.
 
 ### Por construir
 
-Las ocho fases están construidas, probadas y documentadas. Android y la
-web —las dos plataformas reales de quien construye esta app, sin ningún
-dispositivo iOS de por medio— funcionan a fondo: no queda ninguna fase
-nueva planeada, solo lo de siempre entre una fase y la próxima que aparezca
-—una migración de esquema, un paquete que sube de versión, un detalle que
-una prueba nueva encuentre—.
+Las ocho fases originales están construidas, probadas y documentadas.
+Android y la web —las dos plataformas reales de quien construye esta
+app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
+
+Lo que sigue es el refactor de la capa de organización en curso (ver la
+decisión 34): F1, F2 y F3 cerrados —modelo Fuente/Nota, vocabulario
+controlado, estados y Bandeja de entrada—; F4 (clasificación asistida
+con IA y herencia de propiedades), F5 (motor de relaciones y detección
+de tensión), F6 (grafo local y notas mapa) y F7 (deduplicación) siguen,
+cada una recién planeada —plan breve, aprobado, después código— cuando
+se confirme avanzar con ella, tal como pidió el propio encargo.
