@@ -497,6 +497,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
             ItemPropertyValuesCompanion.insert(
               itemId: item.id,
               propertyValueId: property.valueId,
+              origin: Value(property.origin),
             ),
           );
     }
@@ -788,16 +789,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
     ])..where(_db.itemPropertyValues.itemId.isIn(itemIds))).get();
     final propertiesByItem = <String, List<ItemProperty>>{};
     for (final row in propertyRows) {
-      final itemId = row.readTable(_db.itemPropertyValues).itemId;
+      final assignmentRow = row.readTable(_db.itemPropertyValues);
       final valueRow = row.readTable(_db.propertyValues);
       final definitionRow = row.readTable(_db.propertyDefinitions);
-      (propertiesByItem[itemId] ??= []).add(
+      (propertiesByItem[assignmentRow.itemId] ??= []).add(
         ItemProperty(
           definitionId: definitionRow.id,
           definitionName: definitionRow.name,
           valueId: valueRow.id,
           value: valueRow.value,
           createdAt: valueRow.createdAt,
+          origin: assignmentRow.origin,
         ),
       );
     }

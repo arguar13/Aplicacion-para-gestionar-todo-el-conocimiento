@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -993,6 +994,73 @@ void main() {
 
       final remaining = await db.select(db.knowledgeEntries).get();
       expect(remaining, isEmpty);
+    });
+  });
+
+  group('propiedades', () {
+    Future<String> seedDefinition(String name) async {
+      final id = 'def-${counter++}';
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: id,
+              name: name,
+              createdAt: now,
+            ),
+          );
+      return id;
+    }
+
+    test('el origin manual (el default) persiste y se lee igual', () async {
+      final definitionId = await seedDefinition('Región');
+      final item = buildItem().copyWith(
+        properties: [
+          ItemProperty(
+            definitionId: definitionId,
+            definitionName: 'Región',
+            valueId: 'val-${counter++}',
+            value: 'Roma',
+            createdAt: now,
+          ),
+        ],
+      );
+
+      await repository.save(item);
+
+      final found = (await repository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      expect(found.properties.single.origin, ItemPropertyOrigin.manual);
+    });
+
+    test('el origin sobrevive a una edición posterior que no toca las '
+        'propiedades', () async {
+      final definitionId = await seedDefinition('Región');
+      final item = buildItem().copyWith(
+        properties: [
+          ItemProperty(
+            definitionId: definitionId,
+            definitionName: 'Región',
+            valueId: 'val-${counter++}',
+            value: 'Roma',
+            createdAt: now,
+            origin: ItemPropertyOrigin.inherited,
+          ),
+        ],
+      );
+      await repository.save(item);
+
+      final loaded = (await repository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      await repository.save(loaded.copyWith(title: 'Título editado'));
+
+      final reloaded = (await repository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      expect(reloaded.properties.single.origin, ItemPropertyOrigin.inherited);
+      expect(reloaded.title, 'Título editado');
     });
   });
 }

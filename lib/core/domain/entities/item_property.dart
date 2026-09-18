@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 
 part 'item_property.freezed.dart';
 
@@ -23,5 +24,13 @@ sealed class ItemProperty with _$ItemProperty {
     required String valueId,
     required String value,
     required DateTime createdAt,
+
+    /// A mano, heredada al extraer una nota, o una sugerencia del
+    /// modelo ya aceptada. Viaja acá y no solo en la columna de la base
+    /// porque `LibraryRepositoryImpl._syncProperties` reescribe
+    /// `ItemPropertyValues` entera en cada `save()` a partir de esta
+    /// lista: si `origin` no estuviera acá, cualquier edición
+    /// posterior del elemento lo devolvería en silencio a `manual`.
+    @Default(ItemPropertyOrigin.manual) ItemPropertyOrigin origin,
   }) = _ItemProperty;
 }
