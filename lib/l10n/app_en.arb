@@ -501,6 +501,24 @@
       }
     }
   },
+  "detailMergedProvenanceTitle": "Also includes",
+  "@detailMergedProvenanceTitle": {
+    "description": "Encabezado de la lista de procedencias absorbidas al fusionar duplicados, F7. Solo aparece cuando el elemento absorbió al menos una."
+  },
+  "detailMergedProvenanceRow": "{kind}, saved on {date}",
+  "@detailMergedProvenanceRow": {
+    "description": "Una procedencia absorbida al fusionar un duplicado: de qué tipo de fuente venía y cuándo se había capturado originalmente.",
+    "placeholders": {
+      "kind": {
+        "type": "String",
+        "example": "Article"
+      },
+      "date": {
+        "type": "String",
+        "example": "11 Sep 2026"
+      }
+    }
+  },
   "detailNoContentYetFile": "The text hasn't been extracted yet. The original file is already saved.",
   "@detailNoContentYetFile": {
     "description": "Aviso de contenido pendiente, para elementos que vinieron de un archivo."

@@ -21,6 +21,8 @@ import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
+import 'package:sinapsis/features/duplicates/domain/entities/merged_provenance.dart';
+import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -670,6 +672,9 @@ class _Provenance extends ConsumerWidget {
     // uno de los dos.
     final locale = Localizations.localeOf(context).toString();
     final captured = DateFormat.yMMMd(locale).format(source.capturedAt);
+    final merged = ref
+        .watch(mergedProvenancesForItemProvider(item.id))
+        .valueOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,7 +714,43 @@ class _Provenance extends ConsumerWidget {
           const SizedBox(height: 12),
           _OriginalLink(url: source.url!),
         ],
+        // Un elemento que absorbió duplicados al fusionarse (F7) no pierde
+        // de dónde salía el descartado: esta lista chica es lo único que
+        // queda de esa procedencia una vez que su propia fila desaparece.
+        if (merged != null && merged.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Text(
+            l10n.detailMergedProvenanceTitle,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final provenance in merged)
+            _MergedProvenanceRow(provenance: provenance, locale: locale),
+        ],
       ],
+    );
+  }
+}
+
+class _MergedProvenanceRow extends StatelessWidget {
+  const _MergedProvenanceRow({required this.provenance, required this.locale});
+
+  final MergedProvenance provenance;
+  final String locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final captured = DateFormat.yMMMd(locale).format(provenance.capturedAt);
+
+    return _ProvenanceRow(
+      icon: Icons.call_merge,
+      text: l10n.detailMergedProvenanceRow(
+        provenance.sourceKind.label(l10n),
+        captured,
+      ),
     );
   }
 }

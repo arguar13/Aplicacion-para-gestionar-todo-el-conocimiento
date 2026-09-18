@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -458,6 +461,60 @@ void main() {
 
       expect(copied, 'https://ejemplo.org/un-articulo');
       expect(find.text(es.detailLinkCopied), findsOneWidget);
+    });
+
+    testWidgets('un elemento sin fusiones no muestra nada nuevo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+      await tester.scrollUntilVisible(
+        find.text(es.detailProvenance),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(es.detailMergedProvenanceTitle), findsNothing);
+    });
+
+    testWidgets('un elemento con una fusión muestra la procedencia absorbida', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+      final discardedCapture = DateTime(2026, 5);
+      await harness.database
+          .into(harness.database.mergedProvenances)
+          .insert(
+            MergedProvenancesCompanion.insert(
+              id: 'merged-1',
+              itemId: id,
+              sourceKind: SourceKind.socialPost,
+              capturedAt: discardedCapture,
+              mergedAt: DateTime(2026, 9, 11, 10),
+            ),
+          );
+
+      await pumpDetail(tester, id);
+      await tester.scrollUntilVisible(
+        find.text(es.detailMergedProvenanceTitle),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.text(es.detailMergedProvenanceTitle), findsOneWidget);
+      expect(
+        find.text(
+          es.detailMergedProvenanceRow(
+            es.sourceKindSocialPost,
+            DateFormat.yMMMd('es').format(discardedCapture),
+          ),
+        ),
+        findsOneWidget,
+      );
+      // Sigue mostrando la procedencia propia además de la absorbida —
+      // fusionar no la reemplaza, la suma.
+      expect(find.text(es.sourceKindWebPage), findsOneWidget);
     });
   });
 

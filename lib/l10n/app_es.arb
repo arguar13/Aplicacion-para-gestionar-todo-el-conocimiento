@@ -369,6 +369,8 @@
       }
     }
   },
+  "detailMergedProvenanceTitle": "También incluye",
+  "detailMergedProvenanceRow": "{kind}, guardado el {date}",
   "detailNoContentYetFile": "Todavía no se extrajo el texto. El archivo original ya está guardado.",
   "@detailNoContentYetFile": {
     "description": "Aviso de contenido pendiente, para elementos que vinieron de un archivo."
