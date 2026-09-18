@@ -18,6 +18,7 @@ import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/graph/presentation/providers/graph_providers.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/degree_selector.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/graph_edges_painter.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/space_color.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -313,7 +314,7 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_selectedSpaceId != null)
-                      _DegreeSelector(
+                      DegreeSelector(
                         degree: _degree,
                         onChanged: (degree) => setState(() => _degree = degree),
                       ),
@@ -850,51 +851,8 @@ class _SpaceSwatch extends StatelessWidget {
   }
 }
 
-class _DegreeSelector extends StatelessWidget {
-  const _DegreeSelector({required this.degree, required this.onChanged});
-
-  final int? degree;
-  final ValueChanged<int?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Text(
-                l10n.graphDegreeLabel,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            for (final option in const [0, 1, 2, null])
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text(option == null ? l10n.graphDegreeAll : '$option'),
-                  selected: degree == option,
-                  onSelected: (_) => onChanged(option),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Los chips de tema del grafo —uno por componente conexo, más "Todos
-/// juntos"— con el mismo estilo horizontal desplazable que `_DegreeSelector`.
+/// juntos"— con el mismo estilo horizontal desplazable que [DegreeSelector].
 class _ComponentSelector extends StatelessWidget {
   const _ComponentSelector({
     required this.components,
