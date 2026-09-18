@@ -638,6 +638,117 @@ void main() {
         )..where((n) => n.itemId.equals(nota.id))).getSingle();
         expect(note.noteKind, NoteKind.living);
       });
+
+      test('la nota hereda las propiedades de la fuente, con origin '
+          'inherited', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final tema = (await repository.getOrCreatePropertyDefinition(
+          'Tema',
+        )).getRight().toNullable()!;
+        final fuente = await seedItem();
+        await repository.assignProperty(
+          itemId: fuente.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: fuente.id,
+          definitionId: tema.id,
+          value: 'Historia',
+        );
+        final nota = await seedNote();
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          nota.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.map((p) => p.value), {'Roma', 'Historia'});
+        expect(
+          reloaded.properties.every(
+            (p) => p.origin == ItemPropertyOrigin.inherited,
+          ),
+          isTrue,
+        );
+      });
+
+      test('una fuente sin propiedades no rompe nada', () async {
+        final fuente = await seedItem();
+        final nota = await seedNote();
+
+        final result = await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        expect(result.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          nota.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, isEmpty);
+      });
+
+      test('una propiedad ya puesta a mano en la nota no se downgradea '
+          'ni se duplica', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final fuente = await seedItem();
+        await repository.assignProperty(
+          itemId: fuente.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        final nota = await seedNote();
+        await repository.assignProperty(
+          itemId: nota.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          nota.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, hasLength(1));
+        expect(reloaded.properties.single.origin, ItemPropertyOrigin.manual);
+      });
+
+      test('otro tipo de vínculo no copia ninguna propiedad', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final fuente = await seedItem();
+        await repository.assignProperty(
+          itemId: fuente.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        final nota = await seedNote();
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.relatedTo,
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          nota.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, isEmpty);
+      });
     });
   });
 

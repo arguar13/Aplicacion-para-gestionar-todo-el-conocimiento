@@ -215,7 +215,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
       if (kind == RelationKind.extractedFrom) {
         // `fromItemId` es siempre la nota nueva en este tipo de vínculo
         // —así lo usa `HighlightableText._extractSelection`—, así que
-        // esto corrige `noteKind` tanto ahí como en la futura Bandeja de
+        // esto corrige `noteKind` tanto ahí como en la Bandeja de
         // entrada (F3). Un UPDATE que no afecta ninguna fila no es un
         // error: no debería pasar, pero el espejo de esa nota podría no
         // existir todavía.
@@ -224,6 +224,32 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         )..where((n) => n.itemId.equals(fromItemId))).write(
           const KnowledgeNotesCompanion(noteKind: Value(NoteKind.atomic)),
         );
+
+        // Herencia (F4): la nota nueva hereda las propiedades de la
+        // fuente de la que se extrajo — extraer 8 fragmentos de un
+        // video no puede costar 8 clasificaciones manuales. `origin:
+        // inherited`, y `insertOrIgnore` en vez de
+        // `insertOnConflictUpdate`: si la nota ya tenía esa propiedad
+        // puesta a mano, el insert que choca con la clave compuesta no
+        // hace nada, y el `origin: manual` original se conserva —
+        // pisarlo downgradearía en silencio una decisión real del
+        // usuario en cada extracción.
+        final sourceProperties = await (_db.select(
+          _db.itemPropertyValues,
+        )..where((p) => p.itemId.equals(toItemId))).get();
+
+        for (final property in sourceProperties) {
+          await _db
+              .into(_db.itemPropertyValues)
+              .insert(
+                ItemPropertyValuesCompanion.insert(
+                  itemId: fromItemId,
+                  propertyValueId: property.propertyValueId,
+                  origin: const Value(ItemPropertyOrigin.inherited),
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+        }
       }
 
       return right(unit);
