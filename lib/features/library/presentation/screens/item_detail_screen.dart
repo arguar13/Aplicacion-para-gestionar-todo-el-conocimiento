@@ -26,6 +26,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -270,6 +271,8 @@ class _DetailBody extends StatelessWidget {
 
                 const SizedBox(height: 16),
                 FlashcardSection(item: item),
+                const SizedBox(height: 24),
+                LocalGraphPanel(item: item),
                 const SizedBox(height: 24),
                 Consumer(
                   builder: (context, ref, child) {

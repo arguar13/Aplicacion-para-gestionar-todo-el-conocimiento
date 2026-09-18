@@ -1318,6 +1318,10 @@
       }
     }
   },
+  "localGraphPanelOpenFull": "See full graph",
+  "@localGraphPanelOpenFull": {
+    "description": "Texto/tooltip del botón que abre LocalGraphScreen desde el panel embebido en el detalle."
+  },
   "graphSpaceFilterAll": "All topics",
   "@graphSpaceFilterAll": {
     "description": "Opción del selector de tema del grafo que no filtra por ninguno."

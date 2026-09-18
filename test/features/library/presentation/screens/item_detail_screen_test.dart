@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -272,6 +273,107 @@ void main() {
 
         expect(find.text(es.relationKindLabelContinues), findsNothing);
         expect(find.byType(ListTile), findsOneWidget);
+      },
+    );
+  });
+
+  group('grafo local (panel embebido)', () {
+    testWidgets('sin vínculos, el panel muestra su estado vacío', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un elemento sin vínculos');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.graphEmpty), findsOneWidget);
+      expect(find.byType(CompactGraphNode), findsNothing);
+    });
+
+    testWidgets('con un vínculo, el panel muestra dos nodos', (tester) async {
+      final other = await captureAndGetId('el otro elemento');
+      final id = await captureAndGetId('el elemento con vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.graphEmpty), findsNothing);
+      expect(find.byType(CompactGraphNode), findsNWidgets(2));
+    });
+
+    testWidgets('tocar el botón de ver grafo completo navega al grafo local', (
+      tester,
+    ) async {
+      final other = await captureAndGetId('el otro elemento');
+      final id = await captureAndGetId('el elemento con vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo('${RoutePaths.library}/$id');
+      await tester.pumpAndSettle();
+
+      final openFullButton = find.byTooltip(es.localGraphPanelOpenFull);
+      await tester.scrollUntilVisible(
+        openFullButton,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(openFullButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.localGraphTitle('el elemento con vínculo')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'un vecino marcado como nota mapa, tocado desde el panel, entra al '
+      'grafo local centrado en él en vez de a su detalle',
+      (tester) async {
+        final other = await captureAndGetId('el vecino mapa');
+        final id = await captureAndGetId('el elemento con vínculo');
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createRelation(
+              fromItemId: id,
+              toItemId: other,
+              kind: RelationKind.relatedTo,
+            );
+        await harness.container
+            .read(inboxRepositoryProvider)
+            .setNoteKind(itemId: other, kind: NoteKind.map);
+
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
+        harness.goTo('${RoutePaths.library}/$id');
+        await tester.pumpAndSettle();
+
+        final mapNeighbor = find.text('el vecino mapa');
+        await tester.scrollUntilVisible(
+          mapNeighbor,
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(mapNeighbor);
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.localGraphTitle('el vecino mapa')), findsOneWidget);
+        expect(find.text(es.detailRelationsTitle), findsNothing);
       },
     );
   });
