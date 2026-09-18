@@ -1309,6 +1309,15 @@
   "@graphScopeEmpty": {
     "description": "Mensaje cuando el filtro de tema y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
   },
+  "localGraphTitle": "Local graph of {title}",
+  "@localGraphTitle": {
+    "description": "Título de la pantalla del grafo local de un elemento puntual.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "graphSpaceFilterAll": "All topics",
   "@graphSpaceFilterAll": {
     "description": "Opción del selector de tema del grafo que no filtra por ninguno."

@@ -14,6 +14,7 @@ import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
+import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -110,6 +111,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.graphTension,
         name: RouteNames.graphTension,
         builder: (context, state) => const TensionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.graphLocalPattern,
+        name: RouteNames.graphLocal,
+        builder: (context, state) =>
+            LocalGraphScreen(itemId: state.pathParameters['id']!),
       ),
       // Los siete destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de
