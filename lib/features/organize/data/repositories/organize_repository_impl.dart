@@ -767,6 +767,78 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, PropertyValue>> renamePropertyValue({
+    required String id,
+    required String label,
+  }) async {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El valor no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final current = await (_db.select(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(id))).getSingleOrNull();
+      if (current == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'El valor ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      // Sin distinguir mayúsculas, y solo dentro de la misma categoría:
+      // "Roma" bajo "Región" y "Roma" bajo "Ciudad natal" no compiten
+      // entre sí, mismo criterio que el UNIQUE de PropertyAlias.
+      final valueClash =
+          await (_db.select(_db.propertyValues)..where(
+                (v) =>
+                    v.definitionId.equals(current.definitionId) &
+                    v.value.lower().equals(trimmed.toLowerCase()) &
+                    v.id.equals(id).not(),
+              ))
+              .getSingleOrNull();
+      if (valueClash != null) {
+        return left(
+          Failure.validation(message: 'Ya existe un valor "$trimmed".'),
+        );
+      }
+
+      final aliasClash =
+          await (_db.select(_db.propertyAliases)..where(
+                (a) =>
+                    a.definitionId.equals(current.definitionId) &
+                    a.alias.lower().equals(trimmed.toLowerCase()),
+              ))
+              .getSingleOrNull();
+      if (aliasClash != null) {
+        return left(
+          Failure.validation(message: 'Ya existe un valor "$trimmed".'),
+        );
+      }
+
+      final updated =
+          await (_db.update(_db.propertyValues)..where((v) => v.id.equals(id)))
+              .writeReturning(PropertyValuesCompanion(value: Value(trimmed)));
+
+      return right(_toPropertyValue(updated.single));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.renamePropertyValue',
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------

@@ -192,4 +192,18 @@ abstract interface class OrganizeRepository {
     required String itemId,
     required String propertyValueId,
   });
+
+  /// Cambia el label de un valor de propiedad. Se propaga sola a todo lo
+  /// que lo referencia, porque todo lo hace por [id] —a diferencia de
+  /// [mergePropertyValues], acá no hay dos valores de por medio, solo
+  /// uno que cambia de nombre—.
+  ///
+  /// Devuelve un fallo si [label] queda vacío, si ya existe otro valor
+  /// con ese label en la MISMA categoría (sin distinguir mayúsculas), o
+  /// si ese label ya es un alias de otro valor de esa categoría — mismo
+  /// criterio de unicidad "dentro de la categoría" que [PropertyAlias].
+  Future<Either<Failure, PropertyValue>> renamePropertyValue({
+    required String id,
+    required String label,
+  });
 }

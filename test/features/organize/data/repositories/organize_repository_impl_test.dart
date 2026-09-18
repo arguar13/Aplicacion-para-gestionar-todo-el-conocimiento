@@ -1036,5 +1036,191 @@ void main() {
         expect(reloadedB.properties, hasLength(1));
       });
     });
+
+    group('renombrar valores', () {
+      test('el nuevo label queda guardado', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Bizancio',
+        );
+        final valueId = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: valueId,
+          label: 'Constantinopla',
+        );
+
+        expect(result.getRight().toNullable()?.value, 'Constantinopla');
+      });
+
+      test('un label en blanco se rechaza', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final valueId = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: valueId,
+          label: '   ',
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('no se puede renombrar para chocar con otro valor de la misma '
+          'categoría', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Atenas',
+        );
+        final atenasId = (await libraryRepository.findById(item.id))
+            .getRight()
+            .toNullable()!
+            .properties
+            .firstWhere((p) => p.value == 'Atenas')
+            .valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: atenasId,
+          label: 'roma',
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('el mismo label en otra categoría SÍ se permite', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final ciudadNatal = (await repository.getOrCreatePropertyDefinition(
+          'Ciudad natal',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: ciudadNatal.id,
+          value: 'Otra ciudad',
+        );
+        final otraCiudadId = (await libraryRepository.findById(item.id))
+            .getRight()
+            .toNullable()!
+            .properties
+            .firstWhere((p) => p.value == 'Otra ciudad')
+            .valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: otraCiudadId,
+          label: 'Roma',
+        );
+
+        expect(result.getRight().toNullable()?.value, 'Roma');
+      });
+
+      test('renombrarlo a su propio label no choca consigo mismo', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final valueId = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: valueId,
+          label: 'roma',
+        );
+
+        expect(result.getRight().toNullable()?.value, 'roma');
+      });
+
+      test('no se puede renombrar para chocar con un alias de la misma '
+          'categoría', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Bizancio',
+        );
+        final valueId = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+        await db
+            .into(db.propertyAliases)
+            .insert(
+              PropertyAliasesCompanion.insert(
+                id: 'alias-1',
+                propertyValueId: valueId,
+                definitionId: definition.id,
+                alias: 'Constantinopla',
+                createdAt: now,
+              ),
+            );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Otra región',
+        );
+        final otraId = (await libraryRepository.findById(item.id))
+            .getRight()
+            .toNullable()!
+            .properties
+            .firstWhere((p) => p.value == 'Otra región')
+            .valueId;
+
+        final result = await repository.renamePropertyValue(
+          id: otraId,
+          label: 'constantinopla',
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('uno que ya no existe devuelve un fallo, no revienta', () async {
+        final result = await repository.renamePropertyValue(
+          id: 'no-existe',
+          label: 'Lo que sea',
+        );
+
+        expect(result.isLeft(), isTrue);
+      });
+    });
   });
 }
