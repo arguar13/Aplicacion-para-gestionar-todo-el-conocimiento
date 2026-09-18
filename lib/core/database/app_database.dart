@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
+import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
@@ -34,6 +35,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
+import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 part 'app_database.g.dart';
@@ -163,6 +165,11 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createIndex(idxChunksItemSeq);
         await migrator.createIndex(idxChunksItemStartMs);
         await classifyExistingItems(this, ids: const UuidV7Generator());
+        await fragmentExistingSources(
+          this,
+          ids: const UuidV7Generator(),
+          logger: ConsoleAppLogger(),
+        );
       }
     },
     beforeOpen: (details) async {

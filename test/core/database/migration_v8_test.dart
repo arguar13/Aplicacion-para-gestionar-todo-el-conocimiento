@@ -4,16 +4,19 @@ import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
+import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 import '../../generated_migrations/schema.dart';
+import '../../support/silent_logger.dart';
 
 /// La migración de esquema 7→8 —que agrega el modelo de conocimiento nuevo
 /// (item/source/note/chunk/embedding)— probada con el `SchemaVerifier` de
@@ -222,6 +225,229 @@ void main() {
 
       expect(entry.state, ItemState.captured);
       expect(source.processingStatus, SourceProcessingStatus.pending);
+    });
+  });
+
+  group('fragmentar fuentes existentes al migrar', () {
+    // Mismo criterio que en la clasificación: se prueba
+    // `fragmentExistingSources` como función pura, contra una base ya en
+    // v8, no encadenada con `SchemaVerifier`.
+    late AppDatabase db;
+    late SilentLogger logger;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+      logger = const SilentLogger();
+    });
+
+    tearDown(() => db.close());
+
+    Future<String> seedSourceWithText(
+      String content, {
+      RenditionKind kind = RenditionKind.markdown,
+    }) async {
+      final now = DateTime(2026, 9, 17, 10);
+      await db
+          .into(db.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: 'src-1',
+              kind: SourceKind.webPage,
+              capturedAt: now,
+            ),
+          );
+      await db
+          .into(db.items)
+          .insert(
+            ItemsCompanion.insert(
+              id: 'item-1',
+              title: 'Un elemento',
+              sourceId: 'src-1',
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'rend-1',
+              itemId: 'item-1',
+              kind: kind,
+              isPrimary: true,
+              createdAt: now,
+              content: Value(content),
+            ),
+          );
+      await classifyExistingItems(db, ids: const UuidV7Generator());
+      return 'item-1';
+    }
+
+    test(
+      'completa fullText/contentHash y fragmenta, reconstruyendo exacto',
+      () async {
+        const content = 'Primer párrafo.\n\nSegundo párrafo, distinto.';
+        await seedSourceWithText(content);
+
+        await fragmentExistingSources(
+          db,
+          ids: const UuidV7Generator(),
+          logger: logger,
+        );
+
+        final source = await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals('item-1'))).getSingle();
+        final chunks =
+            await (db.select(db.chunks)
+                  ..where((c) => c.itemId.equals('item-1'))
+                  ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
+                .get();
+
+        expect(source.fullText, content);
+        expect(source.contentHash, isNotEmpty);
+        expect(chunks.length, greaterThan(1));
+        expect(chunks.map((c) => c.content).join(), content);
+        expect(await db.select(db.migrationIssues).get(), isEmpty);
+      },
+    );
+
+    test(
+      'un item sin ninguna forma de texto queda sin chunks, sin fallar',
+      () async {
+        final now = DateTime(2026, 9, 17, 10);
+        await db
+            .into(db.sources)
+            .insert(
+              SourcesCompanion.insert(
+                id: 'src-1',
+                kind: SourceKind.document,
+                capturedAt: now,
+              ),
+            );
+        await db
+            .into(db.items)
+            .insert(
+              ItemsCompanion.insert(
+                id: 'item-1',
+                title: 'Un PDF aún sin texto extraído',
+                sourceId: 'src-1',
+                processingState: ProcessingState.pending,
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+        await classifyExistingItems(db, ids: const UuidV7Generator());
+
+        await fragmentExistingSources(
+          db,
+          ids: const UuidV7Generator(),
+          logger: logger,
+        );
+
+        final source = await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals('item-1'))).getSingle();
+
+        expect(source.fullText, isEmpty);
+        expect(await db.select(db.chunks).get(), isEmpty);
+        expect(await db.select(db.migrationIssues).get(), isEmpty);
+      },
+    );
+
+    test('un elemento con más de una forma de texto se fragmenta igual, y '
+        'queda reportado', () async {
+      final now = DateTime(2026, 9, 17, 10);
+      await db
+          .into(db.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: 'src-1',
+              kind: SourceKind.webPage,
+              capturedAt: now,
+            ),
+          );
+      await db
+          .into(db.items)
+          .insert(
+            ItemsCompanion.insert(
+              id: 'item-1',
+              title: 'Un elemento con dos formas de texto',
+              sourceId: 'src-1',
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'rend-vieja',
+              itemId: 'item-1',
+              kind: RenditionKind.plainText,
+              isPrimary: false,
+              createdAt: now,
+              content: const Value('la vieja, no la principal'),
+            ),
+          );
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'rend-principal',
+              itemId: 'item-1',
+              kind: RenditionKind.markdown,
+              isPrimary: true,
+              createdAt: now.add(const Duration(minutes: 1)),
+              content: const Value('la principal, esta es la que cuenta'),
+            ),
+          );
+      await classifyExistingItems(db, ids: const UuidV7Generator());
+
+      await fragmentExistingSources(
+        db,
+        ids: const UuidV7Generator(),
+        logger: logger,
+      );
+
+      final source = await (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('item-1'))).getSingle();
+      final issues = await db.select(db.migrationIssues).get();
+
+      expect(source.fullText, 'la principal, esta es la que cuenta');
+      expect(issues, hasLength(1));
+      expect(issues.single.stage, 'classify');
+    });
+
+    test('una nota de bloques con JSON corrupto se reporta y no rompe el '
+        'resto de la migración', () async {
+      await seedSourceWithText(
+        '{esto no es JSON válido',
+        kind: RenditionKind.blocks,
+      );
+
+      await fragmentExistingSources(
+        db,
+        ids: const UuidV7Generator(),
+        logger: logger,
+      );
+
+      final source = await (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('item-1'))).getSingle();
+      final issues = await db.select(db.migrationIssues).get();
+
+      expect(
+        source.fullText,
+        isEmpty,
+        reason: 'el placeholder no se pisa cuando el chunking falla',
+      );
+      expect(await db.select(db.chunks).get(), isEmpty);
+      expect(issues, hasLength(1));
+      expect(issues.single.stage, 'chunk');
     });
   });
 
