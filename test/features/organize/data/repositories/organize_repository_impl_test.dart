@@ -761,16 +761,37 @@ void main() {
       test(
         'listar todas, ordenadas alfabéticamente, actualizándose solo',
         () async {
+          // "Fecha del hecho" y "Tema" son categorías de sistema,
+          // sembradas desde el arranque —ver
+          // `seedSystemPropertyCategories`—: dos inserts separados
+          // durante `onCreate`, cada uno con su propia notificación. Se
+          // deja que esos emits terminen antes de empezar a contar
+          // cambios, para que no se cuelen como si fueran la reacción a
+          // algo que hizo el test.
+          await repository.watchAllPropertyDefinitions().first;
+
           final stream = repository.watchAllPropertyDefinitions();
           final queue = StreamQueue(stream);
 
-          expect(await queue.next, isEmpty);
+          expect((await queue.next).map((d) => d.name), [
+            'Fecha del hecho',
+            'Tema',
+          ]);
 
-          await repository.getOrCreatePropertyDefinition('Tema');
-          expect((await queue.next).map((d) => d.name), ['Tema']);
+          await repository.getOrCreatePropertyDefinition('Región');
+          expect((await queue.next).map((d) => d.name), [
+            'Fecha del hecho',
+            'Región',
+            'Tema',
+          ]);
 
           await repository.getOrCreatePropertyDefinition('Época');
-          expect((await queue.next).map((d) => d.name), ['Tema', 'Época']);
+          expect((await queue.next).map((d) => d.name), [
+            'Fecha del hecho',
+            'Región',
+            'Tema',
+            'Época',
+          ]);
 
           await queue.cancel();
         },

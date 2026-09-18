@@ -1,31 +1,49 @@
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/util/id_generator.dart';
 
 import '../../generated_migrations/schema.dart';
 
 /// La migración de esquema 8→9 —vocabulario controlado tipado: columnas
-/// nuevas en `PropertyDefinitions`/`PropertyValues` y la tabla
-/// `PropertyAliases`—, probada con `SchemaVerifier`, mismo patrón que
-/// `migration_v8_test.dart`.
+/// nuevas en `PropertyDefinitions`/`PropertyValues`, la tabla
+/// `PropertyAliases`, y la siembra de "Tema"/"Fecha del hecho"—, probada
+/// con `SchemaVerifier`, mismo patrón que `migration_v8_test.dart`.
 ///
-/// Sin siembra de categorías de sistema todavía —eso es un paso
-/// posterior—: acá solo se verifica que el esquema migra bien y que las
-/// categorías/valores existentes sobreviven con los valores por defecto.
+/// Sin migrar las etiquetas existentes todavía —eso es un paso
+/// posterior—.
 void main() {
   final verifier = SchemaVerifier(GeneratedHelper());
 
-  test('una base nueva (onCreate) trae las columnas nuevas y PropertyAliases '
-      'vacía', () async {
+  Future<void> expectSystemCategories(AppDatabase db) async {
+    final tema = await (db.select(
+      db.propertyDefinitions,
+    )..where((d) => d.name.equals('Tema'))).getSingle();
+    final fecha = await (db.select(
+      db.propertyDefinitions,
+    )..where((d) => d.name.equals('Fecha del hecho'))).getSingle();
+
+    expect(tema.isSystem, isTrue);
+    expect(tema.type, PropertyValueType.text);
+    expect(fecha.isSystem, isTrue);
+    expect(fecha.type, PropertyValueType.date);
+  }
+
+  test('una base nueva (onCreate) trae PropertyAliases vacía y las '
+      'categorías de sistema ya sembradas', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
     expect(await db.select(db.propertyAliases).get(), isEmpty);
+    await expectSystemCategories(db);
   });
 
-  test('migrar de v8 a v9 agrega las columnas y la tabla, vacías', () async {
+  test('migrar de v8 a v9 agrega las columnas, la tabla, y siembra las '
+      'categorías de sistema', () async {
     final connection = await verifier.startAt(8);
     final db = AppDatabase(connection);
     addTearDown(db.close);
@@ -33,6 +51,7 @@ void main() {
     await verifier.migrateAndValidate(db, 9);
 
     expect(await db.select(db.propertyAliases).get(), isEmpty);
+    await expectSystemCategories(db);
   });
 
   test('una categoría/valor creados antes de la migración sobreviven con '
@@ -210,6 +229,56 @@ void main() {
       )..where((v) => v.id.equals('val-bizancio'))).go();
 
       expect(await db.select(db.propertyAliases).get(), isEmpty);
+    });
+  });
+
+  group('seedSystemPropertyCategories', () {
+    late AppDatabase db;
+
+    setUp(() {
+      db = AppDatabase(NativeDatabase.memory());
+    });
+
+    tearDown(() => db.close());
+
+    test('correrla dos veces no duplica las categorías', () async {
+      await seedSystemPropertyCategories(db, ids: const UuidV7Generator());
+      await seedSystemPropertyCategories(db, ids: const UuidV7Generator());
+
+      final definitions = await db.select(db.propertyDefinitions).get();
+      expect(definitions.where((d) => d.name == 'Tema'), hasLength(1));
+      expect(
+        definitions.where((d) => d.name == 'Fecha del hecho'),
+        hasLength(1),
+      );
+    });
+
+    test('si "Tema" existe pero no está marcada de sistema, se promueve en '
+        'vez de duplicarla', () async {
+      // `db` ya sembró "Tema" (isSystem=true) en su propio `onCreate`.
+      // Encadenar `SchemaVerifier` con una segunda siembra manual sobre
+      // el esquema histórico —para simular "ya existía a mano antes de
+      // esta versión"— reproduce el mismo problema de instancias de
+      // `GeneratedDatabase` compitiendo por una conexión que ya
+      // documentó F1: se degrada la fila real a mano en su lugar,
+      // ejercitando la misma rama de "reusar y promover" de
+      // `_ensureSystemCategory` sin ese riesgo.
+      final original = await (db.select(
+        db.propertyDefinitions,
+      )..where((d) => d.name.equals('Tema'))).getSingle();
+      await (db.update(db.propertyDefinitions)
+            ..where((d) => d.id.equals(original.id)))
+          .write(const PropertyDefinitionsCompanion(isSystem: Value(false)));
+
+      await seedSystemPropertyCategories(db, ids: const UuidV7Generator());
+
+      final temas = await (db.select(
+        db.propertyDefinitions,
+      )..where((d) => d.name.equals('Tema'))).get();
+
+      expect(temas, hasLength(1));
+      expect(temas.single.id, original.id);
+      expect(temas.single.isSystem, isTrue);
     });
   });
 }

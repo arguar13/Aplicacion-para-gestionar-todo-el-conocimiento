@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
+import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
@@ -100,6 +101,7 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createSearchIndex();
+      await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
     },
     onUpgrade: (migrator, from, to) async {
       // Primera migración real del esquema: hasta acá, `schemaVersion` nunca
@@ -197,6 +199,7 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(propertyValues, propertyValues.dateIsCirca);
         await migrator.createTable(propertyAliases);
         await migrator.createIndex(idxPropertyAliasesValue);
+        await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
       }
     },
     beforeOpen: (details) async {

@@ -724,12 +724,13 @@ void main() {
         await tester.tap(find.text(es.detailAddProperty).last);
         await tester.pumpAndSettle();
 
-        // Una sola categoría "Región" en toda la base, con los dos valores
-        // que le pusieron los dos elementos.
+        // Una sola categoría "Región" en toda la base —además de "Tema" y
+        // "Fecha del hecho", sembradas desde el arranque—, con los dos
+        // valores que le pusieron los dos elementos.
         final allDefinitions = await harness.database
             .select(harness.database.propertyDefinitions)
             .get();
-        expect(allDefinitions, hasLength(1));
+        expect(allDefinitions.where((d) => d.name == 'Región'), hasLength(1));
       },
     );
 
