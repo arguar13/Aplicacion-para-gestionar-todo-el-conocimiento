@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail_providers.dart';
@@ -9,6 +10,7 @@ import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
@@ -331,8 +333,10 @@ class _ItemThumbnailBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final thumbnail = ref.watch(itemThumbnailProvider(item)).valueOrNull;
+    final noteKind = ref.watch(noteKindProvider(item.id)).valueOrNull;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -375,6 +379,27 @@ class _ItemThumbnailBadge extends ConsumerWidget {
               ),
               ItemThumbnailNone() || null => const SizedBox.shrink(),
             },
+            if (noteKind == NoteKind.map)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Tooltip(
+                  message: l10n.noteKindMap,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: colors.tertiaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      NoteKind.map.icon,
+                      size: 11,
+                      color: colors.onTertiaryContainer,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

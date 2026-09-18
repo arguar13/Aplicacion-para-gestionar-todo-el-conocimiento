@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
@@ -178,6 +180,42 @@ void main() {
       await pumpLibrary(tester);
 
       expect(find.byType(Image), findsNothing);
+    });
+  });
+
+  group('insignia de nota mapa', () {
+    testWidgets('una nota marcada como mapa aparece con la insignia', (
+      tester,
+    ) async {
+      await harness.capture('una nota mapa');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final id = items.firstWhere((i) => i.title == 'una nota mapa').id;
+      await harness.container
+          .read(inboxRepositoryProvider)
+          .setNoteKind(itemId: id, kind: NoteKind.map);
+
+      await pumpLibrary(tester);
+
+      expect(find.byTooltip(es.noteKindMap), findsOneWidget);
+    });
+
+    testWidgets('una nota sin marcar no muestra la insignia', (tester) async {
+      await harness.capture('una nota sin marcar');
+      await pumpLibrary(tester);
+
+      expect(find.byTooltip(es.noteKindMap), findsNothing);
+    });
+
+    testWidgets('una fuente no muestra la insignia', (tester) async {
+      await harness.capture('https://ejemplo.org/un-articulo');
+      await pumpLibrary(tester);
+
+      expect(find.byTooltip(es.noteKindMap), findsNothing);
     });
   });
 
