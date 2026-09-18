@@ -1868,5 +1868,80 @@
   "flashcardsGenerationFailed": "Couldn't generate any flashcard. Try creating them by hand, or check that the chat model is downloaded.",
   "@flashcardsGenerationFailed": {
     "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
+  },
+  "navInbox": "Inbox",
+  "@navInbox": {
+    "description": "Etiqueta corta del destino de la Bandeja de entrada en la navegación principal."
+  },
+  "inboxTitle": "Inbox",
+  "@inboxTitle": {
+    "description": "Título de la pantalla de la Bandeja de entrada."
+  },
+  "inboxPendingCount": "{count, plural, =0{Nothing pending} =1{1 pending} other{{count} pending}}",
+  "@inboxPendingCount": {
+    "description": "Contador de elementos que esperan triaje, en la barra superior de la Bandeja de entrada.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inboxEmptyTitle": "Nothing waiting to be triaged",
+  "@inboxEmptyTitle": {
+    "description": "Título del estado vacío de la Bandeja de entrada cuando no hay nada pendiente."
+  },
+  "inboxEmptyBody": "Whatever finishes processing will show up here.",
+  "@inboxEmptyBody": {
+    "description": "Mensaje del estado vacío de la Bandeja de entrada cuando no hay nada pendiente."
+  },
+  "inboxActionDiscard": "Discard",
+  "@inboxActionDiscard": {
+    "description": "Botón para descartar el elemento actual de la Bandeja de entrada, sin borrarlo."
+  },
+  "inboxActionExtract": "Extract note",
+  "@inboxActionExtract": {
+    "description": "Botón para abrir el texto del elemento y extraer un fragmento como nota nueva."
+  },
+  "inboxActionExtractDisabledTooltip": "This item has no text to extract a note from.",
+  "@inboxActionExtractDisabledTooltip": {
+    "description": "Tooltip del botón de extraer nota cuando el elemento no tiene ninguna forma de texto."
+  },
+  "inboxActionLink": "Link to a living note",
+  "@inboxActionLink": {
+    "description": "Botón para vincular el elemento actual con una nota viva existente."
+  },
+  "inboxViewFull": "View full",
+  "@inboxViewFull": {
+    "description": "Botón para ir al detalle completo del elemento que se está triando en la Bandeja de entrada."
+  },
+  "inboxExtractTitle": "Extract from \"{title}\"",
+  "@inboxExtractTitle": {
+    "description": "Título de la pantalla donde se selecciona el fragmento a extraer como nota.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pickLivingNoteTitle": "Choose a living note",
+  "@pickLivingNoteTitle": {
+    "description": "Título del diálogo para elegir con qué nota viva vincular desde la Bandeja de entrada."
+  },
+  "pickLivingNoteSearchHint": "Search your living notes",
+  "@pickLivingNoteSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda en el selector de notas vivas."
+  },
+  "pickLivingNoteNoOthers": "There are no living notes yet.",
+  "@pickLivingNoteNoOthers": {
+    "description": "Mostrado cuando no existe ninguna nota viva para vincular."
+  },
+  "pickLivingNoteNoMatches": "Nothing matches \"{query}\"",
+  "@pickLivingNoteNoMatches": {
+    "description": "Mostrado cuando la búsqueda en el selector de notas vivas no encuentra nada.",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   }
 }
