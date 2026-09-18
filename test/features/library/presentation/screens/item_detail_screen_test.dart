@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -165,6 +167,52 @@ void main() {
       expect(find.text(es.noteMaturitySeed), findsNothing);
       expect(find.text(es.noteMaturityDeveloping), findsNothing);
       expect(find.text(es.noteMaturityMature), findsNothing);
+    });
+  });
+
+  group('nota mapa', () {
+    testWidgets('una nota muestra el chip de nota mapa, sin marcar', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un texto cualquiera');
+
+      await pumpDetail(tester, id);
+
+      final chip = tester.widget<FilterChip>(find.byType(FilterChip));
+      expect(chip.selected, isFalse);
+    });
+
+    testWidgets('una fuente no muestra el chip de nota mapa', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+
+      expect(find.byType(FilterChip), findsNothing);
+    });
+
+    testWidgets('tocarlo la marca como mapa', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byType(FilterChip));
+      await tester.pumpAndSettle();
+
+      final chip = tester.widget<FilterChip>(find.byType(FilterChip));
+      expect(chip.selected, isTrue);
+    });
+
+    testWidgets('tocarlo de nuevo la vuelve a nota viva', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await harness.container
+          .read(inboxRepositoryProvider)
+          .setNoteKind(itemId: id, kind: NoteKind.map);
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byType(FilterChip));
+      await tester.pumpAndSettle();
+
+      final chip = tester.widget<FilterChip>(find.byType(FilterChip));
+      expect(chip.selected, isFalse);
     });
   });
 

@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -216,7 +217,15 @@ class _DetailBody extends StatelessWidget {
                 ],
                 if (item.source.kind == SourceKind.manualNote) ...[
                   const SizedBox(height: 8),
-                  _NoteMaturityChip(itemId: item.id),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _NoteMaturityChip(itemId: item.id),
+                      _MapNoteToggle(itemId: item.id),
+                    ],
+                  ),
                 ],
                 const SizedBox(height: 16),
                 SpacePicker(item: item),
@@ -305,6 +314,42 @@ class _NoteMaturityChip extends ConsumerWidget {
       child: Text(
         maturity.label(l10n),
         style: theme.textTheme.labelSmall?.copyWith(color: color),
+      ),
+    );
+  }
+}
+
+/// Marcar o desmarcar una nota como "mapa" (ver la decisión sobre F6):
+/// `null` mientras la fila del espejo todavía no exista, mismo criterio
+/// que [_NoteMaturityChip] — nada que tocar todavía. Desmarcarla la deja
+/// en `NoteKind.living` siempre, sin restaurar el tipo anterior.
+class _MapNoteToggle extends ConsumerWidget {
+  const _MapNoteToggle({required this.itemId});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kind = ref.watch(noteKindProvider(itemId)).valueOrNull;
+    if (kind == null) return const SizedBox.shrink();
+
+    final l10n = AppLocalizations.of(context)!;
+    final isMap = kind == NoteKind.map;
+
+    return Tooltip(
+      message: isMap
+          ? l10n.detailUnmarkAsMapNoteTooltip
+          : l10n.detailMarkAsMapNoteTooltip,
+      child: FilterChip(
+        avatar: Icon(NoteKind.map.icon, size: 18),
+        label: Text(NoteKind.map.label(l10n)),
+        selected: isMap,
+        onSelected: (selected) => ref
+            .read(inboxRepositoryProvider)
+            .setNoteKind(
+              itemId: itemId,
+              kind: selected ? NoteKind.map : NoteKind.living,
+            ),
       ),
     );
   }

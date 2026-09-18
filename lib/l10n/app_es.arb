@@ -507,6 +507,14 @@
   "@detailRemoveRelation": {
     "description": "Tooltip del botón que borra un vínculo."
   },
+  "detailMarkAsMapNoteTooltip": "Marcar como nota mapa",
+  "@detailMarkAsMapNoteTooltip": {
+    "description": "Tooltip del chip para marcar una nota como mapa, cuando todavía no lo es."
+  },
+  "detailUnmarkAsMapNoteTooltip": "Desmarcar como nota mapa",
+  "@detailUnmarkAsMapNoteTooltip": {
+    "description": "Tooltip del chip para desmarcar una nota mapa, volviéndola a nota viva."
+  },
   "pickItemTitle": "Elegir con qué vincular",
   "@pickItemTitle": {
     "description": "Título del diálogo para elegir el otro elemento del vínculo."
