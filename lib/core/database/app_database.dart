@@ -2,10 +2,16 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
+import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
+import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
+import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
+import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
+import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
@@ -18,10 +24,15 @@ import 'package:sinapsis/core/database/tables/tags.dart';
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 
 part 'app_database.g.dart';
 
@@ -43,6 +54,12 @@ part 'app_database.g.dart';
     PropertyDefinitions,
     PropertyValues,
     ItemPropertyValues,
+    KnowledgeEntries,
+    KnowledgeSources,
+    KnowledgeNotes,
+    Chunks,
+    Embeddings,
+    MigrationIssues,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -69,7 +86,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -121,6 +138,28 @@ class AppDatabase extends _$AppDatabase {
       if (from < 7) {
         await migrator.deleteTable('item_folders');
         await migrator.deleteTable('folders');
+      }
+      // El modelo de conocimiento nuevo: Fuente/Nota en vez de un único
+      // `Items` que mezcla las dos cosas — ver la decisión sobre este
+      // modelo en docs/arquitectura.md. Solo el esquema por ahora: el
+      // backfill de lo ya capturado se suma en un paso posterior, sin
+      // volver a subir `schemaVersion` para eso.
+      if (from < 8) {
+        await migrator.createTable(knowledgeEntries);
+        await migrator.createTable(knowledgeSources);
+        await migrator.createTable(knowledgeNotes);
+        await migrator.createTable(chunks);
+        await migrator.createTable(embeddings);
+        await migrator.createTable(migrationIssues);
+        // `createTable` no crea los índices de `@TableIndex` —a
+        // diferencia de `createAll()`, que sí los incluye para una base
+        // recién creada—, así que acá van explícitos.
+        await migrator.createIndex(idxKnowledgeEntriesStateKind);
+        await migrator.createIndex(idxKnowledgeEntriesKindUpdated);
+        await migrator.createIndex(idxKnowledgeSourcesContentHash);
+        await migrator.createIndex(idxKnowledgeSourcesProcessingStatus);
+        await migrator.createIndex(idxChunksItemSeq);
+        await migrator.createIndex(idxChunksItemStartMs);
       }
     },
     beforeOpen: (details) async {
