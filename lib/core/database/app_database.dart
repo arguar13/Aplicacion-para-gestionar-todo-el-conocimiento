@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sinapsis/core/database/migrations/backfill_source_chunks_v12.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
 import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
@@ -101,7 +102,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +235,15 @@ class AppDatabase extends _$AppDatabase {
         // `createTable` no crea los índices de `@TableIndex` solo — ver
         // el mismo recordatorio más arriba, en el paso `from < 8`.
         await migrator.createIndex(idxSuggestionsTargetStatus);
+      }
+      // Motor de relaciones (F5): backfill de catch-up de
+      // `chunk`/`fullText`/`contentHash` para toda fuente que el
+      // backfill histórico de F1 no llegó a cubrir —prácticamente todo
+      // lo capturado desde entonces—. Sin tabla ni columna nueva, solo
+      // poblar lo que quedó vacío: mismo criterio que el catch-up del
+      // espejo en F3 (`from < 10`).
+      if (from < 12) {
+        await backfillSourceChunks(this, ids: const UuidV7Generator());
       }
     },
     beforeOpen: (details) async {
