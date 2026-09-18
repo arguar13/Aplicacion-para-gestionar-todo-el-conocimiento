@@ -1874,5 +1874,17 @@
   "noteMaturityMature": "Madura",
   "@noteMaturityMature": {
     "description": "Etiqueta de la madurez de una nota ya bien desarrollada."
+  },
+  "noteKindAtomic": "Atómica",
+  "@noteKindAtomic": {
+    "description": "Etiqueta del tipo de nota atómica: una idea sola, extraída literalmente de una fuente."
+  },
+  "noteKindLiving": "Viva",
+  "@noteKindLiving": {
+    "description": "Etiqueta del tipo de nota viva: crece con el tiempo, absorbe material nuevo."
+  },
+  "noteKindMap": "Mapa",
+  "@noteKindMap": {
+    "description": "Etiqueta del tipo de nota mapa: solo estructura y enlaces, sin contenido propio."
   }
 }

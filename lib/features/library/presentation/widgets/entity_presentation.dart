@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -77,6 +78,33 @@ extension NoteMaturityPresentation on NoteMaturity {
     NoteMaturity.seed => scheme.onSurfaceVariant,
     NoteMaturity.developing => scheme.tertiary,
     NoteMaturity.mature => scheme.primary,
+  };
+}
+
+extension NoteKindPresentation on NoteKind {
+  /// `Icons.hub` para `map` —reusado en toda la fase (insignias, nodos
+  /// del grafo local) para que "esto es una nota mapa" se lea con el
+  /// mismo símbolo en toda la app—; los otros dos no tienen tratamiento
+  /// visual propio hoy, pero el switch es exhaustivo por si algún día lo
+  /// necesitan.
+  IconData get icon => switch (this) {
+    NoteKind.atomic => Icons.content_cut,
+    NoteKind.living => Icons.spa_outlined,
+    NoteKind.map => Icons.hub,
+  };
+
+  String label(AppLocalizations l10n) => switch (this) {
+    NoteKind.atomic => l10n.noteKindAtomic,
+    NoteKind.living => l10n.noteKindLiving,
+    NoteKind.map => l10n.noteKindMap,
+  };
+
+  /// `map` con un tono propio —`tertiary`—, mismo criterio que las
+  /// etapas más trabajadas de `NoteMaturityPresentation`; los otros dos,
+  /// un tono neutro: no hay nada que señalar en una nota común.
+  Color color(ColorScheme scheme) => switch (this) {
+    NoteKind.atomic || NoteKind.living => scheme.onSurfaceVariant,
+    NoteKind.map => scheme.tertiary,
   };
 }
 
