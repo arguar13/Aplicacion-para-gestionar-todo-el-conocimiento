@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 
 part 'property_value.freezed.dart';
 
@@ -16,5 +17,15 @@ sealed class PropertyValue with _$PropertyValue {
     required String definitionId,
     required String value,
     required DateTime createdAt,
+
+    /// Solo si la categoría dueña es de tipo número: el valor real, para
+    /// poder ordenar y filtrar por rango. [value] sigue siendo el texto
+    /// que se muestra ("42.5").
+    double? numberValue,
+
+    /// Solo si la categoría dueña es de tipo fecha. [value] sigue siendo
+    /// el texto que se muestra; esta es la representación estructurada
+    /// que hace posible ordenar por fecha de verdad.
+    HistoricalDate? historicalDate,
   }) = _PropertyValue;
 }

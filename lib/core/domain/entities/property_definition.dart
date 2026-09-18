@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 
 part 'property_definition.freezed.dart';
 
@@ -21,5 +22,14 @@ sealed class PropertyDefinition with _$PropertyDefinition {
     /// categoría. Mismo criterio que [Tag.name].
     required String name,
     required DateTime createdAt,
+
+    /// Qué clase de valor acepta. `text` para toda categoría creada antes
+    /// de que esto existiera, y para cualquiera que el usuario cree sin
+    /// elegir otra cosa.
+    @Default(PropertyValueType.text) PropertyValueType type,
+
+    /// `true` para "Tema" y "Fecha del hecho": categorías que crea la app,
+    /// no el usuario, y que por eso no se pueden borrar ni renombrar.
+    @Default(false) bool isSystem,
   }) = _PropertyDefinition;
 }
