@@ -69,7 +69,12 @@ void main() {
     return container;
   }
 
-  for (final path in [RoutePaths.graph, RoutePaths.review, RoutePaths.chat]) {
+  for (final path in [
+    RoutePaths.inbox,
+    RoutePaths.graph,
+    RoutePaths.review,
+    RoutePaths.chat,
+  ]) {
     testWidgets('con la bóveda bloqueada, ir directo a $path igual redirige al '
         'desbloqueo', (tester) async {
       final container = buildLockedContainer();

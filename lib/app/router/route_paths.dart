@@ -22,6 +22,9 @@ abstract final class RoutePaths {
   /// El Explorador: lo ya procesado, organizado en carpetas.
   static const explorer = '/explorer';
 
+  /// La Bandeja de entrada: lo recién procesado, esperando triaje.
+  static const inbox = '/inbox';
+
   /// Guardar algo nuevo.
   static const capture = '/capture';
 
@@ -55,6 +58,7 @@ abstract final class RouteNames {
   static const library = 'library';
   static const itemDetail = 'item-detail';
   static const explorer = 'explorer';
+  static const inbox = 'inbox';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';

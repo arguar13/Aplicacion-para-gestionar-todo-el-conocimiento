@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Bajo este ancho, `NavigationBar` abajo; en o por encima, `NavigationRail`
@@ -30,9 +31,12 @@ class AdaptiveScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final dueCount = ref.watch(dueFlashcardCountProvider).valueOrNull ?? 0;
+    final pendingInboxCount =
+        ref.watch(inboxPendingIdsProvider).valueOrNull?.length ?? 0;
     final destinations = buildNavDestinations(
       l10n: l10n,
       dueFlashcardCount: dueCount,
+      pendingInboxCount: pendingInboxCount,
       includeChat: !kIsWeb,
     );
 
