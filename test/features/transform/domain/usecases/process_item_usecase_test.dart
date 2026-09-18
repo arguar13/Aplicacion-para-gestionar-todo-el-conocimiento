@@ -14,6 +14,7 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer_regi
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
 import '../../../../support/fake_property_suggestion_generator.dart';
+import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 import '../../../../support/transform_test_doubles.dart';
@@ -42,6 +43,7 @@ void main() {
   ProcessItemUseCase build(
     TransformerRegistry registry, {
     FakePropertySuggestionGenerator? suggestionGenerator,
+    FakeRelationSuggestionGenerator? relationSuggestionGenerator,
   }) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
@@ -50,6 +52,8 @@ void main() {
     clock: () => now,
     suggestionGenerator:
         suggestionGenerator ?? FakePropertySuggestionGenerator(),
+    relationSuggestionGenerator:
+        relationSuggestionGenerator ?? FakeRelationSuggestionGenerator(),
   );
 
   Future<KnowledgeItem> seedPending() async {
@@ -230,6 +234,67 @@ void main() {
       )(item.id);
 
       expect(result.isRight(), isTrue);
+    });
+  });
+
+  group('genera sugerencias de relación al terminar', () {
+    test('con transformador, llama al generador con el elemento ya '
+        'transformado', () async {
+      final item = await seedPending();
+      final generator = FakeRelationSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer()]),
+        relationSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, [item.id]);
+    });
+
+    test('al terminar en failed, no llama al generador', () async {
+      final item = await seedPending();
+      final generator = FakeRelationSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer(error: Exception('sin red'))]),
+        relationSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test(
+      'un generador que lanza no le cuesta el resultado a _process()',
+      () async {
+        final item = await seedPending();
+        final generator = FakeRelationSuggestionGenerator(
+          error: Exception('el modelo explotó'),
+        );
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          relationSuggestionGenerator: generator,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+      },
+    );
+
+    test('corre en paralelo con el de propiedades: ninguno espera al '
+        'otro', () async {
+      final item = await seedPending();
+      final propertyGenerator = FakePropertySuggestionGenerator()
+        ..hang = Completer<void>();
+      final relationGenerator = FakeRelationSuggestionGenerator();
+
+      final result = await build(
+        TransformerRegistry([FakeTransformer()]),
+        suggestionGenerator: propertyGenerator,
+        relationSuggestionGenerator: relationGenerator,
+      )(item.id);
+
+      expect(result.isRight(), isTrue);
+      expect(relationGenerator.calls, [item.id]);
     });
   });
 }

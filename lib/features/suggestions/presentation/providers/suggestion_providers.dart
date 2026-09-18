@@ -5,10 +5,13 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
 import 'package:sinapsis/features/suggestions/data/usecases/generate_property_suggestions_usecase.dart';
+import 'package:sinapsis/features/suggestions/data/usecases/generate_relation_suggestions_usecase.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
+import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
 
 final suggestionRepositoryProvider = Provider<SuggestionRepository>((ref) {
   return SuggestionRepositoryImpl(
@@ -36,6 +39,22 @@ final propertySuggestionGeneratorProvider =
         database: ref.watch(appDatabaseProvider),
         service: ref.watch(propertySuggestionServiceProvider),
         modelManager: ref.watch(chatModelManagerProvider),
+        organize: ref.watch(organizeRepositoryProvider),
+        suggestions: ref.watch(suggestionRepositoryProvider),
+        telemetry: ref.watch(telemetryServiceProvider),
+      );
+    });
+
+final relationSuggestionGeneratorProvider =
+    Provider<RelationSuggestionGenerator>((ref) {
+      return GenerateRelationSuggestionsUseCase(
+        database: ref.watch(appDatabaseProvider),
+        ids: ref.watch(idGeneratorProvider),
+        embeddingModelManager: ref.watch(embeddingModelManagerProvider),
+        indexer: ref.watch(chunkEmbeddingIndexerProvider),
+        selector: ref.watch(relationCandidateSelectorProvider),
+        chatModelManager: ref.watch(chatModelManagerProvider),
+        service: ref.watch(relationSuggestionServiceProvider),
         organize: ref.watch(organizeRepositoryProvider),
         suggestions: ref.watch(suggestionRepositoryProvider),
         telemetry: ref.watch(telemetryServiceProvider),

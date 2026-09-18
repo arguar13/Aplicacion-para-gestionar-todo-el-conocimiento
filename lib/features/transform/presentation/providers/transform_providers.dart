@@ -162,5 +162,6 @@ final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),
     suggestionGenerator: ref.watch(propertySuggestionGeneratorProvider),
+    relationSuggestionGenerator: ref.watch(relationSuggestionGeneratorProvider),
   );
 });
