@@ -2274,6 +2274,120 @@ repositorio se lee mientras el widget sigue montado, antes de transicionar
 —un bug real que apareció al escribir el test de punta a punta de la
 Bandeja, no una precaución hipotética—.
 
+### 38. F5 del motor de relaciones: embeddings on-device, preselección por similitud, y la pantalla de Tensión
+
+Quinta fase del refactor de siete fases (ver la decisión 34), la primera
+que no tenía más que una frase de encargo ("motor de relaciones y
+detección de tensión"). Cuatro ambigüedades reales se resolvieron con
+quien encargó el trabajo antes de planear: la integración es vía
+`Suggestions`/Bandeja, generalizando `Suggestion` para admitir vínculos
+—el diálogo manual del grafo queda intacto como vía aparte—; Tensión es
+una superficie propia, no un `RelationKind` más tratado igual que el
+resto; los embeddings son solo preselección de candidatos, el LLM sigue
+juzgando el tipo de vínculo; y el backfill de lo ya capturado es
+completo, no solo lo nuevo. `flutter_gemma` 1.8.2, ya instalado para el
+chat, resultó tener soporte de embeddings on-device completo —
+`EmbeddingGemma 300M 8-bit`—, sin ningún paquete nuevo.
+
+**`Suggestion` pasa de campos planos a unión sellada por variante,
+`property`/`relation`.** Freezed expone los campos compartidos entre
+constructores (`id`/`status`/`createdAt`/`confidence`) como getters en
+la clase base, así que todo el código que solo necesita eso —el diálogo
+de revisión, por ejemplo— sigue sin `switch`; los campos específicos de
+cada forma sí lo exigen, la garantía real de modelarlo así en vez de
+nullable-everything. `SuggestionRepositoryImpl.accept()` hace `switch`
+interno: una sugerencia de propiedad sigue aplicando por
+`assignProperty`, una de relación aplica por
+`OrganizeRepository.createRelation`.
+
+**Chunking y `fullText`/`contentHash`: función compartida entre la
+migración de catch-up y el motor en vivo, sin tocar el backfill de F1.**
+`chunkAndPersistSource` repite el algoritmo de
+`fragmentExistingSources` (F1, ya cerrado y probado) parametrizado por
+un solo `itemId`, con idempotencia al principio. Se acepta duplicar esa
+lógica como costo de no reabrir una fase cerrada. La migración de
+catch-up (`schemaVersion` 11→12) la llama en loop sobre toda
+`KnowledgeSources`, sin snapshot de esquema nuevo —mismo criterio que
+v10 (decisión 36): puebla, no cambia la forma—; el motor en vivo la
+llama una vez por elemento recién procesado, siempre, sin depender de
+ningún modelo.
+
+**El motor automático solo actúa sobre fuentes, nunca notas.**
+`Chunks`/`fullText` están atados por diseño de F1 a `KnowledgeSources`,
+1:1 con `ItemKind.source`; extenderlo a notas sería un cambio de F1 que
+ninguna respuesta del encargo pidió. El diálogo manual del grafo —que sí
+usa `searchableText`, no `fullText`— sigue siendo la única vía para
+vincular notas.
+
+**Similitud coseno sobre centroides, sin índice ANN.** Funciones puras
+en `core/` (`embedding_similarity.dart`): con el volumen de una bóveda
+personal, traer los vectores y comparar en Dart es del orden de
+milisegundos en cualquier dispositivo que ya corre un LLM de cientos de
+MB en el mismo hilo. La similitud a nivel de ítem usa el centroide de
+sus chunks —`O(n+m)`—, no el máximo por pares —`O(n×m)`—: como los
+embeddings son solo preselección, no hace falta esa precisión, el LLM
+corrige el error de la preselección. `Embeddings.vector` guarda
+`Float32List.sublistView()`, no `.view()`, que exige una alineación de 4
+bytes que un `Uint8List` que vuelve de sqlite3 no garantiza.
+
+**`EmbeddingModelManager`/`GemmaEmbeddingModelManager`, interfaz
+PARALELA a `ChatModelManager`, no una extensión.** `flutter_gemma`
+gestiona el embedder y el modelo de chat como dos "modelos activos"
+totalmente independientes (`hasActiveEmbedder()` contra
+`hasActiveModel()`), y descargar un embedder necesita dos archivos
+—modelo y tokenizador— mientras `ChatModelManager.download()` asume
+uno solo. Mismo precedente que la decisión 8 (Whisper vs Gemma): dos
+managers paralelos, no una interfaz forzada. Un solo modelo fijo, sin
+selector de variantes como el chat: nadie interactúa directo con "el
+embedder". `TaskType.retrievalDocument` siempre, nunca
+`retrievalQuery`: acá no hay ninguna pregunta de usuario, tanto los
+chunks indexados como el excerpt del elemento semilla son documentos,
+una comparación simétrica documento-a-documento.
+
+**Un solo generador secuencial por elemento, no dos `unawaited()` en
+paralelo.** Hay una dependencia de orden estricta dentro del motor
+—candidatos por similitud necesitan el embedding propio, que necesita
+los propios chunks— que dos fire-and-forget independientes no podrían
+garantizar entre sí. `ProcessItemUseCase` termina con DOS generadores
+fire-and-forget en su constructor —el de F4 (propiedades) sin tocar, y
+este nuevo—, que sí corren en paralelo *entre sí* sin problema, porque
+no comparten ningún orden. El motor reusa `RelationSuggestionService`
+del grafo tal cual —ni el servicio, ni el parser, ni
+`RelationCandidate` se tocan—, cambiando solo cómo se arma la lista de
+candidatos.
+
+**Backfill de embeddings: bajo demanda, con pantalla de progreso propia,
+nunca en `onUpgrade`.** A diferencia del chunking (puro, sin modelo,
+migración de catch-up), calcular embeddings necesita el modelo
+descargado —cientos de MB, gated en Hugging Face—, que puede no estar
+nunca: migrarlo en `onUpgrade` bloquearía el arranque y rompería "nada
+sale del dispositivo salvo lo que el usuario pide explícitamente" de la
+forma más directa. `BackfillEmbeddingsUseCase` recorre las fuentes con
+chunks y reusa el mismo `ChunkEmbeddingIndexer` del motor en vivo —un
+ítem que falla se reporta y no corta el resto, correrlo dos veces no
+reindexa nada, el indexador ya es idempotente por su cuenta—.
+
+**Tensión: pantalla propia alcanzable desde un botón en el grafo, no un
+octavo destino de navegación.** Filtra `allRelationEdgesProvider` a
+`RelationKind.contradicts` client-side, sin distinguir si el vínculo se
+creó a mano, por el diálogo manual, o por el motor automático —
+`Relations` no tiene columna de procedencia, y ninguna respuesta del
+encargo pidió agregarla—. Ruta plana `/graph/tension`, mismo patrón que
+`/chat/model`: es una lente sobre datos que ya vive en `Relations`, no
+una sección nueva.
+
+**Dos bugs reales encontrados escribiendo los tests, no precauciones
+hipotéticas.** `EmbeddingModelScreen` inicializaba su
+`TextEditingController` con un `late final` perezoso que leía `ref`; si
+el modelo ya estaba listo desde el primer build, esa rama nunca se
+construía, y `dispose()` forzaba la inicialización justo cuando `ref`
+ya no era válido —corregido inicializándolo en `initState()`—. El mismo
+listener de descarga no cortaba la suscripción tras un error
+(`cancelOnError`): el "listo" del cierre del stream, que siempre llega
+después de un `addError`, pisaba el aviso de error recién puesto. El
+mismo segundo patrón existe también en `ChatModelScreen`, preexistente,
+fuera del alcance de esta fase.
+
 ---
 
 ## Estado y orden de construcción
@@ -2451,6 +2565,15 @@ Bandeja, no una precaución hipotética—.
   sugerencias", cerrando lo que F3 había dejado pendiente. Circuito de a
   un elemento por vez; sugerencias en lote sobre varios a la vez quedan
   para una sub-fase aparte.
+- **F5 del motor de relaciones: embeddings, preselección y Tensión.**
+  `Suggestion` generalizada a `property`/`relation`, un modelo de
+  embeddings propio (`EmbeddingGemma 300M 8-bit`) que se descarga
+  aparte, preselección de candidatos por similitud coseno de
+  centroides antes de que el LLM juzgue el tipo de vínculo, generación
+  automática al procesar una fuente nueva, backfill bajo demanda para
+  lo ya capturado, y la pantalla de Tensión —ver la decisión 38—. Los
+  embeddings son solo preselección; el diálogo manual del grafo queda
+  intacto como vía aparte.
 
 ### Por construir
 
@@ -2459,10 +2582,10 @@ Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
 Lo que sigue es el refactor de la capa de organización en curso (ver la
-decisión 34): F1, F2, F3 y F4 cerrados —modelo Fuente/Nota, vocabulario
-controlado, estados y Bandeja de entrada, clasificación asistida de a un
-elemento—; las sugerencias en lote (deferidas de F4), F5 (motor de
-relaciones y detección de tensión), F6 (grafo local y notas mapa) y F7
-(deduplicación) siguen, cada una recién planeada —plan breve, aprobado,
-después código— cuando se confirme avanzar con ella, tal como pidió el
-propio encargo.
+decisión 34): F1, F2, F3, F4 y F5 cerrados —modelo Fuente/Nota,
+vocabulario controlado, estados y Bandeja de entrada, clasificación
+asistida de a un elemento, motor de relaciones y Tensión—; las
+sugerencias en lote (deferidas de F4), F6 (grafo local y notas mapa) y
+F7 (deduplicación) siguen, cada una recién planeada —plan breve,
+aprobado, después código— cuando se confirme avanzar con ella, tal
+como pidió el propio encargo.
