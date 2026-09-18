@@ -22,18 +22,7 @@ import 'package:sinapsis/core/domain/entities/relation_edge.dart';
   required String? spaceId,
   int? degree,
 }) {
-  final itemsById = {for (final item in items) item.id: item};
-
-  // El otro extremo de una arista puede apuntar a un elemento que ya no
-  // existe: las aristas y los elementos vienen de streams separados que no
-  // se actualizan en el mismo instante.
-  final validEdges = edges
-      .where(
-        (edge) =>
-            itemsById.containsKey(edge.fromItemId) &&
-            itemsById.containsKey(edge.toItemId),
-      )
-      .toList();
+  final validEdges = _validEdges(items, edges);
 
   if (spaceId == null) {
     final nodeIds = <String>{
@@ -42,16 +31,73 @@ import 'package:sinapsis/core/domain/entities/relation_edge.dart';
     return (nodeIds: nodeIds, edges: validEdges);
   }
 
+  final seed = <String>{
+    for (final item in items)
+      if (item.spaceId == spaceId) item.id,
+  };
+
+  return _expandFromSeed(seed: seed, validEdges: validEdges, degree: degree);
+}
+
+/// El vecindario de UN elemento —el semilla— hasta [degree] saltos, para
+/// el grafo local (ver la decisión sobre F6): mismo BFS que [scopeGraph]
+/// usa para expandir más allá de un espacio, pero arrancando de un solo
+/// ítem en vez de todos los que comparten un `spaceId`.
+///
+/// `degree` con default `1` —a diferencia de [scopeGraph], que no pone
+/// techo por defecto—: un panel embebido en un detalle tiene que mostrar
+/// los vecinos directos, no la red entera alcanzable desde ahí. Si
+/// [seedItemId] no está entre [items], o no tiene ningún vínculo, el
+/// resultado es vacío, no un nodo suelto —mismo criterio que el resto del
+/// grafo (decisión 19)—.
+({List<String> nodeIds, List<RelationEdge> edges}) localGraphFrom({
+  required String seedItemId,
+  required List<KnowledgeItem> items,
+  required List<RelationEdge> edges,
+  int? degree = 1,
+}) {
+  final validEdges = _validEdges(items, edges);
+  return _expandFromSeed(
+    seed: {seedItemId},
+    validEdges: validEdges,
+    degree: degree,
+  );
+}
+
+/// Las aristas cuyos dos extremos siguen existiendo entre [items]: el
+/// otro extremo de una arista puede apuntar a un elemento que ya no
+/// existe, porque las aristas y los elementos vienen de streams
+/// separados que no se actualizan en el mismo instante.
+List<RelationEdge> _validEdges(
+  List<KnowledgeItem> items,
+  List<RelationEdge> edges,
+) {
+  final itemsById = {for (final item in items) item.id: item};
+  return edges
+      .where(
+        (edge) =>
+            itemsById.containsKey(edge.fromItemId) &&
+            itemsById.containsKey(edge.toItemId),
+      )
+      .toList();
+}
+
+/// El BFS compartido por [scopeGraph] (semilla = un espacio) y
+/// [localGraphFrom] (semilla = un solo ítem): expande [seed] salto a
+/// salto por [validEdges], hasta [degree] saltos o sin techo si es
+/// `null`, y recorta las aristas al conjunto ya visitado.
+({List<String> nodeIds, List<RelationEdge> edges}) _expandFromSeed({
+  required Set<String> seed,
+  required List<RelationEdge> validEdges,
+  int? degree,
+}) {
   final adjacency = <String, List<RelationEdge>>{};
   for (final edge in validEdges) {
     adjacency.putIfAbsent(edge.fromItemId, () => []).add(edge);
     adjacency.putIfAbsent(edge.toItemId, () => []).add(edge);
   }
 
-  var visited = <String>{
-    for (final item in items)
-      if (item.spaceId == spaceId) item.id,
-  };
+  var visited = seed;
   var frontier = visited;
   var hop = 0;
 

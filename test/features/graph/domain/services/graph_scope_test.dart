@@ -136,6 +136,96 @@ void main() {
     });
   });
 
+  group('localGraphFrom', () {
+    test('una semilla sin ningún vínculo devuelve un resultado vacío', () {
+      final items = [item('a'), item('b')];
+
+      final result = localGraphFrom(seedItemId: 'a', items: items, edges: []);
+
+      expect(result.nodeIds, isEmpty);
+      expect(result.edges, isEmpty);
+    });
+
+    test('un salto trae al vecino directo', () {
+      final items = [item('a'), item('b'), item('c')];
+      final edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'c')];
+
+      final result = localGraphFrom(
+        seedItemId: 'a',
+        items: items,
+        edges: edges,
+      );
+
+      expect(result.nodeIds.toSet(), {'a', 'b'});
+      expect(result.edges.map((e) => e.id).toSet(), {'e1'});
+    });
+
+    test('degree: 2 suma un salto más', () {
+      final items = [item('a'), item('b'), item('c'), item('d')];
+      final edges = [
+        edge('e1', 'a', 'b'),
+        edge('e2', 'b', 'c'),
+        edge('e3', 'c', 'd'), // tres saltos desde 'a': no debería entrar
+      ];
+
+      final result = localGraphFrom(
+        seedItemId: 'a',
+        items: items,
+        edges: edges,
+        degree: 2,
+      );
+
+      expect(result.nodeIds.toSet(), {'a', 'b', 'c'});
+      expect(result.edges.map((e) => e.id).toSet(), {'e1', 'e2'});
+    });
+
+    test('degree: null expande sin techo, hasta el borde de la red', () {
+      final items = [item('a'), item('b'), item('c'), item('d')];
+      final edges = [
+        edge('e1', 'a', 'b'),
+        edge('e2', 'b', 'c'),
+        edge('e3', 'c', 'd'),
+      ];
+
+      final result = localGraphFrom(
+        seedItemId: 'a',
+        items: items,
+        edges: edges,
+        degree: null,
+      );
+
+      expect(result.nodeIds.toSet(), {'a', 'b', 'c', 'd'});
+      expect(result.edges, hasLength(3));
+    });
+
+    test('una semilla que no existe entre los items no revienta', () {
+      final items = [item('a'), item('b')];
+      final edges = [edge('e1', 'a', 'b')];
+
+      final result = localGraphFrom(
+        seedItemId: 'no-existe',
+        items: items,
+        edges: edges,
+      );
+
+      expect(result.nodeIds, isEmpty);
+      expect(result.edges, isEmpty);
+    });
+
+    test('el default de degree es 1, no sin techo', () {
+      final items = [item('a'), item('b'), item('c')];
+      final edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'c')];
+
+      final result = localGraphFrom(
+        seedItemId: 'a',
+        items: items,
+        edges: edges,
+      );
+
+      expect(result.nodeIds.toSet(), {'a', 'b'});
+    });
+  });
+
   group('computeConnectedComponents', () {
     test('sin nodos, no hay componentes', () {
       final result = computeConnectedComponents(nodeIds: [], edges: []);
