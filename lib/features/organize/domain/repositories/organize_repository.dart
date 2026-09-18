@@ -215,4 +215,18 @@ abstract interface class OrganizeRepository {
     required String definitionId,
     required String text,
   });
+
+  /// Fusiona [discardId] dentro de [keepId]: todo lo que tenía asignado
+  /// [discardId] pasa a tener [keepId], y su label queda como un alias
+  /// nuevo de [keepId] —así, quien lo buscaba por el nombre viejo lo
+  /// sigue encontrando—. "Reversible" es eso: no se pierde la capacidad
+  /// de *resolver* el nombre viejo, no que se pueda reconstruir qué
+  /// elemento tenía cuál de los dos antes de la fusión.
+  ///
+  /// Devuelve un fallo si son el mismo valor, si son de categorías
+  /// distintas, o si alguno de los dos ya no existe.
+  Future<Either<Failure, Unit>> mergePropertyValues({
+    required String keepId,
+    required String discardId,
+  });
 }

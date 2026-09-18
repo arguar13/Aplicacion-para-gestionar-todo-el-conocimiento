@@ -1,4 +1,5 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -1315,6 +1316,287 @@ void main() {
         );
 
         expect(result.getRight().toNullable(), isNull);
+      });
+    });
+
+    group('fusionar valores', () {
+      Future<String> valueIdByLabel(String definitionId, String label) async {
+        final row =
+            await (db.select(db.propertyValues)..where(
+                  (v) =>
+                      v.definitionId.equals(definitionId) &
+                      v.value.equals(label),
+                ))
+                .getSingle();
+        return row.id;
+      }
+
+      test('lo que tenía el descartado pasa al que se conserva, y su '
+          'label queda como alias', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma antigua',
+        );
+        final romaAntiguaId = await valueIdByLabel(
+          definition.id,
+          'Roma antigua',
+        );
+        // "Roma" se crea aparte —sin asignarla a ningún elemento— para
+        // que sea claramente el valor que se conserva.
+        await db
+            .into(db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: 'val-roma',
+                definitionId: definition.id,
+                value: 'Roma',
+                createdAt: now,
+              ),
+            );
+
+        final result = await repository.mergePropertyValues(
+          keepId: 'val-roma',
+          discardId: romaAntiguaId,
+        );
+
+        expect(result.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.single.valueId, 'val-roma');
+        expect(reloaded.properties.single.value, 'Roma');
+
+        final resolved = await repository.resolvePropertyValue(
+          definitionId: definition.id,
+          text: 'Roma antigua',
+        );
+        expect(resolved.getRight().toNullable()?.id, 'val-roma');
+
+        final discardStillThere = await (db.select(
+          db.propertyValues,
+        )..where((v) => v.id.equals(romaAntiguaId))).getSingleOrNull();
+        expect(discardStillThere, isNull);
+      });
+
+      test('un elemento que ya tenía asignados los dos termina con uno '
+          'solo, sin romper por la clave compuesta', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma antigua',
+        );
+        final keepId = await valueIdByLabel(definition.id, 'Roma');
+        final discardId = await valueIdByLabel(definition.id, 'Roma antigua');
+
+        final result = await repository.mergePropertyValues(
+          keepId: keepId,
+          discardId: discardId,
+        );
+
+        expect(result.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, hasLength(1));
+        expect(reloaded.properties.single.valueId, keepId);
+      });
+
+      test('un alias que ya tenía el descartado pasa a apuntar al que se '
+          'conserva', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Bizancio',
+        );
+        final discardId = await valueIdByLabel(definition.id, 'Bizancio');
+        await db
+            .into(db.propertyAliases)
+            .insert(
+              PropertyAliasesCompanion.insert(
+                id: 'alias-vieja',
+                propertyValueId: discardId,
+                definitionId: definition.id,
+                alias: 'Vieja Roma',
+                createdAt: now,
+              ),
+            );
+        await db
+            .into(db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: 'val-roma',
+                definitionId: definition.id,
+                value: 'Roma',
+                createdAt: now,
+              ),
+            );
+
+        final result = await repository.mergePropertyValues(
+          keepId: 'val-roma',
+          discardId: discardId,
+        );
+
+        expect(result.isRight(), isTrue);
+        final resolved = await repository.resolvePropertyValue(
+          definitionId: definition.id,
+          text: 'Vieja Roma',
+        );
+        expect(resolved.getRight().toNullable()?.id, 'val-roma');
+      });
+
+      test('no se pueden fusionar valores de categorías distintas', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final ciudadNatal = (await repository.getOrCreatePropertyDefinition(
+          'Ciudad natal',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: ciudadNatal.id,
+          value: 'Otra ciudad',
+        );
+        final regionValueId = await valueIdByLabel(region.id, 'Roma');
+        final ciudadValueId = await valueIdByLabel(
+          ciudadNatal.id,
+          'Otra ciudad',
+        );
+
+        final result = await repository.mergePropertyValues(
+          keepId: regionValueId,
+          discardId: ciudadValueId,
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('un valor no se puede fusionar consigo mismo', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final valueId = await valueIdByLabel(definition.id, 'Roma');
+
+        final result = await repository.mergePropertyValues(
+          keepId: valueId,
+          discardId: valueId,
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('un id que ya no existe devuelve un fallo, no revienta', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        final valueId = await valueIdByLabel(definition.id, 'Roma');
+
+        final result = await repository.mergePropertyValues(
+          keepId: valueId,
+          discardId: 'no-existe',
+        );
+
+        expect(result.isLeft(), isTrue);
+      });
+
+      test('si el label del descartado ya es alias de un tercero, la '
+          'fusión igual se completa sin ese alias nuevo', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Bizancio',
+        );
+        final discardId = await valueIdByLabel(definition.id, 'Bizancio');
+        await db
+            .into(db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: 'val-tercero',
+                definitionId: definition.id,
+                value: 'Un tercero',
+                createdAt: now,
+              ),
+            );
+        // "Bizancio" ya es alias de un valor sin relación con la
+        // fusión: el paso 4 no puede sumarlo de nuevo para el ganador
+        // sin chocar con el UNIQUE de la categoría.
+        await db
+            .into(db.propertyAliases)
+            .insert(
+              PropertyAliasesCompanion.insert(
+                id: 'alias-tercero',
+                propertyValueId: 'val-tercero',
+                definitionId: definition.id,
+                alias: 'Bizancio',
+                createdAt: now,
+              ),
+            );
+        await db
+            .into(db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: 'val-roma',
+                definitionId: definition.id,
+                value: 'Roma',
+                createdAt: now,
+              ),
+            );
+
+        final result = await repository.mergePropertyValues(
+          keepId: 'val-roma',
+          discardId: discardId,
+        );
+
+        expect(result.isRight(), isTrue);
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.single.valueId, 'val-roma');
+        // El alias "Bizancio" se lo queda el tercero, como antes.
+        final resolved = await repository.resolvePropertyValue(
+          definitionId: definition.id,
+          text: 'Bizancio',
+        );
+        expect(resolved.getRight().toNullable()?.id, 'val-tercero');
       });
     });
   });
