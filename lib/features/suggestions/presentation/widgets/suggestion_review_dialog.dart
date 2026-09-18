@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -61,14 +63,32 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
           itemCount: widget.suggestions.length,
           itemBuilder: (context, index) {
             final suggestion = widget.suggestions[index];
+            final (title, subtitle, icon, color) = switch (suggestion) {
+              PropertySuggestion() => (
+                '${suggestion.definitionName}: ${suggestion.value}',
+                suggestion.isNewValue ? l10n.suggestionsNewValueBadge : null,
+                Icons.sell_outlined,
+                null,
+              ),
+              RelationSuggestionEntry() => (
+                suggestion.kind.describe(
+                  l10n,
+                  direction: RelationDirection.outgoing,
+                  otherItemTitle: suggestion.relatedItemTitle,
+                ),
+                suggestion.reason,
+                suggestion.kind.icon,
+                suggestion.kind.color(Theme.of(context).colorScheme),
+              ),
+            };
+
             return CheckboxListTile(
               value: _accepted[index],
               onChanged: (value) =>
                   setState(() => _accepted[index] = value ?? false),
-              title: Text('${suggestion.definitionName}: ${suggestion.value}'),
-              subtitle: suggestion.isNewValue
-                  ? Text(l10n.suggestionsNewValueBadge)
-                  : null,
+              secondary: Icon(icon, color: color),
+              title: Text(title),
+              subtitle: subtitle == null ? null : Text(subtitle),
             );
           },
         ),

@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -87,9 +88,8 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
           );
 
       return right(
-        Suggestion(
+        Suggestion.property(
           id: id,
-          kind: SuggestionKind.property,
           targetItemId: targetItemId,
           definitionId: definitionId,
           definitionName: definitionName,
@@ -113,6 +113,64 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, Suggestion>> createRelationSuggestion({
+    required String targetItemId,
+    required String relatedItemId,
+    required String relatedItemTitle,
+    required RelationKind kind,
+    required String reason,
+    double? confidence,
+  }) async {
+    try {
+      final id = _ids.next();
+      final createdAt = _clock();
+      final payload = jsonEncode({
+        'relatedItemId': relatedItemId,
+        'relatedItemTitle': relatedItemTitle,
+        'relationKind': kind.name,
+        'reason': reason,
+      });
+
+      await _db
+          .into(_db.suggestions)
+          .insert(
+            SuggestionsCompanion.insert(
+              id: id,
+              kind: SuggestionKind.relation,
+              targetItemId: targetItemId,
+              payloadJson: payload,
+              confidence: Value(confidence),
+              createdAt: createdAt,
+            ),
+          );
+
+      return right(
+        Suggestion.relation(
+          id: id,
+          targetItemId: targetItemId,
+          relatedItemId: relatedItemId,
+          relatedItemTitle: relatedItemTitle,
+          kind: kind,
+          reason: reason,
+          status: SuggestionStatus.pending,
+          createdAt: createdAt,
+          confidence: confidence,
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.createRelationSuggestion',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> accept(String id) async {
     try {
       final row = await (_db.select(
@@ -126,13 +184,16 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         );
       }
 
-      final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
-      final applied = await _organize.assignProperty(
-        itemId: row.targetItemId,
-        definitionId: payload['definitionId'] as String,
-        value: payload['value'] as String,
-        origin: ItemPropertyOrigin.suggestedAccepted,
-      );
+      final applied = switch (row.kind) {
+        SuggestionKind.property => await _applyProperty(row),
+        SuggestionKind.relation => await _applyRelation(row),
+        SuggestionKind.duplicate ||
+        SuggestionKind.flashcard => throw StateError(
+          'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
+          'debería existir ninguna fila con este kind. F7 lo agrega '
+          'cuando exista.',
+        ),
+      };
       final failure = applied.getLeft().toNullable();
       if (failure != null) return left(failure);
 
@@ -148,6 +209,26 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         _unexpected(e, stackTrace, 'SuggestionRepositoryImpl.accept'),
       );
     }
+  }
+
+  Future<Either<Failure, Unit>> _applyProperty(SuggestionRow row) {
+    final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    return _organize.assignProperty(
+      itemId: row.targetItemId,
+      definitionId: payload['definitionId'] as String,
+      value: payload['value'] as String,
+      origin: ItemPropertyOrigin.suggestedAccepted,
+    );
+  }
+
+  Future<Either<Failure, Unit>> _applyRelation(SuggestionRow row) {
+    final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    return _organize.createRelation(
+      fromItemId: row.targetItemId,
+      toItemId: payload['relatedItemId'] as String,
+      kind: RelationKind.values.byName(payload['relationKind'] as String),
+      note: payload['reason'] as String,
+    );
   }
 
   @override
@@ -182,18 +263,35 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
 
   Suggestion _toSuggestion(SuggestionRow row) {
     final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
-    return Suggestion(
-      id: row.id,
-      kind: row.kind,
-      targetItemId: row.targetItemId,
-      definitionId: payload['definitionId'] as String,
-      definitionName: payload['definitionName'] as String,
-      value: payload['value'] as String,
-      isNewValue: payload['isNewValue'] as bool,
-      confidence: row.confidence,
-      status: row.status,
-      createdAt: row.createdAt,
-    );
+    return switch (row.kind) {
+      SuggestionKind.property => Suggestion.property(
+        id: row.id,
+        targetItemId: row.targetItemId,
+        definitionId: payload['definitionId'] as String,
+        definitionName: payload['definitionName'] as String,
+        value: payload['value'] as String,
+        isNewValue: payload['isNewValue'] as bool,
+        confidence: row.confidence,
+        status: row.status,
+        createdAt: row.createdAt,
+      ),
+      SuggestionKind.relation => Suggestion.relation(
+        id: row.id,
+        targetItemId: row.targetItemId,
+        relatedItemId: payload['relatedItemId'] as String,
+        relatedItemTitle: payload['relatedItemTitle'] as String,
+        kind: RelationKind.values.byName(payload['relationKind'] as String),
+        reason: payload['reason'] as String,
+        confidence: row.confidence,
+        status: row.status,
+        createdAt: row.createdAt,
+      ),
+      SuggestionKind.duplicate || SuggestionKind.flashcard => throw StateError(
+        'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
+        'debería existir ninguna fila con este kind. F7 lo agrega cuando '
+        'exista.',
+      ),
+    };
   }
 
   Failure _unexpected(Object e, StackTrace stackTrace, String hint) {

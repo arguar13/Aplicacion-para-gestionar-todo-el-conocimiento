@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
@@ -163,7 +164,7 @@ void main() {
         .watchPendingSuggestions(item.id)
         .first;
     expect(pending, hasLength(1));
-    expect(pending.single.isNewValue, isFalse);
+    expect((pending.single as PropertySuggestion).isNewValue, isFalse);
   });
 
   test('un draft con un valor que no existe todavía se persiste con '
@@ -186,7 +187,7 @@ void main() {
         .watchPendingSuggestions(item.id)
         .first;
     expect(pending, hasLength(1));
-    expect(pending.single.isNewValue, isTrue);
+    expect((pending.single as PropertySuggestion).isNewValue, isTrue);
   });
 
   test(

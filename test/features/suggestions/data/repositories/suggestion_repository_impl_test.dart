@@ -5,8 +5,10 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
@@ -19,8 +21,8 @@ import '../../../../support/in_memory_file_store.dart';
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Contra SQLite real, en memoria, con un `OrganizeRepositoryImpl` real
-/// también: `accept()` necesita que `assignProperty` funcione de verdad,
-/// no solo que se lo llame.
+/// también: `accept()` necesita que `assignProperty`/`createRelation`
+/// funcionen de verdad, no solo que se los llame.
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl libraryRepository;
@@ -90,14 +92,44 @@ void main() {
       );
 
       expect(result.isRight(), isTrue);
-      final created = result.getRight().toNullable()!;
+      final created = result.getRight().toNullable()! as PropertySuggestion;
       expect(created.status, SuggestionStatus.pending);
 
       final pending = await repository.watchPendingSuggestions(item.id).first;
       expect(pending.map((s) => s.id), [created.id]);
-      expect(pending.single.definitionName, 'Región');
-      expect(pending.single.value, 'Roma');
-      expect(pending.single.isNewValue, isTrue);
+      final onlyPending = pending.single as PropertySuggestion;
+      expect(onlyPending.definitionName, 'Región');
+      expect(onlyPending.value, 'Roma');
+      expect(onlyPending.isNewValue, isTrue);
+    });
+  });
+
+  group('createRelationSuggestion', () {
+    test('inserta en pending y aparece en watchPendingSuggestions', () async {
+      final itemA = await seedItem(title: 'A');
+      final itemB = await seedItem(title: 'B');
+
+      final result = await repository.createRelationSuggestion(
+        targetItemId: itemA.id,
+        relatedItemId: itemB.id,
+        relatedItemTitle: 'B',
+        kind: RelationKind.contradicts,
+        reason: 'Dicen lo contrario sobre el mismo hecho.',
+        confidence: 0.87,
+      );
+
+      expect(result.isRight(), isTrue);
+      final created =
+          result.getRight().toNullable()! as RelationSuggestionEntry;
+      expect(created.status, SuggestionStatus.pending);
+      expect(created.confidence, 0.87);
+
+      final pending = await repository.watchPendingSuggestions(itemA.id).first;
+      final onlyPending = pending.single as RelationSuggestionEntry;
+      expect(onlyPending.relatedItemId, itemB.id);
+      expect(onlyPending.relatedItemTitle, 'B');
+      expect(onlyPending.kind, RelationKind.contradicts);
+      expect(onlyPending.reason, 'Dicen lo contrario sobre el mismo hecho.');
     });
   });
 
@@ -122,7 +154,7 @@ void main() {
       );
 
       final pendingA = await repository.watchPendingSuggestions(itemA.id).first;
-      expect(pendingA.map((s) => s.value), ['Roma']);
+      expect(pendingA.map((s) => (s as PropertySuggestion).value), ['Roma']);
     });
 
     test('no trae sugerencias ya aceptadas o rechazadas', () async {
@@ -141,7 +173,7 @@ void main() {
       )).getRight().toNullable()!;
       final rejected = (await repository.createPropertySuggestion(
         targetItemId: item.id,
-        definitionId: accepted.definitionId,
+        definitionId: definition.id,
         definitionName: 'Región',
         value: 'Egipto',
         isNewValue: true,
@@ -156,7 +188,7 @@ void main() {
   });
 
   group('accept', () {
-    test('aplica la propiedad de verdad y marca accepted', () async {
+    test('property: aplica la propiedad de verdad y marca accepted', () async {
       final item = await seedItem();
       final definition =
           (await organizeRepository.getOrCreatePropertyDefinition(
@@ -184,6 +216,31 @@ void main() {
       );
 
       final pending = await repository.watchPendingSuggestions(item.id).first;
+      expect(pending, isEmpty);
+    });
+
+    test('relation: crea el vínculo de verdad y marca accepted', () async {
+      final itemA = await seedItem(title: 'A');
+      final itemB = await seedItem(title: 'B');
+      final suggestion = (await repository.createRelationSuggestion(
+        targetItemId: itemA.id,
+        relatedItemId: itemB.id,
+        relatedItemTitle: 'B',
+        kind: RelationKind.relatedTo,
+        reason: 'Hablan del mismo tema.',
+      )).getRight().toNullable()!;
+
+      final result = await repository.accept(suggestion.id);
+
+      expect(result.isRight(), isTrue);
+      final relations = await organizeRepository
+          .watchRelationsForItem(itemA.id)
+          .first;
+      expect(relations, hasLength(1));
+      expect(relations.single.kind, RelationKind.relatedTo);
+      expect(relations.single.note, 'Hablan del mismo tema.');
+
+      final pending = await repository.watchPendingSuggestions(itemA.id).first;
       expect(pending, isEmpty);
     });
 

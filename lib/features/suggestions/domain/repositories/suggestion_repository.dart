@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
 
@@ -21,10 +22,25 @@ abstract interface class SuggestionRepository {
     required bool isNewValue,
   });
 
+  /// Crea una sugerencia de vínculo nueva, en `status: pending`. Mismo
+  /// criterio que [createPropertySuggestion]: genera `id`/`createdAt`
+  /// internamente. [relatedItemTitle] queda denormalizado en el
+  /// payload, mismo criterio que `definitionName` en la forma
+  /// `property`.
+  Future<Either<Failure, Suggestion>> createRelationSuggestion({
+    required String targetItemId,
+    required String relatedItemId,
+    required String relatedItemTitle,
+    required RelationKind kind,
+    required String reason,
+    double? confidence,
+  });
+
   /// Aplica el payload de verdad —vía
-  /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`—
-  /// y marca `status: accepted`. Si la aplicación falla, la sugerencia
-  /// queda `pending`, reintentable.
+  /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`
+  /// para una sugerencia de propiedad, o `OrganizeRepository.
+  /// createRelation` para una de vínculo— y marca `status: accepted`. Si
+  /// la aplicación falla, la sugerencia queda `pending`, reintentable.
   Future<Either<Failure, Unit>> accept(String id);
 
   /// Marca `status: rejected` sin aplicar nada.
