@@ -1960,6 +1960,93 @@ sin ningún diálogo intermedio: a diferencia de una relación cualquiera
 —donde hay que elegir con qué otro elemento vincular y de qué tipo—,
 acá los dos lados ya se conocen de antemano.
 
+### 34. F1 del modelo Fuente/Nota: esquema y migración, sin tocar nada visible
+
+Se encargó un refactor de fondo de siete fases para la capa de
+organización: separar el dominio en **fuente** (lo capturado, inmutable,
+con procedencia) y **nota** (lo que el usuario construye, mutable, sin
+procedencia propia), con el texto de toda fuente fragmentado en chunks
+—indexado, nunca reducción— para dar lugar a un motor de relaciones por
+similitud, vocabulario controlado, una bandeja de entrada con estados de
+trabajo intelectual, y deduplicación. La restricción que gobierna las
+siete fases: el texto de una fuente no se resume, reescribe ni pierde
+nunca, bajo ninguna circunstancia.
+
+Esta entrada documenta solo **F1** —modelo de datos, migración,
+chunking, reconstrucción verificada—, la única fase atacada hasta acá. El
+resto (F2: vocabulario controlado y unificación de etiquetas; F3: estados
+de trabajo y bandeja de entrada; F4: clasificación asistida; F5: motor de
+relaciones; F6: grafo local y notas mapa; F7: deduplicación y fusión no
+destructiva de bóvedas) se planifica recién cuando F1 esté cerrado,
+probado y aprobado — tal como pidió el propio encargo, fase por fase.
+
+**Tablas nuevas —`item`/`source`/`note`/`chunk`/`embedding`/
+`migration_issue`— conviven con las viejas, sin tocarlas.**
+`Items`/`Sources`/`Renditions`/`Tags`/... siguen siendo la única fuente de
+verdad para toda la app: ningún repositorio ni pantalla existente lee ni
+escribe las tablas nuevas todavía. Retirar las tablas viejas es
+explícitamente un paso posterior, de una fase futura, con backup previo.
+
+**Backfill de una sola vez al migrar a `schemaVersion` 8, sin escritura
+dual.** Mantener `item`/`source`/`note` sincronizados en cada `save()`
+futuro habría significado tocar `LibraryRepositoryImpl.save`/`delete` y
+los ~15 sitios que construyen o modifican `KnowledgeItem` —el radio de
+impacto más grande del proyecto— sin que existiera todavía ningún lector
+real de las tablas nuevas que lo justificara. El espejo queda
+desactualizado desde el primer ítem capturado después de la migración;
+es aceptable únicamente porque nada lo lee en F1. Queda escrito acá para
+que F2, al arrancar, no tenga que redescubrir el trade-off: dual-write
+dentro de la misma transacción de `save` (la opción más simple), o un
+backfill incremental re-ejecutable mientras tanto.
+
+**`source` es una extensión 1:1 de `item`, a diferencia de la vieja
+`Sources`, que puede estar compartida por varios `Items`** (el mismo PDF
+capturado dos veces reutiliza la fila). Es una divergencia semántica
+real, no un detalle de implementación: el backfill duplica los datos de
+una fuente compartida, una fila por cada `item` que la referenciaba.
+
+**Clasificar `note` vs `source` es una lectura directa de una columna
+existente, no una heurística.** `Sources.kind == SourceKind.manualNote`
+cubre las dos únicas formas hoy de que el usuario cree contenido sin que
+venga de afuera —una nota escrita a mano o armada con el editor de
+bloques—; todo lo demás entra como `source`. Toda nota migrada entra como
+`note_kind: living` por decisión explícita: distinguir `atomic`/`map`
+requeriría una heurística nueva, fuera del alcance de F1.
+
+**El chunking es indexado, no reducción, por diseño de la API: el
+servicio decide DÓNDE cortar, nunca reescribe el texto de cada lado.**
+Cada `chunk.text` es literalmente `fullText.substring(charStart,
+charEnd)`, así que la reconstrucción exacta es una propiedad aritmética
+de `substring`, no algo que haya que lograr caso por caso —ver
+`ChunkingService` en `lib/core/domain/services/chunking_service.dart`—.
+Tres estrategias, elegidas por contenido y no solo por `RenditionKind`
+—un artículo web y una transcripción de YouTube llegan las dos como
+`markdown`—: por párrafo (texto/markdown/HTML), por ventana de ~75s
+cerrando en un límite de oración cuando se detectan marcas `[mm:ss]`
+(transcripciones), y un fragmento por bloque en notas armadas con
+bloques. Una fuente cuyo texto no reconstruye exacto —o cualquier error
+al fragmentarla— no se pisa ni queda a medias: se reporta en
+`migration_issue` y se sigue con la siguiente, nunca se persiste un
+chunk que no cumple el invariante.
+
+**Dos hallazgos técnicos de la propia migración, para no volver a
+pagarlos:**
+- `migrator.createTable()` no crea los índices declarados con
+  `@TableIndex` —a diferencia de `createAll()`, que sí los incluye para
+  una base recién creada—, así que cada `onUpgrade` que agregue una tabla
+  con índices propios necesita `migrator.createIndex(...)` explícito por
+  cada uno.
+- Encadenar `SchemaVerifier.startAt(7)` con una segunda instancia de
+  `GeneratedDatabase` (el esquema histórico generado, para sembrar datos
+  legacy) sobre la misma conexión antes de migrar deja dos instancias
+  compitiendo por la misma conexión física —Drift lo avisa en tiempo de
+  ejecución, y en la práctica la migración dejaba de aplicarse—. Las
+  funciones de backfill (`classifyExistingItems`,
+  `fragmentExistingSources`) se prueban en cambio como funciones puras,
+  contra una base ya en `schemaVersion` 8: no les importa si llegaron ahí
+  por `onCreate` o por `onUpgrade`, así que cubren la misma lógica sin ese
+  riesgo.
+
 ---
 
 ## Estado y orden de construcción
@@ -2110,6 +2197,11 @@ acá los dos lados ya se conocen de antemano.
   de Resaltar/Copiar/Compartir —ver la decisión 33— crea una nota nueva
   con ese fragmento, vinculada al original con el tipo de relación
   `extractedFrom`.
+- **F1 del modelo Fuente/Nota: esquema y migración.** Las tablas nuevas
+  —ver la decisión 34— conviven con las viejas, con lo ya capturado
+  clasificado y fragmentado en chunks con reconstrucción verificada. Sin
+  ningún cambio visible todavía: es la base sobre la que se construyen
+  las fases siguientes del refactor de organización.
 
 ### Por construir
 
