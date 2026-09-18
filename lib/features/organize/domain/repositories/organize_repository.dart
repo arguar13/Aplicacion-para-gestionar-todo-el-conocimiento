@@ -206,4 +206,13 @@ abstract interface class OrganizeRepository {
     required String id,
     required String label,
   });
+
+  /// Resuelve [text] a un valor existente bajo [definitionId], buscando
+  /// primero por label y después por alias —ambos sin distinguir
+  /// mayúsculas—. `right(null)` si no hay ningún match: "no encontrado"
+  /// es una respuesta válida de un resolver, no un fallo.
+  Future<Either<Failure, PropertyValue?>> resolvePropertyValue({
+    required String definitionId,
+    required String text,
+  });
 }

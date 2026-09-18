@@ -1222,5 +1222,100 @@ void main() {
         expect(result.isLeft(), isTrue);
       });
     });
+
+    group('resolver valores', () {
+      test(
+        'encuentra un valor por su label, sin distinguir mayúsculas',
+        () async {
+          final definition = (await repository.getOrCreatePropertyDefinition(
+            'Región',
+          )).getRight().toNullable()!;
+          final item = await seedItem();
+          await repository.assignProperty(
+            itemId: item.id,
+            definitionId: definition.id,
+            value: 'Roma',
+          );
+
+          final result = await repository.resolvePropertyValue(
+            definitionId: definition.id,
+            text: 'roma',
+          );
+
+          expect(result.getRight().toNullable()?.value, 'Roma');
+        },
+      );
+
+      test('encuentra un valor por un alias suyo, sin distinguir '
+          'mayúsculas', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Bizancio',
+        );
+        final valueId = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties.single.valueId;
+        await db
+            .into(db.propertyAliases)
+            .insert(
+              PropertyAliasesCompanion.insert(
+                id: 'alias-1',
+                propertyValueId: valueId,
+                definitionId: definition.id,
+                alias: 'Constantinopla',
+                createdAt: now,
+              ),
+            );
+
+        final result = await repository.resolvePropertyValue(
+          definitionId: definition.id,
+          text: 'constantinopla',
+        );
+
+        expect(result.getRight().toNullable()?.id, valueId);
+        expect(result.getRight().toNullable()?.value, 'Bizancio');
+      });
+
+      test('sin ningún match, un null sin ser un fallo', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+
+        final result = await repository.resolvePropertyValue(
+          definitionId: definition.id,
+          text: 'No existe',
+        );
+
+        expect(result.isRight(), isTrue);
+        expect(result.getRight().toNullable(), isNull);
+      });
+
+      test('el mismo texto en otra categoría no matchea', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final ciudadNatal = (await repository.getOrCreatePropertyDefinition(
+          'Ciudad natal',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+
+        final result = await repository.resolvePropertyValue(
+          definitionId: ciudadNatal.id,
+          text: 'Roma',
+        );
+
+        expect(result.getRight().toNullable(), isNull);
+      });
+    });
   });
 }

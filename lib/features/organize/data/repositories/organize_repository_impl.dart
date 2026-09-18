@@ -839,6 +839,51 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, PropertyValue?>> resolvePropertyValue({
+    required String definitionId,
+    required String text,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return right(null);
+
+    try {
+      final byLabel =
+          await (_db.select(_db.propertyValues)..where(
+                (v) =>
+                    v.definitionId.equals(definitionId) &
+                    v.value.lower().equals(trimmed.toLowerCase()),
+              ))
+              .getSingleOrNull();
+      if (byLabel != null) return right(_toPropertyValue(byLabel));
+
+      final alias =
+          await (_db.select(_db.propertyAliases)..where(
+                (a) =>
+                    a.definitionId.equals(definitionId) &
+                    a.alias.lower().equals(trimmed.toLowerCase()),
+              ))
+              .getSingleOrNull();
+      if (alias == null) return right(null);
+
+      final byAlias = await (_db.select(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(alias.propertyValueId))).getSingleOrNull();
+
+      return right(byAlias == null ? null : _toPropertyValue(byAlias));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.resolvePropertyValue',
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
