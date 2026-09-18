@@ -2174,6 +2174,106 @@ ese ya lo usan los estados vacíos de Biblioteca y Explorador, y
 coincidir los dejaba ambiguos en pantalla ancha, donde el riel y un
 estado vacío conviven en la misma pantalla.
 
+### 37. F4 de clasificación asistida: herencia mecánica, sugerencias del modelo, y el circuito de a un elemento
+
+Cuarta fase del refactor de siete fases (ver la decisión 34). Cierra la
+cuarta acción que F3 dejó pendiente en la Bandeja —"aceptar propiedades
+sugeridas"—, construyendo lo que le faltaba: herencia mecánica de
+propiedades al extraer una nota, una tabla de sugerencias persistente, un
+servicio de sugerencias sobre el mismo Gemma del chat, generación
+automática al terminar de procesar, y la UI de revisión. Alcance
+explícito, confirmado con quien encargó el trabajo: el circuito completo
+de A UN ELEMENTO por vez. Sugerencias en lote sobre varios elementos a la
+vez ("estos 14 parecen ser Región: Roma, ¿aplico a todos?") quedan para
+una sub-fase aparte, todavía sin planear.
+
+**Esquema nuevo (`schemaVersion` 10→11), sin backfill.** Columna `origin`
+en `ItemPropertyValues` (`manual`/`inherited`/`suggestedAccepted`, default
+`manual`) y tabla `Suggestions` nueva —`kind`, `targetItemId` referenciando
+`KnowledgeEntries.id`, `payloadJson`, `status` (`pending`/`accepted`/
+`rejected`)—, indexada por `(targetItemId, status)`. A diferencia de la
+migración de catch-up de F3 (v9→v10, solo poblaba), esta SÍ cambia la
+forma del esquema, así que hizo falta un `drift_schema_v11.json` nuevo. Sin
+migración de datos: `origin` trae su propio default y `Suggestions` nace
+vacía.
+
+**`origin` tuvo que viajar por `ItemProperty`, la entidad de dominio, no
+alcanzaba con la columna sola** — mismo problema que ya tuvo `ItemState`
+en F3, misma solución. `LibraryRepositoryImpl._syncProperties` reescribe
+`ItemPropertyValues` entera en cada `save()` a partir de `item.properties`
+en memoria: si `origin` no viajara en la entidad, cualquier edición
+posterior de un elemento —cambiar el título, por ejemplo— lo hubiera
+devuelto en silencio a `manual`.
+
+**`GemmaChatModel` gana una quinta interfaz, `PropertySuggestionService`,
+mismo patrón que `RelationSuggestionService`.** El vocabulario —categorías
+existentes con sus valores y alias— va en el MENSAJE de usuario, no en el
+system prompt: es dato por bóveda, no fijo, mismo criterio que la lista de
+candidatos de `suggestRelations`. El modelo puede proponer un valor nuevo
+bajo una categoría existente, nunca una categoría nueva —reduce la
+confirmación a una sola dimensión, "¿es nuevo el valor?", no dos—; el
+parser (`parsePropertySuggestions`) descarta en silencio cualquier línea
+cuya categoría no matchee, sin distinguir mayúsculas, alguna categoría
+conocida. Solo categorías `PropertyValueType.text` entran al vocabulario:
+`assignProperty` solo escribe `PropertyValues.value` como texto, nunca los
+campos de fecha ni el numérico, así que aceptar una sugerencia bajo
+"Fecha del hecho" hubiera dejado esos campos en `null` de forma
+inconsistente.
+
+**Herencia: efecto lateral de `createRelation`, mismo bloque que ya marca
+`noteKind: atomic` en F3, con `insertOrIgnore`.** Cada
+`ItemPropertyValues` de la fuente se copia a la nota nueva con
+`origin: inherited`; si la nota ya tenía esa propiedad puesta a mano,
+`insertOrIgnore` no la toca —`insertOnConflictUpdate` hubiera
+downgradeado en silencio un origen manual en cada extracción, perdiendo
+una decisión real del usuario—. Como `fromItemId` en `extractedFrom` es
+siempre la nota nueva, esto cubre `HighlightableText._extractSelection` y
+`ExtractNoteScreen` sin tocar ninguno de los dos.
+
+**`SuggestionRepository`, primer repositorio del proyecto que depende de
+otro repositorio.** `accept(id)` necesita aplicar el payload de verdad, así
+que llama a `OrganizeRepository.assignProperty(..., origin:
+suggestedAccepted)` en vez de escribir `ItemPropertyValues` directo —cada
+tabla sigue teniendo un solo dueño de sus escrituras, y ese dueño sigue
+siendo `OrganizeRepository`—. Sin `_db.transaction()`: si `assignProperty`
+falla, la sugerencia simplemente queda `pending`, reintentable, sin ningún
+estado inconsistente visible.
+
+**`GeneratePropertySuggestionsUseCase` vive en `data/`, no en `domain/`**
+—única excepción consciente al patrón del resto del proyecto—: arma el
+vocabulario leyendo `PropertyDefinitions`/`PropertyValues`/
+`PropertyAliases` directo de `AppDatabase`, una lectura demasiado
+específica de esta sub-fase como para agregarle un método nuevo a
+`OrganizeRepository` solo para esto. `ProcessItemUseCase` depende de la
+interfaz de dominio (`PropertySuggestionGenerator`), no de la clase
+concreta.
+
+**Generación fire-and-forget, solo en el camino a `ready`, nunca en el de
+`failed`.** `ProcessItemUseCase._process()` dispara
+`unawaited(_suggestionGenerator.generate(saved).catchError(...))` después
+de guardar el elemento listo, sin esperarlo ni dejar que un error —o que
+el `Future` nunca complete— le cueste el resultado del procesamiento. Sin
+contenido fiable tras un fallo, no hay nada que sugerir. El generador
+también filtra lo que el elemento ya tiene asignado, comparando por
+`valueId`, para no repetir sugerencias redundantes.
+
+**Degradación sin modelo, adentro del generador, no en la UI** —mismo
+patrón que el grafo (chequeo previo explícito), no el de las tarjetas
+(try/catch sin chequear antes)—: `ChatModelManager.isReady()` se comprueba
+al principio de `generate()`; si es `false`, no se genera nada, sin
+excepción ni telemetría de error —no es un error, es el camino normal
+cuando el modelo no está descargado—.
+
+**UI de revisión, mismo patrón checklist que flashcards/grafo, sin estado
+de carga.** `showSuggestionReviewDialog` recibe el `SuggestionRepository`
+ya resuelto, no un `WidgetRef`: `_PendingItemCard` transiciona el elemento
+a `triaged` —y se desmonta en cuanto eso pasa, porque sale de
+`processed`— antes de abrir el diálogo, así que un `ref` atado a ese
+widget ya no sirve para cuando la persona confirma la selección. El
+repositorio se lee mientras el widget sigue montado, antes de transicionar
+—un bug real que apareció al escribir el test de punta a punta de la
+Bandeja, no una precaución hipotética—.
+
 ---
 
 ## Estado y orden de construcción
@@ -2343,6 +2443,14 @@ estado vacío conviven en la misma pantalla.
   refactor de organización: un séptimo destino en la navegación
   principal, con insignia de pendientes, y la madurez de una nota
   visible en su detalle.
+- **F4 de clasificación asistida: herencia y sugerencias del modelo.**
+  Propiedades heredadas al extraer una nota, una quinta interfaz de
+  `GemmaChatModel` para sugerir propiedades sobre el vocabulario
+  existente, generación automática al terminar de procesar un elemento
+  —ver la decisión 37— y la cuarta acción de la Bandeja, "revisar
+  sugerencias", cerrando lo que F3 había dejado pendiente. Circuito de a
+  un elemento por vez; sugerencias en lote sobre varios a la vez quedan
+  para una sub-fase aparte.
 
 ### Por construir
 
@@ -2351,9 +2459,10 @@ Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
 Lo que sigue es el refactor de la capa de organización en curso (ver la
-decisión 34): F1, F2 y F3 cerrados —modelo Fuente/Nota, vocabulario
-controlado, estados y Bandeja de entrada—; F4 (clasificación asistida
-con IA y herencia de propiedades), F5 (motor de relaciones y detección
-de tensión), F6 (grafo local y notas mapa) y F7 (deduplicación) siguen,
-cada una recién planeada —plan breve, aprobado, después código— cuando
-se confirme avanzar con ella, tal como pidió el propio encargo.
+decisión 34): F1, F2, F3 y F4 cerrados —modelo Fuente/Nota, vocabulario
+controlado, estados y Bandeja de entrada, clasificación asistida de a un
+elemento—; las sugerencias en lote (deferidas de F4), F5 (motor de
+relaciones y detección de tensión), F6 (grafo local y notas mapa) y F7
+(deduplicación) siguen, cada una recién planeada —plan breve, aprobado,
+después código— cuando se confirme avanzar con ella, tal como pidió el
+propio encargo.
