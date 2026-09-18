@@ -2047,6 +2047,65 @@ pagarlos:**
   por `onCreate` o por `onUpgrade`, así que cubren la misma lógica sin ese
   riesgo.
 
+### 35. F2 del vocabulario controlado: tipo, alias y fusión sobre las Properties existentes
+
+Segunda fase del refactor de siete fases (ver la decisión 34): vocabulario
+controlado tipado sobre las categorías/valores que F1 dejó sin tocar.
+Igual que F1, 100% invisible — ninguna pantalla se toca todavía, ni una
+de administración nueva ni `PropertyEditor`/`TagEditor`—.
+
+**Se extendieron las tablas `PropertyDefinitions`/`PropertyValues` que ya
+existían, no se creó el tercer esquema paralelo (`property_category`/
+`property_value`/`property_alias`) que sugería la letra original del
+encargo.** Esas tablas ya vivían en el código real —a diferencia de
+`item`/`source`/`note` en F1, que reemplazaban algo que ya existía—, y
+tienen poco radio de impacto: extenderlas evita mantener dos
+representaciones del mismo concepto en paralelo.
+
+**Esquema nuevo (`schemaVersion` 8→9):** `type`/`isSystem` en
+`PropertyDefinitions`; nueve columnas nullable de fecha/número en
+`PropertyValues` (`numberValue`, `dateFromYear/Month/Day`,
+`dateToYear/Month/Day`, `datePrecision`, `dateIsCirca`); tabla nueva
+`PropertyAliases`, única *dentro de la categoría* —`UNIQUE (definition_id,
+alias COLLATE NOCASE)`—, no por valor ni global. `seedSystemPropertyCategories`
+crea "Tema" (texto) y "Fecha del hecho" (fecha) desde `onCreate` y desde
+`onUpgrade` —una bóveda nueva solo pasa por la primera—, reusando y
+promoviendo a `isSystem: true` una categoría que ya existiera con ese
+nombre en vez de duplicarla. `migrateTagsToPropertyValues` —solo en
+`onUpgrade`— migra cada `Tag` a un `PropertyValue` bajo "Tema" con un id
+nuevo, y cada `ItemTags` a `ItemPropertyValues`; `Tags`/`ItemTags` no se
+tocan ni se borran, siguen siendo la fuente de verdad de `TagEditor` hasta
+que una sub-fase de UI migre también eso.
+
+**`HistoricalDate`: año astronómico firmado, aritmética de calendario a
+mano.** `1 d.C. → 1`, `1 a.C. → 0`, `44 a.C. → -43` — monótono cruzando el
+cero, así que ordenar y comparar rangos no necesita ningún caso especial
+para a.C./d.C. El rango (`rangeStart`/`rangeEnd`) y el label legible
+(`HistoricalDate.label`) se calculan con aritmética entera propia —regla
+gregoriana proléptica para días-en-el-mes—, sin `DateTime`: mezclaría la
+numeración implícita de `DateTime` con fechas de calendario reales, y no
+depende de que años tan lejanos se comporten igual en todas las
+plataformas (la web incluida). El label de `decade`/`century` es el rango
+de años que cubren ("1920 – 1929"), no un nombre de siglo/década ("Siglo
+XX"): el año que se tipea para esas precisiones es el primero del tramo
+de diez o cien años, no un número de siglo, y no hay forma de convertirlo
+a un ordinal sin asumir que ese tramo arranca justo en un límite de siglo
+canónico.
+
+**Seis métodos nuevos en `OrganizeRepository`:** el guard de `isSystem` en
+`deletePropertyDefinition` (no se puede borrar "Tema" ni "Fecha del
+hecho"); `type` opcional en `getOrCreatePropertyDefinition`, sin pisarle
+el tipo a una categoría existente; `renamePropertyValue` y
+`resolvePropertyValue` (label primero, alias después, ambos sin distinguir
+mayúsculas y dentro de la categoría); `mergePropertyValues`, transaccional
+en un orden exacto —reasignar los conflictos de doble asignación antes
+que el resto (la clave de `ItemPropertyValues` es compuesta), reapuntar
+los alias del descartado ANTES de borrarlo (su FK es `ON DELETE CASCADE`
+y se los llevaría con él), y tolerar sin fallar la fusión entera si el
+label del descartado ya es alias de un tercero—; y
+`getOrCreateHistoricalPropertyValue`, que valida el tipo de la categoría y
+hace el get-or-create por el label calculado.
+
 ---
 
 ## Estado y orden de construcción
@@ -2202,6 +2261,13 @@ pagarlos:**
   clasificado y fragmentado en chunks con reconstrucción verificada. Sin
   ningún cambio visible todavía: es la base sobre la que se construyen
   las fases siguientes del refactor de organización.
+- **F2 del vocabulario controlado: tipo, alias y fusión.** Categorías con
+  tipo (texto/número/fecha) y alias que resuelven a un valor real, sobre
+  las mismas tablas `PropertyDefinitions`/`PropertyValues` de siempre
+  —ver la decisión 35—, con "Tema" y "Fecha del hecho" como categorías de
+  sistema sembradas desde el arranque y las etiquetas existentes migradas
+  por abajo a valores de propiedad. Sin ningún cambio visible todavía: el
+  vocabulario controlado llega antes que su UI.
 
 ### Por construir
 
