@@ -1943,5 +1943,17 @@
         "type": "String"
       }
     }
+  },
+  "noteMaturitySeed": "Seed",
+  "@noteMaturitySeed": {
+    "description": "Etiqueta de la madurez de una nota recién creada, sin desarrollar todavía."
+  },
+  "noteMaturityDeveloping": "Developing",
+  "@noteMaturityDeveloping": {
+    "description": "Etiqueta de la madurez de una nota que ya se está trabajando."
+  },
+  "noteMaturityMature": "Mature",
+  "@noteMaturityMature": {
+    "description": "Etiqueta de la madurez de una nota ya bien desarrollada."
   }
 }

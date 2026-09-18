@@ -1735,5 +1735,17 @@
         "type": "String"
       }
     }
+  },
+  "noteMaturitySeed": "Semilla",
+  "@noteMaturitySeed": {
+    "description": "Etiqueta de la madurez de una nota recién creada, sin desarrollar todavía."
+  },
+  "noteMaturityDeveloping": "En desarrollo",
+  "@noteMaturityDeveloping": {
+    "description": "Etiqueta de la madurez de una nota que ya se está trabajando."
+  },
+  "noteMaturityMature": "Madura",
+  "@noteMaturityMature": {
+    "description": "Etiqueta de la madurez de una nota ya bien desarrollada."
   }
 }

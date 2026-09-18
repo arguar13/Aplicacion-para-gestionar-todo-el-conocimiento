@@ -25,6 +25,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -213,6 +214,10 @@ class _DetailBody extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (item.source.kind == SourceKind.manualNote) ...[
+                  const SizedBox(height: 8),
+                  _NoteMaturityChip(itemId: item.id),
+                ],
                 const SizedBox(height: 16),
                 SpacePicker(item: item),
                 const SizedBox(height: 24),
@@ -267,6 +272,39 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// La madurez de una nota viva —`seed`/`developing`/`mature`—, leída del
+/// espejo `item`/`source`/`note` que F3 mantiene sincronizado. `null`
+/// mientras esa fila todavía no exista —no debería pasar salvo justo
+/// después de F1/antes del catch-up de F3— no dibuja nada: mejor un
+/// hueco silencioso que una insignia rota.
+class _NoteMaturityChip extends ConsumerWidget {
+  const _NoteMaturityChip({required this.itemId});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final maturity = ref.watch(noteMaturityProvider(itemId)).valueOrNull;
+    if (maturity == null) return const SizedBox.shrink();
+
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final color = maturity.color(theme.colorScheme);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        maturity.label(l10n),
+        style: theme.textTheme.labelSmall?.copyWith(color: color),
       ),
     );
   }

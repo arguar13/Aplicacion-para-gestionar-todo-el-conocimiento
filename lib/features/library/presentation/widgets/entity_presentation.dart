@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -55,6 +56,27 @@ extension ProcessingStatePresentation on ProcessingState {
     ProcessingState.pending ||
     ProcessingState.processing => scheme.onSurfaceVariant,
     ProcessingState.ready => null,
+  };
+}
+
+extension NoteMaturityPresentation on NoteMaturity {
+  /// Cuánto se trabajó una nota viva —`seed`/`developing`/`mature`—, no
+  /// cuán buena es: una nota `seed` puede ser exactamente lo que hace
+  /// falta, y una `mature` puede seguir creciendo mañana con material
+  /// nuevo.
+  String label(AppLocalizations l10n) => switch (this) {
+    NoteMaturity.seed => l10n.noteMaturitySeed,
+    NoteMaturity.developing => l10n.noteMaturityDeveloping,
+    NoteMaturity.mature => l10n.noteMaturityMature,
+  };
+
+  /// Un tono neutro para `seed` —recién empieza, no hay nada que
+  /// señalar—, y uno que se intensifica con cada etapa: mismo criterio
+  /// que `ProcessingStatePresentation`.
+  Color color(ColorScheme scheme) => switch (this) {
+    NoteMaturity.seed => scheme.onSurfaceVariant,
+    NoteMaturity.developing => scheme.tertiary,
+    NoteMaturity.mature => scheme.primary,
   };
 }
 

@@ -148,6 +148,26 @@ void main() {
     });
   });
 
+  group('madurez', () {
+    testWidgets('una nota muestra su madurez', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.noteMaturitySeed), findsOneWidget);
+    });
+
+    testWidgets('una fuente no muestra ninguna madurez', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.noteMaturitySeed), findsNothing);
+      expect(find.text(es.noteMaturityDeveloping), findsNothing);
+      expect(find.text(es.noteMaturityMature), findsNothing);
+    });
+  });
+
   group('procedencia', () {
     testWidgets('muestra de dónde salió y cuándo se guardó', (tester) async {
       final id = await captureAndGetId('https://ejemplo.org/un-articulo');
