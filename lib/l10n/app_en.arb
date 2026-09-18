@@ -1869,6 +1869,18 @@
   "@flashcardsGenerationFailed": {
     "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
   },
+  "suggestionsReviewDialogTitle": "Property suggestions",
+  "@suggestionsReviewDialogTitle": {
+    "description": "Título del diálogo que muestra las propiedades que el modelo sugirió para un elemento."
+  },
+  "suggestionsNewValueBadge": "new",
+  "@suggestionsNewValueBadge": {
+    "description": "Badge junto a una sugerencia cuyo valor todavía no existe bajo esa categoría."
+  },
+  "suggestionsApplySelected": "Apply selected",
+  "@suggestionsApplySelected": {
+    "description": "Botón para aplicar las sugerencias de propiedades que quedaron tildadas."
+  },
   "navInbox": "Inbox",
   "@navInbox": {
     "description": "Etiqueta corta del destino de la Bandeja de entrada en la navegación principal."
@@ -1909,6 +1921,10 @@
   "inboxActionLink": "Link to a living note",
   "@inboxActionLink": {
     "description": "Botón para vincular el elemento actual con una nota viva existente."
+  },
+  "inboxActionReviewSuggestions": "Review suggestions",
+  "@inboxActionReviewSuggestions": {
+    "description": "Botón para revisar las propiedades que el modelo sugirió para el elemento actual, visible solo si hay alguna pendiente."
   },
   "inboxViewFull": "View full",
   "@inboxViewFull": {

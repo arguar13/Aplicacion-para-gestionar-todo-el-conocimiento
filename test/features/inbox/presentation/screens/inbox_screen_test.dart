@@ -5,6 +5,8 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -49,6 +51,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<String> seedSuggestion(
+    String itemId, {
+    String category = 'Región',
+    String value = 'Roma',
+  }) async {
+    final definition =
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .getOrCreatePropertyDefinition(category))
+            .getRight()
+            .toNullable()!;
+    final result = await harness.container
+        .read(suggestionRepositoryProvider)
+        .createPropertySuggestion(
+          targetItemId: itemId,
+          definitionId: definition.id,
+          definitionName: category,
+          value: value,
+          isNewValue: true,
+        );
+    return result.getRight().toNullable()!.id;
+  }
+
   testWidgets('sin nada pendiente, explica que no hay nada que triar', (
     tester,
   ) async {
@@ -77,5 +102,56 @@ void main() {
 
     expect(find.text('Algo para descartar'), findsNothing);
     expect(find.text(es.inboxEmptyTitle), findsOneWidget);
+  });
+
+  group('revisar sugerencias', () {
+    testWidgets('sin sugerencias pendientes, no muestra el botón', (
+      tester,
+    ) async {
+      await seedProcessedSource();
+
+      await pumpInbox(tester);
+
+      expect(find.text(es.inboxActionReviewSuggestions), findsNothing);
+    });
+
+    testWidgets(
+      'con sugerencias pendientes, tocarlo transiciona a triaged y abre '
+      'el diálogo',
+      (tester) async {
+        final itemId = await seedProcessedSource();
+        await seedSuggestion(itemId);
+
+        await pumpInbox(tester);
+        expect(find.text(es.inboxActionReviewSuggestions), findsOneWidget);
+
+        await tester.tap(find.text(es.inboxActionReviewSuggestions));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.suggestionsReviewDialogTitle), findsOneWidget);
+        // Transicionó a triaged: la fuente ya no aparece en pending.
+        expect(find.text(es.inboxEmptyTitle), findsOneWidget);
+      },
+    );
+
+    testWidgets('aceptar una sugerencia la aplica de verdad', (tester) async {
+      final itemId = await seedProcessedSource();
+      await seedSuggestion(itemId);
+
+      await pumpInbox(tester);
+      await tester.tap(find.text(es.inboxActionReviewSuggestions));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.suggestionsApplySelected));
+      await tester.pumpAndSettle();
+
+      final reloaded =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById(itemId))
+              .getRight()
+              .toNullable()!;
+      expect(reloaded.properties, hasLength(1));
+      expect(reloaded.properties.single.value, 'Roma');
+    });
   });
 }

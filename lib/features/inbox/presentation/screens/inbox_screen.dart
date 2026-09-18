@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/extract_note_screen.dart';
@@ -15,16 +16,17 @@ import 'package:sinapsis/features/inbox/presentation/widgets/pick_living_note_di
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La Bandeja de entrada: lo que el pipeline técnico ya terminó y nadie
 /// decidió todavía qué hacer con eso —`ItemState.processed`—, de a un
-/// elemento por vez, con tres acciones de un toque.
+/// elemento por vez, con hasta cuatro acciones de un toque —la 4ª,
+/// revisar sugerencias, solo aparece si el modelo propuso alguna—.
 ///
 /// Solo fuentes (`D3` en el plan de F3): una nota no se tría, su progreso
-/// se mide con su madurez, no con este flujo. La cuarta acción del
-/// encargo original —"aceptar propiedades sugeridas"— depende del motor
-/// de sugerencias con IA, que es F4: todavía no existe.
+/// se mide con su madurez, no con este flujo.
 class InboxScreen extends ConsumerWidget {
   const InboxScreen({super.key});
 
@@ -108,6 +110,8 @@ class _PendingItemCard extends ConsumerWidget {
         : rendition.content.length > 280
         ? '${rendition.content.substring(0, 280)}…'
         : rendition.content;
+    final suggestions =
+        ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
 
     return Center(
       child: ConstrainedBox(
@@ -193,6 +197,13 @@ class _PendingItemCard extends ConsumerWidget {
                         icon: const Icon(Icons.link),
                         label: Text(l10n.inboxActionLink),
                       ),
+                      if (suggestions.isNotEmpty)
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              _reviewSuggestions(context, ref, suggestions),
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          label: Text(l10n.inboxActionReviewSuggestions),
+                        ),
                     ],
                   ),
                 ],
@@ -232,6 +243,28 @@ class _PendingItemCard extends ConsumerWidget {
       MaterialPageRoute<void>(
         builder: (_) => ExtractNoteScreen(item: item, rendition: rendition),
       ),
+    );
+  }
+
+  Future<void> _reviewSuggestions(
+    BuildContext context,
+    WidgetRef ref,
+    List<Suggestion> suggestions,
+  ) async {
+    // Resuelto ANTES de transicionar: esta tarjeta se desmonta en cuanto
+    // el elemento sale de `processed`, y con ella el `ref` de este
+    // widget deja de servir —ver el porqué en `showSuggestionReviewDialog`—.
+    final suggestionRepository = ref.read(suggestionRepositoryProvider);
+
+    await ref
+        .read(inboxRepositoryProvider)
+        .transitionState(itemId: item.id, to: ItemState.triaged);
+    if (!context.mounted) return;
+
+    await showSuggestionReviewDialog(
+      context,
+      repository: suggestionRepository,
+      suggestions: suggestions,
     );
   }
 
