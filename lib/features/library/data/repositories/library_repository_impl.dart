@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -38,6 +42,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _syncRenditions(item);
         await _syncTags(item);
         await _syncProperties(item);
+        await _mirrorItem(item);
       });
       return right(item);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -191,7 +196,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
       // Las formas, etiquetas, vínculos y subrayados se van solos por las
       // cascadas del esquema (ver `PRAGMA foreign_keys` en AppDatabase).
-      await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
+      // El espejo del modelo nuevo se borra en la misma transacción: su
+      // propia cascada real se lleva `source`/`note` con él.
+      await _db.transaction(() async {
+        await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
+        await (_db.delete(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.equals(id))).go();
+      });
 
       if (filePath != null) await _deleteFileQuietly(filePath, id);
 
@@ -223,6 +235,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
           if (filePath != null) filesToDelete.add((id, filePath));
           await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
         }
+        // El espejo se borra de una sola vez, no dentro del loop: es una
+        // única sentencia con `isIn`, no hace falta repetirla por id.
+        await (_db.delete(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.isIn(ids))).go();
       });
 
       for (final (id, path) in filesToDelete) {
@@ -483,6 +500,80 @@ class LibraryRepositoryImpl implements LibraryRepository {
             ),
           );
     }
+  }
+
+  /// Mantiene `item`/`source`/`note` —el modelo nuevo de F1— sincronizado
+  /// con lo que se acaba de guardar en las tablas viejas. Ver la decisión
+  /// sobre F3 en docs/arquitectura.md.
+  ///
+  /// `title`/`subtitle`/`spaceId`/`updatedAt` y los campos estructurales
+  /// de `source` se sobreescriben siempre: son un reflejo directo de
+  /// [item]. `state` —y, para una nota, `noteKind`/`maturity`,
+  /// `fullText`/`contentHash` de una fuente— se preservan si ya existían:
+  /// los escribe otra cosa (la Bandeja, `createRelation`, F5/F7), nunca
+  /// este método.
+  Future<void> _mirrorItem(KnowledgeItem item) async {
+    final existingEntry = await (_db.select(
+      _db.knowledgeEntries,
+    )..where((e) => e.id.equals(item.id))).getSingleOrNull();
+
+    final state = nextMirrorState(
+      current: existingEntry?.state,
+      processingState: item.processingState,
+    );
+    final kind = itemKindFor(item.source.kind);
+
+    await _db
+        .into(_db.knowledgeEntries)
+        .insertOnConflictUpdate(
+          KnowledgeEntriesCompanion.insert(
+            id: item.id,
+            title: item.title,
+            subtitle: Value(item.subtitle),
+            spaceId: Value(item.spaceId),
+            kind: kind,
+            state: state,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            deviceId: kMirrorDeviceIdPlaceholder,
+          ),
+        );
+
+    if (kind == ItemKind.note) {
+      await _db
+          .into(_db.knowledgeNotes)
+          .insert(
+            KnowledgeNotesCompanion.insert(
+              itemId: item.id,
+              noteKind: NoteKind.living,
+              maturity: NoteMaturity.seed,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      return;
+    }
+
+    final existingSource = await (_db.select(
+      _db.knowledgeSources,
+    )..where((s) => s.itemId.equals(item.id))).getSingleOrNull();
+
+    await _db
+        .into(_db.knowledgeSources)
+        .insertOnConflictUpdate(
+          KnowledgeSourcesCompanion.insert(
+            itemId: item.id,
+            sourceType: item.source.kind,
+            originUrl: Value(item.source.url),
+            authorName: Value(item.source.authorName),
+            authorUrl: Value(item.source.authorUrl),
+            publishedAt: Value(item.source.publishedAt),
+            capturedAt: item.source.capturedAt,
+            originalBlobPath: Value(item.source.originalFilePath),
+            fullText: Value(existingSource?.fullText ?? ''),
+            contentHash: existingSource?.contentHash ?? '',
+            processingStatus: sourceProcessingStatusFor(item.processingState),
+          ),
+        );
   }
 
   // ---------------------------------------------------------------------

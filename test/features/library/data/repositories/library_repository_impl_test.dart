@@ -1,13 +1,17 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -851,6 +855,144 @@ void main() {
         buildItem(title: 'Un video', sourceKind: SourceKind.youtube),
       );
       expect(await queue.next, hasLength(1));
+    });
+  });
+
+  group('espejo del modelo nuevo', () {
+    test(
+      'guardar una fuente crea su entrada y su fuente en el espejo',
+      () async {
+        final item = buildItem();
+
+        await repository.save(item);
+
+        final entry = await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals(item.id))).getSingle();
+        expect(entry.kind, ItemKind.source);
+        expect(entry.state, ItemState.processed);
+        expect(entry.title, item.title);
+
+        final source = await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals(item.id))).getSingle();
+        expect(source.sourceType, item.source.kind);
+        expect(source.originUrl, item.source.url);
+        expect(source.authorName, item.source.authorName);
+        expect(source.fullText, isEmpty);
+        expect(source.contentHash, isEmpty);
+      },
+    );
+
+    test('guardar una nota crea su entrada y su nota en el espejo', () async {
+      final item = buildItem(sourceKind: SourceKind.manualNote);
+
+      await repository.save(item);
+
+      final entry = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).getSingle();
+      expect(entry.kind, ItemKind.note);
+
+      final note = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(item.id))).getSingle();
+      expect(note.noteKind, NoteKind.living);
+      expect(note.maturity, NoteMaturity.seed);
+    });
+
+    test('editar un elemento ya triado no lo devuelve a processed', () async {
+      final item = buildItem();
+      await repository.save(item);
+
+      // Simula lo que hará `InboxRepository.transitionState`.
+      await (db.update(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).write(
+        const KnowledgeEntriesCompanion(state: Value(ItemState.triaged)),
+      );
+
+      await repository.save(item.copyWith(title: 'Título editado'));
+
+      final entry = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).getSingle();
+      expect(entry.state, ItemState.triaged);
+      expect(entry.title, 'Título editado');
+    });
+
+    test('el estado avanza de captured a processed cuando el pipeline '
+        'termina', () async {
+      final item = buildItem(state: ProcessingState.pending);
+      await repository.save(item);
+
+      final captured = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).getSingle();
+      expect(captured.state, ItemState.captured);
+
+      await repository.save(
+        item.copyWith(processingState: ProcessingState.ready),
+      );
+
+      final processed = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).getSingle();
+      expect(processed.state, ItemState.processed);
+    });
+
+    test('fullText/contentHash puestos a mano sobreviven a una edición '
+        'posterior', () async {
+      final item = buildItem();
+      await repository.save(item);
+
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals(item.id))).write(
+        const KnowledgeSourcesCompanion(
+          fullText: Value('El texto íntegro de la fuente.'),
+          contentHash: Value('hash-simulado'),
+        ),
+      );
+
+      await repository.save(item.copyWith(title: 'Otro título'));
+
+      final source = await (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals(item.id))).getSingle();
+      expect(source.fullText, 'El texto íntegro de la fuente.');
+      expect(source.contentHash, 'hash-simulado');
+    });
+
+    test(
+      'borrar un elemento borra su entrada, y en cascada su fuente',
+      () async {
+        final item = buildItem();
+        await repository.save(item);
+
+        await repository.delete(item.id);
+
+        final entry = await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals(item.id))).getSingleOrNull();
+        final source = await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals(item.id))).getSingleOrNull();
+        expect(entry, isNull);
+        expect(source, isNull);
+      },
+    );
+
+    test('borrar varios de una vez borra el espejo de todos', () async {
+      final a = buildItem();
+      final b = buildItem();
+      await repository.save(a);
+      await repository.save(b);
+
+      await repository.deleteMany([a.id, b.id]);
+
+      final remaining = await db.select(db.knowledgeEntries).get();
+      expect(remaining, isEmpty);
     });
   });
 }
