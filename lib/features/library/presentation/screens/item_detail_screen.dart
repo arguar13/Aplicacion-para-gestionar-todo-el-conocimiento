@@ -33,6 +33,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
@@ -270,7 +271,16 @@ class _DetailBody extends StatelessWidget {
                 const SizedBox(height: 16),
                 FlashcardSection(item: item),
                 const SizedBox(height: 24),
-                RelationsSection(item: item),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final kind = ref
+                        .watch(noteKindProvider(item.id))
+                        .valueOrNull;
+                    return kind == NoteKind.map
+                        ? MapNoteLinksSection(item: item)
+                        : RelationsSection(item: item);
+                  },
+                ),
                 const SizedBox(height: 24),
                 CitationSection(item: item),
                 const SizedBox(height: 16),

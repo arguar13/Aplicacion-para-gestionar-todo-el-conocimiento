@@ -216,6 +216,66 @@ void main() {
     });
   });
 
+  group('vínculos de nota mapa', () {
+    testWidgets(
+      'una nota mapa con vínculos de dos tipos muestra dos encabezados de '
+      'grupo',
+      (tester) async {
+        // Ni "relacionado" ni "cita": la primera coincide, en español, con
+        // el título fijo de toda la sección (`detailRelationsTitle`), y la
+        // segunda con el título de `CitationSection` (`citationTitle`),
+        // así que cualquiera de las dos confundiría al buscar el texto del
+        // encabezado de grupo con el de otra parte fija de la pantalla.
+        final other1 = await captureAndGetId('un elemento que continúa');
+        final other2 = await captureAndGetId('un elemento que contradice');
+        final id = await captureAndGetId('la nota mapa');
+        await harness.container
+            .read(inboxRepositoryProvider)
+            .setNoteKind(itemId: id, kind: NoteKind.map);
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createRelation(
+              fromItemId: id,
+              toItemId: other1,
+              kind: RelationKind.continues,
+            );
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createRelation(
+              fromItemId: id,
+              toItemId: other2,
+              kind: RelationKind.contradicts,
+            );
+
+        await pumpDetail(tester, id);
+
+        expect(find.text(es.relationKindLabelContinues), findsOneWidget);
+        expect(find.text(es.relationKindLabelContradicts), findsOneWidget);
+        expect(find.byType(ListTile), findsNWidgets(2));
+      },
+    );
+
+    testWidgets(
+      'una nota sin marcar sigue mostrando la lista plana, sin encabezados',
+      (tester) async {
+        final other = await captureAndGetId('otro elemento');
+        final id = await captureAndGetId('una nota sin marcar');
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .createRelation(
+              fromItemId: id,
+              toItemId: other,
+              kind: RelationKind.continues,
+            );
+
+        await pumpDetail(tester, id);
+
+        expect(find.text(es.relationKindLabelContinues), findsNothing);
+        expect(find.byType(ListTile), findsOneWidget);
+      },
+    );
+  });
+
   group('procedencia', () {
     testWidgets('muestra de dónde salió y cuándo se guardó', (tester) async {
       final id = await captureAndGetId('https://ejemplo.org/un-articulo');
