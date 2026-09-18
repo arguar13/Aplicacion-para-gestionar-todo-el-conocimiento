@@ -3,6 +3,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
 import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
+import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items_v10.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
@@ -95,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -206,6 +207,14 @@ class AppDatabase extends _$AppDatabase {
           ids: const UuidV7Generator(),
           logger: ConsoleAppLogger(),
         );
+      }
+      // El espejo en vivo del modelo Fuente/Nota — ver la decisión sobre
+      // F3 en docs/arquitectura.md. Sin tabla ni columna nueva: solo el
+      // catch-up de lo que se capturó entre el backfill de F1 y este
+      // commit, que `LibraryRepositoryImpl.save()` no llegó a espejar
+      // porque el espejo en vivo todavía no existía.
+      if (from < 10) {
+        await mirrorUnmirroredItems(this);
       }
     },
     beforeOpen: (details) async {
