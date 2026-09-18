@@ -640,6 +640,17 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   @override
   Future<Either<Failure, Unit>> deletePropertyDefinition(String id) async {
     try {
+      final existing = await (_db.select(
+        _db.propertyDefinitions,
+      )..where((d) => d.id.equals(id))).getSingleOrNull();
+      if (existing != null && existing.isSystem) {
+        return left(
+          const Failure.validation(
+            message: 'Esta categoría la crea la app: no se puede borrar.',
+          ),
+        );
+      }
+
       await (_db.delete(
         _db.propertyDefinitions,
       )..where((d) => d.id.equals(id))).go();

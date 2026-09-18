@@ -160,6 +160,9 @@ abstract interface class OrganizeRepository {
   /// que tenía puestas. A diferencia de un espacio, acá sí se borra en
   /// cascada: la categoría y sus valores son la propiedad en sí, no una
   /// carpeta que contiene elementos ajenos a ella.
+  ///
+  /// Una categoría de sistema (`isSystem`, como "Tema" o "Fecha del
+  /// hecho") no se puede borrar: [Failure.validation], sin tocar nada.
   Future<Either<Failure, Unit>> deletePropertyDefinition(String id);
 
   /// Los valores que ya existen bajo [definitionId], ordenados

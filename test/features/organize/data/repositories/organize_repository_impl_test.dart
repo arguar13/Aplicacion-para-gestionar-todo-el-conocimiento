@@ -845,6 +845,20 @@ void main() {
 
         expect(result.isRight(), isTrue);
       });
+
+      test('una categoría de sistema no se puede borrar', () async {
+        final tema = await (db.select(
+          db.propertyDefinitions,
+        )..where((d) => d.name.equals('Tema'))).getSingle();
+
+        final result = await repository.deletePropertyDefinition(tema.id);
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        final stillThere = await (db.select(
+          db.propertyDefinitions,
+        )..where((d) => d.id.equals(tema.id))).getSingleOrNull();
+        expect(stillThere, isNotNull);
+      });
     });
 
     group('asignar valores', () {
