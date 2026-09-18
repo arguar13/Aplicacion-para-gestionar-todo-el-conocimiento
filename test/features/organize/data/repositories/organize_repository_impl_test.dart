@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -583,6 +584,58 @@ void main() {
         await repository.deleteRelation(created.single.id);
 
         expect(await queue.next, isEmpty);
+      });
+    });
+
+    group('extractedFrom marca la nota de origen', () {
+      Future<KnowledgeItem> seedNote({String title = 'Una nota'}) async {
+        final n = counter++;
+        final item = KnowledgeItem(
+          id: 'item-$n',
+          title: title,
+          source: Source(
+            id: 'src-$n',
+            kind: SourceKind.manualNote,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+        );
+        final result = await libraryRepository.save(item);
+        return result.getRight().toNullable()!;
+      }
+
+      test('un vínculo extractedFrom deja la nota como atomic', () async {
+        final nota = await seedNote();
+        final fuente = await seedItem();
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        final note = await (db.select(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals(nota.id))).getSingle();
+        expect(note.noteKind, NoteKind.atomic);
+      });
+
+      test('otro tipo de vínculo no toca noteKind', () async {
+        final nota = await seedNote();
+        final fuente = await seedItem();
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.relatedTo,
+        );
+
+        final note = await (db.select(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals(nota.id))).getSingle();
+        expect(note.noteKind, NoteKind.living);
       });
     });
   });

@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -209,6 +210,20 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
               createdAt: _clock(),
             ),
           );
+
+      if (kind == RelationKind.extractedFrom) {
+        // `fromItemId` es siempre la nota nueva en este tipo de vínculo
+        // —así lo usa `HighlightableText._extractSelection`—, así que
+        // esto corrige `noteKind` tanto ahí como en la futura Bandeja de
+        // entrada (F3). Un UPDATE que no afecta ninguna fila no es un
+        // error: no debería pasar, pero el espejo de esa nota podría no
+        // existir todavía.
+        await (_db.update(
+          _db.knowledgeNotes,
+        )..where((n) => n.itemId.equals(fromItemId))).write(
+          const KnowledgeNotesCompanion(noteKind: Value(NoteKind.atomic)),
+        );
+      }
 
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
