@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
@@ -712,6 +713,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String itemId,
     required String definitionId,
     required String value,
+    ItemPropertyOrigin origin = ItemPropertyOrigin.manual,
   }) async {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
@@ -749,6 +751,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
             ItemPropertyValuesCompanion.insert(
               itemId: itemId,
               propertyValueId: propertyValueId,
+              origin: Value(origin),
             ),
           );
 

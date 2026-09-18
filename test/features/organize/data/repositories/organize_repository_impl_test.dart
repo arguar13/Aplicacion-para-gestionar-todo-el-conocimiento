@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -1053,6 +1054,70 @@ void main() {
         );
 
         expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('sin pasar origin, queda manual', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.single.origin, ItemPropertyOrigin.manual);
+      });
+
+      test('con un origin indicado, se persiste tal cual', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+          origin: ItemPropertyOrigin.inherited,
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties.single.origin, ItemPropertyOrigin.inherited);
+      });
+
+      test('asignarlo dos veces con distinto origin deja el último', () async {
+        final definition = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        final item = await seedItem();
+
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+        );
+        await repository.assignProperty(
+          itemId: item.id,
+          definitionId: definition.id,
+          value: 'Roma',
+          origin: ItemPropertyOrigin.suggestedAccepted,
+        );
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(
+          reloaded.properties.single.origin,
+          ItemPropertyOrigin.suggestedAccepted,
+        );
       });
     });
 

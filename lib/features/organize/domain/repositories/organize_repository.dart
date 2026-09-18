@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
@@ -181,10 +182,15 @@ abstract interface class OrganizeRepository {
   /// donde ya existe "Roma" tiene que terminar en el mismo valor, no en
   /// dos que compiten por lo mismo—. No falla si el elemento ya lo tenía
   /// puesto.
+  ///
+  /// [origin] queda en la asignación tal cual —`manual` si no se
+  /// especifica, el único caso que usa `PropertyEditor` hoy—. Llamarlo
+  /// dos veces sobre el mismo par con distinto `origin` deja el último.
   Future<Either<Failure, Unit>> assignProperty({
     required String itemId,
     required String definitionId,
     required String value,
+    ItemPropertyOrigin origin = ItemPropertyOrigin.manual,
   });
 
   /// Saca un valor de propiedad de un elemento. El valor en sí sigue
