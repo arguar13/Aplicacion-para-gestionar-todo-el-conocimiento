@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -10,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
+import 'package:sinapsis/core/util/id_generator.dart';
 
 import '../../generated_migrations/schema.dart';
 
@@ -21,9 +23,12 @@ import '../../generated_migrations/schema.dart';
 /// dependencias nuevas y F2 en adelante lo va a poder reutilizar con sus
 /// propias migraciones.
 ///
-/// Sin backfill todavía: acá solo se verifica que las tablas nuevas se
-/// crean correctamente, vacías, y que las tablas viejas no se tocan. El
-/// backfill de lo ya capturado es un paso posterior de F1.
+/// Cubre que las tablas nuevas se crean correctamente y que las tablas
+/// viejas no se tocan. La clasificación de lo ya capturado
+/// (`classifyExistingItems`) se prueba aparte, como función pura —ver el
+/// comentario en su `group`— porque encadenarla con `SchemaVerifier` deja
+/// dos instancias de `GeneratedDatabase` compitiendo por la misma
+/// conexión física.
 void main() {
   final verifier = SchemaVerifier(GeneratedHelper());
 
@@ -95,7 +100,129 @@ void main() {
     expect(items, hasLength(1));
     expect(items.single.title, 'Un artículo cualquiera');
     expect(sources, hasLength(1));
-    expect(await db.select(db.knowledgeEntries).get(), isEmpty);
+  });
+
+  group('clasificación de items existentes al migrar', () {
+    // `classifyExistingItems` se prueba llamándola directamente —no
+    // encadenada con `SchemaVerifier.startAt`/`migrateAndValidate`—: abrir
+    // una segunda instancia de `GeneratedDatabase` sobre la misma conexión
+    // que ya usó el verificador para crear el esquema v7 deja dos
+    // instancias compitiendo por la misma conexión física (Drift lo avisa
+    // en tiempo de ejecución: "race conditions... might corrupt the
+    // database"), y en la práctica la migración dejaba de aplicarse. La
+    // función es pura respecto a qué instancia de `AppDatabase` reciba: no
+    // le importa si esa base llegó a `schemaVersion` 8 por `onCreate` o
+    // por `onUpgrade`, así que probarla contra una base ya en v8 —sin ese
+    // riesgo— cubre exactamente la misma lógica. Que la migración real
+    // LLAMA a esta función en el momento correcto ya lo cubre el test de
+    // arriba ("migrar de v7 a v8 crea las tablas nuevas, vacías").
+    Future<AppDatabase> classifiedDbWith({
+      required SourceKind sourceKind,
+      required ProcessingState processingState,
+    }) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final now = DateTime(2026, 9, 17, 10);
+
+      await db
+          .into(db.sources)
+          .insert(
+            SourcesCompanion.insert(
+              id: 'src-1',
+              kind: sourceKind,
+              capturedAt: now,
+            ),
+          );
+      await db
+          .into(db.items)
+          .insert(
+            ItemsCompanion.insert(
+              id: 'item-1',
+              title: 'Un elemento cualquiera',
+              sourceId: 'src-1',
+              processingState: processingState,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+
+      await classifyExistingItems(db, ids: const UuidV7Generator());
+      return db;
+    }
+
+    test(
+      'una fuente con procedencia externa migra a ItemKind.source',
+      () async {
+        final db = await classifiedDbWith(
+          sourceKind: SourceKind.webPage,
+          processingState: ProcessingState.ready,
+        );
+        addTearDown(db.close);
+
+        final entry = await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals('item-1'))).getSingle();
+        final source = await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals('item-1'))).getSingle();
+
+        expect(entry.kind, ItemKind.source);
+        expect(entry.state, ItemState.processed);
+        expect(entry.rev, 1);
+        expect(entry.deviceId, isNotEmpty);
+        expect(source.sourceType, SourceKind.webPage);
+        expect(source.processingStatus, SourceProcessingStatus.done);
+        expect(
+          await db.select(db.knowledgeNotes).get(),
+          isEmpty,
+          reason: 'una fuente no tiene fila en KnowledgeNotes',
+        );
+      },
+    );
+
+    test(
+      'una nota manual migra a ItemKind.note con note_kind living',
+      () async {
+        final db = await classifiedDbWith(
+          sourceKind: SourceKind.manualNote,
+          processingState: ProcessingState.ready,
+        );
+        addTearDown(db.close);
+
+        final entry = await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals('item-1'))).getSingle();
+        final note = await (db.select(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals('item-1'))).getSingle();
+
+        expect(entry.kind, ItemKind.note);
+        expect(note.noteKind, NoteKind.living);
+        expect(note.maturity, NoteMaturity.seed);
+        expect(
+          await db.select(db.knowledgeSources).get(),
+          isEmpty,
+          reason: 'una nota no tiene fila en KnowledgeSources',
+        );
+      },
+    );
+
+    test('un item aún pendiente de procesar migra como captured', () async {
+      final db = await classifiedDbWith(
+        sourceKind: SourceKind.webPage,
+        processingState: ProcessingState.pending,
+      );
+      addTearDown(db.close);
+
+      final entry = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals('item-1'))).getSingle();
+      final source = await (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('item-1'))).getSingle();
+
+      expect(entry.state, ItemState.captured);
+      expect(source.processingStatus, SourceProcessingStatus.pending);
+    });
   });
 
   group('esquema nuevo', () {
