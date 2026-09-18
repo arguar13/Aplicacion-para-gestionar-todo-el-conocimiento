@@ -8,6 +8,8 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
+import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_parser.dart';
+import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 
 /// Le pide instrucciones tajantes de no inventar nada que no esté en el
 /// contexto: es lo único que separa una respuesta útil de una que suena
@@ -46,6 +48,24 @@ const _relationSuggestionSystemInstruction =
     'de estas palabras: relacionado, continua, contradice, cita, resume. '
     'Si ningún elemento está relacionado, no respondas ninguna línea '
     'SUGERENCIA. No respondas nada más aparte de esas líneas.';
+
+/// Mismo criterio que `_relationSuggestionSystemInstruction`, para juzgar
+/// propiedades en vez de vínculos: pide usar SOLO una categoría de la lista
+/// dada —nunca inventar una nueva, ver decisión D2 de F4—, preferir un valor
+/// ya existente bajo esa categoría y proponer uno nuevo solo si ninguno
+/// corresponde.
+const _propertySuggestionSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es identificar qué '
+    'propiedades del elemento corresponden, basándote ÚNICAMENTE en las '
+    'categorías existentes que se te dan y en el contenido del elemento. '
+    'Para cada categoría a la que le encuentres un valor, respondé UNA '
+    'línea con este formato exacto, sin Markdown ni numeración:\n'
+    'PROPIEDAD: <categoría> | <valor>\n'
+    'Usá SIEMPRE una de las categorías de la lista dada, nunca inventes una '
+    'categoría nueva. Preferí un valor ya existente bajo esa categoría; '
+    'proponé uno nuevo solo si ninguno de los existentes corresponde. Si '
+    'ninguna categoría aplica, no respondas ninguna línea PROPIEDAD. No '
+    'respondas nada más aparte de esas líneas.';
 
 /// A diferencia de `_systemInstruction`, sin ninguna restricción al
 /// contenido de la bóveda: acá el pedido es justamente lo contrario, hablar
@@ -97,10 +117,11 @@ const _summarizationSystemInstruction =
 /// cada pregunta recupera sus propias fuentes y no tiene por qué compartir
 /// contexto con la charla previa.
 ///
-/// También implementa [FlashcardGenerator] y [RelationSuggestionService]:
-/// generar tarjetas y sugerir vínculos son otras tareas del mismo modelo ya
-/// cargado, no motores aparte. Que la clase concreta viva en el feature
-/// `chat` y no en `flashcards` o `graph` es una asimetría real —esos dos
+/// También implementa [FlashcardGenerator], [RelationSuggestionService] y
+/// [PropertySuggestionService]: generar tarjetas, sugerir vínculos y
+/// sugerir propiedades son otras tareas del mismo modelo ya cargado, no
+/// motores aparte. Que la clase concreta viva en el feature `chat` y no en
+/// `flashcards`, `graph` o `suggestions` es una asimetría real —esos
 /// dependen de una implementación de `chat`—, aceptada acá porque la
 /// alternativa (mover la lógica de cachear el modelo a un tercer lugar
 /// compartido) es más superficie nueva por unas pocas clases que la usan.
@@ -109,7 +130,8 @@ class GemmaChatModel
         ChatModel,
         FlashcardGenerator,
         RelationSuggestionService,
-        SummarizationService {
+        SummarizationService,
+        PropertySuggestionService {
   GemmaChatModel();
 
   InferenceModel? _model;
@@ -278,6 +300,60 @@ class GemmaChatModel
       await chat.close();
     }
   }
+
+  @override
+  Future<List<PropertyDraft>> suggestProperties({
+    required String itemTitle,
+    required String itemContent,
+    required List<PropertyVocabularyCategory> categories,
+  }) async {
+    if (categories.isEmpty) return const [];
+
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _propertySuggestionSystemInstruction,
+    );
+
+    try {
+      final list = [
+        for (final category in categories) _describeCategory(category),
+      ].join('\n');
+
+      await chat.addQueryChunk(
+        Message.text(
+          text:
+              'Categorías existentes:\n$list\n\n'
+              'Elemento: $itemTitle\n$itemContent',
+          isUser: true,
+        ),
+      );
+      final response = await chat.generateChatResponse();
+
+      final text = switch (response) {
+        TextResponse(:final token) => token,
+        _ => '',
+      };
+
+      final knownCategories = categories.map((c) => c.name).toList();
+      final drafts = <PropertyDraft>[];
+      for (final line in parsePropertySuggestions(
+        text,
+        knownCategories: knownCategories,
+      )) {
+        final category = categories.firstWhere((c) => c.name == line.category);
+        drafts.add(
+          PropertyDraft(
+            definitionId: category.definitionId,
+            definitionName: category.name,
+            value: line.value,
+          ),
+        );
+      }
+      return drafts;
+    } finally {
+      await chat.close();
+    }
+  }
 }
 
 /// [FreeConversation] sobre la sesión de `flutter_gemma`: cada [send]
@@ -361,4 +437,14 @@ String _buildVaultPrompt(String message, List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Contexto de la bóveda:\n$context\n\nMensaje: $message';
+}
+
+/// Una línea de vocabulario para [GemmaChatModel.suggestProperties]: el
+/// nombre de la categoría, sus valores existentes y, si hay, sus alias.
+String _describeCategory(PropertyVocabularyCategory category) {
+  final values = category.values.join(', ');
+  if (category.aliases.isEmpty) return '${category.name}: $values';
+
+  final aliases = category.aliases.join(', ');
+  return '${category.name}: $values (alias: $aliases)';
 }

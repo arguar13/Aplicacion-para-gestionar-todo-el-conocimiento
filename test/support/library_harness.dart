@@ -37,6 +37,7 @@ import 'fake_file_chooser.dart';
 import 'fake_file_opener.dart';
 import 'fake_file_saver.dart';
 import 'fake_id_generator.dart';
+import 'fake_property_suggestion_service.dart';
 import 'fake_relation_suggestion_service.dart';
 import 'fake_shared_content_listener.dart';
 import 'fake_summarization_service.dart';
@@ -72,6 +73,7 @@ class LibraryHarness {
     this.chatModelManagerGemma412b,
     this.relationSuggestionService,
     this.summarizationService,
+    this.propertySuggestionService,
     this.textToSpeechService,
   );
 
@@ -165,6 +167,7 @@ class LibraryHarness {
       response: summarizeResponse,
       error: summarizeError,
     );
+    final propertySuggestionService = FakePropertySuggestionService();
     final textToSpeechService = FakeTextToSpeechService();
     final fixedNow = now ?? DateTime(2026, 9, 11, 10);
 
@@ -225,6 +228,9 @@ class LibraryHarness {
           relationSuggestionService,
         ),
         summarizationServiceProvider.overrideWithValue(summarizationService),
+        propertySuggestionServiceProvider.overrideWithValue(
+          propertySuggestionService,
+        ),
         // `flutter_tts` habla con un canal de plataforma que no existe en
         // un test, mismo motivo que el modelo de Whisper o el de Gemma.
         textToSpeechServiceProvider.overrideWithValue(textToSpeechService),
@@ -272,6 +278,7 @@ class LibraryHarness {
       chatModelManagerGemma412b,
       relationSuggestionService,
       summarizationService,
+      propertySuggestionService,
       textToSpeechService,
     );
   }
@@ -338,6 +345,10 @@ class LibraryHarness {
   /// El resumidor de mentira, para comprobar qué se le pidió resumir y
   /// controlar qué contesta.
   final FakeSummarizationService summarizationService;
+
+  /// El servicio de sugerencias de propiedades de mentira, para comprobar
+  /// qué se le pidió al clasificar un elemento y controlar qué contesta.
+  final FakePropertySuggestionService propertySuggestionService;
 
   /// El motor de voz de mentira, para comprobar qué se le pidió leer y
   /// simular que termina —o falla— de leer un fragmento.
