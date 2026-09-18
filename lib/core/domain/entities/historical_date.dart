@@ -85,6 +85,61 @@ sealed class HistoricalDate with _$HistoricalDate {
     DatePrecision.decade => (year: astronomicalYear + 9, month: 12, day: 31),
     DatePrecision.century => (year: astronomicalYear + 99, month: 12, day: 31),
   };
+
+  /// El texto legible de esta fecha, derivado solo de sus datos —dos
+  /// [HistoricalDate] con los mismos campos siempre dan el mismo label,
+  /// sin importar el orden en que se construyeron—. Es lo que
+  /// `getOrCreateHistoricalPropertyValue` usa como `PropertyValues.value`
+  /// para el get-or-create.
+  ///
+  /// `decade`/`century` se expresan como el rango de años que cubren en
+  /// vez de "década de 1920"/"Siglo XX": el año que se tipea para esas
+  /// precisiones es el primero del tramo de diez o cien años, no un
+  /// número de siglo/década con nombre propio —no hay forma de
+  /// convertirlo a "Siglo IV a.C." sin asumir que ese tramo arranca justo
+  /// en un límite de siglo canónico, algo que acá no se puede dar por
+  /// sentado—.
+  String get label {
+    final circa = isCirca ? 'circa ' : '';
+    return switch (precision) {
+      DatePrecision.day =>
+        '$circa$day de ${_monthNames[month! - 1]} de '
+            '${_yearLabel(astronomicalYear)}',
+      DatePrecision.month =>
+        '$circa${_monthNames[month! - 1]} de '
+            '${_yearLabel(astronomicalYear)}',
+      DatePrecision.year => '$circa${_yearLabel(astronomicalYear)}',
+      DatePrecision.decade || DatePrecision.century =>
+        '$circa${_yearLabel(rangeStart.year)} – ${_yearLabel(rangeEnd.year)}',
+    };
+  }
+}
+
+const _monthNames = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/// "44 a.C." o "1969" —sin "d.C.": no hace falta desambiguar lo que ya es
+/// la convención implícita.
+String _yearLabel(int astronomicalYear) {
+  final asCalendarYear = HistoricalDate.fromAstronomicalYear(
+    astronomicalYear,
+    precision: DatePrecision.year,
+  );
+  return asCalendarYear.isBce
+      ? '${asCalendarYear.year} a.C.'
+      : '${asCalendarYear.year}';
 }
 
 /// Calendario gregoriano proléptico —la misma convención con la que

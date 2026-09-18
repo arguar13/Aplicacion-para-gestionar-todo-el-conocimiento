@@ -130,4 +130,71 @@ void main() {
       },
     );
   });
+
+  group('label', () {
+    test('day: día, mes en palabras y año', () {
+      const date = HistoricalDate(
+        year: 2026,
+        precision: DatePrecision.day,
+        month: 3,
+        day: 15,
+      );
+
+      expect(date.label, '15 de marzo de 2026');
+    });
+
+    test('month: mes en palabras y año', () {
+      const date = HistoricalDate(
+        year: 44,
+        precision: DatePrecision.month,
+        month: 7,
+        isBce: true,
+      );
+
+      expect(date.label, 'julio de 44 a.C.');
+    });
+
+    test('year: el año, sin "d.C." de más', () {
+      const date = HistoricalDate(year: 1969, precision: DatePrecision.year);
+
+      expect(date.label, '1969');
+    });
+
+    test('year: "a.C." si es antes de Cristo', () {
+      const date = HistoricalDate(
+        year: 44,
+        precision: DatePrecision.year,
+        isBce: true,
+      );
+
+      expect(date.label, '44 a.C.');
+    });
+
+    test('decade: el rango de diez años que cubre', () {
+      const date = HistoricalDate(year: 1920, precision: DatePrecision.decade);
+
+      expect(date.label, '1920 – 1929');
+    });
+
+    test('century: el rango de cien años que cubre, cruzando a.C./d.C. '
+        'si corresponde', () {
+      final date = HistoricalDate.fromAstronomicalYear(
+        -49,
+        precision: DatePrecision.century,
+      );
+
+      expect(date.label, '50 a.C. – 50');
+    });
+
+    test('circa antepone "circa " al resto del label', () {
+      const date = HistoricalDate(
+        year: 340,
+        precision: DatePrecision.year,
+        isBce: true,
+        isCirca: true,
+      );
+
+      expect(date.label, 'circa 340 a.C.');
+    });
+  });
 }
