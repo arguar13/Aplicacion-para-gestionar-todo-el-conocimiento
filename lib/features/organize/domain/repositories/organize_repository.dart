@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -151,10 +152,13 @@ abstract interface class OrganizeRepository {
   Stream<List<PropertyDefinition>> watchAllPropertyDefinitions();
 
   /// La categoría que se llama [name], sin distinguir mayúsculas. Si no
-  /// existe, la crea. Devuelve un fallo si el nombre queda vacío.
+  /// existe, la crea con el [type] indicado —`text` si no se especifica—.
+  /// Si ya existe, se devuelve tal cual: [type] no le pisa el tipo a una
+  /// categoría existente. Devuelve un fallo si el nombre queda vacío.
   Future<Either<Failure, PropertyDefinition>> getOrCreatePropertyDefinition(
-    String name,
-  );
+    String name, {
+    PropertyValueType type = PropertyValueType.text,
+  });
 
   /// Borra una categoría entera, con todos sus valores y las asignaciones
   /// que tenía puestas. A diferencia de un espacio, acá sí se borra en

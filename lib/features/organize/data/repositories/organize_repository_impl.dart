@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
@@ -592,8 +593,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
 
   @override
   Future<Either<Failure, PropertyDefinition>> getOrCreatePropertyDefinition(
-    String name,
-  ) async {
+    String name, {
+    PropertyValueType type = PropertyValueType.text,
+  }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       return left(
@@ -612,6 +614,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         id: _ids.next(),
         name: trimmed,
         createdAt: _clock(),
+        type: type,
       );
       await _db
           .into(_db.propertyDefinitions)
@@ -620,6 +623,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
               id: definition.id,
               name: definition.name,
               createdAt: definition.createdAt,
+              type: Value(definition.type),
             ),
           );
 
@@ -774,7 +778,13 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
       Space(id: row.id, name: row.name, createdAt: row.createdAt);
 
   PropertyDefinition _toPropertyDefinition(PropertyDefinitionRow row) =>
-      PropertyDefinition(id: row.id, name: row.name, createdAt: row.createdAt);
+      PropertyDefinition(
+        id: row.id,
+        name: row.name,
+        createdAt: row.createdAt,
+        type: row.type,
+        isSystem: row.isSystem,
+      );
 
   PropertyValue _toPropertyValue(PropertyValueRow row) => PropertyValue(
     id: row.id,

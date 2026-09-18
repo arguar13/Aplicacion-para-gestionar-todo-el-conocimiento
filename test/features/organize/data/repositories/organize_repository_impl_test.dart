@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -818,6 +819,30 @@ void main() {
         final result = await repository.getOrCreatePropertyDefinition('   ');
 
         expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('crearla con un type indicado lo guarda', () async {
+        final result = await repository.getOrCreatePropertyDefinition(
+          'Población',
+          type: PropertyValueType.number,
+        );
+
+        expect(result.getRight().toNullable()!.type, PropertyValueType.number);
+      });
+
+      test('un nombre repetido no le pisa el type a la categoría '
+          'existente', () async {
+        final first = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+        expect(first.type, PropertyValueType.text);
+
+        final second = await repository.getOrCreatePropertyDefinition(
+          'región',
+          type: PropertyValueType.number,
+        );
+
+        expect(second.getRight().toNullable()!.type, PropertyValueType.text);
       });
 
       test('borrar una categoría se lleva sus valores y las asignaciones '
