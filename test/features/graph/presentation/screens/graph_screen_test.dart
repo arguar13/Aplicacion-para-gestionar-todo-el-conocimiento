@@ -491,4 +491,17 @@ void main() {
       },
     );
   });
+
+  testWidgets('el botón de tensión navega a la pantalla de Tensión', (
+    tester,
+  ) async {
+    harness.goTo('/graph');
+    await tester.pumpWidget(harness.wrapWithAppRouter());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip(es.graphTensionTooltip));
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.tensionTitle), findsOneWidget);
+  });
 }

@@ -19,6 +19,7 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
+import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
@@ -104,6 +105,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.embeddingBackfill,
         name: RouteNames.embeddingBackfill,
         builder: (context, state) => const EmbeddingBackfillScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.graphTension,
+        name: RouteNames.graphTension,
+        builder: (context, state) => const TensionScreen(),
       ),
       // Los siete destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de

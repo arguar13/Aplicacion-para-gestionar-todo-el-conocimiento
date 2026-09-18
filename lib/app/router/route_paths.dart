@@ -37,6 +37,11 @@ abstract final class RoutePaths {
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
+  /// Los pares de elementos que se contradicen entre sí, en toda la
+  /// bóveda. Ruta plana bajo `/graph`, mismo criterio que [chatModel]: es
+  /// una lente sobre datos que ya vive en el grafo, no un destino propio.
+  static const graphTension = '$graph/tension';
+
   /// Preguntarle algo a la bóveda.
   static const chat = '/chat';
 
@@ -76,6 +81,7 @@ abstract final class RouteNames {
   static const chatModel = 'chat-model';
   static const embeddingModel = 'embedding-model';
   static const embeddingBackfill = 'embedding-backfill';
+  static const graphTension = 'graph-tension';
   static const review = 'review';
   static const settings = 'settings';
 }

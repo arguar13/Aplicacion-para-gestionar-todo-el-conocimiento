@@ -1432,6 +1432,18 @@
   "@embeddingBackfillNothingToDo": {
     "description": "Mensaje cuando el backfill termina sin haber encontrado ninguna fuente con chunks."
   },
+  "graphTensionTooltip": "Tensión",
+  "@graphTensionTooltip": {
+    "description": "Tooltip del botón en el AppBar del grafo que lleva a la pantalla de Tensión."
+  },
+  "tensionTitle": "Tensión",
+  "@tensionTitle": {
+    "description": "Título de la pantalla de Tensión."
+  },
+  "tensionEmpty": "Todavía no hay elementos que se contradigan. Esto lista los pares vinculados como \"contradice\" —desde el grafo, el motor automático, o a mano—.",
+  "@tensionEmpty": {
+    "description": "Mensaje cuando no hay ningún vínculo de tipo contradicts en toda la bóveda."
+  },
   "chatHistoryTooltip": "Historial de conversaciones",
   "@chatHistoryTooltip": {
     "description": "Tooltip del ícono que abre el historial de conversaciones del chat."

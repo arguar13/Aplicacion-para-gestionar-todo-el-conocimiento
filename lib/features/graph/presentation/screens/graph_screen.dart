@@ -283,6 +283,11 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
         title: Text(l10n.graphTitle),
         actions: [
           IconButton(
+            icon: const Icon(Icons.compare_arrows),
+            tooltip: l10n.graphTensionTooltip,
+            onPressed: () => context.push(RoutePaths.graphTension),
+          ),
+          IconButton(
             icon: const Icon(Icons.palette_outlined),
             tooltip: l10n.graphLegendTooltip,
             onPressed: () => _showLegend(context, l10n),
