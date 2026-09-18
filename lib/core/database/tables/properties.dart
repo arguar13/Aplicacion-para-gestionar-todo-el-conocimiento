@@ -1,8 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
-/// usuario, no la app.
+/// usuario, no la app —salvo "Tema" y "Fecha del hecho", categorías de
+/// sistema que la propia migración siembra (ver
+/// `seed_system_property_categories_v9.dart`).
 @DataClassName('PropertyDefinitionRow')
 class PropertyDefinitions extends Table {
   TextColumn get id => text()();
@@ -11,6 +15,17 @@ class PropertyDefinitions extends Table {
   TextColumn get name => text().unique()();
 
   DateTimeColumn get createdAt => dateTime()();
+
+  /// Qué clase de valor acepta. `text` para toda categoría creada antes
+  /// de que esto existiera, y para cualquiera que se cree sin elegir
+  /// otra cosa.
+  TextColumn get type =>
+      textEnum<PropertyValueType>().withDefault(const Constant('text'))();
+
+  /// `true` para "Tema" y "Fecha del hecho": no se pueden borrar ni
+  /// renombrar —ver el guard en
+  /// `OrganizeRepositoryImpl.deletePropertyDefinition`—.
+  BoolColumn get isSystem => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -44,12 +59,73 @@ class PropertyValues extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Solo si la categoría dueña es de tipo número. [value] sigue siendo
+  /// el texto que se muestra.
+  RealColumn get numberValue => real().nullable()();
+
+  // Fecha del hecho: año ASTRONÓMICO (1 d.C.=1, 1 a.C.=0, 44 a.C.=-43),
+  // firmado, para que ORDER BY cruce el cero sin casos especiales — ver
+  // `HistoricalDate` en el dominio. `dateTo*` es un DERIVADO de
+  // `dateFrom*`+`datePrecision`, no una segunda fecha que el usuario
+  // haya tipeado: viajan las seis juntas, o ninguna (valor no es fecha).
+  IntColumn get dateFromYear => integer().nullable()();
+  IntColumn get dateFromMonth => integer().nullable()(); // 1-12
+  IntColumn get dateFromDay => integer().nullable()(); // 1-31
+  IntColumn get dateToYear => integer().nullable()();
+  IntColumn get dateToMonth => integer().nullable()();
+  IntColumn get dateToDay => integer().nullable()();
+  TextColumn get datePrecision => textEnum<DatePrecision>().nullable()();
+
+  /// "circa": el hecho no se sabe con precisión exacta, aunque sí la
+  /// precisión nominal ("circa siglo III a.C."). Metadato de
+  /// presentación — no afecta el rango.
+  BoolColumn get dateIsCirca => boolean().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 
   @override
   List<String> get customConstraints => [
     'UNIQUE (definition_id, value COLLATE NOCASE)',
+  ];
+}
+
+/// Un sinónimo que resuelve al mismo valor: "Constantinopla" y "Bizancio"
+/// son alias del mismo [PropertyValue].
+///
+/// [definitionId] está denormalizado desde `PropertyValues.definitionId`
+/// —SQLite no puede expresar un `UNIQUE` que cruce a otra tabla vía FK—,
+/// para poder exigir que un alias sea único DENTRO DE LA CATEGORÍA, no
+/// por valor ni global: "Roma" no puede ser alias de dos valores
+/// distintos de "Región" a la vez, pero si además existe una categoría
+/// "Ciudad natal", "Roma" ahí es un alias completamente aparte. Que un
+/// alias no coincida con el *label* de otro valor de la misma categoría
+/// no lo cubre este `UNIQUE` —se valida en código, igual que `renameTag`
+/// valida colisiones en Dart—.
+@DataClassName('PropertyAliasRow')
+@TableIndex(name: 'idx_property_aliases_value', columns: {#propertyValueId})
+class PropertyAliases extends Table {
+  TextColumn get id => text()();
+
+  TextColumn get propertyValueId =>
+      text().references(PropertyValues, #id, onDelete: KeyAction.cascade)();
+
+  TextColumn get definitionId => text().references(
+    PropertyDefinitions,
+    #id,
+    onDelete: KeyAction.cascade,
+  )();
+
+  TextColumn get alias => text()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (definition_id, alias COLLATE NOCASE)',
   ];
 }
 

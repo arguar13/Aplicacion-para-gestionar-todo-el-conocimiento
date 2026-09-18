@@ -26,11 +26,13 @@ import 'package:sinapsis/core/database/tables/tags.dart';
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -58,6 +60,7 @@ part 'app_database.g.dart';
     PropertyDefinitions,
     PropertyValues,
     ItemPropertyValues,
+    PropertyAliases,
     KnowledgeEntries,
     KnowledgeSources,
     KnowledgeNotes,
@@ -90,7 +93,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -170,6 +173,30 @@ class AppDatabase extends _$AppDatabase {
           ids: const UuidV7Generator(),
           logger: ConsoleAppLogger(),
         );
+      }
+      // Vocabulario controlado: tipo y "categoría de sistema" sobre las
+      // categorías que ya existían, más los alias que resuelven un
+      // sinónimo al valor real — ver la decisión sobre esto en
+      // docs/arquitectura.md. Solo el esquema por ahora: sembrar "Tema"/
+      // "Fecha del hecho" y migrar las etiquetas existentes son pasos
+      // posteriores, sin volver a subir `schemaVersion`.
+      if (from < 9) {
+        await migrator.addColumn(propertyDefinitions, propertyDefinitions.type);
+        await migrator.addColumn(
+          propertyDefinitions,
+          propertyDefinitions.isSystem,
+        );
+        await migrator.addColumn(propertyValues, propertyValues.numberValue);
+        await migrator.addColumn(propertyValues, propertyValues.dateFromYear);
+        await migrator.addColumn(propertyValues, propertyValues.dateFromMonth);
+        await migrator.addColumn(propertyValues, propertyValues.dateFromDay);
+        await migrator.addColumn(propertyValues, propertyValues.dateToYear);
+        await migrator.addColumn(propertyValues, propertyValues.dateToMonth);
+        await migrator.addColumn(propertyValues, propertyValues.dateToDay);
+        await migrator.addColumn(propertyValues, propertyValues.datePrecision);
+        await migrator.addColumn(propertyValues, propertyValues.dateIsCirca);
+        await migrator.createTable(propertyAliases);
+        await migrator.createIndex(idxPropertyAliasesValue);
       }
     },
     beforeOpen: (details) async {
