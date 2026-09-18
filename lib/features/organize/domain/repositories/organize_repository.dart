@@ -1,5 +1,6 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
@@ -228,5 +229,16 @@ abstract interface class OrganizeRepository {
   Future<Either<Failure, Unit>> mergePropertyValues({
     required String keepId,
     required String discardId,
+  });
+
+  /// El valor bajo [definitionId] que representa [date], identificado
+  /// por su [HistoricalDate.label]. Si ya existe uno con ese label, se
+  /// devuelve tal cual; si no, se crea con el rango que [date] calcula.
+  ///
+  /// Devuelve un fallo si [definitionId] no existe o no es una
+  /// categoría de tipo fecha.
+  Future<Either<Failure, PropertyValue>> getOrCreateHistoricalPropertyValue({
+    required String definitionId,
+    required HistoricalDate date,
   });
 }

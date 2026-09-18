@@ -4,6 +4,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -1598,6 +1600,90 @@ void main() {
         );
         expect(resolved.getRight().toNullable()?.id, 'val-tercero');
       });
+    });
+
+    group('valores históricos', () {
+      test('crea un valor con su rango, y la segunda llamada con la '
+          'misma fecha reusa el mismo', () async {
+        final fecha = (await repository.getOrCreatePropertyDefinition(
+          'Fecha del hecho fundacional',
+          type: PropertyValueType.date,
+        )).getRight().toNullable()!;
+        const date = HistoricalDate(
+          year: 44,
+          precision: DatePrecision.year,
+          isBce: true,
+        );
+
+        final first = await repository.getOrCreateHistoricalPropertyValue(
+          definitionId: fecha.id,
+          date: date,
+        );
+        final second = await repository.getOrCreateHistoricalPropertyValue(
+          definitionId: fecha.id,
+          date: date,
+        );
+
+        expect(first.getRight().toNullable()?.value, '44 a.C.');
+        expect(
+          second.getRight().toNullable()?.id,
+          first.getRight().toNullable()?.id,
+        );
+        expect(
+          await (db.select(
+            db.propertyValues,
+          )..where((v) => v.definitionId.equals(fecha.id))).get(),
+          hasLength(1),
+        );
+      });
+
+      test('una categoría que no es de tipo fecha se rechaza', () async {
+        final region = (await repository.getOrCreatePropertyDefinition(
+          'Región',
+        )).getRight().toNullable()!;
+
+        final result = await repository.getOrCreateHistoricalPropertyValue(
+          definitionId: region.id,
+          date: const HistoricalDate(year: 44, precision: DatePrecision.year),
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('una categoría que no existe se rechaza', () async {
+        final result = await repository.getOrCreateHistoricalPropertyValue(
+          definitionId: 'no-existe',
+          date: const HistoricalDate(year: 44, precision: DatePrecision.year),
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test(
+        'la fecha original se reconstruye igual al leerla de vuelta',
+        () async {
+          final fecha = (await repository.getOrCreatePropertyDefinition(
+            'Fecha del hecho fundacional',
+            type: PropertyValueType.date,
+          )).getRight().toNullable()!;
+          const date = HistoricalDate(
+            year: 44,
+            precision: DatePrecision.month,
+            month: 3,
+            isBce: true,
+            isCirca: true,
+          );
+
+          await repository.getOrCreateHistoricalPropertyValue(
+            definitionId: fecha.id,
+            date: date,
+          );
+
+          final values = await repository.watchPropertyValues(fecha.id).first;
+
+          expect(values.single.historicalDate, date);
+        },
+      );
     });
   });
 }

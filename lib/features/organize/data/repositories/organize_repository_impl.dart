@@ -2,7 +2,9 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
@@ -1005,6 +1007,83 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, PropertyValue>> getOrCreateHistoricalPropertyValue({
+    required String definitionId,
+    required HistoricalDate date,
+  }) async {
+    try {
+      final definition = await (_db.select(
+        _db.propertyDefinitions,
+      )..where((d) => d.id.equals(definitionId))).getSingleOrNull();
+      if (definition == null) {
+        return left(
+          const Failure.validation(message: 'La categoría no existe.'),
+        );
+      }
+      if (definition.type != PropertyValueType.date) {
+        return left(
+          const Failure.validation(
+            message: 'Esta categoría no es de tipo fecha.',
+          ),
+        );
+      }
+
+      final label = date.label;
+      final existing =
+          await (_db.select(_db.propertyValues)..where(
+                (v) =>
+                    v.definitionId.equals(definitionId) &
+                    v.value.lower().equals(label.toLowerCase()),
+              ))
+              .getSingleOrNull();
+      if (existing != null) return right(_toPropertyValue(existing));
+
+      final rangeStart = date.rangeStart;
+      final rangeEnd = date.rangeEnd;
+      final id = _ids.next();
+      final createdAt = _clock();
+      await _db
+          .into(_db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: id,
+              definitionId: definitionId,
+              value: label,
+              createdAt: createdAt,
+              dateFromYear: Value(rangeStart.year),
+              dateFromMonth: Value(rangeStart.month),
+              dateFromDay: Value(rangeStart.day),
+              dateToYear: Value(rangeEnd.year),
+              dateToMonth: Value(rangeEnd.month),
+              dateToDay: Value(rangeEnd.day),
+              datePrecision: Value(date.precision),
+              dateIsCirca: Value(date.isCirca),
+            ),
+          );
+
+      return right(
+        PropertyValue(
+          id: id,
+          definitionId: definitionId,
+          value: label,
+          createdAt: createdAt,
+          historicalDate: date,
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.getOrCreateHistoricalPropertyValue',
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
@@ -1029,7 +1108,30 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     definitionId: row.definitionId,
     value: row.value,
     createdAt: row.createdAt,
+    numberValue: row.numberValue,
+    historicalDate: _toHistoricalDate(row),
   );
+
+  /// `null` salvo que la fila venga de una categoría de tipo fecha —ahí
+  /// viaja siempre `datePrecision`, así que su presencia es la señal de
+  /// que hay una fecha que reconstruir—. `month`/`day` solo importan
+  /// para las precisiones que los usan: para el resto son `null` en el
+  /// [HistoricalDate] original, aunque `dateFromMonth`/`dateFromDay`
+  /// guarden 1 (el primer día del rango) para toda otra precisión.
+  HistoricalDate? _toHistoricalDate(PropertyValueRow row) {
+    final precision = row.datePrecision;
+    if (precision == null) return null;
+
+    final usesMonth =
+        precision == DatePrecision.day || precision == DatePrecision.month;
+    return HistoricalDate.fromAstronomicalYear(
+      row.dateFromYear!,
+      precision: precision,
+      month: usesMonth ? row.dateFromMonth : null,
+      day: precision == DatePrecision.day ? row.dateFromDay : null,
+      isCirca: row.dateIsCirca ?? false,
+    );
+  }
 
   Highlight _toHighlight(HighlightRow row) => Highlight(
     id: row.id,
