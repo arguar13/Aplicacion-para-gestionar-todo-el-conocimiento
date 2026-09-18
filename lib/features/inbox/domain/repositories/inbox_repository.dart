@@ -1,5 +1,6 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
@@ -31,4 +32,19 @@ abstract interface class InboxRepository {
   /// La madurez de un elemento, si es una nota. `null` si no lo es, o si
   /// todavía no tiene fila en el espejo.
   Stream<NoteMaturity?> watchNoteMaturity(String itemId);
+
+  /// El tipo de un elemento, si es una nota. `null` si no lo es, o si
+  /// todavía no tiene fila en el espejo — mismo contrato que
+  /// [watchNoteMaturity].
+  Stream<NoteKind?> watchNoteKind(String itemId);
+
+  /// Cambia el tipo de una nota. Sin una máquina de estados completa: el
+  /// único llamador hoy es "marcar/desmarcar como mapa" desde su
+  /// detalle (ver la decisión sobre F6) — marcar escribe [NoteKind.map],
+  /// desmarcar escribe [NoteKind.living] sin intentar restaurar el tipo
+  /// anterior.
+  Future<Either<Failure, Unit>> setNoteKind({
+    required String itemId,
+    required NoteKind kind,
+  });
 }

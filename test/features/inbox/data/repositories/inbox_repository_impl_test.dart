@@ -184,4 +184,62 @@ void main() {
       );
     });
   });
+
+  group('watchNoteKind', () {
+    test('null para una fuente', () async {
+      final id = await seedEntry();
+
+      expect(await repository.watchNoteKind(id).first, isNull);
+    });
+
+    test('el valor real para una nota', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id, noteKind: NoteKind.atomic);
+
+      expect(await repository.watchNoteKind(id).first, NoteKind.atomic);
+    });
+
+    test('se actualiza sola tras setNoteKind', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id);
+
+      expect(await repository.watchNoteKind(id).first, NoteKind.living);
+
+      await repository.setNoteKind(itemId: id, kind: NoteKind.map);
+
+      expect(await repository.watchNoteKind(id).first, NoteKind.map);
+    });
+  });
+
+  group('setNoteKind', () {
+    test('cambia el tipo de la nota', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id);
+
+      final result = await repository.setNoteKind(
+        itemId: id,
+        kind: NoteKind.map,
+      );
+
+      expect(result.isRight(), isTrue);
+      final row = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(id))).getSingle();
+      expect(row.noteKind, NoteKind.map);
+    });
+
+    test('sin espejo de nota devuelve un fallo, no revienta', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      // Sin `seedNote`: el elemento existe pero no tiene fila en
+      // `knowledgeNotes` — el mismo caso que un elemento que todavía no
+      // pasó por el espejo.
+
+      final result = await repository.setNoteKind(
+        itemId: id,
+        kind: NoteKind.map,
+      );
+
+      expect(result.isLeft(), isTrue);
+    });
+  });
 }

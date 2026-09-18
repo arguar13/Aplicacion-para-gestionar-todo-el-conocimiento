@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
@@ -36,3 +37,11 @@ final noteMaturityProvider = StreamProvider.autoDispose
     .family<NoteMaturity?, String>((ref, itemId) {
       return ref.watch(inboxRepositoryProvider).watchNoteMaturity(itemId);
     });
+
+/// El tipo de un elemento, si es una nota, actualizándose solo.
+final noteKindProvider = StreamProvider.autoDispose.family<NoteKind?, String>((
+  ref,
+  itemId,
+) {
+  return ref.watch(inboxRepositoryProvider).watchNoteKind(itemId);
+});

@@ -130,6 +130,51 @@ class InboxRepositoryImpl implements InboxRepository {
     );
   }
 
+  @override
+  Stream<NoteKind?> watchNoteKind(String itemId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.knowledgeNotes],
+      read: () async {
+        final row = await (_db.select(
+          _db.knowledgeNotes,
+        )..where((n) => n.itemId.equals(itemId))).getSingleOrNull();
+        return row?.noteKind;
+      },
+      telemetry: _telemetry,
+      hint: 'InboxRepositoryImpl.watchNoteKind',
+    );
+  }
+
+  @override
+  Future<Either<Failure, Unit>> setNoteKind({
+    required String itemId,
+    required NoteKind kind,
+  }) async {
+    try {
+      final updated =
+          await (_db.update(_db.knowledgeNotes)
+                ..where((n) => n.itemId.equals(itemId)))
+              .writeReturning(KnowledgeNotesCompanion(noteKind: Value(kind)));
+
+      if (updated.isEmpty) {
+        return left(
+          const Failure.unexpected(
+            message: 'La nota ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'InboxRepositoryImpl.setNoteKind'),
+      );
+    }
+  }
+
   Failure _unexpected(Object e, StackTrace stackTrace, String hint) {
     _telemetry.recordError(e, stackTrace, hint: hint);
     return Failure.unexpected(message: e.toString());
