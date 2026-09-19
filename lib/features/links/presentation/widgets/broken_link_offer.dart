@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/links/presentation/widgets/note_kind_chips.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El aviso del editor cuando un `[[Título]]` no tiene ninguna nota con ese
@@ -114,25 +114,11 @@ class _BrokenLinkOfferState extends State<BrokenLinkOffer> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Semantics(
-                  container: true,
-                  label: l10n.blocksBrokenLinkKind,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final kind in NoteKind.values)
-                        ChoiceChip(
-                          avatar: Icon(kind.icon, size: 18),
-                          label: Text(kind.label(l10n)),
-                          selected: _kind == kind,
-                          showCheckmark: false,
-                          onSelected: enabled
-                              ? (_) => setState(() => _kind = kind)
-                              : null,
-                        ),
-                    ],
-                  ),
+                NoteKindChips(
+                  selected: _kind,
+                  onChanged: enabled
+                      ? (kind) => setState(() => _kind = kind)
+                      : null,
                 ),
                 const SizedBox(height: 8),
                 // `Wrap` y no `Row`: con un texto grande o una pantalla angosta

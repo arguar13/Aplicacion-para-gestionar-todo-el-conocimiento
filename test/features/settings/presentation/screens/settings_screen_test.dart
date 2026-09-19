@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -126,6 +127,30 @@ void main() {
 
       expect(find.byType(VocabularyScreen), findsOneWidget);
       expect(find.text(es.vocabularyTitle), findsOneWidget);
+    });
+
+    testWidgets('muestra la opción de enlaces rotos (F9)', (tester) async {
+      await pumpSettings(tester);
+
+      expect(find.text(es.brokenLinksTitle), findsOneWidget);
+    });
+
+    testWidgets('tocar los enlaces rotos abre su pantalla, con el router '
+        'real', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo(RoutePaths.settings);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.brokenLinksTitle));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BrokenLinksScreen), findsOneWidget);
+      // La bóveda de la prueba no tiene ningún enlace roto.
+      expect(find.text(es.brokenLinksEmpty), findsOneWidget);
     });
   });
 }

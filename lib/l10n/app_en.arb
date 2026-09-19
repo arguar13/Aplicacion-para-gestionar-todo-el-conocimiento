@@ -1280,9 +1280,60 @@
       }
     }
   },
-  "blocksBrokenLinkKind": "Note type",
-  "@blocksBrokenLinkKind": {
+  "linksNoteKindLabel": "Note type",
+  "@linksNoteKindLabel": {
     "description": "Etiqueta accesible del selector de tipo (atómica, viva o mapa) de la nota que se ofrece crear desde un enlace roto."
+  },
+  "brokenLinksTitle": "Broken links",
+  "@brokenLinksTitle": {
+    "description": "Título de la pantalla que lista los [[enlaces]] sin nota de toda la bóveda, y de su acceso en Ajustes."
+  },
+  "brokenLinksLoadError": "Couldn't read the links.",
+  "@brokenLinksLoadError": {
+    "description": "Mensaje cuando falla la lectura de los enlaces rotos."
+  },
+  "brokenLinksEmpty": "No broken links. Every [[link]] in your notes points to a note.",
+  "@brokenLinksEmpty": {
+    "description": "Estado vacío de la pantalla de enlaces rotos."
+  },
+  "brokenLinksHint": "A typo in a link shows up here too. If a name looks wrong, open the note and fix it instead of creating a note with the wrong name.",
+  "@brokenLinksHint": {
+    "description": "Aviso al tope de la lista de enlaces rotos: un error de tipeo en un enlace se ve igual que una nota que falta."
+  },
+  "brokenLinksWrittenIn": "{count, plural, =1{Written in 1 note} other{Written in {count} notes}}",
+  "@brokenLinksWrittenIn": {
+    "description": "Subtítulo de un enlace roto: en cuántas notas está escrito.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "brokenLinksSelectAll": "Select all",
+  "@brokenLinksSelectAll": {
+    "description": "Acción que marca todos los enlaces rotos para crearlos en lote."
+  },
+  "brokenLinksClearSelection": "Clear selection",
+  "@brokenLinksClearSelection": {
+    "description": "Acción que desmarca todos los enlaces rotos."
+  },
+  "brokenLinksCreateSelected": "{count, plural, =1{Create 1 note} other{Create {count} notes}}",
+  "@brokenLinksCreateSelected": {
+    "description": "Botón que crea una nota por cada enlace roto marcado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "brokenLinksCreated": "{count, plural, =0{No notes created} =1{1 note created} other{{count} notes created}}",
+  "@brokenLinksCreated": {
+    "description": "Aviso tras crear en lote las notas de los enlaces rotos marcados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "blocksBrokenLinkCreate": "Create note",
   "@blocksBrokenLinkCreate": {

@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -17,6 +18,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/links/data/repositories/link_repository_impl.dart';
+import 'package:sinapsis/features/links/domain/entities/broken_link.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -34,7 +36,13 @@ void main() {
 
   final now = DateTime(2026, 9, 19, 10);
 
+  /// Un segundo más con cada llamada: lo que se guarda primero es más antiguo,
+  /// sin depender del orden alfabético de identificadores como `gen-10`.
+  var tick = 0;
+  DateTime clock() => now.add(Duration(seconds: tick++));
+
   setUp(() {
+    tick = 0;
     db = AppDatabase(NativeDatabase.memory());
     ids = FakeIdGenerator(prefix: 'gen');
     final telemetry = MockTelemetryService();
@@ -43,7 +51,7 @@ void main() {
       telemetry: telemetry,
       files: InMemoryFileStore(),
       ids: ids,
-      clock: () => now,
+      clock: clock,
     );
     repository = LinkRepositoryImpl(
       database: db,
@@ -51,7 +59,7 @@ void main() {
       inbox: InboxRepositoryImpl(database: db, telemetry: telemetry),
       telemetry: telemetry,
       ids: ids,
-      clock: () => now,
+      clock: clock,
     );
   });
 
@@ -262,6 +270,136 @@ void main() {
       await repository.createNoteForLink(title: 'CARTAGO');
 
       expect(await db.select(db.items).get(), hasLength(1));
+    });
+  });
+
+  group('watchBrokenLinks', () {
+    Future<List<BrokenLink>> current() => repository.watchBrokenLinks().first;
+
+    test('agrupa por título y lista las notas que lo escriben', () async {
+      await seedItem('roma', 'Roma');
+      await seedNote('n1', 'Viaje', ['[[Cartago]], [[Atenas]] y [[Roma]]']);
+      await seedNote('n2', 'Diario', ['Otra vez [[cartago]].']);
+
+      final links = await current();
+
+      // "Roma" existe: su enlace no está roto. "Cartago" lo escriben dos
+      // notas, "Atenas" una.
+      expect(links.map((l) => l.title), ['Cartago', 'Atenas']);
+      expect(links.first.normalizedTitle, 'cartago');
+      // Las notas, por título; el título del grupo, como lo escribió la
+      // primera nota que lo escribió.
+      expect(links.first.sources.map((s) => (s.itemId, s.title)), [
+        ('n2', 'Diario'),
+        ('n1', 'Viaje'),
+      ]);
+      expect(links.last.sources.map((s) => s.itemId), ['n1']);
+    });
+
+    test('a igual cantidad de notas ordena alfabéticamente sin mirar los '
+        'acentos', () async {
+      await seedNote('n1', 'Viaje', ['[[Zeta]] [[Época]] [[Beta]]']);
+
+      final links = await current();
+
+      // "Época" va con las E, no después de la Z.
+      expect(links.map((l) => l.title), ['Beta', 'Época', 'Zeta']);
+    });
+
+    test('sin enlaces rotos emite una lista vacía', () async {
+      await seedItem('roma', 'Roma');
+      await seedNote('n1', 'Viaje', ['[[Roma]]']);
+
+      expect(await current(), isEmpty);
+    });
+
+    test('un enlace deja de estar roto en cuanto se crea su nota', () async {
+      await seedNote('n1', 'Viaje', ['[[Cartago]] y [[Atenas]]']);
+      final queue = StreamQueue(repository.watchBrokenLinks());
+      addTearDown(queue.cancel);
+      expect((await queue.next).map((l) => l.title), ['Atenas', 'Cartago']);
+
+      await repository.createNoteForLink(title: 'Cartago');
+
+      // Puede haber una emisión intermedia por cada tabla que cambia: se
+      // espera a la que ya refleja la nota creada.
+      var links = await queue.next;
+      while (links.length != 1) {
+        links = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(links.single.title, 'Atenas');
+    });
+  });
+
+  group('createNotesForLinks', () {
+    test('crea una nota por título, del subtipo elegido, y devuelve '
+        'cuántas', () async {
+      final result = await repository.createNotesForLinks([
+        'Cartago',
+        'Atenas',
+      ], kind: NoteKind.atomic);
+
+      expect(result.getRight().toNullable(), 2);
+      final items = await db.select(db.items).get();
+      expect(items.map((i) => i.title).toSet(), {'Cartago', 'Atenas'});
+      for (final item in items) {
+        expect((await mirrorOf(item.id)).noteKind, NoteKind.atomic);
+      }
+    });
+
+    test('resuelve el enlace en todas las notas que lo escriben', () async {
+      await seedNote('n1', 'Viaje', ['[[Cartago]]']);
+      await seedNote('n2', 'Diario', ['[[cartago]]']);
+
+      await repository.createNotesForLinks(['Cartago']);
+
+      final links = await db.select(db.inlineLinks).get();
+      expect(links.map((l) => l.toItemId).toSet(), hasLength(1));
+      expect(links.every((l) => l.toItemId != null), isTrue);
+      final relations = await db.select(db.relations).get();
+      expect(relations.map((r) => r.fromItemId).toSet(), {'n1', 'n2'});
+    });
+
+    test('un título que ya tiene nota, o repetido en el lote, no crea un '
+        'homónimo ni cuenta', () async {
+      await seedItem('roma', 'Roma');
+
+      final result = await repository.createNotesForLinks([
+        'Roma',
+        'Atenas',
+        'atenas',
+      ]);
+
+      expect(result.getRight().toNullable(), 1);
+      expect((await db.select(db.items).get()).map((i) => i.title).toSet(), {
+        'Roma',
+        'Atenas',
+      });
+    });
+
+    test('es atómico: si una falla no queda ninguna', () async {
+      await seedNote('n1', 'Viaje', ['[[Cartago]]']);
+
+      // El segundo título es inválido: la primera nota, ya creada dentro del
+      // lote, tiene que deshacerse.
+      final result = await repository.createNotesForLinks([
+        'Cartago',
+        '   ',
+        'Atenas',
+      ]);
+
+      expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      expect((await db.select(db.items).get()).map((i) => i.title), ['Viaje']);
+      final link = await db.select(db.inlineLinks).getSingle();
+      expect(link.toItemId, isNull);
+      expect(await db.select(db.relations).get(), isEmpty);
+    });
+
+    test('una lista vacía no crea nada', () async {
+      final result = await repository.createNotesForLinks(const []);
+
+      expect(result.getRight().toNullable(), 0);
+      expect(await db.select(db.items).get(), isEmpty);
     });
   });
 }

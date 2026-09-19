@@ -19,6 +19,7 @@ import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
@@ -110,6 +111,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.vocabularyCategory,
         builder: (context, state) =>
             VocabularyCategoryScreen(definitionId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: RoutePaths.brokenLinks,
+        name: RouteNames.brokenLinks,
+        builder: (context, state) => const BrokenLinksScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

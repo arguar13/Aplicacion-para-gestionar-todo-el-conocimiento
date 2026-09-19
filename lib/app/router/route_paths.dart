@@ -54,6 +54,11 @@ abstract final class RoutePaths {
   static String vocabularyCategory(String definitionId) =>
       '$vocabulary/category/$definitionId';
 
+  /// Los `[[enlaces]]` sin nota de toda la bóveda (F9), con la creación en
+  /// lote. Ruta plana, mismo criterio que [duplicates]: es una acción de
+  /// mantenimiento de la bóveda, no un destino de navegación.
+  static const brokenLinks = '/broken-links';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -106,6 +111,7 @@ abstract final class RouteNames {
   static const duplicates = 'duplicates';
   static const vocabulary = 'vocabulary';
   static const vocabularyCategory = 'vocabulary-category';
+  static const brokenLinks = 'broken-links';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

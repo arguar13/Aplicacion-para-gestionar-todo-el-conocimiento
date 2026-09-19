@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/links/domain/entities/broken_link.dart';
 
 /// Los `[[Título]]` que apuntan a algo que no existe, y cómo completarlos.
 ///
@@ -34,6 +35,23 @@ abstract interface class LinkRepository {
   /// elemento en vez de crear un homónimo.
   Future<Either<Failure, KnowledgeItem>> createNoteForLink({
     required String title,
+    NoteKind kind = NoteKind.living,
+  });
+
+  /// Los `[[Título]]` sin nota de toda la bóveda, agrupados por título y
+  /// actualizándose solos: los que más notas escriben primero, y a igual
+  /// cantidad, por orden alfabético.
+  ///
+  /// Sale de `inline_link` y no de releer el texto de cada nota.
+  Stream<List<BrokenLink>> watchBrokenLinks();
+
+  /// Crea una nota por cada título de [titles], todas del subtipo [kind], y
+  /// devuelve cuántas creó de verdad.
+  ///
+  /// Es atómico: si una falla, ninguna queda creada. Un título que ya tiene
+  /// nota —o que se repite en [titles]— no crea un homónimo y no cuenta.
+  Future<Either<Failure, int>> createNotesForLinks(
+    List<String> titles, {
     NoteKind kind = NoteKind.living,
   });
 }
