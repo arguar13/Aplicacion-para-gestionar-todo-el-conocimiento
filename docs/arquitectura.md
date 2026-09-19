@@ -2667,6 +2667,148 @@ chunks y el texto de las fuentes quedan idénticos.
 
 ---
 
+### 42. F9 de consolidación: el ciclo de mantenimiento, la línea de tiempo y la bandeja como mazo
+
+Segunda fase del encargo de cierre (F8 a F11, ver la decisión 34). La app ya
+tenía entrada, digestión y trabajo, pero ningún lugar donde consolidar lo
+acumulado ni ver si algo se pudre. F9 lo construye en veintidós commits: un
+panel de salud, la línea de tiempo sobre "Fecha del hecho", los enlaces rotos
+de toda la bóveda, las sugerencias en lote, y cuatro cambios del ciclo diario
+—la Bandeja como mazo, la vista de lectura para destilar, la nota viva con sus
+fuentes citadas y la distinción visual entre fuente y nota—.
+
+**Dónde el encargo chocó con el código real.** Se dijo antes de resolver, y
+cada punto tiene su solución más abajo. "Contradicciones no vistas" no existía
+como concepto: `Relations` no guardaba si una relación se había revisado. Los
+bloques de una nota no tenían fecha propia, solo la nota tenía `updatedAt`, así
+que "bloques nuevos en la semana" no se podía calcular. La extracción guardaba
+que una nota salió de una fuente pero no DE DÓNDE. Los `[[ ]]` se resolvían al
+guardar y los rotos no dejaban rastro. Ningún visor salta a una posición
+—salvo el de medios, a un instante—. "Sostenido" en la Bandeja no tiene
+historial. Y un choque que apareció recién al armar la línea de tiempo: ninguna
+pantalla asignaba una "Fecha del hecho" —el modelo y el método del repositorio
+existían desde F5, pero el editor de propiedades solo creaba texto sin fecha—,
+así que el eje habría nacido vacío. Se agregó el formulario de fecha como
+commit propio, con la aprobación del usuario.
+
+**Un solo cambio de esquema (14 a 15), todo aditivo.** La tabla `inline_link`
+—cada `[[Título]]` con el elemento al que apunta, o sin él si está roto— y tres
+columnas nulas en `Relations`: `reviewedAt` (la marca de contradicción revisada)
+y `sourceCharStart`/`sourceCharEnd` (de dónde salió una extracción). Con el
+respaldo previo de F8 y un backfill de los enlaces de las notas existentes que
+informa lo que no pudo leer, con su plan en seco. `inline_link` referencia
+`Items` como `Relations`: F10 las repunta juntas.
+
+**Enlaces rotos.** Guardar una nota sincroniza sus enlaces y, al revés, guardar
+o renombrar cualquier elemento resuelve los rotos que tenían ese título y crea
+la relación real. La regla de coincidencia es la de siempre —recorte y
+minúsculas, el más antiguo gana—, y la propia nota no cuenta. Si se borra el
+destino el enlace vuelve a quedar roto en vez de desaparecer. El editor ofrece
+crear la nota que falta sin salir de él (con subtipo `living` por defecto), y
+una pantalla lista los rotos de toda la bóveda con creación en lote. Una nota
+con bloques ilegibles se informa por telemetría y deja sus enlaces como estaban:
+nunca borra lo que no pudo leer.
+
+**Sugerencias en lote y su deshacer.** Las de propiedad se agrupan por
+categoría y valor normalizado; `acceptMany` es transaccional —si una falla,
+ninguna—, y el usuario marca fila por fila: el lote acelera la confirmación, no
+la quita. Se agregó `revertAccepted`, que quita lo que puso una aceptación y la
+deja pendiente: solo lo que puso ELLA. Aceptar una propiedad que el elemento ya
+tenía a mano dejó de reasignarla —cambiaba su origen a "sugerida aceptada", y
+deshacer después le habría quitado una decisión del usuario—; queda anotado en
+el payload. Es el mismo criterio de no rebajar un origen manual que ya usaba la
+herencia (decisión 36).
+
+**Contradicciones revisadas, bloques con fecha, panel de salud.** La pantalla
+de Tensión muestra las pendientes y permite marcar como revisada, con deshacer.
+Cada bloque recuerda cuándo se agregó (`addedAt`, opcional en el JSON y
+compatible hacia atrás: los bloques viejos no cuentan como nuevos hasta
+editarse). El panel de salud vive al tope de la Biblioteca, plegado por
+defecto —un primer diseño siempre desplegado rompía 44 pruebas por desborde—,
+con cuatro indicadores tocables: pendientes en la Bandeja, notas por madurez,
+candidatos de vocabulario a fusionar y contradicciones sin revisar, más tres
+accesos (notas que crecieron en la semana, enlaces rotos, sugerencias por
+revisar). El umbral de "se captura más de lo que se digiere" es sobre el conteo
+ACTUAL de la Bandeja (más de 50): no hay historial para medir "sostenido".
+
+**La línea de tiempo.** El eje es continuo, en años astronómicos con fracción
+(1 d.C. empieza en 1.0, 1 a.C. en 0.0): sin salto en el cero, y a.C./d.C. se
+escriben solo al mostrar. La aritmética de calendario es la de `HistoricalDate`,
+no una copia. Un evento es un TRAMO, no un punto —"476" ocupa ese año, "siglo V"
+cien—, y un "circa" corre cada extremo la mitad del tramo: convención de dibujo,
+no un dato que la fuente haya dado. Para que dibujar diez mil hechos cueste lo
+que hay en pantalla y no lo que hay guardado, un árbol de intervalos sin
+punteros sobre los eventos ordenados devuelve la ventana visible con la cota
+del mayor final por tramo —un máximo acumulado se degradaba con un evento
+larguísimo al principio—; el reparto en carriles trabaja solo sobre esa
+ventana. Con 10.000 eventos: armado en unos 30 ms, ventana de 20 años con unos
+cien eventos y menos de 300 nodos vistos, mil cuadros de arrastre en unos 70
+ms; la prueba decide por el conteo de nodos, determinista, y usa el cronómetro
+solo como red de seguridad. La imprecisión se VE: fecha exacta, barra llena;
+aproximada, bordes que se desvanecen; década o siglo, contorno con relleno
+tenue. Pan y zoom con gestos, rueda, teclado y botones; filtros con el mismo
+`LibraryQuery` de la biblioteca (`matchingIds` expuesto: no hay un segundo motor
+de búsqueda que pueda discrepar). Solo cuenta la categoría de sistema "Fecha del
+hecho".
+
+**La Bandeja como mazo.** Tres gestos, tres teclas, tres botones que hacen lo
+mismo: a la izquierda descarta, a la derecha deja triada, arriba abre para
+destilar. Las propiedades sugeridas son chips —tocar acepta, tocar de nuevo
+deshace—; deshacer lo último (botón, Ctrl+Z o el aviso) devuelve la fuente a la
+Bandeja en el lugar que tenía. Se probó triar 50 fuentes mezclando los tres
+caminos sin cambiar de pantalla.
+
+**Vista de lectura para destilar.** Extraer guarda el rango exacto del texto de
+la fuente (`sourceCharStart`/`End`, en las coordenadas de los resaltados). La
+vista de lectura tiene "Extraer como nota" como acción principal en una barra
+fija —`bottomNavigationBar`, para que el aviso de "nota creada" se apoye encima
+y no tape el botón—, cuenta las notas que salieron de la fuente y lleva a cada
+fragmento con un salto medido con un `TextPainter` armado con los mismos estilos
+y ancho que el texto. Desde una nota extraída, "Ver en la fuente" abre la vista
+en ese fragmento.
+
+**Nota viva: fuentes citadas y madurez.** `NoteSourcesRepository` da las fuentes
+que cita una nota por dos caminos que pueden darse a la vez: un vínculo `cites`
+directo, o las fuentes de las notas atómicas que enlaza (cualquier vínculo que
+no sea una contradicción, solo los que SALEN de la nota). Cada fragmento dice
+qué atómica lo usa y, cuando la fuente tiene trozos con marca de tiempo o
+página, en qué minuto o página está. La madurez —semilla, en desarrollo,
+madura— pasa de etiqueta que se lee a algo que se mueve, con vuelta atrás: la
+decide quien escribe.
+
+**Fuente y nota se distinguen a la vista.** `EntityRole` en
+`entity_presentation.dart`, una sola fuente para la lista, el explorador, la
+búsqueda, el tablero, la tabla, el grafo, la Bandeja y la línea de tiempo: la
+fuente es un documento —esquinas casi rectas, fondo neutro, contorno fino—, la
+nota es propia —esquinas muy redondeadas, fondo teñido—. Probado por pantalla.
+
+**Verificación.** El analizador se mantuvo en la línea base (32) en cada commit y
+la suite pasó de unas 1.660 pruebas a más de 2.270, todas verdes. El invariante de chunking se
+comprobó al cerrar la fase: `f9_source_text_untouched_test.dart` ejecuta todo lo
+que hace F9 —enlaces, sugerencias en lote y su deshacer, revisiones, fechar
+hechos, extraer con posición, madurez, la Bandeja y todas las lecturas nuevas—
+sobre una bóveda con dos fuentes chunkeadas y comprueba que `fullText` y los
+chunks —con sus ids— siguen siendo idénticos y que `verifyChunkInvariant` sigue
+dando verde. Ninguna función de F9 resume ni reescribe el texto de una fuente. Un solo
+commit intermedio, `2fa6ae6`, no compila por sí solo: salió con solo el retiro
+de una pantalla por un error al armarlo, y `577e3f0` lo completa; la suite y el
+analizador se corrieron sobre el árbol completo.
+
+**Lo que F9 no hace, dicho sin adornos.** Saltar a un instante de un video o
+audio, a una página de un PDF o al paginado de DOCX/EPUB desde una nota extraída:
+la vuelta al fragmento cubre texto y transcripciones, y los visores de medios
+todavía no reciben una posición de texto. La línea de tiempo ubica meses y días
+en el eje pero su marca más fina es el mes, y solo lee "Fecha del hecho": las
+categorías de fecha que cree el usuario usan el mismo formulario y no aparecen
+en el eje. El texto de una fecha (`HistoricalDate.label`, lo que se ve en el
+chip) está escrito en español aunque la app esté en inglés: viene de F5 y es el
+valor guardado, no una presentación. El deshacer de la Bandeja alcanza a la
+última acción, no a un historial; aceptar sugerencias en lote no tiene deshacer
+en bloque. El umbral de la Bandeja no es "sostenido" porque no hay historial. Y
+el modelo viejo sigue de fuente de verdad: unificarlo, y retirar `Tags`/`ItemTags`
+y el espejo, es F10; el borrado suave y la fusión no destructiva al restaurar son
+F11.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -2880,6 +3022,16 @@ chunks y el texto de las fuentes quedan idénticos.
   de un solo uso, sin uso, categorías vacías y un explorador por categoría
   con alias, todo reversible —ver la decisión 41—. Primera fase del
   encargo de cierre F8 a F11.
+- **F9 de consolidación: salud, línea de tiempo y bandeja como mazo.** Un
+  panel de salud al tope de la Biblioteca; los enlaces rotos de toda la
+  bóveda con creación en lote; sugerencias de propiedad en lote con deshacer;
+  la línea de tiempo sobre "Fecha del hecho" —eje continuo sin salto en el
+  cero, imprecisión que se ve, 10.000 hechos con costo proporcional a la
+  ventana— con su formulario de fecha; la Bandeja como mazo de tarjetas con
+  gestos, teclas y deshacer; la vista de lectura para destilar con el salto al
+  fragmento del que salió cada nota; las fuentes citadas de una nota viva y su
+  madurez editable; y la distinción visual entre fuente y nota en todas las
+  pantallas —ver la decisión 42—. Un cambio de esquema aditivo (v15).
 
 ### Por construir
 
@@ -2889,10 +3041,9 @@ app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
 El refactor de la capa de organización (ver la decisión 34) llegó a
 F1-F7, y su encargo de cierre (F8 a F11) va en orden estricto: F8 —la
-higiene del vocabulario, ver la decisión 41— está construida. Quedan F9
-(consolidación: panel de salud de la bóveda, línea de tiempo, notas desde
-enlaces rotos, sugerencias en lote, bandeja como mazo de tarjetas), F10
-(unificar el modelo de datos: retirar el modelo viejo y el espejo, y con
-ellos `Tags`/`ItemTags`) y F11 (durabilidad: borrado suave con papelera,
-versionado por campo, fusión no destructiva al restaurar). Cada una se
-planea —plan breve, aprobado, después código— cuando le toca.
+higiene del vocabulario, ver la decisión 41— y F9 —la consolidación, ver la
+decisión 42— están construidas. Quedan F10 (unificar el modelo de datos:
+retirar el modelo viejo y el espejo, y con ellos `Tags`/`ItemTags`) y F11
+(durabilidad: borrado suave con papelera, versionado por campo, fusión no
+destructiva al restaurar). Cada una se planea —plan breve, aprobado, después
+código— cuando le toca.
