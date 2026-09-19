@@ -55,6 +55,31 @@ sealed class HistoricalDate with _$HistoricalDate {
     );
   }
 
+  /// Reconstruye la fecha a partir de lo que guarda `PropertyValues`: el año
+  /// astronómico del extremo inferior más el mes y el día de ese extremo.
+  ///
+  /// La base guarda `month`/`day` = 1 para toda precisión que no los usa
+  /// (el primer día del rango), así que acá se descartan: en la
+  /// [HistoricalDate] original eran `null`, y devolverlos con un 1 inventado
+  /// haría que dos lecturas de la misma fecha no fueran iguales.
+  factory HistoricalDate.fromStored({
+    required int astronomicalYear,
+    required DatePrecision precision,
+    int? month,
+    int? day,
+    bool? isCirca,
+  }) {
+    final usesMonth =
+        precision == DatePrecision.day || precision == DatePrecision.month;
+    return HistoricalDate.fromAstronomicalYear(
+      astronomicalYear,
+      precision: precision,
+      month: usesMonth ? month : null,
+      day: precision == DatePrecision.day ? day : null,
+      isCirca: isCirca ?? false,
+    );
+  }
+
   int get astronomicalYear => isBce ? 1 - year : year;
 
   /// El primer día que cubre esta fecha, según [precision]. Para
@@ -79,7 +104,7 @@ sealed class HistoricalDate with _$HistoricalDate {
     DatePrecision.month => (
       year: astronomicalYear,
       month: month!,
-      day: _daysInMonth(astronomicalYear, month!),
+      day: daysInMonth(astronomicalYear, month!),
     ),
     DatePrecision.year => (year: astronomicalYear, month: 12, day: 31),
     DatePrecision.decade => (year: astronomicalYear + 9, month: 12, day: 31),
@@ -146,11 +171,16 @@ String _yearLabel(int astronomicalYear) {
 /// `DateTime` de Dart cuenta años antes de su propia época, aplicada acá
 /// a mano para no depender de que años tan alejados de hoy se comporten
 /// igual en todas las plataformas (la web incluida).
-bool _isLeapYear(int year) =>
+///
+/// Públicos porque la línea de tiempo necesita la misma aritmética para
+/// ubicar un día en su eje: una segunda copia podría discrepar en un año
+/// bisiesto.
+bool isLeapYear(int year) =>
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 
-int _daysInMonth(int year, int month) {
+/// Cuántos días tiene [month] (1–12) del año astronómico [year].
+int daysInMonth(int year, int month) {
   const daysByMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (month == 2 && _isLeapYear(year)) return 29;
+  if (month == 2 && isLeapYear(year)) return 29;
   return daysByMonth[month - 1];
 }

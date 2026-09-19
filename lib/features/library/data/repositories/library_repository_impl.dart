@@ -188,6 +188,19 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
+  Future<Either<Failure, List<String>>> matchingIds(LibraryQuery query) async {
+    try {
+      return right(await _matchingIds(query));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.matchingIds'),
+      );
+    }
+  }
+
+  @override
   Stream<List<KnowledgeItem>> watch(LibraryQuery query) {
     // Se vuelve a consultar ante cualquier cambio en las tablas que componen
     // un elemento. Es deliberadamente grueso: reconstruir la lista cuesta

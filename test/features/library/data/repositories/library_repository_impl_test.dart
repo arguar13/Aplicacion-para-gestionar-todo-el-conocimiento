@@ -804,6 +804,39 @@ void main() {
 
       expect(total, 1);
     });
+
+    test('los identificadores son los mismos que los de la lista, en el '
+        'mismo orden', () async {
+      await seedOrdered();
+      const query = LibraryQuery(sortBy: LibrarySort.title, descending: false);
+
+      final ids = (await repository.matchingIds(query)).getRight().toNullable();
+      final listed = (await repository.list(
+        query,
+      )).getRight().toNullable()!.map((item) => item.id).toList();
+
+      expect(ids, hasLength(3));
+      expect(ids, listed);
+    });
+
+    test('los identificadores respetan los filtros y la página', () async {
+      await seedOrdered();
+      final video = buildItem(
+        title: 'Un video',
+        sourceKind: SourceKind.youtube,
+      );
+      await repository.save(video);
+
+      final filtered = (await repository.matchingIds(
+        const LibraryQuery(sourceKinds: {SourceKind.youtube}),
+      )).getRight().toNullable();
+      final page = (await repository.matchingIds(
+        const LibraryQuery(limit: 2),
+      )).getRight().toNullable();
+
+      expect(filtered, [video.id]);
+      expect(page, hasLength(2));
+    });
   });
 
   group('observar cambios', () {

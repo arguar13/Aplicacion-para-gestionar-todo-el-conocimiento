@@ -85,4 +85,14 @@ sealed class LibraryQuery with _$LibraryQuery {
   /// Una cadena de espacios no es una búsqueda: tratarla como tal devolvería
   /// cero resultados y daría a entender que la biblioteca está vacía.
   bool get hasSearchText => searchText?.trim().isNotEmpty ?? false;
+
+  /// Si la consulta restringe algo. Con `false` alcanza toda la biblioteca,
+  /// sea cual sea el orden o la página.
+  bool get isFiltered =>
+      hasSearchText ||
+      sourceKinds.isNotEmpty ||
+      tagIds.isNotEmpty ||
+      propertyValueIds.isNotEmpty ||
+      spaceId != null ||
+      processingStates.isNotEmpty;
 }

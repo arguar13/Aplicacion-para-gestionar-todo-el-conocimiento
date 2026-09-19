@@ -31,7 +31,7 @@ Future<void> seedSystemPropertyCategories(
   await _ensureSystemCategory(
     db,
     ids: ids,
-    name: 'Fecha del hecho',
+    name: kFechaDelHechoCategoryName,
     type: PropertyValueType.date,
   );
 }

@@ -197,4 +197,114 @@ void main() {
       expect(date.label, 'circa 340 a.C.');
     });
   });
+
+  group('fromStored', () {
+    test('conserva mes y día cuando la precisión los usa', () {
+      final date = HistoricalDate.fromStored(
+        astronomicalYear: 1969,
+        precision: DatePrecision.day,
+        month: 7,
+        day: 20,
+      );
+
+      expect(
+        date,
+        const HistoricalDate(
+          year: 1969,
+          precision: DatePrecision.day,
+          month: 7,
+          day: 20,
+        ),
+      );
+    });
+
+    test(
+      'descarta el 1 que la base guarda para lo que la precisión no usa',
+      () {
+        // La base guarda month/day = 1 en el extremo inferior de un año, una
+        // década o un siglo. Devolverlos haría que la fecha leída no fuera la
+        // que se escribió.
+        for (final precision in [
+          DatePrecision.year,
+          DatePrecision.decade,
+          DatePrecision.century,
+        ]) {
+          final date = HistoricalDate.fromStored(
+            astronomicalYear: 1920,
+            precision: precision,
+            month: 1,
+            day: 1,
+          );
+
+          expect(date.month, isNull, reason: precision.name);
+          expect(date.day, isNull, reason: precision.name);
+        }
+      },
+    );
+
+    test('con precisión de mes descarta el día', () {
+      final date = HistoricalDate.fromStored(
+        astronomicalYear: -43,
+        precision: DatePrecision.month,
+        month: 3,
+        day: 1,
+      );
+
+      expect(date.month, 3);
+      expect(date.day, isNull);
+      expect(date.isBce, isTrue);
+      expect(date.year, 44);
+    });
+
+    test('circa ausente es falso', () {
+      final date = HistoricalDate.fromStored(
+        astronomicalYear: 476,
+        precision: DatePrecision.year,
+      );
+
+      expect(date.isCirca, isFalse);
+    });
+
+    test('es el inverso de lo que se guarda: rangeStart y astronomicalYear '
+        'vuelven a la misma fecha', () {
+      const original = HistoricalDate(
+        year: 340,
+        precision: DatePrecision.month,
+        month: 3,
+        isBce: true,
+        isCirca: true,
+      );
+      final start = original.rangeStart;
+
+      final restored = HistoricalDate.fromStored(
+        astronomicalYear: start.year,
+        precision: original.precision,
+        month: start.month,
+        day: start.day,
+        isCirca: true,
+      );
+
+      expect(restored, original);
+    });
+  });
+
+  group('calendario', () {
+    test('años bisiestos, también antes de 1 d.C.', () {
+      expect(isLeapYear(2024), isTrue);
+      expect(isLeapYear(1900), isFalse);
+      expect(isLeapYear(2000), isTrue);
+      // El año astronómico 0 (1 a.C.) es bisiesto en el calendario
+      // proléptico; -4 (5 a.C.) también; -1 (2 a.C.) no.
+      expect(isLeapYear(0), isTrue);
+      expect(isLeapYear(-4), isTrue);
+      expect(isLeapYear(-1), isFalse);
+    });
+
+    test('días del mes', () {
+      expect(daysInMonth(2024, 2), 29);
+      expect(daysInMonth(2023, 2), 28);
+      expect(daysInMonth(2023, 4), 30);
+      expect(daysInMonth(2023, 12), 31);
+    });
+  });
 }

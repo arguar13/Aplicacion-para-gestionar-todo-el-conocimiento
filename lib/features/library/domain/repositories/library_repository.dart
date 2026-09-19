@@ -47,6 +47,15 @@ abstract interface class LibraryRepository {
   /// cerrarse en vez de quedar mostrando algo que ya se borró.
   Stream<KnowledgeItem?> watchById(String id);
 
+  /// Los identificadores de los elementos que cumplen [query], en el orden
+  /// que ella pide, sin traer los agregados.
+  ///
+  /// Para quien tiene que aplicar a lo suyo los mismos filtros que la
+  /// biblioteca —la línea de tiempo filtra sus eventos con el texto, las
+  /// propiedades y el resto—: así "qué elementos entran" tiene una sola
+  /// respuesta y no un segundo motor de búsqueda que pueda discrepar.
+  Future<Either<Failure, List<String>>> matchingIds(LibraryQuery query);
+
   /// Cuántos elementos cumplen [query], sin traerlos.
   ///
   /// Para los contadores de la interfaz: pedir la lista entera solo para

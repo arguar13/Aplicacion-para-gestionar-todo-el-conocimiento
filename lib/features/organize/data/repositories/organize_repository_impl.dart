@@ -5,7 +5,6 @@ import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
-import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -1126,22 +1125,17 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
 
   /// `null` salvo que la fila venga de una categoría de tipo fecha —ahí
   /// viaja siempre `datePrecision`, así que su presencia es la señal de
-  /// que hay una fecha que reconstruir—. `month`/`day` solo importan
-  /// para las precisiones que los usan: para el resto son `null` en el
-  /// [HistoricalDate] original, aunque `dateFromMonth`/`dateFromDay`
-  /// guarden 1 (el primer día del rango) para toda otra precisión.
+  /// que hay una fecha que reconstruir—.
   HistoricalDate? _toHistoricalDate(PropertyValueRow row) {
     final precision = row.datePrecision;
     if (precision == null) return null;
 
-    final usesMonth =
-        precision == DatePrecision.day || precision == DatePrecision.month;
-    return HistoricalDate.fromAstronomicalYear(
-      row.dateFromYear!,
+    return HistoricalDate.fromStored(
+      astronomicalYear: row.dateFromYear!,
       precision: precision,
-      month: usesMonth ? row.dateFromMonth : null,
-      day: precision == DatePrecision.day ? row.dateFromDay : null,
-      isCirca: row.dateIsCirca ?? false,
+      month: row.dateFromMonth,
+      day: row.dateFromDay,
+      isCirca: row.dateIsCirca,
     );
   }
 

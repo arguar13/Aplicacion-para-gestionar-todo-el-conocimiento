@@ -10,6 +10,11 @@ part 'property_definition.freezed.dart';
 /// literal donde se la busca.
 const kTemaCategoryName = 'Tema';
 
+/// El nombre de la categoría de sistema donde viven las fechas de los
+/// hechos: cuándo ocurrió lo que cuenta un elemento, no cuándo se capturó.
+/// Es la que alimenta la línea de tiempo.
+const kFechaDelHechoCategoryName = 'Fecha del hecho';
+
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
 /// usuario, no la app —a diferencia de [SourceKind] o [RelationKind], que
 /// son fijos—, porque qué ejes usar para clasificar depende enteramente de
