@@ -231,6 +231,42 @@ void main() {
     },
   );
 
+  test(
+    'el elemento ya tiene el valor como etiqueta (Tema): no se genera',
+    () async {
+      final tema = (await organizeRepository.getOrCreatePropertyDefinition(
+        'Tema',
+      )).getRight().toNullable()!;
+      final seeded = await seedItem();
+      await organizeRepository.assignProperty(
+        itemId: seeded.id,
+        definitionId: tema.id,
+        value: 'Historia',
+      );
+      final item = (await libraryRepository.findById(
+        seeded.id,
+      )).getRight().toNullable()!;
+      // Desde F8 un valor de Tema es una etiqueta del elemento, no una de sus
+      // propiedades: el generador tiene que mirar las dos cosas.
+      expect(item.tags.map((t) => t.name), ['Historia']);
+      expect(item.properties, isEmpty);
+      service.drafts = [
+        PropertyDraft(
+          definitionId: tema.id,
+          definitionName: 'Tema',
+          value: 'Historia',
+        ),
+      ];
+
+      await generator.generate(item);
+
+      final pending = await suggestionRepository
+          .watchPendingSuggestions(item.id)
+          .first;
+      expect(pending, isEmpty);
+    },
+  );
+
   test('solo categorías type: text entran al vocabulario', () async {
     // "Tema" y "Fecha del hecho" son categorías de sistema que toda base
     // nueva ya trae sembradas (ver seedSystemPropertyCategories):

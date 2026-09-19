@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
@@ -24,7 +25,7 @@ Future<void> seedSystemPropertyCategories(
   await _ensureSystemCategory(
     db,
     ids: ids,
-    name: 'Tema',
+    name: kTemaCategoryName,
     type: PropertyValueType.text,
   );
   await _ensureSystemCategory(

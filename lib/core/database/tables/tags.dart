@@ -2,6 +2,12 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
 
 /// Las etiquetas.
+///
+/// OBSOLETA desde F8: una etiqueta es ahora un valor de la categoría de
+/// sistema "Tema" (`PropertyValues`), y la app ya no lee ni escribe esta
+/// tabla. Se conserva, con sus filas, hasta que F10 retire el modelo viejo:
+/// la migración v14 (`reconcile_tags_with_properties_v14.dart`) ya unió lo
+/// que tenía con Tema. No agregar código nuevo que la use.
 @DataClassName('TagRow')
 class Tags extends Table {
   TextColumn get id => text()();
@@ -22,6 +28,10 @@ class Tags extends Table {
 }
 
 /// Qué etiqueta tiene qué elemento.
+///
+/// OBSOLETA desde F8, igual que [Tags]: las etiquetas de un elemento son
+/// sus asignaciones de valores de Tema en `ItemPropertyValues`. La retira
+/// F10.
 ///
 /// La clave primaria compuesta impide poner dos veces la misma etiqueta al
 /// mismo elemento, sin necesidad de comprobarlo en el código.

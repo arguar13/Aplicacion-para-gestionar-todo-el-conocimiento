@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -786,9 +787,12 @@ void main() {
         // En la app real eso no pasa —Riverpod comparte una sola
         // suscripción entre quien la mire— así que alcanza con una lectura
         // puntual para esta comprobación.
-        final allTags = await harness.database
-            .select(harness.database.tags)
-            .get();
+        //
+        // Las etiquetas son los valores de la categoría Tema.
+        final temaId = await temaDefinitionId(harness.database);
+        final allTags = await (harness.database.select(
+          harness.database.propertyValues,
+        )..where((v) => v.definitionId.equals(temaId))).get();
         expect(allTags, hasLength(1));
       },
     );

@@ -51,7 +51,12 @@ class GeneratePropertySuggestionsUseCase
         categories: categories,
       );
 
-      final alreadyAssigned = item.properties.map((p) => p.valueId).toSet();
+      // Las etiquetas son valores de Tema: si el elemento ya tiene el
+      // valor sugerido como etiqueta, sugerirlo de nuevo es ruido.
+      final alreadyAssigned = {
+        ...item.properties.map((p) => p.valueId),
+        ...item.tags.map((t) => t.id),
+      };
 
       for (final draft in drafts) {
         final resolved = await _organize.resolvePropertyValue(

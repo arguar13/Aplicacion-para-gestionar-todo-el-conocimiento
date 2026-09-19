@@ -68,7 +68,6 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
 
       await _db.transaction(() async {
         await _reassignRelations(keepItemId, discardItemId);
-        await _reassignTags(keepItemId, discardItemId);
         await _reassignProperties(keepItemId, discardItemId);
         await _reassignFlashcards(keepItemId, discardItemId);
         await _reassignRenditions(keepItemId, discardItemId);
@@ -154,37 +153,13 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
     }
   }
 
-  /// Las etiquetas del descartado pasan al que queda; una que el que
-  /// queda ya tiene puesta no se duplica.
-  Future<void> _reassignTags(String keepId, String discardId) async {
-    final tags = await (_db.select(
-      _db.itemTags,
-    )..where((t) => t.itemId.equals(discardId))).get();
-
-    for (final tag in tags) {
-      final alreadyHas =
-          await (_db.select(_db.itemTags)..where(
-                (t) => t.itemId.equals(keepId) & t.tagId.equals(tag.tagId),
-              ))
-              .getSingleOrNull();
-
-      if (alreadyHas != null) {
-        await (_db.delete(_db.itemTags)..where(
-              (t) => t.itemId.equals(discardId) & t.tagId.equals(tag.tagId),
-            ))
-            .go();
-      } else {
-        await (_db.update(_db.itemTags)..where(
-              (t) => t.itemId.equals(discardId) & t.tagId.equals(tag.tagId),
-            ))
-            .write(ItemTagsCompanion(itemId: Value(keepId)));
-      }
-    }
-  }
-
   /// Los valores de propiedad del descartado pasan al que queda; uno que
-  /// el que queda ya tiene bajo la misma categoría no se duplica — mismo
-  /// criterio que `_reassignTags`.
+  /// el que queda ya tiene no se duplica.
+  ///
+  /// Las etiquetas viajan por acá: desde F8 son valores de la categoría
+  /// Tema, sin tabla propia. Se compara por VALOR, no por categoría —todas
+  /// las etiquetas están bajo Tema, y compararlas por categoría dejaría una
+  /// sola.
   Future<void> _reassignProperties(String keepId, String discardId) async {
     final properties = await (_db.select(
       _db.itemPropertyValues,

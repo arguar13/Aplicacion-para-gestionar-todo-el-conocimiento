@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
@@ -42,16 +43,28 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   // ---------------------------------------------------------------------
   // Etiquetas
   // ---------------------------------------------------------------------
+  //
+  // Desde F8, una etiqueta ES un valor de la categoría Tema: no hay otra
+  // fuente de verdad. La API de etiquetas —lo que usa `TagEditor`— se
+  // conserva tal cual, reimplementada encima de las propiedades: `Tag.id` es
+  // el id del valor, y por eso una etiqueta creada acá aparece al filtrar
+  // por la propiedad Tema y al revés.
 
   @override
   Stream<List<Tag>> watchAllTags() {
     return watchQuery(
       db: _db,
-      tables: [_db.tags],
+      // Solo los valores: el id de Tema no cambia nunca —es de sistema, no
+      // se renombra ni se borra—, y observar `propertyDefinitions` solo
+      // traería avisos de más, como el de la siembra al crear la base.
+      tables: [_db.propertyValues],
       read: () async {
-        final rows = await (_db.select(
-          _db.tags,
-        )..orderBy([(t) => OrderingTerm(expression: t.name)])).get();
+        final temaId = await temaDefinitionId(_db);
+        final rows =
+            await (_db.select(_db.propertyValues)
+                  ..where((v) => v.definitionId.equals(temaId))
+                  ..orderBy([(v) => OrderingTerm(expression: v.value)]))
+                .get();
         return rows.map(_toTag).toList();
       },
       telemetry: _telemetry,
@@ -69,20 +82,22 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
 
     try {
-      final existing =
-          await (_db.select(_db.tags)
-                ..where((t) => t.name.lower().equals(trimmed.toLowerCase())))
-              .getSingleOrNull();
-
+      final temaId = await temaDefinitionId(_db);
+      // Por label o por alias, sin distinguir mayúsculas ni acentos:
+      // escribir "filosofia" en un elemento que ya tiene "Filosofía" tiene
+      // que terminar en la misma etiqueta, no en dos que compiten por
+      // agrupar lo mismo.
+      final existing = await _findValueByLabelOrAlias(temaId, trimmed);
       if (existing != null) return right(_toTag(existing));
 
       final tag = Tag(id: _ids.next(), name: trimmed, createdAt: _clock());
       await _db
-          .into(_db.tags)
+          .into(_db.propertyValues)
           .insert(
-            TagsCompanion.insert(
+            PropertyValuesCompanion.insert(
               id: tag.id,
-              name: tag.name,
+              definitionId: temaId,
+              value: tag.name,
               createdAt: tag.createdAt,
             ),
           );
@@ -102,47 +117,17 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String id,
     required String name,
   }) async {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) {
-      return left(
-        const Failure.validation(message: 'El nombre no puede quedar vacío.'),
-      );
-    }
-
+    final Either<Failure, PropertyValueRow> renamed;
     try {
-      // Sin distinguir mayúsculas, igual que la restricción de la base:
-      // "Filosofía" y "filosofía" tienen que seguir siendo la misma
-      // etiqueta. Se comprueba acá para poder explicar qué pasó — la
-      // restricción de la base solo daría una excepción cruda.
-      final clash =
-          await (_db.select(_db.tags)..where(
-                (t) =>
-                    t.name.lower().equals(trimmed.toLowerCase()) &
-                    t.id.equals(id).not(),
-              ))
-              .getSingleOrNull();
-
-      if (clash != null) {
-        return left(
-          Failure.validation(message: 'Ya existe una etiqueta "$trimmed".'),
-        );
-      }
-
-      final updated =
-          await (_db.update(_db.tags)..where((t) => t.id.equals(id)))
-              .writeReturning(TagsCompanion(name: Value(trimmed)));
-
-      final row = updated.singleOrNull;
-      if (row == null) {
-        // Se borró entre que se abrió el diálogo de renombrar y se confirmó.
-        return left(
-          const Failure.unexpected(
-            message: 'La etiqueta ya no existe; puede que se haya borrado.',
-          ),
-        );
-      }
-
-      return right(_toTag(row));
+      renamed = await _renameValue(
+        id: id,
+        label: name,
+        onlyInDefinition: await temaDefinitionId(_db),
+        blankMessage: 'El nombre no puede quedar vacío.',
+        missingMessage: 'La etiqueta ya no existe; puede que se haya borrado.',
+        clashMessage: (label) => 'Ya existe una etiqueta "$label".',
+        hint: 'OrganizeRepositoryImpl.renameTag',
+      );
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
@@ -150,12 +135,19 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.renameTag'),
       );
     }
+    return renamed.map(_toTag);
   }
 
   @override
   Future<Either<Failure, Unit>> deleteTag(String id) async {
     try {
-      await (_db.delete(_db.tags)..where((t) => t.id.equals(id))).go();
+      final temaId = await temaDefinitionId(_db);
+      // Borrar el valor se lleva sus asignaciones y sus alias en cascada:
+      // el elemento que la tenía simplemente deja de tenerla. Solo si es de
+      // Tema: por esta API no se borra un valor de otra categoría.
+      await (_db.delete(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(id) & v.definitionId.equals(temaId))).go();
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -817,47 +809,16 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String id,
     required String label,
   }) async {
-    final trimmed = label.trim();
-    if (trimmed.isEmpty) {
-      return left(
-        const Failure.validation(message: 'El valor no puede quedar vacío.'),
-      );
-    }
-
+    final Either<Failure, PropertyValueRow> renamed;
     try {
-      final current = await (_db.select(
-        _db.propertyValues,
-      )..where((v) => v.id.equals(id))).getSingleOrNull();
-      if (current == null) {
-        return left(
-          const Failure.unexpected(
-            message: 'El valor ya no existe; puede que se haya borrado.',
-          ),
-        );
-      }
-
-      // Sin distinguir mayúsculas ni acentos, y solo dentro de la misma
-      // categoría: "Roma" bajo "Región" y "Roma" bajo "Ciudad natal" no
-      // compiten entre sí, mismo criterio que el UNIQUE de PropertyAlias.
-      // El propio valor queda afuera de la comparación de labels —cambiar
-      // "Roma" por "Róma" es corregir su grafía, no chocar consigo
-      // mismo—, pero no de la de alias: uno suyo también bloquea el nombre.
-      final clash = await _findValueByLabelOrAlias(
-        current.definitionId,
-        trimmed,
-        excludingValueId: id,
+      renamed = await _renameValue(
+        id: id,
+        label: label,
+        blankMessage: 'El valor no puede quedar vacío.',
+        missingMessage: 'El valor ya no existe; puede que se haya borrado.',
+        clashMessage: (label) => 'Ya existe un valor "$label".',
+        hint: 'OrganizeRepositoryImpl.renamePropertyValue',
       );
-      if (clash != null) {
-        return left(
-          Failure.validation(message: 'Ya existe un valor "$trimmed".'),
-        );
-      }
-
-      final updated =
-          await (_db.update(_db.propertyValues)..where((v) => v.id.equals(id)))
-              .writeReturning(PropertyValuesCompanion(value: Value(trimmed)));
-
-      return right(_toPropertyValue(updated.single));
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
@@ -869,6 +830,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         ),
       );
     }
+    return renamed.map(_toPropertyValue);
   }
 
   @override
@@ -1132,8 +1094,58 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     return best;
   }
 
-  Tag _toTag(TagRow row) =>
-      Tag(id: row.id, name: row.name, createdAt: row.createdAt);
+  /// El renombrado que comparten etiquetas y valores: lo único que cambia
+  /// entre los dos son los mensajes y, para una etiqueta, que el valor tiene
+  /// que ser de Tema ([onlyInDefinition]).
+  ///
+  /// Sin distinguir mayúsculas ni acentos, y solo dentro de la misma
+  /// categoría: "Roma" bajo "Región" y "Roma" bajo "Ciudad natal" no
+  /// compiten entre sí, mismo criterio que el UNIQUE de PropertyAlias. El
+  /// propio valor queda afuera de la comparación de labels —cambiar "Roma"
+  /// por "Róma" es corregir su grafía, no chocar consigo mismo—, pero no de
+  /// la de alias: uno suyo también bloquea el nombre.
+  ///
+  /// Puede lanzar: quien llama lo convierte en `Failure`.
+  Future<Either<Failure, PropertyValueRow>> _renameValue({
+    required String id,
+    required String label,
+    required String blankMessage,
+    required String missingMessage,
+    required String Function(String label) clashMessage,
+    required String hint,
+    String? onlyInDefinition,
+  }) async {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty) {
+      return left(Failure.validation(message: blankMessage));
+    }
+
+    final current = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(id))).getSingleOrNull();
+    if (current == null ||
+        (onlyInDefinition != null &&
+            current.definitionId != onlyInDefinition)) {
+      return left(Failure.unexpected(message: missingMessage));
+    }
+
+    final clash = await _findValueByLabelOrAlias(
+      current.definitionId,
+      trimmed,
+      excludingValueId: id,
+    );
+    if (clash != null) {
+      return left(Failure.validation(message: clashMessage(trimmed)));
+    }
+
+    final updated =
+        await (_db.update(_db.propertyValues)..where((v) => v.id.equals(id)))
+            .writeReturning(PropertyValuesCompanion(value: Value(trimmed)));
+    return right(updated.single);
+  }
+
+  Tag _toTag(PropertyValueRow row) =>
+      Tag(id: row.id, name: row.value, createdAt: row.createdAt);
 
   Space _toSpace(SpaceRow row) =>
       Space(id: row.id, name: row.name, createdAt: row.createdAt);

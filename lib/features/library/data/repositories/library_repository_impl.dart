@@ -5,9 +5,11 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
@@ -53,8 +55,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _upsertSource(item.source);
         await _upsertItem(item);
         await _syncRenditions(item);
-        await _syncTags(item);
-        await _syncProperties(item);
+        final temaId = await temaDefinitionId(_db);
+        await _syncTags(item, temaId);
+        await _syncProperties(item, temaId);
         await _mirrorItem(item);
       });
       _generateDuplicateSuggestionForNote(item);
@@ -191,8 +194,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
         _db.items,
         _db.sources,
         _db.renditions,
-        _db.tags,
-        _db.itemTags,
         _db.propertyValues,
         _db.itemPropertyValues,
       ],
@@ -468,41 +469,123 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
   /// Deja las etiquetas del elemento igual a las de la entidad.
   ///
-  /// Acá sí se puede rehacer la relación entera sin perder nada: la tabla de
-  /// unión no tiene datos propios más allá del vínculo, y nada cuelga de
-  /// ella. Las etiquetas en sí no se tocan — dejan de estar asociadas a este
-  /// elemento, pero siguen existiendo para los demás.
-  Future<void> _syncTags(KnowledgeItem item) async {
+  /// Una etiqueta ES un valor de la categoría Tema: no hay otra tabla. Acá
+  /// se sincroniza por DIFERENCIA y no rehaciendo la relación entera, porque
+  /// una asignación tiene datos propios —su `origin`: `suggestedAccepted`,
+  /// `inherited`—, y borrarla para volver a insertarla la degradaría a
+  /// `manual`. Solo se borra lo que la entidad ya no tiene y solo se agrega
+  /// lo que le falta.
+  ///
+  /// Una etiqueta que todavía no existe como valor —una que se armó en
+  /// memoria— se crea acá, con su mismo id. Un valor que ya existe no se
+  /// toca: renombrarlo es asunto de `renameTag`, no de guardar un elemento.
+  ///
+  /// Cualquier propiedad de Tema que llegue en `item.properties` se trata
+  /// como etiqueta: una entidad bien armada no la trae —`_assemble` separa
+  /// las dos cosas—, pero perderla en silencio sería peor que reinterpretarla.
+  Future<void> _syncTags(KnowledgeItem item, String temaId) async {
+    final desired = <String, ItemPropertyOrigin>{
+      for (final property in item.properties)
+        if (property.definitionId == temaId) property.valueId: property.origin,
+      for (final tag in item.tags) tag.id: ItemPropertyOrigin.manual,
+    };
+
     for (final tag in item.tags) {
+      await _ensureTemaValue(
+        id: tag.id,
+        temaId: temaId,
+        label: tag.name,
+        createdAt: tag.createdAt,
+      );
+    }
+    for (final property in item.properties) {
+      if (property.definitionId != temaId) continue;
+      await _ensureTemaValue(
+        id: property.valueId,
+        temaId: temaId,
+        label: property.value,
+        createdAt: property.createdAt,
+      );
+    }
+
+    final current =
+        (await (_db.select(_db.itemPropertyValues).join([
+                  innerJoin(
+                    _db.propertyValues,
+                    _db.propertyValues.id.equalsExp(
+                      _db.itemPropertyValues.propertyValueId,
+                    ),
+                  ),
+                ])..where(
+                  _db.itemPropertyValues.itemId.equals(item.id) &
+                      _db.propertyValues.definitionId.equals(temaId),
+                ))
+                .get())
+            .map((row) => row.readTable(_db.itemPropertyValues).propertyValueId)
+            .toSet();
+
+    final stale = current.difference(desired.keys.toSet());
+    if (stale.isNotEmpty) {
+      await (_db.delete(_db.itemPropertyValues)..where(
+            (it) => it.itemId.equals(item.id) & it.propertyValueId.isIn(stale),
+          ))
+          .go();
+    }
+
+    for (final entry in desired.entries) {
+      if (current.contains(entry.key)) continue;
       await _db
-          .into(_db.tags)
-          .insertOnConflictUpdate(
-            TagsCompanion.insert(
-              id: tag.id,
-              name: tag.name,
-              createdAt: tag.createdAt,
+          .into(_db.itemPropertyValues)
+          .insert(
+            ItemPropertyValuesCompanion.insert(
+              itemId: item.id,
+              propertyValueId: entry.key,
+              origin: Value(entry.value),
             ),
           );
     }
-
-    await (_db.delete(
-      _db.itemTags,
-    )..where((it) => it.itemId.equals(item.id))).go();
-
-    for (final tag in item.tags) {
-      await _db
-          .into(_db.itemTags)
-          .insert(ItemTagsCompanion.insert(itemId: item.id, tagId: tag.id));
-    }
   }
 
-  /// Deja los valores de propiedad del elemento igual a los de la
-  /// entidad. Mismo patrón que [_syncTags]: se rehace la relación entera,
-  /// y de paso se hace upsert de cada valor —por si llegó de un lugar que
-  /// todavía no lo había persistido— sin tocar la categoría a la que
-  /// pertenece.
-  Future<void> _syncProperties(KnowledgeItem item) async {
-    for (final property in item.properties) {
+  /// Crea el valor de Tema de una etiqueta armada en memoria, si todavía no
+  /// existe. Un valor que ya está no se toca.
+  ///
+  /// `insert` a secas, sin ignorar conflictos: si el texto choca con otro
+  /// valor de Tema, que falle con el motivo real es mejor que dejar una
+  /// asignación apuntando a un valor que nunca se creó.
+  Future<void> _ensureTemaValue({
+    required String id,
+    required String temaId,
+    required String label,
+    required DateTime createdAt,
+  }) async {
+    final exists =
+        await (_db.select(
+          _db.propertyValues,
+        )..where((v) => v.id.equals(id))).getSingleOrNull() !=
+        null;
+    if (exists) return;
+
+    await _db
+        .into(_db.propertyValues)
+        .insert(
+          PropertyValuesCompanion.insert(
+            id: id,
+            definitionId: temaId,
+            value: label,
+            createdAt: createdAt,
+          ),
+        );
+  }
+
+  /// Deja los valores de propiedad del elemento igual a los de la entidad,
+  /// SIN contar los de Tema —esos son las etiquetas, ver [_syncTags]—: se
+  /// rehace la relación entera de lo que no es Tema, y de paso se hace
+  /// upsert de cada valor —por si llegó de un lugar que todavía no lo había
+  /// persistido— sin tocar la categoría a la que pertenece.
+  Future<void> _syncProperties(KnowledgeItem item, String temaId) async {
+    final others = item.properties.where((p) => p.definitionId != temaId);
+
+    for (final property in others) {
       await _db
           .into(_db.propertyValues)
           .insertOnConflictUpdate(
@@ -515,11 +598,18 @@ class LibraryRepositoryImpl implements LibraryRepository {
           );
     }
 
-    await (_db.delete(
-      _db.itemPropertyValues,
-    )..where((it) => it.itemId.equals(item.id))).go();
+    await (_db.delete(_db.itemPropertyValues)..where(
+          (it) =>
+              it.itemId.equals(item.id) &
+              it.propertyValueId.isNotInQuery(
+                _db.selectOnly(_db.propertyValues)
+                  ..addColumns([_db.propertyValues.id])
+                  ..where(_db.propertyValues.definitionId.equals(temaId)),
+              ),
+        ))
+        .go();
 
-    for (final property in item.properties) {
+    for (final property in others) {
       await _db
           .into(_db.itemPropertyValues)
           .insert(
@@ -673,9 +763,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // resultado.
       select.where(
         _db.items.id.isInQuery(
-          _db.selectOnly(_db.itemTags)
-            ..addColumns([_db.itemTags.itemId])
-            ..where(_db.itemTags.tagId.isIn(query.tagIds)),
+          _db.selectOnly(_db.itemPropertyValues)
+            ..addColumns([_db.itemPropertyValues.itemId])
+            ..where(_db.itemPropertyValues.propertyValueId.isIn(query.tagIds)),
         ),
       );
     }
@@ -797,15 +887,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
       (renditionsByItem[row.itemId] ??= []).add(_toRendition(row));
     }
 
-    final tagRows = await (_db.select(_db.itemTags).join([
-      innerJoin(_db.tags, _db.tags.id.equalsExp(_db.itemTags.tagId)),
-    ])..where(_db.itemTags.itemId.isIn(itemIds))).get();
-    final tagsByItem = <String, List<Tag>>{};
-    for (final row in tagRows) {
-      final itemId = row.readTable(_db.itemTags).itemId;
-      (tagsByItem[itemId] ??= []).add(_toTag(row.readTable(_db.tags)));
-    }
-
     final propertyRows = await (_db.select(_db.itemPropertyValues).join([
       innerJoin(
         _db.propertyValues,
@@ -817,10 +898,23 @@ class LibraryRepositoryImpl implements LibraryRepository {
       ),
     ])..where(_db.itemPropertyValues.itemId.isIn(itemIds))).get();
     final propertiesByItem = <String, List<ItemProperty>>{};
+    final tagsByItem = <String, List<Tag>>{};
     for (final row in propertyRows) {
       final assignmentRow = row.readTable(_db.itemPropertyValues);
       final valueRow = row.readTable(_db.propertyValues);
       final definitionRow = row.readTable(_db.propertyDefinitions);
+      // Los valores de Tema son las etiquetas: la entidad los separa de
+      // las demás propiedades, así que ninguno aparece dos veces.
+      if (isTemaDefinitionRow(definitionRow)) {
+        (tagsByItem[assignmentRow.itemId] ??= []).add(
+          Tag(
+            id: valueRow.id,
+            name: valueRow.value,
+            createdAt: valueRow.createdAt,
+          ),
+        );
+        continue;
+      }
       (propertiesByItem[assignmentRow.itemId] ??= []).add(
         ItemProperty(
           definitionId: definitionRow.id,
@@ -889,9 +983,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
       createdAt: row.createdAt,
     );
   }
-
-  Tag _toTag(TagRow row) =>
-      Tag(id: row.id, name: row.name, createdAt: row.createdAt);
 
   /// Catch-all deliberado, igual que en el resto de la app: un `TypeError`
   /// —por ejemplo, una columna con un valor que no corresponde a ningún

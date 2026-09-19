@@ -127,9 +127,15 @@ class _ExplorerFiltersSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final query = ref.watch(explorerQueryNotifierProvider);
     final notifier = ref.read(explorerQueryNotifierProvider.notifier);
-    final definitions =
-        ref.watch(allPropertyDefinitionsProvider).valueOrNull ??
-        const <PropertyDefinition>[];
+    // Tema no va en las categorías: sus valores YA se muestran como
+    // etiquetas, más abajo. Sin esto, cada etiqueta aparecería dos
+    // veces —las dos secciones filtran por el mismo valor—.
+    final definitions = [
+      for (final definition
+          in ref.watch(allPropertyDefinitionsProvider).valueOrNull ??
+              const <PropertyDefinition>[])
+        if (!definition.isTema) definition,
+    ];
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
 
     return SafeArea(

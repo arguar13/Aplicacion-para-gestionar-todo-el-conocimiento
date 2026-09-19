@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -51,6 +52,14 @@ void main() {
   });
 
   tearDown(() => db.close());
+
+  /// Las etiquetas que existen hoy: desde F8 son los valores de Tema.
+  Future<List<PropertyValueRow>> temaValues() async {
+    final tema = await temaDefinitionId(db);
+    return (db.select(
+      db.propertyValues,
+    )..where((v) => v.definitionId.equals(tema))).get();
+  }
 
   KnowledgeItem buildItem({
     String? id,
@@ -250,7 +259,9 @@ void main() {
 
       final foundB = (await repository.findById(b.id)).getRight().toNullable();
       expect(foundB!.tags.map((t) => t.name), ['filosofía']);
-      expect(await db.select(db.tags).get(), hasLength(1));
+      // La etiqueta es un valor de Tema: seguir existiendo para B lo
+      // comprueba la línea de arriba, y sigue siendo UN solo valor.
+      expect(await temaValues(), hasLength(1));
     });
   });
 
@@ -268,10 +279,10 @@ void main() {
 
       expect(await db.select(db.items).get(), isEmpty);
       expect(await db.select(db.renditions).get(), isEmpty);
-      expect(await db.select(db.itemTags).get(), isEmpty);
+      expect(await db.select(db.itemPropertyValues).get(), isEmpty);
       // La etiqueta en sí sobrevive: puede estar en uso por otros elementos,
       // y aunque no lo esté, es parte del vocabulario del usuario.
-      expect(await db.select(db.tags).get(), hasLength(1));
+      expect(await temaValues(), hasLength(1));
     });
 
     test('también borra el archivo original del disco', () async {

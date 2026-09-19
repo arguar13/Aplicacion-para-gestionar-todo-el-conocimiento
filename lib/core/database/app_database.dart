@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dar
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
 import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
 import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items_v10.dart';
+import 'package:sinapsis/core/database/migrations/reconcile_tags_with_properties_v14.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
 import 'package:sinapsis/core/database/search_index.dart';
@@ -115,7 +116,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 13;
+  static const currentSchemaVersion = 14;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -292,6 +293,25 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createIndex(idxKnowledgeNotesDedupHash);
         await migrator.createTable(mergedProvenances);
         await migrator.createIndex(idxMergedProvenancesItem);
+      }
+      // Etiquetas unificadas con propiedades (F8): F2 las copió a valores
+      // de Tema una sola vez, y las creadas después nunca llegaron. Sin
+      // tabla ni columna nueva —por eso no hay snapshot de v14—: une lo
+      // que quedó separado, calculando un informe ANTES de escribir
+      // nada (ver `reconcileTagsWithProperties`). La copia previa de la
+      // base ya se hizo, antes de que drift empezara a migrar. Si algo
+      // falla, la migración entera revierte: mejor no abrir la bóveda
+      // que dejar una etiqueta sin valor.
+      if (from < 14) {
+        // Idempotente, y este paso depende de que Tema exista: en una base
+        // real ya está —la creó la migración a v9 o `onCreate`, y no se
+        // puede borrar—, pero no conviene apoyarse en eso desde acá.
+        await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
+        await reconcileTagsWithProperties(
+          this,
+          ids: const UuidV7Generator(),
+          logger: ConsoleAppLogger(),
+        );
       }
     },
     beforeOpen: (details) async {

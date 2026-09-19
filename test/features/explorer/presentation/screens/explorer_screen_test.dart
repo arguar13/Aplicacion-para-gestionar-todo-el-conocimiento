@@ -101,6 +101,35 @@ void main() {
     expect(find.text('sobre otra cosa'), findsNothing);
   });
 
+  testWidgets('las etiquetas no aparecen además como una categoría de '
+      'propiedades: Tema ya es "Etiquetas"', (tester) async {
+    final tagged = await captureAndGetId('sobre epistemología');
+    final item =
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .findById(tagged))
+            .getRight()
+            .toNullable()!;
+    final tag =
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .getOrCreateTag('Filosofía'))
+            .getRight()
+            .toNullable()!;
+    await harness.container
+        .read(libraryRepositoryProvider)
+        .save(item.copyWith(tags: [tag]));
+
+    await pumpExplorer(tester);
+    await openFilters(tester);
+
+    // Desde F8 una etiqueta es un valor de la categoría Tema. Las dos
+    // secciones filtran por el mismo valor: sin esconder Tema de las
+    // categorías, cada etiqueta se vería dos veces.
+    expect(find.text('Filosofía'), findsOneWidget);
+    expect(find.text('Tema'), findsNothing);
+  });
+
   testWidgets('filtrar por valor de propiedad deja solo lo que lo tiene '
       'asignado', (tester) async {
     final roman = await captureAndGetId('sobre las tácticas de César');

@@ -669,11 +669,18 @@ void main() {
         final reloaded = (await libraryRepository.findById(
           nota.id,
         )).getRight().toNullable()!;
-        expect(reloaded.properties.map((p) => p.value), {'Roma', 'Historia'});
+        // Los valores de Tema se muestran como etiquetas, no como
+        // propiedades: la nota heredó los dos, cada uno donde corresponde.
+        expect(reloaded.properties.map((p) => p.value), {'Roma'});
+        expect(reloaded.tags.map((t) => t.name), ['Historia']);
+        // El origin de las dos asignaciones —`Tag` no lo expone— se lee de
+        // la tabla.
+        final assignments = await (db.select(
+          db.itemPropertyValues,
+        )..where((a) => a.itemId.equals(nota.id))).get();
+        expect(assignments, hasLength(2));
         expect(
-          reloaded.properties.every(
-            (p) => p.origin == ItemPropertyOrigin.inherited,
-          ),
+          assignments.every((a) => a.origin == ItemPropertyOrigin.inherited),
           isTrue,
         );
       });

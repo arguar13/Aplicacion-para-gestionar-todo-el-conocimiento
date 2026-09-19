@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -86,6 +87,29 @@ void main() {
     return result.getRight().toNullable()!.id;
   }
 
+  /// Una etiqueta como existe desde F8: un valor de la categoría Tema.
+  Future<void> seedTag(String id, String name) async {
+    await db
+        .into(db.propertyValues)
+        .insert(
+          PropertyValuesCompanion.insert(
+            id: id,
+            definitionId: await temaDefinitionId(db),
+            value: name,
+            createdAt: now,
+          ),
+        );
+  }
+
+  Future<void> tagItem(String itemId, String tagId) => db
+      .into(db.itemPropertyValues)
+      .insert(
+        ItemPropertyValuesCompanion.insert(
+          itemId: itemId,
+          propertyValueId: tagId,
+        ),
+      );
+
   test('fusionar un elemento consigo mismo devuelve un fallo', () async {
     final id = await seedItem(title: 'Solo');
 
@@ -125,14 +149,8 @@ void main() {
             createdAt: now,
           ),
         );
-    await db
-        .into(db.tags)
-        .insert(
-          TagsCompanion.insert(id: 'tag-1', name: 'Filosofía', createdAt: now),
-        );
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: discardId, tagId: 'tag-1'));
+    await seedTag('tag-1', 'Filosofía');
+    await tagItem(discardId, 'tag-1');
     await db
         .into(db.propertyDefinitions)
         .insert(
@@ -183,9 +201,10 @@ void main() {
     expect(relation.fromItemId, keepId);
     expect(relation.toItemId, otherId);
 
+    // La etiqueta viaja como cualquier otro valor: es un valor de Tema.
     final itemTag = await (db.select(
-      db.itemTags,
-    )..where((t) => t.tagId.equals('tag-1'))).getSingle();
+      db.itemPropertyValues,
+    )..where((t) => t.propertyValueId.equals('tag-1'))).getSingle();
     expect(itemTag.itemId, keepId);
 
     final propertyAssignment = await (db.select(
@@ -202,24 +221,16 @@ void main() {
   test('un tag que ya tenía el que queda no se duplica', () async {
     final keepId = await seedItem(title: 'El que queda');
     final discardId = await seedItem(title: 'El descartado');
-    await db
-        .into(db.tags)
-        .insert(
-          TagsCompanion.insert(id: 'tag-1', name: 'Filosofía', createdAt: now),
-        );
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: keepId, tagId: 'tag-1'));
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: discardId, tagId: 'tag-1'));
+    await seedTag('tag-1', 'Filosofía');
+    await tagItem(keepId, 'tag-1');
+    await tagItem(discardId, 'tag-1');
 
     final result = await useCase(keepItemId: keepId, discardItemId: discardId);
 
     expect(result.isRight(), isTrue);
     final rows = await (db.select(
-      db.itemTags,
-    )..where((t) => t.tagId.equals('tag-1'))).get();
+      db.itemPropertyValues,
+    )..where((t) => t.propertyValueId.equals('tag-1'))).get();
     expect(rows, hasLength(1));
     expect(rows.single.itemId, keepId);
   });

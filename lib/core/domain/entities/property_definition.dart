@@ -3,6 +3,13 @@ import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 
 part 'property_definition.freezed.dart';
 
+/// El nombre de la categoría de sistema donde viven las etiquetas.
+///
+/// Desde F8, una etiqueta *es* un valor de esta categoría: no hay otra
+/// tabla ni otra fuente de verdad. Una sola constante para no repetir el
+/// literal donde se la busca.
+const kTemaCategoryName = 'Tema';
+
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
 /// usuario, no la app —a diferencia de [SourceKind] o [RelationKind], que
 /// son fijos—, porque qué ejes usar para clasificar depende enteramente de
@@ -32,4 +39,12 @@ sealed class PropertyDefinition with _$PropertyDefinition {
     /// no el usuario, y que por eso no se pueden borrar ni renombrar.
     @Default(false) bool isSystem,
   }) = _PropertyDefinition;
+}
+
+extension PropertyDefinitionTema on PropertyDefinition {
+  /// `true` para "Tema": la categoría cuyos valores se muestran y se
+  /// editan como etiquetas, no como propiedades. Es de sistema, así que no
+  /// se puede renombrar ni borrar: identificarla por nombre es estable.
+  bool get isTema =>
+      isSystem && name.toLowerCase() == kTemaCategoryName.toLowerCase();
 }
