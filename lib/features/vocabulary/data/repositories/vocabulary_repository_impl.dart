@@ -3,11 +3,15 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
+import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/domain/repositories/vocabulary_repository.dart';
 
 class VocabularyRepositoryImpl implements VocabularyRepository {
@@ -25,6 +29,119 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   final TelemetryService _telemetry;
   final IdGenerator _ids;
   final Clock _clock;
+
+  // ---------------------------------------------------------------------
+  // Estadísticas
+  // ---------------------------------------------------------------------
+
+  @override
+  Stream<List<VocabularyValueStat>> watchValueStats() {
+    return watchQuery(
+      db: _db,
+      tables: [
+        _db.propertyValues,
+        _db.itemPropertyValues,
+        _db.propertyAliases,
+        _db.propertyDefinitions,
+      ],
+      read: () async {
+        final definitions = {
+          for (final d in await _db.select(_db.propertyDefinitions).get())
+            d.id: d,
+        };
+        final values = await _db.select(_db.propertyValues).get();
+        final usage = await _countBy(
+          _db.itemPropertyValues,
+          _db.itemPropertyValues.propertyValueId,
+        );
+        final aliases = await _countBy(
+          _db.propertyAliases,
+          _db.propertyAliases.propertyValueId,
+        );
+
+        final stats = [
+          for (final value in values)
+            if (definitions[value.definitionId] case final definition?)
+              VocabularyValueStat(
+                id: value.id,
+                label: value.value,
+                definitionId: definition.id,
+                definitionName: definition.name,
+                isText: definition.type == PropertyValueType.text,
+                usage: usage[value.id] ?? 0,
+                aliasCount: aliases[value.id] ?? 0,
+              ),
+        ];
+
+        // Alfabético SIN acentos —"Época" antes que "Tema"—: ordenar por el
+        // texto tal cual manda la é después de la z. La clave se calcula una
+        // vez por elemento, no en cada comparación.
+        final labelKey = {
+          for (final s in stats) s.id: normalizeVocabularyLabel(s.label),
+        };
+        final categoryKey = {
+          for (final d in definitions.values)
+            d.id: normalizeVocabularyLabel(d.name),
+        };
+        stats.sort((a, b) {
+          final byCategory = categoryKey[a.definitionId]!.compareTo(
+            categoryKey[b.definitionId]!,
+          );
+          if (byCategory != 0) return byCategory;
+          return labelKey[a.id]!.compareTo(labelKey[b.id]!);
+        });
+        return stats;
+      },
+      telemetry: _telemetry,
+      hint: 'VocabularyRepositoryImpl.watchValueStats',
+    );
+  }
+
+  @override
+  Stream<List<VocabularyCategoryStat>> watchCategoryStats() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.propertyDefinitions, _db.propertyValues],
+      read: () async {
+        final definitions = await _db.select(_db.propertyDefinitions).get();
+        final counts = await _countBy(
+          _db.propertyValues,
+          _db.propertyValues.definitionId,
+        );
+        final stats = [
+          for (final d in definitions)
+            VocabularyCategoryStat(
+              id: d.id,
+              name: d.name,
+              isSystem: d.isSystem,
+              valueCount: counts[d.id] ?? 0,
+            ),
+        ];
+        final nameKey = {
+          for (final c in stats) c.id: normalizeVocabularyLabel(c.name),
+        };
+        return stats..sort((a, b) => nameKey[a.id]!.compareTo(nameKey[b.id]!));
+      },
+      telemetry: _telemetry,
+      hint: 'VocabularyRepositoryImpl.watchCategoryStats',
+    );
+  }
+
+  /// Cuántas filas de [table] hay por cada valor de [column], en una sola
+  /// consulta: pedirlo uno por uno serían miles de consultas con un
+  /// vocabulario grande.
+  Future<Map<String, int>> _countBy<T extends HasResultSet, D>(
+    ResultSetImplementation<T, D> table,
+    GeneratedColumn<String> column,
+  ) async {
+    final count = countAll();
+    final rows =
+        await (_db.selectOnly(table)
+              ..addColumns([column, count])
+              ..groupBy([column]))
+            .get();
+    return {for (final row in rows) row.read(column)!: row.read(count) ?? 0};
+  }
 
   // ---------------------------------------------------------------------
   // Fusionar

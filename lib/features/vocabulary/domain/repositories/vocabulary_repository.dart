@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 
 /// El mantenimiento del vocabulario controlado: fusionar valores repetidos,
 /// renombrar, manejar alias, borrar lo que no se usa.
@@ -9,6 +10,13 @@ import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operatio
 /// puede pasar a [undo]. Las de lote son transaccionales: o se aplican todas
 /// o no se aplica ninguna.
 abstract interface class VocabularyRepository {
+  /// Cada valor del vocabulario con cuánto se usa y cuántos alias tiene, por
+  /// categoría y nombre. Se actualiza solo cuando algo cambia.
+  Stream<List<VocabularyValueStat>> watchValueStats();
+
+  /// Cada categoría con cuántos valores tiene. Se actualiza solo.
+  Stream<List<VocabularyCategoryStat>> watchCategoryStats();
+
   /// Cuántos valores y elementos toca fusionar [discardIds] en [keepId].
   /// No cambia nada.
   Future<Either<Failure, MergePreview>> previewMerge({

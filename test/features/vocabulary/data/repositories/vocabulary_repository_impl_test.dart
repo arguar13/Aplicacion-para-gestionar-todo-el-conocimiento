@@ -606,6 +606,121 @@ void main() {
     );
   });
 
+  group('estadísticas', () {
+    test(
+      'cada valor con en cuántos elementos está y cuántos alias tiene',
+      () async {
+        await seedRomas();
+        await addAlias('a1', 'roma', 'Urbe');
+        await addAlias('a2', 'roma', 'Ciudad eterna');
+
+        final stats = await repository.watchValueStats().first;
+
+        final roma = stats.firstWhere((s) => s.id == 'roma');
+        expect(roma.usage, 1);
+        expect(roma.aliasCount, 2);
+        expect(roma.label, 'Roma');
+        expect(roma.definitionName, 'Tema');
+        final acento = stats.firstWhere((s) => s.id == 'roma-acento');
+        expect(acento.usage, 2);
+        expect(acento.aliasCount, 0);
+      },
+    );
+
+    test('un valor sin ningún elemento cuenta cero, no falta', () async {
+      await addValue('sobra', 'Sobra');
+
+      final stats = await repository.watchValueStats().first;
+
+      expect(stats.single.usage, 0);
+    });
+
+    test('ordenados por categoría y luego por nombre', () async {
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-epoca',
+              name: 'Época',
+              createdAt: now,
+              type: const Value(PropertyValueType.text),
+            ),
+          );
+      await addValue('t2', 'Zeta');
+      await addValue('t1', 'Alfa');
+      await addValue('e1', 'Medieval', definitionId: 'def-epoca');
+
+      final stats = await repository.watchValueStats().first;
+
+      expect(stats.map((s) => s.id), ['e1', 't1', 't2']);
+    });
+
+    test('marca las categorías que no son de texto', () async {
+      final fecha = (await (db.select(
+        db.propertyDefinitions,
+      )..where((d) => d.name.equals('Fecha del hecho'))).getSingle()).id;
+      await addValue('f1', '44 a.C.', definitionId: fecha);
+      await addValue('t1', 'Roma');
+
+      final stats = await repository.watchValueStats().first;
+
+      expect(stats.firstWhere((s) => s.id == 'f1').isText, isFalse);
+      expect(stats.firstWhere((s) => s.id == 't1').isText, isTrue);
+    });
+
+    test('las categorías con cuántos valores tienen, y cuáles quedaron '
+        'huérfanas', () async {
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-vacia',
+              name: 'Vacía',
+              createdAt: now,
+              type: const Value(PropertyValueType.text),
+            ),
+          );
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-epoca',
+              name: 'Época',
+              createdAt: now,
+              type: const Value(PropertyValueType.text),
+            ),
+          );
+      await addValue('e1', 'Medieval', definitionId: 'def-epoca');
+
+      final stats = await repository.watchCategoryStats().first;
+
+      final byName = {for (final c in stats) c.name: c};
+      expect(byName['Época']!.valueCount, 1);
+      expect(byName['Época']!.isOrphan, isFalse);
+      expect(byName['Vacía']!.valueCount, 0);
+      expect(byName['Vacía']!.isOrphan, isTrue);
+      // Las de sistema están vacías y no se consideran huérfanas: no se
+      // pueden borrar, y "Tema" vacía es lo normal en una bóveda nueva.
+      expect(byName['Tema']!.isSystem, isTrue);
+      expect(byName['Tema']!.isOrphan, isFalse);
+      expect(byName['Fecha del hecho']!.isOrphan, isFalse);
+      // Alfabéticas sin distinguir mayúsculas ni acentos: "Época" va antes
+      // que "Tema", no después de la z.
+      final names = stats.map((c) => c.name).toList();
+      expect(names.indexOf('Época'), lessThan(names.indexOf('Tema')));
+    });
+
+    test('se actualizan solas cuando el vocabulario cambia', () async {
+      final appears = repository.watchValueStats().firstWhere(
+        (stats) => stats.any((s) => s.id == 'nuevo'),
+      );
+
+      await addValue('nuevo', 'Nuevo');
+
+      expect((await appears.timeout(const Duration(seconds: 5))).length, 1);
+    });
+  });
+
   test(
     'una operación que no viene de este repositorio no se deshace',
     () async {
