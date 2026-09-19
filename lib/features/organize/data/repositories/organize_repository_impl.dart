@@ -15,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -749,13 +750,10 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
 
     try {
-      final existing =
-          await (_db.select(_db.propertyValues)..where(
-                (v) =>
-                    v.definitionId.equals(definitionId) &
-                    v.value.lower().equals(trimmed.toLowerCase()),
-              ))
-              .getSingleOrNull();
+      // Por label o por alias, sin distinguir acentos: escribir
+      // "Constantinopla" —alias de "Bizancio"— asigna "Bizancio" en vez de
+      // crear un valor duplicado.
+      final existing = await _findValueByLabelOrAlias(definitionId, trimmed);
 
       final propertyValueId = existing?.id ?? _ids.next();
       if (existing == null) {
@@ -837,31 +835,18 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         );
       }
 
-      // Sin distinguir mayúsculas, y solo dentro de la misma categoría:
-      // "Roma" bajo "Región" y "Roma" bajo "Ciudad natal" no compiten
-      // entre sí, mismo criterio que el UNIQUE de PropertyAlias.
-      final valueClash =
-          await (_db.select(_db.propertyValues)..where(
-                (v) =>
-                    v.definitionId.equals(current.definitionId) &
-                    v.value.lower().equals(trimmed.toLowerCase()) &
-                    v.id.equals(id).not(),
-              ))
-              .getSingleOrNull();
-      if (valueClash != null) {
-        return left(
-          Failure.validation(message: 'Ya existe un valor "$trimmed".'),
-        );
-      }
-
-      final aliasClash =
-          await (_db.select(_db.propertyAliases)..where(
-                (a) =>
-                    a.definitionId.equals(current.definitionId) &
-                    a.alias.lower().equals(trimmed.toLowerCase()),
-              ))
-              .getSingleOrNull();
-      if (aliasClash != null) {
+      // Sin distinguir mayúsculas ni acentos, y solo dentro de la misma
+      // categoría: "Roma" bajo "Región" y "Roma" bajo "Ciudad natal" no
+      // compiten entre sí, mismo criterio que el UNIQUE de PropertyAlias.
+      // El propio valor queda afuera de la comparación de labels —cambiar
+      // "Roma" por "Róma" es corregir su grafía, no chocar consigo
+      // mismo—, pero no de la de alias: uno suyo también bloquea el nombre.
+      final clash = await _findValueByLabelOrAlias(
+        current.definitionId,
+        trimmed,
+        excludingValueId: id,
+      );
+      if (clash != null) {
         return left(
           Failure.validation(message: 'Ya existe un valor "$trimmed".'),
         );
@@ -894,29 +879,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     if (trimmed.isEmpty) return right(null);
 
     try {
-      final byLabel =
-          await (_db.select(_db.propertyValues)..where(
-                (v) =>
-                    v.definitionId.equals(definitionId) &
-                    v.value.lower().equals(trimmed.toLowerCase()),
-              ))
-              .getSingleOrNull();
-      if (byLabel != null) return right(_toPropertyValue(byLabel));
-
-      final alias =
-          await (_db.select(_db.propertyAliases)..where(
-                (a) =>
-                    a.definitionId.equals(definitionId) &
-                    a.alias.lower().equals(trimmed.toLowerCase()),
-              ))
-              .getSingleOrNull();
-      if (alias == null) return right(null);
-
-      final byAlias = await (_db.select(
-        _db.propertyValues,
-      )..where((v) => v.id.equals(alias.propertyValueId))).getSingleOrNull();
-
-      return right(byAlias == null ? null : _toPropertyValue(byAlias));
+      final found = await _findValueByLabelOrAlias(definitionId, trimmed);
+      return right(found == null ? null : _toPropertyValue(found));
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
@@ -1131,6 +1095,99 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
+
+  /// El valor de [definitionId] al que [text] se refiere: por su label o, si
+  /// ninguno coincide, por uno de sus alias. Sin distinguir mayúsculas ni
+  /// acentos (`normalizeVocabularyLabel`).
+  ///
+  /// Se compara en Dart y no con `lower()` en SQL: el `lower()` y el
+  /// `COLLATE NOCASE` de SQLite solo conocen ASCII —"Álgebra" y "álgebra" no
+  /// coinciden por ahí— y no hay forma de plegar acentos sin una función
+  /// propia. Leer los valores de UNA categoría es barato; la consulta con
+  /// `lower()` tampoco podía usar el índice y recorría esos mismos valores.
+  ///
+  /// Un label gana siempre sobre un alias. [excludingValueId] deja afuera a
+  /// un valor de la búsqueda POR LABEL —al renombrar, un valor no choca
+  /// consigo mismo—; los alias no se excluyen: uno propio también bloquea
+  /// el nombre.
+  Future<PropertyValueRow?> _findValueByLabelOrAlias(
+    String definitionId,
+    String text, {
+    String? excludingValueId,
+  }) async {
+    final wanted = normalizeVocabularyLabel(text);
+    if (wanted.isEmpty) return null;
+    final typed = text.trim();
+
+    final values = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.definitionId.equals(definitionId))).get();
+    final byLabel = _closestMatch<PropertyValueRow>(
+      values.where(
+        (v) =>
+            v.id != excludingValueId &&
+            normalizeVocabularyLabel(v.value) == wanted,
+      ),
+      typed: typed,
+      labelOf: (v) => v.value,
+      createdAtOf: (v) => v.createdAt,
+      idOf: (v) => v.id,
+    );
+    if (byLabel != null) return byLabel;
+
+    final aliases = await (_db.select(
+      _db.propertyAliases,
+    )..where((a) => a.definitionId.equals(definitionId))).get();
+    final alias = _closestMatch<PropertyAliasRow>(
+      aliases.where((a) => normalizeVocabularyLabel(a.alias) == wanted),
+      typed: typed,
+      labelOf: (a) => a.alias,
+      createdAtOf: (a) => a.createdAt,
+      idOf: (a) => a.id,
+    );
+    if (alias == null) return null;
+
+    return (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(alias.propertyValueId))).getSingleOrNull();
+  }
+
+  /// De varios [candidates] que normalizan igual a lo que se escribió, el
+  /// que se elige: el que se escribió idéntico, después el que solo difiere
+  /// en mayúsculas, y si no el más antiguo (con el id de desempate).
+  ///
+  /// Que haya más de uno es posible en bases de antes de F8: el índice
+  /// único de SQLite solo ve mayúsculas ASCII, así que "Roma" y "Róma"
+  /// convivían. Sin un criterio fijo, cuál de los dos gana dependería del
+  /// orden en que la base los devuelva.
+  T? _closestMatch<T>(
+    Iterable<T> candidates, {
+    required String typed,
+    required String Function(T) labelOf,
+    required DateTime Function(T) createdAtOf,
+    required String Function(T) idOf,
+  }) {
+    int rank(T candidate) {
+      final label = labelOf(candidate);
+      if (label == typed) return 0;
+      if (label.toLowerCase() == typed.toLowerCase()) return 1;
+      return 2;
+    }
+
+    int compare(T a, T b) {
+      final byRank = rank(a).compareTo(rank(b));
+      if (byRank != 0) return byRank;
+      final byAge = createdAtOf(a).compareTo(createdAtOf(b));
+      if (byAge != 0) return byAge;
+      return idOf(a).compareTo(idOf(b));
+    }
+
+    T? best;
+    for (final candidate in candidates) {
+      if (best == null || compare(candidate, best) < 0) best = candidate;
+    }
+    return best;
+  }
 
   Tag _toTag(TagRow row) =>
       Tag(id: row.id, name: row.name, createdAt: row.createdAt);

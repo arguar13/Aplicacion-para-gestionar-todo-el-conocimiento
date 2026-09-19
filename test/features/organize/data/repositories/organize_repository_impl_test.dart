@@ -1232,6 +1232,304 @@ void main() {
       });
     });
 
+    group('resolución por label y alias, sin distinguir acentos', () {
+      Future<String> seedDefinitionId(String name) async =>
+          (await repository.getOrCreatePropertyDefinition(
+            name,
+          )).getRight().toNullable()!.id;
+
+      Future<String> assignedValueId(String itemId) async =>
+          (await libraryRepository.findById(
+            itemId,
+          )).getRight().toNullable()!.properties.single.valueId;
+
+      Future<void> assign(String itemId, String definitionId, String value) =>
+          repository.assignProperty(
+            itemId: itemId,
+            definitionId: definitionId,
+            value: value,
+          );
+
+      Future<void> insertValue(
+        String definitionId,
+        String id,
+        String label,
+        DateTime createdAt,
+      ) => db
+          .into(db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: id,
+              definitionId: definitionId,
+              value: label,
+              createdAt: createdAt,
+            ),
+          );
+
+      Future<void> insertAlias(
+        String definitionId,
+        String valueId,
+        String alias,
+      ) => db
+          .into(db.propertyAliases)
+          .insert(
+            PropertyAliasesCompanion.insert(
+              id: 'alias-${counter++}',
+              propertyValueId: valueId,
+              definitionId: definitionId,
+              alias: alias,
+              createdAt: now,
+            ),
+          );
+
+      Future<int> valueCount(String definitionId) async => (await (db.select(
+        db.propertyValues,
+      )..where((v) => v.definitionId.equals(definitionId))).get()).length;
+
+      group('asignar', () {
+        test('otro acento reutiliza el valor en vez de duplicarlo', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final a = await seedItem();
+          final b = await seedItem();
+
+          await assign(a.id, definitionId, 'Canción');
+          await assign(b.id, definitionId, 'cancion');
+
+          expect(await assignedValueId(b.id), await assignedValueId(a.id));
+          expect(await valueCount(definitionId), 1);
+        });
+
+        test('una mayúscula con acento tampoco duplica: el lower() de SQLite '
+            'solo baja ASCII', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final a = await seedItem();
+          final b = await seedItem();
+
+          await assign(a.id, definitionId, 'Álgebra');
+          await assign(b.id, definitionId, 'álgebra');
+
+          expect(await assignedValueId(b.id), await assignedValueId(a.id));
+          expect(await valueCount(definitionId), 1);
+        });
+
+        test('el texto de un alias resuelve al valor, no crea un duplicado '
+            '(antes, asignar ignoraba los alias)', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final a = await seedItem();
+          final b = await seedItem();
+          await assign(a.id, definitionId, 'Bizancio');
+          final bizancioId = await assignedValueId(a.id);
+          await insertAlias(definitionId, bizancioId, 'Constantinopla');
+
+          final result = await repository.assignProperty(
+            itemId: b.id,
+            definitionId: definitionId,
+            value: 'constantinópla',
+          );
+
+          expect(result.isRight(), isTrue);
+          expect(await assignedValueId(b.id), bizancioId);
+          expect(await valueCount(definitionId), 1);
+        });
+
+        test(
+          'la eñe no se pliega: "Año" y "Ano" son valores distintos',
+          () async {
+            final definitionId = await seedDefinitionId('Región');
+            final a = await seedItem();
+            final b = await seedItem();
+
+            await assign(a.id, definitionId, 'Año');
+            await assign(b.id, definitionId, 'Ano');
+
+            expect(
+              await assignedValueId(b.id),
+              isNot(await assignedValueId(a.id)),
+            );
+            expect(await valueCount(definitionId), 2);
+          },
+        );
+
+        test('un valor realmente nuevo se crea con el texto tal cual se '
+            'escribió', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final item = await seedItem();
+
+          await assign(item.id, definitionId, '  Canción  ');
+
+          final reloaded = (await libraryRepository.findById(
+            item.id,
+          )).getRight().toNullable()!;
+          expect(reloaded.properties.single.value, 'Canción');
+        });
+
+        test('con dos valores que solo difieren en el acento (de antes de '
+            'F8), gana el que se escribió igual, después el que solo difiere '
+            'en mayúsculas, y si no el más antiguo', () async {
+          final definitionId = await seedDefinitionId('Región');
+          // El índice UNIQUE es ASCII-only, así que estos dos conviven.
+          await insertValue(definitionId, 'v-roma', 'Roma', DateTime(2026));
+          await insertValue(
+            definitionId,
+            'v-roma-acento',
+            'Róma',
+            DateTime(2027),
+          );
+          final items = [
+            await seedItem(),
+            await seedItem(),
+            await seedItem(),
+            await seedItem(),
+          ];
+
+          await assign(items[0].id, definitionId, 'Róma');
+          await assign(items[1].id, definitionId, 'RÓMA');
+          await assign(items[2].id, definitionId, 'roma');
+          await assign(items[3].id, definitionId, 'Ròma');
+
+          expect(await assignedValueId(items[0].id), 'v-roma-acento');
+          expect(await assignedValueId(items[1].id), 'v-roma-acento');
+          expect(await assignedValueId(items[2].id), 'v-roma');
+          // Ninguno de los dos coincide ni en mayúsculas: el más antiguo.
+          expect(await assignedValueId(items[3].id), 'v-roma');
+          expect(await valueCount(definitionId), 2);
+        });
+      });
+
+      group('resolver', () {
+        test('encuentra un valor sin distinguir acentos', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final item = await seedItem();
+          await assign(item.id, definitionId, 'Canción');
+
+          final result = await repository.resolvePropertyValue(
+            definitionId: definitionId,
+            text: 'CANCION',
+          );
+
+          expect(result.getRight().toNullable()?.value, 'Canción');
+        });
+
+        test('encuentra un valor por un alias, sin distinguir acentos ni '
+            'mayúsculas', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final item = await seedItem();
+          await assign(item.id, definitionId, 'Bizancio');
+          final bizancioId = await assignedValueId(item.id);
+          await insertAlias(definitionId, bizancioId, 'Ciudad de los Césares');
+
+          final result = await repository.resolvePropertyValue(
+            definitionId: definitionId,
+            text: 'ciudad de los cesares',
+          );
+
+          expect(result.getRight().toNullable()?.id, bizancioId);
+        });
+
+        test(
+          'un label gana sobre un alias con el mismo texto normalizado',
+          () async {
+            final definitionId = await seedDefinitionId('Región');
+            final a = await seedItem();
+            final b = await seedItem();
+            await assign(a.id, definitionId, 'Roma');
+            await assign(b.id, definitionId, 'Latium');
+            final latiumId = await assignedValueId(b.id);
+            await insertAlias(definitionId, latiumId, 'Róma');
+
+            final result = await repository.resolvePropertyValue(
+              definitionId: definitionId,
+              text: 'róma',
+            );
+
+            expect(result.getRight().toNullable()?.value, 'Roma');
+          },
+        );
+
+        test('la eñe no se pliega al resolver', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final item = await seedItem();
+          await assign(item.id, definitionId, 'Año');
+
+          final result = await repository.resolvePropertyValue(
+            definitionId: definitionId,
+            text: 'Ano',
+          );
+
+          expect(result.getRight().toNullable(), isNull);
+        });
+
+        test('un texto solo de espacios no resuelve a nada', () async {
+          final definitionId = await seedDefinitionId('Región');
+
+          final result = await repository.resolvePropertyValue(
+            definitionId: definitionId,
+            text: '   ',
+          );
+
+          expect(result.getRight().toNullable(), isNull);
+        });
+      });
+
+      group('renombrar', () {
+        test('no se puede renombrar para chocar con otro valor que solo '
+            'difiere en el acento', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final a = await seedItem();
+          final b = await seedItem();
+          await assign(a.id, definitionId, 'Roma');
+          await assign(b.id, definitionId, 'Egipto');
+
+          final result = await repository.renamePropertyValue(
+            id: await assignedValueId(b.id),
+            label: 'Róma',
+          );
+
+          expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        });
+
+        test('no se puede renombrar para chocar con un alias que solo '
+            'difiere en el acento', () async {
+          final definitionId = await seedDefinitionId('Región');
+          final a = await seedItem();
+          final b = await seedItem();
+          await assign(a.id, definitionId, 'Bizancio');
+          await assign(b.id, definitionId, 'Otra región');
+          await insertAlias(
+            definitionId,
+            await assignedValueId(a.id),
+            'Constantinopla',
+          );
+
+          final result = await repository.renamePropertyValue(
+            id: await assignedValueId(b.id),
+            label: 'Constantinópla',
+          );
+
+          expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        });
+
+        test(
+          'cambiar solo el acento o las mayúsculas del propio label sí se '
+          'permite: es corregir la grafía, no chocar consigo mismo',
+          () async {
+            final definitionId = await seedDefinitionId('Región');
+            final item = await seedItem();
+            await assign(item.id, definitionId, 'Roma');
+            final valueId = await assignedValueId(item.id);
+
+            final result = await repository.renamePropertyValue(
+              id: valueId,
+              label: 'Róma',
+            );
+
+            expect(result.getRight().toNullable()?.value, 'Róma');
+            expect(await assignedValueId(item.id), valueId);
+          },
+        );
+      });
+    });
+
     group('quitar valores', () {
       test('saca el valor del elemento sin borrarlo para los demás', () async {
         final definition = (await repository.getOrCreatePropertyDefinition(
