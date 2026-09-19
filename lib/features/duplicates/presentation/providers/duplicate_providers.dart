@@ -12,7 +12,8 @@ import 'package:sinapsis/features/duplicates/domain/services/duplicate_candidate
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/usecases/merge_duplicate_items_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este
 /// repositorio; nunca de la base de datos directamente.
@@ -54,12 +55,29 @@ final mergeDuplicateItemsUseCaseProvider = Provider<MergeDuplicateItemsUseCase>(
   },
 );
 
+/// El generador de duplicados dispara desde `LibraryRepositoryImpl.save()`
+/// para las notas (D7), así que no puede depender —ni directa ni
+/// transitivamente— de `libraryRepositoryProvider`: sería un ciclo real
+/// de providers. Por eso arma su propia instancia de
+/// `SuggestionRepositoryImpl`, con `merge: null` en vez de reusar
+/// `suggestionRepositoryProvider` —que sí depende de
+/// `mergeDuplicateItemsUseCaseProvider`, y este de `libraryRepositoryProvider`,
+/// cerrando el ciclo—. Es seguro: `SuggestionRepositoryImpl` no guarda
+/// estado propio, y este generador nunca llama a `accept()` —solo crea y
+/// lee sugerencias—, así que no necesita el `merge` que ese método usaría.
 final duplicateSuggestionGeneratorProvider =
     Provider<DuplicateSuggestionGenerator>((ref) {
       return GenerateDuplicateSuggestionsUseCase(
         database: ref.watch(appDatabaseProvider),
         selector: ref.watch(duplicateCandidateSelectorProvider),
-        suggestions: ref.watch(suggestionRepositoryProvider),
+        suggestions: SuggestionRepositoryImpl(
+          database: ref.watch(appDatabaseProvider),
+          telemetry: ref.watch(telemetryServiceProvider),
+          organize: ref.watch(organizeRepositoryProvider),
+          merge: null,
+          ids: ref.watch(idGeneratorProvider),
+          clock: ref.watch(clockProvider),
+        ),
         telemetry: ref.watch(telemetryServiceProvider),
       );
     });

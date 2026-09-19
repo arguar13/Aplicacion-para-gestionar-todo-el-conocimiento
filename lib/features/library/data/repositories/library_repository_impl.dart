@@ -17,6 +17,7 @@ import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 
@@ -25,13 +26,25 @@ class LibraryRepositoryImpl implements LibraryRepository {
     required AppDatabase database,
     required TelemetryService telemetry,
     required FileStore files,
+
+    /// Opcional —`null` por defecto no hace nada— para que las muchas
+    /// pruebas unitarias que construyen este repositorio a mano y no les
+    /// importa nada de F7 no tengan que enterarse de esta dependencia.
+    /// La instancia real que llega acá desde `libraryRepositoryProvider`
+    /// tiene su propia `SuggestionRepositoryImpl` dedicada —ver el doc
+    /// comment de `duplicateSuggestionGeneratorProvider`— para no
+    /// depender, ni siquiera transitivamente, de este mismo repositorio:
+    /// eso sí sería un ciclo real de providers.
+    DuplicateSuggestionGenerator? duplicateSuggestionGenerator,
   }) : _db = database,
        _telemetry = telemetry,
-       _files = files;
+       _files = files,
+       _duplicateSuggestionGenerator = duplicateSuggestionGenerator;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final FileStore _files;
+  final DuplicateSuggestionGenerator? _duplicateSuggestionGenerator;
 
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
@@ -44,12 +57,28 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _syncProperties(item);
         await _mirrorItem(item);
       });
+      _generateDuplicateSuggestionForNote(item);
       return right(item);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.save'));
     }
+  }
+
+  /// Fire-and-forget, solo para notas (D7, F7): una fuente igual pasa
+  /// por acá al guardarse, pero su propia sugerencia de duplicado nace
+  /// del hook en `ProcessItemUseCase`, no de este — dos puntos de
+  /// enganche para el mismo generador, uno por cada camino por el que
+  /// un elemento llega a tener texto completo. Sin comparar contra un
+  /// hash anterior primero: a diferencia del chunking de F5, acá el
+  /// cálculo es tan barato que no vale la pena optimizar recalcularlo en
+  /// cada guardado.
+  void _generateDuplicateSuggestionForNote(KnowledgeItem item) {
+    if (itemKindFor(item.source.kind) != ItemKind.note) return;
+    final generator = _duplicateSuggestionGenerator;
+    if (generator == null) return;
+    unawaited(generator.generate(item).catchError((_, __) {}));
   }
 
   @override

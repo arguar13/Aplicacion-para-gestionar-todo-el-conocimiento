@@ -23,7 +23,17 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     required AppDatabase database,
     required TelemetryService telemetry,
     required OrganizeRepository organize,
-    required MergeDuplicateItemsUseCase merge,
+
+    /// `null` para quien nunca llama a [accept] sobre una sugerencia de
+    /// duplicado —hoy, la instancia dedicada de
+    /// `duplicateSuggestionGeneratorProvider`, que solo crea y lee
+    /// sugerencias, nunca las acepta—. Necesario para cortar un ciclo
+    /// real de providers: la vía normal de esta clase depende de
+    /// `MergeDuplicateItemsUseCase`, que depende de `LibraryRepository`,
+    /// que a su vez dispara el generador de duplicados al guardar una
+    /// nota (D7) — si el generador reusara la sugerencia de
+    /// `SuggestionRepository` de siempre, el ciclo se cerraría.
+    required MergeDuplicateItemsUseCase? merge,
     required IdGenerator ids,
     required Clock clock,
   }) : _db = database,
@@ -36,7 +46,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final OrganizeRepository _organize;
-  final MergeDuplicateItemsUseCase _merge;
+  final MergeDuplicateItemsUseCase? _merge;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -293,8 +303,22 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   /// `row.targetItemId` es el que queda —el que ya existía cuando se
   /// generó la sugerencia—, `duplicateItemId` el que se descarta.
   Future<Either<Failure, Unit>> _applyDuplicate(SuggestionRow row) {
+    final merge = _merge;
+    if (merge == null) {
+      // No debería pasar nunca en la práctica: la única instancia sin
+      // `merge` es la dedicada al generador, que nunca llama a
+      // `accept()` — ver el porqué en el doc comment del parámetro.
+      return Future.value(
+        left(
+          const Failure.unexpected(
+            message: 'Esta instancia no puede fusionar duplicados.',
+          ),
+        ),
+      );
+    }
+
     final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
-    return _merge(
+    return merge(
       keepItemId: row.targetItemId,
       discardItemId: payload['duplicateItemId'] as String,
     );

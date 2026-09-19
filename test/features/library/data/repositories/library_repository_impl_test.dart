@@ -23,6 +23,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
+import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
@@ -1062,5 +1063,68 @@ void main() {
       expect(reloaded.properties.single.origin, ItemPropertyOrigin.inherited);
       expect(reloaded.title, 'Título editado');
     });
+  });
+
+  group('deduplicación (F7)', () {
+    test('guardar una nota nueva dispara el generador de duplicados', () async {
+      final generator = FakeDuplicateSuggestionGenerator();
+      final withGenerator = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        duplicateSuggestionGenerator: generator,
+      );
+      final note = buildItem(sourceKind: SourceKind.manualNote);
+
+      await withGenerator.save(note);
+
+      expect(generator.calls, [note.id]);
+    });
+
+    test(
+      'editarla de nuevo también lo dispara, no solo la primera vez',
+      () async {
+        final generator = FakeDuplicateSuggestionGenerator();
+        final withGenerator = LibraryRepositoryImpl(
+          database: db,
+          telemetry: MockTelemetryService(),
+          files: files,
+          duplicateSuggestionGenerator: generator,
+        );
+        final note = buildItem(sourceKind: SourceKind.manualNote);
+        await withGenerator.save(note);
+
+        await withGenerator.save(note.copyWith(title: 'Título editado'));
+
+        expect(generator.calls, [note.id, note.id]);
+      },
+    );
+
+    test('guardar una fuente no dispara nada: esa es responsabilidad de '
+        'ProcessItemUseCase, no de este hook', () async {
+      final generator = FakeDuplicateSuggestionGenerator();
+      final withGenerator = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        duplicateSuggestionGenerator: generator,
+      );
+      final source = buildItem();
+
+      await withGenerator.save(source);
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test(
+      'sin ningún generador configurado, guardar una nota no revienta',
+      () async {
+        final note = buildItem(sourceKind: SourceKind.manualNote);
+
+        final result = await repository.save(note);
+
+        expect(result.isRight(), isTrue);
+      },
+    );
   });
 }
