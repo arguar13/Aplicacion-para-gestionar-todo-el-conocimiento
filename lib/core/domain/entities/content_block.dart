@@ -82,6 +82,33 @@ List<ContentBlock> decodeContentBlocks(String json) {
       .toList();
 }
 
+/// Como [decodeContentBlocks], pero TOTAL: devuelve `null` si [json] no son
+/// bloques legibles —no es JSON, no es una lista, o algún campo tiene otro
+/// tipo— en vez de lanzar.
+///
+/// Para quien recorre notas de a miles y no puede caerse por una: la
+/// migración que registra los enlaces, por ejemplo. Un `null` acá es "esta
+/// nota no se pudo leer", algo para informar, no para tragarse.
+List<ContentBlock>? tryDecodeContentBlocks(String json) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! List<dynamic>) return null;
+
+  final blocks = <ContentBlock>[];
+  for (final raw in decoded) {
+    if (raw is! Map<String, dynamic>) return null;
+    if (raw['text'] != null && raw['text'] is! String) return null;
+    if (raw['level'] != null && raw['level'] is! int) return null;
+    if (raw['checked'] != null && raw['checked'] is! bool) return null;
+    blocks.add(_blockFromJson(raw));
+  }
+  return blocks;
+}
+
 Map<String, dynamic> _blockToJson(ContentBlock block) => switch (block) {
   ParagraphBlock(:final text) => {'type': _typeParagraph, 'text': text},
   HeadingBlock(:final text, :final level) => {

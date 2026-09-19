@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
@@ -574,22 +575,15 @@ class _BlockRow extends StatelessWidget {
   }
 }
 
-final _linkPattern = RegExp(r'\[\[(.+?)\]\]');
-
 /// Los títulos —sin distinguir mayúsculas, recortados— que aparecen entre
 /// `[[ ]]` en cualquier bloque.
 ///
 /// Función aparte de `_save`, y no un método privado del `State`, para que
 /// se pueda probar sola con datos concretos, sin montar el editor entero:
 /// es la única parte de la extracción de enlaces con lógica real, el resto
-/// es E/S contra la base.
-Set<String> extractLinkedTitles(List<ContentBlock> blocks) {
-  final titles = <String>{};
-  for (final block in blocks) {
-    for (final match in _linkPattern.allMatches(block.text)) {
-      final title = match.group(1)!.trim().toLowerCase();
-      if (title.isNotEmpty) titles.add(title);
-    }
-  }
-  return titles;
-}
+/// es E/S contra la base. El análisis en sí vive en `inline_link_parser`,
+/// porque también lo usa la migración que persiste los enlaces.
+Set<String> extractLinkedTitles(List<ContentBlock> blocks) => {
+  for (final mention in extractInlineLinksFromBlocks(blocks))
+    mention.normalizedTitle,
+};

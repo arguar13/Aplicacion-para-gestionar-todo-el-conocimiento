@@ -67,6 +67,72 @@ void main() {
     });
   });
 
+  group('tryDecodeContentBlocks', () {
+    test('lee lo mismo que decodeContentBlocks cuando los bloques son '
+        'legibles', () {
+      const blocks = [
+        ContentBlock.heading(text: 'Título', level: 2),
+        ContentBlock.checklistItem(text: 'por hacer', checked: true),
+        ContentBlock.quote(text: 'una cita'),
+      ];
+
+      expect(tryDecodeContentBlocks(encodeContentBlocks(blocks)), blocks);
+    });
+
+    test('un tipo desconocido se lee como párrafo, igual que en '
+        'decodeContentBlocks', () {
+      expect(
+        tryDecodeContentBlocks('[{"type": "tabla-del-futuro", "text": "x"}]'),
+        [const ContentBlock.paragraph(text: 'x')],
+      );
+    });
+
+    test('una lista vacía es legible y está vacía', () {
+      expect(tryDecodeContentBlocks('[]'), isEmpty);
+    });
+
+    test('devuelve null si el contenido no es JSON', () {
+      expect(tryDecodeContentBlocks('esto no es json'), isNull);
+      expect(tryDecodeContentBlocks(''), isNull);
+    });
+
+    test('devuelve null si el JSON no es una lista de bloques', () {
+      expect(tryDecodeContentBlocks('{"type": "paragraph"}'), isNull);
+      expect(tryDecodeContentBlocks('"texto"'), isNull);
+      expect(tryDecodeContentBlocks('[1, 2, 3]'), isNull);
+    });
+
+    test('devuelve null si un campo del bloque tiene otro tipo', () {
+      expect(
+        tryDecodeContentBlocks('[{"type": "paragraph", "text": 5}]'),
+        isNull,
+      );
+      expect(
+        tryDecodeContentBlocks(
+          '[{"type": "heading", "text": "x", "level": "2"}]',
+        ),
+        isNull,
+      );
+      expect(
+        tryDecodeContentBlocks(
+          '[{"type": "checklistItem", "text": "x", "checked": "si"}]',
+        ),
+        isNull,
+      );
+    });
+
+    test('un solo bloque ilegible descarta la nota entera, no la lee a '
+        'medias', () {
+      expect(
+        tryDecodeContentBlocks(
+          '[{"type": "paragraph", "text": "bien"}, '
+          '{"type": "paragraph", "text": 5}]',
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('ContentBlock.text', () {
     test('devuelve el texto propio de cada variante', () {
       expect(const ContentBlock.paragraph(text: 'a').text, 'a');

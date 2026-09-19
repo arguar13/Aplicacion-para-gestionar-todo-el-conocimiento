@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 import '../../generated_migrations/schema.dart';
+import '../../support/schema_snapshot.dart';
 import '../../support/silent_logger.dart';
 
 /// La migración de esquema 7→8 —que agrega el modelo de conocimiento nuevo
@@ -53,13 +54,13 @@ void main() {
     final db = AppDatabase(connection);
     addTearDown(db.close);
 
-    // El segundo argumento tiene que ser la versión REAL de
-    // `AppDatabase.schemaVersion` (hoy 13, por F7) y no la versión que da
-    // nombre a este archivo: `AppDatabase` siempre migra hasta su propio
-    // `schemaVersion` al abrirse, nunca se detiene a mitad de camino —así
-    // que el esquema resultante solo puede compararse contra el snapshot
-    // de la versión a la que de verdad llega.
-    await verifier.migrateAndValidate(db, 13);
+    // El segundo argumento tiene que ser la versión REAL a la que llega la
+    // base (`latestSchemaSnapshot`) y no la versión que da nombre a este
+    // archivo: `AppDatabase` siempre migra hasta su propio `schemaVersion`
+    // al abrirse, nunca se detiene a mitad de camino —así que el esquema
+    // resultante solo puede compararse contra el snapshot de la versión a
+    // la que de verdad llega.
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     expect(await db.select(db.knowledgeSources).get(), isEmpty);
@@ -105,7 +106,7 @@ void main() {
     // Mismo motivo que en el test anterior: se valida contra la versión
     // real a la que `AppDatabase` converge, no contra el número que da
     // nombre a este archivo.
-    await verifier.migrateAndValidate(db, 13);
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     final items = await db.select(db.items).get();
     final sources = await db.select(db.sources).get();

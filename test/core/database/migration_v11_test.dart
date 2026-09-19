@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
 import '../../generated_migrations/schema.dart';
+import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 9→11 —clasificación asistida (F4): la columna
 /// `origin` en `ItemPropertyValues` y la tabla `Suggestions`—, probada con
@@ -31,11 +32,11 @@ void main() {
     final db = AppDatabase(connection);
     addTearDown(db.close);
 
-    // El segundo argumento es la versión REAL de `AppDatabase.
-    // schemaVersion` (hoy 13, por F7), no la versión que da nombre a
-    // este archivo — `AppDatabase` siempre migra hasta su propio
+    // El segundo argumento es la versión REAL a la que llega la base
+    // (`latestSchemaSnapshot`), no la versión que da nombre a este
+    // archivo — `AppDatabase` siempre migra hasta su propio
     // `schemaVersion`.
-    await verifier.migrateAndValidate(db, 13);
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     expect(await db.select(db.suggestions).get(), isEmpty);
   });
@@ -98,7 +99,7 @@ void main() {
 
     // Mismo motivo que el test anterior: versión real, no la del nombre
     // del archivo.
-    await verifier.migrateAndValidate(db, 13);
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     final assignment = await (db.select(
       db.itemPropertyValues,

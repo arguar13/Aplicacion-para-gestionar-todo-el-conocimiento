@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sinapsis/core/database/migrations/backfill_inline_links_v15.dart';
 import 'package:sinapsis/core/database/migrations/backfill_source_chunks_v12.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
 import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
@@ -15,6 +16,7 @@ import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
+import 'package:sinapsis/core/database/tables/inline_links.dart';
 import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
@@ -81,6 +83,7 @@ part 'app_database.g.dart';
     MigrationIssues,
     Suggestions,
     MergedProvenances,
+    InlineLinks,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -116,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 14;
+  static const currentSchemaVersion = 15;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -308,6 +311,26 @@ class AppDatabase extends _$AppDatabase {
         // puede borrar—, pero no conviene apoyarse en eso desde acá.
         await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
         await reconcileTagsWithProperties(
+          this,
+          ids: const UuidV7Generator(),
+          logger: ConsoleAppLogger(),
+        );
+      }
+      // Consolidación (F9): los `[[ ]]` de las notas persistidos como
+      // tabla —con el destino nullable: un enlace roto deja de ser invisible—,
+      // y tres columnas nullable en `Relations`: cuándo se revisó una
+      // contradicción, y dónde de la fuente sale una cita. Todo aditivo. El
+      // backfill calcula un informe antes de escribir, y la copia previa de
+      // la base ya se hizo.
+      if (from < 15) {
+        await migrator.createTable(inlineLinks);
+        // `createTable` no crea los índices de `@TableIndex` solo.
+        await migrator.createIndex(idxInlineLinkTarget);
+        await migrator.createIndex(idxInlineLinkTitle);
+        await migrator.addColumn(relations, relations.reviewedAt);
+        await migrator.addColumn(relations, relations.sourceCharStart);
+        await migrator.addColumn(relations, relations.sourceCharEnd);
+        await backfillInlineLinks(
           this,
           ids: const UuidV7Generator(),
           logger: ConsoleAppLogger(),

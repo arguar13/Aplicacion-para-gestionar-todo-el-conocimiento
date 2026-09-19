@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 
 import '../../generated_migrations/schema.dart';
+import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 11→13 —deduplicación (F7): `dedupHash` en
 /// `source` y en `note`, `simhash` nuevo en `note` (en `source` ya
@@ -36,7 +37,9 @@ void main() {
     final db = AppDatabase(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 13);
+    // La forma que se valida es la final (`latestSchemaSnapshot`), no la 13:
+    // `AppDatabase` siempre migra hasta su propio `schemaVersion`.
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     expect(await db.select(db.mergedProvenances).get(), isEmpty);
   });
@@ -95,7 +98,7 @@ void main() {
           ),
         );
 
-    await verifier.migrateAndValidate(db, 13);
+    await verifier.migrateAndValidate(db, latestSchemaSnapshot);
 
     final source = await (db.select(
       db.knowledgeSources,
