@@ -10,6 +10,7 @@ import 'package:sinapsis/features/relations/presentation/providers/relations_pro
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
 import 'package:sinapsis/features/suggestions/data/usecases/generate_property_suggestions_usecase.dart';
 import 'package:sinapsis/features/suggestions/data/usecases/generate_relation_suggestions_usecase.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
@@ -70,4 +71,17 @@ final relationSuggestionGeneratorProvider =
         suggestions: ref.watch(suggestionRepositoryProvider),
         telemetry: ref.watch(telemetryServiceProvider),
       );
+    });
+
+/// Las sugerencias de propiedad pendientes de toda la bóveda, agrupadas por
+/// categoría y valor propuesto, para revisarlas en lote.
+///
+/// `autoDispose` porque el stream mantiene abierta una suscripción a los
+/// cambios de la base: sin esto seguiría recomponiéndose aunque ninguna
+/// pantalla lo esté mostrando.
+final pendingPropertySuggestionGroupsProvider =
+    StreamProvider.autoDispose<List<PropertySuggestionGroup>>((ref) {
+      return ref
+          .watch(suggestionRepositoryProvider)
+          .watchPendingPropertySuggestionGroups();
     });

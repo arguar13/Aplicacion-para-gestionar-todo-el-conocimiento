@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -10,12 +11,14 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/usecases/merge_duplicate_items_usecase.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
 class SuggestionRepositoryImpl implements SuggestionRepository {
@@ -376,6 +379,170 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     }
   }
 
+  @override
+  Stream<List<PropertySuggestionGroup>> watchPendingPropertySuggestionGroups() {
+    return watchQuery(
+      db: _db,
+      tables: [
+        _db.suggestions,
+        _db.propertyDefinitions,
+        _db.propertyValues,
+        _db.propertyAliases,
+      ],
+      read: _readPropertyGroups,
+      telemetry: _telemetry,
+      hint: 'SuggestionRepositoryImpl.watchPendingPropertySuggestionGroups',
+    );
+  }
+
+  Future<List<PropertySuggestionGroup>> _readPropertyGroups() async {
+    final rows =
+        await (_db.select(_db.suggestions)
+              ..where(
+                (s) =>
+                    s.kind.equalsValue(SuggestionKind.property) &
+                    s.status.equalsValue(SuggestionStatus.pending),
+              )
+              ..orderBy([
+                (s) => OrderingTerm(expression: s.createdAt),
+                (s) => OrderingTerm(expression: s.id),
+              ]))
+            .get();
+    if (rows.isEmpty) return const [];
+
+    final definitionNames = {
+      for (final d in await _db.select(_db.propertyDefinitions).get())
+        d.id: d.name,
+    };
+
+    final grouped = <(String, String), List<PropertySuggestion>>{};
+    for (final row in rows) {
+      final suggestion = _toSuggestion(row);
+      if (suggestion is! PropertySuggestion) continue;
+      // Las que no se pueden aplicar se dejan afuera: una sola que fallara
+      // haría fallar el lote entero de `acceptMany`.
+      if (!definitionNames.containsKey(suggestion.definitionId)) continue;
+      final normalized = normalizeVocabularyLabel(suggestion.value);
+      if (normalized.isEmpty) continue;
+      grouped
+          .putIfAbsent((suggestion.definitionId, normalized), () => [])
+          .add(suggestion);
+    }
+
+    final groups = <PropertySuggestionGroup>[];
+    for (final entry in grouped.entries) {
+      final (definitionId, normalized) = entry.key;
+      final value = _mostWrittenValue(entry.value);
+      groups.add(
+        PropertySuggestionGroup(
+          definitionId: definitionId,
+          definitionName: definitionNames[definitionId]!,
+          value: value,
+          normalizedValue: normalized,
+          valueExists:
+              await findValueByLabelOrAlias(_db, definitionId, value) != null,
+          suggestions: entry.value,
+        ),
+      );
+    }
+
+    // Sobre el texto sin acentos: "Época" va con las E, no después de la Z.
+    return groups..sort((a, b) {
+      final byCount = b.suggestions.length.compareTo(a.suggestions.length);
+      if (byCount != 0) return byCount;
+      final byCategory = normalizeVocabularyLabel(
+        a.definitionName,
+      ).compareTo(normalizeVocabularyLabel(b.definitionName));
+      if (byCategory != 0) return byCategory;
+      return a.normalizedValue.compareTo(b.normalizedValue);
+    });
+  }
+
+  /// El valor como lo escribió la mayoría; a igual cantidad, el primero que se
+  /// propuso —las sugerencias llegan de la más vieja a la más nueva—.
+  String _mostWrittenValue(List<PropertySuggestion> suggestions) {
+    final counts = <String, int>{};
+    for (final suggestion in suggestions) {
+      counts.update(suggestion.value.trim(), (n) => n + 1, ifAbsent: () => 1);
+    }
+    return counts.entries
+        .reduce((best, entry) => entry.value > best.value ? entry : best)
+        .key;
+  }
+
+  @override
+  Future<Either<Failure, int>> acceptMany(List<String> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return right(0);
+
+    try {
+      await _db.transaction(() async {
+        final rows = await (_db.select(
+          _db.suggestions,
+        )..where((s) => s.id.isIn(unique))).get();
+        final byId = {for (final row in rows) row.id: row};
+        for (final id in unique) {
+          final row = byId[id];
+          if (row == null ||
+              row.status != SuggestionStatus.pending ||
+              row.kind != SuggestionKind.property) {
+            throw const _BatchAborted(
+              Failure.validation(
+                message:
+                    'Alguna sugerencia ya no está pendiente, ya no existe o no '
+                    'es de propiedad: no se aplicó ninguna.',
+              ),
+            );
+          }
+        }
+
+        for (final id in unique) {
+          final applied = await accept(id);
+          final failure = applied.getLeft().toNullable();
+          // Lanzar es lo que deshace la transacción entera: las ya aplicadas
+          // antes de la que falló no pueden quedar a medias.
+          if (failure != null) throw _BatchAborted(failure);
+        }
+      });
+      return right(unique.length);
+    } on _BatchAborted catch (aborted) {
+      return left(aborted.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'SuggestionRepositoryImpl.acceptMany'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> rejectMany(List<String> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return right(0);
+
+    try {
+      final updated =
+          await (_db.update(_db.suggestions)..where(
+                (s) =>
+                    s.id.isIn(unique) &
+                    s.status.equalsValue(SuggestionStatus.pending),
+              ))
+              .writeReturning(
+                const SuggestionsCompanion(
+                  status: Value(SuggestionStatus.rejected),
+                ),
+              );
+      return right(updated.length);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'SuggestionRepositoryImpl.rejectMany'),
+      );
+    }
+  }
+
   Suggestion _toSuggestion(SuggestionRow row) {
     final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
     return switch (row.kind) {
@@ -424,4 +591,12 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     _telemetry.recordError(e, stackTrace, hint: hint);
     return Failure.unexpected(message: e.toString());
   }
+}
+
+/// Una sugerencia del lote no se pudo aplicar: deshace la transacción del
+/// lote entero.
+class _BatchAborted implements Exception {
+  const _BatchAborted(this.failure);
+
+  final Failure failure;
 }

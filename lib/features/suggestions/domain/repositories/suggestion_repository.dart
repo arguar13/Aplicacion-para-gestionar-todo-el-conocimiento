@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 
 /// La cola de sugerencias del modelo de lenguaje: dueño de crearlas,
 /// listarlas y decidir su destino —no de la asignación en sí, que sigue
@@ -67,4 +68,27 @@ abstract interface class SuggestionRepository {
 
   /// Marca `status: rejected` sin aplicar nada.
   Future<Either<Failure, Unit>> reject(String id);
+
+  /// Las sugerencias de propiedad pendientes de toda la bóveda, agrupadas por
+  /// categoría y valor propuesto, actualizándose solas: los grupos con más
+  /// elementos primero y, a igual cantidad, por categoría y valor.
+  ///
+  /// Solo entran las que se pueden aplicar: se dejan afuera las de una
+  /// categoría que ya no existe y las de un valor vacío. Una sola que no se
+  /// pudiera aplicar haría fallar el lote entero de [acceptMany].
+  Stream<List<PropertySuggestionGroup>> watchPendingPropertySuggestionGroups();
+
+  /// Aplica varias sugerencias de propiedad de una sola vez —igual que
+  /// [accept] con cada una— y devuelve cuántas.
+  ///
+  /// Es atómico: si alguna no se puede aplicar, ninguna queda aplicada y
+  /// todas siguen `pending`. Falla sin aplicar nada si alguna de [ids] no
+  /// existe, ya no está pendiente o no es de propiedad. Un id repetido cuenta
+  /// una vez. El valor que propone el grupo se crea una sola vez, no una por
+  /// sugerencia.
+  Future<Either<Failure, int>> acceptMany(List<String> ids);
+
+  /// Marca `status: rejected` varias sugerencias pendientes sin aplicar nada
+  /// y devuelve cuántas. Una que ya no está pendiente no se toca.
+  Future<Either<Failure, int>> rejectMany(List<String> ids);
 }
