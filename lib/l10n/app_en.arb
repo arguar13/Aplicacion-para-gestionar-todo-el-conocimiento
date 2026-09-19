@@ -2159,5 +2159,55 @@
   "duplicateWarningKeepSeparate": "Keep separate",
   "@duplicateWarningKeepSeparate": {
     "description": "Botón para guardar de todos modos como un elemento aparte, en el diálogo de aviso de duplicado, F7."
+  },
+  "duplicatesTitle": "Possible duplicates",
+  "@duplicatesTitle": {
+    "description": "Título de la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesEmpty": "No possible duplicates yet. This lists things that look like something you already saved, detected automatically when capturing or saving a note.",
+  "@duplicatesEmpty": {
+    "description": "Estado vacío de la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesSettingsTooltip": "Possible duplicates",
+  "@duplicatesSettingsTooltip": {
+    "description": "Título del ListTile en la sección Bóveda de Ajustes que lleva a la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesKeepLabel": "Keeping",
+  "@duplicatesKeepLabel": {
+    "description": "Etiqueta de la fila que muestra el elemento que sobrevive a una fusión, en la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesDiscardLabel": "Discarding",
+  "@duplicatesDiscardLabel": {
+    "description": "Etiqueta de la fila que muestra el elemento que se descartaría, en la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesMergeAction": "Merge",
+  "@duplicatesMergeAction": {
+    "description": "Botón para fusionar un par de posibles duplicados, F7."
+  },
+  "duplicatesDiscardAction": "Dismiss",
+  "@duplicatesDiscardAction": {
+    "description": "Botón para descartar una sugerencia de duplicado sin fusionar nada, F7."
+  },
+  "duplicatesMergeConfirmTitle": "Merge these two?",
+  "@duplicatesMergeConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de fusionar, en la pantalla \"Posibles duplicados\", F7."
+  },
+  "duplicatesMergeConfirmBody": "\"{discardTitle}\" will be deleted. Its provenance and text move to \"{keepTitle}\".",
+  "@duplicatesMergeConfirmBody": {
+    "description": "Cuerpo del diálogo de confirmación antes de fusionar, F7.",
+    "placeholders": {
+      "discardTitle": {
+        "type": "String",
+        "example": "A repost"
+      },
+      "keepTitle": {
+        "type": "String",
+        "example": "The original article"
+      }
+    }
+  },
+  "duplicatesDiscarded": "Dismissed, nothing merged.",
+  "@duplicatesDiscarded": {
+    "description": "Confirmación tras descartar una sugerencia de duplicado sin fusionar, F7."
   }
 }

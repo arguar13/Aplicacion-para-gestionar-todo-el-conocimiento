@@ -11,6 +11,7 @@ import 'package:sinapsis/features/capture/presentation/providers/shared_content_
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
@@ -91,6 +92,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.vaultBackup,
         name: RouteNames.vaultBackup,
         builder: (context, state) => const VaultBackupScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.duplicates,
+        name: RouteNames.duplicates,
+        builder: (context, state) => const PossibleDuplicatesScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

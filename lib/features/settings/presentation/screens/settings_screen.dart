@@ -95,6 +95,12 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.vaultBackup),
               ),
+              ListTile(
+                leading: const Icon(Icons.content_copy_outlined),
+                title: Text(l10n.duplicatesSettingsTooltip),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.duplicates),
+              ),
             ],
           ),
           const SizedBox(height: 24),

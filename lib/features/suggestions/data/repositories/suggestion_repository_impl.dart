@@ -73,6 +73,28 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Stream<List<Suggestion>> watchPendingDuplicateSuggestions() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.suggestions],
+      read: () async {
+        final rows =
+            await (_db.select(_db.suggestions)
+                  ..where(
+                    (s) =>
+                        s.kind.equalsValue(SuggestionKind.duplicate) &
+                        s.status.equalsValue(SuggestionStatus.pending),
+                  )
+                  ..orderBy([(s) => OrderingTerm(expression: s.createdAt)]))
+                .get();
+        return rows.map(_toSuggestion).toList();
+      },
+      telemetry: _telemetry,
+      hint: 'SuggestionRepositoryImpl.watchPendingDuplicateSuggestions',
+    );
+  }
+
+  @override
   Future<Either<Failure, Suggestion>> createPropertySuggestion({
     required String targetItemId,
     required String definitionId,

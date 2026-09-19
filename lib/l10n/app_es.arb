@@ -1914,5 +1914,15 @@
   "duplicateWarningTitleNear": "Esto se parece a algo que ya tenés",
   "duplicateWarningBody": "\"{title}\" ya está en tu bóveda. ¿Fusionás las dos procedencias en un solo elemento, o preferís guardar esto aparte?",
   "duplicateWarningMerge": "Fusionar",
-  "duplicateWarningKeepSeparate": "Guardar aparte"
+  "duplicateWarningKeepSeparate": "Guardar aparte",
+  "duplicatesTitle": "Posibles duplicados",
+  "duplicatesEmpty": "Todavía no hay ningún posible duplicado. Esto lista lo que se parece a algo ya guardado, detectado automáticamente al capturar o al guardar una nota.",
+  "duplicatesSettingsTooltip": "Posibles duplicados",
+  "duplicatesKeepLabel": "Se conserva",
+  "duplicatesDiscardLabel": "Se descarta",
+  "duplicatesMergeAction": "Fusionar",
+  "duplicatesDiscardAction": "Descartar",
+  "duplicatesMergeConfirmTitle": "¿Fusionar estos dos?",
+  "duplicatesMergeConfirmBody": "\"{discardTitle}\" se va a borrar. Su procedencia y su texto pasan a \"{keepTitle}\".",
+  "duplicatesDiscarded": "Descartado, sin fusionar nada."
 }

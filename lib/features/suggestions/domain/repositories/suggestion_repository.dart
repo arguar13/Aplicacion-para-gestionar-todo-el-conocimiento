@@ -12,6 +12,14 @@ abstract interface class SuggestionRepository {
   /// nueva, actualizándose solas.
   Stream<List<Suggestion>> watchPendingSuggestions(String itemId);
 
+  /// Todas las sugerencias de duplicado en `pending`, de toda la bóveda
+  /// —no de un solo elemento—, de más vieja a más nueva, actualizándose
+  /// solas. Para la pantalla "Posibles duplicados" (F7): a diferencia
+  /// de [watchPendingSuggestions], que alimenta el 4º botón de la
+  /// Bandeja sobre un elemento puntual, acá no hay ningún elemento de
+  /// partida — se revisan todas juntas, sin importar cuál las generó.
+  Stream<List<Suggestion>> watchPendingDuplicateSuggestions();
+
   /// Crea una sugerencia de propiedad nueva, en `status: pending`.
   /// Genera `id`/`createdAt` internamente — mismo patrón que
   /// `OrganizeRepository.createHighlight`.

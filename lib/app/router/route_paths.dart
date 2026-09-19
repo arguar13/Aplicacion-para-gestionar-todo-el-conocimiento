@@ -34,6 +34,12 @@ abstract final class RoutePaths {
   /// Copia de seguridad de la bóveda completa: exportar e importar.
   static const vaultBackup = '/vault-backup';
 
+  /// Lo que el generador de duplicados (F7) encontró parecido a algo ya
+  /// guardado, en toda la bóveda. Ruta plana, mismo criterio que
+  /// [graphTension]: es una acción de mantenimiento de la bóveda, no un
+  /// octavo destino de navegación.
+  static const duplicates = '/duplicates';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -83,6 +89,7 @@ abstract final class RouteNames {
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';
+  static const duplicates = 'duplicates';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

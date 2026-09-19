@@ -17,6 +17,15 @@ void main() {
   });
 
   Future<void> pumpSettings(WidgetTester tester) async {
+    // Con la fila nueva de "Posibles duplicados" (F7), la lista entera
+    // ya no entra en el tamaño de ventana por defecto de las pruebas de
+    // widget (800x600) — agrandar la ventana es más simple y menos
+    // frágil que un `scrollUntilVisible` en cada prueba que toca algo
+    // del final de la lista.
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(harness.wrap(const SettingsScreen()));
     await tester.pumpAndSettle();
   }
@@ -78,6 +87,14 @@ void main() {
         harness.container.read(vaultSessionControllerProvider),
         isA<VaultLocked>(),
       );
+    });
+
+    testWidgets('muestra la opción de posibles duplicados (F7)', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+
+      expect(find.text(es.duplicatesSettingsTooltip), findsOneWidget);
     });
   });
 }

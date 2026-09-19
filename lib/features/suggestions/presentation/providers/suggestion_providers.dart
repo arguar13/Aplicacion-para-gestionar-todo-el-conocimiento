@@ -35,6 +35,15 @@ final pendingSuggestionsProvider = StreamProvider.autoDispose
           .watchPendingSuggestions(itemId);
     });
 
+/// Todas las sugerencias de duplicado pendientes de toda la bóveda, para
+/// la pantalla "Posibles duplicados" (F7).
+final pendingDuplicateSuggestionsProvider =
+    StreamProvider.autoDispose<List<Suggestion>>((ref) {
+      return ref
+          .watch(suggestionRepositoryProvider)
+          .watchPendingDuplicateSuggestions();
+    });
+
 final propertySuggestionGeneratorProvider =
     Provider<PropertySuggestionGenerator>((ref) {
       return GeneratePropertySuggestionsUseCase(
