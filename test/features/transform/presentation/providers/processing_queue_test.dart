@@ -18,6 +18,7 @@ import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 
+import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -117,6 +118,7 @@ void main() {
         clock: () => now,
         suggestionGenerator: FakePropertySuggestionGenerator(),
         relationSuggestionGenerator: FakeRelationSuggestionGenerator(),
+        duplicateSuggestionGenerator: FakeDuplicateSuggestionGenerator(),
       ),
       repository: repository,
       logger: const SilentLogger(),

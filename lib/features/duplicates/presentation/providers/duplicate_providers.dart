@@ -4,12 +4,15 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/data/repositories/duplicate_provenance_repository_impl.dart';
 import 'package:sinapsis/features/duplicates/data/services/duplicate_candidate_selector_impl.dart';
+import 'package:sinapsis/features/duplicates/data/usecases/generate_duplicate_suggestions_usecase.dart';
 import 'package:sinapsis/features/duplicates/data/usecases/merge_duplicate_items_usecase_impl.dart';
 import 'package:sinapsis/features/duplicates/domain/entities/merged_provenance.dart';
 import 'package:sinapsis/features/duplicates/domain/repositories/duplicate_provenance_repository.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_candidate_selector.dart';
+import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/usecases/merge_duplicate_items_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este
 /// repositorio; nunca de la base de datos directamente.
@@ -50,3 +53,13 @@ final mergeDuplicateItemsUseCaseProvider = Provider<MergeDuplicateItemsUseCase>(
     );
   },
 );
+
+final duplicateSuggestionGeneratorProvider =
+    Provider<DuplicateSuggestionGenerator>((ref) {
+      return GenerateDuplicateSuggestionsUseCase(
+        database: ref.watch(appDatabaseProvider),
+        selector: ref.watch(duplicateCandidateSelectorProvider),
+        suggestions: ref.watch(suggestionRepositoryProvider),
+        telemetry: ref.watch(telemetryServiceProvider),
+      );
+    });

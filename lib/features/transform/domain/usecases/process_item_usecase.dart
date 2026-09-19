@@ -8,6 +8,7 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
@@ -38,13 +39,15 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required Clock clock,
     required PropertySuggestionGenerator suggestionGenerator,
     required RelationSuggestionGenerator relationSuggestionGenerator,
+    required DuplicateSuggestionGenerator duplicateSuggestionGenerator,
   }) : _registry = registry,
        _repository = repository,
        _logger = logger,
        _telemetry = telemetry,
        _clock = clock,
        _suggestionGenerator = suggestionGenerator,
-       _relationSuggestionGenerator = relationSuggestionGenerator;
+       _relationSuggestionGenerator = relationSuggestionGenerator,
+       _duplicateSuggestionGenerator = duplicateSuggestionGenerator;
 
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
@@ -53,6 +56,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   final Clock _clock;
   final PropertySuggestionGenerator _suggestionGenerator;
   final RelationSuggestionGenerator _relationSuggestionGenerator;
+  final DuplicateSuggestionGenerator _duplicateSuggestionGenerator;
 
   @override
   Future<Either<Failure, KnowledgeItem>> call(String itemId) async {
@@ -137,13 +141,13 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     }
   }
 
-  /// Fire-and-forget, dos veces: no bloquea `_process()` ni propaga un
+  /// Fire-and-forget, tres veces: no bloquea `_process()` ni propaga un
   /// error de ningún generador — un fallo acá no puede tumbar el
   /// resultado de haber procesado el elemento con éxito. `.catchError` es
   /// una red de seguridad adicional a la que ya tiene cada `generate()`
   /// por su cuenta.
   ///
-  /// Los dos generadores corren en paralelo entre sí, sin ningún orden
+  /// Los tres generadores corren en paralelo entre sí, sin ningún orden
   /// que respetar: cada uno ya resuelve su propia dependencia interna de
   /// orden por su cuenta (ver F5, D8) — solo el motor de relaciones tiene
   /// pasos que dependen entre sí, y esos viven todos dentro de su propio
@@ -153,6 +157,9 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       unawaited(_suggestionGenerator.generate(saved).catchError((_, __) {}));
       unawaited(
         _relationSuggestionGenerator.generate(saved).catchError((_, __) {}),
+      );
+      unawaited(
+        _duplicateSuggestionGenerator.generate(saved).catchError((_, __) {}),
       );
     });
   }

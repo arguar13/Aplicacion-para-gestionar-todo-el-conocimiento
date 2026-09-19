@@ -13,6 +13,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
+import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -44,6 +45,7 @@ void main() {
     TransformerRegistry registry, {
     FakePropertySuggestionGenerator? suggestionGenerator,
     FakeRelationSuggestionGenerator? relationSuggestionGenerator,
+    FakeDuplicateSuggestionGenerator? duplicateSuggestionGenerator,
   }) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
@@ -54,6 +56,8 @@ void main() {
         suggestionGenerator ?? FakePropertySuggestionGenerator(),
     relationSuggestionGenerator:
         relationSuggestionGenerator ?? FakeRelationSuggestionGenerator(),
+    duplicateSuggestionGenerator:
+        duplicateSuggestionGenerator ?? FakeDuplicateSuggestionGenerator(),
   );
 
   Future<KnowledgeItem> seedPending() async {
@@ -295,6 +299,67 @@ void main() {
 
       expect(result.isRight(), isTrue);
       expect(relationGenerator.calls, [item.id]);
+    });
+  });
+
+  group('genera sugerencias de duplicado al terminar', () {
+    test('con transformador, llama al generador con el elemento ya '
+        'transformado', () async {
+      final item = await seedPending();
+      final generator = FakeDuplicateSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer()]),
+        duplicateSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, [item.id]);
+    });
+
+    test('al terminar en failed, no llama al generador', () async {
+      final item = await seedPending();
+      final generator = FakeDuplicateSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer(error: Exception('sin red'))]),
+        duplicateSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test(
+      'un generador que lanza no le cuesta el resultado a _process()',
+      () async {
+        final item = await seedPending();
+        final generator = FakeDuplicateSuggestionGenerator(
+          error: Exception('algo falló'),
+        );
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          duplicateSuggestionGenerator: generator,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+      },
+    );
+
+    test('corre en paralelo con los otros dos: ninguno espera a los '
+        'demás', () async {
+      final item = await seedPending();
+      final propertyGenerator = FakePropertySuggestionGenerator()
+        ..hang = Completer<void>();
+      final duplicateGenerator = FakeDuplicateSuggestionGenerator();
+
+      final result = await build(
+        TransformerRegistry([FakeTransformer()]),
+        suggestionGenerator: propertyGenerator,
+        duplicateSuggestionGenerator: duplicateGenerator,
+      )(item.id);
+
+      expect(result.isRight(), isTrue);
+      expect(duplicateGenerator.calls, [item.id]);
     });
   });
 }
