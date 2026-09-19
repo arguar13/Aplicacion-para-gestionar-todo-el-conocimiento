@@ -2306,6 +2306,115 @@
       }
     }
   },
+  "healthPanelTitle": "Vault health",
+  "@healthPanelTitle": {
+    "description": "Título del panel de salud de la bóveda, al tope de la Biblioteca."
+  },
+  "healthPanelHide": "Hide panel",
+  "@healthPanelHide": {
+    "description": "Tooltip del botón que pliega el panel de salud."
+  },
+  "healthPanelShow": "Show panel",
+  "@healthPanelShow": {
+    "description": "Tooltip del botón que despliega el panel de salud."
+  },
+  "healthInboxLabel": "In the inbox",
+  "@healthInboxLabel": {
+    "description": "Indicador de salud: cuántos elementos esperan en la Bandeja."
+  },
+  "healthInboxWarning": "You're capturing more than you digest",
+  "@healthInboxWarning": {
+    "description": "Aviso del indicador de la Bandeja cuando hay más pendientes que el umbral."
+  },
+  "healthNotesLabel": "Notes by maturity",
+  "@healthNotesLabel": {
+    "description": "Indicador de salud: cuántas notas hay en cada etapa de madurez."
+  },
+  "healthNotesKinds": "Atomic {atomic} · Living {living}",
+  "@healthNotesKinds": {
+    "description": "Proporción entre notas atómicas y notas vivas, en el indicador de madurez.",
+    "placeholders": {
+      "atomic": {
+        "type": "int"
+      },
+      "living": {
+        "type": "int"
+      }
+    }
+  },
+  "healthNotesWarning": "Many fragments, few living notes",
+  "@healthNotesWarning": {
+    "description": "Aviso del indicador de notas cuando se acumulan atómicas sin construir notas vivas."
+  },
+  "healthVocabularyLabel": "Vocabulary to merge",
+  "@healthVocabularyLabel": {
+    "description": "Indicador de salud: cuántos grupos de valores parecidos del vocabulario se pueden fusionar."
+  },
+  "healthContradictionsLabel": "Contradictions to review",
+  "@healthContradictionsLabel": {
+    "description": "Indicador de salud: cuántas contradicciones faltan por revisar."
+  },
+  "healthGrownNotes": "{count, plural, =1{1 note grew this week} other{{count} notes grew this week}}",
+  "@healthGrownNotes": {
+    "description": "Acceso a la vista de notas que crecieron esta semana, con cuántas son.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "healthBrokenLinks": "{count, plural, =1{1 broken link} other{{count} broken links}}",
+  "@healthBrokenLinks": {
+    "description": "Acceso a la vista de enlaces rotos, con cuántos hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "healthSuggestions": "{count, plural, =1{1 suggestion to review} other{{count} suggestions to review}}",
+  "@healthSuggestions": {
+    "description": "Acceso a la revisión en lote de sugerencias, con cuántas hay pendientes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "grownNotesTitle": "Notes that grew this week",
+  "@grownNotesTitle": {
+    "description": "Título de la vista de notas vivas que crecieron en los últimos 7 días."
+  },
+  "grownNotesHint": "Living notes with new blocks or new links in the last 7 days. Open each one, rewrite it as continuous text and mark it mature.",
+  "@grownNotesHint": {
+    "description": "Explicación al tope de la vista de notas que crecieron: es la entrada a la sesión de consolidación."
+  },
+  "grownNotesEmpty": "No living note grew this week.",
+  "@grownNotesEmpty": {
+    "description": "Estado vacío de la vista de notas que crecieron."
+  },
+  "grownNotesLoadError": "Couldn't read the notes.",
+  "@grownNotesLoadError": {
+    "description": "Mensaje cuando falla la lectura de las notas que crecieron."
+  },
+  "grownNotesNewBlocks": "{count, plural, =1{1 new block} other{{count} new blocks}}",
+  "@grownNotesNewBlocks": {
+    "description": "Cuántos bloques nuevos tiene una nota que creció.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "grownNotesNewRelations": "{count, plural, =1{1 new link} other{{count} new links}}",
+  "@grownNotesNewRelations": {
+    "description": "Cuántos vínculos nuevos tiene una nota que creció.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noteMaturitySeed": "Seed",
   "@noteMaturitySeed": {
     "description": "Etiqueta de la madurez de una nota recién creada, sin desarrollar todavía."

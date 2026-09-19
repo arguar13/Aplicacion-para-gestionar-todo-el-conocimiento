@@ -8,6 +8,7 @@ import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
+import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -116,6 +117,51 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('una nota'), findsOneWidget);
+    });
+  });
+
+  group('el panel de salud (F9)', () {
+    testWidgets('con elementos, va al tope de la pantalla de inicio', (
+      tester,
+    ) async {
+      await harness.capture('Una nota cualquiera');
+      await pumpLibrary(tester);
+
+      expect(find.byType(HealthPanel), findsOneWidget);
+      // Plegado, pero con los cuatro indicadores a la vista: una fila.
+      for (final indicator in [
+        es.healthInboxLabel,
+        es.healthNotesLabel,
+        es.healthVocabularyLabel,
+        es.healthContradictionsLabel,
+      ]) {
+        expect(find.byTooltip(indicator), findsOneWidget, reason: indicator);
+      }
+      // Por encima de la lista, no debajo.
+      final panelY = tester.getTopLeft(find.byType(HealthPanel)).dy;
+      final listY = tester.getTopLeft(find.text('Una nota cualquiera')).dy;
+      expect(panelY, lessThan(listY));
+    });
+
+    testWidgets(
+      'en una biblioteca vacía no hay nada que mantener: no aparece',
+      (tester) async {
+        await pumpLibrary(tester);
+
+        expect(find.byType(HealthPanel), findsNothing);
+      },
+    );
+
+    testWidgets('con una búsqueda sin resultados tampoco: sería ruido', (
+      tester,
+    ) async {
+      await harness.capture('una nota sobre filosofía');
+      await pumpLibrary(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'zoología');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HealthPanel), findsNothing);
     });
   });
 

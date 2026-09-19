@@ -2082,6 +2082,115 @@
       }
     }
   },
+  "healthPanelTitle": "Salud de la bóveda",
+  "@healthPanelTitle": {
+    "description": "Título del panel de salud de la bóveda, al tope de la Biblioteca."
+  },
+  "healthPanelHide": "Ocultar el panel",
+  "@healthPanelHide": {
+    "description": "Tooltip del botón que pliega el panel de salud."
+  },
+  "healthPanelShow": "Mostrar el panel",
+  "@healthPanelShow": {
+    "description": "Tooltip del botón que despliega el panel de salud."
+  },
+  "healthInboxLabel": "En la bandeja",
+  "@healthInboxLabel": {
+    "description": "Indicador de salud: cuántos elementos esperan en la Bandeja."
+  },
+  "healthInboxWarning": "Se captura más de lo que se digiere",
+  "@healthInboxWarning": {
+    "description": "Aviso del indicador de la Bandeja cuando hay más pendientes que el umbral."
+  },
+  "healthNotesLabel": "Notas por madurez",
+  "@healthNotesLabel": {
+    "description": "Indicador de salud: cuántas notas hay en cada etapa de madurez."
+  },
+  "healthNotesKinds": "Atómicas {atomic} · Vivas {living}",
+  "@healthNotesKinds": {
+    "description": "Proporción entre notas atómicas y notas vivas, en el indicador de madurez.",
+    "placeholders": {
+      "atomic": {
+        "type": "int"
+      },
+      "living": {
+        "type": "int"
+      }
+    }
+  },
+  "healthNotesWarning": "Muchos fragmentos y pocas notas vivas",
+  "@healthNotesWarning": {
+    "description": "Aviso del indicador de notas cuando se acumulan atómicas sin construir notas vivas."
+  },
+  "healthVocabularyLabel": "Vocabulario por fusionar",
+  "@healthVocabularyLabel": {
+    "description": "Indicador de salud: cuántos grupos de valores parecidos del vocabulario se pueden fusionar."
+  },
+  "healthContradictionsLabel": "Contradicciones por revisar",
+  "@healthContradictionsLabel": {
+    "description": "Indicador de salud: cuántas contradicciones faltan por revisar."
+  },
+  "healthGrownNotes": "{count, plural, =1{Creció 1 nota esta semana} other{Crecieron {count} notas esta semana}}",
+  "@healthGrownNotes": {
+    "description": "Acceso a la vista de notas que crecieron esta semana, con cuántas son.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "healthBrokenLinks": "{count, plural, =1{1 enlace roto} other{{count} enlaces rotos}}",
+  "@healthBrokenLinks": {
+    "description": "Acceso a la vista de enlaces rotos, con cuántos hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "healthSuggestions": "{count, plural, =1{1 sugerencia por revisar} other{{count} sugerencias por revisar}}",
+  "@healthSuggestions": {
+    "description": "Acceso a la revisión en lote de sugerencias, con cuántas hay pendientes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "grownNotesTitle": "Notas que crecieron esta semana",
+  "@grownNotesTitle": {
+    "description": "Título de la vista de notas vivas que crecieron en los últimos 7 días."
+  },
+  "grownNotesHint": "Notas vivas con bloques o vínculos nuevos en los últimos 7 días. Abrí cada una, reescribila como texto continuo y marcala madura.",
+  "@grownNotesHint": {
+    "description": "Explicación al tope de la vista de notas que crecieron: es la entrada a la sesión de consolidación."
+  },
+  "grownNotesEmpty": "Ninguna nota viva creció esta semana.",
+  "@grownNotesEmpty": {
+    "description": "Estado vacío de la vista de notas que crecieron."
+  },
+  "grownNotesLoadError": "No se pudieron leer las notas.",
+  "@grownNotesLoadError": {
+    "description": "Mensaje cuando falla la lectura de las notas que crecieron."
+  },
+  "grownNotesNewBlocks": "{count, plural, =1{1 bloque nuevo} other{{count} bloques nuevos}}",
+  "@grownNotesNewBlocks": {
+    "description": "Cuántos bloques nuevos tiene una nota que creció.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "grownNotesNewRelations": "{count, plural, =1{1 vínculo nuevo} other{{count} vínculos nuevos}}",
+  "@grownNotesNewRelations": {
+    "description": "Cuántos vínculos nuevos tiene una nota que creció.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noteMaturitySeed": "Semilla",
   "@noteMaturitySeed": {
     "description": "Etiqueta de la madurez de una nota recién creada, sin desarrollar todavía."

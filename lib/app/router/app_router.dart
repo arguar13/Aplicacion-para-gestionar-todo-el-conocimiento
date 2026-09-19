@@ -16,6 +16,7 @@ import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
+import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -122,6 +123,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.suggestionReview,
         name: RouteNames.suggestionReview,
         builder: (context, state) => const PropertySuggestionsReviewScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.grownNotes,
+        name: RouteNames.grownNotes,
+        builder: (context, state) => const GrownNotesScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

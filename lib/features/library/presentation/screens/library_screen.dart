@@ -13,6 +13,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
@@ -245,6 +246,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     return Column(
       children: [
+        // El estado de la bóveda de un vistazo, al tope de la pantalla de
+        // inicio. Solo con elementos: en una bóveda vacía no hay nada que
+        // mantener, y con una búsqueda sin resultados el panel sería ruido.
+        const HealthPanel(),
         Expanded(
           child: switch (_viewMode) {
             LibraryViewMode.list => _ItemList(

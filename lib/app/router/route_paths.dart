@@ -63,6 +63,10 @@ abstract final class RoutePaths {
   /// (F9). Ruta plana, mismo criterio que [brokenLinks].
   static const suggestionReview = '/suggestion-review';
 
+  /// Las notas vivas que crecieron esta semana (F9): la entrada a la sesión de
+  /// consolidación. Ruta plana, mismo criterio que [brokenLinks].
+  static const grownNotes = '/grown-notes';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -117,6 +121,7 @@ abstract final class RouteNames {
   static const vocabularyCategory = 'vocabulary-category';
   static const brokenLinks = 'broken-links';
   static const suggestionReview = 'suggestion-review';
+  static const grownNotes = 'grown-notes';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';
