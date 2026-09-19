@@ -124,6 +124,14 @@ class RelationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Solo la mirada desde la nota (`outgoing`) vuelve a la fuente: desde la
+    // fuente, el vínculo apunta a la nota.
+    final start = relation.direction == RelationDirection.outgoing
+        ? relation.sourceCharStart
+        : null;
+    final end = relation.direction == RelationDirection.outgoing
+        ? relation.sourceCharEnd
+        : null;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -136,10 +144,29 @@ class RelationTile extends StatelessWidget {
         ),
       ),
       subtitle: relation.note == null ? null : Text(relation.note!),
-      trailing: IconButton(
-        icon: const Icon(Icons.link_off),
-        tooltip: l10n.detailRemoveRelation,
-        onPressed: onDelete,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Una nota extraída sabe de dónde salió: desde ella se vuelve al
+          // fragmento exacto de la fuente.
+          if (start != null && end != null)
+            IconButton(
+              icon: const Icon(Icons.my_location),
+              tooltip: l10n.relationViewInSource,
+              onPressed: () => context.push(
+                RoutePaths.reading(
+                  relation.otherItemId,
+                  start: start,
+                  end: end,
+                ),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.link_off),
+            tooltip: l10n.detailRemoveRelation,
+            onPressed: onDelete,
+          ),
+        ],
       ),
       onTap: () => context.push(RoutePaths.itemDetail(relation.otherItemId)),
     );

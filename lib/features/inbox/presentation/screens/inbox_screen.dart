@@ -9,18 +9,17 @@ import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
-import 'package:sinapsis/core/domain/entities/rendition.dart';
-import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
-import 'package:sinapsis/features/inbox/presentation/screens/extract_note_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pick_living_note_dialog.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/suggested_property_chips.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reading/domain/extractable_text.dart';
+import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/review_suggestions_action.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
@@ -105,20 +104,17 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   }
 
   /// Abre la fuente para sacarle notas: la deja triada y, si tiene texto,
-  /// abre la extracción; si no, su detalle.
+  /// abre la vista de lectura para destilar; si no, su detalle.
   Future<void> _extract(KnowledgeItem item) async {
     if (!await _transition(item, ItemState.triaged)) return;
     if (!mounted) return;
 
-    final rendition = _extractableRendition(item);
-    if (rendition == null) {
+    if (extractableRendition(item) == null) {
       await context.push(RoutePaths.itemDetail(item.id));
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ExtractNoteScreen(item: item, rendition: rendition),
-      ),
+      MaterialPageRoute<void>(builder: (_) => ReadingScreen(itemId: item.id)),
     );
   }
 
@@ -275,21 +271,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   }
 }
 
-/// El texto de una fuente del que se pueden sacar notas: la forma de texto que
-/// no sea de bloques —los bloques son de las notas—, la principal si sirve.
-TextRendition? _extractableRendition(KnowledgeItem item) {
-  final texts = item.renditions
-      .whereType<TextRendition>()
-      .where((r) => r.kind != RenditionKind.blocks)
-      .toList();
-  if (texts.isEmpty) return null;
-  final primary = item.primaryRendition;
-  if (primary is TextRendition && primary.kind != RenditionKind.blocks) {
-    return primary;
-  }
-  return texts.first;
-}
-
 class _PendingItemCard extends ConsumerWidget {
   const _PendingItemCard({
     required this.item,
@@ -313,7 +294,7 @@ class _PendingItemCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final rendition = _extractableRendition(item);
+    final rendition = extractableRendition(item);
     final excerpt = rendition == null
         ? null
         : rendition.content.length > 280

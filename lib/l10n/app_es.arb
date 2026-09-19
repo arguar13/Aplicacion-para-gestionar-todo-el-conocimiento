@@ -2255,18 +2255,46 @@
   "@inboxSuggestedProperties": {
     "description": "Encabezado de los chips de propiedades sugeridas en la tarjeta de la Bandeja."
   },
+  "readingOpenAction": "Leer para destilar",
+  "@readingOpenAction": {
+    "description": "Botón del detalle que abre la vista de lectura para sacar notas de la fuente."
+  },
+  "readingExtractedCount": "{count, plural, =0{Ninguna nota extraída} =1{1 nota extraída} other{{count} notas extraídas}}",
+  "@readingExtractedCount": {
+    "description": "Cuántas notas se extrajeron de la fuente que se está leyendo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readingSelectHint": "Seleccioná un fragmento del texto para extraerlo como nota.",
+  "@readingSelectHint": {
+    "description": "Ayuda de la vista de lectura cuando no hay nada seleccionado."
+  },
+  "readingNoText": "Esta fuente todavía no tiene texto para leer.",
+  "@readingNoText": {
+    "description": "Mensaje de la vista de lectura cuando la fuente no tiene texto."
+  },
+  "readingOpenDetail": "Abrir el detalle",
+  "@readingOpenDetail": {
+    "description": "Botón de la vista de lectura sin texto que abre el detalle de la fuente."
+  },
+  "readingExtractedTitle": "Notas extraídas",
+  "@readingExtractedTitle": {
+    "description": "Encabezado de la lista de notas que salieron de la fuente."
+  },
+  "readingGoToFragment": "Ir al fragmento",
+  "@readingGoToFragment": {
+    "description": "Botón que lleva al lugar de la fuente del que salió una nota."
+  },
+  "relationViewInSource": "Ver en la fuente",
+  "@relationViewInSource": {
+    "description": "Botón de una nota extraída que abre la fuente en el fragmento del que salió."
+  },
   "inboxViewFull": "Ver completo",
   "@inboxViewFull": {
     "description": "Botón para ir al detalle completo del elemento que se está triando en la Bandeja de entrada."
-  },
-  "inboxExtractTitle": "Extraer de \"{title}\"",
-  "@inboxExtractTitle": {
-    "description": "Título de la pantalla donde se selecciona el fragmento a extraer como nota.",
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
   },
   "pickLivingNoteTitle": "Elegir una nota viva",
   "@pickLivingNoteTitle": {

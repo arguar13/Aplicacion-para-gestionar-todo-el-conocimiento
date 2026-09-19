@@ -200,6 +200,65 @@ void main() {
     expect(find.textContaining('Conocemos'), findsWidgets);
   });
 
+  group('orden del menú de selección', () {
+    Future<void> pumpAndSelect(
+      WidgetTester tester, {
+      required bool extractFirst,
+    }) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            organizeRepositoryProvider.overrideWithValue(repository),
+            captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: HighlightableText(
+                itemId: 'item-1',
+                renditionId: 'rendition-1',
+                content: 'Conocemos bien el amor y las reglas del juego.',
+                extractFirst: extractFirst,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final state = tester.state<EditableTextState>(find.byType(EditableText));
+      state.userUpdateTextEditingValue(
+        state.textEditingValue.copyWith(
+          selection: const TextSelection(baseOffset: 0, extentOffset: 9),
+        ),
+        SelectionChangedCause.tap,
+      );
+      state.showToolbar();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('por defecto Resaltar va antes que Extraer', (tester) async {
+      await pumpAndSelect(tester, extractFirst: false);
+
+      final highlight = tester.getTopLeft(find.text('Highlight'));
+      final extract = tester.getTopLeft(find.text('Extract as note'));
+
+      expect(highlight.dx, lessThan(extract.dx));
+    });
+
+    testWidgets('con extractFirst, Extraer va antes que Resaltar', (
+      tester,
+    ) async {
+      await pumpAndSelect(tester, extractFirst: true);
+
+      final highlight = tester.getTopLeft(find.text('Highlight'));
+      final extract = tester.getTopLeft(find.text('Extract as note'));
+
+      expect(extract.dx, lessThan(highlight.dx));
+    });
+  });
+
   group('formato de Markdown', () {
     Future<void> pumpWithMarkdown(WidgetTester tester, String content) async {
       await tester.pumpWidget(

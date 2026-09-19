@@ -105,6 +105,26 @@ void main() {
       expect(find.textContaining('la idea completa'), findsOneWidget);
     });
 
+    testWidgets('un elemento con texto ofrece leerlo para destilar', (
+      tester,
+    ) async {
+      final id = await captureAndGetId(
+        'Un título\n\nY el cuerpo con la idea completa.',
+      );
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.readingOpenAction), findsOneWidget);
+    });
+
+    testWidgets('sin texto todavía, no ofrece leer', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.readingOpenAction), findsNothing);
+    });
+
     testWidgets('la nota del usuario se ve aparte del contenido', (
       tester,
     ) async {

@@ -9,11 +9,11 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/features/inbox/presentation/screens/extract_note_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -129,7 +129,7 @@ void main() {
       await swipe(tester, const Offset(0, -300));
 
       expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ExtractNoteScreen), findsOneWidget);
+      expect(find.byType(ReadingScreen), findsOneWidget);
     });
 
     testWidgets('un arrastre corto no decide: la tarjeta vuelve a su lugar', (
@@ -253,7 +253,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ExtractNoteScreen), findsOneWidget);
+      expect(find.byType(ReadingScreen), findsOneWidget);
     });
   });
 
@@ -283,7 +283,7 @@ void main() {
       await key(tester, LogicalKeyboardKey.arrowUp);
 
       expect(await stateOf(id), ItemState.triaged);
-      expect(find.byType(ExtractNoteScreen), findsOneWidget);
+      expect(find.byType(ReadingScreen), findsOneWidget);
     });
 
     testWidgets('Ctrl+Z devuelve la última a la Bandeja', (tester) async {

@@ -403,6 +403,11 @@ class _TextRenditionView extends ConsumerWidget {
                   label: Text(l10n.detailRemoveTimestamps),
                   onPressed: () => _removeTimestamps(context, ref),
                 ),
+              TextButton.icon(
+                icon: const Icon(Icons.menu_book_outlined, size: 18),
+                label: Text(l10n.readingOpenAction),
+                onPressed: () => context.push(RoutePaths.reading(item.id)),
+              ),
               SummarizeButton(content: rendition.content),
               TextButton.icon(
                 icon: const Icon(Icons.copy_outlined, size: 18),

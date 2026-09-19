@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -12,6 +14,55 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_provide
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+/// Lo que la vista de lectura necesita de un [HighlightableText] desde afuera:
+/// saber si hay algo seleccionado, extraerlo o resaltarlo con un botón propio,
+/// y llevar la vista a un fragmento.
+///
+/// El menú de selección sigue siendo el camino de siempre; esto es para quien
+/// quiere además una barra de acciones fija, que no depende de que el menú
+/// nativo muestre bien sus opciones.
+class HighlightableTextController extends ChangeNotifier {
+  TextSelection _selection = const TextSelection.collapsed(offset: -1);
+  _HighlightableTextState? _state;
+
+  /// La selección actual, en posiciones del texto que se ve.
+  TextSelection get selection => _selection;
+
+  /// Si hay un fragmento seleccionado.
+  bool get hasSelection => _selection.isValid && !_selection.isCollapsed;
+
+  /// Extrae la selección como una nota nueva. No hace nada sin selección.
+  Future<void> extractSelection() async {
+    if (!hasSelection) return;
+    await _state?._extractSelection(_selection);
+  }
+
+  /// Resalta la selección, pidiendo la nota del resaltado. No hace nada sin
+  /// selección.
+  Future<void> highlightSelection() async {
+    if (!hasSelection) return;
+    await _state?._highlightSelection(_selection);
+  }
+
+  /// Lleva la vista al fragmento `[start, end)` del texto —posiciones del
+  /// contenido, las mismas de los resaltados— y lo marca un momento.
+  void jumpTo({required int start, required int end}) =>
+      _state?._jumpTo(start, end);
+
+  void _setSelection(TextSelection selection) {
+    if (selection == _selection) return;
+    _selection = selection;
+    // Una selección puede cambiar mientras se construye la pantalla; avisar
+    // ahí haría que quien escucha reconstruya en medio de una construcción.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    } else {
+      notifyListeners();
+    }
+  }
+}
 
 /// El texto de una forma de contenido, subrayable.
 ///
@@ -36,6 +87,9 @@ class HighlightableText extends ConsumerStatefulWidget {
     required this.itemId,
     required this.renditionId,
     required this.content,
+    this.controller,
+    this.initialJump,
+    this.extractFirst = false,
     super.key,
   });
 
@@ -45,6 +99,19 @@ class HighlightableText extends ConsumerStatefulWidget {
   final String itemId;
   final String renditionId;
   final String content;
+
+  /// Para manejarlo desde afuera: ver la selección, extraer, saltar a un
+  /// fragmento.
+  final HighlightableTextController? controller;
+
+  /// Un fragmento al que llevar la vista apenas se dibuja: `[start, end)` del
+  /// contenido.
+  final ({int start, int end})? initialJump;
+
+  /// Si "Extraer como nota" va antes que "Resaltar" en el menú de selección: la
+  /// vista de lectura para destilar lo pone primero, porque es para lo que se
+  /// abrió.
+  final bool extractFirst;
 
   @override
   ConsumerState<HighlightableText> createState() => _HighlightableTextState();
@@ -58,12 +125,102 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
   /// [HighlightableText.content] tal cual llega, no contra lo que se ve.
   late var _rendered = RenderedMarkdown.parse(widget.content);
 
+  final _textKey = GlobalKey();
+
+  /// El fragmento marcado un momento después de saltar a él.
+  (int, int)? _flash;
+  Timer? _flashTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?._state = this;
+    final jump = widget.initialJump;
+    if (jump != null) {
+      // Recién cuando ya hay un cuadro: hasta entonces no se sabe cuánto mide
+      // el texto ni dónde está dentro del desplazamiento.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _jumpTo(jump.start, jump.end);
+      });
+    }
+  }
+
   @override
   void didUpdateWidget(HighlightableText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.content != widget.content) {
       _rendered = RenderedMarkdown.parse(widget.content);
     }
+    if (oldWidget.controller != widget.controller) {
+      if (oldWidget.controller?._state == this) {
+        oldWidget.controller?._state = null;
+      }
+      widget.controller?._state = this;
+    }
+  }
+
+  @override
+  void dispose() {
+    _flashTimer?.cancel();
+    if (widget.controller?._state == this) widget.controller?._state = null;
+    super.dispose();
+  }
+
+  /// Lleva la vista a `[start, end)` y lo marca unos segundos.
+  void _jumpTo(int start, int end) {
+    if (start < 0 || end > widget.content.length || end <= start) return;
+
+    _flashTimer?.cancel();
+    setState(() => _flash = (start, end));
+    _flashTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _flash = null);
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(start));
+  }
+
+  /// Desplaza lo que rodea a este texto hasta dejar el punto [rawStart] a un
+  /// cuarto de la altura de la vista.
+  ///
+  /// El texto es un solo widget, así que no hay dónde preguntarle en qué
+  /// altura está una posición: se mide con un `TextPainter` armado con los
+  /// mismos estilos y el mismo ancho que el texto real.
+  void _scrollTo(int rawStart) {
+    if (!mounted) return;
+    final box = _textKey.currentContext?.findRenderObject() as RenderBox?;
+    final position = Scrollable.maybeOf(context)?.position;
+    if (box == null || !box.hasSize || position == null) return;
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return;
+
+    final painter = TextPainter(
+      text: _rendered.buildSpans(Theme.of(context), const []),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: box.size.width);
+    final top = painter
+        .getOffsetForCaret(
+          TextPosition(offset: _rendered.rawToRender(rawStart)),
+          Rect.zero,
+        )
+        .dy;
+    painter.dispose();
+
+    final revealed = viewport.getOffsetToReveal(
+      box,
+      0.25,
+      rect: Rect.fromLTWH(0, top, box.size.width, 24),
+    );
+    unawaited(
+      position.animateTo(
+        revealed.offset.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      ),
+    );
   }
 
   Future<void> _highlightSelection(TextSelection selection) async {
@@ -110,23 +267,24 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     final l10n = AppLocalizations.of(context)!;
     final selection = editableTextState.textEditingValue.selection;
 
+    final highlight = ContextMenuButtonItem(
+      onPressed: () {
+        ContextMenuController.removeAny();
+        unawaited(_highlightSelection(selection));
+      },
+      label: l10n.detailHighlightSelection,
+    );
+    final extract = ContextMenuButtonItem(
+      onPressed: () {
+        ContextMenuController.removeAny();
+        unawaited(_extractSelection(selection));
+      },
+      label: l10n.detailExtractSelection,
+    );
+
     final buttonItems = [
-      if (!selection.isCollapsed) ...[
-        ContextMenuButtonItem(
-          onPressed: () {
-            ContextMenuController.removeAny();
-            unawaited(_highlightSelection(selection));
-          },
-          label: l10n.detailHighlightSelection,
-        ),
-        ContextMenuButtonItem(
-          onPressed: () {
-            ContextMenuController.removeAny();
-            unawaited(_extractSelection(selection));
-          },
-          label: l10n.detailExtractSelection,
-        ),
-      ],
+      if (!selection.isCollapsed)
+        ...widget.extractFirst ? [extract, highlight] : [highlight, extract],
       ...editableTextState.contextMenuButtonItems,
     ];
 
@@ -214,10 +372,14 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SelectableText.rich(
+          key: _textKey,
           _rendered.buildSpans(theme, [
             for (final h in validHighlights) (h.startOffset, h.endOffset),
+            ?_flash,
           ]),
           contextMenuBuilder: _buildContextMenu,
+          onSelectionChanged: (selection, _) =>
+              widget.controller?._setSelection(selection),
         ),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 16),

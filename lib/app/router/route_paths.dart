@@ -67,6 +67,16 @@ abstract final class RoutePaths {
   /// consolidación. Ruta plana, mismo criterio que [brokenLinks].
   static const grownNotes = '/grown-notes';
 
+  /// La vista de lectura para destilar (F9): el texto de una fuente para
+  /// sacarle notas. Se arma con [reading], que admite el fragmento al que
+  /// abrirla —`start` y `end` en la consulta—.
+  static const readingPattern = '/reading/:id';
+
+  static String reading(String itemId, {int? start, int? end}) {
+    final query = start != null && end != null ? '?start=$start&end=$end' : '';
+    return '/reading/$itemId$query';
+  }
+
   /// La línea de tiempo de los hechos con fecha (F9). Ruta plana, mismo
   /// criterio que [brokenLinks]: es una vista sobre lo guardado, no un
   /// destino de navegación.
@@ -128,6 +138,7 @@ abstract final class RouteNames {
   static const suggestionReview = 'suggestion-review';
   static const grownNotes = 'grown-notes';
   static const timeline = 'timeline';
+  static const reading = 'reading';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

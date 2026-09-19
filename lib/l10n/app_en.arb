@@ -2479,18 +2479,46 @@
   "@inboxSuggestedProperties": {
     "description": "Encabezado de los chips de propiedades sugeridas en la tarjeta de la Bandeja."
   },
+  "readingOpenAction": "Read to distill",
+  "@readingOpenAction": {
+    "description": "Botón del detalle que abre la vista de lectura para sacar notas de la fuente."
+  },
+  "readingExtractedCount": "{count, plural, =0{No notes extracted} =1{1 note extracted} other{{count} notes extracted}}",
+  "@readingExtractedCount": {
+    "description": "Cuántas notas se extrajeron de la fuente que se está leyendo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readingSelectHint": "Select a passage of the text to extract it as a note.",
+  "@readingSelectHint": {
+    "description": "Ayuda de la vista de lectura cuando no hay nada seleccionado."
+  },
+  "readingNoText": "This source doesn’t have any text to read yet.",
+  "@readingNoText": {
+    "description": "Mensaje de la vista de lectura cuando la fuente no tiene texto."
+  },
+  "readingOpenDetail": "Open detail",
+  "@readingOpenDetail": {
+    "description": "Botón de la vista de lectura sin texto que abre el detalle de la fuente."
+  },
+  "readingExtractedTitle": "Extracted notes",
+  "@readingExtractedTitle": {
+    "description": "Encabezado de la lista de notas que salieron de la fuente."
+  },
+  "readingGoToFragment": "Go to passage",
+  "@readingGoToFragment": {
+    "description": "Botón que lleva al lugar de la fuente del que salió una nota."
+  },
+  "relationViewInSource": "View in source",
+  "@relationViewInSource": {
+    "description": "Botón de una nota extraída que abre la fuente en el fragmento del que salió."
+  },
   "inboxViewFull": "View full",
   "@inboxViewFull": {
     "description": "Botón para ir al detalle completo del elemento que se está triando en la Bandeja de entrada."
-  },
-  "inboxExtractTitle": "Extract from \"{title}\"",
-  "@inboxExtractTitle": {
-    "description": "Título de la pantalla donde se selecciona el fragmento a extraer como nota.",
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
   },
   "pickLivingNoteTitle": "Choose a living note",
   "@pickLivingNoteTitle": {
