@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -13,6 +16,8 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/extract_note_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pick_living_note_dialog.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/suggested_property_chips.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -21,25 +26,180 @@ import 'package:sinapsis/features/suggestions/presentation/widgets/review_sugges
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La Bandeja de entrada: lo que el pipeline técnico ya terminó y nadie
-/// decidió todavía qué hacer con eso —`ItemState.processed`—, de a un
-/// elemento por vez, con hasta cuatro acciones de un toque —la 4ª,
-/// revisar sugerencias, solo aparece si el modelo propuso alguna—.
+/// La última fuente que se resolvió, para poder devolverla a la Bandeja.
+class _LastAction {
+  const _LastAction({required this.itemId, required this.title});
+
+  final String itemId;
+  final String title;
+}
+
+/// La Bandeja de entrada como un mazo de tarjetas: lo que el pipeline técnico
+/// ya terminó y nadie decidió todavía qué hacer con eso
+/// —`ItemState.processed`—, de a una fuente por vez.
 ///
-/// Solo fuentes (`D3` en el plan de F3): una nota no se tría, su progreso
-/// se mide con su madurez, no con este flujo.
-class InboxScreen extends ConsumerWidget {
+/// Cada tarjeta se resuelve con un gesto —izquierda descarta, derecha la deja
+/// triada, arriba la abre para extraer notas— o con la tecla equivalente
+/// (flechas), o con su botón; los tres caminos hacen exactamente lo mismo. Las
+/// propiedades que el modelo sugirió son chips: tocar uno lo acepta, tocarlo de
+/// nuevo lo deshace. Lo último que se hizo se deshace con el botón, con
+/// Ctrl+Z o desde el aviso, y devuelve la fuente a la Bandeja.
+///
+/// Solo fuentes (`D3` en el plan de F3): una nota no se tría, su progreso se
+/// mide con su madurez, no con este flujo.
+class InboxScreen extends ConsumerStatefulWidget {
   const InboxScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InboxScreen> createState() => _InboxScreenState();
+}
+
+class _InboxScreenState extends ConsumerState<InboxScreen> {
+  _LastAction? _last;
+
+  /// La fuente que se está viendo, para que las teclas sepan sobre cuál
+  /// actúan.
+  KnowledgeItem? _current;
+
+  void _showSnack(String message, {SnackBarAction? action}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message), action: action));
+  }
+
+  /// Pasa la fuente a [to] y la recuerda para deshacer. Devuelve si salió bien.
+  Future<bool> _transition(KnowledgeItem item, ItemState to) async {
+    final result = await ref
+        .read(inboxRepositoryProvider)
+        .transitionState(itemId: item.id, to: to);
+    if (!mounted) return false;
+
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      _showSnack(failure.localizedMessage(AppLocalizations.of(context)!));
+      return false;
+    }
+
+    setState(() => _last = _LastAction(itemId: item.id, title: item.title));
+    return true;
+  }
+
+  Future<void> _discard(KnowledgeItem item) async {
+    if (!await _transition(item, ItemState.discarded)) return;
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    _showSnack(
+      l10n.inboxDiscardedSnack(item.title),
+      action: SnackBarAction(label: l10n.inboxUndo, onPressed: _undo),
+    );
+  }
+
+  Future<void> _triage(KnowledgeItem item) async {
+    if (!await _transition(item, ItemState.triaged)) return;
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    _showSnack(
+      l10n.inboxTriagedSnack(item.title),
+      action: SnackBarAction(label: l10n.inboxUndo, onPressed: _undo),
+    );
+  }
+
+  /// Abre la fuente para sacarle notas: la deja triada y, si tiene texto,
+  /// abre la extracción; si no, su detalle.
+  Future<void> _extract(KnowledgeItem item) async {
+    if (!await _transition(item, ItemState.triaged)) return;
+    if (!mounted) return;
+
+    final rendition = _extractableRendition(item);
+    if (rendition == null) {
+      await context.push(RoutePaths.itemDetail(item.id));
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExtractNoteScreen(item: item, rendition: rendition),
+      ),
+    );
+  }
+
+  /// Devuelve la última fuente a la Bandeja.
+  Future<void> _undo() async {
+    final last = _last;
+    if (last == null) return;
+
+    final result = await ref
+        .read(inboxRepositoryProvider)
+        .transitionState(itemId: last.itemId, to: ItemState.processed);
+    if (!mounted) return;
+
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      _showSnack(failure.localizedMessage(AppLocalizations.of(context)!));
+      return;
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    setState(() => _last = null);
+  }
+
+  Future<void> _reviewSuggestions(
+    KnowledgeItem item,
+    List<Suggestion> suggestions,
+  ) async {
+    // Resuelto ANTES de transicionar: esta tarjeta se desmonta en cuanto el
+    // elemento sale de `processed`, y con ella el `ref` de este widget deja de
+    // servir —ver el porqué en `showSuggestionReviewDialog`—.
+    final suggestionRepository = ref.read(suggestionRepositoryProvider);
+
+    await ref
+        .read(inboxRepositoryProvider)
+        .transitionState(itemId: item.id, to: ItemState.triaged);
+    if (!mounted) return;
+
+    await showSuggestionReviewDialog(
+      context,
+      repository: suggestionRepository,
+      suggestions: suggestions,
+    );
+  }
+
+  Future<void> _linkToLivingNote(KnowledgeItem item) async {
+    await ref
+        .read(inboxRepositoryProvider)
+        .transitionState(itemId: item.id, to: ItemState.triaged);
+    if (!mounted) return;
+
+    final noteId = await showDialog<String>(
+      context: context,
+      builder: (_) => PickLivingNoteDialog(excludeItemId: item.id),
+    );
+    if (noteId == null || !mounted) return;
+
+    await ref
+        .read(organizeRepositoryProvider)
+        .createRelation(
+          fromItemId: noteId,
+          toItemId: item.id,
+          kind: RelationKind.cites,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final pendingIds = ref.watch(inboxPendingIdsProvider).valueOrNull;
+    final last = _last;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.inboxTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.undo),
+            tooltip: last == null
+                ? l10n.inboxUndo
+                : '${l10n.inboxUndo}: ${last.title}',
+            onPressed: last == null ? null : _undo,
+          ),
           const ReviewSuggestionsAction(),
           if (pendingIds != null && pendingIds.isNotEmpty)
             Padding(
@@ -53,21 +213,32 @@ class InboxScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: _buildBody(context, ref, l10n, pendingIds),
+      // Las teclas hacen lo mismo que los gestos y los botones, sobre la
+      // fuente que se está viendo. Ctrl+Z (o Cmd+Z) deshace lo último, y tiene
+      // que andar también cuando eso dejó la Bandeja vacía.
+      body: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+              _withCurrent(_discard),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+              _withCurrent(_triage),
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+              _withCurrent(_extract),
+          const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undo,
+          const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): _undo,
+        },
+        child: Focus(autofocus: true, child: _buildBody(l10n, pendingIds)),
+      ),
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    WidgetRef ref,
-    AppLocalizations l10n,
-    List<String>? pendingIds,
-  ) {
+  Widget _buildBody(AppLocalizations l10n, List<String>? pendingIds) {
     if (pendingIds == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (pendingIds.isEmpty) {
+      _current = null;
       return EmptyStateView(
         icon: Icons.inbox_outlined,
         title: l10n.inboxEmptyTitle,
@@ -79,34 +250,70 @@ class InboxScreen extends ConsumerWidget {
     if (item == null) {
       return const Center(child: CircularProgressIndicator());
     }
+    _current = item;
 
-    return _PendingItemCard(item: item);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: _PendingItemCard(
+        // Una tarjeta por fuente: el estado de la anterior —lo arrastrado, los
+        // chips aceptados— no se hereda.
+        key: ValueKey(item.id),
+        item: item,
+        onDiscard: () => _discard(item),
+        onTriage: () => _triage(item),
+        onExtract: () => _extract(item),
+        onLink: () => _linkToLivingNote(item),
+        onReviewSuggestions: (suggestions) =>
+            _reviewSuggestions(item, suggestions),
+      ),
+    );
+  }
+
+  void _withCurrent(Future<void> Function(KnowledgeItem item) action) {
+    final item = _current;
+    if (item != null) unawaited(action(item));
   }
 }
 
+/// El texto de una fuente del que se pueden sacar notas: la forma de texto que
+/// no sea de bloques —los bloques son de las notas—, la principal si sirve.
+TextRendition? _extractableRendition(KnowledgeItem item) {
+  final texts = item.renditions
+      .whereType<TextRendition>()
+      .where((r) => r.kind != RenditionKind.blocks)
+      .toList();
+  if (texts.isEmpty) return null;
+  final primary = item.primaryRendition;
+  if (primary is TextRendition && primary.kind != RenditionKind.blocks) {
+    return primary;
+  }
+  return texts.first;
+}
+
 class _PendingItemCard extends ConsumerWidget {
-  const _PendingItemCard({required this.item});
+  const _PendingItemCard({
+    required this.item,
+    required this.onDiscard,
+    required this.onTriage,
+    required this.onExtract,
+    required this.onLink,
+    required this.onReviewSuggestions,
+    super.key,
+  });
 
   final KnowledgeItem item;
-
-  TextRendition? get _extractableRendition {
-    final texts = item.renditions
-        .whereType<TextRendition>()
-        .where((r) => r.kind != RenditionKind.blocks)
-        .toList();
-    if (texts.isEmpty) return null;
-    final primary = item.primaryRendition;
-    if (primary is TextRendition && primary.kind != RenditionKind.blocks) {
-      return primary;
-    }
-    return texts.first;
-  }
+  final VoidCallback onDiscard;
+  final VoidCallback onTriage;
+  final VoidCallback onExtract;
+  final VoidCallback onLink;
+  final ValueChanged<List<Suggestion>> onReviewSuggestions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final rendition = _extractableRendition;
+    final scheme = theme.colorScheme;
+    final rendition = _extractableRendition(item);
     final excerpt = rendition == null
         ? null
         : rendition.content.length > 280
@@ -126,174 +333,129 @@ class _PendingItemCard extends ConsumerWidget {
         constraints: const BoxConstraints(maxWidth: 640),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        item.source.kind.icon,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item.source.kind.label(l10n),
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.primary,
+          child: SwipeCard(
+            onSwipe: (direction) => switch (direction) {
+              SwipeDirection.left => onDiscard(),
+              SwipeDirection.right => onTriage(),
+              SwipeDirection.up => onExtract(),
+            },
+            hints: {
+              SwipeDirection.left: (
+                label: l10n.inboxActionDiscard,
+                color: scheme.error,
+              ),
+              SwipeDirection.right: (
+                label: l10n.inboxActionTriage,
+                color: scheme.tertiary,
+              ),
+              SwipeDirection.up: (
+                label: l10n.inboxActionExtract,
+                color: scheme.primary,
+              ),
+            },
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(item.source.kind.icon, color: scheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item.source.kind.label(l10n),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.primary,
+                            ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(item.title, style: theme.textTheme.headlineSmall),
+                    if (item.subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        item.subtitle!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(item.title, style: theme.textTheme.headlineSmall),
-                  if (item.subtitle != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 12),
+                    if (excerpt != null)
+                      Text(
+                        excerpt,
+                        style: theme.textTheme.bodyMedium,
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            context.push(RoutePaths.itemDetail(item.id)),
+                        icon: const Icon(Icons.open_in_full),
+                        label: Text(l10n.inboxViewFull),
+                      ),
+                    ),
+                    SuggestedPropertyChips(itemId: item.id),
+                    const Divider(height: 32),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: onDiscard,
+                          icon: const Icon(Icons.archive_outlined),
+                          label: Text(l10n.inboxActionDiscard),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onTriage,
+                          icon: const Icon(Icons.check),
+                          label: Text(l10n.inboxActionTriage),
+                        ),
+                        Tooltip(
+                          message: rendition == null
+                              ? l10n.inboxActionExtractDisabledTooltip
+                              : '',
+                          child: OutlinedButton.icon(
+                            onPressed: rendition == null ? null : onExtract,
+                            icon: const Icon(Icons.content_cut),
+                            label: Text(l10n.inboxActionExtract),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: onLink,
+                          icon: const Icon(Icons.link),
+                          label: Text(l10n.inboxActionLink),
+                        ),
+                        if (suggestions.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: () => onReviewSuggestions(suggestions),
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: Text(l10n.inboxActionReviewSuggestions),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      item.subtitle!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      l10n.inboxShortcutsHint,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  if (excerpt != null)
-                    Text(
-                      excerpt,
-                      style: theme.textTheme.bodyMedium,
-                      maxLines: 8,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () =>
-                          context.push(RoutePaths.itemDetail(item.id)),
-                      icon: const Icon(Icons.open_in_full),
-                      label: Text(l10n.inboxViewFull),
-                    ),
-                  ),
-                  const Divider(height: 32),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _discard(context, ref),
-                        icon: const Icon(Icons.archive_outlined),
-                        label: Text(l10n.inboxActionDiscard),
-                      ),
-                      Tooltip(
-                        message: rendition == null
-                            ? l10n.inboxActionExtractDisabledTooltip
-                            : '',
-                        child: OutlinedButton.icon(
-                          onPressed: rendition == null
-                              ? null
-                              : () => _extract(context, ref, rendition),
-                          icon: const Icon(Icons.content_cut),
-                          label: Text(l10n.inboxActionExtract),
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () => _linkToLivingNote(context, ref),
-                        icon: const Icon(Icons.link),
-                        label: Text(l10n.inboxActionLink),
-                      ),
-                      if (suggestions.isNotEmpty)
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              _reviewSuggestions(context, ref, suggestions),
-                          icon: const Icon(Icons.auto_awesome_outlined),
-                          label: Text(l10n.inboxActionReviewSuggestions),
-                        ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _discard(BuildContext context, WidgetRef ref) async {
-    final result = await ref
-        .read(inboxRepositoryProvider)
-        .transitionState(itemId: item.id, to: ItemState.discarded);
-    if (!context.mounted) return;
-    final failure = result.getLeft().toNullable();
-    if (failure != null) {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-    }
-  }
-
-  Future<void> _extract(
-    BuildContext context,
-    WidgetRef ref,
-    TextRendition rendition,
-  ) async {
-    await ref
-        .read(inboxRepositoryProvider)
-        .transitionState(itemId: item.id, to: ItemState.triaged);
-    if (!context.mounted) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ExtractNoteScreen(item: item, rendition: rendition),
-      ),
-    );
-  }
-
-  Future<void> _reviewSuggestions(
-    BuildContext context,
-    WidgetRef ref,
-    List<Suggestion> suggestions,
-  ) async {
-    // Resuelto ANTES de transicionar: esta tarjeta se desmonta en cuanto
-    // el elemento sale de `processed`, y con ella el `ref` de este
-    // widget deja de servir —ver el porqué en `showSuggestionReviewDialog`—.
-    final suggestionRepository = ref.read(suggestionRepositoryProvider);
-
-    await ref
-        .read(inboxRepositoryProvider)
-        .transitionState(itemId: item.id, to: ItemState.triaged);
-    if (!context.mounted) return;
-
-    await showSuggestionReviewDialog(
-      context,
-      repository: suggestionRepository,
-      suggestions: suggestions,
-    );
-  }
-
-  Future<void> _linkToLivingNote(BuildContext context, WidgetRef ref) async {
-    await ref
-        .read(inboxRepositoryProvider)
-        .transitionState(itemId: item.id, to: ItemState.triaged);
-    if (!context.mounted) return;
-
-    final noteId = await showDialog<String>(
-      context: context,
-      builder: (_) => PickLivingNoteDialog(excludeItemId: item.id),
-    );
-    if (noteId == null || !context.mounted) return;
-
-    await ref
-        .read(organizeRepositoryProvider)
-        .createRelation(
-          fromItemId: noteId,
-          toItemId: item.id,
-          kind: RelationKind.cites,
-        );
   }
 }

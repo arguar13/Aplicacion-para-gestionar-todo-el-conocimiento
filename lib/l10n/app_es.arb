@@ -2221,6 +2221,40 @@
   "@inboxActionReviewSuggestions": {
     "description": "Botón para revisar las propiedades que el modelo sugirió para el elemento actual, visible solo si hay alguna pendiente."
   },
+  "inboxActionTriage": "Triado",
+  "@inboxActionTriage": {
+    "description": "Acción de la Bandeja: marcar la fuente como triada, sin trabajarla todavía."
+  },
+  "inboxUndo": "Deshacer",
+  "@inboxUndo": {
+    "description": "Botón y acción de la Bandeja que devuelve la última fuente a pendiente."
+  },
+  "inboxDiscardedSnack": "Descartado: {title}",
+  "@inboxDiscardedSnack": {
+    "description": "Aviso de la Bandeja después de descartar una fuente.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxTriagedSnack": "Triado: {title}",
+  "@inboxTriagedSnack": {
+    "description": "Aviso de la Bandeja después de triar una fuente.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxShortcutsHint": "← descartar · → triado · ↑ extraer · Ctrl+Z deshacer",
+  "@inboxShortcutsHint": {
+    "description": "Ayuda con los gestos y atajos de la Bandeja."
+  },
+  "inboxSuggestedProperties": "Propiedades sugeridas",
+  "@inboxSuggestedProperties": {
+    "description": "Encabezado de los chips de propiedades sugeridas en la tarjeta de la Bandeja."
+  },
   "inboxViewFull": "Ver completo",
   "@inboxViewFull": {
     "description": "Botón para ir al detalle completo del elemento que se está triando en la Bandeja de entrada."
