@@ -127,6 +127,29 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     );
   }
 
+  @override
+  Stream<List<VocabularyAlias>> watchAliases(String valueId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.propertyAliases],
+      read: () async {
+        final rows = await (_db.select(
+          _db.propertyAliases,
+        )..where((a) => a.propertyValueId.equals(valueId))).get();
+        // Alfabético sin acentos, con la clave calculada una vez por alias.
+        final keys = {
+          for (final a in rows) a.id: normalizeVocabularyLabel(a.alias),
+        };
+        rows.sort((a, b) => keys[a.id]!.compareTo(keys[b.id]!));
+        return [
+          for (final a in rows) VocabularyAlias(id: a.id, alias: a.alias),
+        ];
+      },
+      telemetry: _telemetry,
+      hint: 'VocabularyRepositoryImpl.watchAliases',
+    );
+  }
+
   /// Cuántas filas de [table] hay por cada valor de [column], en una sola
   /// consulta: pedirlo uno por uno serían miles de consultas con un
   /// vocabulario grande.

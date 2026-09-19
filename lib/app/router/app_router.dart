@@ -29,6 +29,7 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/vault_backup_screen.dart';
+import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 
 /// Router centralizado (deep linking + URLs amigables en web). Cada feature
@@ -103,6 +104,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.vocabulary,
         name: RouteNames.vocabulary,
         builder: (context, state) => const VocabularyScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.vocabularyCategoryPattern,
+        name: RouteNames.vocabularyCategory,
+        builder: (context, state) =>
+            VocabularyCategoryScreen(definitionId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

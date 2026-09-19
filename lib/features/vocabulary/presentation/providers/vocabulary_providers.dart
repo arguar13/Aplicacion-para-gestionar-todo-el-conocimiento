@@ -43,6 +43,25 @@ final mergeCandidateGroupsProvider =
       return groupMergeCandidates(candidates);
     });
 
+/// Los valores de UNA categoría, con cuánto se usa cada uno.
+final categoryValuesProvider = Provider.autoDispose
+    .family<AsyncValue<List<VocabularyValueStat>>, String>((ref, definitionId) {
+      return ref
+          .watch(vocabularyValueStatsProvider)
+          .whenData(
+            (stats) => [
+              for (final s in stats)
+                if (s.definitionId == definitionId) s,
+            ],
+          );
+    });
+
+/// Los alias de un valor.
+final valueAliasesProvider = StreamProvider.autoDispose
+    .family<List<VocabularyAlias>, String>((ref, valueId) {
+      return ref.watch(vocabularyRepositoryProvider).watchAliases(valueId);
+    });
+
 /// Los valores que están puestos en un único elemento.
 final singleUseValuesProvider =
     Provider.autoDispose<AsyncValue<List<VocabularyValueStat>>>((ref) {

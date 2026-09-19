@@ -701,6 +701,42 @@ void main() {
     );
   });
 
+  group('alias de un valor', () {
+    test(
+      'los lista alfabéticamente sin acentos, solo los de ese valor',
+      () async {
+        await seedRomas();
+        await addAlias('a1', 'roma', 'Urbe');
+        await addAlias('a2', 'roma', 'Álbum de Roma');
+        await addAlias('a3', 'rome', 'Otro');
+
+        final aliases = await repository.watchAliases('roma').first;
+
+        expect(aliases.map((a) => a.alias), ['Álbum de Roma', 'Urbe']);
+      },
+    );
+
+    test('un valor sin alias devuelve una lista vacía', () async {
+      await seedRomas();
+
+      expect(await repository.watchAliases('roma').first, isEmpty);
+    });
+
+    test('se actualiza sola cuando se agrega o se quita uno', () async {
+      await seedRomas();
+      final appears = repository
+          .watchAliases('roma')
+          .firstWhere((aliases) => aliases.any((a) => a.alias == 'Urbe'));
+
+      await repository.addAlias(valueId: 'roma', alias: 'Urbe');
+
+      expect(
+        (await appears.timeout(const Duration(seconds: 5))).single.alias,
+        'Urbe',
+      );
+    });
+  });
+
   group('estadísticas', () {
     test(
       'cada valor con en cuántos elementos está y cuántos alias tiene',

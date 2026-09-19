@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/candidate_group_card.dart';
@@ -24,9 +26,10 @@ class VocabularyScreen extends ConsumerWidget {
     final singleUse = count(ref.watch(singleUseValuesProvider));
     final unused = count(ref.watch(unusedValuesProvider));
     final empty = count(ref.watch(orphanCategoriesProvider));
+    final categories = count(ref.watch(vocabularyCategoryStatsProvider));
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.vocabularyTitle),
@@ -47,6 +50,7 @@ class VocabularyScreen extends ConsumerWidget {
               Tab(text: l10n.vocabularyTabSingleUse(singleUse)),
               Tab(text: l10n.vocabularyTabUnused(unused)),
               Tab(text: l10n.vocabularyTabEmptyCategories(empty)),
+              Tab(text: l10n.vocabularyTabCategories(categories)),
             ],
           ),
         ),
@@ -56,6 +60,7 @@ class VocabularyScreen extends ConsumerWidget {
             _SingleUseTab(),
             _UnusedTab(),
             _EmptyCategoriesTab(),
+            _CategoriesTab(),
           ],
         ),
       ),
@@ -324,6 +329,36 @@ class _EmptyCategoriesTab extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _delete(context, ref, category),
             ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Todas las categorías, para entrar a explorar los valores de una.
+class _CategoriesTab extends ConsumerWidget {
+  const _CategoriesTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return _AsyncList<VocabularyCategoryStat>(
+      value: ref.watch(vocabularyCategoryStatsProvider),
+      emptyText: l10n.vocabularyCategoriesEmpty,
+      builder: (context, categories) => ListView.builder(
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          return ListTile(
+            title: Text(category.name),
+            subtitle: Text(
+              l10n.vocabularyCategoryValueCount(category.valueCount),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () =>
+                context.push(RoutePaths.vocabularyCategory(category.id)),
           );
         },
       ),

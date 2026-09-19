@@ -1967,5 +1967,19 @@
   "vocabularyOperationCategoriesDeleted": "{count, plural, =1{Se borró 1 categoría} other{Se borraron {count} categorías}}",
   "vocabularyOperationAliasAdded": "Alias «{alias}» agregado",
   "vocabularyOperationAliasRemoved": "Alias «{alias}» quitado",
-  "vocabularyMergeConfirmAction": "Fusionar"
+  "vocabularyMergeConfirmAction": "Fusionar",
+  "vocabularyTabCategories": "Categorías ({count})",
+  "vocabularyCategoriesEmpty": "Todavía no hay categorías.",
+  "vocabularyCategoryValueCount": "{count, plural, =0{Sin valores} =1{1 valor} other{{count} valores}}",
+  "vocabularyCategoryEmpty": "Esta categoría todavía no tiene valores.",
+  "vocabularySearchHint": "Buscar un valor",
+  "vocabularySearchNoResults": "Ningún valor coincide con la búsqueda.",
+  "vocabularyMergeSelected": "{count, plural, other{Fusionar {count} valores}}",
+  "vocabularyChooseKeepTitle": "¿Cuál se conserva?",
+  "vocabularyChooseKeepBody": "Los demás pasan a este, y sus nombres quedan como alias.",
+  "vocabularyAliasesTitle": "Alias",
+  "vocabularyAliasesEmpty": "Sin alias. Un alias es otro nombre que se resuelve a este valor.",
+  "vocabularyAddAliasLabel": "Nuevo alias",
+  "vocabularyAddAliasAction": "Agregar",
+  "vocabularyRemoveAliasTooltip": "Quitar el alias «{alias}»"
 }

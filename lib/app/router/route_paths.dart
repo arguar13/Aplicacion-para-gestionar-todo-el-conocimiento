@@ -46,6 +46,14 @@ abstract final class RoutePaths {
   /// destino de navegación.
   static const vocabulary = '/vocabulary';
 
+  /// El explorador de UNA categoría del vocabulario: sus valores con cuántos
+  /// elementos los tienen, para renombrar, fusionar y manejar alias. Se arma
+  /// con [vocabularyCategory], mismo criterio que [graphLocal].
+  static const vocabularyCategoryPattern = '$vocabulary/category/:id';
+
+  static String vocabularyCategory(String definitionId) =>
+      '$vocabulary/category/$definitionId';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -97,6 +105,7 @@ abstract final class RouteNames {
   static const vaultBackup = 'vault-backup';
   static const duplicates = 'duplicates';
   static const vocabulary = 'vocabulary';
+  static const vocabularyCategory = 'vocabulary-category';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

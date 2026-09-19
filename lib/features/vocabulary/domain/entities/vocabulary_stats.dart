@@ -29,6 +29,14 @@ class VocabularyValueStat {
   final int aliasCount;
 }
 
+/// Un alias de un valor: otro texto que se resuelve al mismo valor.
+class VocabularyAlias {
+  const VocabularyAlias({required this.id, required this.alias});
+
+  final String id;
+  final String alias;
+}
+
 /// Una categoría con cuántos valores tiene: para encontrar las que quedaron
 /// vacías.
 class VocabularyCategoryStat {

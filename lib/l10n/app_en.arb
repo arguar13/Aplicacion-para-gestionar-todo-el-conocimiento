@@ -2483,5 +2483,81 @@
   "vocabularyMergeConfirmAction": "Merge",
   "@vocabularyMergeConfirmAction": {
     "description": "Botón que confirma la fusión de valores en el diálogo de confirmación."
+  },
+  "vocabularyTabCategories": "Categories ({count})",
+  "@vocabularyTabCategories": {
+    "description": "Pestaña con todas las categorías del vocabulario, con cuántas hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyCategoriesEmpty": "There are no categories yet.",
+  "@vocabularyCategoriesEmpty": {
+    "description": "Estado vacío de la pestaña de categorías."
+  },
+  "vocabularyCategoryValueCount": "{count, plural, =0{No values} =1{1 value} other{{count} values}}",
+  "@vocabularyCategoryValueCount": {
+    "description": "Cuántos valores tiene una categoría, en su fila de la lista.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyCategoryEmpty": "This category has no values yet.",
+  "@vocabularyCategoryEmpty": {
+    "description": "Estado vacío del explorador de una categoría."
+  },
+  "vocabularySearchHint": "Search a value",
+  "@vocabularySearchHint": {
+    "description": "Texto del campo de búsqueda del explorador de una categoría."
+  },
+  "vocabularySearchNoResults": "No value matches the search.",
+  "@vocabularySearchNoResults": {
+    "description": "Mensaje cuando la búsqueda no encuentra ningún valor."
+  },
+  "vocabularyMergeSelected": "{count, plural, other{Merge {count} values}}",
+  "@vocabularyMergeSelected": {
+    "description": "Botón que fusiona los valores marcados en el explorador de una categoría.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyChooseKeepTitle": "Which one is kept?",
+  "@vocabularyChooseKeepTitle": {
+    "description": "Título del diálogo que pide elegir qué valor se conserva al fusionar."
+  },
+  "vocabularyChooseKeepBody": "The others move into this one, and their names become aliases.",
+  "@vocabularyChooseKeepBody": {
+    "description": "Explicación del diálogo que pide elegir qué valor se conserva."
+  },
+  "vocabularyAliasesTitle": "Aliases",
+  "@vocabularyAliasesTitle": {
+    "description": "Título de la sección de alias de un valor."
+  },
+  "vocabularyAliasesEmpty": "No aliases. An alias is another name that resolves to this value.",
+  "@vocabularyAliasesEmpty": {
+    "description": "Estado vacío de la lista de alias de un valor."
+  },
+  "vocabularyAddAliasLabel": "New alias",
+  "@vocabularyAddAliasLabel": {
+    "description": "Campo para escribir un alias nuevo."
+  },
+  "vocabularyAddAliasAction": "Add",
+  "@vocabularyAddAliasAction": {
+    "description": "Botón que agrega el alias escrito."
+  },
+  "vocabularyRemoveAliasTooltip": "Remove the alias “{alias}”",
+  "@vocabularyRemoveAliasTooltip": {
+    "description": "Botón que quita un alias de un valor.",
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
   }
 }

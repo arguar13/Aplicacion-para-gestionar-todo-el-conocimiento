@@ -17,6 +17,9 @@ abstract interface class VocabularyRepository {
   /// Cada categoría con cuántos valores tiene. Se actualiza solo.
   Stream<List<VocabularyCategoryStat>> watchCategoryStats();
 
+  /// Los alias de [valueId], alfabéticos. Se actualiza solo.
+  Stream<List<VocabularyAlias>> watchAliases(String valueId);
+
   /// Cuántos valores y elementos toca fusionar [discardIds] en [keepId].
   /// No cambia nada.
   Future<Either<Failure, MergePreview>> previewMerge({

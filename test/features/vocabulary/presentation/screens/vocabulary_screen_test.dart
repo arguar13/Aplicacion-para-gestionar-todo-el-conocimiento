@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -9,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/vocabulary/domain/services/merge_candidates.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
+import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -145,6 +147,10 @@ void main() {
   }
 
   Future<void> openTab(WidgetTester tester, String label) async {
+    // Las pestañas se desplazan: con cinco, la última puede quedar fuera de
+    // la pantalla, y tocarla ahí no llega a nada.
+    await tester.ensureVisible(find.text(label));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(label));
     await tester.pumpAndSettle();
   }
@@ -361,6 +367,52 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await names(), contains('Vacía'));
+    });
+  });
+
+  group('categorías', () {
+    testWidgets('la pestaña lista todas, con cuántos valores tiene cada una', (
+      tester,
+    ) async {
+      await seedVocabulary();
+      await pumpScreen(tester);
+
+      // Tema, Fecha del hecho y la vacía: 3.
+      await openTab(tester, es.vocabularyTabCategories(3));
+
+      expect(find.text('Tema'), findsOneWidget);
+      expect(find.text(es.vocabularyCategoryValueCount(5)), findsOneWidget);
+      expect(find.text('Vacía'), findsOneWidget);
+      expect(find.text(es.vocabularyCategoryValueCount(0)), findsWidgets);
+    });
+
+    testWidgets('tocar una categoría abre su explorador, con el router real', (
+      tester,
+    ) async {
+      await seedVocabulary();
+      tester.view.physicalSize = const Size(1000, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo(RoutePaths.vocabulary);
+      // Sin `pumpAndSettle`: la pantalla real calcula los candidatos en un
+      // isolate (`compute`), que no corre bajo el reloj simulado, y su
+      // indicador de carga anima para siempre.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      final tab = find.textContaining('Categorías (');
+      await tester.ensureVisible(tab);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(tab);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('Vacía'));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(VocabularyCategoryScreen), findsOneWidget);
     });
   });
 
