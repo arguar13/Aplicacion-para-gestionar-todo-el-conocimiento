@@ -1,17 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
+import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -66,11 +72,33 @@ class _BlockEntry {
 }
 
 class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
+  /// Cuánto se espera sin que se escriba nada antes de revisar si los
+  /// `[[ ]]` tienen destino: una consulta por cada letra sería trabajo tirado.
+  static const _linkCheckDelay = Duration(milliseconds: 500);
+
   late final _titleController = TextEditingController(
     text: widget.existingItem?.title ?? '',
   );
   late final List<_BlockEntry> _blocks = _initialBlocks();
   var _saving = false;
+
+  Timer? _linkCheckTimer;
+
+  /// Se sube con cada revisión: una respuesta que llega después de que se
+  /// pidió otra más nueva no la pisa.
+  var _linkCheckGeneration = 0;
+
+  /// Los títulos que la última revisión consultó, para no repetirla si lo que
+  /// se escribió no tocó ningún `[[ ]]`.
+  Set<String> _checkedTitles = const {};
+
+  /// Los enlaces del texto que no tienen ninguna nota con ese título.
+  List<InlineLinkMention> _missingLinks = const [];
+
+  /// Los que el usuario dijo "ahora no": no se vuelven a ofrecer mientras dure
+  /// esta edición.
+  final _dismissedLinks = <String>{};
+  var _creatingLink = false;
 
   List<_BlockEntry> _initialBlocks() {
     final existing = widget.existingItem?.renditions
@@ -82,14 +110,23 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         ? const <ContentBlock>[]
         : decodeContentBlocks(existing.content);
 
-    if (blocks.isEmpty) {
-      return [_BlockEntry(const ContentBlock.paragraph(text: ''))];
-    }
-    return blocks.map(_BlockEntry.new).toList();
+    return (blocks.isEmpty
+          ? [_BlockEntry(const ContentBlock.paragraph(text: ''))]
+          : blocks.map(_BlockEntry.new).toList())
+      ..forEach(_track);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // El título también cuenta: un `[[ ]]` igual al propio título de una nota
+    // que aún no se guardó no es un enlace a algo que falta.
+    _titleController.addListener(_scheduleLinkCheck);
   }
 
   @override
   void dispose() {
+    _linkCheckTimer?.cancel();
     _titleController.dispose();
     for (final block in _blocks) {
       block.dispose();
@@ -97,13 +134,13 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     super.dispose();
   }
 
+  void _track(_BlockEntry entry) =>
+      entry.controller.addListener(_scheduleLinkCheck);
+
   void _addBlockAfter(int index) {
-    setState(() {
-      _blocks.insert(
-        index + 1,
-        _BlockEntry(const ContentBlock.paragraph(text: '')),
-      );
-    });
+    final entry = _BlockEntry(const ContentBlock.paragraph(text: ''));
+    _track(entry);
+    setState(() => _blocks.insert(index + 1, entry));
   }
 
   void _removeBlock(int index) {
@@ -111,6 +148,87 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     setState(() {
       _blocks.removeAt(index).dispose();
     });
+    _scheduleLinkCheck();
+  }
+
+  void _scheduleLinkCheck() {
+    _linkCheckTimer?.cancel();
+    _linkCheckTimer = Timer(_linkCheckDelay, _checkLinks);
+  }
+
+  /// Los `[[ ]]` del texto de ahora, sin el que se llama como la propia nota.
+  List<InlineLinkMention> _currentMentions() {
+    final own = normalizeLinkTitle(_titleController.text);
+    return [
+      for (final mention in extractInlineLinksFromBlocks([
+        for (final entry in _blocks) entry.toBlock(),
+      ]))
+        if (mention.normalizedTitle != own) mention,
+    ];
+  }
+
+  /// Revisa cuáles de los enlaces escritos no tienen nota. Sin ningún `[[ ]]`
+  /// en el texto no toca la base: es lo que pasa casi siempre.
+  Future<void> _checkLinks({bool force = false}) async {
+    final mentions = _currentMentions();
+    final wanted = {for (final m in mentions) m.normalizedTitle};
+    if (!force &&
+        wanted.length == _checkedTitles.length &&
+        _checkedTitles.containsAll(wanted)) {
+      return;
+    }
+    _checkedTitles = wanted;
+    final generation = ++_linkCheckGeneration;
+
+    if (wanted.isEmpty) {
+      if (_missingLinks.isNotEmpty && mounted) {
+        setState(() => _missingLinks = const []);
+      }
+      return;
+    }
+
+    final result = await ref
+        .read(linkRepositoryProvider)
+        .findMissingTitles(wanted, excludingItemId: widget.existingItem?.id);
+    if (!mounted || generation != _linkCheckGeneration) return;
+
+    // Si la consulta falló el repositorio ya lo informó: el aviso es una
+    // ayuda, no un paso del guardado, y sin respuesta simplemente no se ofrece.
+    final missing = result.getRight().toNullable() ?? const <String>{};
+    setState(() {
+      _missingLinks = [
+        for (final mention in mentions)
+          if (missing.contains(mention.normalizedTitle)) mention,
+      ];
+    });
+  }
+
+  /// Crea la nota que falta sin salir del editor: guardarla resuelve el enlace
+  /// —y, si esta nota ya estaba guardada con ese enlace roto, crea su
+  /// relación al instante; si es nueva o el enlace es nuevo, la relación nace
+  /// al guardar esta nota, que ya encuentra el destino—.
+  Future<void> _createLinkedNote(
+    InlineLinkMention mention,
+    NoteKind kind,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _creatingLink = true);
+
+    final result = await ref
+        .read(linkRepositoryProvider)
+        .createNoteForLink(title: mention.title, kind: kind);
+    if (!mounted) return;
+    setState(() => _creatingLink = false);
+
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      return;
+    }
+    await _checkLinks(force: true);
   }
 
   void _changeType(int index, ContentBlock Function(String text) build) {
@@ -286,6 +404,10 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final offered = [
+      for (final mention in _missingLinks)
+        if (!_dismissedLinks.contains(mention.normalizedTitle)) mention,
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -312,61 +434,85 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-              itemCount: _blocks.length + 1,
-              // Sacar el foco antes de que arranque el arrastre: un
-              // `TextField` con foco activo es un `Element` que depende de
-              // su `FocusScope` (un `InheritedWidget`). `ReorderableListView`
-              // desmonta y remonta ese `Element` en otra posición del árbol
-              // para animar el reordenamiento, y si todavía tiene ese
-              // vínculo activo, Flutter revienta con
-              // "'_dependents.isEmpty': is not true" al desmontarlo —un bug
-              // conocido de la propia librería cuando el ítem arrastrado
-              // tiene un campo de texto enfocado—. Sin foco, no hay
-              // dependencia que sobreviva al desmontaje.
-              onReorderStart: (_) =>
-                  FocusManager.instance.primaryFocus?.unfocus(),
-              onReorderItem: (oldIndex, newIndex) {
-                // El título ocupa el índice 0 y no participa del
-                // reordenamiento: se lo trata aparte, restando uno a cada
-                // índice de bloque real. `onReorderItem` —a diferencia de
-                // `onReorder`, obsoleto— ya entrega `newIndex` ajustado por
-                // la remoción del elemento en `oldIndex`.
-                if (oldIndex == 0 || newIndex == 0) return;
-                _reorder(oldIndex - 1, newIndex - 1);
-              },
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    key: const ValueKey('title'),
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: TextField(
-                      controller: _titleController,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      decoration: InputDecoration(
-                        hintText: l10n.blocksTitleHint,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ReorderableListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                    itemCount: _blocks.length + 1,
+                    // Sacar el foco antes de que arranque el arrastre: un
+                    // `TextField` con foco activo es un `Element` que depende
+                    // de su `FocusScope` (un `InheritedWidget`).
+                    // `ReorderableListView` desmonta y remonta ese `Element`
+                    // en otra posición del árbol para animar el
+                    // reordenamiento, y si todavía tiene ese vínculo activo,
+                    // Flutter revienta con "'_dependents.isEmpty': is not
+                    // true" al desmontarlo —un bug conocido de la propia
+                    // librería cuando el ítem arrastrado tiene un campo de
+                    // texto enfocado—. Sin foco, no hay dependencia que
+                    // sobreviva al desmontaje.
+                    onReorderStart: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onReorderItem: (oldIndex, newIndex) {
+                      // El título ocupa el índice 0 y no participa del
+                      // reordenamiento: se lo trata aparte, restando uno a
+                      // cada índice de bloque real. `onReorderItem` —a
+                      // diferencia de `onReorder`, obsoleto— ya entrega
+                      // `newIndex` ajustado por la remoción del elemento en
+                      // `oldIndex`.
+                      if (oldIndex == 0 || newIndex == 0) return;
+                      _reorder(oldIndex - 1, newIndex - 1);
+                    },
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          key: const ValueKey('title'),
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: TextField(
+                            controller: _titleController,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            decoration: InputDecoration(
+                              hintText: l10n.blocksTitleHint,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final blockIndex = index - 1;
+                      final entry = _blocks[blockIndex];
+                      return _BlockRow(
+                        key: entry.key,
+                        entry: entry,
+                        canDelete: _blocks.length > 1,
+                        onChangeType: (build) => _changeType(blockIndex, build),
+                        onDelete: () => _removeBlock(blockIndex),
+                        onAddAfter: () => _addBlockAfter(blockIndex),
+                        onInsertLink: () => _insertLink(blockIndex),
+                      );
+                    },
+                  ),
+                ),
+                if (offered.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: BrokenLinkOffer(
+                      key: const ValueKey('brokenLinkOffer'),
+                      title: offered.first.title,
+                      moreCount: offered.length - 1,
+                      busy: _creatingLink,
+                      onCreate: (kind) =>
+                          _createLinkedNote(offered.first, kind),
+                      onDismiss: () => setState(
+                        () =>
+                            _dismissedLinks.add(offered.first.normalizedTitle),
                       ),
                     ),
-                  );
-                }
-
-                final blockIndex = index - 1;
-                final entry = _blocks[blockIndex];
-                return _BlockRow(
-                  key: entry.key,
-                  entry: entry,
-                  canDelete: _blocks.length > 1,
-                  onChangeType: (build) => _changeType(blockIndex, build),
-                  onDelete: () => _removeBlock(blockIndex),
-                  onAddAfter: () => _addBlockAfter(blockIndex),
-                  onInsertLink: () => _insertLink(blockIndex),
-                );
-              },
+                  ),
+              ],
             ),
           ),
         ),

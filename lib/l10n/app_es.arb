@@ -1007,6 +1007,31 @@
   "@blocksInsertLink": {
     "description": "Tooltip del botón que inserta un enlace [[ ]] a otro elemento de la biblioteca."
   },
+  "blocksBrokenLinkTitle": "Esa nota no existe. ¿La creamos?",
+  "@blocksBrokenLinkTitle": {
+    "description": "Pregunta del aviso del editor de bloques cuando un [[Título]] escrito no tiene ninguna nota con ese título."
+  },
+  "blocksBrokenLinkMore": "{count, plural, =1{y 1 enlace más sin nota} other{y {count} enlaces más sin nota}}",
+  "@blocksBrokenLinkMore": {
+    "description": "Línea del aviso de enlace roto cuando hay otros enlaces sin nota además del que se ofrece crear.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "blocksBrokenLinkKind": "Tipo de nota",
+  "@blocksBrokenLinkKind": {
+    "description": "Etiqueta accesible del selector de tipo (atómica, viva o mapa) de la nota que se ofrece crear desde un enlace roto."
+  },
+  "blocksBrokenLinkCreate": "Crear nota",
+  "@blocksBrokenLinkCreate": {
+    "description": "Botón del aviso de enlace roto que crea la nota con el título del enlace."
+  },
+  "blocksBrokenLinkDismiss": "Ahora no",
+  "@blocksBrokenLinkDismiss": {
+    "description": "Botón del aviso de enlace roto que lo descarta por esta sesión de edición, sin crear nada."
+  },
   "blocksDeleteBlock": "Eliminar bloque",
   "@blocksDeleteBlock": {
     "description": "Tooltip del botón que borra un bloque."
