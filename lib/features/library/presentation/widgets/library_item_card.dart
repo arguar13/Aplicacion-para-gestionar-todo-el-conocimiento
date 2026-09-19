@@ -57,13 +57,16 @@ class LibraryItemCard extends StatelessWidget {
     final colors = theme.colorScheme;
     final stateLabel = item.processingState.label(l10n);
 
+    // Una fuente y una nota no se ven igual: ver `EntityRole`.
+    final role = item.source.kind.role;
+
     return Material(
       color: selected
           ? colors.primaryContainer.withValues(alpha: 0.4)
-          : colors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
+          : role.surface(colors),
+      borderRadius: BorderRadius.circular(role.radius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(role.radius),
         // En modo selección, tocar la fila alterna la casilla: es lo que
         // espera cualquiera que use Gmail o Fotos, y repetir el mismo gesto
         // en la casilla y en el resto de la fila evita que haya que
@@ -72,11 +75,9 @@ class LibraryItemCard extends StatelessWidget {
         onLongPress: onLongPress,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(role.radius),
             border: Border.all(
-              color: selected
-                  ? colors.primary
-                  : colors.outlineVariant.withValues(alpha: 0.6),
+              color: selected ? colors.primary : role.outline(colors),
               width: selected ? 1.5 : 1,
             ),
           ),

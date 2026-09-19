@@ -88,7 +88,13 @@ class LibraryTableView extends ConsumerWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(item.source.kind.icon, size: 16),
+                        Icon(
+                          item.source.kind.icon,
+                          size: 16,
+                          color: item.source.kind.role.accent(
+                            Theme.of(context).colorScheme,
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         Text(item.source.kind.label(l10n)),
                       ],

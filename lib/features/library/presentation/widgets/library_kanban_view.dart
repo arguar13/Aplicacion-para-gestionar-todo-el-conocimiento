@@ -148,11 +148,21 @@ class _KanbanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Una fuente y una nota no se ven igual: ver `EntityRole`.
+    final role = item.source.kind.role;
+    final colors = theme.colorScheme;
+
     final card = Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: role.surface(colors),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(role.radius),
+        side: BorderSide(color: role.outline(colors)),
+      ),
       child: InkWell(
         onTap: () => context.push('${RoutePaths.library}/${item.id}'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(role.radius),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Column(
@@ -163,7 +173,7 @@ class _KanbanCard extends StatelessWidget {
                   Icon(
                     item.source.kind.icon,
                     size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: role.accent(colors),
                   ),
                   const SizedBox(width: 6),
                   Expanded(

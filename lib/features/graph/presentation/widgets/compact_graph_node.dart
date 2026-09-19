@@ -48,17 +48,20 @@ class CompactGraphNode extends ConsumerWidget {
     final theme = Theme.of(context);
     final kind = ref.watch(noteKindProvider(item.id)).valueOrNull;
     final isMapNote = kind == NoteKind.map;
+    // Una fuente y una nota no se ven igual: ver `EntityRole`.
+    final role = item.source.kind.role;
+    final radius = BorderRadius.circular(role.radius);
 
     final background = isSeed
         ? theme.colorScheme.surfaceContainerHigh
         : isMapNote
         ? theme.colorScheme.tertiaryContainer
-        : theme.colorScheme.surfaceContainerLow;
+        : role.surface(theme.colorScheme);
     final borderColor = isSeed
         ? theme.colorScheme.primary
         : isMapNote
         ? theme.colorScheme.tertiary
-        : theme.colorScheme.outlineVariant;
+        : role.outline(theme.colorScheme);
     final icon = isMapNote ? NoteKind.map.icon : item.source.kind.icon;
 
     final card = Container(
@@ -67,7 +70,7 @@ class CompactGraphNode extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: radius,
         border: Border.all(
           color: borderColor,
           width: isSeed || isMapNote ? 2 : 1,
@@ -93,7 +96,7 @@ class CompactGraphNode extends ConsumerWidget {
     if (isSeed) return card;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: radius,
       onTap: () => openLocalGraphNode(context, nodeId: item.id, kind: kind),
       child: card,
     );

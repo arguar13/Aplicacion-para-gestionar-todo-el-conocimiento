@@ -1104,11 +1104,13 @@ class _GraphNode extends StatelessWidget {
     final fill = spaceNodeColor(item.spaceId, theme.colorScheme);
     final foreground = spaceNodeForeground(item.spaceId, theme.colorScheme);
     final elevated = focused || dragging;
+    // Una fuente y una nota no se ven igual: ver `EntityRole`.
+    final role = item.source.kind.role;
     final borderColor = focused
         ? theme.colorScheme.primary
         : dragging
         ? theme.colorScheme.primary.withValues(alpha: 0.6)
-        : theme.colorScheme.outlineVariant;
+        : role.outline(theme.colorScheme);
     final stateLabel = item.processingState.label(l10n);
     final stateColor = item.processingState.color(theme.colorScheme);
 
@@ -1138,8 +1140,8 @@ class _GraphNode extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
+                color: role.surface(theme.colorScheme),
+                borderRadius: BorderRadius.circular(role.radius),
                 border: Border.all(color: borderColor, width: focused ? 2 : 1),
                 boxShadow: [
                   BoxShadow(

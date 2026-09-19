@@ -37,6 +37,54 @@ extension SourceKindPresentation on SourceKind {
   };
 }
 
+/// Qué es un elemento para quien lo mira: algo que trajo de afuera o algo que
+/// escribió.
+///
+/// Es la distinción que más importa en la app —una fuente no se resume ni se
+/// reescribe, una nota es de quien la escribe— y por eso tiene que verse en
+/// todas partes igual, sin leer el tipo: la biblioteca, el explorador, el
+/// grafo, la Bandeja y la línea de tiempo la usan de una sola fuente.
+///
+/// El lenguaje: una fuente es un documento —esquinas casi rectas, fondo neutro,
+/// contorno fino, el color principal—; una nota es propia —esquinas muy
+/// redondeadas, fondo teñido y contorno del color de las notas—.
+enum EntityRole { source, note }
+
+extension SourceKindRole on SourceKind {
+  /// Una nota manual es una nota; todo lo demás entró de afuera.
+  EntityRole get role =>
+      this == SourceKind.manualNote ? EntityRole.note : EntityRole.source;
+}
+
+extension EntityRolePresentation on EntityRole {
+  /// El color que la identifica: el de los íconos y las marcas.
+  Color accent(ColorScheme colors) => switch (this) {
+    EntityRole.source => colors.primary,
+    EntityRole.note => colors.tertiary,
+  };
+
+  /// El fondo de su tarjeta.
+  Color surface(ColorScheme colors) => switch (this) {
+    EntityRole.source => colors.surfaceContainerLow,
+    EntityRole.note => Color.alphaBlend(
+      colors.tertiaryContainer.withValues(alpha: 0.4),
+      colors.surfaceContainerLow,
+    ),
+  };
+
+  /// El contorno de su tarjeta.
+  Color outline(ColorScheme colors) => switch (this) {
+    EntityRole.source => colors.outlineVariant.withValues(alpha: 0.6),
+    EntityRole.note => colors.tertiary.withValues(alpha: 0.45),
+  };
+
+  /// Cuánto se redondean las esquinas de su tarjeta.
+  double get radius => switch (this) {
+    EntityRole.source => 6,
+    EntityRole.note => 20,
+  };
+}
+
 extension ProcessingStatePresentation on ProcessingState {
   /// Solo los estados que le importan al usuario tienen texto.
   ///

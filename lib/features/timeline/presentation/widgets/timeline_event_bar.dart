@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 
 /// Alto de un carril: la barra, el rótulo y el aire entre carriles.
@@ -69,11 +69,8 @@ class TimelineEventBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    // Una nota y una fuente no se pintan igual: la nota es lo tuyo, la fuente
-    // lo que trajiste de afuera.
-    final color = event.sourceKind == SourceKind.manualNote
-        ? scheme.tertiary
-        : scheme.primary;
+    // Una fuente y una nota no se ven igual: ver `EntityRole`.
+    final color = event.sourceKind.role.accent(scheme);
 
     return Semantics(
       button: true,

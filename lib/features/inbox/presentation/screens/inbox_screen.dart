@@ -334,8 +334,16 @@ class _PendingItemCard extends ConsumerWidget {
                 color: scheme.primary,
               ),
             },
+            // Una fuente y una nota no se ven igual: acá siempre es una fuente.
             child: Card(
               margin: EdgeInsets.zero,
+              color: item.source.kind.role.surface(scheme),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  item.source.kind.role.radius,
+                ),
+                side: BorderSide(color: item.source.kind.role.outline(scheme)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
