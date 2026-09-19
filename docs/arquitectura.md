@@ -2536,6 +2536,135 @@ restricción de llave foránea contra un elemento que la fusión ya había
 borrado — una carrera benigna, resuelta en silencio en vez de con
 telemetría.
 
+### 41. F8 de higiene: una sola fuente de verdad para las etiquetas, y el mantenimiento del vocabulario
+
+Primera fase del encargo de cierre del refactor (F8 a F11, ver la decisión
+34). Arregla un bug activo y cierra un hueco. El bug: F2 había copiado las
+etiquetas a valores de Tema UNA sola vez, y `Tags`/`ItemTags` siguieron
+siendo la fuente de verdad de la interfaz de etiquetas, así que toda
+etiqueta creada después no existía como propiedad y filtrar por propiedad
+devolvía resultados incompletos, en silencio. El hueco: renombrar y
+fusionar valores existía en el repositorio y ningún botón lo llamaba.
+
+**Una etiqueta ES un valor de Tema.** `PropertyValue` bajo la categoría de
+sistema "Tema" es la única fuente de verdad, y `Tag.id` es el id del valor.
+La API y la interfaz de etiquetas —`Tag`, `TagEditor`, `watchAllTags`,
+`getOrCreateTag`, `renameTag`, `deleteTag`, `LibraryQuery.tagIds`— quedaron
+intactas, reimplementadas encima de las propiedades. `KnowledgeItem.tags`
+son las asignaciones bajo Tema y `KnowledgeItem.properties` todo lo demás,
+sin solapamiento: antes, una etiqueta migrada salía dos veces en el
+detalle. `_syncTags` sincroniza por DIFERENCIA y no rehaciendo la
+relación, porque una asignación tiene datos propios —su `origin`:
+`suggestedAccepted`, `inherited`— y borrarla para reinsertarla la
+degradaría a `manual`; una propiedad de Tema que llegue en
+`item.properties` se trata como etiqueta en vez de perderse. `Tags` e
+`ItemTags` quedaron marcadas obsoletas en el código: las retira F10.
+
+**Resolver por texto sin distinguir acentos.** `normalizeVocabularyLabel`
+—minúsculas, sin acentos, sin plegar `ñ` ni `ç` porque "año" y "ano" son
+palabras distintas, y la puntuación cuenta— es la base de todo lo demás.
+Destapó dos defectos viejos: `assignProperty` ignoraba los alias (escribir
+"Constantinopla", alias de "Bizancio", creaba un valor duplicado) y el
+`lower()` de SQLite solo baja ASCII, así que "Álgebra" y "álgebra" nunca
+coincidían. Un resolvedor único, `findValueByLabelOrAlias`, en
+`core/database`: los dos repositorios que lo necesitan tienen que decidir
+igual qué es "el mismo texto". Si varios valores normalizan igual —posible
+en bases de antes de F8, porque el índice único solo ve mayúsculas ASCII—
+gana el escrito idéntico, luego el que solo difiere en mayúsculas, luego el
+más antiguo.
+
+**La reconciliación (migración v14).** `planTagReconciliation` solo lee y
+devuelve el informe —el dry-run—; `applyTagReconciliation` escribe.
+Unifica por texto normalizado y SOLO dentro de Tema: si ya hay valores se
+conserva el más usado (a igual uso, el más antiguo) y los demás se fusionan
+en él con su label como alias; si no hay ninguno, se crea uno desde la
+etiqueta más usada, con su mismo id. Las asignaciones pasan con
+`insertOrIgnore`, nunca `insertOnConflictUpdate`: la migración de F2 sí
+pisaba el `origin`. Idempotente, con `Tags`/`ItemTags` intactas. Corre
+dentro de la transacción de `onUpgrade` y SIN `try`/`catch`: si algo falla
+la migración entera revierte —hay copia previa— en vez de saltarse un
+grupo y dejar una etiqueta sin valor, que es justo la pérdida que se
+evita. El informe queda en `MigrationIssues` y en el registro; el encargo
+pedía un informe "previo", y una migración no puede detenerse a preguntar,
+así que se calcula antes de aplicar, dentro de la misma migración. Se
+verificó que `PRAGMA foreign_keys` vale 0 durante `onUpgrade`: nada
+cascadea ahí, por eso la reconciliación descarta las asignaciones de
+elementos que ya no existen.
+
+**Respaldo antes de cada migración.** `VACUUM INTO` no puede correr dentro
+de una transacción y drift migra dentro de una, así que el respaldo no
+puede ir en `onUpgrade`: corre en el `setup` de la conexión nativa, sobre
+el SQLite crudo, antes de cualquier migración (`<base>.pre-vN.bak`,
+conserva las últimas 3). Si no se puede respaldar, lanza y drift cierra la
+base: no se migra sin red de seguridad. En la web no hay archivo que copiar
+y la protección es que la migración es transaccional. Solo respalda la
+base; los archivos originales no los toca ninguna migración de F8 a F11.
+
+**La fusión NO era reversible.** El encargo daba por hecho que "ya es
+reversible a nivel motor"; era transaccional, pero borraba la fila del
+descartado sin guardar qué asignaciones y alias tenía. El motor
+—`mergePropertyValueRows`, ahora en `core/database` porque lo comparten la
+pantalla y la migración— devuelve un registro de deshacer y
+`undoPropertyValueMerge` lo revierte. Deshacer se NIEGA si el vocabulario
+cambió de una forma que obligaría a adivinar, y no deja nada tocado; solo
+cuentan los conflictos de INTEGRIDAD (los que violaría el índice único),
+no la comparación sin acentos, porque el estado original pudo tener
+casi-duplicados legítimos —justo lo que la pantalla existe para limpiar—.
+Las operaciones de lote son transaccionales: si una del lote falla, no
+queda ninguna aplicada. El registro vive en memoria, por sesión: cerrar la
+app lo olvida.
+
+**Candidatos a fusión.** `findMergeCandidates` es una función pura que
+devuelve pares de valores de una misma categoría de texto: mismo texto sin
+distinguir acentos, uno contenido en el otro por palabras enteras ("Arte"
+no está en "Artesanía"), o casi igual escrito. Nunca fusiona: sugiere.
+Se contiene el costo sin comparar todo contra todo —bloques por primera
+letra y largo parecido, descarte por firma de letras, índice por palabra— y
+se acota la salida por valor, porque cuando muchísimos nombres se parecen
+entre sí los pares crecen con el cuadrado: una prueba con 1.001 nombres que
+comparten la primera palabra tardaba ~4,8 s antes de acotarlo. Medido: con
+2.000 valores realistas, ~40 a 90 ms; el peor caso adversarial, ~250 a 500
+ms; el requisito era menos de un segundo. El precio del bloque por primera
+letra: un error justo en la primera letra no se detecta. Corre en un
+isolate, para no congelar la pantalla.
+
+**La pantalla de Vocabulario.** Ruta plana `/vocabulary`, en la sección
+"Bóveda" de Ajustes, con cinco pestañas: parecidos, un solo uso, sin uso,
+categorías vacías, y todas las categorías —tocar una abre su explorador,
+con búsqueda, renombrar, alias y fusión de los marcados—. Fusionar pide
+confirmación con cuántos elementos afecta ANTES de hacerlo. Solo se
+preseleccionan los casi seguro iguales: "Guerra" y "Guerra fría" comparten
+palabras y pueden ser cosas distintas. Toda operación se puede deshacer, la
+última, desde el aviso o desde la barra superior.
+
+**Lo que la construcción encontró, y se corrigió de raíz.**
+- `SchemaVerifier.migrateAndValidate(db, N)` abre la base AFIRMANDO que su
+  objetivo es N: con 13 desde v13, drift ve una base al día y no ejecuta
+  `onUpgrade`. Los tests de v14 siembran una base v13 real (`schemaAt`) y
+  abren `AppDatabase` encima, como hace la app.
+- El "Deshacer" del aviso no funcionaba tras fusionar: capturaba el
+  `BuildContext` de una tarjeta que se reconstruye. Ahora se captura, antes
+  de esperar, el `ScaffoldMessenger`, los textos y el controlador.
+- Un `ProviderScope` anidado solo cambia los providers que sobrescribe él
+  mismo: uno sin sobrescribir sigue leyendo sus dependencias del contenedor
+  raíz.
+- Ordenar con `toLowerCase()` compara por código de carácter: "Época" iba
+  después de "Tema". El orden es sobre el texto normalizado.
+- Una hoja modal tapa con su barrera el aviso con "Deshacer" de la pantalla
+  de abajo: el detalle de un valor es una página.
+
+**Lo que F8 no hace.** No retira `Tags`/`ItemTags` (F10). No hay panel de
+salud ni acceso al vocabulario desde él (F9). No detecta espacios temáticos
+(F11). El respaldo previo no existe en la web. Los valores de Tema sin
+etiqueta —creados en el editor de propiedades, o lo que quedó de una
+etiqueta que se renombró o se borró después de F2— no se tocan: no hay
+forma de saber cuál de las dos cosas fue, y la pantalla de Vocabulario es
+donde se limpian. Y el invariante de chunking —concatenar los chunks
+reproduce `fullText` carácter a carácter— se hizo comprobable en cualquier
+momento (`verifyChunkInvariant`); un test recorre toda la reconciliación y
+el mantenimiento del vocabulario, con sus deshacer, y comprueba que los
+chunks y el texto de las fuentes quedan idénticos.
+
 ---
 
 ## Estado y orden de construcción
@@ -2743,6 +2872,14 @@ telemetría.
   pantalla, "Posibles duplicados", con confirmación explícita por
   fila: fusionar es irreversible, así que no entra al diálogo genérico
   de revisión de sugerencias.
+- **F8 de higiene: etiquetas unificadas y mantenimiento del
+  vocabulario.** Una etiqueta es ahora un valor de la categoría Tema —una
+  sola fuente de verdad—, con la interfaz de etiquetas intacta por encima;
+  una migración reconcilia lo que F2 dejó separado, con respaldo previo de
+  la base. La pantalla de Vocabulario: valores parecidos para fusionar,
+  de un solo uso, sin uso, categorías vacías y un explorador por categoría
+  con alias, todo reversible —ver la decisión 41—. Primera fase del
+  encargo de cierre F8 a F11.
 
 ### Por construir
 
@@ -2750,12 +2887,12 @@ Las ocho fases originales están construidas, probadas y documentadas.
 Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
-El refactor de la capa de organización (ver la decisión 34) también
-está cerrado: F1 a F7 construidas, probadas y documentadas —modelo
-Fuente/Nota, vocabulario controlado, estados y Bandeja de entrada,
-clasificación asistida de a un elemento, motor de relaciones y
-Tensión, grafo local y notas mapa, y deduplicación—. Lo único que
-queda suelto de todo el encargo original son las sugerencias en lote
-(deferidas de F4): revisar varias sugerencias a la vez en vez de una
-por una, recién planeada —plan breve, aprobado, después código—
-cuando se confirme avanzar con ella.
+El refactor de la capa de organización (ver la decisión 34) llegó a
+F1-F7, y su encargo de cierre (F8 a F11) va en orden estricto: F8 —la
+higiene del vocabulario, ver la decisión 41— está construida. Quedan F9
+(consolidación: panel de salud de la bóveda, línea de tiempo, notas desde
+enlaces rotos, sugerencias en lote, bandeja como mazo de tarjetas), F10
+(unificar el modelo de datos: retirar el modelo viejo y el espejo, y con
+ellos `Tags`/`ItemTags`) y F11 (durabilidad: borrado suave con papelera,
+versionado por campo, fusión no destructiva al restaurar). Cada una se
+planea —plan breve, aprobado, después código— cuando le toca.
