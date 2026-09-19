@@ -2,6 +2,8 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 import 'synthetic_vault.dart';
 
@@ -134,5 +136,26 @@ void main() {
       [vault.mediumTerm],
     );
     expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
+  });
+
+  test('la búsqueda de la biblioteca resuelve el orden y la página en la '
+      'base, sin traer todas las coincidencias', () async {
+    final ids = LibraryQuerySql(
+      LibraryQuery(
+        searchText: vault.mediumTerm,
+        sortBy: LibrarySort.relevance,
+        limit: 50,
+      ),
+    ).ids();
+    expect(ids.sql, contains('LIMIT ? OFFSET ?'));
+
+    final rows = await db
+        .customSelect('EXPLAIN QUERY PLAN ${ids.sql}', variables: ids.variables)
+        .get();
+    final plan = rows.map((r) => r.read<String>('detail')).join('\n');
+    expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
+    for (final table in ['items', 'sources']) {
+      expect(plan, isNot(contains('SCAN $table')), reason: plan);
+    }
   });
 }

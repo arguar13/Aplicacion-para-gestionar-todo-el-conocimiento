@@ -5,7 +5,6 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
-import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
@@ -25,6 +24,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
+import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 
@@ -177,9 +177,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<Either<Failure, int>> count(LibraryQuery query) async {
     try {
       // Se cuenta sin paginar: "hay 340 resultados" es el total, no cuántos
-      // entraron en la página actual.
-      final ids = await _matchingIds(query.copyWith(limit: null, offset: 0));
-      return right(ids.length);
+      // entraron en la página actual. Y se cuenta en la base: traer todos los
+      // ids para medir la lista sería el costo de listar la biblioteca entera.
+      return right(await _countMatching(query));
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
@@ -796,142 +796,29 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// Devuelve solo identificadores porque el trabajo pesado —traer
   /// transcripciones enteras y armar los agregados— no debe hacerse sobre
   /// filas que después se van a descartar por un filtro o por la paginación.
+  ///
+  /// El filtrado, el orden —también el de relevancia— y la página los
+  /// resuelve la base en una sola consulta: ver [LibraryQuerySql].
   Future<List<String>> _matchingIds(LibraryQuery query) async {
-    // La búsqueda de texto se resuelve aparte, en la tabla FTS5, y entra al
-    // resto de la consulta como un filtro más por identificador. Unirlas en
-    // un solo SELECT obligaría a SQL crudo para todo; así cada mitad usa la
-    // herramienta que le corresponde.
-    Set<String>? textMatches;
-    List<String>? relevanceOrder;
+    final sql = LibraryQuerySql(query);
+    if (sql.matchesNothing) return [];
 
-    if (query.hasSearchText) {
-      relevanceOrder = await _searchIds(query.searchText!);
-      textMatches = relevanceOrder.toSet();
-      if (textMatches.isEmpty) return [];
-    }
-
-    final select = _db.select(_db.items).join([
-      innerJoin(_db.sources, _db.sources.id.equalsExp(_db.items.sourceId)),
-    ]);
-
-    if (textMatches != null) {
-      select.where(_db.items.id.isIn(textMatches));
-    }
-    if (query.sourceKinds.isNotEmpty) {
-      select.where(_db.sources.kind.isIn(query.sourceKinds.map((k) => k.name)));
-    }
-    if (query.processingStates.isNotEmpty) {
-      select.where(
-        _db.items.processingState.isIn(
-          query.processingStates.map((s) => s.name),
-        ),
-      );
-    }
-    if (query.spaceId != null) {
-      select.where(_db.items.spaceId.equals(query.spaceId!));
-    }
-    if (query.tagIds.isNotEmpty) {
-      // Subconsulta en vez de un join: con un join, un elemento que tiene
-      // tres de las etiquetas buscadas aparecería tres veces en el
-      // resultado.
-      select.where(
-        _db.items.id.isInQuery(
-          _db.selectOnly(_db.itemPropertyValues)
-            ..addColumns([_db.itemPropertyValues.itemId])
-            ..where(_db.itemPropertyValues.propertyValueId.isIn(query.tagIds)),
-        ),
-      );
-    }
-    if (query.propertyValueIds.isNotEmpty) {
-      // Mismo criterio que [query.tagIds]: subconsulta, no join, por la
-      // misma razón de duplicados.
-      select.where(
-        _db.items.id.isInQuery(
-          _db.selectOnly(_db.itemPropertyValues)
-            ..addColumns([_db.itemPropertyValues.itemId])
-            ..where(
-              _db.itemPropertyValues.propertyValueId.isIn(
-                query.propertyValueIds,
-              ),
-            ),
-        ),
-      );
-    }
-
-    // Con orden por relevancia, el criterio ya lo puso FTS5 y no hay ORDER BY
-    // que lo reproduzca: se ordena en Dart según la posición que traía cada
-    // identificador. Sin texto buscado, la relevancia no significa nada y se
-    // cae en el orden por fecha de captura.
-    final useRelevance =
-        query.sortBy == LibrarySort.relevance && relevanceOrder != null;
-
-    if (!useRelevance) {
-      select.orderBy([_orderingFor(query)]);
-    }
-
-    if (query.limit != null && !useRelevance) {
-      select.limit(query.limit!, offset: query.offset);
-    }
-
-    final rows = await select.get();
-    var ids = rows.map((r) => r.readTable(_db.items).id).toList();
-
-    if (useRelevance) {
-      final rank = {
-        for (var i = 0; i < relevanceOrder.length; i++) relevanceOrder[i]: i,
-      };
-      ids.sort((a, b) => (rank[a] ?? 1 << 30).compareTo(rank[b] ?? 1 << 30));
-      if (query.limit != null) {
-        ids = ids.skip(query.offset).take(query.limit!).toList();
-      }
-    }
-
-    return ids;
-  }
-
-  OrderingTerm _orderingFor(LibraryQuery query) {
-    final mode = query.descending ? OrderingMode.desc : OrderingMode.asc;
-
-    return switch (query.sortBy) {
-      LibrarySort.capturedAt => OrderingTerm(
-        expression: _db.sources.capturedAt,
-        mode: mode,
-      ),
-      LibrarySort.publishedAt => OrderingTerm(
-        expression: _db.sources.publishedAt,
-        mode: mode,
-      ),
-      LibrarySort.updatedAt => OrderingTerm(
-        expression: _db.items.updatedAt,
-        mode: mode,
-      ),
-      LibrarySort.title => OrderingTerm(
-        expression: _db.items.title,
-        mode: mode,
-      ),
-      // Sin texto buscado no hay relevancia que medir; se usa el orden por
-      // defecto en vez de fallar o devolver cualquier cosa.
-      LibrarySort.relevance => OrderingTerm(
-        expression: _db.sources.capturedAt,
-        mode: mode,
-      ),
-    };
-  }
-
-  /// Los identificadores que coinciden con el texto, ordenados por relevancia.
-  Future<List<String>> _searchIds(String rawInput) async {
-    final query = buildSearchQuery(rawInput);
-    if (query.isEmpty) return [];
-
+    final ids = sql.ids();
     final rows = await _db
-        .customSelect(
-          'SELECT item_id FROM item_search WHERE item_search MATCH ? '
-          'ORDER BY rank',
-          variables: [Variable.withString(query)],
-        )
+        .customSelect(ids.sql, variables: ids.variables)
         .get();
+    return [for (final row in rows) row.read<String>('id')];
+  }
 
-    return rows.map((r) => r.data['item_id']! as String).toList();
+  Future<int> _countMatching(LibraryQuery query) async {
+    final sql = LibraryQuerySql(query);
+    if (sql.matchesNothing) return 0;
+
+    final count = sql.count();
+    final row = await _db
+        .customSelect(count.sql, variables: count.variables)
+        .getSingle();
+    return row.read<int>('n');
   }
 
   /// Convierte filas planas en agregados completos.

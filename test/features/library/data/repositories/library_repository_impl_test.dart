@@ -775,6 +775,88 @@ void main() {
       expect(titles, hasLength(2));
     });
 
+    /// Siete elementos que mencionan "enzimas" una cantidad distinta de
+    /// veces, para que la relevancia los ordene sin empates.
+    Future<void> seedEnzymes() async {
+      for (var i = 1; i <= 7; i++) {
+        final item = buildItem(title: 'Nota $i');
+        await repository.save(
+          item.copyWith(
+            renditions: [
+              textRendition(item.id, List.filled(i, 'enzimas').join(' y ')),
+            ],
+          ),
+        );
+      }
+    }
+
+    test('con texto buscado, las páginas juntas dan la lista entera en el '
+        'orden de relevancia', () async {
+      await seedEnzymes();
+      const search = LibraryQuery(
+        searchText: 'enzimas',
+        sortBy: LibrarySort.relevance,
+      );
+
+      final whole = await titlesOf(search);
+      final pages = [
+        for (var offset = 0; offset < 7; offset += 3)
+          ...await titlesOf(search.copyWith(limit: 3, offset: offset)),
+      ];
+
+      expect(whole, hasLength(7));
+      expect(pages, whole);
+    });
+
+    test('con texto buscado, contar da todas las coincidencias y no el '
+        'tamaño de la página', () async {
+      await seedEnzymes();
+      await repository.save(buildItem(title: 'Otro tema'));
+
+      final total = (await repository.count(
+        const LibraryQuery(searchText: 'enzimas', limit: 2),
+      )).getRight().toNullable();
+
+      expect(total, 7);
+    });
+
+    test('con texto buscado, los identificadores de todo lo que coincide '
+        'salen sin paginar', () async {
+      await seedEnzymes();
+
+      final ids = (await repository.matchingIds(
+        const LibraryQuery(searchText: 'enzimas'),
+      )).getRight().toNullable();
+
+      expect(ids, hasLength(7));
+    });
+
+    test('con texto buscado se puede ordenar por otra cosa que la '
+        'relevancia', () async {
+      await seedEnzymes();
+
+      expect(
+        await titlesOf(
+          const LibraryQuery(
+            searchText: 'enzimas',
+            sortBy: LibrarySort.title,
+            descending: false,
+            limit: 3,
+          ),
+        ),
+        ['Nota 1', 'Nota 2', 'Nota 3'],
+      );
+    });
+
+    test('un texto sin ninguna palabra que buscar no encuentra nada, ni '
+        'cuenta nada, ni rompe', () async {
+      await seedEnzymes();
+      const query = LibraryQuery(searchText: '"');
+
+      expect(await titlesOf(query), isEmpty);
+      expect((await repository.count(query)).getRight().toNullable(), 0);
+    });
+
     test('pagina', () async {
       await seedOrdered();
 
