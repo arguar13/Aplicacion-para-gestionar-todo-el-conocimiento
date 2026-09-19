@@ -91,4 +91,17 @@ abstract interface class SuggestionRepository {
   /// Marca `status: rejected` varias sugerencias pendientes sin aplicar nada
   /// y devuelve cuántas. Una que ya no está pendiente no se toca.
   Future<Either<Failure, int>> rejectMany(List<String> ids);
+
+  /// Deshace la aceptación de una sugerencia de propiedad ya aceptada: quita
+  /// del elemento la propiedad que esa aceptación puso y la deja `pending` de
+  /// nuevo, como si nadie la hubiera tocado.
+  ///
+  /// Solo quita lo que la propia aceptación puso. Si el elemento ya tenía esa
+  /// propiedad —puesta a mano o heredada— la aceptación no la tocó, y esto
+  /// tampoco: se deshace el estado de la sugerencia, nunca una decisión del
+  /// usuario. El valor que la aceptación haya creado y nadie más use se va con
+  /// ella, para no dejar en el vocabulario un valor huérfano.
+  ///
+  /// Falla si la sugerencia no existe, no es de propiedad o no está aceptada.
+  Future<Either<Failure, Unit>> revertAccepted(String id);
 }

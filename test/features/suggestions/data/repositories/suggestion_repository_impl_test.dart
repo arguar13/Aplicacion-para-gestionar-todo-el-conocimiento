@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -353,6 +355,222 @@ void main() {
 
     test('un id inexistente devuelve left', () async {
       final result = await repository.reject('no-existe');
+
+      expect(result.isLeft(), isTrue);
+    });
+  });
+
+  group('revertAccepted', () {
+    late PropertyDefinition region;
+
+    setUp(() async {
+      region = (await organizeRepository.getOrCreatePropertyDefinition(
+        'Región',
+      )).getRight().toNullable()!;
+    });
+
+    Future<Suggestion> suggest(
+      KnowledgeItem item, {
+      String value = 'Roma',
+      bool isNewValue = true,
+    }) async => (await repository.createPropertySuggestion(
+      targetItemId: item.id,
+      definitionId: region.id,
+      definitionName: 'Región',
+      value: value,
+      isNewValue: isNewValue,
+    )).getRight().toNullable()!;
+
+    Future<List<ItemProperty>> propertiesOf(KnowledgeItem item) async =>
+        (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties;
+
+    Future<List<PropertyValueRow>> valuesOfRegion() => (db.select(
+      db.propertyValues,
+    )..where((v) => v.definitionId.equals(region.id))).get();
+
+    test('quita la propiedad que puso y la deja pendiente de nuevo', () async {
+      final item = await seedItem();
+      final suggestion = await suggest(item);
+      await repository.accept(suggestion.id);
+      expect(await propertiesOf(item), hasLength(1));
+
+      final result = await repository.revertAccepted(suggestion.id);
+
+      expect(result.isRight(), isTrue);
+      expect(await propertiesOf(item), isEmpty);
+      final pending = await repository.watchPendingSuggestions(item.id).first;
+      expect(pending.map((s) => s.id), [suggestion.id]);
+    });
+
+    test(
+      'el valor que la aceptación creó y nadie más usa se va con ella',
+      () async {
+        final item = await seedItem();
+        final suggestion = await suggest(item);
+        await repository.accept(suggestion.id);
+        expect(await valuesOfRegion(), hasLength(1));
+
+        await repository.revertAccepted(suggestion.id);
+
+        expect(await valuesOfRegion(), isEmpty);
+      },
+    );
+
+    test('un valor que otro elemento usa se queda, y el otro elemento lo '
+        'conserva', () async {
+      final item = await seedItem();
+      final other = await seedItem(title: 'Otro');
+      final suggestion = await suggest(item);
+      await repository.accept(suggestion.id);
+      await organizeRepository.assignProperty(
+        itemId: other.id,
+        definitionId: region.id,
+        value: 'Roma',
+      );
+
+      await repository.revertAccepted(suggestion.id);
+
+      expect(await propertiesOf(item), isEmpty);
+      expect((await propertiesOf(other)).map((p) => p.value), ['Roma']);
+      expect(await valuesOfRegion(), hasLength(1));
+    });
+
+    test(
+      'un valor que ya existía antes se queda aunque nadie lo use',
+      () async {
+        await organizeRepository.getOrCreatePropertyDefinition('Región');
+        final other = await seedItem(title: 'Otro');
+        await organizeRepository.assignProperty(
+          itemId: other.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+        await organizeRepository.removeItemProperty(
+          itemId: other.id,
+          propertyValueId: (await valuesOfRegion()).single.id,
+        );
+        final item = await seedItem();
+        final suggestion = await suggest(item, isNewValue: false);
+        await repository.accept(suggestion.id);
+
+        await repository.revertAccepted(suggestion.id);
+
+        expect(await valuesOfRegion(), hasLength(1));
+      },
+    );
+
+    test('aceptar una que el elemento ya tenía a mano no le cambia el '
+        'origen', () async {
+      final item = await seedItem();
+      await organizeRepository.assignProperty(
+        itemId: item.id,
+        definitionId: region.id,
+        value: 'Roma',
+      );
+      final suggestion = await suggest(item, isNewValue: false);
+
+      await repository.accept(suggestion.id);
+
+      final properties = await propertiesOf(item);
+      expect(properties, hasLength(1));
+      expect(properties.single.origin, ItemPropertyOrigin.manual);
+    });
+
+    test('deshacer una que el elemento ya tenía a mano no le quita la '
+        'propiedad', () async {
+      final item = await seedItem();
+      await organizeRepository.assignProperty(
+        itemId: item.id,
+        definitionId: region.id,
+        value: 'Roma',
+      );
+      final suggestion = await suggest(item, isNewValue: false);
+      await repository.accept(suggestion.id);
+
+      final result = await repository.revertAccepted(suggestion.id);
+
+      expect(result.isRight(), isTrue);
+      final properties = await propertiesOf(item);
+      expect(properties.map((p) => p.value), ['Roma']);
+      expect(properties.single.origin, ItemPropertyOrigin.manual);
+      final pending = await repository.watchPendingSuggestions(item.id).first;
+      expect(pending, hasLength(1));
+    });
+
+    test(
+      'si después el usuario la puso a mano, es suya y no se quita',
+      () async {
+        final item = await seedItem();
+        final suggestion = await suggest(item);
+        await repository.accept(suggestion.id);
+        await organizeRepository.assignProperty(
+          itemId: item.id,
+          definitionId: region.id,
+          value: 'Roma',
+        );
+
+        await repository.revertAccepted(suggestion.id);
+
+        final properties = await propertiesOf(item);
+        expect(properties.map((p) => p.value), ['Roma']);
+        expect(properties.single.origin, ItemPropertyOrigin.manual);
+      },
+    );
+
+    test('se puede volver a aceptar después de deshacer', () async {
+      final item = await seedItem();
+      final suggestion = await suggest(item);
+      await repository.accept(suggestion.id);
+      await repository.revertAccepted(suggestion.id);
+
+      final result = await repository.accept(suggestion.id);
+
+      expect(result.isRight(), isTrue);
+      final properties = await propertiesOf(item);
+      expect(properties.map((p) => p.value), ['Roma']);
+      expect(properties.single.origin, ItemPropertyOrigin.suggestedAccepted);
+    });
+
+    test('una sugerencia pendiente no se puede deshacer', () async {
+      final item = await seedItem();
+      final suggestion = await suggest(item);
+
+      final result = await repository.revertAccepted(suggestion.id);
+
+      expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+    });
+
+    test('una rechazada tampoco', () async {
+      final item = await seedItem();
+      final suggestion = await suggest(item);
+      await repository.reject(suggestion.id);
+
+      final result = await repository.revertAccepted(suggestion.id);
+
+      expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+    });
+
+    test('una sugerencia de relación aceptada no se deshace por acá', () async {
+      final itemA = await seedItem(title: 'A');
+      final itemB = await seedItem(title: 'B');
+      final relation = (await repository.createRelationSuggestion(
+        targetItemId: itemA.id,
+        relatedItemId: itemB.id,
+        relatedItemTitle: 'B',
+        kind: RelationKind.relatedTo,
+        reason: 'Hablan de lo mismo.',
+      )).getRight().toNullable()!;
+      await repository.accept(relation.id);
+
+      final result = await repository.revertAccepted(relation.id);
+
+      expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+    });
+
+    test('un id inexistente falla', () async {
+      final result = await repository.revertAccepted('no-existe');
 
       expect(result.isLeft(), isTrue);
     });

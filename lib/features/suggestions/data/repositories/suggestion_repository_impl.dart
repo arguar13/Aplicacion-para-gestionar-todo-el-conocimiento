@@ -305,14 +305,136 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     }
   }
 
-  Future<Either<Failure, Unit>> _applyProperty(SuggestionRow row) {
+  Future<Either<Failure, Unit>> _applyProperty(SuggestionRow row) async {
     final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    final definitionId = payload['definitionId'] as String;
+    final value = payload['value'] as String;
+
+    // Si el elemento ya la tenía —puesta a mano, o heredada de la fuente— no
+    // se vuelve a asignar: hacerlo le cambiaría el origen a "sugerida
+    // aceptada", y deshacer la aceptación después le quitaría una propiedad
+    // que nunca fue de la sugerencia. Queda anotado para el deshacer.
+    final existing = await findValueByLabelOrAlias(_db, definitionId, value);
+    if (existing != null && await _hasProperty(row.targetItemId, existing.id)) {
+      await (_db.update(
+        _db.suggestions,
+      )..where((s) => s.id.equals(row.id))).write(
+        SuggestionsCompanion(
+          payloadJson: Value(jsonEncode({...payload, _alreadyHadKey: true})),
+        ),
+      );
+      return right(unit);
+    }
+
     return _organize.assignProperty(
       itemId: row.targetItemId,
-      definitionId: payload['definitionId'] as String,
-      value: payload['value'] as String,
+      definitionId: definitionId,
+      value: value,
       origin: ItemPropertyOrigin.suggestedAccepted,
     );
+  }
+
+  Future<bool> _hasProperty(String itemId, String propertyValueId) async {
+    final row =
+        await (_db.select(_db.itemPropertyValues)..where(
+              (p) =>
+                  p.itemId.equals(itemId) &
+                  p.propertyValueId.equals(propertyValueId),
+            ))
+            .getSingleOrNull();
+    return row != null;
+  }
+
+  @override
+  Future<Either<Failure, Unit>> revertAccepted(String id) async {
+    try {
+      final row = await (_db.select(
+        _db.suggestions,
+      )..where((s) => s.id.equals(id))).getSingleOrNull();
+      if (row == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'La sugerencia ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+      if (row.kind != SuggestionKind.property ||
+          row.status != SuggestionStatus.accepted) {
+        return left(
+          const Failure.validation(
+            message:
+                'Solo se puede deshacer una sugerencia de propiedad ya '
+                'aceptada.',
+          ),
+        );
+      }
+
+      await _db.transaction(() async {
+        await _removeWhatItPut(row);
+        await (_db.update(
+          _db.suggestions,
+        )..where((s) => s.id.equals(id))).write(
+          const SuggestionsCompanion(status: Value(SuggestionStatus.pending)),
+        );
+      });
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'SuggestionRepositoryImpl.revertAccepted'),
+      );
+    }
+  }
+
+  /// Quita del elemento la propiedad que puso la aceptación de [row], y el
+  /// valor si la aceptación lo creó y nadie más lo usa.
+  Future<void> _removeWhatItPut(SuggestionRow row) async {
+    final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    if (payload[_alreadyHadKey] == true) return;
+
+    final value = await findValueByLabelOrAlias(
+      _db,
+      payload['definitionId'] as String,
+      payload['value'] as String,
+    );
+    if (value == null) return;
+
+    final placed =
+        await (_db.select(_db.itemPropertyValues)..where(
+              (p) =>
+                  p.itemId.equals(row.targetItemId) &
+                  p.propertyValueId.equals(value.id),
+            ))
+            .getSingleOrNull();
+    // Solo lo que puso esta aceptación: si después el usuario la reemplazó por
+    // una a mano, es suya.
+    if (placed == null ||
+        placed.origin != ItemPropertyOrigin.suggestedAccepted) {
+      return;
+    }
+
+    await (_db.delete(_db.itemPropertyValues)..where(
+          (p) =>
+              p.itemId.equals(row.targetItemId) &
+              p.propertyValueId.equals(value.id),
+        ))
+        .go();
+
+    if (payload['isNewValue'] != true) return;
+    final uses = _db.itemPropertyValues.itemId.count();
+    final stillUsed =
+        (await (_db.selectOnly(_db.itemPropertyValues)
+              ..addColumns([uses])
+              ..where(_db.itemPropertyValues.propertyValueId.equals(value.id)))
+            .map((r) => r.read(uses)!)
+            .getSingle()) >
+        0;
+    if (!stillUsed) {
+      await (_db.delete(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(value.id))).go();
+    }
   }
 
   Future<Either<Failure, Unit>> _applyRelation(SuggestionRow row) {
@@ -595,6 +717,11 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
 
 /// Una sugerencia del lote no se pudo aplicar: deshace la transacción del
 /// lote entero.
+/// La marca que deja `_applyProperty` en el payload cuando el elemento ya
+/// tenía la propiedad: la aceptación no puso nada, y deshacerla tampoco quita
+/// nada.
+const _alreadyHadKey = 'alreadyHad';
+
 class _BatchAborted implements Exception {
   const _BatchAborted(this.failure);
 
