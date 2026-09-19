@@ -147,6 +147,37 @@ class InboxRepositoryImpl implements InboxRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> setNoteMaturity({
+    required String itemId,
+    required NoteMaturity maturity,
+  }) async {
+    try {
+      final updated =
+          await (_db.update(
+            _db.knowledgeNotes,
+          )..where((n) => n.itemId.equals(itemId))).writeReturning(
+            KnowledgeNotesCompanion(maturity: Value(maturity)),
+          );
+
+      if (updated.isEmpty) {
+        return left(
+          const Failure.unexpected(
+            message: 'La nota ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'InboxRepositoryImpl.setNoteMaturity'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> setNoteKind({
     required String itemId,
     required NoteKind kind,

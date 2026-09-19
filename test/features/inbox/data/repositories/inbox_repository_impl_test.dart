@@ -242,4 +242,94 @@ void main() {
       expect(result.isLeft(), isTrue);
     });
   });
+
+  group('setNoteMaturity', () {
+    test('cambia la madurez de la nota', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id);
+
+      final result = await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.mature,
+      );
+
+      expect(result.isRight(), isTrue);
+      final row = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(id))).getSingle();
+      expect(row.maturity, NoteMaturity.mature);
+    });
+
+    test(
+      'se puede volver atrás: la madurez no es un escalón de una sola vía',
+      () async {
+        final id = await seedEntry(kind: ItemKind.note);
+        await seedNote(id, maturity: NoteMaturity.mature);
+
+        await repository.setNoteMaturity(
+          itemId: id,
+          maturity: NoteMaturity.seed,
+        );
+
+        expect(await repository.watchNoteMaturity(id).first, NoteMaturity.seed);
+      },
+    );
+
+    test('no toca el tipo de la nota ni a las demás', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      final other = await seedEntry(kind: ItemKind.note);
+      await seedNote(id, noteKind: NoteKind.map);
+      await seedNote(other);
+
+      await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.developing,
+      );
+
+      expect(await repository.watchNoteKind(id).first, NoteKind.map);
+      expect(
+        await repository.watchNoteMaturity(other).first,
+        NoteMaturity.seed,
+      );
+    });
+
+    test('se refleja sola en watchNoteMaturity', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id);
+      final emissions = repository.watchNoteMaturity(id);
+      final expectation = expectLater(
+        emissions,
+        emitsThrough(NoteMaturity.developing),
+      );
+
+      await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.developing,
+      );
+
+      await expectation.timeout(const Duration(seconds: 5));
+    });
+
+    test('sin espejo de nota devuelve un fallo, no revienta', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+
+      final result = await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.mature,
+      );
+
+      expect(result.isLeft(), isTrue);
+    });
+
+    test('una fuente no tiene madurez: falla', () async {
+      final id = await seedEntry();
+
+      final result = await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.mature,
+      );
+
+      expect(result.isLeft(), isTrue);
+    });
+  });
 }

@@ -38,6 +38,14 @@ abstract interface class InboxRepository {
   /// [watchNoteMaturity].
   Stream<NoteKind?> watchNoteKind(String itemId);
 
+  /// Cambia la madurez de una nota —`seed`, `developing`, `mature`—. La
+  /// madurez la decide quien escribe: nada la mueve sola, y se puede volver
+  /// atrás. Falla si la nota ya no existe.
+  Future<Either<Failure, Unit>> setNoteMaturity({
+    required String itemId,
+    required NoteMaturity maturity,
+  });
+
   /// Cambia el tipo de una nota. Sin una máquina de estados completa: el
   /// único llamador hoy es "marcar/desmarcar como mapa" desde su
   /// detalle (ver la decisión sobre F6) — marcar escribe [NoteKind.map],
