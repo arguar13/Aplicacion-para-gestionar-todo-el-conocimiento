@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
@@ -931,75 +932,17 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         );
       }
 
-      await _db.transaction(() async {
-        // 1. Si un item ya tenía asignadas ambas, la fila de discardId
-        // sobra: borrarla antes de reapuntar el resto, para no chocar
-        // con la clave primaria compuesta de ItemPropertyValues en el
-        // paso 2.
-        final assignments = await (_db.select(
-          _db.itemPropertyValues,
-        )..where((t) => t.propertyValueId.equals(discardId))).get();
-        for (final assignment in assignments) {
-          final alreadyHasKeep =
-              await (_db.select(_db.itemPropertyValues)..where(
-                    (t) =>
-                        t.itemId.equals(assignment.itemId) &
-                        t.propertyValueId.equals(keepId),
-                  ))
-                  .getSingleOrNull();
-          if (alreadyHasKeep != null) {
-            await (_db.delete(_db.itemPropertyValues)..where(
-                  (t) =>
-                      t.itemId.equals(assignment.itemId) &
-                      t.propertyValueId.equals(discardId),
-                ))
-                .go();
-          }
-        }
-
-        // 2. El resto de las asignaciones de discardId pasan a keepId.
-        await (_db.update(_db.itemPropertyValues)
-              ..where((t) => t.propertyValueId.equals(discardId)))
-            .write(ItemPropertyValuesCompanion(propertyValueId: Value(keepId)));
-
-        // 3. Los alias que ya apuntaban a discardId pasan a keepId
-        // —ANTES de borrar discardId: su FK es ON DELETE CASCADE, y
-        // borrarlo primero se los llevaría con él—.
-        await (_db.update(_db.propertyAliases)
-              ..where((a) => a.propertyValueId.equals(discardId)))
-            .write(PropertyAliasesCompanion(propertyValueId: Value(keepId)));
-
-        // 4. El label de discardId queda como alias nuevo de keepId,
-        // salvo que ese texto ya sea un alias de otra cosa en la misma
-        // categoría —de otro valor, o de keepId mismo—: se tolera sin
-        // fallar la fusión entera por un solo alias que no se pudo
-        // sumar.
-        final aliasClash =
-            await (_db.select(_db.propertyAliases)..where(
-                  (a) =>
-                      a.definitionId.equals(keep.definitionId) &
-                      a.alias.lower().equals(discard.value.toLowerCase()),
-                ))
-                .getSingleOrNull();
-        if (aliasClash == null) {
-          await _db
-              .into(_db.propertyAliases)
-              .insert(
-                PropertyAliasesCompanion.insert(
-                  id: _ids.next(),
-                  propertyValueId: keepId,
-                  definitionId: keep.definitionId,
-                  alias: discard.value,
-                  createdAt: _clock(),
-                ),
-              );
-        }
-
-        // 5. discardId ya no tiene nada que solo él tuviera: se borra.
-        await (_db.delete(
-          _db.propertyValues,
-        )..where((v) => v.id.equals(discardId))).go();
-      });
+      // Los cinco pasos de la fusión viven a nivel de base: los comparte con
+      // la reconciliación de etiquetas de la migración.
+      await _db.transaction(
+        () => mergePropertyValueRows(
+          _db,
+          keep: keep,
+          discard: discard,
+          ids: _ids,
+          clock: _clock,
+        ),
+      );
 
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
