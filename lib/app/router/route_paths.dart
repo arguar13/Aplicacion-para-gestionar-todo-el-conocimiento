@@ -67,6 +67,11 @@ abstract final class RoutePaths {
   /// consolidación. Ruta plana, mismo criterio que [brokenLinks].
   static const grownNotes = '/grown-notes';
 
+  /// La línea de tiempo de los hechos con fecha (F9). Ruta plana, mismo
+  /// criterio que [brokenLinks]: es una vista sobre lo guardado, no un
+  /// destino de navegación.
+  static const timeline = '/timeline';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -122,6 +127,7 @@ abstract final class RouteNames {
   static const brokenLinks = 'broken-links';
   static const suggestionReview = 'suggestion-review';
   static const grownNotes = 'grown-notes';
+  static const timeline = 'timeline';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

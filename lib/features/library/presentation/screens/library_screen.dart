@@ -183,6 +183,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       ),
                   ],
                 ),
+                IconButton(
+                  icon: const Icon(Icons.timeline),
+                  tooltip: l10n.libraryTimelineTooltip,
+                  onPressed: () => context.push(RoutePaths.timeline),
+                ),
                 // Seleccionar de a varios solo tiene sentido en la lista: en
                 // la tabla no hay casillas que ofrecer, y en el tablero
                 // arrastrar una tarjeta ya es la forma de actuar sobre ella.

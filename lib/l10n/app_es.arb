@@ -426,6 +426,101 @@
       }
     }
   },
+  "timelineTitle": "Línea de tiempo",
+  "@timelineTitle": {
+    "description": "Título de la pantalla de la línea de tiempo de los hechos con fecha."
+  },
+  "libraryTimelineTooltip": "Línea de tiempo",
+  "@libraryTimelineTooltip": {
+    "description": "Tooltip del botón de la Biblioteca que abre la línea de tiempo."
+  },
+  "timelineSearchHint": "Buscar entre los hechos con fecha",
+  "@timelineSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda de la línea de tiempo."
+  },
+  "timelineFiltersTooltip": "Filtros",
+  "@timelineFiltersTooltip": {
+    "description": "Tooltip del botón que abre los filtros de la línea de tiempo."
+  },
+  "timelineFilterTypes": "Tipo",
+  "@timelineFilterTypes": {
+    "description": "Encabezado de los filtros por tipo de elemento en la línea de tiempo."
+  },
+  "timelineFilterTopics": "Tema",
+  "@timelineFilterTopics": {
+    "description": "Encabezado de los filtros por tema en la línea de tiempo."
+  },
+  "timelineFilterClear": "Quitar filtros",
+  "@timelineFilterClear": {
+    "description": "Botón que quita todos los filtros de la línea de tiempo."
+  },
+  "timelineZoomIn": "Acercar",
+  "@timelineZoomIn": {
+    "description": "Tooltip del botón que acerca el zoom de la línea de tiempo."
+  },
+  "timelineZoomOut": "Alejar",
+  "@timelineZoomOut": {
+    "description": "Tooltip del botón que aleja el zoom de la línea de tiempo."
+  },
+  "timelineFit": "Mostrar todo",
+  "@timelineFit": {
+    "description": "Tooltip del botón que encuadra todos los hechos en la línea de tiempo."
+  },
+  "timelineEmptyTitle": "Todavía no hay hechos con fecha",
+  "@timelineEmptyTitle": {
+    "description": "Título de la línea de tiempo cuando ningún elemento tiene fecha."
+  },
+  "timelineEmptyHint": "Poné una «Fecha del hecho» desde el detalle de un elemento —Agregar propiedad— y va a aparecer acá.",
+  "@timelineEmptyHint": {
+    "description": "Explica cómo fechar un elemento para que aparezca en la línea de tiempo."
+  },
+  "timelineNoResults": "Ningún hecho con fecha coincide con los filtros.",
+  "@timelineNoResults": {
+    "description": "Mensaje de la línea de tiempo cuando los filtros no dejan pasar ningún hecho."
+  },
+  "timelineHidden": "{count, plural, =1{1 hecho más: acercá el zoom para verlo} other{{count} hechos más: acercá el zoom para verlos}}",
+  "@timelineHidden": {
+    "description": "Aviso de hechos que no entran en pantalla por falta de espacio.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineLegendExact": "Fecha exacta",
+  "@timelineLegendExact": {
+    "description": "Leyenda de la línea de tiempo: hecho con fecha de día, mes o año."
+  },
+  "timelineLegendCirca": "Aproximada (circa)",
+  "@timelineLegendCirca": {
+    "description": "Leyenda de la línea de tiempo: hecho con fecha aproximada."
+  },
+  "timelineLegendPeriod": "Período (década o siglo)",
+  "@timelineLegendPeriod": {
+    "description": "Leyenda de la línea de tiempo: hecho que solo se sabe por década o siglo."
+  },
+  "timelineYearBce": "{year} a.C.",
+  "@timelineYearBce": {
+    "description": "Etiqueta de una marca del eje de un año anterior a la era común.",
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineEventCount": "{count, plural, =1{1 hecho} other{{count} hechos}}",
+  "@timelineEventCount": {
+    "description": "Cuántos hechos con fecha muestra la línea de tiempo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timelineLoadError": "No se pudo cargar la línea de tiempo.",
+  "@timelineLoadError": {
+    "description": "Error al cargar los hechos de la línea de tiempo."
+  },
   "detailRemoveProperty": "Quitar \"{value}\"",
   "@detailRemoveProperty": {
     "description": "Tooltip del botón que quita un valor de propiedad de un elemento.",

@@ -26,6 +26,7 @@ import 'package:sinapsis/features/relations/presentation/screens/embedding_model
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/screens/property_suggestions_review_screen.dart';
+import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -128,6 +129,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.grownNotes,
         name: RouteNames.grownNotes,
         builder: (context, state) => const GrownNotesScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.timeline,
+        name: RouteNames.timeline,
+        builder: (context, state) => const TimelineScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,
