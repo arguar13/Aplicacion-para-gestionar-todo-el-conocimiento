@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui';
 
 /// Dónde va cada nodo del grafo de relaciones, calculado con un
@@ -40,68 +41,92 @@ Map<String, Offset> computeGraphLayout({
   // La distancia "ideal" entre dos nodos si se repartiera el área del
   // lienzo en partes iguales — la constante de Fruchterman-Reingold.
   final k = math.sqrt(area / nodeIds.length);
+  final kSquared = k * k;
+
+  final count = nodeIds.length;
+
+  // El cálculo entero va sobre arreglos de números indexados por posición y no
+  // sobre un mapa de id a `Offset`: el bucle de repulsión recorre todos los
+  // pares de nodos, y con un mapa cada par costaba cuatro búsquedas por texto
+  // y cuatro objetos nuevos. Con 200 nodos eran más de medio segundo; con
+  // arreglos, una fracción. Las operaciones son las mismas y en el mismo
+  // orden, así que el resultado es idéntico al de siempre, dígito por dígito.
+  final indexOf = {for (var i = 0; i < count; i++) nodeIds[i]: i};
+  final links = <(int, int)>[
+    for (final (from, to) in edges)
+      if (indexOf[from] case final f? when indexOf[to] != null)
+        (f, indexOf[to]!),
+  ];
 
   // Posiciones iniciales en un círculo, por índice: nada de `Random()`, para
   // que el resultado no dependa de una semilla que alguien podría olvidarse
   // de fijar.
-  final positions = <String, Offset>{
-    for (var i = 0; i < nodeIds.length; i++)
-      nodeIds[i]:
-          canvasSize.center(Offset.zero) +
-          Offset.fromDirection(
-            2 * math.pi * i / nodeIds.length,
-            math.min(canvasSize.width, canvasSize.height) / 3,
-          ),
-  };
+  final center = canvasSize.center(Offset.zero);
+  final radius = math.min(canvasSize.width, canvasSize.height) / 3;
+  final xs = Float64List(count);
+  final ys = Float64List(count);
+  for (var i = 0; i < count; i++) {
+    final start = Offset.fromDirection(2 * math.pi * i / count, radius);
+    xs[i] = center.dx + start.dx;
+    ys[i] = center.dy + start.dy;
+  }
 
+  final moveX = Float64List(count);
+  final moveY = Float64List(count);
   var temperature = canvasSize.width / 10;
 
   for (var iteration = 0; iteration < iterations; iteration++) {
-    final displacement = {for (final id in nodeIds) id: Offset.zero};
+    moveX.fillRange(0, count, 0);
+    moveY.fillRange(0, count, 0);
 
     // Repulsión: todos los pares de nodos se empujan entre sí.
-    for (var i = 0; i < nodeIds.length; i++) {
-      for (var j = i + 1; j < nodeIds.length; j++) {
-        final a = nodeIds[i];
-        final b = nodeIds[j];
-        final delta = positions[a]! - positions[b]!;
-        final distance = math.max(delta.distance, 0.01);
-        final force = (k * k) / distance;
-        final direction = delta / distance;
+    for (var i = 0; i < count; i++) {
+      for (var j = i + 1; j < count; j++) {
+        final dx = xs[i] - xs[j];
+        final dy = ys[i] - ys[j];
+        final distance = math.max(math.sqrt(dx * dx + dy * dy), 0.01);
+        final force = kSquared / distance;
+        final pushX = dx / distance * force;
+        final pushY = dy / distance * force;
 
-        displacement[a] = displacement[a]! + direction * force;
-        displacement[b] = displacement[b]! - direction * force;
+        moveX[i] = moveX[i] + pushX;
+        moveY[i] = moveY[i] + pushY;
+        moveX[j] = moveX[j] - pushX;
+        moveY[j] = moveY[j] - pushY;
       }
     }
 
     // Atracción: los nodos unidos por un vínculo se acercan.
-    for (final (from, to) in edges) {
-      if (!positions.containsKey(from) || !positions.containsKey(to)) {
-        continue;
-      }
-      final delta = positions[from]! - positions[to]!;
-      final distance = math.max(delta.distance, 0.01);
+    for (final (from, to) in links) {
+      final dx = xs[from] - xs[to];
+      final dy = ys[from] - ys[to];
+      final distance = math.max(math.sqrt(dx * dx + dy * dy), 0.01);
       final force = (distance * distance) / k;
-      final direction = delta / distance;
+      final pullX = dx / distance * force;
+      final pullY = dy / distance * force;
 
-      displacement[from] = displacement[from]! - direction * force;
-      displacement[to] = displacement[to]! + direction * force;
+      moveX[from] = moveX[from] - pullX;
+      moveY[from] = moveY[from] - pullY;
+      moveX[to] = moveX[to] + pullX;
+      moveY[to] = moveY[to] + pullY;
     }
 
     // Se aplica el desplazamiento acotado por la "temperatura", que baja
     // con cada vuelta: al principio los nodos se mueven mucho para
     // encontrar su lugar, y al final apenas ajustan, para que el layout
     // converja en vez de oscilar para siempre.
-    for (final id in nodeIds) {
-      final disp = displacement[id]!;
-      final distance = math.max(disp.distance, 0.01);
-      final capped = disp / distance * math.min(distance, temperature);
-
-      positions[id] = positions[id]! + capped;
+    for (var i = 0; i < count; i++) {
+      final distance = math.max(
+        math.sqrt(moveX[i] * moveX[i] + moveY[i] * moveY[i]),
+        0.01,
+      );
+      final limit = math.min(distance, temperature);
+      xs[i] = xs[i] + moveX[i] / distance * limit;
+      ys[i] = ys[i] + moveY[i] / distance * limit;
     }
 
     temperature *= 0.97;
   }
 
-  return positions;
+  return {for (var i = 0; i < count; i++) nodeIds[i]: Offset(xs[i], ys[i])};
 }

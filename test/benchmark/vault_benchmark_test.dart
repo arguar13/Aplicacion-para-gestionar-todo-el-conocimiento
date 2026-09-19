@@ -246,30 +246,85 @@ void main() {
       });
 
       // -------------------------------------------------------------------
-      // Grafo local: objetivo del encargo, 500 ms. Es el camino real del
-      // panel del detalle: toda la biblioteca y todos los vínculos.
+      // Grafo local: objetivo del encargo, 500 ms. Es el camino real de la
+      // app: el vecindario desde la base, los elementos de esos vecinos, el
+      // recorte y el layout.
       // -------------------------------------------------------------------
-      test('grafo local del elemento con más vínculos', () async {
+      Future<void> localGraph(
+        String seed, {
+        required int maxNodes,
+        required Size canvas,
+        int? degree = 1,
+        int iterations = 150,
+      }) async {
+        final hood = await organize
+            .watchNeighborhood(
+              seedItemId: seed,
+              maxNodes: maxNodes,
+              degree: degree,
+            )
+            .first;
+        final items = (await library.list(
+          LibraryQuery(ids: hood.nodeIds),
+        )).getRight().toNullable()!;
+        final scope = localGraphFrom(
+          seedItemId: seed,
+          items: items,
+          edges: hood.edges,
+          degree: degree,
+        );
+        computeGraphLayout(
+          nodeIds: scope.nodeIds,
+          edges: [for (final e in scope.edges) (e.fromItemId, e.toItemId)],
+          canvasSize: canvas,
+          iterations: iterations,
+        );
+      }
+
+      const panelCanvas = Size(360, 240);
+      const screenCanvas = Size(
+        kLocalGraphScreenMaxNodes * 160.0,
+        kLocalGraphScreenMaxNodes * 160.0,
+      );
+
+      test('grafo local: panel del detalle, elemento típico', () async {
         check(
           await measure(
-            'grafo local: el elemento más conectado',
-            () async {
-              final items = await library.list(const LibraryQuery());
-              final edges = await organize.watchAllRelations().first;
-              final scope = localGraphFrom(
-                seedItemId: vault.hubItemId,
-                items: items.getRight().toNullable()!,
-                edges: edges,
-              );
-              computeGraphLayout(
-                nodeIds: scope.nodeIds,
-                edges: [
-                  for (final e in scope.edges) (e.fromItemId, e.toItemId),
-                ],
-                canvasSize: const Size(360, 240),
-                iterations: 150,
-              );
-            },
+            'grafo local: panel, elemento típico',
+            () => localGraph(
+              vault.typicalItemId,
+              maxNodes: kLocalGraphPanelMaxNodes,
+              canvas: panelCanvas,
+            ),
+            target: 500,
+          ),
+        );
+      });
+
+      test('grafo local: panel del detalle, el más conectado', () async {
+        check(
+          await measure(
+            'grafo local: panel, el más conectado',
+            () => localGraph(
+              vault.hubItemId,
+              maxNodes: kLocalGraphPanelMaxNodes,
+              canvas: panelCanvas,
+            ),
+            target: 500,
+          ),
+        );
+      });
+
+      test('grafo local: pantalla completa, el más conectado', () async {
+        check(
+          await measure(
+            'grafo local: pantalla, el más conectado',
+            () => localGraph(
+              vault.hubItemId,
+              maxNodes: kLocalGraphScreenMaxNodes,
+              canvas: screenCanvas,
+              iterations: 300,
+            ),
             target: 500,
             runs: 3,
           ),

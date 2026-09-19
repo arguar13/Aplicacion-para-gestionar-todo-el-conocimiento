@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/neighborhood.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -108,6 +109,21 @@ abstract interface class OrganizeRepository {
   /// Para el grafo: mostrar la red completa necesita cada arista, no las
   /// de un elemento a la vez.
   Stream<List<RelationEdge>> watchAllRelations();
+
+  /// Lo que rodea a [seedItemId]: sus vecinos hasta [degree] saltos —`null` es
+  /// sin techo— y los vínculos que hay entre todos ellos, con como mucho
+  /// [maxNodes] elementos contando el de partida.
+  ///
+  /// Recorre los vínculos desde la propia base, un salto por vez, en vez de
+  /// traerlos todos: para el grafo local, cuyo costo tiene que depender de lo
+  /// que rodea a un elemento y no del tamaño de la bóveda. Cuando el tope deja
+  /// vecinos afuera, entran los vinculados más recientemente y
+  /// [Neighborhood.omitted] dice cuántos faltan.
+  Stream<Neighborhood> watchNeighborhood({
+    required String seedItemId,
+    required int maxNodes,
+    int? degree = 1,
+  });
 
   // ---------------------------------------------------------------------
   // Resaltados

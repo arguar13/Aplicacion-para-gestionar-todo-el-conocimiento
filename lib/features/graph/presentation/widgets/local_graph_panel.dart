@@ -37,14 +37,33 @@ class LocalGraphPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(libraryItemsProvider(const LibraryQuery()));
-    final edges = ref.watch(allRelationEdgesProvider);
+    // Solo lo que rodea al elemento, no la bóveda entera: pedir todos los
+    // elementos y todos los vínculos para quedarse con unos pocos tardaba
+    // un minuto con diez mil elementos, en CADA detalle que se abría.
+    final hood = ref
+        .watch(
+          neighborhoodProvider((
+            itemId: item.id,
+            degree: 1,
+            maxNodes: kLocalGraphPanelMaxNodes,
+          )),
+        )
+        .valueOrNull;
+    if (hood == null) return const SizedBox.shrink();
 
-    return switch ((items, edges)) {
-      (AsyncData(value: final items), AsyncData(value: final edges)) =>
-        _LocalGraphPanelBody(item: item, items: items, edges: edges),
-      _ => const SizedBox.shrink(),
-    };
+    final items = hood.nodeIds.isEmpty
+        ? const <KnowledgeItem>[]
+        : ref
+              .watch(libraryItemsProvider(LibraryQuery(ids: hood.nodeIds)))
+              .valueOrNull;
+    if (items == null) return const SizedBox.shrink();
+
+    return _LocalGraphPanelBody(
+      item: item,
+      items: items,
+      edges: hood.edges,
+      omitted: hood.omitted,
+    );
   }
 }
 
@@ -53,11 +72,15 @@ class _LocalGraphPanelBody extends StatelessWidget {
     required this.item,
     required this.items,
     required this.edges,
+    required this.omitted,
   });
 
   final KnowledgeItem item;
   final List<KnowledgeItem> items;
   final List<RelationEdge> edges;
+
+  /// Cuántos vecinos no entraron en el panel por el tope de nodos.
+  final int omitted;
 
   @override
   Widget build(BuildContext context) {
@@ -162,6 +185,17 @@ class _LocalGraphPanelBody extends StatelessWidget {
             ),
           ),
         ),
+        if (omitted > 0)
+          Positioned(
+            top: 12,
+            left: 8,
+            child: Text(
+              l10n.localGraphOmitted(omitted),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         Positioned(
           top: 4,
           right: 4,

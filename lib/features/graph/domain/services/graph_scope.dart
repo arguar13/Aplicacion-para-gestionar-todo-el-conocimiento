@@ -1,6 +1,17 @@
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 
+/// Cuántos elementos dibuja, como mucho, el panel del detalle: es una vista
+/// previa de doscientos píxeles de alto y más nodos que estos no caben ni se
+/// leen. Lo que sobra lo dice el propio panel; la pantalla completa lo muestra.
+const kLocalGraphPanelMaxNodes = 30;
+
+/// Cuántos dibuja, como mucho, la pantalla del grafo local. Un elemento muy
+/// conectado puede tener miles de vecinos, y el layout de fuerzas es cuadrático
+/// en la cantidad de nodos: pasado este tope, más nodos dejan de ser una vista
+/// y son una espera.
+const kLocalGraphScreenMaxNodes = 200;
+
 /// Qué parte del grafo corresponde ver, según el espacio elegido y cuántos
 /// saltos más allá de él se quieren revelar.
 ///

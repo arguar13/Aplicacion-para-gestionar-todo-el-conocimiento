@@ -51,6 +51,16 @@ class LibraryQuerySql {
       _where.add('items.space_id = ?');
       _args.add(Variable.withString(query.spaceId!));
     }
+    final ids = query.ids;
+    if (ids != null) {
+      if (ids.isEmpty) {
+        // `IN ()` no es SQL válido y un conjunto vacío no deja pasar nada.
+        _where.add('0');
+      } else {
+        _where.add('items.id IN (${_marks(ids.length)})');
+        _args.addAll(ids.map(Variable.withString));
+      }
+    }
     // Subconsulta en vez de un join: con un join, un elemento que tiene tres
     // de los valores buscados aparecería tres veces en el resultado.
     for (final valueIds in [query.tagIds, query.propertyValueIds]) {

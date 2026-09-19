@@ -682,6 +682,69 @@ void main() {
       );
     });
 
+    group('limitar a ciertos elementos', () {
+      Future<Map<String, String>> idsByTitle() async {
+        final items = (await repository.list(
+          const LibraryQuery(),
+        )).getRight().toNullable()!;
+        return {for (final item in items) item.title: item.id};
+      }
+
+      test('deja pasar solo a los elementos pedidos', () async {
+        await seed();
+        final ids = await idsByTitle();
+
+        final titles = await titlesOf(
+          LibraryQuery(
+            ids: {ids['Charla sobre paradigmas']!, ids['Un PDF pendiente']!},
+            sortBy: LibrarySort.title,
+            descending: false,
+          ),
+        );
+
+        expect(titles, ['Charla sobre paradigmas', 'Un PDF pendiente']);
+      });
+
+      test('un conjunto vacío no deja pasar nada, y no es lo mismo que no '
+          'pedir ninguno', () async {
+        await seed();
+
+        expect(await titlesOf(const LibraryQuery(ids: {})), isEmpty);
+        expect(await titlesOf(const LibraryQuery()), hasLength(3));
+        expect(
+          (await repository.count(
+            const LibraryQuery(ids: {}),
+          )).getRight().toNullable(),
+          0,
+        );
+      });
+
+      test('un id que no existe no aparece ni rompe', () async {
+        await seed();
+        final ids = await idsByTitle();
+
+        final titles = await titlesOf(
+          LibraryQuery(ids: {ids['Artículo sobre enzimas']!, 'no-existe'}),
+        );
+
+        expect(titles, ['Artículo sobre enzimas']);
+      });
+
+      test('se combina con los demás filtros', () async {
+        await seed();
+        final ids = await idsByTitle();
+
+        final titles = await titlesOf(
+          LibraryQuery(
+            ids: {ids['Charla sobre paradigmas']!, ids['Un PDF pendiente']!},
+            sourceKinds: const {SourceKind.document},
+          ),
+        );
+
+        expect(titles, ['Un PDF pendiente']);
+      });
+    });
+
     test(
       'una búsqueda de solo espacios no filtra nada: no es una búsqueda',
       () async {

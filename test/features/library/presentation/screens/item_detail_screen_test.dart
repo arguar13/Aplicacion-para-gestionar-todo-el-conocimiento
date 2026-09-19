@@ -442,6 +442,47 @@ void main() {
       expect(find.byType(CompactGraphNode), findsNWidgets(2));
     });
 
+    testWidgets(
+      'un elemento con más vecinos de los que caben dibuja el tope y dice '
+      'cuántos faltan',
+      (tester) async {
+        final id = await captureAndGetId('el elemento muy conectado');
+        final organize = harness.container.read(organizeRepositoryProvider);
+        // Treinta y dos vecinos: el panel dibuja treinta contando el central.
+        for (var i = 0; i < 32; i++) {
+          final neighbor = await captureAndGetId('vecino número $i');
+          await organize.createRelation(
+            fromItemId: id,
+            toItemId: neighbor,
+            kind: RelationKind.relatedTo,
+          );
+        }
+
+        await pumpDetail(tester, id);
+
+        expect(find.byType(CompactGraphNode), findsNWidgets(30));
+        expect(find.text(es.localGraphOmitted(3)), findsOneWidget);
+      },
+    );
+
+    testWidgets('sin vecinos de sobra, el panel no avisa de ninguno omitido', (
+      tester,
+    ) async {
+      final other = await captureAndGetId('el otro elemento');
+      final id = await captureAndGetId('el elemento con vínculo');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: id,
+            toItemId: other,
+            kind: RelationKind.relatedTo,
+          );
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('más sin mostrar'), findsNothing);
+    });
+
     testWidgets('tocar el botón de ver grafo completo navega al grafo local', (
       tester,
     ) async {

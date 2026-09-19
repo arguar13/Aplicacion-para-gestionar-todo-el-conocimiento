@@ -34,25 +34,54 @@ final _kNodeMargin =
 /// Sin selector de espacio ni de componente conexo, a diferencia de
 /// `GraphScreen`: acá todo lo que se ve ya está conectado por construcción
 /// a la semilla, así que ninguno de los dos aplicaría.
-class LocalGraphScreen extends ConsumerWidget {
+class LocalGraphScreen extends ConsumerStatefulWidget {
   const LocalGraphScreen({required this.itemId, super.key});
 
   final String itemId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(libraryItemsProvider(const LibraryQuery()));
-    final edges = ref.watch(allRelationEdgesProvider);
+  ConsumerState<LocalGraphScreen> createState() => _LocalGraphScreenState();
+}
+
+class _LocalGraphScreenState extends ConsumerState<LocalGraphScreen> {
+  /// A diferencia de `GraphScreen`, que arranca sin techo, acá arranca en
+  /// 1: un panel embebido ya mostró los vecinos directos, así que abrir la
+  /// pantalla completa con lo mismo es el punto de partida menos
+  /// sorprendente.
+  ///
+  /// Vive acá y no en el cuerpo porque el grado decide QUÉ se le pide a la
+  /// base: el grafo local trae solo el vecindario, no la bóveda entera.
+  int? _degree = 1;
+
+  @override
+  Widget build(BuildContext context) {
+    final itemId = widget.itemId;
+    final hood = ref.watch(
+      neighborhoodProvider((
+        itemId: itemId,
+        degree: _degree,
+        maxNodes: kLocalGraphScreenMaxNodes,
+      )),
+    );
+    final nodeIds = hood.valueOrNull?.nodeIds;
+    final items = nodeIds == null
+        ? const AsyncLoading<List<KnowledgeItem>>()
+        : nodeIds.isEmpty
+        ? const AsyncData<List<KnowledgeItem>>([])
+        : ref.watch(libraryItemsProvider(LibraryQuery(ids: nodeIds)));
     final seedTitle =
         ref.watch(libraryItemProvider(itemId)).valueOrNull?.title ?? '';
 
-    return switch ((items, edges)) {
-      (AsyncData(value: final items), AsyncData(value: final edges)) =>
+    return switch ((hood, items)) {
+      (AsyncData(value: final hood), AsyncData(value: final items)) =>
         _LocalGraphBody(
           itemId: itemId,
           seedTitle: seedTitle,
           items: items,
-          edges: edges,
+          edges: hood.edges,
+          omitted: hood.omitted,
+          degree: _degree,
+          onDegreeChanged: (degree) => setState(() => _degree = degree),
         ),
       (AsyncError(:final error), _) ||
       (_, AsyncError(:final error)) => Scaffold(
@@ -73,6 +102,9 @@ class _LocalGraphBody extends ConsumerStatefulWidget {
     required this.seedTitle,
     required this.items,
     required this.edges,
+    required this.omitted,
+    required this.degree,
+    required this.onDegreeChanged,
   });
 
   final String itemId;
@@ -80,17 +112,17 @@ class _LocalGraphBody extends ConsumerStatefulWidget {
   final List<KnowledgeItem> items;
   final List<RelationEdge> edges;
 
+  /// Cuántos vecinos no se dibujan por el tope de nodos.
+  final int omitted;
+
+  final int? degree;
+  final ValueChanged<int?> onDegreeChanged;
+
   @override
   ConsumerState<_LocalGraphBody> createState() => _LocalGraphBodyState();
 }
 
 class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
-  /// A diferencia de `GraphScreen`, que arranca sin techo, acá arranca en
-  /// 1: un panel embebido ya mostró los vecinos directos, así que abrir la
-  /// pantalla completa con lo mismo es el punto de partida menos
-  /// sorprendente.
-  int? _degree = 1;
-
   final _transformController = TransformationController();
 
   Set<String> _lastNodeIds = const {};
@@ -146,7 +178,7 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
       seedItemId: widget.itemId,
       items: widget.items,
       edges: widget.edges,
-      degree: _degree,
+      degree: widget.degree,
     );
     final itemsById = {for (final item in widget.items) item.id: item};
 
@@ -160,8 +192,8 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: DegreeSelector(
-            degree: _degree,
-            onChanged: (degree) => setState(() => _degree = degree),
+            degree: widget.degree,
+            onChanged: widget.onDegreeChanged,
           ),
         ),
       ),
@@ -178,6 +210,15 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
                       itemsById,
                       constraints.biggest,
                     ),
+                    if (widget.omitted > 0)
+                      Positioned(
+                        right: 16,
+                        bottom: 24,
+                        child: Text(
+                          l10n.localGraphOmitted(widget.omitted),
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ),
                     Positioned(
                       left: 16,
                       bottom: 16,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
@@ -9,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/neighborhood.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
@@ -420,6 +423,111 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
       telemetry: _telemetry,
       hint: 'OrganizeRepositoryImpl.watchAllRelations',
     );
+  }
+
+  @override
+  Stream<Neighborhood> watchNeighborhood({
+    required String seedItemId,
+    required int maxNodes,
+    int? degree = 1,
+  }) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.relations],
+      read: () => _readNeighborhood(seedItemId, maxNodes, degree),
+      telemetry: _telemetry,
+      hint: 'OrganizeRepositoryImpl.watchNeighborhood',
+    );
+  }
+
+  /// Cuántos ids entran en una sola consulta: por debajo del tope de
+  /// parámetros que SQLite acepta, con margen para la consulta que los usa
+  /// dos veces.
+  static const _idsPerQuery = 400;
+
+  Future<Neighborhood> _readNeighborhood(
+    String seedItemId,
+    int maxNodes,
+    int? degree,
+  ) async {
+    final visited = <String>{seedItemId};
+    var frontier = <String>{seedItemId};
+    var hop = 0;
+    var omitted = 0;
+
+    while (frontier.isNotEmpty && (degree == null || hop < degree)) {
+      // Los que se alcanzan desde la frontera y todavía no se vieron, cada uno
+      // con la fecha de su vínculo más reciente: es el criterio para elegir
+      // cuáles entran si el tope no alcanza para todos.
+      final fresh = <String, DateTime>{};
+      for (final row in await _linksOf(frontier)) {
+        for (final id in [row.fromItemId, row.toItemId]) {
+          if (visited.contains(id)) continue;
+          final seen = fresh[id];
+          if (seen == null || row.createdAt.isAfter(seen)) {
+            fresh[id] = row.createdAt;
+          }
+        }
+      }
+      if (fresh.isEmpty) break;
+
+      final room = maxNodes - visited.length;
+      final chosen = fresh.keys.toList()
+        ..sort((a, b) => fresh[b]!.compareTo(fresh[a]!));
+      if (chosen.length > room) {
+        omitted = chosen.length - math.max(room, 0);
+        chosen.removeRange(math.max(room, 0), chosen.length);
+      }
+      visited.addAll(chosen);
+      frontier = chosen.toSet();
+      hop++;
+      // Con el tope alcanzado no se sigue: lo que haya más allá no entraría.
+      if (omitted > 0) break;
+    }
+
+    if (visited.length == 1 && omitted == 0) return Neighborhood.empty;
+
+    final edges = <RelationEdge>[];
+    final ids = visited.toList();
+    // Los vínculos entre los nodos elegidos. Con más de un lote, un vínculo
+    // puede caer entre dos lotes distintos: se busca por el extremo de origen
+    // en cada lote y se filtra el destino en Dart.
+    for (var start = 0; start < ids.length; start += _idsPerQuery) {
+      final batch = ids.skip(start).take(_idsPerQuery).toList();
+      final rows = await (_db.select(
+        _db.relations,
+      )..where((r) => r.fromItemId.isIn(batch))).get();
+      for (final row in rows) {
+        if (!visited.contains(row.toItemId)) continue;
+        edges.add(
+          RelationEdge(
+            id: row.id,
+            fromItemId: row.fromItemId,
+            toItemId: row.toItemId,
+            kind: row.kind,
+            reviewedAt: row.reviewedAt,
+          ),
+        );
+      }
+    }
+
+    return Neighborhood(nodeIds: visited, edges: edges, omitted: omitted);
+  }
+
+  /// Los vínculos que tocan a alguno de [ids], en cualquiera de los dos
+  /// sentidos.
+  Future<List<RelationRow>> _linksOf(Set<String> ids) async {
+    final list = ids.toList();
+    final rows = <RelationRow>[];
+    for (var start = 0; start < list.length; start += _idsPerQuery) {
+      final batch = list.skip(start).take(_idsPerQuery).toList();
+      rows.addAll(
+        await (_db.select(_db.relations)
+              ..where((r) => r.fromItemId.isIn(batch) | r.toItemId.isIn(batch)))
+            .get(),
+      );
+    }
+    return rows;
   }
 
   // ---------------------------------------------------------------------

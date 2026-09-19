@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
+import 'package:sinapsis/core/domain/entities/neighborhood.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
@@ -57,6 +58,24 @@ final allSpacesProvider = StreamProvider.autoDispose<List<Space>>((ref) {
 final allRelationEdgesProvider = StreamProvider.autoDispose<List<RelationEdge>>(
   (ref) => ref.watch(organizeRepositoryProvider).watchAllRelations(),
 );
+
+/// Qué vecindario pedir al grafo: de qué elemento, a cuántos saltos y con qué
+/// tope de nodos.
+typedef NeighborhoodRequest = ({String itemId, int? degree, int maxNodes});
+
+/// Lo que rodea a un elemento en el grafo, actualizándose solo. Para el grafo
+/// local: su costo depende de los vecinos del elemento, no del tamaño de la
+/// bóveda —ver `OrganizeRepository.watchNeighborhood`—.
+final neighborhoodProvider = StreamProvider.autoDispose
+    .family<Neighborhood, NeighborhoodRequest>((ref, request) {
+      return ref
+          .watch(organizeRepositoryProvider)
+          .watchNeighborhood(
+            seedItemId: request.itemId,
+            degree: request.degree,
+            maxNodes: request.maxNodes,
+          );
+    });
 
 /// Todas las categorías de propiedad que existen, actualizándose solas.
 final allPropertyDefinitionsProvider =

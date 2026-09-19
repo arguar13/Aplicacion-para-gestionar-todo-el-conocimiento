@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:async/async.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
@@ -9,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/neighborhood.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -20,7 +23,9 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
 
 import '../../../../support/fake_id_generator.dart';
@@ -718,6 +723,198 @@ void main() {
         await repository.deleteRelation(created.single.id);
 
         expect(await queue.next, isEmpty);
+      });
+    });
+
+    group('el vecindario de un elemento', () {
+      Future<void> link(
+        String from,
+        String to, {
+        OrganizeRepositoryImpl? through,
+      }) async {
+        final result = await (through ?? repository).createRelation(
+          fromItemId: from,
+          toItemId: to,
+          kind: RelationKind.relatedTo,
+        );
+        expect(result.isRight(), isTrue);
+      }
+
+      Set<(String, String)> pairsOf(Neighborhood hood) => {
+        for (final e in hood.edges) (e.fromItemId, e.toItemId),
+      };
+
+      test('sin ningún vínculo no hay vecindario', () async {
+        final a = await seedItem();
+
+        final hood = await repository
+            .watchNeighborhood(seedItemId: a.id, maxNodes: 30)
+            .first;
+
+        expect(hood.nodeIds, isEmpty);
+        expect(hood.edges, isEmpty);
+        expect(hood.omitted, 0);
+      });
+
+      test('a un salto trae los vecinos directos, en los dos sentidos, y los '
+          'vínculos entre ellos: nada de más lejos', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+        final c = await seedItem();
+        final d = await seedItem();
+        final e = await seedItem();
+        await link(a.id, b.id);
+        await link(c.id, a.id);
+        await link(b.id, c.id);
+        await link(b.id, d.id);
+        await link(d.id, e.id);
+
+        final hood = await repository
+            .watchNeighborhood(seedItemId: a.id, maxNodes: 30)
+            .first;
+
+        expect(hood.nodeIds, {a.id, b.id, c.id});
+        expect(pairsOf(hood), {(a.id, b.id), (c.id, a.id), (b.id, c.id)});
+        expect(hood.omitted, 0);
+      });
+
+      test('a más saltos llega más lejos, y sin techo hasta el borde de la '
+          'red', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+        final c = await seedItem();
+        final d = await seedItem();
+        final apart = await seedItem();
+        final apart2 = await seedItem();
+        await link(a.id, b.id);
+        await link(b.id, c.id);
+        await link(c.id, d.id);
+        await link(apart.id, apart2.id);
+
+        Future<Set<String>> reach(int? degree) async {
+          final hood = await repository
+              .watchNeighborhood(seedItemId: a.id, maxNodes: 30, degree: degree)
+              .first;
+          return hood.nodeIds;
+        }
+
+        expect(await reach(2), {a.id, b.id, c.id});
+        expect(await reach(null), {a.id, b.id, c.id, d.id});
+      });
+
+      test('con más vecinos que el tope, entran los vinculados más '
+          'recientemente y se dice cuántos faltan', () async {
+        var clock = now;
+        final repo = OrganizeRepositoryImpl(
+          database: db,
+          telemetry: MockTelemetryService(),
+          ids: ids,
+          clock: () => clock,
+        );
+        final hub = await seedItem(title: 'El nodo central');
+        final neighbors = <KnowledgeItem>[];
+        for (var i = 0; i < 6; i++) {
+          neighbors.add(await seedItem(title: 'Vecino $i'));
+          clock = now.add(Duration(days: i));
+          await link(hub.id, neighbors[i].id, through: repo);
+        }
+
+        final hood = await repo
+            .watchNeighborhood(seedItemId: hub.id, maxNodes: 4)
+            .first;
+
+        // El central más los tres vinculados más tarde.
+        expect(hood.nodeIds, {
+          hub.id,
+          neighbors[5].id,
+          neighbors[4].id,
+          neighbors[3].id,
+        });
+        expect(hood.omitted, 3);
+        expect(hood.isTruncated, isTrue);
+      });
+
+      test('con un tope que no deja lugar para ningún vecino, el elemento de '
+          'partida sigue estando y todos los vecinos se cuentan como '
+          'omitidos', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+        await link(a.id, b.id);
+
+        final hood = await repository
+            .watchNeighborhood(seedItemId: a.id, maxNodes: 1)
+            .first;
+
+        expect(hood.nodeIds, {a.id});
+        expect(hood.omitted, 1);
+      });
+
+      test('coincide con recorrer el grafo entero en memoria, a cualquier '
+          'grado', () async {
+        // La regla de qué es "el vecindario" vive en `localGraphFrom`; esto
+        // asegura que traerlo de la base no la cambia.
+        final random = Random(7);
+        final items = [for (var i = 0; i < 25; i++) await seedItem()];
+        for (var i = 0; i < 45; i++) {
+          final from = items[random.nextInt(items.length)];
+          final to = items[random.nextInt(items.length)];
+          if (from.id == to.id) continue;
+          // Un vínculo repetido lo rechaza el esquema: no importa.
+          await repository.createRelation(
+            fromItemId: from.id,
+            toItemId: to.id,
+            kind: RelationKind.relatedTo,
+          );
+        }
+        final all = (await libraryRepository.list(
+          const LibraryQuery(),
+        )).getRight().toNullable()!;
+        final edges = await repository.watchAllRelations().first;
+
+        for (final seed in [items[0], items[7], items[19]]) {
+          for (final degree in <int?>[0, 1, 2, 3, null]) {
+            final expected = localGraphFrom(
+              seedItemId: seed.id,
+              items: all,
+              edges: edges,
+              degree: degree,
+            );
+            final hood = await repository
+                .watchNeighborhood(
+                  seedItemId: seed.id,
+                  maxNodes: 1000,
+                  degree: degree,
+                )
+                .first;
+
+            expect(
+              hood.nodeIds,
+              expected.nodeIds.toSet(),
+              reason: 'nodos, semilla ${seed.id}, grado $degree',
+            );
+            expect(
+              hood.edges.map((e) => e.id).toSet(),
+              expected.edges.map((e) => e.id).toSet(),
+              reason: 'vínculos, semilla ${seed.id}, grado $degree',
+            );
+          }
+        }
+      });
+
+      test('se actualiza solo cuando aparece un vínculo nuevo', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+
+        final queue = StreamQueue(
+          repository.watchNeighborhood(seedItemId: a.id, maxNodes: 30),
+        );
+        addTearDown(queue.cancel);
+
+        expect((await queue.next).nodeIds, isEmpty);
+
+        await link(a.id, b.id);
+
+        expect((await queue.next).nodeIds, {a.id, b.id});
       });
     });
 

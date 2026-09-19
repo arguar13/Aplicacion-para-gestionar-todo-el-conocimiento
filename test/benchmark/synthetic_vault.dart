@@ -23,7 +23,7 @@ import 'package:sinapsis/core/domain/services/chunking_service.dart';
 
 /// Cambia cuando cambia lo que el generador escribe: invalida la bóveda que el
 /// benchmark dejó guardada en disco y obliga a armarla de nuevo.
-const kSyntheticVaultVersion = 1;
+const kSyntheticVaultVersion = 2;
 
 /// Cuánto hay en la bóveda sintética, con las proporciones de una bóveda de
 /// verdad: la mayoría son fuentes largas (artículos, transcripciones,
@@ -75,6 +75,7 @@ class SyntheticVault {
     required this.profile,
     required this.largestSourceId,
     required this.hubItemId,
+    required this.typicalItemId,
     required this.noteWithLinksId,
     required this.rareTerm,
     required this.mediumTerm,
@@ -87,6 +88,7 @@ class SyntheticVault {
     profile: VaultProfile(items: json['items']! as int),
     largestSourceId: json['largestSourceId']! as String,
     hubItemId: json['hubItemId']! as String,
+    typicalItemId: json['typicalItemId']! as String,
     noteWithLinksId: json['noteWithLinksId']! as String,
     rareTerm: json['rareTerm']! as String,
     mediumTerm: json['mediumTerm']! as String,
@@ -102,6 +104,10 @@ class SyntheticVault {
 
   /// El elemento con más vínculos: el peor caso para el grafo local.
   final String hubItemId;
+
+  /// Un elemento con la cantidad de vínculos que tiene el común de los
+  /// elementos conectados: el caso de todos los días para el grafo local.
+  final String typicalItemId;
 
   final String noteWithLinksId;
 
@@ -121,6 +127,7 @@ class SyntheticVault {
     'items': profile.items,
     'largestSourceId': largestSourceId,
     'hubItemId': hubItemId,
+    'typicalItemId': typicalItemId,
     'noteWithLinksId': noteWithLinksId,
     'rareTerm': rareTerm,
     'mediumTerm': mediumTerm,
@@ -410,10 +417,17 @@ class _VaultBuilder {
       (best, e) => best == null || e.value > best.value ? e : best,
     );
 
+    final byDegree = _relationDegree.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final typical = byDegree.isEmpty
+        ? _itemIds.first
+        : byDegree[byDegree.length ~/ 2].key;
+
     return SyntheticVault(
       profile: profile,
       largestSourceId: _largestSourceId,
       hubItemId: hub?.key ?? _itemIds.first,
+      typicalItemId: typical,
       noteWithLinksId: _noteWithLinksId,
       rareTerm: text.word(3000),
       mediumTerm: text.word(250),

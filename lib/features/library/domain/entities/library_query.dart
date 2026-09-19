@@ -62,6 +62,14 @@ sealed class LibraryQuery with _$LibraryQuery {
     /// la vez, como una carpeta.
     String? spaceId,
 
+    /// Limitar la consulta a estos elementos y a ningún otro. `null` es "sin
+    /// límite"; un conjunto vacío no deja pasar nada.
+    ///
+    /// Es lo que necesita quien ya sabe cuáles le interesan —los vecinos de un
+    /// elemento en el grafo local— y no debe pedir toda la biblioteca para
+    /// quedarse con unos pocos.
+    Set<String>? ids,
+
     /// Para poder mirar solo lo que falló, o solo lo que está en la cola.
     @Default(<ProcessingState>{}) Set<ProcessingState> processingStates,
 
@@ -94,5 +102,6 @@ sealed class LibraryQuery with _$LibraryQuery {
       tagIds.isNotEmpty ||
       propertyValueIds.isNotEmpty ||
       spaceId != null ||
+      ids != null ||
       processingStates.isNotEmpty;
 }

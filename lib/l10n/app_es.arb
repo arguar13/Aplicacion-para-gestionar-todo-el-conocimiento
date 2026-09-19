@@ -1329,6 +1329,15 @@
   "@localGraphPanelOpenFull": {
     "description": "Texto/tooltip del botón que abre LocalGraphScreen desde el panel embebido en el detalle."
   },
+  "localGraphOmitted": "+{count} más sin mostrar",
+  "@localGraphOmitted": {
+    "description": "Aviso del grafo local cuando un elemento tiene más vecinos de los que se dibujan: cuántos faltan.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "graphSpaceFilterAll": "Todos los temas",
   "@graphSpaceFilterAll": {
     "description": "Opción del selector de tema del grafo que no filtra por ninguno."
