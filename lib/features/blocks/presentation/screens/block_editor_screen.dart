@@ -3,19 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
-import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -262,38 +258,15 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       return;
     }
 
-    // Cada `[[Título]]` que sigue apareciendo en el texto final —lo haya
-    // escrito `_insertLink` o a mano— se convierte en un vínculo de
-    // verdad. Se escanea el texto guardado, no un registro aparte de "qué
-    // se insertó": si alguien borra el `[[ ]]` antes de guardar, no debe
-    // quedar un vínculo fantasma sin ningún enlace visible que lo explique.
+    // Los `[[Título]]` del texto guardado ya son vínculos de verdad: `save`
+    // los registra y crea la relación de los que tienen destino, dentro de
+    // la misma transacción que guarda la nota. Se lee el texto guardado, no
+    // un registro aparte de "qué se insertó": si alguien borra el `[[ ]]`
+    // antes de guardar, no queda un enlace fantasma.
     //
-    // `list()`, no `libraryItemsProvider`: ver el comentario de
-    // `_insertLink` sobre por qué un `StreamProvider` no es para leerse una
-    // sola vez desde un método imperativo.
-    final linkedTitles = extractLinkedTitles(blocks);
-    if (linkedTitles.isNotEmpty) {
-      final allItems =
-          (await ref.read(libraryRepositoryProvider).list(const LibraryQuery()))
-              .getRight()
-              .toNullable() ??
-          const <KnowledgeItem>[];
-      final organize = ref.read(organizeRepositoryProvider);
-      for (final other in allItems) {
-        if (other.id == itemId) continue;
-        if (!linkedTitles.contains(other.title.trim().toLowerCase())) continue;
-        await organize.createRelation(
-          fromItemId: itemId,
-          toItemId: other.id,
-          kind: RelationKind.relatedTo,
-        );
-      }
-    }
-
-    // Recién acá, después de crear los vínculos de arriba: si se fusiona
-    // antes, la fusión ya reasigna a `mergeWithItemId` cualquier vínculo
-    // que `itemId` haya quedado teniendo — reasignarlos primero sería
-    // trabajo de más para el mismo resultado.
+    // La fusión va después, con los vínculos ya creados: reasigna a
+    // `mergeWithItemId` cualquiera que `itemId` haya quedado teniendo —
+    // reasignarlos primero sería trabajo de más para el mismo resultado.
     if (mergeWithItemId != null) {
       await ref.read(mergeDuplicateItemsUseCaseProvider)(
         keepItemId: mergeWithItemId,
@@ -574,16 +547,3 @@ class _BlockRow extends StatelessWidget {
     onChangeType(choice);
   }
 }
-
-/// Los títulos —sin distinguir mayúsculas, recortados— que aparecen entre
-/// `[[ ]]` en cualquier bloque.
-///
-/// Función aparte de `_save`, y no un método privado del `State`, para que
-/// se pueda probar sola con datos concretos, sin montar el editor entero:
-/// es la única parte de la extracción de enlaces con lógica real, el resto
-/// es E/S contra la base. El análisis en sí vive en `inline_link_parser`,
-/// porque también lo usa la migración que persiste los enlaces.
-Set<String> extractLinkedTitles(List<ContentBlock> blocks) => {
-  for (final mention in extractInlineLinksFromBlocks(blocks))
-    mention.normalizedTitle,
-};

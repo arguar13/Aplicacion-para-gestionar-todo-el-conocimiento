@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
@@ -79,30 +80,15 @@ class InlineLinkBackfillPlan {
 /// más antiguo, con el id de desempate: un destino estable, no el que la base
 /// devuelva primero.
 Future<InlineLinkBackfillPlan> planInlineLinkBackfill(AppDatabase db) async {
-  // Los títulos de todos los elementos, por forma normalizada.
-  final items = await (db.selectOnly(
-    db.items,
-  )..addColumns([db.items.id, db.items.title, db.items.createdAt])).get();
-  final byTitle = <String, List<({String id, DateTime createdAt})>>{};
-  for (final row in items) {
-    final id = row.read(db.items.id)!;
-    final normalized = normalizeLinkTitle(row.read(db.items.title)!);
-    byTitle.putIfAbsent(normalized, () => []).add((
-      id: id,
-      createdAt: row.read(db.items.createdAt)!,
-    ));
-  }
-  for (final candidates in byTitle.values) {
-    candidates.sort((a, b) {
-      final byAge = a.createdAt.compareTo(b.createdAt);
-      return byAge != 0 ? byAge : a.id.compareTo(b.id);
-    });
-  }
+  final byTitle = await itemsByLinkTitle(db);
 
   final registered = {
     for (final row in await db.select(db.inlineLinks).get())
       (row.fromItemId, row.normalizedTitle),
   };
+  // Lo que este mismo plan ya trae: una nota con dos formas de bloques que
+  // repiten un enlace no lo cuenta dos veces.
+  final planned = <(String, String)>{};
 
   final links = <InlineLinkPlanRow>[];
   final unreadable = <String>[];
@@ -134,18 +120,19 @@ Future<InlineLinkBackfillPlan> planInlineLinkBackfill(AppDatabase db) async {
       final mentions = extractInlineLinksFromBlocks(blocks);
 
       for (final mention in mentions) {
-        if (registered.contains((rendition.itemId, mention.normalizedTitle))) {
+        final key = (rendition.itemId, mention.normalizedTitle);
+        if (registered.contains(key)) {
           alreadyRegistered++;
           continue;
         }
-        // Los candidatos van del más antiguo al más nuevo: el primero que no
-        // sea la propia nota es el destino.
-        final candidates = byTitle[mention.normalizedTitle];
-        final target = candidates
-            ?.where((c) => c.id != rendition.itemId)
-            .firstOrNull;
-        if (candidates != null && target == null) {
-          // El único elemento con ese título es la propia nota.
+        if (!planned.add(key)) continue;
+
+        final resolution = resolveLinkTarget(
+          byTitle,
+          mention.normalizedTitle,
+          fromItemId: rendition.itemId,
+        );
+        if (resolution.isSelfLink) {
           selfLinks++;
           continue;
         }
@@ -154,7 +141,7 @@ Future<InlineLinkBackfillPlan> planInlineLinkBackfill(AppDatabase db) async {
             fromItemId: rendition.itemId,
             title: mention.title,
             normalizedTitle: mention.normalizedTitle,
-            toItemId: target?.id,
+            toItemId: resolution.id,
           ),
         );
       }

@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -344,5 +345,97 @@ void main() {
       db.knowledgeEntries,
     )..where((e) => e.id.equals(discardId))).getSingleOrNull();
     expect(entry, isNull);
+  });
+
+  group('enlaces en línea (F9)', () {
+    var linkCounter = 0;
+
+    Future<void> link(String from, String title, {String? to}) => db
+        .into(db.inlineLinks)
+        .insert(
+          InlineLinksCompanion.insert(
+            id: 'link-${linkCounter++}',
+            fromItemId: from,
+            targetTitle: title,
+            normalizedTitle: title.toLowerCase(),
+            toItemId: Value(to),
+            createdAt: now,
+          ),
+        );
+
+    Future<Set<(String, String, String?)>> links() async => {
+      for (final l in await db.select(db.inlineLinks).get())
+        (l.fromItemId, l.normalizedTitle, l.toItemId),
+    };
+
+    setUp(() => linkCounter = 0);
+
+    test('los enlaces que apuntaban al descartado apuntan al que queda, en '
+        'vez de quedar rotos al borrarlo', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      final otherId = await seedItem(title: 'Otra nota');
+      await link(otherId, 'El descartado', to: discardId);
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await links(), {(otherId, 'el descartado', keepId)});
+    });
+
+    test('los enlaces que escribía el descartado pasan al que queda', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      final romaId = await seedItem(title: 'Roma');
+      await link(discardId, 'Roma', to: romaId);
+      await link(discardId, 'Cartago');
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await links(), {
+        (keepId, 'roma', romaId),
+        (keepId, 'cartago', null),
+      });
+    });
+
+    test('un destino que los dos ya tenían no se duplica', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      final romaId = await seedItem(title: 'Roma');
+      await link(keepId, 'Roma', to: romaId);
+      await link(discardId, 'Roma', to: romaId);
+
+      final result = await useCase(
+        keepItemId: keepId,
+        discardItemId: discardId,
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(await links(), {(keepId, 'roma', romaId)});
+    });
+
+    test('si el que queda lo tenía roto y el descartado no, se conserva el '
+        'que tiene destino', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      final romaId = await seedItem(title: 'Roma');
+      await link(keepId, 'Roma');
+      await link(discardId, 'Roma', to: romaId);
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await links(), {(keepId, 'roma', romaId)});
+    });
+
+    test('dos duplicados que se enlazaban entre sí no dejan a la nota '
+        'enlazada a sí misma', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await link(keepId, 'El descartado', to: discardId);
+      await link(discardId, 'El que queda', to: keepId);
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await links(), isEmpty);
+    });
   });
 }

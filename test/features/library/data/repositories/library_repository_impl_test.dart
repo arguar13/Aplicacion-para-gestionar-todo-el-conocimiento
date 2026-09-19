@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -1137,5 +1138,179 @@ void main() {
         expect(result.isRight(), isTrue);
       },
     );
+  });
+
+  group('enlaces en línea (F9)', () {
+    /// Una forma de bloques: un párrafo por cada texto.
+    Rendition blocksRendition(
+      String itemId,
+      List<String> paragraphs, {
+      String? id,
+    }) => Rendition.text(
+      id: id ?? 'blocks-$itemId',
+      itemId: itemId,
+      kind: RenditionKind.blocks,
+      content: encodeContentBlocks([
+        for (final text in paragraphs) ContentBlock.paragraph(text: text),
+      ]),
+      isPrimary: true,
+      createdAt: now,
+    );
+
+    KnowledgeItem blocksNote(
+      String title,
+      List<String> paragraphs, {
+      String? id,
+    }) {
+      final base = buildItem(
+        id: id,
+        title: title,
+        sourceKind: SourceKind.manualNote,
+      );
+      return base.copyWith(renditions: [blocksRendition(base.id, paragraphs)]);
+    }
+
+    Future<Set<(String, String?)>> linksOf(String itemId) async => {
+      for (final link in await (db.select(
+        db.inlineLinks,
+      )..where((l) => l.fromItemId.equals(itemId))).get())
+        (link.normalizedTitle, link.toItemId),
+    };
+
+    Future<Set<(String, String)>> relatedTo() async => {
+      for (final relation in await db.select(db.relations).get())
+        (relation.fromItemId, relation.toItemId),
+    };
+
+    test('guardar una nota que enlaza a un elemento existente la vincula en '
+        'el mismo guardado', () async {
+      await repository.save(buildItem(id: 'roma', title: 'Roma'));
+
+      await repository.save(blocksNote('Viaje', ['Fui a [[Roma]].'], id: 'n1'));
+
+      expect(await linksOf('n1'), {('roma', 'roma')});
+      expect(await relatedTo(), {('n1', 'roma')});
+    });
+
+    test('un enlace a algo que no existe queda roto, y crear ese elemento '
+        'después lo resuelve', () async {
+      await repository.save(blocksNote('Viaje', ['[[Cartago]]'], id: 'n1'));
+      expect(await linksOf('n1'), {('cartago', null)});
+      expect(await relatedTo(), isEmpty);
+
+      await repository.save(buildItem(id: 'cartago', title: 'Cartago'));
+
+      expect(await linksOf('n1'), {('cartago', 'cartago')});
+      expect(await relatedTo(), {('n1', 'cartago')});
+    });
+
+    test('renombrar un elemento resuelve los enlaces que esperaban ese '
+        'nombre', () async {
+      await repository.save(blocksNote('Viaje', ['[[Atenas]]'], id: 'n1'));
+      final algo = buildItem(id: 'x', title: 'Algo');
+      await repository.save(algo);
+      expect(await linksOf('n1'), {('atenas', null)});
+
+      await repository.save(algo.copyWith(title: 'Atenas'));
+
+      expect(await linksOf('n1'), {('atenas', 'x')});
+    });
+
+    test('editar la nota y quitar el enlace lo borra del registro', () async {
+      await repository.save(buildItem(id: 'roma', title: 'Roma'));
+      final note = blocksNote('Viaje', ['[[Roma]]'], id: 'n1');
+      await repository.save(note);
+
+      await repository.save(
+        note.copyWith(
+          renditions: [
+            blocksRendition('n1', ['Sin enlaces.']),
+          ],
+        ),
+      );
+
+      expect(await linksOf('n1'), isEmpty);
+    });
+
+    test('los enlaces de todas las formas de bloques del elemento cuentan, '
+        'no solo los de la primera', () async {
+      final base = blocksNote('Viaje', ['[[Roma]]'], id: 'n1');
+
+      await repository.save(
+        base.copyWith(
+          renditions: [
+            blocksRendition('n1', ['[[Roma]]'], id: 'blocks-a'),
+            blocksRendition('n1', ['[[Cartago]]'], id: 'blocks-b'),
+          ],
+        ),
+      );
+
+      expect(await linksOf('n1'), {('roma', null), ('cartago', null)});
+    });
+
+    test('un texto con [[ ]] que no es una nota de bloques no registra '
+        'enlaces', () async {
+      final item = buildItem(id: 'n1', title: 'Un artículo');
+      await repository.save(
+        item.copyWith(
+          renditions: [textRendition(item.id, 'Habla de [[Roma]] a secas.')],
+        ),
+      );
+
+      expect(await db.select(db.inlineLinks).get(), isEmpty);
+    });
+
+    test('bloques ilegibles no impiden guardar: se informa y los enlaces '
+        'registrados quedan como estaban', () async {
+      final telemetry = MockTelemetryService();
+      final repo = LibraryRepositoryImpl(
+        database: db,
+        telemetry: telemetry,
+        files: files,
+      );
+      await repo.save(buildItem(id: 'roma', title: 'Roma'));
+      final note = blocksNote('Viaje', ['[[Roma]]'], id: 'n1');
+      await repo.save(note);
+
+      final result = await repo.save(
+        note.copyWith(
+          title: 'Viaje editado',
+          renditions: [
+            Rendition.text(
+              id: 'blocks-n1',
+              itemId: 'n1',
+              kind: RenditionKind.blocks,
+              content: 'esto no es json',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+
+      expect(result.isRight(), isTrue);
+      final saved = (await repo.findById('n1')).getRight().toNullable()!;
+      expect(saved.title, 'Viaje editado');
+      expect(await linksOf('n1'), {('roma', 'roma')});
+      verify(
+        () => telemetry.recordError(
+          any<dynamic>(),
+          any(),
+          hint: 'LibraryRepositoryImpl.save',
+        ),
+      ).called(1);
+    });
+
+    test('borrar el destino deja el enlace roto; borrar la nota se lleva '
+        'sus enlaces', () async {
+      await repository.save(buildItem(id: 'roma', title: 'Roma'));
+      await repository.save(blocksNote('Viaje', ['[[Roma]]'], id: 'n1'));
+
+      await repository.delete('roma');
+      expect(await linksOf('n1'), {('roma', null)});
+
+      await repository.delete('n1');
+      expect(await db.select(db.inlineLinks).get(), isEmpty);
+    });
   });
 }

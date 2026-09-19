@@ -68,6 +68,7 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
 
       await _db.transaction(() async {
         await _reassignRelations(keepItemId, discardItemId);
+        await _reassignInlineLinks(keepItemId, discardItemId);
         await _reassignProperties(keepItemId, discardItemId);
         await _reassignFlashcards(keepItemId, discardItemId);
         await _reassignRenditions(keepItemId, discardItemId);
@@ -151,6 +152,55 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
         );
       }
     }
+  }
+
+  /// Los `[[ ]]` registrados (`inline_link`) siguen al elemento: sin esto, un
+  /// enlace hacia el descartado quedaría roto al borrarlo —la clave foránea lo
+  /// suelta— aunque su contenido ahora vive en el que queda, y los enlaces que
+  /// escribía el descartado se irían con él aunque su texto pasa al que queda.
+  ///
+  ///  * Los que apuntaban al descartado apuntan al que queda.
+  ///  * Los que el descartado escribía pasan a ser del que queda. Si el que
+  ///    queda ya tenía ese destino, no se duplica: se conserva el suyo, salvo
+  ///    que estuviera roto y el otro no.
+  ///  * Una nota no se enlaza a sí misma: los que quedarían así, porque los
+  ///    dos duplicados se apuntaban entre sí, se borran.
+  Future<void> _reassignInlineLinks(String keepId, String discardId) async {
+    await (_db.update(_db.inlineLinks)
+          ..where((l) => l.toItemId.equals(discardId)))
+        .write(InlineLinksCompanion(toItemId: Value(keepId)));
+
+    final keepLinks = {
+      for (final link in await (_db.select(
+        _db.inlineLinks,
+      )..where((l) => l.fromItemId.equals(keepId))).get())
+        link.normalizedTitle: link,
+    };
+    final discardLinks = await (_db.select(
+      _db.inlineLinks,
+    )..where((l) => l.fromItemId.equals(discardId))).get();
+
+    for (final link in discardLinks) {
+      final keepLink = keepLinks[link.normalizedTitle];
+      if (keepLink == null) {
+        await (_db.update(_db.inlineLinks)..where((l) => l.id.equals(link.id)))
+            .write(InlineLinksCompanion(fromItemId: Value(keepId)));
+        continue;
+      }
+      if (keepLink.toItemId == null && link.toItemId != null) {
+        await (_db.update(_db.inlineLinks)
+              ..where((l) => l.id.equals(keepLink.id)))
+            .write(InlineLinksCompanion(toItemId: Value(link.toItemId)));
+      }
+      await (_db.delete(
+        _db.inlineLinks,
+      )..where((l) => l.id.equals(link.id))).go();
+    }
+
+    await (_db.delete(_db.inlineLinks)..where(
+          (l) => l.fromItemId.equals(keepId) & l.toItemId.equals(keepId),
+        ))
+        .go();
   }
 
   /// Los valores de propiedad del descartado pasan al que queda; uno que

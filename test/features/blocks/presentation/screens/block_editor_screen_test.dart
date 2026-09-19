@@ -290,15 +290,13 @@ void main() {
 
   group('enlaces [[ ]]', () {
     // Solo la parte de interfaz: que escribir o insertar un enlace deje el
-    // texto correcto en el bloque. La creación del vínculo de verdad al
-    // guardar —el resto de `_save`— encadena un `await` real de más contra
-    // la base (guardar, después listar, después crear la relación) que
-    // bajo el reloj simulado de `testWidgets` se cuelga sin motivo
-    // aparente —confirmado aparte, contra el propio repositorio, sin
-    // ningún widget de por medio: ver el grupo "crear el vínculo real, sin
-    // widgets" más abajo—. Esa lógica se prueba ahí, y la de qué títulos
-    // extrae un texto, en el grupo de `extractLinkedTitles`; lo que hace
-    // falta cubrir acá es solo que el editor escribe el `[[ ]]` correcto.
+    // texto correcto en el bloque. Que guardar la nota registre el enlace y
+    // cree la relación de verdad lo hace `save` del repositorio, dentro de su
+    // transacción, y se prueba abajo y en `library_repository_impl_test`
+    // contra el repositorio directo, sin ningún widget de por medio: los
+    // `await` reales encadenados contra la base se cuelgan bajo el reloj
+    // simulado de `testWidgets`. Qué títulos extrae un texto se prueba en
+    // `inline_link_parser_test`.
     testWidgets('escribir [[Título]] a mano se ve tal cual en el bloque', (
       tester,
     ) async {
@@ -338,50 +336,14 @@ void main() {
     });
   });
 
-  group('extractLinkedTitles', () {
-    ContentBlock p(String text) => ContentBlock.paragraph(text: text);
-
-    test('un solo enlace', () {
-      expect(extractLinkedTitles([p('Ver [[Colonialismo Británico]] acá')]), {
-        'colonialismo británico',
-      });
-    });
-
-    test('varios enlaces, en varios bloques', () {
-      expect(
-        extractLinkedTitles([
-          p('Ver [[Uno]] y [[Dos]]'),
-          p('También [[Tres]]'),
-        ]),
-        {'uno', 'dos', 'tres'},
-      );
-    });
-
-    test('sin distinguir mayúsculas: dos formas del mismo título quedan '
-        'juntas', () {
-      expect(extractLinkedTitles([p('[[Roma]] y [[roma]] de nuevo')]), {
-        'roma',
-      });
-    });
-
-    test('sin ningún enlace, devuelve vacío', () {
-      expect(extractLinkedTitles([p('Texto sin nada especial')]), isEmpty);
-    });
-
-    test('un enlace vacío [[ ]] no cuenta', () {
-      expect(extractLinkedTitles([p('Ver [[  ]] acá')]), isEmpty);
-    });
-  });
-
-  group('crear el vínculo real, sin widgets', () {
-    // La secuencia exacta que hace `_save` tras guardar —listar la
-    // biblioteca y después crear la relación— probada contra el
-    // repositorio directo: es la parte que un widget test no puede
-    // ejercitar de forma confiable bajo el reloj simulado (ver el
-    // comentario de más arriba), pero que sí se puede probar así, igual
-    // que cualquier otro repositorio del proyecto.
-    test('guardar dos elementos con contenido real, listarlos y vincularlos '
-        'funciona de punta a punta', () async {
+  group('guardar una nota con [[ ]], sin widgets', () {
+    // `save` registra los enlaces y crea la relación de los que tienen
+    // destino en la misma transacción que guarda la nota: el editor ya no
+    // lista la biblioteca ni crea relaciones por su cuenta. Probado contra el
+    // repositorio directo, que es lo que un widget test no puede ejercitar
+    // de forma confiable bajo el reloj simulado (ver el comentario de más
+    // arriba).
+    test('vincula la nota con el elemento que enlaza, sin más pasos', () async {
       await harness.capture('Colonialismo Británico');
       final container = harness.container;
 
@@ -429,33 +391,20 @@ void main() {
         (i) => i.title == 'Colonialismo Británico',
       );
 
-      final linkedTitles = extractLinkedTitles(
-        decodeContentBlocks(
-          items
-              .firstWhere((i) => i.id == 'item-nuevo')
-              .renditions
-              .whereType<TextRendition>()
-              .single
-              .content,
-        ),
-      );
-      expect(linkedTitles, {'colonialismo británico'});
-
-      final relation = await container
-          .read(organizeRepositoryProvider)
-          .createRelation(
-            fromItemId: 'item-nuevo',
-            toItemId: target.id,
-            kind: RelationKind.relatedTo,
-          );
-      expect(relation.isRight(), isTrue);
-
       final relations = await container
           .read(organizeRepositoryProvider)
           .watchRelationsForItem('item-nuevo')
           .first;
       expect(relations, hasLength(1));
       expect(relations.single.otherItemId, target.id);
+      expect(relations.single.kind, RelationKind.relatedTo);
+
+      final links = await harness.database
+          .select(harness.database.inlineLinks)
+          .get();
+      expect(links.map((l) => (l.fromItemId, l.normalizedTitle, l.toItemId)), [
+        ('item-nuevo', 'colonialismo británico', target.id),
+      ]);
     });
   });
 }

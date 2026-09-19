@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -14,11 +16,14 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
@@ -38,15 +43,26 @@ class LibraryRepositoryImpl implements LibraryRepository {
     /// depender, ni siquiera transitivamente, de este mismo repositorio:
     /// eso sí sería un ciclo real de providers.
     DuplicateSuggestionGenerator? duplicateSuggestionGenerator,
+
+    /// Con qué se numeran los enlaces en línea y las relaciones que nacen al
+    /// guardar una nota. Con valores por defecto por el mismo motivo que el
+    /// generador de arriba: las pruebas que no miran esto no tienen por qué
+    /// enterarse.
+    IdGenerator ids = const UuidV7Generator(),
+    Clock clock = DateTime.now,
   }) : _db = database,
        _telemetry = telemetry,
        _files = files,
-       _duplicateSuggestionGenerator = duplicateSuggestionGenerator;
+       _duplicateSuggestionGenerator = duplicateSuggestionGenerator,
+       _ids = ids,
+       _clock = clock;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final FileStore _files;
   final DuplicateSuggestionGenerator? _duplicateSuggestionGenerator;
+  final IdGenerator _ids;
+  final Clock _clock;
 
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
@@ -55,6 +71,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _upsertSource(item.source);
         await _upsertItem(item);
         await _syncRenditions(item);
+        await _syncInlineLinks(item);
+        await resolveBrokenInlineLinks(
+          _db,
+          itemId: item.id,
+          title: item.title,
+          ids: _ids,
+          clock: _clock,
+        );
         final temaId = await temaDefinitionId(_db);
         await _syncTags(item, temaId);
         await _syncProperties(item, temaId);
@@ -67,6 +91,42 @@ class LibraryRepositoryImpl implements LibraryRepository {
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.save'));
     }
+  }
+
+  /// Deja registrados los `[[ ]]` de las notas de bloques del elemento.
+  ///
+  /// Un elemento sin formas de bloques no tiene enlaces: si los tenía —la
+  /// nota dejó de serlo—, se borran. Si los bloques de alguna forma no se
+  /// pueden leer, los enlaces registrados se dejan como estaban y se
+  /// informa: reconstruir un índice no puede impedir que se guarde el
+  /// contenido del usuario, pero tampoco borrarlo a ciegas.
+  Future<void> _syncInlineLinks(KnowledgeItem item) async {
+    final blocks = <ContentBlock>[];
+    for (final rendition in item.renditions.whereType<TextRendition>()) {
+      if (rendition.kind != RenditionKind.blocks) continue;
+      final decoded = tryDecodeContentBlocks(rendition.content);
+      if (decoded == null) {
+        _telemetry.recordError(
+          FormatException(
+            'Los bloques de la forma ${rendition.id} del elemento '
+            '${item.id} no se pudieron leer: sus enlaces en línea no se '
+            'actualizaron.',
+          ),
+          StackTrace.current,
+          hint: 'LibraryRepositoryImpl.save',
+        );
+        return;
+      }
+      blocks.addAll(decoded);
+    }
+
+    await syncInlineLinks(
+      _db,
+      itemId: item.id,
+      blocks: blocks,
+      ids: _ids,
+      clock: _clock,
+    );
   }
 
   /// Fire-and-forget, solo para notas (D7, F7): una fuente igual pasa
