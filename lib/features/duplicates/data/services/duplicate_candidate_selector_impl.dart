@@ -22,7 +22,32 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
     if (seed == null) return const [];
 
     final others = await _allFingerprintsExcept(seedItemId);
+    return _matchAgainst(
+      seed: seed,
+      others: others,
+      maxHammingDistance: maxHammingDistance,
+    );
+  }
 
+  @override
+  Future<List<DuplicateCandidate>> selectCandidatesForFingerprint({
+    required String dedupHash,
+    required String simhash,
+    int maxHammingDistance = 3,
+  }) async {
+    final others = await _allFingerprintsExcept(null);
+    return _matchAgainst(
+      seed: (dedupHash: dedupHash, simhash: simhash),
+      others: others,
+      maxHammingDistance: maxHammingDistance,
+    );
+  }
+
+  Future<List<DuplicateCandidate>> _matchAgainst({
+    required ({String dedupHash, String simhash}) seed,
+    required List<({String itemId, String dedupHash, String? simhash})> others,
+    required int maxHammingDistance,
+  }) async {
     final candidates = <DuplicateCandidate>[];
     for (final other in others) {
       final DuplicateMatchKind matchKind;
@@ -79,16 +104,27 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
     return (dedupHash: dedupHash, simhash: simhash);
   }
 
+  /// `itemId` en `null` no excluye nada — el caso de un texto que todavía
+  /// no es un elemento, sin ningún `itemId` propio que pudiera coincidir
+  /// consigo mismo.
   Future<List<({String itemId, String dedupHash, String? simhash})>>
-  _allFingerprintsExcept(String itemId) async {
+  _allFingerprintsExcept(String? itemId) async {
     final sources =
         await (_db.select(_db.knowledgeSources)..where(
-              (s) => s.itemId.equals(itemId).not() & s.dedupHash.isNotNull(),
+              (s) =>
+                  (itemId == null
+                      ? const Constant(true)
+                      : s.itemId.equals(itemId).not()) &
+                  s.dedupHash.isNotNull(),
             ))
             .get();
     final notes =
         await (_db.select(_db.knowledgeNotes)..where(
-              (n) => n.itemId.equals(itemId).not() & n.dedupHash.isNotNull(),
+              (n) =>
+                  (itemId == null
+                      ? const Constant(true)
+                      : n.itemId.equals(itemId).not()) &
+                  n.dedupHash.isNotNull(),
             ))
             .get();
 

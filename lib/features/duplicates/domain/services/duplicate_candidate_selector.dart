@@ -34,7 +34,6 @@ class DuplicateCandidate {
 /// `RelationCandidateSelector` (F5), acá no hay ningún LLM que juzgue
 /// después — el hash/simhash ES el juicio, no una preselección para que
 /// otra cosa decida.
-// ignore: one_member_abstracts
 abstract interface class DuplicateCandidateSelector {
   /// Candidatos que podrían ser el mismo elemento que [seedItemId], entre
   /// fuentes y notas —cualquier combinación, no solo mismo tipo contra
@@ -44,6 +43,16 @@ abstract interface class DuplicateCandidateSelector {
   /// preseleccionar todavía.
   Future<List<DuplicateCandidate>> selectCandidates({
     required String seedItemId,
+    int maxHammingDistance = 3,
+  });
+
+  /// Lo mismo que [selectCandidates], pero para un texto que todavía no es
+  /// un elemento — antes de guardarlo, con su huella ya calculada en
+  /// memoria (ver `DedupFingerprint`). No excluye nada, porque todavía no
+  /// hay ningún `itemId` propio que excluir.
+  Future<List<DuplicateCandidate>> selectCandidatesForFingerprint({
+    required String dedupHash,
+    required String simhash,
     int maxHammingDistance = 3,
   });
 }

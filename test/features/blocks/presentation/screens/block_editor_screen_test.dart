@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -8,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -163,6 +166,126 @@ void main() {
     expect(decodeContentBlocks(rendition.content), [
       const ContentBlock.paragraph(text: 'texto editado'),
     ]);
+  });
+
+  group('deduplicación', () {
+    const existingText = 'Un texto que ya está guardado desde antes';
+
+    Future<List<KnowledgeItem>> savedItems() async =>
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .list(const LibraryQuery()))
+            .getRight()
+            .toNullable()!;
+
+    /// Guarda una nota con [text] y le pone a mano el `dedupHash`/`simhash`
+    /// que le correspondería —igual que calculará de verdad el generador
+    /// de sugerencias (F7, C8/C9), que todavía no existe en esta ronda—,
+    /// para que haya algo con qué comparar antes de guardar.
+    Future<String> seedExistingNote(String text) async {
+      await harness.capture(text);
+      final id = (await savedItems()).single.id;
+
+      final normalized = normalizeForDedup(text);
+      await (harness.database.update(
+        harness.database.knowledgeNotes,
+      )..where((n) => n.itemId.equals(id))).write(
+        KnowledgeNotesCompanion(
+          dedupHash: Value(contentHashOf(normalized)),
+          simhash: Value(simhashOf(normalized)),
+        ),
+      );
+
+      return id;
+    }
+
+    testWidgets('una nota nueva sin ninguna coincidencia guarda normal, '
+        'sin ningún diálogo', (tester) async {
+      await pumpEditor(tester);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksParagraphHint),
+        'Un texto que nadie más tiene',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.duplicateWarningTitleExact), findsNothing);
+      expect(await savedItems(), hasLength(1));
+    });
+
+    testWidgets(
+      'con una coincidencia exacta, elegir "Fusionar" deja un solo ítem '
+      'con las dos renditions de texto',
+      (tester) async {
+        final existingId = await seedExistingNote(existingText);
+        await pumpEditor(tester);
+
+        await tester.enterText(
+          find.widgetWithText(TextField, es.blocksParagraphHint),
+          existingText,
+        );
+        await tester.tap(find.byTooltip(es.detailSave));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.duplicateWarningTitleExact), findsOneWidget);
+        await tester.tap(find.text(es.duplicateWarningMerge));
+        await tester.pumpAndSettle();
+
+        final items = await savedItems();
+        expect(items, hasLength(1));
+        expect(items.single.id, existingId);
+        expect(
+          items.single.renditions.whereType<TextRendition>(),
+          hasLength(2),
+        );
+      },
+    );
+
+    testWidgets(
+      'con una coincidencia, elegir "Guardar aparte" dos ítems separados, '
+      'ninguno tocado',
+      (tester) async {
+        final existingId = await seedExistingNote(existingText);
+        await pumpEditor(tester);
+
+        await tester.enterText(
+          find.widgetWithText(TextField, es.blocksParagraphHint),
+          existingText,
+        );
+        await tester.tap(find.byTooltip(es.detailSave));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(es.duplicateWarningKeepSeparate));
+        await tester.pumpAndSettle();
+
+        final items = await savedItems();
+        expect(items, hasLength(2));
+        expect(items.map((i) => i.id), contains(existingId));
+      },
+    );
+
+    testWidgets('editar una nota existente no muestra el diálogo, aunque '
+        'termine igual a otra', (tester) async {
+      final existingId = await seedExistingNote(existingText);
+      await harness.capture('una nota aparte para editar');
+      final toEdit = (await savedItems()).firstWhere((i) => i.id != existingId);
+
+      await tester.pumpWidget(
+        harness.wrap(BlockEditorScreen(existingItem: toEdit)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksParagraphHint),
+        existingText,
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.duplicateWarningTitleExact), findsNothing);
+      expect(await savedItems(), hasLength(2));
+    });
   });
 
   group('enlaces [[ ]]', () {

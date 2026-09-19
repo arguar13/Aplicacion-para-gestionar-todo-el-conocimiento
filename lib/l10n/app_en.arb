@@ -2133,5 +2133,31 @@
   "noteKindMap": "Map",
   "@noteKindMap": {
     "description": "Etiqueta del tipo de nota mapa: solo estructura y enlaces, sin contenido propio."
+  },
+  "duplicateWarningTitleExact": "You already have this saved",
+  "@duplicateWarningTitleExact": {
+    "description": "Título del diálogo de aviso al detectar un duplicado exacto antes de guardar, F7."
+  },
+  "duplicateWarningTitleNear": "This looks like something you already have",
+  "@duplicateWarningTitleNear": {
+    "description": "Título del diálogo de aviso al detectar un casi-duplicado antes de guardar, F7."
+  },
+  "duplicateWarningBody": "\"{title}\" is already in your vault. Merge both provenances into one item, or would you rather keep this one separate?",
+  "@duplicateWarningBody": {
+    "description": "Cuerpo del diálogo de aviso de duplicado antes de guardar, F7.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "How to learn Dart"
+      }
+    }
+  },
+  "duplicateWarningMerge": "Merge",
+  "@duplicateWarningMerge": {
+    "description": "Botón para fusionar con el duplicado encontrado, en el diálogo de aviso previo a guardar, F7."
+  },
+  "duplicateWarningKeepSeparate": "Keep separate",
+  "@duplicateWarningKeepSeparate": {
+    "description": "Botón para guardar de todos modos como un elemento aparte, en el diálogo de aviso de duplicado, F7."
   }
 }

@@ -1,11 +1,15 @@
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
@@ -547,6 +551,97 @@ void main() {
       final saved = await savedItems();
       expect(harness.queue.enqueued, [saved.single.id]);
     });
+  });
+
+  group('deduplicación', () {
+    const existingText = 'Un texto que ya está guardado desde antes';
+
+    /// Guarda una nota con [text] y le pone a mano el `dedupHash`/`simhash`
+    /// que le correspondería —igual que calculará de verdad el generador
+    /// de sugerencias (F7, C8/C9), que todavía no existe en esta ronda—,
+    /// para que haya algo con qué comparar antes de guardar.
+    Future<String> seedExistingNote(String text) async {
+      await harness.capture(text);
+      final id = (await savedItems()).single.id;
+
+      final normalized = normalizeForDedup(text);
+      await (harness.database.update(
+        harness.database.knowledgeNotes,
+      )..where((n) => n.itemId.equals(id))).write(
+        KnowledgeNotesCompanion(
+          dedupHash: Value(contentHashOf(normalized)),
+          simhash: Value(simhashOf(normalized)),
+        ),
+      );
+
+      return id;
+    }
+
+    testWidgets('sin ninguna coincidencia, guarda normal sin ningún '
+        'diálogo', (tester) async {
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
+
+      await tester.enterText(mainField(), 'Un texto que nadie más tiene');
+      await tester.tap(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.duplicateWarningTitleExact), findsNothing);
+      expect(await savedTitles(), ['Un texto que nadie más tiene']);
+    });
+
+    testWidgets(
+      'con una coincidencia exacta, elegir "Fusionar" deja un solo ítem '
+      'con las dos renditions de texto',
+      (tester) async {
+        final existingId = await seedExistingNote(existingText);
+
+        await pumpCapture(tester);
+        await selectType(tester, es.captureTypePasteText);
+        await tester.enterText(mainField(), existingText);
+        await tester.tap(find.text(es.captureAction));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.duplicateWarningTitleExact), findsOneWidget);
+        await tester.tap(find.text(es.duplicateWarningMerge));
+        await tester.pumpAndSettle();
+
+        final items = await savedItems();
+        expect(items, hasLength(1));
+        expect(items.single.id, existingId);
+        expect(
+          items.single.renditions.whereType<TextRendition>(),
+          hasLength(2),
+        );
+      },
+    );
+
+    testWidgets(
+      'con una coincidencia, elegir "Guardar aparte" dos ítems separados, '
+      'ninguno tocado',
+      (tester) async {
+        final existingId = await seedExistingNote(existingText);
+
+        await pumpCapture(tester);
+        await selectType(tester, es.captureTypePasteText);
+        await tester.enterText(mainField(), existingText);
+        await tester.tap(find.text(es.captureAction));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(es.duplicateWarningKeepSeparate));
+        await tester.pumpAndSettle();
+
+        final items = await savedItems();
+        expect(items, hasLength(2));
+        expect(items.map((i) => i.id), contains(existingId));
+        expect(
+          items.every(
+            (i) => i.renditions.whereType<TextRendition>().length == 1,
+          ),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('llegar por enlace directo', () {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
@@ -22,9 +23,11 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
   final ProcessingQueueNotifier _queue;
   final AppLogger _logger;
 
-  /// Guarda un texto pegado o escrito. Devuelve si salió bien, para que la
-  /// pantalla sepa si corresponde cerrarse.
-  Future<bool> capture({
+  /// Guarda un texto pegado o escrito. Devuelve el elemento guardado, o
+  /// `null` si falló — la pantalla lo usa para saber si corresponde
+  /// cerrarse, y F7 (deduplicación) para saber con qué `itemId` fusionar
+  /// si el usuario eligió hacerlo antes de llamar a esto.
+  Future<KnowledgeItem?> capture({
     required String rawInput,
     String? title,
     String? note,
@@ -32,13 +35,13 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
       _save(CaptureRequest.text(rawInput: rawInput, title: title, note: note));
 
   /// Guarda un archivo elegido con el selector del sistema.
-  Future<bool> captureFile({
+  Future<KnowledgeItem?> captureFile({
     required CapturedFile file,
     String? title,
     String? note,
   }) => _save(CaptureRequest.file(file: file, title: title, note: note));
 
-  Future<bool> _save(CaptureRequest request) async {
+  Future<KnowledgeItem?> _save(CaptureRequest request) async {
     state = const CaptureState.saving();
 
     final result = await _captureItem(request);
@@ -47,7 +50,7 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
       (failure) {
         _logger.error('No se pudo guardar la captura.', failure);
         state = CaptureState.failed(failure);
-        return false;
+        return null;
       },
       (item) {
         state = const CaptureState.idle();
@@ -57,7 +60,7 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
         // que el usuario capturó ya está guardado y la pantalla puede
         // cerrarse. El resultado aparece solo en la lista cuando llegue.
         _queue.enqueue(item.id);
-        return true;
+        return item;
       },
     );
   }

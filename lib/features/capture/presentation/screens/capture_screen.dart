@@ -28,6 +28,8 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_notifie
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_state.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
+import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
+import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -428,8 +430,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       return;
     }
 
+    // El aviso de duplicado (F7) solo aplica a texto: un archivo recién
+    // tiene contenido con el que comparar después de procesarse, y para
+    // ese caso avisa una sugerencia pendiente en cambio (D3). El texto en
+    // cambio ya está completo acá, antes de guardar nada.
+    final mergeWithItemId = file == null
+        ? await checkForDuplicateBeforeSave(
+            context: context,
+            ref: ref,
+            text: _inputController.text,
+          )
+        : null;
+    if (!mounted) return;
+
     final notifier = ref.read(captureNotifierProvider.notifier);
-    final saved = file != null
+    final item = file != null
         ? await notifier.captureFile(
             file: file,
             title: _titleController.text,
@@ -441,7 +456,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             note: _noteController.text,
           );
 
-    if (!mounted || !saved) return;
+    if (!mounted || item == null) return;
+
+    if (mergeWithItemId != null) {
+      await ref.read(mergeDuplicateItemsUseCaseProvider)(
+        keepItemId: mergeWithItemId,
+        discardItemId: item.id,
+      );
+      if (!mounted) return;
+    }
 
     // Al volver, el elemento ya está en la lista: la biblioteca escucha los
     // cambios de la base y se actualiza sola.

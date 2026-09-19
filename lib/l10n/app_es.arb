@@ -1909,5 +1909,10 @@
   "noteKindMap": "Mapa",
   "@noteKindMap": {
     "description": "Etiqueta del tipo de nota mapa: solo estructura y enlaces, sin contenido propio."
-  }
+  },
+  "duplicateWarningTitleExact": "Esto ya lo tenés guardado",
+  "duplicateWarningTitleNear": "Esto se parece a algo que ya tenés",
+  "duplicateWarningBody": "\"{title}\" ya está en tu bóveda. ¿Fusionás las dos procedencias en un solo elemento, o preferís guardar esto aparte?",
+  "duplicateWarningMerge": "Fusionar",
+  "duplicateWarningKeepSeparate": "Guardar aparte"
 }

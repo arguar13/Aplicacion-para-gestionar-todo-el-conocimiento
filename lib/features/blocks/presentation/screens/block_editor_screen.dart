@@ -10,6 +10,8 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
+import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -183,6 +185,19 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       return;
     }
 
+    // El aviso de duplicado (F7) solo tiene sentido para una nota nueva:
+    // editar una ya existente no crea ningún elemento con el que fusionar
+    // —esa comparación la hace la detección continua al guardar, no este
+    // diálogo (D7)—.
+    final mergeWithItemId = widget.existingItem == null
+        ? await checkForDuplicateBeforeSave(
+            context: context,
+            ref: ref,
+            text: blocks.map((b) => b.text).join('\n'),
+          )
+        : null;
+    if (!mounted) return;
+
     setState(() => _saving = true);
 
     final ids = ref.read(idGeneratorProvider);
@@ -272,6 +287,17 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
           kind: RelationKind.relatedTo,
         );
       }
+    }
+
+    // Recién acá, después de crear los vínculos de arriba: si se fusiona
+    // antes, la fusión ya reasigna a `mergeWithItemId` cualquier vínculo
+    // que `itemId` haya quedado teniendo — reasignarlos primero sería
+    // trabajo de más para el mismo resultado.
+    if (mergeWithItemId != null) {
+      await ref.read(mergeDuplicateItemsUseCaseProvider)(
+        keepItemId: mergeWithItemId,
+        discardItemId: itemId,
+      );
     }
 
     if (!mounted) return;
