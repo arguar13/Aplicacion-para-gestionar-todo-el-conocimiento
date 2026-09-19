@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las propiedades tipadas de un elemento —"Época: Siglo I a.C.", "Región:
@@ -28,26 +34,80 @@ class PropertyEditor extends ConsumerWidget {
   }
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {
-    final picked = await showDialog<(String category, String value)>(
+    final picked = await showDialog<_PickedProperty>(
       context: context,
       builder: (context) => const _AddPropertyDialog(),
     );
     if (picked == null || !context.mounted) return;
 
-    final (category, value) = picked;
     final organize = ref.read(organizeRepositoryProvider);
+    final failure = await switch (picked) {
+      _PickedText(:final category, :final value) => _assignText(
+        organize,
+        category: category,
+        value: value,
+      ),
+      _PickedDate(:final definition, :final date) => _assignDate(
+        organize,
+        definition: definition,
+        date: date,
+      ),
+    };
 
+    if (failure == null || !context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            failure.localizedMessage(AppLocalizations.of(context)!),
+          ),
+        ),
+      );
+  }
+
+  /// Un valor de texto bajo [category], que se crea si hace falta. Devuelve el
+  /// fallo, o `null` si salió bien.
+  Future<Failure?> _assignText(
+    OrganizeRepository organize, {
+    required String category,
+    required String value,
+  }) async {
     final definitionResult = await organize.getOrCreatePropertyDefinition(
       category,
     );
     final definition = definitionResult.getRight().toNullable();
-    if (definition == null) return;
+    if (definition == null) return definitionResult.getLeft().toNullable();
 
-    await organize.assignProperty(
+    final assigned = await organize.assignProperty(
       itemId: item.id,
       definitionId: definition.id,
       value: value,
     );
+    return assigned.getLeft().toNullable();
+  }
+
+  /// Una fecha histórica bajo [definition]. El valor lleva la fecha completa
+  /// —año astronómico, rango, precisión, "circa"—, no solo su texto: eso es lo
+  /// que la línea de tiempo lee. Devuelve el fallo, o `null` si salió bien.
+  Future<Failure?> _assignDate(
+    OrganizeRepository organize, {
+    required PropertyDefinition definition,
+    required HistoricalDate date,
+  }) async {
+    final valueResult = await organize.getOrCreateHistoricalPropertyValue(
+      definitionId: definition.id,
+      date: date,
+    );
+    final propertyValue = valueResult.getRight().toNullable();
+    if (propertyValue == null) return valueResult.getLeft().toNullable();
+
+    final assigned = await organize.assignProperty(
+      itemId: item.id,
+      definitionId: definition.id,
+      value: propertyValue.value,
+    );
+    return assigned.getLeft().toNullable();
   }
 
   @override
@@ -133,13 +193,39 @@ class PropertyEditor extends ConsumerWidget {
   }
 }
 
+/// Lo que eligió el usuario en el diálogo de agregar una propiedad.
+sealed class _PickedProperty {
+  const _PickedProperty();
+}
+
+/// Una categoría y un valor de texto, ya recortados. Ni la categoría ni el
+/// valor están resueltos contra la base: encontrar o crear cada uno a partir
+/// del nombre es trabajo del repositorio, igual que en `_AddTagDialog`.
+final class _PickedText extends _PickedProperty {
+  const _PickedText(this.category, this.value);
+
+  final String category;
+  final String value;
+}
+
+/// Una fecha para una categoría de tipo fecha. La categoría sí viene
+/// resuelta: el diálogo ya la necesitó para saber que era de fecha.
+final class _PickedDate extends _PickedProperty {
+  const _PickedDate(this.definition, this.date);
+
+  final PropertyDefinition definition;
+  final HistoricalDate date;
+}
+
 /// El diálogo para agregar una propiedad: categoría y valor, cada uno con
 /// sus propias sugerencias mientras se escribe.
 ///
-/// Devuelve `(categoría, valor)` ya recortados, o `null` si se canceló.
-/// No devuelve nada ya resuelto contra la base —ni la `PropertyDefinition`
-/// ni el `PropertyValue`—: encontrar o crear cada uno a partir del nombre
-/// es trabajo del repositorio, igual que en `_AddTagDialog`.
+/// Si la categoría escrita es una que ya existe y es de tipo fecha —"Fecha
+/// del hecho"—, el valor no es un texto libre sino un formulario de fecha:
+/// un texto suelto quedaría sin año ni precisión, y la línea de tiempo no
+/// tendría cómo ubicarlo.
+///
+/// Devuelve un [_PickedProperty], o `null` si se canceló.
 class _AddPropertyDialog extends ConsumerStatefulWidget {
   const _AddPropertyDialog();
 
@@ -150,6 +236,7 @@ class _AddPropertyDialog extends ConsumerStatefulWidget {
 class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
   final _categoryController = TextEditingController();
   final _valueController = TextEditingController();
+  final _dateController = HistoricalDateController();
 
   @override
   void initState() {
@@ -158,21 +245,43 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
     // escribiendo en cada campo.
     _categoryController.addListener(() => setState(() {}));
     _valueController.addListener(() => setState(() {}));
+    _dateController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _categoryController.dispose();
     _valueController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
+  /// La categoría escrita, si coincide exacto con una que ya existe.
+  PropertyDefinition? _matchingDefinition(
+    List<PropertyDefinition> definitions,
+  ) {
+    final typed = _categoryController.text.trim().toLowerCase();
+    return definitions.where((d) => d.name.toLowerCase() == typed).firstOrNull;
+  }
+
   void _confirm() {
+    final definitions =
+        ref.read(allPropertyDefinitionsProvider).valueOrNull ??
+        const <PropertyDefinition>[];
+    final matching = _matchingDefinition(definitions);
+
+    if (matching != null && matching.type == PropertyValueType.date) {
+      final date = _dateController.date;
+      if (date == null) return;
+      Navigator.of(context).pop(_PickedDate(matching, date));
+      return;
+    }
+
     final category = _categoryController.text.trim();
     final value = _valueController.text.trim();
     if (category.isEmpty || value.isEmpty) return;
 
-    Navigator.of(context).pop((category, value));
+    Navigator.of(context).pop(_PickedText(category, value));
   }
 
   void _pickCategory(String name) {
@@ -208,10 +317,9 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
     // categoría escrita coincide exacto con una que ya existe: mientras
     // se está escribiendo una categoría nueva, no hay bajo qué categoría
     // buscar valores.
-    final matchingDefinition = definitions
-        .where((d) => d.name.toLowerCase() == typedCategory)
-        .firstOrNull;
-    final valueSuggestions = matchingDefinition == null
+    final matchingDefinition = _matchingDefinition(definitions);
+    final isDateCategory = matchingDefinition?.type == PropertyValueType.date;
+    final valueSuggestions = matchingDefinition == null || isDateCategory
         ? const <PropertyValue>[]
         : ref
                   .watch(propertyValuesProvider(matchingDefinition.id))
@@ -228,6 +336,9 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
 
     return AlertDialog(
       title: Text(l10n.detailAddProperty),
+      // El formulario de fecha es más alto que un campo de texto: en una
+      // pantalla baja tiene que poder desplazarse.
+      scrollable: true,
       content: SizedBox(
         width: 360,
         child: Column(
@@ -256,14 +367,17 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
               ),
             ],
             const SizedBox(height: 12),
-            TextField(
-              controller: _valueController,
-              decoration: InputDecoration(
-                hintText: l10n.detailPropertyValueHint,
+            if (isDateCategory)
+              HistoricalDateForm(controller: _dateController)
+            else
+              TextField(
+                controller: _valueController,
+                decoration: InputDecoration(
+                  hintText: l10n.detailPropertyValueHint,
+                ),
+                onSubmitted: (_) => _confirm(),
               ),
-              onSubmitted: (_) => _confirm(),
-            ),
-            if (filteredValueSuggestions.isNotEmpty) ...[
+            if (!isDateCategory && filteredValueSuggestions.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -285,7 +399,14 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.commonCancel),
         ),
-        TextButton(onPressed: _confirm, child: Text(l10n.detailAddProperty)),
+        TextButton(
+          // Con una fecha a medio escribir no hay nada que confirmar; con
+          // texto, confirmar en blanco simplemente no cierra el diálogo.
+          onPressed: isDateCategory && _dateController.date == null
+              ? null
+              : _confirm,
+          child: Text(l10n.detailAddProperty),
+        ),
       ],
     );
   }

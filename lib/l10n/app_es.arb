@@ -348,6 +348,84 @@
   "@detailPropertyValueHint": {
     "description": "Texto de ayuda del campo de valor en el diálogo de agregar propiedad."
   },
+  "datePickerYear": "Año",
+  "@datePickerYear": {
+    "description": "Etiqueta del campo del año en el formulario de la fecha del hecho."
+  },
+  "datePickerEraCe": "d.C.",
+  "@datePickerEraCe": {
+    "description": "Segmento que marca un año de la era común (después de Cristo)."
+  },
+  "datePickerEraBce": "a.C.",
+  "@datePickerEraBce": {
+    "description": "Segmento que marca un año anterior a la era común (antes de Cristo)."
+  },
+  "datePickerPrecision": "Precisión",
+  "@datePickerPrecision": {
+    "description": "Encabezado de las opciones de precisión de la fecha del hecho."
+  },
+  "datePickerPrecisionDay": "Día",
+  "@datePickerPrecisionDay": {
+    "description": "Precisión de fecha: se conoce el día exacto."
+  },
+  "datePickerPrecisionMonth": "Mes",
+  "@datePickerPrecisionMonth": {
+    "description": "Precisión de fecha: se conoce el mes."
+  },
+  "datePickerPrecisionYear": "Año",
+  "@datePickerPrecisionYear": {
+    "description": "Precisión de fecha: se conoce el año."
+  },
+  "datePickerPrecisionDecade": "Década",
+  "@datePickerPrecisionDecade": {
+    "description": "Precisión de fecha: solo se conoce la década."
+  },
+  "datePickerPrecisionCentury": "Siglo",
+  "@datePickerPrecisionCentury": {
+    "description": "Precisión de fecha: solo se conoce el siglo."
+  },
+  "datePickerMonth": "Mes",
+  "@datePickerMonth": {
+    "description": "Etiqueta del selector de mes en el formulario de la fecha del hecho."
+  },
+  "datePickerDay": "Día",
+  "@datePickerDay": {
+    "description": "Etiqueta del campo del día en el formulario de la fecha del hecho."
+  },
+  "datePickerYearInvalid": "Escribí un año de 1 en adelante: no hay año cero.",
+  "@datePickerYearInvalid": {
+    "description": "Error cuando el año escrito no es válido."
+  },
+  "datePickerDayInvalid": "El día tiene que estar entre 1 y {max}.",
+  "@datePickerDayInvalid": {
+    "description": "Error cuando el día no existe en el mes y el año elegidos.",
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "datePickerCirca": "Aproximada (circa)",
+  "@datePickerCirca": {
+    "description": "Casilla que marca que la fecha del hecho es aproximada."
+  },
+  "datePickerPeriodHintDecade": "Poné el primer año de la década: 1920 para 1920 – 1929.",
+  "@datePickerPeriodHintDecade": {
+    "description": "Ayuda del campo del año cuando la precisión es de década."
+  },
+  "datePickerPeriodHintCentury": "Poné el primer año del siglo: 1701 para 1701 – 1800.",
+  "@datePickerPeriodHintCentury": {
+    "description": "Ayuda del campo del año cuando la precisión es de siglo."
+  },
+  "datePickerPreview": "Se guardará como: {label}",
+  "@datePickerPreview": {
+    "description": "Vista previa de cómo queda escrita la fecha que se va a guardar.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "detailRemoveProperty": "Quitar \"{value}\"",
   "@detailRemoveProperty": {
     "description": "Tooltip del botón que quita un valor de propiedad de un elemento.",

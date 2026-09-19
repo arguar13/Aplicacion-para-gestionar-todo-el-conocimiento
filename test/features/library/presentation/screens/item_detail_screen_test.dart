@@ -7,10 +7,14 @@ import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -21,6 +25,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
+import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -1116,6 +1122,269 @@ void main() {
               .toNullable()!;
       expect(reloadedA.properties, isEmpty);
       expect(reloadedB.properties, hasLength(1));
+    });
+  });
+
+  group('fecha del hecho', () {
+    Future<void> openDialogFor(WidgetTester tester, String category) async {
+      await tester.tap(find.text(es.detailAddProperty));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+        category,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> enterYear(WidgetTester tester, String year) async {
+      await tester.enterText(
+        find.widgetWithText(TextField, es.datePickerYear),
+        year,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> choosePrecision(WidgetTester tester, String label) async {
+      await tester.tap(find.widgetWithText(ChoiceChip, label));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> chooseMonth(WidgetTester tester, String name) async {
+      await tester.tap(find.byType(DropdownButton<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> confirm(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(TextButton, es.detailAddProperty));
+      await tester.pumpAndSettle();
+    }
+
+    Future<PropertyValueRow> storedValue(String label) =>
+        (harness.database.select(
+          harness.database.propertyValues,
+        )..where((v) => v.value.equals(label))).getSingle();
+
+    testWidgets('escribir la categoría de fecha cambia el texto libre por el '
+        'formulario de fecha', (tester) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+      expect(find.byType(HistoricalDateForm), findsOneWidget);
+      expect(
+        find.widgetWithText(TextField, es.detailPropertyValueHint),
+        findsNothing,
+      );
+    });
+
+    testWidgets('el nombre de la categoría se reconoce sin distinguir '
+        'mayúsculas', (tester) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+
+      await openDialogFor(tester, 'fecha DEL hecho');
+
+      expect(find.byType(HistoricalDateForm), findsOneWidget);
+    });
+
+    testWidgets('una categoría que no es de fecha sigue pidiendo un texto', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+
+      await openDialogFor(tester, 'Región');
+
+      expect(find.byType(HistoricalDateForm), findsNothing);
+      expect(
+        find.widgetWithText(TextField, es.detailPropertyValueHint),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('con la fecha a medio escribir no se puede confirmar', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+      final button = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, es.detailAddProperty),
+      );
+
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('al escribir un año válido el botón se habilita', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+      await enterYear(tester, '476');
+
+      final button = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, es.detailAddProperty),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets(
+      'un año queda guardado como fecha, con su precisión y su rango',
+      (tester) async {
+        final id = await captureAndGetId('la caída de Roma');
+        await pumpDetail(tester, id);
+        await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+        await enterYear(tester, '476');
+        await confirm(tester);
+
+        // El chip muestra la fecha, y el elemento la tiene puesta.
+        expect(find.text('476'), findsOneWidget);
+        final item =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(id))
+                .getRight()
+                .toNullable()!;
+        expect(
+          item.properties.single.definitionName,
+          kFechaDelHechoCategoryName,
+        );
+        expect(item.properties.single.value, '476');
+
+        // Y no es solo texto: lleva la fecha completa.
+        final row = await storedValue('476');
+        expect(row.datePrecision, DatePrecision.year);
+        expect(row.dateFromYear, 476);
+        expect(row.dateToYear, 476);
+        expect(row.dateIsCirca, isFalse);
+      },
+    );
+
+    testWidgets('a.C., con día y aproximada, queda guardado completo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('los idus de marzo');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+      await enterYear(tester, '44');
+      await tester.tap(find.text(es.datePickerEraBce));
+      await tester.pumpAndSettle();
+      await choosePrecision(tester, es.datePickerPrecisionDay);
+      await chooseMonth(tester, 'Marzo');
+      await tester.enterText(
+        find.widgetWithText(TextField, es.datePickerDay),
+        '15',
+      );
+      await tester.tap(find.text(es.datePickerCirca));
+      await tester.pumpAndSettle();
+      await confirm(tester);
+
+      final label = const HistoricalDate(
+        year: 44,
+        precision: DatePrecision.day,
+        month: 3,
+        day: 15,
+        isBce: true,
+        isCirca: true,
+      ).label;
+      expect(find.text(label), findsOneWidget);
+      final row = await storedValue(label);
+      // 44 a.C. es el año astronómico -43.
+      expect(row.dateFromYear, -43);
+      expect(row.dateFromMonth, 3);
+      expect(row.dateFromDay, 15);
+      expect(row.dateToYear, -43);
+      expect(row.datePrecision, DatePrecision.day);
+      expect(row.dateIsCirca, isTrue);
+    });
+
+    testWidgets('una década guarda el tramo que cubre', (tester) async {
+      final id = await captureAndGetId('los años veinte');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+
+      await enterYear(tester, '1920');
+      await choosePrecision(tester, es.datePickerPrecisionDecade);
+      await confirm(tester);
+
+      final row = await storedValue('1920 – 1929');
+      expect(row.datePrecision, DatePrecision.decade);
+      expect(row.dateFromYear, 1920);
+      expect(row.dateToYear, 1929);
+    });
+
+    testWidgets('dos elementos con la misma fecha comparten el valor', (
+      tester,
+    ) async {
+      final first = await captureAndGetId('primer hecho');
+      await pumpDetail(tester, first);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+      await enterYear(tester, '476');
+      await confirm(tester);
+
+      final second = await captureAndGetId('segundo hecho');
+      await pumpDetail(tester, second);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+      await enterYear(tester, '476');
+      await confirm(tester);
+
+      final rows = await (harness.database.select(
+        harness.database.propertyValues,
+      )..where((v) => v.value.equals('476'))).get();
+      expect(rows, hasLength(1));
+    });
+
+    testWidgets('cancelar no guarda nada', (tester) async {
+      final id = await captureAndGetId('un hecho');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+      await enterYear(tester, '476');
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('476'), findsNothing);
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      expect(item.properties, isEmpty);
+    });
+
+    testWidgets('lo que se pone acá aparece en la línea de tiempo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('la caída de Roma');
+      await pumpDetail(tester, id);
+      await openDialogFor(tester, kFechaDelHechoCategoryName);
+      await enterYear(tester, '476');
+      await confirm(tester);
+
+      final timeline = TimelineRepositoryImpl(
+        database: harness.database,
+        library: harness.container.read(libraryRepositoryProvider),
+        telemetry: harness.container.read(telemetryServiceProvider),
+      );
+      // Un stream de la base necesita el reloj real: dentro de `testWidgets`
+      // el reloj es falso y su primera emisión no llegaría nunca.
+      final events = (await tester.runAsync(
+        () => timeline.watchEvents(const LibraryQuery()).first,
+      ))!;
+
+      expect(events, hasLength(1));
+      expect(events.single.itemId, id);
+      expect(
+        events.single.date,
+        const HistoricalDate(year: 476, precision: DatePrecision.year),
+      );
     });
   });
 
