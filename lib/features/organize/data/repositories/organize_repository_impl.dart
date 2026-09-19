@@ -271,6 +271,41 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   @override
+  Future<Either<Failure, Unit>> setRelationReviewed({
+    required String relationId,
+    required bool reviewed,
+  }) async {
+    try {
+      final updated =
+          await (_db.update(
+            _db.relations,
+          )..where((r) => r.id.equals(relationId))).writeReturning(
+            RelationsCompanion(reviewedAt: Value(reviewed ? _clock() : null)),
+          );
+
+      if (updated.isEmpty) {
+        return left(
+          const Failure.unexpected(
+            message: 'El vínculo ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.setRelationReviewed',
+        ),
+      );
+    }
+  }
+
+  @override
   Stream<List<ItemRelation>> watchRelationsForItem(String itemId) {
     return watchQuery(
       db: _db,
@@ -352,6 +387,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
                 fromItemId: row.fromItemId,
                 toItemId: row.toItemId,
                 kind: row.kind,
+                reviewedAt: row.reviewedAt,
               ),
             )
             .toList();

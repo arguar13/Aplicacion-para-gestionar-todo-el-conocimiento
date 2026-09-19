@@ -16,5 +16,10 @@ sealed class RelationEdge with _$RelationEdge {
     required String fromItemId,
     required String toItemId,
     required RelationKind kind,
+
+    /// Cuándo se marcó como revisado. `null` = sin revisar. Hoy solo importa
+    /// para `contradicts`: es lo que separa las contradicciones pendientes de
+    /// las que ya se miraron en la pantalla de Tensión.
+    DateTime? reviewedAt,
   }) = _RelationEdge;
 }

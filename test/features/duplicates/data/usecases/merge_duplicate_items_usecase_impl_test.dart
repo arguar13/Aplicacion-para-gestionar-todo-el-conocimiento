@@ -259,6 +259,34 @@ void main() {
     expect(rows, isEmpty);
   });
 
+  test('una contradicción ya revisada conserva la marca al pasar al '
+      'elemento que queda', () async {
+    final keepId = await seedItem(title: 'El que queda');
+    final discardId = await seedItem(title: 'El descartado');
+    final otherId = await seedItem(title: 'Un tercero');
+    final reviewedAt = DateTime(2026, 9, 20);
+    await db
+        .into(db.relations)
+        .insert(
+          RelationsCompanion.insert(
+            id: 'rel-1',
+            fromItemId: discardId,
+            toItemId: otherId,
+            kind: RelationKind.contradicts,
+            createdAt: now,
+            reviewedAt: Value(reviewedAt),
+          ),
+        );
+
+    final result = await useCase(keepItemId: keepId, discardItemId: discardId);
+
+    expect(result.isRight(), isTrue);
+    final relation = await db.select(db.relations).getSingle();
+    // Es la misma contradicción, ahora del que queda, y ya se había revisado.
+    expect(relation.fromItemId, keepId);
+    expect(relation.reviewedAt, reviewedAt);
+  });
+
   test('las dos renditions de texto sobreviven, la más larga queda '
       'primaria', () async {
     final keepId = await seedItem(title: 'El que queda', text: 'corto');

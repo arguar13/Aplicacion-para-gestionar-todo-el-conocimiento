@@ -588,6 +588,130 @@ void main() {
       });
     });
 
+    group('marcar un vínculo como revisado (F9)', () {
+      Future<String> seedContradiction() async {
+        final a = await seedItem();
+        final b = await seedItem();
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.contradicts,
+        );
+        return (await repository.watchAllRelations().first).single.id;
+      }
+
+      test('un vínculo nuevo nace sin revisar', () async {
+        await seedContradiction();
+
+        final edge = (await repository.watchAllRelations().first).single;
+
+        expect(edge.reviewedAt, isNull);
+      });
+
+      test(
+        'marcarlo guarda la fecha de ahora y no cambia el vínculo',
+        () async {
+          final id = await seedContradiction();
+          final before = (await repository.watchAllRelations().first).single;
+
+          final result = await repository.setRelationReviewed(
+            relationId: id,
+            reviewed: true,
+          );
+
+          expect(result.isRight(), isTrue);
+          final after = (await repository.watchAllRelations().first).single;
+          expect(after.reviewedAt, now);
+          // Sigue siendo el mismo vínculo.
+          expect(
+            (after.id, after.fromItemId, after.toItemId, after.kind),
+            (before.id, before.fromItemId, before.toItemId, before.kind),
+          );
+        },
+      );
+
+      test('se le puede quitar la marca', () async {
+        final id = await seedContradiction();
+        await repository.setRelationReviewed(relationId: id, reviewed: true);
+
+        final result = await repository.setRelationReviewed(
+          relationId: id,
+          reviewed: false,
+        );
+
+        expect(result.isRight(), isTrue);
+        expect(
+          (await repository.watchAllRelations().first).single.reviewedAt,
+          isNull,
+        );
+      });
+
+      test('marcar dos veces es lo mismo que una', () async {
+        final id = await seedContradiction();
+
+        await repository.setRelationReviewed(relationId: id, reviewed: true);
+        final again = await repository.setRelationReviewed(
+          relationId: id,
+          reviewed: true,
+        );
+
+        expect(again.isRight(), isTrue);
+        expect(
+          (await repository.watchAllRelations().first).single.reviewedAt,
+          now,
+        );
+      });
+
+      test('solo toca el vínculo pedido', () async {
+        final a = await seedItem();
+        final b = await seedItem();
+        final c = await seedItem();
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.contradicts,
+        );
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: c.id,
+          kind: RelationKind.contradicts,
+        );
+        final edges = await repository.watchAllRelations().first;
+
+        await repository.setRelationReviewed(
+          relationId: edges.first.id,
+          reviewed: true,
+        );
+
+        final after = {
+          for (final e in await repository.watchAllRelations().first)
+            e.id: e.reviewedAt,
+        };
+        expect(after[edges.first.id], now);
+        expect(after[edges.last.id], isNull);
+      });
+
+      test('un vínculo que no existe devuelve un fallo', () async {
+        final result = await repository.setRelationReviewed(
+          relationId: 'no-existe',
+          reviewed: true,
+        );
+
+        expect(result.getLeft().toNullable(), isA<UnexpectedFailure>());
+      });
+
+      test('la lista se actualiza sola al marcar', () async {
+        final id = await seedContradiction();
+        final queue = StreamQueue(repository.watchAllRelations());
+        addTearDown(queue.cancel);
+        expect((await queue.next).single.reviewedAt, isNull);
+
+        await repository.setRelationReviewed(relationId: id, reviewed: true);
+
+        expect((await queue.next).single.reviewedAt, now);
+      });
+    });
+
     group('extractedFrom marca la nota de origen', () {
       Future<KnowledgeItem> seedNote({String title = 'Una nota'}) async {
         final n = counter++;

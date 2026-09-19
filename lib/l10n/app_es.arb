@@ -1543,6 +1543,48 @@
   "@tensionEmpty": {
     "description": "Mensaje cuando no hay ningún vínculo de tipo contradicts en toda la bóveda."
   },
+  "tensionAllReviewed": "Ya revisaste todas las contradicciones. Mostrá las revisadas para volver a mirarlas.",
+  "@tensionAllReviewed": {
+    "description": "Mensaje de la pantalla de Tensión cuando hay contradicciones pero todas están marcadas como revisadas."
+  },
+  "tensionPendingCount": "{count, plural, =0{No queda nada por revisar} =1{Queda 1 par por revisar} other{Quedan {count} pares por revisar}}",
+  "@tensionPendingCount": {
+    "description": "Encabezado de la pantalla de Tensión: cuántos pares de contradicciones faltan revisar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tensionShowReviewed": "{count, plural, =1{Mostrar 1 revisada} other{Mostrar {count} revisadas}}",
+  "@tensionShowReviewed": {
+    "description": "Filtro de la pantalla de Tensión que incluye en la lista las contradicciones ya revisadas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tensionMarkReviewed": "Marcar como revisada",
+  "@tensionMarkReviewed": {
+    "description": "Tooltip del botón que marca una contradicción como revisada."
+  },
+  "tensionMarkUnreviewed": "Volver a marcar como sin revisar",
+  "@tensionMarkUnreviewed": {
+    "description": "Tooltip del botón que le quita la marca de revisada a una contradicción."
+  },
+  "tensionReviewedBadge": "Revisada",
+  "@tensionReviewedBadge": {
+    "description": "Etiqueta de una contradicción ya revisada, cuando la lista incluye las revisadas."
+  },
+  "tensionMarkedReviewed": "Marcada como revisada",
+  "@tensionMarkedReviewed": {
+    "description": "Aviso tras marcar una contradicción como revisada."
+  },
+  "tensionUndoAction": "Deshacer",
+  "@tensionUndoAction": {
+    "description": "Acción del aviso que deshace la marca de revisada."
+  },
   "chatHistoryTooltip": "Historial de conversaciones",
   "@chatHistoryTooltip": {
     "description": "Tooltip del ícono que abre el historial de conversaciones del chat."

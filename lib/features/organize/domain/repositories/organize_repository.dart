@@ -80,6 +80,18 @@ abstract interface class OrganizeRepository {
   /// Deshace un vínculo.
   Future<Either<Failure, Unit>> deleteRelation(String id);
 
+  /// Marca el vínculo [relationId] como revisado —con la fecha de ahora— o, con
+  /// [reviewed] en `false`, le quita la marca.
+  ///
+  /// Hoy lo usa la pantalla de Tensión: una contradicción entre dos elementos
+  /// se mira, se decide qué hacer con ella y se marca; lo que queda sin marcar
+  /// es lo que falta mirar. La marca no cambia el vínculo: sigue siendo el
+  /// mismo, con los mismos extremos y el mismo tipo.
+  Future<Either<Failure, Unit>> setRelationReviewed({
+    required String relationId,
+    required bool reviewed,
+  });
+
   /// Con qué otros elementos está vinculado [itemId], en cualquiera de los
   /// dos sentidos, actualizándose solo.
   Stream<List<ItemRelation>> watchRelationsForItem(String itemId);
