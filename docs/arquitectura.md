@@ -2449,6 +2449,95 @@ ya reusa `LibraryItemCard`, así que la insignia aparece ahí gratis.
 
 ---
 
+### 40. F7 de deduplicación: hash y simhash, sin ningún modelo de IA
+
+Séptima y última fase planeada del refactor de organización (ver la
+decisión 34). A diferencia de F5/F6, esta sí tenía el texto original
+del encargo, recordado por quien lo pidió durante la propia sesión:
+calcular `content_hash` y `simhash` al capturar, avisar si hay
+coincidencia y ofrecer fusionar conservando las dos procedencias o
+mantener separados, sin perder nunca texto que uno tenga y el otro no.
+Cuatro ambigüedades se resolvieron con quien encargó el trabajo antes
+de planear: alcance de esta ronda solo dentro de una misma bóveda —la
+fusión de bóvedas completas al importar el backup de otro dispositivo
+queda aparte, es una pieza bastante más grande—; un duplicado puede
+ser cualquier combinación entre fuente y nota, no solo mismo tipo
+contra mismo tipo; detección automática al capturar, no un escaneo
+completo de toda la bóveda a pedido; y cómo avisar cuando el texto
+recién existe después de procesar —sugerencia pendiente, revisable
+después, no un aviso inmediato que a esa altura nadie vería—.
+
+**Detección 100% determinística, sin modelo de IA.** `content_hash`
+(SHA-256 sobre texto normalizado: minúsculas, sin puntuación, espacios
+colapsados) para duplicados exactos; `simhash` de 64 bits —shingles de
+palabras, voto ponderado por bit, hash FNV-1a— para casi-duplicados,
+comparados por distancia de Hamming. A diferencia del motor de
+relaciones de F5, esta fase funciona desde la primera captura de
+cualquier usuario, sin ningún modelo que descargar. Ninguna de las dos
+columnas reusa el `contentHash` que F1 ya tenía en `KnowledgeSources`:
+ese sirve la idempotencia del chunking sobre texto crudo, un propósito
+distinto que mezclar habría sido confuso.
+
+**Dos momentos de detección, forzados por cuándo existe el texto, no
+por preferencia de diseño.** Una nota o un texto pegado ya están
+completos al momento de guardar: un diálogo interactivo avisa ANTES de
+guardar, con la opción de fusionar ahí mismo —el elemento nuevo llega a
+existir un instante, y de inmediato se fusiona con el que ya había,
+reusando el mismo caso de uso de fusión sin ningún camino aparte—. Una
+fuente que hay que traer de la red recién tiene texto después de
+procesarse: una `Suggestion.duplicate` —que F1 ya había reservado en
+`SuggestionKind`, pensando en esta fase— queda pendiente, revisable
+después en su propia pantalla.
+
+**La fusión conserva un solo elemento, con las DOS renditions de
+texto.** Ninguna se borra; la más completa queda como principal.
+Relaciones, etiquetas, propiedades y tarjetas del descartado se
+reasignan al que queda con el mismo criterio tolerante a conflictos
+que ya usaba `mergePropertyValues` (F2): se reasigna donde no choca, se
+descarta sin romper la fusión entera donde el que queda ya tiene lo
+mismo. Un registro nuevo y chico, `MergedProvenances`, congela de
+dónde salió el descartado antes de que su fila desaparezca de verdad
+—con el mismo `LibraryRepository.delete()` de siempre, que ya limpia
+cascadas viejas, espejo nuevo y archivo original en una sola
+operación—. Solo el texto está garantizado: el archivo original del
+descartado, si tenía uno propio aparte de su texto, se borra igual que
+en cualquier borrado normal.
+
+**La sugerencia de duplicado no entra al diálogo de revisión
+genérico.** Aceptar una propiedad o un vínculo es reversible con un
+toque; fusionar borra un elemento. Tiene su propia pantalla, "Posibles
+duplicados" —mismo patrón que Tensión en F5: ruta plana, alcanzable
+desde la sección "Bóveda" de Ajustes—, con confirmación explícita por
+fila antes de aplicar nada.
+
+**El generador necesita dos puntos de enganche, no uno.** Para
+fuentes, un tercer generador fire-and-forget en `ProcessItemUseCase`,
+paralelo a los dos de F4/F5. Para notas, un hook en
+`LibraryRepositoryImpl.save()` —el único camino central por el que
+pasa tanto crear como editar una nota, sin importar desde qué
+pantalla—, con su propia `SuggestionRepositoryImpl` sin capacidad de
+fusionar:
+el generador necesita `SuggestionRepository`, que desde F7 necesita
+`MergeDuplicateItemsUseCase` para poder aceptar una sugerencia de
+duplicado de verdad, que a su vez necesita `LibraryRepository` — dejar
+que el hook de notas dependiera de esa misma cadena habría cerrado un
+ciclo real de providers.
+
+**Dos errores reales encontrados al ejercitar el hook de notas de
+punta a punta.** Leer `SuggestionRepository.watchPendingSuggestions().
+first` desde el generador —fuera del árbol de widgets, mientras uno
+seguía montado— colgó un test, el mismo antipatrón ya documentado en
+F6; se reemplazó por una consulta directa contra `AppDatabase`. Y el
+diálogo interactivo, que fusiona casi enseguida el elemento recién
+guardado, corre en paralelo con el generador fire-and-forget que ese
+mismo `save()` dispara: sin comprobar que los dos elementos siguen
+existiendo justo antes de insertar, la sugerencia podía romper una
+restricción de llave foránea contra un elemento que la fusión ya había
+borrado — una carrera benigna, resuelta en silencio en vez de con
+telemetría.
+
+---
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -2642,6 +2731,18 @@ ya reusa `LibraryItemCard`, así que la insignia aparece ahí gratis.
   preferido al grafo local desde cualquier vecino, y una vista propia
   de sus vínculos agrupada por tipo en vez de la lista cronológica de
   siempre.
+- **F7 de deduplicación: hash, simhash y fusión, sin ningún modelo de
+  IA.** `content_hash`/`simhash` calculados y persistidos al capturar
+  o guardar una nota, un diálogo interactivo que avisa ANTES de
+  guardar cuando el texto ya está completo, y una `Suggestion.
+  duplicate` pendiente cuando recién se completa después de procesar
+  una fuente —ver la decisión 40—. Fusionar conserva un solo elemento
+  con las dos renditions de texto —ninguna se pierde—, reasigna
+  relaciones, etiquetas, propiedades y tarjetas del descartado, y
+  congela su procedencia antes de borrarlo de verdad. Su propia
+  pantalla, "Posibles duplicados", con confirmación explícita por
+  fila: fusionar es irreversible, así que no entra al diálogo genérico
+  de revisión de sugerencias.
 
 ### Por construir
 
@@ -2649,10 +2750,12 @@ Las ocho fases originales están construidas, probadas y documentadas.
 Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
-Lo que sigue es el refactor de la capa de organización en curso (ver la
-decisión 34): F1 a F6 cerrados —modelo Fuente/Nota, vocabulario
-controlado, estados y Bandeja de entrada, clasificación asistida de a
-un elemento, motor de relaciones y Tensión, grafo local y notas mapa—;
-las sugerencias en lote (deferidas de F4) y F7 (deduplicación) siguen,
-cada una recién planeada —plan breve, aprobado, después código— cuando
-se confirme avanzar con ella, tal como pidió el propio encargo.
+El refactor de la capa de organización (ver la decisión 34) también
+está cerrado: F1 a F7 construidas, probadas y documentadas —modelo
+Fuente/Nota, vocabulario controlado, estados y Bandeja de entrada,
+clasificación asistida de a un elemento, motor de relaciones y
+Tensión, grafo local y notas mapa, y deduplicación—. Lo único que
+queda suelto de todo el encargo original son las sugerencias en lote
+(deferidas de F4): revisar varias sugerencias a la vez en vez de una
+por una, recién planeada —plan breve, aprobado, después código—
+cuando se confirme avanzar con ella.
