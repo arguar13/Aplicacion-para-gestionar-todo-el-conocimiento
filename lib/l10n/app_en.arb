@@ -2209,5 +2209,279 @@
   "duplicatesDiscarded": "Dismissed, nothing merged.",
   "@duplicatesDiscarded": {
     "description": "Confirmación tras descartar una sugerencia de duplicado sin fusionar, F7."
+  },
+  "vocabularyTitle": "Vocabulary",
+  "@vocabularyTitle": {
+    "description": "Título de la pantalla de mantenimiento del vocabulario, F8."
+  },
+  "vocabularySettingsTooltip": "Vocabulary",
+  "@vocabularySettingsTooltip": {
+    "description": "Fila de Ajustes que abre el mantenimiento del vocabulario, F8."
+  },
+  "vocabularyTabCandidates": "Similar ({count})",
+  "@vocabularyTabCandidates": {
+    "description": "Pestaña de valores que se parecen entre sí y quizá sean el mismo, con cuántos grupos hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyTabSingleUse": "Used once ({count})",
+  "@vocabularyTabSingleUse": {
+    "description": "Pestaña de valores usados en un único elemento, con cuántos hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyTabUnused": "Unused ({count})",
+  "@vocabularyTabUnused": {
+    "description": "Pestaña de valores que ningún elemento tiene, con cuántos hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyTabEmptyCategories": "Empty categories ({count})",
+  "@vocabularyTabEmptyCategories": {
+    "description": "Pestaña de categorías sin ningún valor, con cuántas hay.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyUndoTooltip": "Undo the last operation",
+  "@vocabularyUndoTooltip": {
+    "description": "Botón de la barra superior que deshace la última operación de mantenimiento."
+  },
+  "vocabularyUndoAction": "Undo",
+  "@vocabularyUndoAction": {
+    "description": "Acción del aviso que sigue a una operación de mantenimiento."
+  },
+  "vocabularyUndone": "Undone.",
+  "@vocabularyUndone": {
+    "description": "Aviso tras deshacer una operación de mantenimiento."
+  },
+  "vocabularyUndoFailed": "Can't undo: the vocabulary has changed since.",
+  "@vocabularyUndoFailed": {
+    "description": "Aviso cuando deshacer se niega porque el vocabulario cambió después de la operación."
+  },
+  "vocabularyOperationFailed": "The operation couldn't be completed.",
+  "@vocabularyOperationFailed": {
+    "description": "Aviso cuando una operación de mantenimiento falla."
+  },
+  "vocabularyLoadError": "Couldn't read the vocabulary.",
+  "@vocabularyLoadError": {
+    "description": "Mensaje cuando falla la lectura del vocabulario en la pantalla de mantenimiento."
+  },
+  "vocabularyCandidatesEmpty": "No similar values found. This lists values written the same apart from accents or capitals, values that are almost the same, and values where one contains the other.",
+  "@vocabularyCandidatesEmpty": {
+    "description": "Estado vacío de la pestaña de valores parecidos."
+  },
+  "vocabularyReasonSameText": "Same text",
+  "@vocabularyReasonSameText": {
+    "description": "Razón por la que dos valores parecen ser el mismo: solo cambian acentos o mayúsculas."
+  },
+  "vocabularyReasonContained": "One contains the other",
+  "@vocabularyReasonContained": {
+    "description": "Razón por la que dos valores parecen ser el mismo: uno es el otro con más palabras."
+  },
+  "vocabularyReasonSimilar": "Almost the same",
+  "@vocabularyReasonSimilar": {
+    "description": "Razón por la que dos valores parecen ser el mismo: se escriben casi igual."
+  },
+  "vocabularyKeepTooltip": "Keep this one",
+  "@vocabularyKeepTooltip": {
+    "description": "Marca del valor que se conserva al fusionar un grupo."
+  },
+  "vocabularyMergeCheckTooltip": "Merge this one into the kept value",
+  "@vocabularyMergeCheckTooltip": {
+    "description": "Casilla que incluye un valor en la fusión del grupo."
+  },
+  "vocabularyUsage": "{count, plural, =0{Unused} =1{1 item} other{{count} items}}",
+  "@vocabularyUsage": {
+    "description": "En cuántos elementos está puesto un valor del vocabulario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyAliasCount": "{count, plural, =1{1 alias} other{{count} aliases}}",
+  "@vocabularyAliasCount": {
+    "description": "Cuántos alias tiene un valor.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyMergeAction": "{count, plural, =1{Merge 1 value into “{label}”} other{Merge {count} values into “{label}”}}",
+  "@vocabularyMergeAction": {
+    "description": "Botón que fusiona los valores marcados de un grupo en el que se conserva.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMergeConfirmTitle": "Merge these values?",
+  "@vocabularyMergeConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de fusionar valores."
+  },
+  "vocabularyMergeConfirmBody": "{count, plural, =1{1 value moves} other{{count} values move}} into “{label}” and their names become aliases. This will affect {items, plural, =1{1 item} other{{items} items}}. You can undo it.",
+  "@vocabularyMergeConfirmBody": {
+    "description": "Cuerpo del diálogo de confirmación antes de fusionar valores, con cuántos elementos afecta.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      },
+      "items": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyMergeCalculating": "Working out how many items are affected…",
+  "@vocabularyMergeCalculating": {
+    "description": "Texto mientras se calcula cuántos elementos afecta una fusión."
+  },
+  "vocabularySingleUseEmpty": "No value is used on a single item. A value used only once is often a variant or a typo of another.",
+  "@vocabularySingleUseEmpty": {
+    "description": "Estado vacío de la pestaña de valores de un solo uso."
+  },
+  "vocabularyRenameTitle": "Rename value",
+  "@vocabularyRenameTitle": {
+    "description": "Título del diálogo para renombrar un valor."
+  },
+  "vocabularyRenameLabel": "New name",
+  "@vocabularyRenameLabel": {
+    "description": "Campo del diálogo para renombrar un valor."
+  },
+  "vocabularyUnusedEmpty": "Every value is in use.",
+  "@vocabularyUnusedEmpty": {
+    "description": "Estado vacío de la pestaña de valores sin uso."
+  },
+  "vocabularySelectAll": "Select all",
+  "@vocabularySelectAll": {
+    "description": "Marca todos los valores sin uso para borrarlos."
+  },
+  "vocabularyDeleteAction": "{count, plural, =1{Delete 1 value} other{Delete {count} values}}",
+  "@vocabularyDeleteAction": {
+    "description": "Botón que borra los valores sin uso marcados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyDeleteConfirmTitle": "Delete these values?",
+  "@vocabularyDeleteConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de borrar valores sin uso."
+  },
+  "vocabularyDeleteConfirmBody": "{count, plural, =1{No item has this value and it is removed from the vocabulary.} other{No item has these {count} values and they are removed from the vocabulary.}} You can undo it.",
+  "@vocabularyDeleteConfirmBody": {
+    "description": "Cuerpo del diálogo de confirmación antes de borrar valores sin uso.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyEmptyCategoriesEmpty": "There are no empty categories.",
+  "@vocabularyEmptyCategoriesEmpty": {
+    "description": "Estado vacío de la pestaña de categorías sin valores."
+  },
+  "vocabularyDeleteCategoryTooltip": "Delete the category “{name}”",
+  "@vocabularyDeleteCategoryTooltip": {
+    "description": "Botón que borra una categoría vacía.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyDeleteCategoryConfirmTitle": "Delete this category?",
+  "@vocabularyDeleteCategoryConfirmTitle": {
+    "description": "Título del diálogo de confirmación antes de borrar una categoría vacía."
+  },
+  "vocabularyDeleteCategoryConfirmBody": "“{name}” has no values and will be deleted. You can undo it.",
+  "@vocabularyDeleteCategoryConfirmBody": {
+    "description": "Cuerpo del diálogo de confirmación antes de borrar una categoría vacía.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyOperationMerged": "{count, plural, =1{Merged 1 value into “{label}”} other{Merged {count} values into “{label}”}}",
+  "@vocabularyOperationMerged": {
+    "description": "Aviso tras fusionar valores.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyOperationRenamed": "Renamed to “{label}”",
+  "@vocabularyOperationRenamed": {
+    "description": "Aviso tras renombrar un valor.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyOperationDeleted": "{count, plural, =1{Deleted 1 value} other{Deleted {count} values}}",
+  "@vocabularyOperationDeleted": {
+    "description": "Aviso tras borrar valores sin uso.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyOperationCategoriesDeleted": "{count, plural, =1{Deleted 1 category} other{Deleted {count} categories}}",
+  "@vocabularyOperationCategoriesDeleted": {
+    "description": "Aviso tras borrar categorías vacías.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyOperationAliasAdded": "Alias “{alias}” added",
+  "@vocabularyOperationAliasAdded": {
+    "description": "Aviso tras agregar un alias a un valor.",
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyOperationAliasRemoved": "Alias “{alias}” removed",
+  "@vocabularyOperationAliasRemoved": {
+    "description": "Aviso tras quitar un alias de un valor.",
+    "placeholders": {
+      "alias": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMergeConfirmAction": "Merge",
+  "@vocabularyMergeConfirmAction": {
+    "description": "Botón que confirma la fusión de valores en el diálogo de confirmación."
   }
 }

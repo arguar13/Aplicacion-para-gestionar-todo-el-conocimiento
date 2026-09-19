@@ -405,6 +405,75 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, VocabularyOperation>> deleteEmptyCategories(
+    List<String> ids,
+  ) async {
+    final distinct = {...ids}.toList();
+    if (distinct.isEmpty) {
+      return left(
+        const Failure.validation(message: 'Elegí al menos una categoría.'),
+      );
+    }
+
+    try {
+      final operation = await _db.transaction(() async {
+        final definitions = await (_db.select(
+          _db.propertyDefinitions,
+        )..where((d) => d.id.isIn(distinct))).get();
+        if (definitions.length != distinct.length) {
+          throw const _Rejected(
+            Failure.unexpected(
+              message:
+                  'Una de las categorías ya no existe; puede que se haya '
+                  'borrado.',
+            ),
+          );
+        }
+        for (final definition in definitions) {
+          if (definition.isSystem) {
+            throw _Rejected(
+              Failure.validation(
+                message:
+                    '"${definition.name}" la crea la app: no se puede borrar.',
+              ),
+            );
+          }
+          final values = await (_db.select(
+            _db.propertyValues,
+          )..where((v) => v.definitionId.equals(definition.id))).get();
+          if (values.isNotEmpty) {
+            throw _Rejected(
+              Failure.validation(
+                message:
+                    '"${definition.name}" todavía tiene ${values.length} '
+                    'valores: no se borra.',
+              ),
+            );
+          }
+        }
+
+        await (_db.delete(
+          _db.propertyDefinitions,
+        )..where((d) => d.id.isIn(distinct))).go();
+        return _DeleteCategoriesOperation(definitions: definitions);
+      });
+      return right(operation);
+    } on _Rejected catch (rejected) {
+      return left(rejected.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'VocabularyRepositoryImpl.deleteEmptyCategories',
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------
   // Alias
   // ---------------------------------------------------------------------
@@ -515,6 +584,8 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
             await _undoRename(operation);
           case _DeleteOperation():
             await _undoDelete(operation);
+          case _DeleteCategoriesOperation():
+            await _undoDeleteCategories(operation);
           case _AliasOperation():
             await _undoAlias(operation);
           default:
@@ -592,6 +663,29 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     }
     for (final alias in op.aliases) {
       await _db.into(_db.propertyAliases).insert(alias);
+    }
+  }
+
+  Future<void> _undoDeleteCategories(_DeleteCategoriesOperation op) async {
+    final back = await (_db.select(
+      _db.propertyDefinitions,
+    )..where((d) => d.id.isIn(op.definitions.map((d) => d.id)))).get();
+    if (back.isNotEmpty) {
+      throw const MergeUndoConflict('Una categoría borrada ya fue recreada.');
+    }
+    // El nombre de una categoría es único para el índice (sin distinguir
+    // mayúsculas ASCII): solo ese conflicto de integridad impide recrearla.
+    final all = await _db.select(_db.propertyDefinitions).get();
+    for (final definition in op.definitions) {
+      if (all.any((d) => _sameForIndex(d.name, definition.name))) {
+        throw MergeUndoConflict(
+          'Ya existe una categoría "${definition.name}": no se puede '
+          'recrear.',
+        );
+      }
+    }
+    for (final definition in op.definitions) {
+      await _db.into(_db.propertyDefinitions).insert(definition);
     }
   }
 
@@ -737,6 +831,24 @@ class _DeleteOperation implements VocabularyOperation {
   String get label => values.first.value;
 
   /// Solo se borra lo que no tiene uso: no afecta a ningún elemento.
+  @override
+  int get affectedItems => 0;
+}
+
+class _DeleteCategoriesOperation implements VocabularyOperation {
+  _DeleteCategoriesOperation({required this.definitions});
+
+  final List<PropertyDefinitionRow> definitions;
+
+  @override
+  VocabularyOperationKind get kind => VocabularyOperationKind.deleteCategory;
+
+  @override
+  int get valueCount => definitions.length;
+
+  @override
+  String get label => definitions.first.name;
+
   @override
   int get affectedItems => 0;
 }

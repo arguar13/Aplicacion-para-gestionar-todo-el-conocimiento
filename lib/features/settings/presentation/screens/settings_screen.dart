@@ -101,6 +101,12 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.duplicates),
               ),
+              ListTile(
+                leading: const Icon(Icons.spellcheck_outlined),
+                title: Text(l10n.vocabularySettingsTooltip),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.vocabulary),
+              ),
             ],
           ),
           const SizedBox(height: 24),

@@ -48,6 +48,13 @@ abstract interface class VocabularyRepository {
     List<String> ids,
   );
 
+  /// Borra categorías que el usuario creó y quedaron SIN ningún valor, en una
+  /// transacción. Una de sistema, o una que todavía tiene valores, se
+  /// rechaza —y no se borra ninguna—.
+  Future<Either<Failure, VocabularyOperation>> deleteEmptyCategories(
+    List<String> ids,
+  );
+
   /// Agrega [alias] al valor [valueId]: otro texto que se resuelve al mismo
   /// valor. No puede repetir el nombre de ningún valor ni de otro alias de la
   /// categoría.

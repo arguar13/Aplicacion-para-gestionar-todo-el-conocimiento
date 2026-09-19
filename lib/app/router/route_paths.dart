@@ -40,6 +40,12 @@ abstract final class RoutePaths {
   /// octavo destino de navegación.
   static const duplicates = '/duplicates';
 
+  /// El mantenimiento del vocabulario controlado (F8): valores repetidos, de
+  /// un solo uso, sin uso, categorías vacías. Ruta plana, mismo criterio que
+  /// [duplicates]: es una acción de mantenimiento de la bóveda, no un
+  /// destino de navegación.
+  static const vocabulary = '/vocabulary';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -90,6 +96,7 @@ abstract final class RouteNames {
   static const transcriptionModel = 'transcription-model';
   static const vaultBackup = 'vault-backup';
   static const duplicates = 'duplicates';
+  static const vocabulary = 'vocabulary';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

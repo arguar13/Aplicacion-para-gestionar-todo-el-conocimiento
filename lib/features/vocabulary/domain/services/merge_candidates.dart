@@ -21,6 +21,14 @@ import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.da
 /// Con 2.000 valores tarda una fracción de segundo. El precio del bloque por
 /// primera letra: un error JUSTO en la primera letra no se detecta.
 ///
+/// La salida está ACOTADA por valor: si muchísimos nombres se parecen entre
+/// sí ("Guerra aa", "Guerra ab"…), los pares crecerían con el cuadrado —cientos
+/// de miles con mil nombres— y ninguna pantalla los necesita. Por eso cada
+/// valor se enlaza como mucho con [_maxSpellingPartners] parecidos por
+/// ortografía, y un grupo de mismo texto muy grande se enlaza en estrella. Lo
+/// que se deja de listar sigue conectado a través de los que sí se listan:
+/// `groupMergeCandidates` agrupa igual.
+///
 /// Función pura y de nivel superior: se puede correr en un isolate.
 List<MergeCandidate> findMergeCandidates(List<VocabularyValueStat> stats) {
   final byDefinition = <String, List<_Entry>>{};
@@ -56,11 +64,94 @@ List<MergeCandidate> findMergeCandidates(List<VocabularyValueStat> stats) {
   return found;
 }
 
+/// Los [candidates] agrupados: cada grupo junta los valores conectados por
+/// algún par —"Roma" con "Róma" y "Roma antigua", aunque los dos últimos no
+/// se relacionen entre sí—, para poder fusionar varios en uno solo con UNA
+/// operación. Ordenados por uso combinado, como los pares.
+///
+/// Un grupo puede encadenar cosas que no son lo mismo ("Guerra" enlaza con
+/// "Guerra fría" y con "Guerra civil"): por eso [MergeCandidateGroup.
+/// probableDuplicatesOf] separa lo que casi seguro es un duplicado de lo
+/// que solo comparte palabras, y quien lo muestra no debe marcar todo.
+List<MergeCandidateGroup> groupMergeCandidates(
+  List<MergeCandidate> candidates,
+) {
+  final parent = <String, String>{};
+  String find(String id) {
+    var root = id;
+    while (parent[root] != root) {
+      root = parent[root]!;
+    }
+    // Compresión de camino: los grupos grandes no se vuelven una cadena.
+    var node = id;
+    while (parent[node] != root) {
+      final next = parent[node]!;
+      parent[node] = root;
+      node = next;
+    }
+    return root;
+  }
+
+  for (final candidate in candidates) {
+    parent
+      ..putIfAbsent(candidate.first.id, () => candidate.first.id)
+      ..putIfAbsent(candidate.second.id, () => candidate.second.id)
+      ..[find(candidate.first.id)] = find(candidate.second.id);
+  }
+
+  final valuesByRoot = <String, Map<String, VocabularyValueStat>>{};
+  final pairsByRoot = <String, List<MergeCandidate>>{};
+  for (final candidate in candidates) {
+    final root = find(candidate.first.id);
+    (valuesByRoot[root] ??= {})
+      ..[candidate.first.id] = candidate.first
+      ..[candidate.second.id] = candidate.second;
+    (pairsByRoot[root] ??= []).add(candidate);
+  }
+
+  final groups = [
+    for (final entry in valuesByRoot.entries)
+      MergeCandidateGroup(
+        values: _mostUsedFirst(entry.value.values.toList()),
+        pairs: pairsByRoot[entry.key]!,
+      ),
+  ];
+  final labelKey = {
+    for (final g in groups) g: normalizeVocabularyLabel(g.suggestedKeep.label),
+  };
+  groups.sort((a, b) {
+    final byUsage = b.combinedUsage.compareTo(a.combinedUsage);
+    if (byUsage != 0) return byUsage;
+    final byLabel = labelKey[a]!.compareTo(labelKey[b]!);
+    if (byLabel != 0) return byLabel;
+    return a.suggestedKeep.id.compareTo(b.suggestedKeep.id);
+  });
+  return groups;
+}
+
+/// El más usado primero; a igual uso, el de nombre más corto, y por último
+/// el id: un orden total.
+List<VocabularyValueStat> _mostUsedFirst(List<VocabularyValueStat> values) =>
+    values..sort((a, b) {
+      final byUsage = b.usage.compareTo(a.usage);
+      if (byUsage != 0) return byUsage;
+      final byLength = a.label.length.compareTo(b.label.length);
+      if (byLength != 0) return byLength;
+      return a.id.compareTo(b.id);
+    });
+
 /// Igual que [findMergeCandidates], fuera del hilo de la interfaz: con
 /// muchos valores el cálculo se nota, y no debe congelar la pantalla.
 Future<List<MergeCandidate>> findMergeCandidatesOffMainThread(
   List<VocabularyValueStat> stats,
 ) => compute(findMergeCandidates, stats);
+
+/// Cuántos parecidos por ortografía se listan, como mucho, por valor.
+const _maxSpellingPartners = 6;
+
+/// De cuántos valores con el mismo texto se listan todos los pares; más allá,
+/// se enlazan en estrella al primero.
+const _maxAllPairsGroup = 6;
 
 class _Entry {
   _Entry(this.stat, this.normalized)
@@ -76,6 +167,12 @@ class _Entry {
   /// a-z: la firma para descartar de un vistazo dos nombres que no se
   /// parecen.
   final List<int> letters;
+
+  /// Con cuántos parecidos por ortografía ya se enlazó: en el propio objeto
+  /// y no en un mapa por id, porque se consulta en cada par comparado —
+  /// millones de veces en el peor caso— y el hash de una cadena pesaba más
+  /// que el resto de la comparación.
+  int spellingPartners = 0;
 }
 
 /// 26 letras + 1 para todo lo demás.
@@ -93,12 +190,13 @@ final _hasDigit = RegExp(r'\d');
 void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
   final seen = <String>{};
 
-  void add(_Entry a, _Entry b, MergeCandidateReason reason) {
+  bool add(_Entry a, _Entry b, MergeCandidateReason reason) {
     final key = a.stat.id.compareTo(b.stat.id) < 0
         ? '${a.stat.id}|${b.stat.id}'
         : '${b.stat.id}|${a.stat.id}';
-    if (!seen.add(key)) return;
+    if (!seen.add(key)) return false;
     out.add(MergeCandidate(first: a.stat, second: b.stat, reason: reason));
+    return true;
   }
 
   // 1. El mismo texto, distinta grafía.
@@ -107,6 +205,15 @@ void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
     byText.putIfAbsent(entry.normalized, () => []).add(entry);
   }
   for (final group in byText.values) {
+    if (group.length > _maxAllPairsGroup) {
+      // Un grupo enorme se enlaza en estrella al de menor id: sigue siendo
+      // UN grupo, sin generar todos los pares.
+      group.sort((a, b) => a.stat.id.compareTo(b.stat.id));
+      for (var j = 1; j < group.length; j++) {
+        add(group[0], group[j], MergeCandidateReason.sameText);
+      }
+      continue;
+    }
     for (var i = 0; i < group.length; i++) {
       for (var j = i + 1; j < group.length; j++) {
         add(group[i], group[j], MergeCandidateReason.sameText);
@@ -147,11 +254,21 @@ void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
     byFirstLetter.putIfAbsent(entry.normalized[0], () => []).add(entry);
   }
   for (final block in byFirstLetter.values) {
-    block.sort((a, b) => a.normalized.length.compareTo(b.normalized.length));
+    // Por largo, y a igual largo un orden total: el tope de parecidos por
+    // valor se aplica siempre a los mismos, no según cómo llegó la lista.
+    block.sort((a, b) {
+      final byLength = a.normalized.length.compareTo(b.normalized.length);
+      if (byLength != 0) return byLength;
+      final byText = a.normalized.compareTo(b.normalized);
+      if (byText != 0) return byText;
+      return a.stat.id.compareTo(b.stat.id);
+    });
     for (var i = 0; i < block.length; i++) {
       final a = block[i];
+      if (a.spellingPartners >= _maxSpellingPartners) continue;
       for (var j = i + 1; j < block.length; j++) {
         final b = block[j];
+        if (b.spellingPartners >= _maxSpellingPartners) continue;
         final lengthGap = b.normalized.length - a.normalized.length;
         // Ordenado por largo: pasado 2 de diferencia, ninguno de los que
         // siguen puede parecerse.
@@ -159,9 +276,12 @@ void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
         if (a.normalized == b.normalized) continue;
         final allowed = b.normalized.length <= 7 ? 1 : 2;
         if (lengthGap > allowed) continue;
-        if (_letterGap(a.letters, b.letters) > allowed * 2) continue;
-        if (_withinDistance(a.normalized, b.normalized, allowed)) {
-          add(a, b, MergeCandidateReason.similarSpelling);
+        if (!_lettersClose(a.letters, b.letters, allowed * 2)) continue;
+        if (_withinDistance(a.normalized, b.normalized, allowed) &&
+            add(a, b, MergeCandidateReason.similarSpelling)) {
+          a.spellingPartners++;
+          b.spellingPartners++;
+          if (a.spellingPartners >= _maxSpellingPartners) break;
         }
       }
     }
@@ -183,15 +303,18 @@ bool _containsSequence(List<String> haystack, List<String> needle) {
   return false;
 }
 
-/// La diferencia de letras entre dos firmas. Cada edición cambia la firma en
-/// a lo sumo 2 unidades, así que más que `2 * errores permitidos` descarta
-/// el par sin calcular la distancia.
-int _letterGap(List<int> a, List<int> b) {
+/// Si la diferencia de letras entre dos firmas no pasa de [limit]. Cada
+/// edición cambia la firma en a lo sumo 2 unidades, así que más que
+/// `2 * errores permitidos` descarta el par sin calcular la distancia. Corta
+/// en cuanto se pasa: con nombres que no se parecen, casi nunca hace falta
+/// recorrer las 27 posiciones.
+bool _lettersClose(List<int> a, List<int> b, int limit) {
   var gap = 0;
   for (var i = 0; i < a.length; i++) {
     gap += (a[i] - b[i]).abs();
+    if (gap > limit) return false;
   }
-  return gap;
+  return true;
 }
 
 /// Si la distancia de edición entre [a] y [b] es como mucho [max], contando
@@ -202,11 +325,14 @@ bool _withinDistance(String a, String b, int max) {
   final m = b.length;
   if ((n - m).abs() > max) return false;
 
+  // Tres filas reutilizadas, en vez de una lista nueva por cada letra de
+  // [a]: con miles de comparaciones, las asignaciones dominaban el costo.
   var previous2 = List<int>.filled(m + 1, 0);
   var previous = List<int>.generate(m + 1, (j) => j);
+  var current = List<int>.filled(m + 1, 0);
   for (var i = 1; i <= n; i++) {
-    final current = List<int>.filled(m + 1, 0)..[0] = i;
-    var rowMin = current[0];
+    current[0] = i;
+    var rowMin = i;
     for (var j = 1; j <= m; j++) {
       final cost = a.codeUnitAt(i - 1) == b.codeUnitAt(j - 1) ? 0 : 1;
       var value = previous[j - 1] + cost;
@@ -225,8 +351,10 @@ bool _withinDistance(String a, String b, int max) {
     // Ninguna celda de la fila está dentro del límite: no va a estarlo
     // después.
     if (rowMin > max) return false;
+    final recycled = previous2;
     previous2 = previous;
     previous = current;
+    current = recycled;
   }
   return previous[m] <= max;
 }

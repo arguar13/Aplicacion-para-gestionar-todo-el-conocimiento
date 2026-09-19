@@ -1,5 +1,12 @@
 /// Qué clase de operación de mantenimiento del vocabulario se aplicó.
-enum VocabularyOperationKind { merge, rename, delete, addAlias, removeAlias }
+enum VocabularyOperationKind {
+  merge,
+  rename,
+  delete,
+  deleteCategory,
+  addAlias,
+  removeAlias,
+}
 
 /// Una operación de mantenimiento ya aplicada, con lo necesario para
 /// deshacerla.

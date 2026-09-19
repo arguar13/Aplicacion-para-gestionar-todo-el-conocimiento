@@ -90,3 +90,39 @@ class MergeCandidate {
     return first.label.length <= second.label.length ? first : second;
   }
 }
+
+/// Un conjunto de valores de la misma categoría conectados por candidatos a
+/// fusión: lo que la pantalla muestra en una tarjeta, para fusionar varios en
+/// uno con una sola operación.
+class MergeCandidateGroup {
+  const MergeCandidateGroup({required this.values, required this.pairs});
+
+  /// Los valores del grupo, el más usado primero.
+  final List<VocabularyValueStat> values;
+
+  /// Los pares que los conectan, con su razón.
+  final List<MergeCandidate> pairs;
+
+  String get definitionName => values.first.definitionName;
+
+  /// Cuánto se usa el grupo junto.
+  int get combinedUsage => values.fold(0, (sum, v) => sum + v.usage);
+
+  /// El que conviene conservar: el más usado, y a igual uso el más corto.
+  VocabularyValueStat get suggestedKeep => values.first;
+
+  Set<MergeCandidateReason> get reasons => {for (final p in pairs) p.reason};
+
+  /// Los valores que, respecto de [keepId], casi seguro son el mismo: se
+  /// escriben igual salvo mayúsculas o acentos, o casi igual. Los que solo
+  /// comparten palabras con él ("Guerra" y "Guerra fría") NO entran: pueden
+  /// ser cosas distintas, y fusionarlas es decisión de quien mira.
+  Set<String> probableDuplicatesOf(String keepId) => {
+    for (final pair in pairs)
+      if (pair.reason != MergeCandidateReason.contained)
+        if (pair.first.id == keepId)
+          pair.second.id
+        else if (pair.second.id == keepId)
+          pair.first.id,
+  };
+}

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
+import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -95,6 +97,35 @@ void main() {
       await pumpSettings(tester);
 
       expect(find.text(es.duplicatesSettingsTooltip), findsOneWidget);
+    });
+
+    testWidgets('muestra la opción del vocabulario (F8)', (tester) async {
+      await pumpSettings(tester);
+
+      expect(find.text(es.vocabularySettingsTooltip), findsOneWidget);
+    });
+
+    testWidgets('tocar el vocabulario abre su pantalla, con el router real', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo(RoutePaths.settings);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.vocabularySettingsTooltip));
+      // Sin `pumpAndSettle`: la pantalla real calcula los candidatos en un
+      // isolate (`compute`), que no corre bajo el reloj simulado, y su
+      // indicador de carga anima para siempre. Para probar la navegación
+      // alcanzan unos cuadros.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(VocabularyScreen), findsOneWidget);
+      expect(find.text(es.vocabularyTitle), findsOneWidget);
     });
   });
 }

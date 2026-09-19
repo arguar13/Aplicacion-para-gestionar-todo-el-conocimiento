@@ -606,6 +606,101 @@ void main() {
     );
   });
 
+  group('borrar categorías vacías', () {
+    Future<void> addCategory(String id, String name) => db
+        .into(db.propertyDefinitions)
+        .insert(
+          PropertyDefinitionsCompanion.insert(
+            id: id,
+            name: name,
+            createdAt: now,
+            type: const Value(PropertyValueType.text),
+          ),
+        );
+
+    Future<List<String>> categoryNames() async =>
+        (await db.select(db.propertyDefinitions).get())
+            .map((d) => d.name)
+            .toList()
+          ..sort();
+
+    test('borra varias en una operación y se puede deshacer', () async {
+      await addCategory('c1', 'Vacía uno');
+      await addCategory('c2', 'Vacía dos');
+      final before = await categoryNames();
+
+      final op = opOf(await repository.deleteEmptyCategories(['c1', 'c2']));
+
+      expect(op.kind, VocabularyOperationKind.deleteCategory);
+      expect(op.valueCount, 2);
+      expect(await categoryNames(), ['Fecha del hecho', 'Tema']);
+
+      final undone = await repository.undo(op);
+
+      expect(undone.isRight(), isTrue);
+      expect(await categoryNames(), before);
+    });
+
+    test('una de sistema se rechaza, y no se borra ninguna del lote', () async {
+      await addCategory('c1', 'Vacía');
+      final tema = await temaId();
+      final before = await categoryNames();
+
+      final result = await repository.deleteEmptyCategories(['c1', tema]);
+
+      expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      expect(await categoryNames(), before);
+    });
+
+    test(
+      'una que todavía tiene valores se rechaza, y no se borra ninguna',
+      () async {
+        await addCategory('c1', 'Vacía');
+        await addCategory('c2', 'Con valores');
+        await addValue('v1', 'Algo', definitionId: 'c2');
+        final before = await categoryNames();
+
+        final result = await repository.deleteEmptyCategories(['c1', 'c2']);
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        expect(await categoryNames(), before);
+      },
+    );
+
+    test(
+      'una que ya no existe rechaza el lote, y sin ninguna se rechaza',
+      () async {
+        await addCategory('c1', 'Vacía');
+        final before = await categoryNames();
+
+        expect(
+          (await repository.deleteEmptyCategories(['c1', 'fantasma'])).isLeft(),
+          isTrue,
+        );
+        expect(await categoryNames(), before);
+        expect(
+          (await repository.deleteEmptyCategories(
+            const [],
+          )).getLeft().toNullable(),
+          isA<ValidationFailure>(),
+        );
+      },
+    );
+
+    test(
+      'deshacer se niega si ya existe una categoría con ese nombre',
+      () async {
+        await addCategory('c1', 'Vacía');
+        final op = opOf(await repository.deleteEmptyCategories(['c1']));
+        await addCategory('c2', 'vacía');
+
+        final undone = await repository.undo(op);
+
+        expect(undone.getLeft().toNullable(), isA<ValidationFailure>());
+      },
+    );
+  });
+
   group('estadísticas', () {
     test(
       'cada valor con en cuántos elementos está y cuántos alias tiene',

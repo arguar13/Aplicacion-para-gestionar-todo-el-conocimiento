@@ -220,6 +220,137 @@ void main() {
     });
   });
 
+  group('groupMergeCandidates', () {
+    test('junta los valores conectados por algún par, aunque no todos se '
+        'relacionen entre sí', () {
+      // Roma~Róma (mismo texto), Roma~Roma antigua (contenido): Róma y
+      // Roma antigua no se relacionan directamente.
+      final groups = groupMergeCandidates(
+        findMergeCandidates([
+          stat('a', 'Roma', usage: 5),
+          stat('b', 'Róma', usage: 2),
+          stat('c', 'Roma antigua'),
+        ]),
+      );
+
+      expect(groups, hasLength(1));
+      expect(groups.single.values.map((v) => v.id), ['a', 'b', 'c']);
+    });
+
+    test('grupos distintos quedan separados y ordenados por uso combinado', () {
+      final groups = groupMergeCandidates(
+        findMergeCandidates([
+          stat('a', 'Filosofía'),
+          stat('b', 'filosofia'),
+          stat('c', 'Historia', usage: 20),
+          stat('d', 'historia', usage: 30),
+        ]),
+      );
+
+      expect(groups.map((g) => g.combinedUsage), [50, 2]);
+      expect(groups.first.values.map((v) => v.id), ['d', 'c']);
+    });
+
+    test(
+      'el sugerido es el más usado, y a igual uso el de nombre más corto',
+      () {
+        final byUsage = groupMergeCandidates(
+          findMergeCandidates([
+            stat('a', 'Roma'),
+            stat('b', 'Roma antigua', usage: 9),
+          ]),
+        ).single;
+        expect(byUsage.suggestedKeep.id, 'b');
+
+        final byLength = groupMergeCandidates(
+          findMergeCandidates([
+            stat('a', 'Roma', usage: 2),
+            stat('b', 'Roma antigua', usage: 2),
+          ]),
+        ).single;
+        expect(byLength.suggestedKeep.id, 'a');
+      },
+    );
+
+    test('solo los casi seguro iguales se preseleccionan: los que solo '
+        'comparten palabras no', () {
+      final group = groupMergeCandidates(
+        findMergeCandidates([
+          stat('keep', 'Guerra', usage: 9),
+          stat('acento', 'Guérra'), // mismo texto
+          stat('plural', 'Guerras'), // casi igual
+          stat('fria', 'Guerra fría'), // solo comparte palabras
+        ]),
+      ).single;
+
+      expect(group.suggestedKeep.id, 'keep');
+      expect(group.probableDuplicatesOf('keep'), {'acento', 'plural'});
+    });
+
+    test('las razones del grupo son las de sus pares', () {
+      final group = groupMergeCandidates(
+        findMergeCandidates([
+          stat('a', 'Roma', usage: 5),
+          stat('b', 'Róma'),
+          stat('c', 'Roma antigua'),
+        ]),
+      ).single;
+
+      expect(group.reasons, {
+        MergeCandidateReason.sameText,
+        MergeCandidateReason.contained,
+      });
+      expect(group.definitionName, 'def');
+    });
+
+    test('sin candidatos no hay grupos', () {
+      expect(groupMergeCandidates(const []), isEmpty);
+    });
+
+    test('muchos nombres que comparten la primera palabra se agrupan rápido '
+        'y en un solo grupo', () {
+      // "Guerra aa", "Guerra ab"…: 1.000 nombres de largo realista que
+      // empiezan igual. Es el caso caro del índice por palabra: cada uno
+      // se compara contra todos los que comparten "guerra".
+      String code(int n) =>
+          String.fromCharCodes([0x61 + n ~/ 26 % 26, 0x61 + n % 26]);
+      final input = [
+        for (var i = 0; i < 1000; i++) stat('v$i', 'Guerra ${code(i)}'),
+        stat('base', 'Guerra'),
+      ];
+
+      final watch = Stopwatch()..start();
+      final groups = groupMergeCandidates(findMergeCandidates(input));
+      watch.stop();
+
+      // La medición es el punto de este test: se deja a la vista.
+      // ignore: avoid_print
+      print(
+        'agrupar 1.001 nombres con la misma primera palabra: '
+        '${watch.elapsedMilliseconds} ms',
+      );
+      expect(groups, hasLength(1));
+      expect(groups.single.values, hasLength(1001));
+      expect(watch.elapsedMilliseconds, lessThan(1000));
+    });
+
+    test('la salida está acotada: 1.000 nombres casi iguales entre sí no '
+        'generan cientos de miles de pares', () {
+      String code(int n) =>
+          String.fromCharCodes([0x61 + n ~/ 26 % 26, 0x61 + n % 26]);
+      final input = [
+        for (var i = 0; i < 1000; i++) stat('v$i', 'Guerra ${code(i)}'),
+      ];
+
+      final pairs = findMergeCandidates(input);
+
+      // Cada valor se enlaza con un puñado de parecidos, no con los 999
+      // restantes: 1.000 x 6 pares como mucho, no medio millón.
+      expect(pairs.length, lessThanOrEqualTo(1000 * 6));
+      expect(pairs, isNotEmpty);
+    });
+  });
+
   group('rendimiento con 2.000 valores', () {
     /// Un vocabulario realista: palabras de sílabas, con variantes —plural,
     /// errata, acento, frase más larga— repartidas.
