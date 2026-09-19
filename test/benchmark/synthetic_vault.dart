@@ -1002,8 +1002,12 @@ Future<Map<String, int>> countVaultRows(AppDatabase db) async {
 /// el generador: el nombre del archivo lleva las dos versiones.
 Future<({AppDatabase db, SyntheticVault vault})> openBenchmarkVault({
   VaultProfile profile = const VaultProfile(),
+
+  /// Dónde guardarla. Por defecto `.dart_tool` del proyecto; en un teléfono no
+  /// existe ese directorio y hay que pasar uno de los del sistema.
+  Directory? directory,
 }) async {
-  final dir = Directory('.dart_tool/sinapsis_benchmark')
+  final dir = (directory ?? Directory('.dart_tool/sinapsis_benchmark'))
     ..createSync(recursive: true);
   final name =
       'vault_s${AppDatabase.currentSchemaVersion}_g$kSyntheticVaultVersion'
