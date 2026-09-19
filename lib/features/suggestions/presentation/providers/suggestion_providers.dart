@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
@@ -18,6 +19,7 @@ final suggestionRepositoryProvider = Provider<SuggestionRepository>((ref) {
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     organize: ref.watch(organizeRepositoryProvider),
+    merge: ref.watch(mergeDuplicateItemsUseCaseProvider),
     ids: ref.watch(idGeneratorProvider),
     clock: ref.watch(clockProvider),
   );

@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/duplicates/data/usecases/merge_duplicate_items_usecase_impl.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
@@ -57,6 +58,13 @@ void main() {
       database: db,
       telemetry: MockTelemetryService(),
       organize: organizeRepository,
+      merge: MergeDuplicateItemsUseCaseImpl(
+        database: db,
+        library: libraryRepository,
+        ids: ids,
+        clock: () => now,
+        telemetry: MockTelemetryService(),
+      ),
       ids: ids,
       clock: () => now,
     );

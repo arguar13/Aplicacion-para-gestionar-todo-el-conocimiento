@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 
@@ -56,4 +57,23 @@ sealed class Suggestion with _$Suggestion {
     required DateTime createdAt,
     double? confidence,
   }) = RelationSuggestionEntry;
+
+  /// Dos elementos que podrían ser el mismo — F7, deduplicación. Ver
+  /// `MergeDuplicateItemsUseCase`, a quien `accept()` termina llamando.
+  const factory Suggestion.duplicate({
+    required String id,
+
+    /// El elemento que sobrevive si se acepta — el que ya existía cuando
+    /// se generó la sugerencia, no el recién capturado.
+    required String targetItemId,
+    required String duplicateItemId,
+
+    /// Denormalizado en el payload, no resuelto por join al leer — mismo
+    /// criterio que [PropertySuggestion.definitionName].
+    required String duplicateItemTitle,
+    required DuplicateMatchKind matchKind,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    double? confidence,
+  }) = DuplicateSuggestionEntry;
 }

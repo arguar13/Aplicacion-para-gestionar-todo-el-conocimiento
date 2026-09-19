@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
@@ -13,6 +14,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/duplicates/domain/usecases/merge_duplicate_items_usecase.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
@@ -21,17 +23,20 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     required AppDatabase database,
     required TelemetryService telemetry,
     required OrganizeRepository organize,
+    required MergeDuplicateItemsUseCase merge,
     required IdGenerator ids,
     required Clock clock,
   }) : _db = database,
        _telemetry = telemetry,
        _organize = organize,
+       _merge = merge,
        _ids = ids,
        _clock = clock;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final OrganizeRepository _organize;
+  final MergeDuplicateItemsUseCase _merge;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -171,6 +176,61 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, Suggestion>> createDuplicateSuggestion({
+    required String targetItemId,
+    required String duplicateItemId,
+    required String duplicateItemTitle,
+    required DuplicateMatchKind matchKind,
+    double? confidence,
+  }) async {
+    try {
+      final id = _ids.next();
+      final createdAt = _clock();
+      final payload = jsonEncode({
+        'duplicateItemId': duplicateItemId,
+        'duplicateItemTitle': duplicateItemTitle,
+        'matchKind': matchKind.name,
+      });
+
+      await _db
+          .into(_db.suggestions)
+          .insert(
+            SuggestionsCompanion.insert(
+              id: id,
+              kind: SuggestionKind.duplicate,
+              targetItemId: targetItemId,
+              payloadJson: payload,
+              confidence: Value(confidence),
+              createdAt: createdAt,
+            ),
+          );
+
+      return right(
+        Suggestion.duplicate(
+          id: id,
+          targetItemId: targetItemId,
+          duplicateItemId: duplicateItemId,
+          duplicateItemTitle: duplicateItemTitle,
+          matchKind: matchKind,
+          status: SuggestionStatus.pending,
+          createdAt: createdAt,
+          confidence: confidence,
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.createDuplicateSuggestion',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> accept(String id) async {
     try {
       final row = await (_db.select(
@@ -187,11 +247,10 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       final applied = switch (row.kind) {
         SuggestionKind.property => await _applyProperty(row),
         SuggestionKind.relation => await _applyRelation(row),
-        SuggestionKind.duplicate ||
+        SuggestionKind.duplicate => await _applyDuplicate(row),
         SuggestionKind.flashcard => throw StateError(
           'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
-          'debería existir ninguna fila con este kind. F7 lo agrega '
-          'cuando exista.',
+          'debería existir ninguna fila con este kind.',
         ),
       };
       final failure = applied.getLeft().toNullable();
@@ -228,6 +287,16 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       toItemId: payload['relatedItemId'] as String,
       kind: RelationKind.values.byName(payload['relationKind'] as String),
       note: payload['reason'] as String,
+    );
+  }
+
+  /// `row.targetItemId` es el que queda —el que ya existía cuando se
+  /// generó la sugerencia—, `duplicateItemId` el que se descarta.
+  Future<Either<Failure, Unit>> _applyDuplicate(SuggestionRow row) {
+    final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+    return _merge(
+      keepItemId: row.targetItemId,
+      discardItemId: payload['duplicateItemId'] as String,
     );
   }
 
@@ -286,10 +355,21 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         status: row.status,
         createdAt: row.createdAt,
       ),
-      SuggestionKind.duplicate || SuggestionKind.flashcard => throw StateError(
+      SuggestionKind.duplicate => Suggestion.duplicate(
+        id: row.id,
+        targetItemId: row.targetItemId,
+        duplicateItemId: payload['duplicateItemId'] as String,
+        duplicateItemTitle: payload['duplicateItemTitle'] as String,
+        matchKind: DuplicateMatchKind.values.byName(
+          payload['matchKind'] as String,
+        ),
+        confidence: row.confidence,
+        status: row.status,
+        createdAt: row.createdAt,
+      ),
+      SuggestionKind.flashcard => throw StateError(
         'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
-        'debería existir ninguna fila con este kind. F7 lo agrega cuando '
-        'exista.',
+        'debería existir ninguna fila con este kind.',
       ),
     };
   }

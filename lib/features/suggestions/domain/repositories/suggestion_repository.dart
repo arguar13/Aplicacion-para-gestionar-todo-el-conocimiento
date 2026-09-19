@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -36,11 +37,24 @@ abstract interface class SuggestionRepository {
     double? confidence,
   });
 
+  /// Crea una sugerencia de duplicado nueva, en `status: pending`. Mismo
+  /// criterio que [createRelationSuggestion]: genera `id`/`createdAt`
+  /// internamente. [duplicateItemTitle] queda denormalizado en el
+  /// payload, mismo criterio que `relatedItemTitle`.
+  Future<Either<Failure, Suggestion>> createDuplicateSuggestion({
+    required String targetItemId,
+    required String duplicateItemId,
+    required String duplicateItemTitle,
+    required DuplicateMatchKind matchKind,
+    double? confidence,
+  });
+
   /// Aplica el payload de verdad —vía
   /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`
-  /// para una sugerencia de propiedad, o `OrganizeRepository.
-  /// createRelation` para una de vínculo— y marca `status: accepted`. Si
-  /// la aplicación falla, la sugerencia queda `pending`, reintentable.
+  /// para una sugerencia de propiedad, `OrganizeRepository.createRelation`
+  /// para una de vínculo, o `MergeDuplicateItemsUseCase` para una de
+  /// duplicado— y marca `status: accepted`. Si la aplicación falla, la
+  /// sugerencia queda `pending`, reintentable.
   Future<Either<Failure, Unit>> accept(String id);
 
   /// Marca `status: rejected` sin aplicar nada.

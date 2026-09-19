@@ -80,6 +80,16 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
                 suggestion.kind.icon,
                 suggestion.kind.color(Theme.of(context).colorScheme),
               ),
+              // Nunca debería llegar hasta acá: fusionar borra un elemento,
+              // así que un duplicado pide su propia confirmación explícita
+              // —la pantalla "Posibles duplicados" (D4, F7)—, no un
+              // casillero más entre sugerencias reversibles con un toque.
+              // Quien arma la lista que llega a este diálogo es quien debe
+              // dejarlo afuera (ver `InboxScreen`).
+              DuplicateSuggestionEntry() => throw StateError(
+                'Un duplicado no debería llegar al diálogo de revisión '
+                'genérico.',
+              ),
             };
 
             return CheckboxListTile(

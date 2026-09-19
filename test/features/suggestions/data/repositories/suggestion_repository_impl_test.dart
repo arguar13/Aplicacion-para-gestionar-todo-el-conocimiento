@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -11,7 +12,9 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/duplicates/data/usecases/merge_duplicate_items_usecase_impl.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
 import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repository_impl.dart';
 
@@ -51,6 +54,13 @@ void main() {
       database: db,
       telemetry: MockTelemetryService(),
       organize: organizeRepository,
+      merge: MergeDuplicateItemsUseCaseImpl(
+        database: db,
+        library: libraryRepository,
+        ids: ids,
+        clock: () => now,
+        telemetry: MockTelemetryService(),
+      ),
       ids: ids,
       clock: () => now,
     );
@@ -130,6 +140,33 @@ void main() {
       expect(onlyPending.relatedItemTitle, 'B');
       expect(onlyPending.kind, RelationKind.contradicts);
       expect(onlyPending.reason, 'Dicen lo contrario sobre el mismo hecho.');
+    });
+  });
+
+  group('createDuplicateSuggestion', () {
+    test('inserta en pending y aparece en watchPendingSuggestions', () async {
+      final keep = await seedItem(title: 'El que queda');
+      final discard = await seedItem(title: 'El posible duplicado');
+
+      final result = await repository.createDuplicateSuggestion(
+        targetItemId: keep.id,
+        duplicateItemId: discard.id,
+        duplicateItemTitle: discard.title,
+        matchKind: DuplicateMatchKind.near,
+        confidence: 0.9,
+      );
+
+      expect(result.isRight(), isTrue);
+      final created =
+          result.getRight().toNullable()! as DuplicateSuggestionEntry;
+      expect(created.status, SuggestionStatus.pending);
+      expect(created.confidence, 0.9);
+
+      final pending = await repository.watchPendingSuggestions(keep.id).first;
+      final onlyPending = pending.single as DuplicateSuggestionEntry;
+      expect(onlyPending.duplicateItemId, discard.id);
+      expect(onlyPending.duplicateItemTitle, 'El posible duplicado');
+      expect(onlyPending.matchKind, DuplicateMatchKind.near);
     });
   });
 
@@ -243,6 +280,31 @@ void main() {
       final pending = await repository.watchPendingSuggestions(itemA.id).first;
       expect(pending, isEmpty);
     });
+
+    test(
+      'duplicate: fusiona los dos elementos de verdad y marca accepted',
+      () async {
+        final keep = await seedItem(title: 'El que queda');
+        final discard = await seedItem(title: 'El posible duplicado');
+        final suggestion = (await repository.createDuplicateSuggestion(
+          targetItemId: keep.id,
+          duplicateItemId: discard.id,
+          duplicateItemTitle: discard.title,
+          matchKind: DuplicateMatchKind.exact,
+        )).getRight().toNullable()!;
+
+        final result = await repository.accept(suggestion.id);
+
+        expect(result.isRight(), isTrue);
+        final items = (await libraryRepository.list(
+          const LibraryQuery(),
+        )).getRight().toNullable()!;
+        expect(items.map((i) => i.id), [keep.id]);
+
+        final pending = await repository.watchPendingSuggestions(keep.id).first;
+        expect(pending, isEmpty);
+      },
+    );
 
     test('un id inexistente devuelve left', () async {
       final result = await repository.accept('no-existe');

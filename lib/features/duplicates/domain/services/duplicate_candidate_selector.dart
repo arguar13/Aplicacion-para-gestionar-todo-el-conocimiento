@@ -1,12 +1,6 @@
-/// Qué tan cerca está un [DuplicateCandidate] del elemento semilla.
-enum DuplicateMatchKind {
-  /// `dedupHash` igual: mismo texto normalizado, byte a byte.
-  exact,
+import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 
-  /// Distancia de Hamming del `simhash` dentro del umbral, pero
-  /// `dedupHash` distinto — casi-duplicado, no exacto.
-  near,
-}
+export 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 
 /// Un candidato a ser el mismo elemento que el semilla —fuente o nota,
 /// cualquiera de las dos—.
