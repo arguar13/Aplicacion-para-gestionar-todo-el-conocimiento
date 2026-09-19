@@ -10,6 +10,7 @@ import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -198,6 +199,111 @@ void main() {
       expect(find.text(es.noteMaturitySeed), findsNothing);
       expect(find.text(es.noteMaturityDeveloping), findsNothing);
       expect(find.text(es.noteMaturityMature), findsNothing);
+    });
+
+    Future<NoteMaturity> storedMaturity(String id) async {
+      final row = await (harness.database.select(
+        harness.database.knowledgeNotes,
+      )..where((n) => n.itemId.equals(id))).getSingle();
+      return row.maturity;
+    }
+
+    testWidgets('tocar la insignia ofrece las tres etapas', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byTooltip(es.noteMaturityChangeTooltip));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.noteMaturitySeed), findsWidgets);
+      expect(find.text(es.noteMaturityDeveloping), findsOneWidget);
+      expect(find.text(es.noteMaturityMature), findsOneWidget);
+    });
+
+    testWidgets('elegir otra etapa la guarda y la insignia la muestra', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byTooltip(es.noteMaturityChangeTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.noteMaturityDeveloping));
+      await tester.pumpAndSettle();
+
+      expect(await storedMaturity(id), NoteMaturity.developing);
+      expect(find.text(es.noteMaturityDeveloping), findsOneWidget);
+      expect(find.text(es.noteMaturitySeed), findsNothing);
+    });
+
+    testWidgets('se puede volver a una etapa anterior', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await pumpDetail(tester, id);
+      for (final next in [es.noteMaturityMature, es.noteMaturitySeed]) {
+        await tester.tap(find.byTooltip(es.noteMaturityChangeTooltip));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(next).last);
+        await tester.pumpAndSettle();
+      }
+
+      expect(await storedMaturity(id), NoteMaturity.seed);
+    });
+
+    testWidgets('elegir la misma etapa no cambia nada', (tester) async {
+      final id = await captureAndGetId('un texto cualquiera');
+      await pumpDetail(tester, id);
+
+      await tester.tap(find.byTooltip(es.noteMaturityChangeTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.noteMaturitySeed).last);
+      await tester.pumpAndSettle();
+
+      expect(await storedMaturity(id), NoteMaturity.seed);
+    });
+  });
+
+  group('fuentes citadas', () {
+    testWidgets('una nota que cita una fuente la muestra', (tester) async {
+      final note = await captureAndGetId('una nota que cita');
+      final source = await captureAndGetId('https://ejemplo.org/una-fuente');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: note,
+            toItemId: source,
+            kind: RelationKind.cites,
+          );
+
+      await pumpDetail(tester, note);
+
+      expect(find.text('${es.citedSourcesTitle} (1)'), findsOneWidget);
+      expect(find.text(es.citedSourceDirect), findsOneWidget);
+    });
+
+    testWidgets('una nota que no cita nada no muestra la sección', (
+      tester,
+    ) async {
+      final note = await captureAndGetId('una nota sin fuentes');
+
+      await pumpDetail(tester, note);
+
+      expect(find.textContaining(es.citedSourcesTitle), findsNothing);
+    });
+
+    testWidgets('una fuente no muestra la sección', (tester) async {
+      final note = await captureAndGetId('una nota que cita');
+      final source = await captureAndGetId('https://ejemplo.org/una-fuente');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: note,
+            toItemId: source,
+            kind: RelationKind.cites,
+          );
+
+      await pumpDetail(tester, source);
+
+      expect(find.textContaining(es.citedSourcesTitle), findsNothing);
     });
   });
 

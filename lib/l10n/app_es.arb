@@ -2292,6 +2292,45 @@
   "@relationViewInSource": {
     "description": "Botón de una nota extraída que abre la fuente en el fragmento del que salió."
   },
+  "citedSourcesTitle": "Fuentes citadas",
+  "@citedSourcesTitle": {
+    "description": "Encabezado de la sección del detalle de una nota con las fuentes que cita."
+  },
+  "citedSourceDirect": "Citada directamente",
+  "@citedSourceDirect": {
+    "description": "Una fuente que la nota cita ella misma."
+  },
+  "citedSourceViaNotes": "{count, plural, =1{Vía 1 nota atómica} other{Vía {count} notas atómicas}}",
+  "@citedSourceViaNotes": {
+    "description": "Una fuente de la que salieron notas atómicas que la nota enlaza.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "citedFragmentTime": "minuto {time}",
+  "@citedFragmentTime": {
+    "description": "Dónde de un video o audio salió un fragmento citado.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "citedFragmentPage": "página {page}",
+  "@citedFragmentPage": {
+    "description": "En qué página de un documento salió un fragmento citado.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "noteMaturityChangeTooltip": "Cambiar la madurez",
+  "@noteMaturityChangeTooltip": {
+    "description": "Tooltip de la insignia de madurez de una nota, que abre un menú para cambiarla."
+  },
   "inboxViewFull": "Ver completo",
   "@inboxViewFull": {
     "description": "Botón para ir al detalle completo del elemento que se está triando en la Bandeja de entrada."

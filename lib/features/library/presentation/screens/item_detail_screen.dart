@@ -10,6 +10,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -35,6 +36,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
+import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
@@ -276,6 +278,10 @@ class _DetailBody extends StatelessWidget {
                 const SizedBox(height: 24),
                 LocalGraphPanel(item: item),
                 const SizedBox(height: 24),
+                // De dónde sale lo que dice la nota: no dibuja nada si no cita
+                // ninguna fuente, y lleva su propio espacio de abajo.
+                if (item.source.kind == SourceKind.manualNote)
+                  CitedSourcesSection(noteId: item.id),
                 Consumer(
                   builder: (context, ref, child) {
                     final kind = ref
@@ -320,15 +326,47 @@ class _NoteMaturityChip extends ConsumerWidget {
     final theme = Theme.of(context);
     final color = maturity.color(theme.colorScheme);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        maturity.label(l10n),
-        style: theme.textTheme.labelSmall?.copyWith(color: color),
+    // La madurez la decide quien escribe: tocar la insignia abre las tres
+    // etapas y se puede elegir cualquiera, también volver atrás.
+    return PopupMenuButton<NoteMaturity>(
+      tooltip: l10n.noteMaturityChangeTooltip,
+      initialValue: maturity,
+      onSelected: (selected) => ref
+          .read(inboxRepositoryProvider)
+          .setNoteMaturity(itemId: itemId, maturity: selected),
+      itemBuilder: (context) => [
+        for (final option in NoteMaturity.values)
+          PopupMenuItem(
+            value: option,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: option.color(theme.colorScheme),
+                ),
+                const SizedBox(width: 12),
+                Text(option.label(l10n)),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              maturity.label(l10n),
+              style: theme.textTheme.labelSmall?.copyWith(color: color),
+            ),
+            Icon(Icons.arrow_drop_down, size: 16, color: color),
+          ],
+        ),
       ),
     );
   }
