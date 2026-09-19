@@ -180,10 +180,12 @@ void main() {
       final stored = (await library.findById(note.id)).getRight().toNullable()!;
       final rendition = stored.renditions.whereType<TextRendition>().single;
       expect(rendition.kind, RenditionKind.blocks);
-      // Lo mismo que el editor guarda para una nota sin tocar.
-      expect(decodeContentBlocks(rendition.content), [
-        const ContentBlock.paragraph(text: ''),
-      ]);
+      // Lo mismo que el editor guarda para una nota sin tocar: un párrafo
+      // vacío que lleva la fecha de su nacimiento. Sin ella, lo que se
+      // escriba después en ese párrafo nunca contaría como un bloque nuevo.
+      final blocks = decodeContentBlocks(rendition.content);
+      expect(blocks.map((b) => b.text), ['']);
+      expect(blocks.single.addedAt!.isAtSameMomentAs(note.createdAt), isTrue);
 
       final mirror = await mirrorOf(note.id);
       expect(mirror.noteKind, NoteKind.living);

@@ -26,6 +26,9 @@ void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
 
+  /// La hora de la prueba, como queda en un bloque leído de la base (UTC).
+  final editorNow = DateTime(2026, 9, 11, 10).toUtc();
+
   setUp(() async {
     harness = await LibraryHarness.create();
   });
@@ -64,7 +67,11 @@ void main() {
     final rendition = items.single.renditions.whereType<TextRendition>().single;
     expect(rendition.kind, RenditionKind.blocks);
     expect(decodeContentBlocks(rendition.content), [
-      const ContentBlock.paragraph(text: 'contenido del primer bloque'),
+      // El bloque nació en el editor: lleva la hora del reloj de la prueba.
+      ContentBlock.paragraph(
+        text: 'contenido del primer bloque',
+        addedAt: editorNow,
+      ),
     ]);
   });
 
@@ -167,7 +174,8 @@ void main() {
     expect(items, hasLength(1));
     final rendition = items.single.renditions.whereType<TextRendition>().single;
     expect(decodeContentBlocks(rendition.content), [
-      const ContentBlock.paragraph(text: 'texto editado'),
+      // Es el mismo bloque, editado: conserva la fecha con la que nació.
+      ContentBlock.paragraph(text: 'texto editado', addedAt: editorNow),
     ]);
   });
 
@@ -522,6 +530,182 @@ void main() {
           .get();
       expect(links.map((l) => (l.normalizedTitle, l.toItemId)), [
         ('cartago', null),
+      ]);
+    });
+  });
+
+  group('cuándo nació cada bloque (F9)', () {
+    /// Guarda una nota con [blocks] por el mismo camino que la app y la
+    /// devuelve, lista para abrirse en el editor.
+    Future<KnowledgeItem> seedNote(List<ContentBlock> blocks) async {
+      final item = KnowledgeItem(
+        id: 'nota-vieja',
+        title: 'Una nota de antes',
+        source: Source(
+          id: 'src-vieja',
+          kind: SourceKind.manualNote,
+          capturedAt: DateTime(2026),
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        renditions: [
+          Rendition.text(
+            id: 'rend-vieja',
+            itemId: 'nota-vieja',
+            kind: RenditionKind.blocks,
+            content: encodeContentBlocks(blocks),
+            isPrimary: true,
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
+      final saved = await harness.container
+          .read(libraryRepositoryProvider)
+          .save(item);
+      return saved.getRight().toNullable()!;
+    }
+
+    Future<void> openAndSave(
+      WidgetTester tester,
+      KnowledgeItem item, {
+      Future<void> Function()? edit,
+    }) async {
+      await tester.pumpWidget(
+        harness.wrap(BlockEditorScreen(key: UniqueKey(), existingItem: item)),
+      );
+      await tester.pumpAndSettle();
+      await edit?.call();
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+    }
+
+    Future<List<ContentBlock>> storedBlocks() async {
+      final item =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById('nota-vieja'))
+              .getRight()
+              .toNullable()!;
+      return decodeContentBlocks(
+        item.renditions.whereType<TextRendition>().single.content,
+      );
+    }
+
+    // El 1 de enero: mucho antes de la hora de la prueba.
+    final longAgo = DateTime.utc(2026);
+
+    testWidgets('abrir y guardar una nota vieja sin tocarla no le inventa '
+        'fechas a sus bloques', (tester) async {
+      final note = await seedNote(const [
+        ContentBlock.paragraph(text: 'uno'),
+        ContentBlock.paragraph(text: 'dos'),
+      ]);
+
+      await openAndSave(tester, note);
+
+      expect(await storedBlocks(), const [
+        ContentBlock.paragraph(text: 'uno'),
+        ContentBlock.paragraph(text: 'dos'),
+      ]);
+    });
+
+    testWidgets('agregar un bloque a una nota vieja lo sella con la hora de '
+        'ahora y deja los de antes como estaban', (tester) async {
+      final note = await seedNote(const [
+        ContentBlock.paragraph(text: 'uno'),
+        ContentBlock.paragraph(text: 'dos'),
+      ]);
+
+      await openAndSave(
+        tester,
+        note,
+        edit: () async {
+          // "Agregar" pone el bloque nuevo justo debajo del primero.
+          await tester.tap(find.byTooltip(es.blocksAddBlock).first);
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byType(TextField).at(2), 'nuevo');
+        },
+      );
+
+      expect(await storedBlocks(), [
+        const ContentBlock.paragraph(text: 'uno'),
+        ContentBlock.paragraph(text: 'nuevo', addedAt: editorNow),
+        const ContentBlock.paragraph(text: 'dos'),
+      ]);
+    });
+
+    testWidgets('escribir en un bloque que ya estaba no lo hace nuevo', (
+      tester,
+    ) async {
+      final note = await seedNote([
+        ContentBlock.paragraph(text: 'fechado', addedAt: longAgo),
+        const ContentBlock.paragraph(text: 'sin fecha'),
+      ]);
+
+      await openAndSave(
+        tester,
+        note,
+        edit: () async {
+          await tester.enterText(find.byType(TextField).at(1), 'fechado, más');
+          await tester.enterText(
+            find.byType(TextField).at(2),
+            'sin fecha, más',
+          );
+        },
+      );
+
+      expect(await storedBlocks(), [
+        ContentBlock.paragraph(text: 'fechado, más', addedAt: longAgo),
+        const ContentBlock.paragraph(text: 'sin fecha, más'),
+      ]);
+    });
+
+    testWidgets('cambiarle el tipo a un bloque conserva su fecha', (
+      tester,
+    ) async {
+      final note = await seedNote([
+        ContentBlock.paragraph(text: 'un párrafo', addedAt: longAgo),
+      ]);
+
+      await openAndSave(
+        tester,
+        note,
+        edit: () async {
+          await tester.tap(find.byTooltip(es.blocksChangeType));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(es.blocksTypeHeading));
+          await tester.pumpAndSettle();
+        },
+      );
+
+      expect(await storedBlocks(), [
+        ContentBlock.heading(text: 'un párrafo', addedAt: longAgo),
+      ]);
+    });
+
+    testWidgets('marcar un casillero conserva la fecha del bloque', (
+      tester,
+    ) async {
+      final note = await seedNote([
+        ContentBlock.checklistItem(text: 'hacer algo', addedAt: longAgo),
+      ]);
+
+      await openAndSave(
+        tester,
+        note,
+        edit: () async {
+          await tester.tap(find.byType(Checkbox));
+          await tester.pumpAndSettle();
+        },
+      );
+
+      expect(await storedBlocks(), [
+        ContentBlock.checklistItem(
+          text: 'hacer algo',
+          checked: true,
+          addedAt: longAgo,
+        ),
       ]);
     });
   });

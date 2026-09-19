@@ -67,7 +67,103 @@ void main() {
     });
   });
 
+  group('addedAt: cuándo se agregó el bloque', () {
+    final added = DateTime.utc(2026, 9, 19, 10, 30);
+
+    test('cada tipo de bloque conserva su fecha en el viaje de ida y '
+        'vuelta', () {
+      final blocks = [
+        ContentBlock.paragraph(text: 'a', addedAt: added),
+        ContentBlock.heading(text: 'b', level: 2, addedAt: added),
+        ContentBlock.bulletItem(text: 'c', addedAt: added),
+        ContentBlock.numberedItem(text: 'd', addedAt: added),
+        ContentBlock.checklistItem(text: 'e', checked: true, addedAt: added),
+        ContentBlock.quote(text: 'f', addedAt: added),
+      ];
+
+      final decoded = decodeContentBlocks(encodeContentBlocks(blocks));
+
+      expect(decoded, blocks);
+      expect(decoded.map((b) => b.addedAt), everyElement(added));
+    });
+
+    test('se guarda en UTC: la misma fecha no depende de dónde se guardó', () {
+      final local = DateTime(2026, 9, 19, 10, 30);
+
+      final json = encodeContentBlocks([
+        ContentBlock.paragraph(text: 'a', addedAt: local),
+      ]);
+
+      expect(json, contains(local.toUtc().toIso8601String()));
+      final decoded = decodeContentBlocks(json).single.addedAt!;
+      expect(decoded.isAtSameMomentAs(local), isTrue);
+    });
+
+    test('un bloque sin fecha no escribe la clave: una nota que no se toca '
+        'guarda el mismo JSON de siempre', () {
+      const blocks = [ContentBlock.paragraph(text: 'a')];
+
+      expect(encodeContentBlocks(blocks), '[{"type":"paragraph","text":"a"}]');
+    });
+
+    test('un bloque de antes, sin fecha, se lee con null', () {
+      final decoded = decodeContentBlocks(
+        '[{"type":"heading","text":"x","level":2}]',
+      );
+
+      expect(decoded.single.addedAt, isNull);
+    });
+
+    test('una fecha que no se puede leer degrada a null y la nota sigue '
+        'abriéndose', () {
+      final decoded = decodeContentBlocks(
+        '[{"type":"paragraph","text":"x","addedAt":"ayer"}]',
+      );
+
+      expect(decoded, [const ContentBlock.paragraph(text: 'x')]);
+    });
+
+    test('addedAt se lee igual desde la base sin conocer el tipo', () {
+      final blocks = [
+        ContentBlock.paragraph(text: 'a', addedAt: added),
+        ContentBlock.quote(text: 'b', addedAt: added),
+        const ContentBlock.bulletItem(text: 'c'),
+      ];
+
+      expect(blocks.map((b) => b.addedAt), [added, added, null]);
+    });
+
+    test('copyWith cambia solo la fecha y conserva el resto', () {
+      const heading = ContentBlock.heading(text: 'x', level: 2);
+
+      final stamped = heading.copyWith(addedAt: added);
+
+      expect(
+        stamped,
+        ContentBlock.heading(text: 'x', level: 2, addedAt: added),
+      );
+    });
+  });
+
   group('tryDecodeContentBlocks', () {
+    test('devuelve null si la fecha del bloque no es texto', () {
+      expect(
+        tryDecodeContentBlocks(
+          '[{"type": "paragraph", "text": "x", "addedAt": 5}]',
+        ),
+        isNull,
+      );
+    });
+
+    test('lee la fecha igual que decodeContentBlocks', () {
+      final decoded = tryDecodeContentBlocks(
+        '[{"type":"paragraph","text":"x",'
+        '"addedAt":"2026-09-19T10:30:00.000Z"}]',
+      );
+
+      expect(decoded!.single.addedAt, DateTime.utc(2026, 9, 19, 10, 30));
+    });
+
     test('lee lo mismo que decodeContentBlocks cuando los bloques son '
         'legibles', () {
       const blocks = [

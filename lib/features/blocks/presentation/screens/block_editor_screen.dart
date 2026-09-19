@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
@@ -53,19 +54,36 @@ class _BlockEntry {
   final TextEditingController controller;
   final Key key;
 
+  /// El bloque como se guarda: con el texto de ahora y la fecha en que nació,
+  /// que no cambia por escribir en él ni por cambiarle el tipo.
   ContentBlock toBlock() => switch (type) {
-    ParagraphBlock() => ContentBlock.paragraph(text: controller.text),
-    HeadingBlock(:final level) => ContentBlock.heading(
+    ParagraphBlock(:final addedAt) => ContentBlock.paragraph(
+      text: controller.text,
+      addedAt: addedAt,
+    ),
+    HeadingBlock(:final level, :final addedAt) => ContentBlock.heading(
       text: controller.text,
       level: level,
+      addedAt: addedAt,
     ),
-    BulletItemBlock() => ContentBlock.bulletItem(text: controller.text),
-    NumberedItemBlock() => ContentBlock.numberedItem(text: controller.text),
-    ChecklistItemBlock(:final checked) => ContentBlock.checklistItem(
+    BulletItemBlock(:final addedAt) => ContentBlock.bulletItem(
       text: controller.text,
-      checked: checked,
+      addedAt: addedAt,
     ),
-    QuoteBlock() => ContentBlock.quote(text: controller.text),
+    NumberedItemBlock(:final addedAt) => ContentBlock.numberedItem(
+      text: controller.text,
+      addedAt: addedAt,
+    ),
+    ChecklistItemBlock(:final checked, :final addedAt) =>
+      ContentBlock.checklistItem(
+        text: controller.text,
+        checked: checked,
+        addedAt: addedAt,
+      ),
+    QuoteBlock(:final addedAt) => ContentBlock.quote(
+      text: controller.text,
+      addedAt: addedAt,
+    ),
   };
 
   void dispose() => controller.dispose();
@@ -75,6 +93,10 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
   /// Cuánto se espera sin que se escriba nada antes de revisar si los
   /// `[[ ]]` tienen destino: una consulta por cada letra sería trabajo tirado.
   static const _linkCheckDelay = Duration(milliseconds: 500);
+
+  /// El reloj, tomado al abrir la pantalla: los bloques que nacen mientras se
+  /// edita se sellan con la hora inyectada, no con `DateTime.now()`.
+  late final Clock _now;
 
   late final _titleController = TextEditingController(
     text: widget.existingItem?.title ?? '',
@@ -111,14 +133,21 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         : decodeContentBlocks(existing.content);
 
     return (blocks.isEmpty
-          ? [_BlockEntry(const ContentBlock.paragraph(text: ''))]
+          ? [_BlockEntry(_newBlock())]
           : blocks.map(_BlockEntry.new).toList())
       ..forEach(_track);
   }
 
+  /// Un párrafo vacío que nace ahora: lleva la fecha de su nacimiento. Es lo
+  /// que permite saber, mucho después, qué notas crecieron esta semana. Los
+  /// bloques que ya estaban en la nota conservan la suya —o ninguna, si son de
+  /// antes de que se guardara—: abrir una nota vieja no los hace nuevos.
+  ContentBlock _newBlock() => ContentBlock.paragraph(text: '', addedAt: _now());
+
   @override
   void initState() {
     super.initState();
+    _now = ref.read(clockProvider);
     // El título también cuenta: un `[[ ]]` igual al propio título de una nota
     // que aún no se guardó no es un enlace a algo que falta.
     _titleController.addListener(_scheduleLinkCheck);
@@ -138,7 +167,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       entry.controller.addListener(_scheduleLinkCheck);
 
   void _addBlockAfter(int index) {
-    final entry = _BlockEntry(const ContentBlock.paragraph(text: ''));
+    final entry = _BlockEntry(_newBlock());
     _track(entry);
     setState(() => _blocks.insert(index + 1, entry));
   }
@@ -233,7 +262,11 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
 
   void _changeType(int index, ContentBlock Function(String text) build) {
     setState(() {
-      _blocks[index].type = build(_blocks[index].controller.text);
+      final entry = _blocks[index];
+      // Cambiarle el tipo a un bloque no lo hace nuevo: conserva su fecha.
+      entry.type = build(
+        entry.controller.text,
+      ).copyWith(addedAt: entry.type.addedAt);
     });
   }
 

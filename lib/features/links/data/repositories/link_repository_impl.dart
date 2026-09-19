@@ -208,14 +208,15 @@ class LinkRepositoryImpl implements LinkRepository {
         createdAt: now,
         updatedAt: now,
         // Lo mismo que escribe el editor para una nota sin tocar: un párrafo
-        // vacío, así que abrirla después en el editor no tiene nada distinto.
+        // vacío, con la fecha de su nacimiento —si no la llevara, lo que se
+        // escriba en él nunca contaría como un bloque nuevo—.
         renditions: [
           Rendition.text(
             id: _ids.next(),
             itemId: itemId,
             kind: RenditionKind.blocks,
-            content: encodeContentBlocks(const [
-              ContentBlock.paragraph(text: ''),
+            content: encodeContentBlocks([
+              ContentBlock.paragraph(text: '', addedAt: now),
             ]),
             isPrimary: true,
             createdAt: now,
