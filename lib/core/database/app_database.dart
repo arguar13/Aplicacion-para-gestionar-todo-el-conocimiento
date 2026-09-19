@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.d
 import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
 import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items_v10.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
+import 'package:sinapsis/core/database/pre_migration_backup.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
@@ -48,6 +49,7 @@ import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sqlite3/common.dart' show CommonDatabase;
 
 part 'app_database.g.dart';
 
@@ -92,6 +94,12 @@ class AppDatabase extends _$AppDatabase {
   /// vienen empaquetados —`sqlite3.wasm` y el worker—, traídos con
   /// `tool/fetch_sqlite3_wasm.sh` (ver la decisión 9 en
   /// docs/arquitectura.md). Fuera de la web, `web:` no se usa para nada.
+  ///
+  /// Antes de que drift migre una base de una versión anterior, `setup` la
+  /// respalda (ver `backupBeforeMigration`). Es el único momento posible:
+  /// dentro de `onUpgrade` ya hay una transacción abierta y `VACUUM INTO` no
+  /// puede correr en una. En web no hay archivo que copiar y `native` se
+  /// ignora: ahí la migración, al ser transaccional, revierte si falla.
   AppDatabase.open()
     : super(
         driftDatabase(
@@ -100,11 +108,17 @@ class AppDatabase extends _$AppDatabase {
             sqlite3Wasm: Uri.parse('sqlite3.wasm'),
             driftWorker: Uri.parse('drift_worker.js'),
           ),
+          native: const DriftNativeOptions(setup: _backupBeforeMigrating),
         ),
       );
 
+  /// La versión del esquema. Es una constante y no solo el getter porque el
+  /// respaldo previo a migrar corre antes de que exista la instancia, y
+  /// necesita saber a qué versión está por migrarse la base.
+  static const currentSchemaVersion = 13;
+
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => currentSchemaVersion;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -305,4 +319,15 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(trigger);
     }
   }
+}
+
+/// El `setup` de la conexión nativa: corre sobre el SQLite crudo, antes de
+/// que drift ejecute migración alguna.
+///
+/// Función de nivel superior y no un cierre porque drift la envía al isolate
+/// que hospeda la base, y solo se pueden enviar funciones que no capturan
+/// estado. Si el respaldo falla lanza, y drift cierra la base y relanza: la
+/// app no abre la bóveda en vez de migrarla sin red de seguridad.
+void _backupBeforeMigrating(CommonDatabase db) {
+  backupBeforeMigration(db, targetVersion: AppDatabase.currentSchemaVersion);
 }
