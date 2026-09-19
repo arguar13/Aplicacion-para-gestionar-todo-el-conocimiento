@@ -70,11 +70,18 @@ abstract interface class OrganizeRepository {
   /// salvaguarda, pero comprobarlas acá permite devolver un mensaje que
   /// explica qué pasó, en vez de la excepción cruda de una restricción de la
   /// base.
+  ///
+  /// [sourceCharStart] y [sourceCharEnd] son solo para una extracción
+  /// (`extractedFrom`): de dónde a dónde del texto de la fuente salió el
+  /// fragmento. Van los dos o ninguno, con `0 <= start < end`; con eso la
+  /// nota extraída puede llevar de vuelta al lugar exacto de la fuente.
   Future<Either<Failure, Unit>> createRelation({
     required String fromItemId,
     required String toItemId,
     required RelationKind kind,
     String? note,
+    int? sourceCharStart,
+    int? sourceCharEnd,
   });
 
   /// Deshace un vínculo.

@@ -169,6 +169,9 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
           fromItemId: newItem.id,
           toItemId: widget.itemId,
           kind: RelationKind.extractedFrom,
+          // De dónde salió: con esto la nota lleva de vuelta al lugar exacto.
+          sourceCharStart: startOffset,
+          sourceCharEnd: endOffset,
         );
     if (!mounted) return;
 

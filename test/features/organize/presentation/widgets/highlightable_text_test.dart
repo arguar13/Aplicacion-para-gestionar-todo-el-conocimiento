@@ -164,6 +164,8 @@ void main() {
         fromItemId: any(named: 'fromItemId'),
         toItemId: any(named: 'toItemId'),
         kind: any(named: 'kind'),
+        sourceCharStart: any(named: 'sourceCharStart'),
+        sourceCharEnd: any(named: 'sourceCharEnd'),
       ),
     ).thenAnswer((_) async => right(unit));
 
@@ -184,11 +186,15 @@ void main() {
     await tester.tap(find.text('Extract as note'));
     await tester.pumpAndSettle();
 
+    // Guarda de dónde de la fuente salió el fragmento: "Conocemos" son los
+    // primeros nueve caracteres.
     verify(
       () => repository.createRelation(
         fromItemId: 'item-extracted',
         toItemId: 'item-1',
         kind: RelationKind.extractedFrom,
+        sourceCharStart: 0,
+        sourceCharEnd: 9,
       ),
     ).called(1);
     expect(find.textContaining('Conocemos'), findsWidgets);

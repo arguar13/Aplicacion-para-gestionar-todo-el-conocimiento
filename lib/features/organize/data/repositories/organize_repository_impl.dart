@@ -167,11 +167,33 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String toItemId,
     required RelationKind kind,
     String? note,
+    int? sourceCharStart,
+    int? sourceCharEnd,
   }) async {
     if (fromItemId == toItemId) {
       return left(
         const Failure.validation(
           message: 'Un elemento no puede vincularse consigo mismo.',
+        ),
+      );
+    }
+
+    if ((sourceCharStart == null) != (sourceCharEnd == null)) {
+      return left(
+        const Failure.validation(
+          message: 'El rango de la fuente necesita su inicio y su fin.',
+        ),
+      );
+    }
+    if (sourceCharStart != null &&
+        (kind != RelationKind.extractedFrom ||
+            sourceCharStart < 0 ||
+            sourceCharEnd! <= sourceCharStart)) {
+      return left(
+        const Failure.validation(
+          message:
+              'El rango de la fuente solo va en una extracción, y tiene que '
+              'ir de 0 en adelante con el fin después del inicio.',
         ),
       );
     }
@@ -201,6 +223,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
               toItemId: toItemId,
               kind: kind,
               note: Value(_nonEmpty(note)),
+              sourceCharStart: Value(sourceCharStart),
+              sourceCharEnd: Value(sourceCharEnd),
               createdAt: _clock(),
             ),
           );
@@ -368,6 +392,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         otherItemId: otherItem.id,
         otherItemTitle: otherItem.title,
         otherItemSourceKind: otherSource.kind,
+        sourceCharStart: relation.sourceCharStart,
+        sourceCharEnd: relation.sourceCharEnd,
       );
     }).toList();
   }

@@ -37,5 +37,13 @@ sealed class ItemRelation with _$ItemRelation {
     required String otherItemTitle,
     required SourceKind otherItemSourceKind,
     String? note,
+
+    /// Solo en una extracción (`extractedFrom`): de dónde a dónde del texto de
+    /// la fuente salió el fragmento, en posiciones del contenido de la forma de
+    /// texto de la que se extrajo —las mismas que usan los resaltados—. `null`
+    /// en cualquier otro vínculo y en las extracciones anteriores a que se
+    /// guardara.
+    int? sourceCharStart,
+    int? sourceCharEnd,
   }) = _ItemRelation;
 }

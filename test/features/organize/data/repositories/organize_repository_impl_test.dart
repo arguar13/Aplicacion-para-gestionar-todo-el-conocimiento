@@ -425,6 +425,139 @@ void main() {
       expect(fromB.single.otherItemTitle, 'El artículo original');
     });
 
+    group('de dónde salió una extracción', () {
+      Future<(KnowledgeItem, KnowledgeItem)> pair() async => (
+        await seedItem(title: 'La nota'),
+        await seedItem(title: 'La fuente'),
+      );
+
+      test('una extracción guarda el rango de la fuente y lo devuelve por los '
+          'dos lados', () async {
+        final (note, source) = await pair();
+
+        final created = await repository.createRelation(
+          fromItemId: note.id,
+          toItemId: source.id,
+          kind: RelationKind.extractedFrom,
+          sourceCharStart: 120,
+          sourceCharEnd: 180,
+        );
+
+        expect(created.isRight(), isTrue);
+        for (final id in [note.id, source.id]) {
+          final relation =
+              (await repository.watchRelationsForItem(id).first).single;
+          expect(relation.sourceCharStart, 120, reason: id);
+          expect(relation.sourceCharEnd, 180, reason: id);
+        }
+      });
+
+      test(
+        'una extracción sin rango sigue siendo válida y queda sin rango',
+        () async {
+          final (note, source) = await pair();
+
+          await repository.createRelation(
+            fromItemId: note.id,
+            toItemId: source.id,
+            kind: RelationKind.extractedFrom,
+          );
+
+          final relation =
+              (await repository.watchRelationsForItem(note.id).first).single;
+          expect(relation.sourceCharStart, isNull);
+          expect(relation.sourceCharEnd, isNull);
+        },
+      );
+
+      test('el rango queda en la fila de la relación', () async {
+        final (note, source) = await pair();
+
+        await repository.createRelation(
+          fromItemId: note.id,
+          toItemId: source.id,
+          kind: RelationKind.extractedFrom,
+          sourceCharStart: 5,
+          sourceCharEnd: 9,
+        );
+
+        final row = await db.select(db.relations).getSingle();
+        expect(row.sourceCharStart, 5);
+        expect(row.sourceCharEnd, 9);
+      });
+
+      test('el inicio sin el fin, o al revés, se rechaza', () async {
+        final (note, source) = await pair();
+
+        final onlyStart = await repository.createRelation(
+          fromItemId: note.id,
+          toItemId: source.id,
+          kind: RelationKind.extractedFrom,
+          sourceCharStart: 5,
+        );
+        final onlyEnd = await repository.createRelation(
+          fromItemId: note.id,
+          toItemId: source.id,
+          kind: RelationKind.extractedFrom,
+          sourceCharEnd: 9,
+        );
+
+        expect(onlyStart.getLeft().toNullable(), isA<ValidationFailure>());
+        expect(onlyEnd.getLeft().toNullable(), isA<ValidationFailure>());
+        expect(await db.select(db.relations).get(), isEmpty);
+      });
+
+      test('un rango vacío, invertido o negativo se rechaza', () async {
+        final (note, source) = await pair();
+
+        for (final (start, end) in [(5, 5), (9, 5), (-1, 4)]) {
+          final result = await repository.createRelation(
+            fromItemId: note.id,
+            toItemId: source.id,
+            kind: RelationKind.extractedFrom,
+            sourceCharStart: start,
+            sourceCharEnd: end,
+          );
+
+          expect(
+            result.getLeft().toNullable(),
+            isA<ValidationFailure>(),
+            reason: '($start, $end)',
+          );
+        }
+        expect(await db.select(db.relations).get(), isEmpty);
+      });
+
+      test('el rango solo va en una extracción', () async {
+        final (a, b) = await pair();
+
+        final result = await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.cites,
+          sourceCharStart: 1,
+          sourceCharEnd: 2,
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+      });
+
+      test('los vínculos que no son extracciones no tienen rango', () async {
+        final (a, b) = await pair();
+
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.relatedTo,
+        );
+
+        final relation =
+            (await repository.watchRelationsForItem(a.id).first).single;
+        expect(relation.sourceCharStart, isNull);
+        expect(relation.sourceCharEnd, isNull);
+      });
+    });
+
     test('un elemento no puede vincularse consigo mismo', () async {
       final a = await seedItem();
 
