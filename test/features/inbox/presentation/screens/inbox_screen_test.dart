@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -152,6 +153,31 @@ void main() {
               .toNullable()!;
       expect(reloaded.properties, hasLength(1));
       expect(reloaded.properties.single.value, 'Roma');
+    });
+  });
+
+  group('revisión en lote (F9)', () {
+    testWidgets('sin sugerencias de propiedad no ofrece la revisión en lote', (
+      tester,
+    ) async {
+      await seedProcessedSource();
+
+      await pumpInbox(tester);
+
+      expect(find.byIcon(Icons.checklist), findsNothing);
+    });
+
+    testWidgets('con sugerencias de toda la bóveda la ofrece, con cuántas '
+        'hay', (tester) async {
+      final first = await seedProcessedSource(title: 'Uno');
+      final second = await seedProcessedSource(title: 'Dos');
+      await seedSuggestion(first);
+      await seedSuggestion(second);
+      await seedSuggestion(second, category: 'Época', value: 'Siglo I');
+
+      await pumpInbox(tester);
+
+      expect(find.byTooltip(es.suggestionReviewOpenTooltip(3)), findsOneWidget);
     });
   });
 }

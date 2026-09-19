@@ -59,6 +59,10 @@ abstract final class RoutePaths {
   /// mantenimiento de la bóveda, no un destino de navegación.
   static const brokenLinks = '/broken-links';
 
+  /// La revisión en lote de las sugerencias de propiedad de toda la bóveda
+  /// (F9). Ruta plana, mismo criterio que [brokenLinks].
+  static const suggestionReview = '/suggestion-review';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -112,6 +116,7 @@ abstract final class RouteNames {
   static const vocabulary = 'vocabulary';
   static const vocabularyCategory = 'vocabulary-category';
   static const brokenLinks = 'broken-links';
+  static const suggestionReview = 'suggestion-review';
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';

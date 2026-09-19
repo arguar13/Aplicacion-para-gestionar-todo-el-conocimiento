@@ -24,6 +24,7 @@ import 'package:sinapsis/features/relations/presentation/screens/embedding_backf
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
+import 'package:sinapsis/features/suggestions/presentation/screens/property_suggestions_review_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -116,6 +117,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.brokenLinks,
         name: RouteNames.brokenLinks,
         builder: (context, state) => const BrokenLinksScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.suggestionReview,
+        name: RouteNames.suggestionReview,
+        builder: (context, state) => const PropertySuggestionsReviewScreen(),
       ),
       GoRoute(
         path: RoutePaths.chatModel,

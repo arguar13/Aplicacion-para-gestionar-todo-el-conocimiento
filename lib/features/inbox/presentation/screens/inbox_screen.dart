@@ -17,6 +17,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/widgets/review_suggestions_action.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -39,6 +40,7 @@ class InboxScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.inboxTitle),
         actions: [
+          const ReviewSuggestionsAction(),
           if (pendingIds != null && pendingIds.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 16),

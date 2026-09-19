@@ -1883,6 +1883,84 @@
   "@suggestionsApplySelected": {
     "description": "Botón para aplicar las sugerencias de propiedades que quedaron tildadas."
   },
+  "suggestionReviewTitle": "Revisar sugerencias",
+  "@suggestionReviewTitle": {
+    "description": "Título de la pantalla que revisa en lote las sugerencias de propiedad de toda la bóveda."
+  },
+  "suggestionReviewOpenTooltip": "{count, plural, =1{Revisar 1 sugerencia} other{Revisar {count} sugerencias}}",
+  "@suggestionReviewOpenTooltip": {
+    "description": "Tooltip del acceso a la revisión en lote, con cuántas sugerencias hay pendientes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestionReviewEmpty": "No hay sugerencias pendientes.",
+  "@suggestionReviewEmpty": {
+    "description": "Estado vacío de la revisión en lote."
+  },
+  "suggestionReviewLoadError": "No se pudieron leer las sugerencias.",
+  "@suggestionReviewLoadError": {
+    "description": "Mensaje cuando falla la lectura de las sugerencias pendientes."
+  },
+  "suggestionReviewHint": "No se aplica nada que no marques. Mirá cada elemento antes: el modelo puede equivocarse.",
+  "@suggestionReviewHint": {
+    "description": "Aviso al tope de la revisión en lote: nada se aplica sin que el usuario lo marque."
+  },
+  "suggestionReviewGroupCount": "{count, plural, =1{1 elemento} other{{count} elementos}}",
+  "@suggestionReviewGroupCount": {
+    "description": "Subtítulo de un grupo de sugerencias: cuántos elementos parecen tener ese valor.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestionReviewSelectGroup": "Marcar todos los elementos de este grupo",
+  "@suggestionReviewSelectGroup": {
+    "description": "Etiqueta accesible del casillero que marca todos los elementos de un grupo."
+  },
+  "suggestionReviewOpenItem": "Abrir el elemento",
+  "@suggestionReviewOpenItem": {
+    "description": "Tooltip del botón que abre el detalle de un elemento desde la revisión en lote."
+  },
+  "suggestionReviewAccept": "{count, plural, =1{Aceptar 1} other{Aceptar {count}}}",
+  "@suggestionReviewAccept": {
+    "description": "Botón que aplica las sugerencias marcadas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestionReviewReject": "{count, plural, =1{Descartar 1} other{Descartar {count}}}",
+  "@suggestionReviewReject": {
+    "description": "Botón que descarta las sugerencias marcadas sin aplicar nada.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestionReviewAccepted": "{count, plural, =1{Se aceptó 1 sugerencia} other{Se aceptaron {count} sugerencias}}",
+  "@suggestionReviewAccepted": {
+    "description": "Aviso tras aplicar en lote las sugerencias marcadas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestionReviewRejected": "{count, plural, =1{Se descartó 1 sugerencia} other{Se descartaron {count} sugerencias}}",
+  "@suggestionReviewRejected": {
+    "description": "Aviso tras descartar en lote las sugerencias marcadas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "navInbox": "Bandeja",
   "@navInbox": {
     "description": "Etiqueta corta del destino de la Bandeja de entrada en la navegación principal."
