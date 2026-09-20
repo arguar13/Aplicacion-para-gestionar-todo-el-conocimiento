@@ -21,9 +21,24 @@ sealed class Flashcard with _$Flashcard {
     @Default(0) int intervalDays,
     @Default(0) int repetitions,
     DateTime? lastReviewedAt,
+
+    /// El fragmento de la fuente del que salió la tarjeta (F11): el rango de
+    /// caracteres de la forma principal del elemento, y el chunk que lo
+    /// contiene. `null` en las tarjetas escritas a mano y en las que ya
+    /// existían.
+    ///
+    /// El rango es lo que vale para volver a la fuente: el id de un chunk
+    /// desaparece cuando el texto se rehace y sus chunks se reemplazan; el
+    /// rango sigue señalando el mismo lugar mientras el texto no cambie.
+    String? sourceChunkId,
+    int? sourceCharStart,
+    int? sourceCharEnd,
   }) = _Flashcard;
 
   const Flashcard._();
+
+  /// Si se sabe de qué fragmento de la fuente salió.
+  bool get hasSourceRange => sourceCharStart != null && sourceCharEnd != null;
 
   /// Si ya toca repasarla.
   bool isDue(DateTime now) => !dueAt.isAfter(now);

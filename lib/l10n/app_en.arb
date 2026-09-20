@@ -2317,6 +2317,10 @@
   "@flashcardsTitle": {
     "description": "Encabezado de la sección de tarjetas en el detalle de un elemento."
   },
+  "flashcardsViewSource": "View in the source",
+  "@flashcardsViewSource": {
+    "description": "Botón de una tarjeta que abre la fuente en el fragmento del que salió."
+  },
   "flashcardsAddAction": "Add flashcard",
   "@flashcardsAddAction": {
     "description": "Botón para agregar una tarjeta a mano."

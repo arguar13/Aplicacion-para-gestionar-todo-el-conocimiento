@@ -4,8 +4,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -549,6 +552,160 @@ void main() {
       await repository.delete(id);
 
       expect(await log(), isEmpty);
+    });
+  });
+
+  group('el fragmento de la fuente de una tarjeta (F11)', () {
+    const text = 'Primer párrafo de la fuente.\n\nSegundo párrafo, más largo.';
+
+    /// Una fuente con texto, guardada por el repositorio para que tenga sus
+    /// chunks. Devuelve su id y los chunks en orden.
+    Future<(String, List<ChunkRow>)> seedSource() async {
+      final n = counter++;
+      final id = 'item-$n';
+      await libraryRepository.save(
+        KnowledgeItem(
+          id: id,
+          title: 'Fuente $n',
+          source: Source(
+            id: 'src-$n',
+            kind: SourceKind.webPage,
+            capturedAt: now,
+            url: 'https://ejemplo.org/$n',
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+          renditions: [
+            Rendition.text(
+              id: 'rend-$n',
+              itemId: id,
+              kind: RenditionKind.markdown,
+              content: text,
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+      final chunks =
+          await (db.select(db.chunks)
+                ..where((c) => c.itemId.equals(id))
+                ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
+              .get();
+      return (id, chunks);
+    }
+
+    Future<Flashcard> createWith(String itemId, {int? start, int? end}) async =>
+        (await repository.create(
+          itemId: itemId,
+          front: 'a',
+          back: 'b',
+          sourceCharStart: start,
+          sourceCharEnd: end,
+        )).getRight().toNullable()!;
+
+    test(
+      'una tarjeta con rango guarda el rango y el chunk que lo contiene',
+      () async {
+        final (id, chunks) = await seedSource();
+        expect(chunks.length, greaterThan(1));
+        final second = chunks[1];
+
+        final card = await createWith(
+          id,
+          start: second.charStart + 2,
+          end: second.charStart + 9,
+        );
+
+        expect(card.sourceChunkId, second.id);
+        expect(card.sourceCharStart, second.charStart + 2);
+        expect(card.sourceCharEnd, second.charStart + 9);
+        expect(card.hasSourceRange, isTrue);
+      },
+    );
+
+    test('queda guardado: releerla trae el mismo fragmento', () async {
+      final (id, chunks) = await seedSource();
+      await createWith(id, start: 0, end: 7);
+
+      final reloaded = (await repository.watchForItem(id).first).single;
+
+      expect(reloaded.sourceCharStart, 0);
+      expect(reloaded.sourceCharEnd, 7);
+      expect(reloaded.sourceChunkId, chunks.first.id);
+    });
+
+    test('una tarjeta escrita a mano no dice de dónde salió', () async {
+      final (id, _) = await seedSource();
+
+      final card = await createWith(id);
+
+      expect(card.sourceChunkId, isNull);
+      expect(card.sourceCharStart, isNull);
+      expect(card.sourceCharEnd, isNull);
+      expect(card.hasSourceRange, isFalse);
+    });
+
+    test('un rango que cruza dos chunks se anota en el primero', () async {
+      final (id, chunks) = await seedSource();
+
+      final card = await createWith(
+        id,
+        start: chunks.first.charEnd - 3,
+        end: chunks[1].charStart + 4,
+      );
+
+      expect(card.sourceChunkId, chunks.first.id);
+    });
+
+    test('un elemento sin chunks —una nota— guarda solo el rango', () async {
+      final itemId = await seedItem();
+
+      final card = await createWith(itemId, start: 2, end: 6);
+
+      expect(card.sourceChunkId, isNull);
+      expect(card.sourceCharStart, 2);
+      expect(card.sourceCharEnd, 6);
+    });
+
+    test(
+      'un rango a medias, negativo o vacío se rechaza y no crea nada',
+      () async {
+        final (id, _) = await seedSource();
+
+        for (final (start, end) in [
+          (3, null),
+          (null, 5),
+          (-1, 4),
+          (5, 5),
+          (8, 3),
+        ]) {
+          final result = await repository.create(
+            itemId: id,
+            front: 'a',
+            back: 'b',
+            sourceCharStart: start,
+            sourceCharEnd: end,
+          );
+          expect(result.isLeft(), isTrue, reason: '$start-$end');
+        }
+        expect(await db.select(db.flashcards).get(), isEmpty);
+      },
+    );
+
+    test('si el texto se rehace y sus chunks se reemplazan, la tarjeta sigue '
+        'y conserva el rango', () async {
+      final (id, chunks) = await seedSource();
+      await createWith(id, start: 0, end: 7);
+
+      await (db.delete(db.chunks)..where((c) => c.itemId.equals(id))).go();
+
+      final card = (await repository.watchForItem(id).first).single;
+      expect(card.sourceChunkId, isNull);
+      expect(card.sourceCharStart, 0);
+      expect(card.sourceCharEnd, 7);
+      expect(chunks, isNotEmpty);
     });
   });
 }

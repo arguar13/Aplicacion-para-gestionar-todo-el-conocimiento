@@ -33,6 +33,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     required String itemId,
     required String front,
     required String back,
+    int? sourceCharStart,
+    int? sourceCharEnd,
   }) async {
     final trimmedFront = front.trim();
     final trimmedBack = back.trim();
@@ -43,9 +45,24 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         ),
       );
     }
+    final hasStart = sourceCharStart != null;
+    if (hasStart != (sourceCharEnd != null) ||
+        (hasStart &&
+            (sourceCharStart < 0 || sourceCharEnd! <= sourceCharStart))) {
+      return left(
+        const Failure.validation(
+          message:
+              'El fragmento de la fuente tiene que traer inicio y fin, de 0 '
+              'en adelante y con el fin después del inicio.',
+        ),
+      );
+    }
 
     try {
       final now = _clock();
+      final chunkId = hasStart
+          ? await _chunkContaining(itemId, sourceCharStart)
+          : null;
       final card = Flashcard(
         id: _ids.next(),
         itemId: itemId,
@@ -53,6 +70,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         back: trimmedBack,
         dueAt: now,
         createdAt: now,
+        sourceChunkId: chunkId,
+        sourceCharStart: sourceCharStart,
+        sourceCharEnd: sourceCharEnd,
       );
 
       await _db
@@ -65,6 +85,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
               back: card.back,
               dueAt: card.dueAt,
               createdAt: card.createdAt,
+              sourceChunkId: Value(card.sourceChunkId),
+              sourceCharStart: Value(card.sourceCharStart),
+              sourceCharEnd: Value(card.sourceCharEnd),
             ),
           );
 
@@ -259,6 +282,26 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     }
   }
 
+  /// El chunk de [itemId] que contiene la posición [offset], o `null` si el
+  /// elemento no tiene chunks o [offset] cae fuera de todos.
+  ///
+  /// Un rango que cruza varios chunks se anota en el primero: el chunk es una
+  /// ayuda para ubicar, y el que sirve es el rango.
+  Future<String?> _chunkContaining(String itemId, int offset) async {
+    final row =
+        await (_db.select(_db.chunks)
+              ..where(
+                (c) =>
+                    c.itemId.equals(itemId) &
+                    c.charStart.isSmallerOrEqualValue(offset) &
+                    c.charEnd.isBiggerThanValue(offset),
+              )
+              ..orderBy([(c) => OrderingTerm(expression: c.seq)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.id;
+  }
+
   Flashcard _toEntity(FlashcardRow row) => Flashcard(
     id: row.id,
     itemId: row.itemId,
@@ -270,6 +313,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     intervalDays: row.intervalDays,
     repetitions: row.repetitions,
     lastReviewedAt: row.lastReviewedAt,
+    sourceChunkId: row.sourceChunkId,
+    sourceCharStart: row.sourceCharStart,
+    sourceCharEnd: row.sourceCharEnd,
   );
 
   /// Catch-all deliberado, igual que en el resto de los repositorios: un

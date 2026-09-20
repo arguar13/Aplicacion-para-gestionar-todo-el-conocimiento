@@ -6,6 +6,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las tarjetas de repaso de un elemento: la lista, agregar una a mano, y
@@ -167,13 +168,27 @@ class _FlashcardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(card.front, maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Text(card.back, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: IconButton(
-        icon: const Icon(Icons.delete_outline, size: 20),
-        onPressed: onDelete,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // De dónde salió, si se sabe: abre la fuente en ese fragmento.
+          if (card.hasSourceRange)
+            IconButton(
+              icon: const Icon(Icons.menu_book_outlined, size: 20),
+              tooltip: l10n.flashcardsViewSource,
+              onPressed: () => openFlashcardSource(context, card),
+            ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }

@@ -19,6 +19,7 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -743,6 +744,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(await listedIds(), [id]);
+    });
+  });
+
+  group('tarjetas con su fuente (F11)', () {
+    Future<void> card(String id, {int? start, int? end}) => harness.container
+        .read(flashcardRepositoryProvider)
+        .create(
+          itemId: id,
+          front: '¿Pregunta?',
+          back: 'Respuesta',
+          sourceCharStart: start,
+          sourceCharEnd: end,
+        );
+
+    testWidgets('una tarjeta que salió de un fragmento ofrece verlo en la '
+        'fuente', (tester) async {
+      final id = await captureAndGetId('Un título\n\nEl cuerpo del texto.');
+      await card(id, start: 2, end: 9);
+
+      await pumpDetail(tester, id);
+
+      expect(find.byTooltip(es.flashcardsViewSource), findsOneWidget);
+    });
+
+    testWidgets('una escrita a mano no', (tester) async {
+      final id = await captureAndGetId('Un título\n\nEl cuerpo del texto.');
+      await card(id);
+
+      await pumpDetail(tester, id);
+
+      expect(find.byTooltip(es.flashcardsViewSource), findsNothing);
     });
   });
 

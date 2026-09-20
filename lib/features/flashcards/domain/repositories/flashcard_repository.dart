@@ -9,10 +9,18 @@ abstract interface class FlashcardRepository {
   /// Crea una tarjeta nueva para [itemId], lista para repasarse desde ya
   /// —`dueAt` en el momento de crearla, no en el futuro—: una tarjeta recién
   /// hecha es, por definición, algo que todavía no se repasó ni una vez.
+  ///
+  /// [sourceCharStart] y [sourceCharEnd], juntos, dicen de qué fragmento de la
+  /// fuente sale (F11): el rango `[start, end)` de la forma principal del
+  /// elemento. Con él la tarjeta puede llevar de vuelta a su fuente. Se rechaza
+  /// un rango a medias, negativo o vacío. El chunk que lo contiene lo busca el
+  /// repositorio; si el elemento no tiene chunks, se guarda solo el rango.
   Future<Either<Failure, Flashcard>> create({
     required String itemId,
     required String front,
     required String back,
+    int? sourceCharStart,
+    int? sourceCharEnd,
   });
 
   Future<Either<Failure, Flashcard>> update({

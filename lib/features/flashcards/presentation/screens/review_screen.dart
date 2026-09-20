@@ -7,6 +7,7 @@ import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar las tarjetas que ya tocan, de a una: se lee la pregunta, se
@@ -188,6 +189,15 @@ class _CardView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+          // Con la respuesta a la vista, se puede ir a ver de dónde salió.
+          if (revealed && card.hasSourceRange) ...[
+            TextButton.icon(
+              icon: const Icon(Icons.menu_book_outlined, size: 18),
+              label: Text(l10n.flashcardsViewSource),
+              onPressed: () => openFlashcardSource(context, card),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (!revealed)
             OutlinedButton(
               onPressed: onReveal,
