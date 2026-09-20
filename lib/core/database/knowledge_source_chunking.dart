@@ -50,11 +50,11 @@ Future<RenditionRow?> sourceTextRendition(AppDatabase db, String itemId) async {
 /// principal, y su `contentHash` —el SHA-256 de ese texto—.
 ///
 /// Es la función que usa todo el que necesita chunks: `save()` al guardar, el
-/// motor de relaciones, y las migraciones. Mismo algoritmo que
-/// `fragmentExistingSources` (F1, `fragment_existing_sources_v8.dart`), pero
-/// idempotente por el hash del texto de hoy y no por "ya se fragmentó alguna
-/// vez": si el texto no cambió no hace nada, y si cambió reemplaza los chunks
-/// —y con ellos sus embeddings, que ya no describen el texto—.
+/// motor de relaciones, y las migraciones. Salió del fragmentador de F1
+/// (retirado con los pasos anteriores a v15), pero es idempotente por el hash
+/// del texto de hoy y no por "ya se fragmentó alguna vez": si el texto no
+/// cambió no hace nada, y si cambió reemplaza los chunks —y con ellos sus
+/// embeddings, que ya no describen el texto—.
 ///
 /// Una fuente cuyo texto no reconstruye exacto —o cualquier error al
 /// fragmentarla— **no** se pisa ni queda a medias: se reporta en
@@ -169,9 +169,8 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
 bool _isPdf(KnowledgeSourceRow source) =>
     source.originalBlobPath?.toLowerCase().endsWith('.pdf') ?? false;
 
-/// Mismo criterio que `fragmentExistingSources`: se prefiere la
-/// rendition marcada como principal; sin ninguna marcada, la primera
-/// que se guardó.
+/// Se prefiere la rendition marcada como principal; sin ninguna marcada, la
+/// primera que se guardó.
 RenditionRow _pickPrimaryOrOldest(List<RenditionRow> renditions) {
   for (final rendition in renditions) {
     if (rendition.isPrimary) return rendition;

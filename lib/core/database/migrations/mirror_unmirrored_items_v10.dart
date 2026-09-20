@@ -6,7 +6,7 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 
 /// Catch-up de una sola vez: todo lo capturado entre el backfill de F1
-/// (`schemaVersion` 8, `classify_existing_items_v8.dart`) y la activación
+/// (`schemaVersion` 8, retirado con los pasos anteriores a v15) y la activación
 /// del espejo en vivo de F3 (`LibraryRepositoryImpl._mirrorItem`) nunca
 /// pasó por esa clasificación, así que no tiene fila en `item` — sería
 /// invisible para la Bandeja de entrada hasta que alguien lo editara de

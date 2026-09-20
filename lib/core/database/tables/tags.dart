@@ -5,9 +5,9 @@ import 'package:sinapsis/core/database/tables/items.dart';
 ///
 /// OBSOLETA desde F8: una etiqueta es ahora un valor de la categoría de
 /// sistema "Tema" (`PropertyValues`), y la app ya no lee ni escribe esta
-/// tabla. Se conserva, con sus filas, hasta que F10 retire el modelo viejo:
-/// la migración v14 (`reconcile_tags_with_properties_v14.dart`) ya unió lo
-/// que tenía con Tema. No agregar código nuevo que la use.
+/// tabla. Se conserva, con sus filas, hasta que F10 retire el modelo viejo: la
+/// migración v14 —retirada con los pasos anteriores a v15— ya unió lo que tenía
+/// con Tema. No agregar código nuevo que la use.
 @DataClassName('TagRow')
 class Tags extends Table {
   TextColumn get id => text()();

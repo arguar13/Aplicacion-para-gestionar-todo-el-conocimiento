@@ -4,7 +4,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
-import 'package:sinapsis/core/database/migrations/reconcile_tags_with_properties_v14.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -19,14 +18,15 @@ import 'package:sinapsis/features/vocabulary/data/repositories/vocabulary_reposi
 
 import '../../support/fake_id_generator.dart';
 import '../../support/in_memory_file_store.dart';
-import '../../support/silent_logger.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// La restricción inalienable del encargo, comprobada contra F8: nada de lo
-/// que F8 hace —unificar etiquetas, fusionar valores, renombrar, alias,
-/// borrar lo que no se usa, y deshacer todo eso— toca el texto de una fuente
-/// ni sus chunks. Concatenar los chunks sigue reproduciendo el texto
+/// que F8 hace —etiquetas como valores de Tema, fusionar valores, renombrar,
+/// alias, borrar lo que no se usa, y deshacer todo eso— toca el texto de una
+/// fuente ni sus chunks. (La reconciliación de etiquetas viejas de la migración
+/// v14 se retiró con los pasos anteriores a v15, y con ella su parte de esta
+/// prueba.) Concatenar los chunks sigue reproduciendo el texto
 /// carácter a carácter, y los chunks siguen siendo LOS MISMOS, con sus ids.
 void main() {
   late AppDatabase db;
@@ -108,8 +108,8 @@ void main() {
     for (final c in await db.select(db.chunks).get()) chunkKey(c),
   ]..sort();
 
-  test('reconciliar etiquetas, mantener el vocabulario y deshacerlo todo no '
-      'toca el texto de ninguna fuente', () async {
+  test('etiquetar, mantener el vocabulario y deshacerlo todo no toca el '
+      'texto de ninguna fuente', () async {
     final article = await seedSource(
       'articulo',
       '# Roma\n\nLa república nació en 509 a.C. y el imperio en 27 a.C. '
@@ -125,38 +125,20 @@ void main() {
     final before = await textSnapshot();
     expect((await verifyChunkInvariant(db)).sourcesChecked, 2);
 
-    // El estado de una bóveda de antes de F8: etiquetas solo en las tablas
-    // viejas, con un casi-duplicado por acento.
-    await db
-        .into(db.tags)
-        .insert(TagsCompanion.insert(id: 't1', name: 'Roma', createdAt: now));
-    await db
-        .into(db.tags)
-        .insert(TagsCompanion.insert(id: 't2', name: 'Róma', createdAt: now));
-    await db
-        .into(db.tags)
-        .insert(TagsCompanion.insert(id: 't3', name: 'Egipto', createdAt: now));
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: article, tagId: 't1'));
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: transcript, tagId: 't2'));
-    await db
-        .into(db.itemTags)
-        .insert(ItemTagsCompanion.insert(itemId: transcript, tagId: 't3'));
+    // Las etiquetas, por el camino de la app: valores de Tema puestos en los
+    // elementos.
+    final roma = (await organize.getOrCreateTag(
+      'Roma',
+    )).getRight().toNullable()!;
+    final egipto = (await organize.getOrCreateTag(
+      'Egipto',
+    )).getRight().toNullable()!;
+    for (final (id, tag) in [(article, roma), (transcript, egipto)]) {
+      final item = (await library.findById(id)).getRight().toNullable()!;
+      await library.save(item.copyWith(tags: [...item.tags, tag]));
+    }
 
-    // La reconciliación de la migración v14.
-    await db.transaction(
-      () => reconcileTagsWithProperties(
-        db,
-        ids: FakeIdGenerator(prefix: 'mig'),
-        logger: const SilentLogger(),
-        clock: () => now,
-      ),
-    );
-
-    // El adaptador: guardar los elementos con sus etiquetas nuevas.
+    // Una etiqueta más, puesta al guardar el elemento.
     final tag = (await organize.getOrCreateTag(
       'Historia',
     )).getRight().toNullable()!;

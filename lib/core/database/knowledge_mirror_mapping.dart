@@ -6,11 +6,10 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 
 /// Funciones puras que clasifican una fila del esquema viejo —o un
 /// [KnowledgeItem] recién guardado— según el modelo `item`/`source`/`note`
-/// de F1. Un solo criterio de clasificación en todo el proyecto: lo usan
-/// tanto el backfill de una sola vez de F1
-/// (`classify_existing_items_v8.dart`) como el espejo en vivo de F3
-/// (`LibraryRepositoryImpl._mirrorItem`) y su catch-up
-/// (`mirror_unmirrored_items_v10.dart`).
+/// de F1. Un solo criterio de clasificación en todo el proyecto: lo usan el
+/// espejo en vivo de F3 (`LibraryRepositoryImpl._mirrorItem`) y su catch-up
+/// (`mirror_unmirrored_items_v10.dart`). El backfill de una sola vez de F1, que
+/// también lo usaba, se retiró con los pasos anteriores a v15.
 
 /// Una nota manual o armada con el editor de bloques —las dos únicas formas
 /// hoy de que el usuario cree contenido sin que venga de afuera— es una

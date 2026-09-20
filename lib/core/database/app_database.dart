@@ -1,15 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
-import 'package:sinapsis/core/database/migrations/backfill_inline_links_v15.dart';
-import 'package:sinapsis/core/database/migrations/backfill_source_chunks_v12.dart';
-import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
-import 'package:sinapsis/core/database/migrations/fragment_existing_sources_v8.dart';
-import 'package:sinapsis/core/database/migrations/migrate_tags_to_property_values_v9.dart';
-import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items_v10.dart';
-import 'package:sinapsis/core/database/migrations/reconcile_tags_with_properties_v14.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
+import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
@@ -122,6 +116,10 @@ class AppDatabase extends _$AppDatabase {
   /// necesita saber a qué versión está por migrarse la base.
   static const currentSchemaVersion = 17;
 
+  /// La versión de esquema más antigua que esta versión de la app sabe
+  /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
+  static const minimumUpgradableSchemaVersion = 15;
+
   @override
   int get schemaVersion => currentSchemaVersion;
 
@@ -134,208 +132,15 @@ class AppDatabase extends _$AppDatabase {
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
     },
     onUpgrade: (migrator, from, to) async {
-      // Primera migración real del esquema: hasta acá, `schemaVersion` nunca
-      // había subido de 1. Espacios (carpetas) se suma como tabla nueva y una
-      // columna nullable en `Items` — nullable a propósito, para que las
-      // bóvedas que ya existen abran con todo sin clasificar en vez de
-      // fallar por una columna NOT NULL sin valor por defecto.
-      if (from < 2) {
-        await migrator.createTable(spaces);
-        await migrator.addColumn(items, items.spaceId);
-      }
-      // Tarjetas de repaso: una tabla nueva, sin ninguna columna nueva en
-      // otra tabla — ninguna bóveda existente pierde nada ni queda con un
-      // valor por defecto que inventar.
-      if (from < 3) {
-        await migrator.createTable(flashcards);
-      }
-      // Historial del chat: dos tablas nuevas, sin tocar ninguna existente
-      // — nada que migrar en una bóveda que ya tenía conversaciones, porque
-      // hasta ahora el chat no guardaba nada.
-      if (from < 4) {
-        await migrator.createTable(conversations);
-        await migrator.createTable(chatMessages);
-      }
-      // El paso que iba acá creaba las tablas de carpetas del Explorador
-      // (`from < 5`). El paso `from < 7`, más abajo, las elimina — para
-      // cualquiera que migre desde antes de la versión 5, crearlas y
-      // borrarlas en la misma sesión de migración no deja rastro, así que
-      // el paso completo se sacó en vez de dejarlo sin efecto.
-      //
-      // Propiedades tipadas: tres tablas nuevas, sin tocar ninguna
-      // existente — conviven con las etiquetas planas de siempre, no las
-      // reemplazan.
-      if (from < 6) {
-        await migrator.createTable(propertyDefinitions);
-        await migrator.createTable(propertyValues);
-        await migrator.createTable(itemPropertyValues);
-      }
-      // El Explorador cambió de carpetas a filtros: las tablas que
-      // ubicaban un elemento dentro de una carpeta ya no tienen para qué
-      // existir. Los elementos en sí no se tocan — solo pierden una
-      // ubicación que ya no significa nada.
-      if (from < 7) {
-        await migrator.deleteTable('item_folders');
-        await migrator.deleteTable('folders');
-      }
-      // El modelo de conocimiento nuevo: Fuente/Nota en vez de un único
-      // `Items` que mezcla las dos cosas — ver la decisión sobre este
-      // modelo en docs/arquitectura.md. Solo el esquema por ahora: el
-      // backfill de lo ya capturado se suma en un paso posterior, sin
-      // volver a subir `schemaVersion` para eso.
-      if (from < 8) {
-        await migrator.createTable(knowledgeEntries);
-        await migrator.createTable(knowledgeSources);
-        await migrator.createTable(knowledgeNotes);
-        await migrator.createTable(chunks);
-        await migrator.createTable(embeddings);
-        await migrator.createTable(migrationIssues);
-        // `createTable` no crea los índices de `@TableIndex` —a
-        // diferencia de `createAll()`, que sí los incluye para una base
-        // recién creada—, así que acá van explícitos.
-        await migrator.createIndex(idxKnowledgeEntriesStateKind);
-        await migrator.createIndex(idxKnowledgeEntriesKindUpdated);
-        await migrator.createIndex(idxKnowledgeSourcesContentHash);
-        await migrator.createIndex(idxKnowledgeSourcesProcessingStatus);
-        await migrator.createIndex(idxChunksItemSeq);
-        await migrator.createIndex(idxChunksItemStartMs);
-        await classifyExistingItems(this, ids: const UuidV7Generator());
-        await fragmentExistingSources(
-          this,
-          ids: const UuidV7Generator(),
-          logger: ConsoleAppLogger(),
-        );
-      }
-      // Vocabulario controlado: tipo y "categoría de sistema" sobre las
-      // categorías que ya existían, más los alias que resuelven un
-      // sinónimo al valor real — ver la decisión sobre esto en
-      // docs/arquitectura.md. Solo el esquema por ahora: sembrar "Tema"/
-      // "Fecha del hecho" y migrar las etiquetas existentes son pasos
-      // posteriores, sin volver a subir `schemaVersion`.
-      if (from < 9) {
-        await migrator.addColumn(propertyDefinitions, propertyDefinitions.type);
-        await migrator.addColumn(
-          propertyDefinitions,
-          propertyDefinitions.isSystem,
-        );
-        await migrator.addColumn(propertyValues, propertyValues.numberValue);
-        await migrator.addColumn(propertyValues, propertyValues.dateFromYear);
-        await migrator.addColumn(propertyValues, propertyValues.dateFromMonth);
-        await migrator.addColumn(propertyValues, propertyValues.dateFromDay);
-        await migrator.addColumn(propertyValues, propertyValues.dateToYear);
-        await migrator.addColumn(propertyValues, propertyValues.dateToMonth);
-        await migrator.addColumn(propertyValues, propertyValues.dateToDay);
-        await migrator.addColumn(propertyValues, propertyValues.datePrecision);
-        await migrator.addColumn(propertyValues, propertyValues.dateIsCirca);
-        await migrator.createTable(propertyAliases);
-        await migrator.createIndex(idxPropertyAliasesValue);
-        await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
-        await migrateTagsToPropertyValues(
-          this,
-          ids: const UuidV7Generator(),
-          logger: ConsoleAppLogger(),
-        );
-      }
-      // El espejo en vivo del modelo Fuente/Nota — ver la decisión sobre
-      // F3 en docs/arquitectura.md. Sin tabla ni columna nueva: solo el
-      // catch-up de lo que se capturó entre el backfill de F1 y este
-      // commit, que `LibraryRepositoryImpl.save()` no llegó a espejar
-      // porque el espejo en vivo todavía no existía.
-      if (from < 10) {
-        await mirrorUnmirroredItems(this);
-      }
-      // Clasificación asistida (F4): de dónde viene una propiedad puesta
-      // —a mano, heredada al extraer una nota, o una sugerencia
-      // aceptada—, y la cola de sugerencias del modelo, todavía sin
-      // aplicar. Sin backfill: `origin` trae su propio valor por
-      // defecto (`manual`, la única procedencia que podía tener algo
-      // ya asignado antes de que esta columna existiera) y
-      // `Suggestions` nace vacía — nada que migrar.
-      if (from < 11) {
-        await migrator.addColumn(itemPropertyValues, itemPropertyValues.origin);
-        await migrator.createTable(suggestions);
-        // `createTable` no crea los índices de `@TableIndex` solo — ver
-        // el mismo recordatorio más arriba, en el paso `from < 8`.
-        await migrator.createIndex(idxSuggestionsTargetStatus);
-      }
-      // Motor de relaciones (F5): backfill de catch-up de
-      // `chunk`/`fullText`/`contentHash` para toda fuente que el
-      // backfill histórico de F1 no llegó a cubrir —prácticamente todo
-      // lo capturado desde entonces—. Sin tabla ni columna nueva, solo
-      // poblar lo que quedó vacío: mismo criterio que el catch-up del
-      // espejo en F3 (`from < 10`).
-      if (from < 12) {
-        await backfillSourceChunks(this, ids: const UuidV7Generator());
-      }
-      // Deduplicación (F7): `dedupHash` (SHA-256 sobre texto normalizado,
-      // distinto de `KnowledgeSources.contentHash`, que hashea el texto
-      // crudo y sirve un propósito aparte —guarda de idempotencia del
-      // chunking—) en las dos tablas, `simhash` nuevo en `note` —en
-      // `source` ya existía, reservado desde F1, sin calcular hasta
-      // ahora—, y la tabla de procedencias fusionadas. Todo nullable:
-      // los fingerprints se calculan la primera vez que cada generador
-      // corre sobre un elemento desde acá en adelante, sin backfill de
-      // lo ya capturado en esta ronda.
-      if (from < 13) {
-        // Quien migra desde antes de v8 nunca pasa por `addColumn` para
-        // estas dos: el `createTable` de más arriba (`from < 8`) ya las
-        // crea con las columnas que la clase Dart tiene HOY —`dedupHash`/
-        // `simhash` incluidas—, así que agregarlas de nuevo acá
-        // reventaría con "duplicate column name". Solo hace falta para
-        // quien ya tenía la tabla de una migración anterior.
-        if (from >= 8) {
-          await migrator.addColumn(
-            knowledgeSources,
-            knowledgeSources.dedupHash,
-          );
-          await migrator.addColumn(knowledgeNotes, knowledgeNotes.dedupHash);
-          await migrator.addColumn(knowledgeNotes, knowledgeNotes.simhash);
-        }
-        // Los índices, en cambio, `createTable` nunca los incluye —a
-        // diferencia de `createAll()`—, así que van siempre, sin importar
-        // por dónde entró.
-        await migrator.createIndex(idxKnowledgeSourcesDedupHash);
-        await migrator.createIndex(idxKnowledgeNotesDedupHash);
-        await migrator.createTable(mergedProvenances);
-        await migrator.createIndex(idxMergedProvenancesItem);
-      }
-      // Etiquetas unificadas con propiedades (F8): F2 las copió a valores
-      // de Tema una sola vez, y las creadas después nunca llegaron. Sin
-      // tabla ni columna nueva —por eso no hay snapshot de v14—: une lo
-      // que quedó separado, calculando un informe ANTES de escribir
-      // nada (ver `reconcileTagsWithProperties`). La copia previa de la
-      // base ya se hizo, antes de que drift empezara a migrar. Si algo
-      // falla, la migración entera revierte: mejor no abrir la bóveda
-      // que dejar una etiqueta sin valor.
-      if (from < 14) {
-        // Idempotente, y este paso depende de que Tema exista: en una base
-        // real ya está —la creó la migración a v9 o `onCreate`, y no se
-        // puede borrar—, pero no conviene apoyarse en eso desde acá.
-        await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
-        await reconcileTagsWithProperties(
-          this,
-          ids: const UuidV7Generator(),
-          logger: ConsoleAppLogger(),
-        );
-      }
-      // Consolidación (F9): los `[[ ]]` de las notas persistidos como
-      // tabla —con el destino nullable: un enlace roto deja de ser invisible—,
-      // y tres columnas nullable en `Relations`: cuándo se revisó una
-      // contradicción, y dónde de la fuente sale una cita. Todo aditivo. El
-      // backfill calcula un informe antes de escribir, y la copia previa de
-      // la base ya se hizo.
-      if (from < 15) {
-        await migrator.createTable(inlineLinks);
-        // `createTable` no crea los índices de `@TableIndex` solo.
-        await migrator.createIndex(idxInlineLinkTarget);
-        await migrator.createIndex(idxInlineLinkTitle);
-        await migrator.addColumn(relations, relations.reviewedAt);
-        await migrator.addColumn(relations, relations.sourceCharStart);
-        await migrator.addColumn(relations, relations.sourceCharEnd);
-        await backfillInlineLinks(
-          this,
-          ids: const UuidV7Generator(),
-          logger: ConsoleAppLogger(),
+      // Compatibilidad mínima de actualización (F10): los pasos de v2 a v15 se
+      // retiraron con sus pruebas —leían las tablas que F10 retira—. Una base
+      // más vieja se corta acá, antes de tocar nada y con un mensaje que dice
+      // qué hacer, en vez de fallar más adelante por una tabla que no existe.
+      // La copia previa de la base ya se hizo.
+      if (from < minimumUpgradableSchemaVersion) {
+        throw SchemaTooOldException(
+          from: from,
+          minimum: minimumUpgradableSchemaVersion,
         );
       }
       // Chunks vivos y búsqueda por chunks (F10): `chunk` gana una clave entera
@@ -346,35 +151,28 @@ class AppDatabase extends _$AppDatabase {
       // hasta que la búsqueda deje de usarlo. La copia previa de la base ya se
       // hizo, y si algún conteo no coincide, la migración entera revierte.
       if (from < 16) {
-        // Quien migra desde antes de v8 nunca pasa por `alterTable` ni por
-        // `addColumn`: el `createTable` del paso `from < 8` ya crea `chunk` y
-        // `item` con las columnas que la clase Dart tiene HOY —`row_key` y
-        // `notes` incluidas—, y repetirlas reventaría con "duplicate column
-        // name".
-        if (from >= 8) {
-          final chunksBefore = await _count('chunks');
-          await migrator.alterTable(
-            TableMigration(chunks, newColumns: [chunks.rowKey]),
+        final chunksBefore = await _count('chunks');
+        await migrator.alterTable(
+          TableMigration(chunks, newColumns: [chunks.rowKey]),
+        );
+        final chunksAfter = await _count('chunks');
+        if (chunksBefore != chunksAfter) {
+          throw StateError(
+            'La migración a v16 cambió la cantidad de chunks: había '
+            '$chunksBefore y quedaron $chunksAfter.',
           );
-          final chunksAfter = await _count('chunks');
-          if (chunksBefore != chunksAfter) {
-            throw StateError(
-              'La migración a v16 cambió la cantidad de chunks: había '
-              '$chunksBefore y quedaron $chunksAfter.',
-            );
-          }
-          final orphans = await customSelect(
-            'SELECT COUNT(*) AS n FROM embeddings '
-            'WHERE chunk_id NOT IN (SELECT id FROM chunks)',
-          ).getSingle();
-          if (orphans.read<int>('n') != 0) {
-            throw StateError(
-              'La migración a v16 dejó ${orphans.read<int>('n')} embeddings '
-              'sin su chunk.',
-            );
-          }
-          await migrator.addColumn(knowledgeEntries, knowledgeEntries.notes);
         }
+        final orphans = await customSelect(
+          'SELECT COUNT(*) AS n FROM embeddings '
+          'WHERE chunk_id NOT IN (SELECT id FROM chunks)',
+        ).getSingle();
+        if (orphans.read<int>('n') != 0) {
+          throw StateError(
+            'La migración a v16 dejó ${orphans.read<int>('n')} embeddings '
+            'sin su chunk.',
+          );
+        }
+        await migrator.addColumn(knowledgeEntries, knowledgeEntries.notes);
 
         await backfillChunksAndNotes(
           this,

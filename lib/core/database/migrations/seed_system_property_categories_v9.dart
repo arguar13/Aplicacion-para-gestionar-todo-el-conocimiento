@@ -5,8 +5,7 @@ import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
 /// Siembra las dos categorías de propiedad que crea la app, no el
-/// usuario: "Tema" (donde caen las etiquetas migradas, ver
-/// `migrate_tags_to_property_values_v9.dart`) y "Fecha del hecho"
+/// usuario: "Tema" (donde caen las etiquetas, desde F8) y "Fecha del hecho"
 /// (separada de cuándo se capturó la fuente).
 ///
 /// Se llama tanto desde `onCreate` como desde `onUpgrade` —ver
