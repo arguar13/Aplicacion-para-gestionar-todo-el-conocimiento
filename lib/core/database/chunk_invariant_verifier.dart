@@ -67,7 +67,8 @@ class ChunkInvariantReport {
       '${holds ? 'invariante OK' : '${violations.length} violaciones'}';
 }
 
-/// Verifica, sobre TODA la bóveda, que concatenar los chunks de cada
+/// Verifica, sobre TODA la bóveda —o solo sobre [onlyItemIds]—, que concatenar
+/// los chunks de cada
 /// fuente —en orden de `seq`— reproduce su `fullText` carácter a
 /// carácter, y que los offsets de cada chunk lo describen de verdad.
 ///
@@ -76,15 +77,39 @@ class ChunkInvariantReport {
 /// los tests de cierre de cada fase y la usará F10 después de migrar de
 /// modelo. Solo lee: no corrige nada. Ante un problema, informa cuál y en
 /// qué fuente, y quien llama decide.
-Future<ChunkInvariantReport> verifyChunkInvariant(AppDatabase db) async {
+///
+/// Con [onlyItemIds] mira solo esas fuentes —los ids que no son de una fuente
+/// se ignoran—: la fusión de bóvedas verifica lo que tocó, no una bóveda de
+/// diez mil fuentes entera después de cada fusión.
+Future<ChunkInvariantReport> verifyChunkInvariant(
+  AppDatabase db, {
+  Iterable<String>? onlyItemIds,
+}) async {
   // Primero solo los ids, y el `fullText` de a una fuente: cargar todos
   // los textos de una bóveda grande de una sola vez sería el problema.
-  final itemIds =
-      await (db.selectOnly(db.knowledgeSources)
-            ..addColumns([db.knowledgeSources.itemId])
-            ..orderBy([OrderingTerm(expression: db.knowledgeSources.itemId)]))
-          .map((row) => row.read(db.knowledgeSources.itemId)!)
-          .get();
+  final query = db.selectOnly(db.knowledgeSources)
+    ..addColumns([db.knowledgeSources.itemId])
+    ..orderBy([OrderingTerm(expression: db.knowledgeSources.itemId)]);
+  final itemIds = <String>[];
+  if (onlyItemIds == null) {
+    itemIds.addAll(
+      await query.map((row) => row.read(db.knowledgeSources.itemId)!).get(),
+    );
+  } else {
+    // De a tramos: por debajo del tope de parámetros de SQLite.
+    final wanted = onlyItemIds.toSet().toList();
+    for (var start = 0; start < wanted.length; start += 400) {
+      final slice = wanted.skip(start).take(400).toList();
+      final rows =
+          await (db.selectOnly(db.knowledgeSources)
+                ..addColumns([db.knowledgeSources.itemId])
+                ..where(db.knowledgeSources.itemId.isIn(slice)))
+              .map((row) => row.read(db.knowledgeSources.itemId)!)
+              .get();
+      itemIds.addAll(rows);
+    }
+    itemIds.sort();
+  }
 
   var sourcesChecked = 0;
   var sourcesWithoutText = 0;

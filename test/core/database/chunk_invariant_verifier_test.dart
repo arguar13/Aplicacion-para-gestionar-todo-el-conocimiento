@@ -178,6 +178,65 @@ void main() {
     );
   });
 
+  group('con onlyItemIds', () {
+    Future<void> corrupt(String itemId) =>
+        (db.update(db.chunks)..where((c) => c.itemId.equals(itemId))).write(
+          const ChunksCompanion(content: Value('texto resumido')),
+        );
+
+    test('mira solo esas fuentes: el daño en otra no cuenta', () async {
+      final vault = await seedVault();
+      await corrupt(vault['article']!);
+
+      final others = await verifyChunkInvariant(
+        db,
+        onlyItemIds: [vault['transcript']!, vault['crlf']!],
+      );
+      final damaged = await verifyChunkInvariant(
+        db,
+        onlyItemIds: [vault['article']!],
+      );
+
+      expect(others.holds, isTrue);
+      expect(others.sourcesChecked, 2);
+      expect(damaged.holds, isFalse);
+      expect(damaged.sourcesChecked, 1);
+    });
+
+    test('ignora lo que no es una fuente y lo que no existe', () async {
+      final vault = await seedVault();
+
+      final report = await verifyChunkInvariant(
+        db,
+        onlyItemIds: ['nota-1', 'no-existe', vault['crlf']!],
+      );
+
+      expect(report.holds, isTrue);
+      expect(report.sourcesChecked, 1);
+    });
+
+    test('una lista vacía no comprueba nada', () async {
+      await seedVault();
+
+      final report = await verifyChunkInvariant(db, onlyItemIds: const []);
+
+      expect(report.sourcesChecked, 0);
+      expect(report.chunksChecked, 0);
+    });
+
+    test('con más ids que el tope de una consulta, sigue sirviendo', () async {
+      final vault = await seedVault();
+      final many = [
+        for (var i = 0; i < 900; i++) 'fantasma-$i',
+        vault['article']!,
+      ];
+
+      final report = await verifyChunkInvariant(db, onlyItemIds: many);
+
+      expect(report.sourcesChecked, 1);
+    });
+  });
+
   test('un chunk faltante en el medio rompe la secuencia y el texto', () async {
     final vault = await seedVault();
     final chunks =

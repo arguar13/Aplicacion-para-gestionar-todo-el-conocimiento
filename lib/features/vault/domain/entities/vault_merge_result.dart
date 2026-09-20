@@ -48,6 +48,19 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     @Default(0) int propertyValuesAdded,
     @Default(0) int propertyAliasesAdded,
     @Default(0) int propertyAssignmentsAdded,
+
+    /// Lo derivado que se rehízo: fuentes cuyos chunks se hicieron de nuevo, y
+    /// las que no se pudieron fragmentar —su texto está entero y se reintenta—.
+    @Default(0) int sourcesChunked,
+    @Default(0) int sourcesPending,
+
+    /// Archivos originales: los que faltaban y se copiaron —con cuánto pesan—,
+    /// los que un elemento referencia y no están en ninguna de las dos, y los
+    /// que están en las dos con distinto peso (se queda el de acá).
+    @Default(0) int filesCopied,
+    @Default(0) int filesCopiedBytes,
+    @Default(0) int filesMissing,
+    @Default(0) int filesDiffering,
   }) = _VaultMergeResult;
 
   const VaultMergeResult._();
@@ -71,5 +84,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       propertyDefinitionsAdded == 0 &&
       propertyValuesAdded == 0 &&
       propertyAliasesAdded == 0 &&
-      propertyAssignmentsAdded == 0;
+      propertyAssignmentsAdded == 0 &&
+      sourcesChunked == 0 &&
+      filesCopied == 0;
 }

@@ -414,21 +414,4 @@ void main() {
       );
     });
   });
-
-  group('lo derivado no viaja', () {
-    test('ningún chunk entra: se rehacen', () async {
-      pc.at(3);
-      await pc.saveSource(
-        'a',
-        text: 'Un texto que la copia ya tenía procesado.',
-      );
-      expect(await pc.count('chunks'), greaterThan(0));
-
-      await tel.mergeFrom(pc);
-
-      expect(await tel.count('chunks'), 0);
-      expect(await tel.count('embeddings'), 0);
-      expect(await tel.count('inline_link'), 0);
-    });
-  });
 }

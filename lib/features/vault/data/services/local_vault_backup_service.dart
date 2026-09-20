@@ -8,8 +8,10 @@ import 'package:path_provider/path_provider.dart'
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/vault_merge_reader.dart';
+import 'package:sinapsis/features/vault/data/merge/vault_merger.dart';
 import 'package:sinapsis/features/vault/data/services/backup_layout.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// [VaultBackupService] sobre el sistema de archivos, para Android, Windows,
@@ -108,6 +110,19 @@ class LocalVaultBackupService implements VaultBackupService {
         database: _database,
         documentsDirectory: await _documentsDirectory(),
       ).preview(incoming);
+    } finally {
+      await incoming.dispose();
+    }
+  }
+
+  @override
+  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes) async {
+    final incoming = await IncomingVault.open(zipBytes);
+    try {
+      return await VaultMerger(
+        database: _database,
+        documentsDirectory: await _documentsDirectory(),
+      ).merge(incoming);
     } finally {
       await incoming.dispose();
     }

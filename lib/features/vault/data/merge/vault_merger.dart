@@ -1,11 +1,17 @@
+import 'dart:io';
+
+import 'package:meta/meta.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/vault/data/merge/derived_rebuild.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_applier.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
+import 'package:sinapsis/features/vault/data/merge/merge_gates.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
+import 'package:sinapsis/features/vault/data/merge/original_files_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
@@ -20,34 +26,94 @@ import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart'
 /// copia se adjunta antes de abrir la transacción porque SQLite no deja
 /// adjuntar dentro de una, y se suelta después, pase lo que pase.
 ///
-/// Primero se DECIDE todo —qué campos, qué formas— leyendo las dos bóvedas tal
-/// como están, y recién después se escribe, en un orden que respeta lo que
-/// referencia a qué: los espacios, los elementos, sus formas, los campos de los
-/// elementos que ya estaban, el vocabulario y, al final, lo que cuelga de todo
-/// eso.
+/// El orden, todo dentro de la transacción:
+///
+/// 1. Se toma cómo está la bóveda y se instalan las **guardas**
+///    ([MergeGates]): lo que una fusión nunca debe hacer queda imposible.
+/// 2. Se DECIDE todo —qué campos, qué formas— leyendo las dos bóvedas tal como
+///    están, y recién después se escribe, en un orden que respeta lo que
+///    referencia a qué: los espacios, los elementos, sus formas, los campos de
+///    los elementos que ya estaban, el vocabulario y lo que cuelga de todo eso.
+/// 3. Se rehace lo derivado de lo que llegó ([DerivedRebuild]).
+/// 4. Se comprueban las **compuertas**: si alguna falla, se revierte todo.
+/// 5. Se copian los archivos originales que faltan. Es lo último porque el
+///    disco no tiene transacciones: si algo falla desde acá, lo copiado se
+///    borra ([OriginalFilesMerge.rollback]).
+///
+/// Confirmada la transacción, se avisa a las pantallas qué tablas cambiaron.
 class VaultMerger {
   VaultMerger({
     required AppDatabase database,
+    required Directory documentsDirectory,
     IdGenerator ids = const UuidV7Generator(),
     Clock clock = DateTime.now,
+    @visibleForTesting this.afterWrites,
+    @visibleForTesting this.afterFiles,
   }) : _db = database,
+       _documents = documentsDirectory,
        _ids = ids,
        _clock = clock;
 
   final AppDatabase _db;
+  final Directory _documents;
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// Solo para pruebas: corre después de escribir y de rehacer lo derivado,
+  /// antes de las compuertas. Sirve para romper algo a propósito y comprobar
+  /// que la fusión se revierte.
+  @visibleForTesting
+  final Future<void> Function(AppDatabase database)? afterWrites;
+
+  /// Solo para pruebas: corre después de copiar los archivos, antes de
+  /// confirmar.
+  @visibleForTesting
+  final Future<void> Function(AppDatabase database)? afterFiles;
+
   /// Fusiona [incoming] con esta bóveda. No la cierra: quien la abrió la
   /// suelta.
+  ///
+  /// Lanza [VaultMergeGateException] si una compuerta no se cumple; en ese
+  /// caso, y en cualquier otro fallo, ni la base ni la carpeta de documentos
+  /// quedan cambiadas.
   Future<VaultMergeResult> merge(IncomingVault incoming) async {
+    final files = OriginalFilesMerge(documents: _documents);
     await incoming.attachTo(_db);
     try {
       final result = await _db.transaction(() async {
         await MergeWork.create(_db);
+        final gates = MergeGates(_db);
         try {
-          return await _merge();
+          final before = await gates.snapshot();
+          await gates.installGuards();
+
+          final written = await _write();
+          final derived = await DerivedRebuild(
+            database: _db,
+            ids: _ids,
+            clock: _clock,
+          ).apply();
+          await afterWrites?.call(_db);
+
+          await gates.verify(
+            before: before,
+            itemsAdded: written.itemsAdded,
+            rebuilt: await _touchedItems(),
+          );
+
+          final copied = await files.copy(database: _db, incoming: incoming);
+          await afterFiles?.call(_db);
+
+          return written.copyWith(
+            sourcesChunked: derived.sourcesChunked,
+            sourcesPending: derived.sourcesPending,
+            filesCopied: copied.copied,
+            filesCopiedBytes: copied.copiedBytes,
+            filesMissing: copied.missing,
+            filesDiffering: copied.differing,
+          );
         } finally {
+          await gates.removeGuards();
           await MergeWork.drop(_db);
         }
       });
@@ -63,12 +129,27 @@ class VaultMerger {
         _db.mergeConflicts,
       ]);
       return result;
+      // Cualquier fallo —una compuerta, la base, el disco— deja los archivos
+      // como estaban: lo que se copió, se borra.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await files.rollback();
+      rethrow;
     } finally {
       await incoming.detachFrom(_db);
     }
   }
 
-  Future<VaultMergeResult> _merge() async {
+  Future<List<String>> _touchedItems() async => [
+    for (final row
+        in await _db
+            .customSelect('SELECT id FROM ${MergeWork.touchedItems}')
+            .get())
+      row.read<String>('id'),
+  ];
+
+  /// Escribe lo que se decidió, sin lo derivado ni los archivos.
+  Future<VaultMergeResult> _write() async {
     final conflicts = MergeConflictLog(database: _db, ids: _ids, clock: _clock);
     final known = await conflicts.known();
 

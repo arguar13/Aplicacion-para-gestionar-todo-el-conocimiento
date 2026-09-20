@@ -12,6 +12,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -258,6 +259,93 @@ class TestVault {
     return saved;
   }
 
+  /// Guarda una nota de bloques —la que admite enlaces `[[Título]]`— con un
+  /// párrafo por cada uno de [paragraphs].
+  Future<KnowledgeItem> saveBlocksNote(
+    String id,
+    List<String> paragraphs, {
+    String? title,
+  }) async {
+    final at = now;
+    final item = KnowledgeItem(
+      id: id,
+      title: title ?? 'Nota $id',
+      source: Source(id: id, kind: SourceKind.manualNote, capturedAt: at),
+      processingState: ProcessingState.ready,
+      createdAt: at,
+      updatedAt: at,
+      renditions: [
+        Rendition.text(
+          id: 'blocks-$id',
+          itemId: id,
+          kind: RenditionKind.blocks,
+          content: encodeContentBlocks([
+            for (final text in paragraphs) ContentBlock.paragraph(text: text),
+          ]),
+          isPrimary: true,
+          createdAt: at,
+        ),
+      ],
+    );
+    return (await library.save(item)).getRight().toNullable()!;
+  }
+
+  /// Carga [sources] fuentes y [notes] notas directamente en las tablas, sin
+  /// pasar por el guardado: para armar una bóveda grande en una fracción del
+  /// tiempo. Cada fuente lleva [textLength] caracteres de texto. Los
+  /// identificadores son `s0`, `s1`… y `n0`, `n1`…, desde [from].
+  Future<void> bulk({
+    int sources = 0,
+    int notes = 0,
+    int textLength = 1200,
+    int from = 0,
+  }) async {
+    final seconds = now.millisecondsSinceEpoch ~/ 1000;
+    await db.transaction(() async {
+      for (var i = from; i < from + sources; i++) {
+        final id = 's$i';
+        final text = List.generate(
+          (textLength / 40).ceil(),
+          (k) => 'Frase $k de la fuente $i, con algo de texto.',
+        ).join(' ');
+        await db.customStatement(
+          'INSERT INTO item (id, title, kind, state, created_at, updated_at, '
+          "device_id) VALUES (?, ?, 'source', 'processed', ?, ?, ?)",
+          [id, 'Fuente $i', seconds, seconds, deviceId],
+        );
+        await db.customStatement(
+          'INSERT INTO source (item_id, source_type, captured_at, '
+          'content_hash, processing_status) '
+          "VALUES (?, 'webPage', ?, '', 'done')",
+          [id, seconds],
+        );
+        await db.customStatement(
+          'INSERT INTO renditions (id, item_id, kind, content, is_primary, '
+          "created_at) VALUES (?, ?, 'markdown', ?, 1, ?)",
+          ['rend-$id', id, text, seconds],
+        );
+      }
+      for (var i = from; i < from + notes; i++) {
+        final id = 'n$i';
+        await db.customStatement(
+          'INSERT INTO item (id, title, kind, state, created_at, updated_at, '
+          "device_id) VALUES (?, ?, 'note', 'processed', ?, ?, ?)",
+          [id, 'Nota $i', seconds, seconds, deviceId],
+        );
+        await db.customStatement(
+          'INSERT INTO note (item_id, note_kind, maturity) '
+          "VALUES (?, 'living', 'seed')",
+          [id],
+        );
+        await db.customStatement(
+          'INSERT INTO renditions (id, item_id, kind, content, is_primary, '
+          "created_at) VALUES (?, ?, 'plainText', ?, 1, ?)",
+          ['rend-$id', id, 'Una idea $i.', seconds],
+        );
+      }
+    });
+  }
+
   /// Un vínculo [from] → [to] de tipo [kind].
   Future<void> addRelation(
     String id,
@@ -492,15 +580,34 @@ class TestVault {
   /// Una copia de esta bóveda, como la exportaría la app.
   Future<Uint8List> zip() => backup.buildBackup();
 
-  /// Fusiona la copia de [other] en esta bóveda, como lo haría la app.
-  Future<VaultMergeResult> mergeFrom(TestVault other) async =>
-      mergeZip(await other.zip());
+  /// Fusiona la copia de [other] en esta bóveda, como lo haría la app. Con
+  /// [afterWrites] y [afterFiles] se rompe algo a propósito a mitad de la
+  /// fusión: ver `VaultMerger`.
+  Future<VaultMergeResult> mergeFrom(
+    TestVault other, {
+    Future<void> Function(AppDatabase)? afterWrites,
+    Future<void> Function(AppDatabase)? afterFiles,
+  }) async => mergeZip(
+    await other.zip(),
+    afterWrites: afterWrites,
+    afterFiles: afterFiles,
+  );
 
   /// Fusiona la copia [zipBytes] en esta bóveda.
-  Future<VaultMergeResult> mergeZip(Uint8List zipBytes) async {
+  Future<VaultMergeResult> mergeZip(
+    Uint8List zipBytes, {
+    Future<void> Function(AppDatabase)? afterWrites,
+    Future<void> Function(AppDatabase)? afterFiles,
+  }) async {
     final incoming = await IncomingVault.open(zipBytes);
     try {
-      return await VaultMerger(database: db, clock: () => _now).merge(incoming);
+      return await VaultMerger(
+        database: db,
+        documentsDirectory: docs,
+        clock: () => _now,
+        afterWrites: afterWrites,
+        afterFiles: afterFiles,
+      ).merge(incoming);
     } finally {
       await incoming.dispose();
     }

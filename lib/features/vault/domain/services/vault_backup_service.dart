@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 
 /// Arma y restaura una copia completa de la bóveda: la base de datos entera
 /// y todos los archivos originales que guarda, empaquetados en un `.zip`.
@@ -33,6 +34,21 @@ abstract interface class VaultBackupService {
   /// sabe actualizarla. La copia se abre aparte, en un temporal: si hay que
   /// actualizar su esquema se actualiza ELLA, nunca esta bóveda.
   Future<VaultMergePreview> previewMerge(Uint8List zipBytes);
+
+  /// Fusiona la copia [zipBytes] con esta bóveda, sin borrar nada de lo que hay
+  /// (F11): lo que la copia trae y acá no está se suma, y lo que las dos tienen
+  /// se une campo a campo, quedándose con la versión que sigue a la otra; lo
+  /// que no se puede decidir queda guardado como conflicto para que el usuario
+  /// lo revise. El texto de una fuente no se pisa nunca.
+  ///
+  /// Es todo o nada: si una compuerta no se cumple o algo falla, ni la base ni
+  /// los archivos quedan cambiados. Lanza lo mismo que [previewMerge] por una
+  /// copia que no sirve, y `VaultMergeGateException` si la fusión se revirtió
+  /// por una compuerta.
+  ///
+  /// A diferencia de [restoreBackup] no reemplaza nada ni pide reiniciar la
+  /// app: la conexión abierta sigue siendo la misma.
+  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes);
 
   /// Reemplaza la base y los archivos originales de esta bóveda con los que
   /// traiga [zipBytes]. Lanza [InvalidVaultBackupException] si no tiene la

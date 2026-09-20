@@ -29,6 +29,13 @@ void main() {
         'migración: opera sobre toda la base',
     'lib/core/database/migrations/repoint_item_references_v18.dart':
         'migración: opera sobre toda la base',
+    'lib/features/vault/data/merge/derived_rebuild.dart':
+        'rehace los chunks y los enlaces de lo que la fusión marcó, esté vivo '
+        'o en la papelera: lo derivado de un elemento borrado se conserva '
+        'coherente con su texto para cuando se restaure',
+    'lib/features/vault/data/merge/merge_gates.dart':
+        'las guardas miran `item` solo para saber si una forma de texto es de '
+        'una fuente; no leen ningún elemento para mostrarlo',
     'lib/features/vault/data/merge/rendition_merge.dart':
         'la fusión decide sobre las formas de TODOS los elementos, también los '
         'de la papelera: un elemento borrado conserva su texto y lo que le '
