@@ -20,9 +20,6 @@ void main() {
   const allowed = <String, String>{
     'lib/core/database/app_database.dart':
         'declara las tablas de la base: no lee nada',
-    'lib/core/database/knowledge_entry_writer.dart':
-        'el escritor lee la fila que va a cambiar, esté donde esté: borrar y '
-        'restaurar también pasan por él',
     'lib/core/database/search_index.dart':
         'el índice de texto contiene TODOS los elementos, borrados o no: lo '
         'que se deja afuera es la consulta que lo usa (library_query_sql)',

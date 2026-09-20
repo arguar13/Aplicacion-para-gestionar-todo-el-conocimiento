@@ -202,15 +202,117 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Cambia el subtítulo y/o las notas libres de [itemId]; lo que no se pasa
+  /// no se toca. Devuelve `false` si el elemento no existe.
+  ///
+  /// Aparte de [upsert] porque quien lo necesita —la fusión de duplicados, que
+  /// junta lo que el usuario escribió en los dos— no tiene un `KnowledgeItem`
+  /// armado ni tiene por qué volver a escribir sus formas.
+  Future<bool> setFreeText(
+    String itemId, {
+    Value<String?> subtitle = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) async {
+    return _db.transaction(() async {
+      final row = await _entry(itemId);
+      if (row == null) return false;
+      final changed = [
+        if (subtitle.present && row.subtitle != subtitle.value)
+          EntryField.subtitle,
+        if (notes.present && row.notes != notes.value) EntryField.notes,
+      ];
+      if (changed.isEmpty) return true;
+      final now = _clock();
+      await _writeEntry(
+        row,
+        KnowledgeEntriesCompanion(
+          subtitle: subtitle,
+          notes: notes,
+          updatedAt: Value(now),
+        ),
+      );
+      for (final field in changed) {
+        await _touch(itemId, field, now);
+      }
+      return true;
+    });
+  }
+
+  /// Manda a la papelera los elementos VIVOS de [itemIds]: les pone
+  /// `deletedAt`. Devuelve los que de verdad se mandaron —uno que no existe o
+  /// que ya estaba en la papelera no cuenta, y no cambia su fecha—.
+  ///
+  /// No se borra nada: ni la fila, ni el texto, ni lo que cuelga del elemento,
+  /// ni el archivo original. Sube el `rev`, escribe el dispositivo y versiona
+  /// `deletedAt`, como cualquier otro cambio: una fusión tiene que poder
+  /// distinguir «lo borró el otro» de «lo edité yo».
+  Future<List<String>> trash(Iterable<String> itemIds) async {
+    final ids = itemIds.toSet().toList();
+    if (ids.isEmpty) return const [];
+    return _db.transaction(() async {
+      final now = _clock();
+      final trashed = <String>[];
+      for (var start = 0; start < ids.length; start += _idsPerQuery) {
+        final slice = ids.skip(start).take(_idsPerQuery).toList();
+        final rows = await (_db.select(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.isIn(slice) & e.deletedAt.isNull())).get();
+        for (final row in rows) {
+          await _writeEntry(
+            row,
+            KnowledgeEntriesCompanion(deletedAt: Value(now)),
+          );
+          await _touch(row.id, EntryField.deletedAt, now);
+          trashed.add(row.id);
+        }
+      }
+      return trashed;
+    });
+  }
+
+  /// Saca de la papelera los elementos de [itemIds] que están en ella: les
+  /// quita `deletedAt`. Devuelve los que de verdad se restauraron.
+  Future<List<String>> restore(Iterable<String> itemIds) async {
+    final ids = itemIds.toSet().toList();
+    if (ids.isEmpty) return const [];
+    return _db.transaction(() async {
+      final now = _clock();
+      final restored = <String>[];
+      for (var start = 0; start < ids.length; start += _idsPerQuery) {
+        final slice = ids.skip(start).take(_idsPerQuery).toList();
+        final rows = await (_db.select(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.isIn(slice) & e.deletedAt.isNotNull())).get();
+        for (final row in rows) {
+          await _writeEntry(
+            row,
+            const KnowledgeEntriesCompanion(deletedAt: Value(null)),
+          );
+          await _touch(row.id, EntryField.deletedAt, now);
+          restored.add(row.id);
+        }
+      }
+      return restored;
+    });
+  }
+
   /// Borra [itemId] de la base, para siempre: la fila de `item` y, por las
   /// cascadas del esquema, todo lo que cuelga de ella —su fuente o nota, sus
   /// formas, subrayados, chunks, vínculos, tarjetas y versiones por campo—.
   ///
+  /// SOLO si ya está en la papelera: es lo único que borra un elemento de
+  /// verdad, y lo hace únicamente cuando el usuario lo pide sobre algo que ya
+  /// había borrado. Devuelve `false` —y no toca nada— si el elemento no existe
+  /// o sigue vivo.
+  ///
   /// El archivo original en el disco NO se toca: el disco no tiene cascadas, y
   /// decidir si otro elemento todavía lo usa es cosa de quien llama.
-  Future<void> purge(String itemId) => (_db.delete(
-    _db.knowledgeEntries,
-  )..where((e) => e.id.equals(itemId))).go();
+  Future<bool> purge(String itemId) async {
+    final removed = await (_db.delete(
+      _db.knowledgeEntries,
+    )..where((e) => e.id.equals(itemId) & e.deletedAt.isNotNull())).go();
+    return removed > 0;
+  }
 
   // ---------------------------------------------------------------------
 

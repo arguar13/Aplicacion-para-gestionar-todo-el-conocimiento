@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
+import 'package:sinapsis/features/library/domain/entities/trashed_item.dart';
 
 /// El acceso a todo lo guardado.
 ///
@@ -79,13 +80,38 @@ abstract interface class LibraryRepository {
   /// Lo mismo que [search], emitiendo de nuevo cada vez que algo cambia.
   Stream<List<SearchHit>> watchSearch(LibraryQuery query);
 
-  /// Borra un elemento y todo lo que cuelga de él.
+  /// Manda un elemento a la papelera. No se borra nada: el elemento deja de
+  /// verse en la biblioteca, en la búsqueda, en el grafo y en las sugerencias,
+  /// pero conserva todo lo que tenía —texto, vínculos, tarjetas, el archivo
+  /// original— y se puede [restore]. Solo [purge] y [emptyTrash] borran de
+  /// verdad.
+  ///
+  /// Borrar algo que no existe, o que ya está en la papelera, no es un error.
   Future<Either<Failure, Unit>> delete(String id);
 
   /// Lo mismo que [delete], para varios elementos de una sola vez —el modo
-  /// de selección múltiple de la biblioteca—. Las filas se van todas juntas
-  /// o ninguna: una única transacción, no [ids] llamadas sueltas a [delete].
+  /// de selección múltiple de la biblioteca—. Todos juntos o ninguno: una
+  /// única transacción, no [ids] llamadas sueltas a [delete].
   Future<Either<Failure, Unit>> deleteMany(List<String> ids);
+
+  /// Saca un elemento de la papelera: vuelve a la biblioteca tal cual estaba.
+  Future<Either<Failure, Unit>> restore(String id);
+
+  /// Lo mismo que [restore], para varios de una sola vez.
+  Future<Either<Failure, Unit>> restoreMany(List<String> ids);
+
+  /// Borra PARA SIEMPRE los elementos de [ids] que están en la papelera, junto
+  /// con lo que cuelga de ellos, y los archivos originales que ningún otro
+  /// elemento usa. Lo que no está en la papelera no se toca: no hay forma de
+  /// borrar de verdad algo que sigue vivo.
+  Future<Either<Failure, Unit>> purge(List<String> ids);
+
+  /// Vacía la papelera: [purge] de cada elemento que hay en ella.
+  Future<Either<Failure, Unit>> emptyTrash();
+
+  /// Lo que hay en la papelera, del más reciente al más viejo, emitiendo de
+  /// nuevo cada vez que algo entra o sale.
+  Stream<List<TrashedItem>> watchTrash();
 
   /// Mueve un elemento a [spaceId], o lo deja sin clasificar si es `null`.
   ///

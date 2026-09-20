@@ -19,6 +19,7 @@ import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
@@ -31,6 +32,7 @@ import 'package:sinapsis/features/library/data/repositories/library_query_sql.da
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
+import 'package:sinapsis/features/library/domain/entities/trashed_item.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/library/domain/services/search_snippet.dart';
 
@@ -528,31 +530,63 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
-  Future<Either<Failure, Unit>> delete(String id) async {
+  Future<Either<Failure, Unit>> delete(String id) => deleteMany([id]);
+
+  @override
+  Future<Either<Failure, Unit>> deleteMany(List<String> ids) async {
     try {
-      // El archivo original se busca ANTES de borrar la fila: después ya no
-      // habría forma de saber cuál era, y quedaría ocupando espacio para
-      // siempre. Las cascadas del esquema limpian la base, pero el disco no
-      // tiene cascadas.
-      final filePath = await _originalFilePathOf(id);
-
-      // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o nota
-      // se van solos por las cascadas del esquema (ver `PRAGMA foreign_keys` en
-      // AppDatabase): todo cuelga de la fila de `item`.
-      await _writer.purge(id);
-
-      if (filePath != null) await _deleteFileQuietly(filePath, id);
-
+      // Una única transacción: todos a la papelera o ninguno. No se borra
+      // nada —ni la fila, ni lo que cuelga de ella, ni el archivo original—:
+      // eso es de [purge], y solo sobre lo que ya está acá.
+      await _writer.trash(ids);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
-      return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.delete'));
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.deleteMany'),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, Unit>> deleteMany(List<String> ids) async {
+  Future<Either<Failure, Unit>> restore(String id) => restoreMany([id]);
+
+  @override
+  Future<Either<Failure, Unit>> restoreMany(List<String> ids) async {
+    try {
+      await _db.transaction(() async {
+        final restored = await _writer.restore(ids);
+        if (restored.isEmpty) return;
+
+        // Mientras estuvo en la papelera, los `[[Título]]` que esperaban su
+        // título quedaron rotos —un elemento borrado no recibe enlaces—: al
+        // volver, se resuelven.
+        final rows = await (_db.select(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.isIn(restored))).get();
+        for (final row in rows) {
+          await resolveBrokenInlineLinks(
+            _db,
+            itemId: row.id,
+            title: row.title,
+            ids: _ids,
+            clock: _clock,
+          );
+        }
+      });
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.restoreMany'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> purge(List<String> ids) async {
     try {
       // Las filas se borran todas dentro de la misma transacción —o quedan
       // todas o no queda ninguna—; los archivos, después y fuera de ella: el
@@ -563,16 +597,19 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // fila, dentro del mismo recorrido: si dos de los [ids] comparten
       // fuente —el mismo PDF capturado dos veces—, la pregunta para el
       // segundo ya ve borrada la fila del primero, así que el archivo se
-      // borra una sola vez, no cero ni dos.
+      // borra una sola vez, no cero ni dos. Cuenta lo que esté en la
+      // papelera o no: un archivo que usa algo que todavía se puede
+      // restaurar no se borra.
       final filesToDelete = <(String id, String path)>[];
       await _db.transaction(() async {
         for (final id in ids) {
           final filePath = await _originalFilePathOf(id);
+          // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o
+          // nota se van solos por las cascadas del esquema (ver `PRAGMA
+          // foreign_keys` en AppDatabase): todo cuelga de la fila de `item`.
+          // Lo que sigue vivo no se borra: el escritor lo rechaza.
+          if (!await _writer.purge(id)) continue;
           if (filePath != null) filesToDelete.add((id, filePath));
-          // La fila se borra DENTRO del recorrido: la pregunta por el archivo
-          // del elemento siguiente se hace sobre ella, y con esta fila todavía
-          // ahí ninguno de los dos se animaría a borrarlo.
-          await _writer.purge(id);
         }
       });
 
@@ -584,10 +621,59 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.purge'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> emptyTrash() async {
+    final List<String> trashed;
+    try {
+      final entries = _db.knowledgeEntries;
+      final rows =
+          await (_db.selectOnly(entries)
+                ..addColumns([entries.id])
+                ..where(entries.deletedAt.isNotNull()))
+              .get();
+      trashed = [for (final row in rows) row.read(entries.id)!];
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
       return left(
-        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.deleteMany'),
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.emptyTrash'),
       );
     }
+    return purge(trashed);
+  }
+
+  @override
+  Stream<List<TrashedItem>> watchTrash() {
+    return _watching(() async {
+      final entries = _db.knowledgeEntries;
+      final sources = _db.knowledgeSources;
+      final rows =
+          await (_db.select(entries).join([
+                  // Una nota no tiene fila de fuente: por eso `LEFT`.
+                  leftOuterJoin(sources, sources.itemId.equalsExp(entries.id)),
+                ])
+                ..where(entries.deletedAt.isNotNull())
+                ..orderBy([
+                  OrderingTerm.desc(entries.deletedAt),
+                  OrderingTerm.asc(entries.id),
+                ]))
+              .get();
+      return [
+        for (final row in rows)
+          TrashedItem(
+            id: row.readTable(entries).id,
+            title: row.readTable(entries).title,
+            sourceKind:
+                row.readTableOrNull(sources)?.sourceType ??
+                SourceKind.manualNote,
+            deletedAt: row.readTable(entries).deletedAt!,
+          ),
+      ];
+    }, hint: 'LibraryRepositoryImpl.watchTrash');
   }
 
   /// La ruta del archivo original de un elemento, si tenía uno.

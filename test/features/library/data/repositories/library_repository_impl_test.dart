@@ -112,6 +112,47 @@ void main() {
     createdAt: now,
   );
 
+  /// Una forma de bloques: un párrafo por cada texto.
+  Rendition blocksRendition(
+    String itemId,
+    List<String> paragraphs, {
+    String? id,
+  }) => Rendition.text(
+    id: id ?? 'blocks-$itemId',
+    itemId: itemId,
+    kind: RenditionKind.blocks,
+    content: encodeContentBlocks([
+      for (final text in paragraphs) ContentBlock.paragraph(text: text),
+    ]),
+    isPrimary: true,
+    createdAt: now,
+  );
+
+  KnowledgeItem blocksNote(
+    String title,
+    List<String> paragraphs, {
+    String? id,
+  }) {
+    final base = buildItem(
+      id: id,
+      title: title,
+      sourceKind: SourceKind.manualNote,
+    );
+    return base.copyWith(renditions: [blocksRendition(base.id, paragraphs)]);
+  }
+
+  Future<Set<(String, String?)>> linksOf(String itemId) async => {
+    for (final link in await (db.select(
+      db.inlineLinks,
+    )..where((l) => l.fromItemId.equals(itemId))).get())
+      (link.normalizedTitle, link.toItemId),
+  };
+
+  Future<Set<(String, String)>> relatedTo() async => {
+    for (final relation in await db.select(db.relations).get())
+      (relation.fromItemId, relation.toItemId),
+  };
+
   group('guardar y recuperar', () {
     test('un elemento vuelve completo: con su fuente, sus formas y sus '
         'etiquetas', () async {
@@ -263,8 +304,171 @@ void main() {
     });
   });
 
-  group('borrar', () {
-    test('borra el elemento y todo lo que cuelga de él', () async {
+  group('borrar: la papelera (F11)', () {
+    Future<KnowledgeEntryRow> entryOf(String id) => (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle();
+
+    test(
+      'manda el elemento a la papelera y no borra nada de lo que tiene',
+      () async {
+        final base = buildItem();
+        await repository.save(
+          base.copyWith(
+            renditions: [textRendition(base.id, 'contenido')],
+            tags: [Tag(id: 'tag-1', name: 'algo', createdAt: now)],
+          ),
+        );
+
+        final result = await repository.delete(base.id);
+
+        expect(result.isRight(), isTrue);
+        expect((await entryOf(base.id)).deletedAt, isNotNull);
+        // Lo que colgaba de él sigue ahí: se restaura entero.
+        expect(await db.select(db.renditions).get(), hasLength(1));
+        expect(await db.select(db.itemPropertyValues).get(), hasLength(1));
+        expect(await db.select(db.knowledgeSources).get(), hasLength(1));
+        expect(await temaValues(), hasLength(1));
+      },
+    );
+
+    test('el archivo original no se toca: sigue ahí hasta que se borre para '
+        'siempre', () async {
+      final base = buildItem();
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'apunte.pdf',
+        id: base.source.id,
+      );
+      await repository.save(
+        base.copyWith(source: base.source.copyWith(originalFilePath: path)),
+      );
+
+      await repository.delete(base.id);
+
+      expect(files.deleted, isEmpty);
+      expect(files.paths, [path]);
+    });
+
+    test('borrar algo que no existe no es un error', () async {
+      expect((await repository.delete('no-existe')).isRight(), isTrue);
+    });
+
+    test('borrarlo otra vez no cambia cuándo se borró', () async {
+      final base = buildItem();
+      await repository.save(base);
+      await repository.delete(base.id);
+      final first = (await entryOf(base.id)).deletedAt;
+
+      await repository.delete(base.id);
+
+      expect((await entryOf(base.id)).deletedAt, first);
+      expect((await entryOf(base.id)).rev, 2);
+    });
+  });
+
+  group('borrar varios de una vez', () {
+    test('manda a la papelera los pedidos y deja los demás intactos', () async {
+      final a = buildItem(id: 'item-a');
+      final b = buildItem(id: 'item-b');
+      final c = buildItem(id: 'item-c');
+      await repository.save(a);
+      await repository.save(b);
+      await repository.save(c);
+
+      final result = await repository.deleteMany(['item-a', 'item-b']);
+
+      expect(result.isRight(), isTrue);
+      final rows = await db.select(db.knowledgeEntries).get();
+      expect(rows, hasLength(3));
+      expect(
+        {
+          for (final r in rows)
+            if (r.deletedAt != null) r.id,
+        },
+        {'item-a', 'item-b'},
+      );
+    });
+
+    test('con una lista vacía no hace nada', () async {
+      final a = buildItem(id: 'item-a');
+      await repository.save(a);
+
+      final result = await repository.deleteMany(const []);
+
+      expect(result.isRight(), isTrue);
+      expect(
+        (await db.select(db.knowledgeEntries).getSingle()).deletedAt,
+        isNull,
+      );
+    });
+  });
+
+  group('restaurar (F11)', () {
+    test('el elemento vuelve a la biblioteca tal cual estaba', () async {
+      final base = buildItem(title: 'Roma');
+      await repository.save(
+        base.copyWith(renditions: [textRendition(base.id, 'contenido')]),
+      );
+      await repository.delete(base.id);
+
+      final result = await repository.restore(base.id);
+
+      expect(result.isRight(), isTrue);
+      final found = (await repository.findById(
+        base.id,
+      )).getRight().toNullable();
+      expect(found?.title, 'Roma');
+      expect(found?.renditions, hasLength(1));
+    });
+
+    test(
+      'varios a la vez, y lo que no estaba en la papelera se ignora',
+      () async {
+        final a = buildItem(id: 'item-a');
+        final b = buildItem(id: 'item-b');
+        final c = buildItem(id: 'item-c');
+        for (final item in [a, b, c]) {
+          await repository.save(item);
+        }
+        await repository.deleteMany(['item-a', 'item-b']);
+
+        final result = await repository.restoreMany([
+          'item-a',
+          'item-b',
+          'item-c',
+          'no-existe',
+        ]);
+
+        expect(result.isRight(), isTrue);
+        final rows = await db.select(db.knowledgeEntries).get();
+        expect(rows.every((r) => r.deletedAt == null), isTrue);
+      },
+    );
+
+    test(
+      'un [[título]] que esperaba al elemento se resuelve al volver',
+      () async {
+        await repository.save(buildItem(id: 'roma', title: 'Roma'));
+        await repository.save(blocksNote('Viaje', ['[[Roma]]'], id: 'n1'));
+        await repository.delete('roma');
+        // Con el destino en la papelera, otra nota que lo nombra queda rota.
+        await repository.save(blocksNote('Diario', ['[[Roma]]'], id: 'n2'));
+        expect(await linksOf('n2'), {('roma', null)});
+
+        await repository.restore('roma');
+
+        expect(await linksOf('n2'), {('roma', 'roma')});
+      },
+    );
+  });
+
+  group('borrar para siempre (F11)', () {
+    Future<int> entries() async =>
+        (await db.select(db.knowledgeEntries).get()).length;
+
+    test('borra el elemento que ya estaba en la papelera y todo lo que cuelga '
+        'de él', () async {
       final base = buildItem();
       await repository.save(
         base.copyWith(
@@ -272,15 +476,27 @@ void main() {
           tags: [Tag(id: 'tag-1', name: 'algo', createdAt: now)],
         ),
       );
-
       await repository.delete(base.id);
 
+      final result = await repository.purge([base.id]);
+
+      expect(result.isRight(), isTrue);
       expect(await db.select(db.knowledgeEntries).get(), isEmpty);
       expect(await db.select(db.renditions).get(), isEmpty);
       expect(await db.select(db.itemPropertyValues).get(), isEmpty);
       // La etiqueta en sí sobrevive: puede estar en uso por otros elementos,
       // y aunque no lo esté, es parte del vocabulario del usuario.
       expect(await temaValues(), hasLength(1));
+    });
+
+    test('lo que sigue vivo no se borra: no hay atajo', () async {
+      final base = buildItem();
+      await repository.save(base);
+
+      final result = await repository.purge([base.id]);
+
+      expect(result.isRight(), isTrue);
+      expect(await entries(), 1);
     });
 
     test('también borra el archivo original del disco', () async {
@@ -296,14 +512,16 @@ void main() {
       await repository.save(
         base.copyWith(source: base.source.copyWith(originalFilePath: path)),
       );
-
       await repository.delete(base.id);
+
+      await repository.purge([base.id]);
 
       expect(files.deleted, [path]);
       expect(files.paths, isEmpty);
     });
 
-    test('un archivo compartido por dos elementos NO se borra', () async {
+    test('el archivo de algo que sigue vivo no se borra: aunque otro elemento '
+        'que lo compartía sí', () async {
       // El mismo PDF capturado dos veces reutiliza su fila de fuente. Borrar
       // el archivo al eliminar el primero dejaría al segundo apuntando a algo
       // que ya no está.
@@ -314,14 +532,50 @@ void main() {
         id: primero.source.id,
       );
       final source = primero.source.copyWith(originalFilePath: path);
-
       await repository.save(primero.copyWith(source: source));
       await repository.save(buildItem(id: 'item-b').copyWith(source: source));
-
       await repository.delete('item-a');
+
+      await repository.purge(['item-a']);
 
       expect(files.deleted, isEmpty);
       expect(files.paths, [path]);
+    });
+
+    test('ni el de algo que sigue en la papelera: todavía se puede '
+        'restaurar', () async {
+      final primero = buildItem(id: 'item-a');
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'apunte.pdf',
+        id: primero.source.id,
+      );
+      final source = primero.source.copyWith(originalFilePath: path);
+      await repository.save(primero.copyWith(source: source));
+      await repository.save(buildItem(id: 'item-b').copyWith(source: source));
+      await repository.deleteMany(['item-a', 'item-b']);
+
+      await repository.purge(['item-a']);
+
+      expect(files.deleted, isEmpty);
+    });
+
+    test('un archivo compartido entre dos de los borrados para siempre se '
+        'borra una sola vez, no cero ni dos', () async {
+      final a = buildItem(id: 'item-a');
+      final path = await files.save(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        suggestedName: 'compartido.pdf',
+        id: a.source.id,
+      );
+      final source = a.source.copyWith(originalFilePath: path);
+      await repository.save(a.copyWith(source: source));
+      await repository.save(buildItem(id: 'item-b').copyWith(source: source));
+      await repository.deleteMany(['item-a', 'item-b']);
+
+      await repository.purge(['item-a', 'item-b']);
+
+      expect(files.deleted, [path]);
     });
 
     test('si el disco se resiste, el elemento se borra igual', () async {
@@ -336,80 +590,13 @@ void main() {
       await repository.save(
         base.copyWith(source: base.source.copyWith(originalFilePath: path)),
       );
+      await repository.delete(base.id);
       files.deleteError = const FileSystemException('volumen desmontado');
 
-      final result = await repository.delete(base.id);
+      final result = await repository.purge([base.id]);
 
       expect(result.isRight(), isTrue);
-      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
-    });
-
-    test('un elemento sin archivo no intenta borrar nada', () async {
-      final base = buildItem();
-      await repository.save(base);
-
-      await repository.delete(base.id);
-
-      expect(files.deleted, isEmpty);
-    });
-  });
-
-  group('borrar varios de una vez', () {
-    test('borra los elementos pedidos y deja los demás intactos', () async {
-      final a = buildItem(id: 'item-a');
-      final b = buildItem(id: 'item-b');
-      final c = buildItem(id: 'item-c');
-      await repository.save(a);
-      await repository.save(b);
-      await repository.save(c);
-
-      final result = await repository.deleteMany(['item-a', 'item-b']);
-
-      expect(result.isRight(), isTrue);
-      final remaining = await db.select(db.knowledgeEntries).get();
-      expect(remaining.map((r) => r.id), ['item-c']);
-    });
-
-    test('borra el archivo original de cada uno', () async {
-      final a = buildItem(id: 'item-a');
-      final pathA = await files.save(
-        bytes: Uint8List.fromList([1]),
-        suggestedName: 'a.pdf',
-        id: a.source.id,
-      );
-      final b = buildItem(id: 'item-b');
-      final pathB = await files.save(
-        bytes: Uint8List.fromList([2]),
-        suggestedName: 'b.pdf',
-        id: b.source.id,
-      );
-      await repository.save(
-        a.copyWith(source: a.source.copyWith(originalFilePath: pathA)),
-      );
-      await repository.save(
-        b.copyWith(source: b.source.copyWith(originalFilePath: pathB)),
-      );
-
-      await repository.deleteMany(['item-a', 'item-b']);
-
-      expect(files.deleted, unorderedEquals([pathA, pathB]));
-    });
-
-    test('un archivo compartido entre dos de los elementos borrados se borra '
-        'una sola vez, no cero ni dos', () async {
-      final a = buildItem(id: 'item-a');
-      final path = await files.save(
-        bytes: Uint8List.fromList([1, 2, 3]),
-        suggestedName: 'compartido.pdf',
-        id: a.source.id,
-      );
-      final source = a.source.copyWith(originalFilePath: path);
-      await repository.save(a.copyWith(source: source));
-      await repository.save(buildItem(id: 'item-b').copyWith(source: source));
-
-      await repository.deleteMany(['item-a', 'item-b']);
-
-      expect(files.deleted, [path]);
+      expect(await entries(), 0);
     });
 
     test('si el disco se resiste en uno, los demás se borran igual', () async {
@@ -423,13 +610,131 @@ void main() {
         a.copyWith(source: a.source.copyWith(originalFilePath: path)),
       );
       await repository.save(buildItem(id: 'item-b'));
+      await repository.deleteMany(['item-a', 'item-b']);
       files.deleteError = const FileSystemException('volumen desmontado');
 
-      final result = await repository.deleteMany(['item-a', 'item-b']);
+      final result = await repository.purge(['item-a', 'item-b']);
 
       expect(result.isRight(), isTrue);
-      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
+      expect(await entries(), 0);
     });
+
+    test('un elemento sin archivo no intenta borrar nada', () async {
+      final base = buildItem();
+      await repository.save(base);
+      await repository.delete(base.id);
+
+      await repository.purge([base.id]);
+
+      expect(files.deleted, isEmpty);
+    });
+
+    test(
+      'vaciar la papelera borra todo lo que hay en ella y nada más',
+      () async {
+        final a = buildItem(id: 'item-a');
+        final b = buildItem(id: 'item-b');
+        final c = buildItem(id: 'item-c');
+        final path = await files.save(
+          bytes: Uint8List.fromList([1]),
+          suggestedName: 'a.pdf',
+          id: a.source.id,
+        );
+        await repository.save(
+          a.copyWith(source: a.source.copyWith(originalFilePath: path)),
+        );
+        await repository.save(b);
+        await repository.save(c);
+        await repository.deleteMany(['item-a', 'item-b']);
+
+        final result = await repository.emptyTrash();
+
+        expect(result.isRight(), isTrue);
+        expect((await db.select(db.knowledgeEntries).get()).map((r) => r.id), [
+          'item-c',
+        ]);
+        expect(files.deleted, [path]);
+      },
+    );
+
+    test('vaciar una papelera vacía no es un error', () async {
+      expect((await repository.emptyTrash()).isRight(), isTrue);
+    });
+  });
+
+  group('lo que hay en la papelera (F11)', () {
+    test('se lista del más reciente al más viejo, con su tipo', () async {
+      var at = DateTime(2026, 9, 20, 9);
+      final clocked = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        clock: () => at = at.add(const Duration(minutes: 1)),
+      );
+      final a = buildItem(id: 'item-a', title: 'Primero');
+      final b = buildItem(id: 'item-b', title: 'Segundo');
+      final nota = blocksNote('Una nota', ['texto'], id: 'nota');
+      for (final item in [a, b, nota]) {
+        await clocked.save(item);
+      }
+      await clocked.delete('item-a');
+      await clocked.delete('nota');
+      await clocked.delete('item-b');
+
+      final trash = await clocked.watchTrash().first;
+
+      expect(trash.map((t) => t.title), ['Segundo', 'Una nota', 'Primero']);
+      expect(trash.map((t) => t.sourceKind), [
+        SourceKind.webPage,
+        SourceKind.manualNote,
+        SourceKind.webPage,
+      ]);
+      expect(trash.first.deletedAt.isAfter(trash.last.deletedAt), isTrue);
+    });
+
+    test(
+      'lo vivo no está, y una papelera vacía emite una lista vacía',
+      () async {
+        await repository.save(buildItem());
+
+        expect(await repository.watchTrash().first, isEmpty);
+      },
+    );
+
+    test(
+      'emite de nuevo cuando algo entra, sale o se borra para siempre',
+      () async {
+        final a = buildItem(id: 'item-a');
+        await repository.save(a);
+        final queue = StreamQueue(repository.watchTrash());
+        addTearDown(queue.cancel);
+        expect(await queue.next, isEmpty);
+
+        await repository.delete('item-a');
+        var latest = await queue.next;
+        while (latest.isEmpty) {
+          latest = await queue.next.timeout(const Duration(seconds: 5));
+        }
+        expect(latest.single.id, 'item-a');
+
+        await repository.restore('item-a');
+        latest = await queue.next;
+        while (latest.isNotEmpty) {
+          latest = await queue.next.timeout(const Duration(seconds: 5));
+        }
+
+        await repository.delete('item-a');
+        latest = await queue.next;
+        while (latest.isEmpty) {
+          latest = await queue.next.timeout(const Duration(seconds: 5));
+        }
+        await repository.purge(['item-a']);
+        latest = await queue.next;
+        while (latest.isNotEmpty) {
+          latest = await queue.next.timeout(const Duration(seconds: 5));
+        }
+      },
+    );
   });
 
   group('mover varios a un tema de una vez', () {
@@ -1155,6 +1460,7 @@ void main() {
         await repository.save(item);
 
         await repository.delete(item.id);
+        await repository.purge([item.id]);
 
         final entry = await (db.select(
           db.knowledgeEntries,
@@ -1174,6 +1480,7 @@ void main() {
       await repository.save(b);
 
       await repository.deleteMany([a.id, b.id]);
+      await repository.purge([a.id, b.id]);
 
       final remaining = await db.select(db.knowledgeEntries).get();
       expect(remaining, isEmpty);
@@ -1420,6 +1727,7 @@ void main() {
       await repository.assignSpace(itemId: 'item-una', spaceId: 'sp');
 
       await repository.delete('item-una');
+      await repository.purge(['item-una']);
 
       expect(await db.select(db.knowledgeEntries).get(), isEmpty);
       expect(await db.select(db.knowledgeSources).get(), isEmpty);
@@ -1558,47 +1866,6 @@ void main() {
   });
 
   group('enlaces en línea (F9)', () {
-    /// Una forma de bloques: un párrafo por cada texto.
-    Rendition blocksRendition(
-      String itemId,
-      List<String> paragraphs, {
-      String? id,
-    }) => Rendition.text(
-      id: id ?? 'blocks-$itemId',
-      itemId: itemId,
-      kind: RenditionKind.blocks,
-      content: encodeContentBlocks([
-        for (final text in paragraphs) ContentBlock.paragraph(text: text),
-      ]),
-      isPrimary: true,
-      createdAt: now,
-    );
-
-    KnowledgeItem blocksNote(
-      String title,
-      List<String> paragraphs, {
-      String? id,
-    }) {
-      final base = buildItem(
-        id: id,
-        title: title,
-        sourceKind: SourceKind.manualNote,
-      );
-      return base.copyWith(renditions: [blocksRendition(base.id, paragraphs)]);
-    }
-
-    Future<Set<(String, String?)>> linksOf(String itemId) async => {
-      for (final link in await (db.select(
-        db.inlineLinks,
-      )..where((l) => l.fromItemId.equals(itemId))).get())
-        (link.normalizedTitle, link.toItemId),
-    };
-
-    Future<Set<(String, String)>> relatedTo() async => {
-      for (final relation in await db.select(db.relations).get())
-        (relation.fromItemId, relation.toItemId),
-    };
-
     test('guardar una nota que enlaza a un elemento existente la vincula en '
         'el mismo guardado', () async {
       await repository.save(buildItem(id: 'roma', title: 'Roma'));
@@ -1718,15 +1985,17 @@ void main() {
       ).called(1);
     });
 
-    test('borrar el destino deja el enlace roto; borrar la nota se lleva '
-        'sus enlaces', () async {
+    test('borrar el destino para siempre deja el enlace roto; borrar la nota '
+        'se lleva sus enlaces', () async {
       await repository.save(buildItem(id: 'roma', title: 'Roma'));
       await repository.save(blocksNote('Viaje', ['[[Roma]]'], id: 'n1'));
 
       await repository.delete('roma');
+      await repository.purge(['roma']);
       expect(await linksOf('n1'), {('roma', null)});
 
       await repository.delete('n1');
+      await repository.purge(['n1']);
       expect(await db.select(db.inlineLinks).get(), isEmpty);
     });
   });

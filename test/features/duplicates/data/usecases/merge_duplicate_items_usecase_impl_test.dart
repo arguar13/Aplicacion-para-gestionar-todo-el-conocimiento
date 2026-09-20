@@ -362,7 +362,8 @@ void main() {
     expect(provenance.mergedAt, now);
   });
 
-  test('el descartado deja de existir', () async {
+  test('el descartado deja de existir para el usuario: va a la papelera, no '
+      'se borra', () async {
     final keepId = await seedItem(title: 'El que queda');
     final discardId = await seedItem(title: 'El descartado');
 
@@ -370,8 +371,108 @@ void main() {
 
     final entry = await (db.select(
       db.knowledgeEntries,
-    )..where((e) => e.id.equals(discardId))).getSingleOrNull();
-    expect(entry, isNull);
+    )..where((e) => e.id.equals(discardId))).getSingle();
+    expect(entry.deletedAt, isNotNull);
+    expect((await library.findById(discardId)).getRight().toNullable(), isNull);
+  });
+
+  group('lo que el usuario escribió a mano (F11)', () {
+    Future<void> write(
+      String id, {
+      Value<String?> subtitle = const Value.absent(),
+      Value<String?> notes = const Value.absent(),
+    }) => (db.update(db.knowledgeEntries)..where((e) => e.id.equals(id))).write(
+      KnowledgeEntriesCompanion(subtitle: subtitle, notes: notes),
+    );
+
+    Future<KnowledgeEntryRow> entry(String id) => (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle();
+
+    test(
+      'el subtítulo del descartado pasa al que queda si este no tenía',
+      () async {
+        final keepId = await seedItem(title: 'El que queda');
+        final discardId = await seedItem(title: 'El descartado');
+        await write(discardId, subtitle: const Value('Livio, 1962'));
+
+        await useCase(keepItemId: keepId, discardItemId: discardId);
+
+        expect((await entry(keepId)).subtitle, 'Livio, 1962');
+      },
+    );
+
+    test('el subtítulo del que queda no se pisa', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await write(keepId, subtitle: const Value('El mío'));
+      await write(discardId, subtitle: const Value('El otro'));
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect((await entry(keepId)).subtitle, 'El mío');
+    });
+
+    test('las notas se juntan, las del que queda primero', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await write(keepId, notes: const Value('Nota de uno'));
+      await write(discardId, notes: const Value('Nota del otro'));
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect((await entry(keepId)).notes, 'Nota de uno\n\nNota del otro');
+    });
+
+    test(
+      'las notas del descartado pasan enteras si el que queda no tenía',
+      () async {
+        final keepId = await seedItem(title: 'El que queda');
+        final discardId = await seedItem(title: 'El descartado');
+        await write(discardId, notes: const Value('Solo mía'));
+
+        await useCase(keepItemId: keepId, discardItemId: discardId);
+
+        expect((await entry(keepId)).notes, 'Solo mía');
+      },
+    );
+
+    test('unas notas que el que queda ya contiene no se repiten', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await write(keepId, notes: const Value('Una nota larga y otra más'));
+      await write(discardId, notes: const Value('otra más'));
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect((await entry(keepId)).notes, 'Una nota larga y otra más');
+    });
+
+    test('sin nada escrito, no se toca al que queda', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      final before = (await entry(keepId)).rev;
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect((await entry(keepId)).rev, before);
+    });
+
+    test('lo que pasa queda versionado como cualquier otro cambio', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await write(discardId, subtitle: const Value('Livio'));
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      final fields = {
+        for (final f in await (db.select(
+          db.fieldVersions,
+        )..where((f) => f.itemId.equals(keepId))).get())
+          f.fieldName,
+      };
+      expect(fields, contains('subtitle'));
+    });
   });
 
   group('lo que lee y lo que deja al día (F10)', () {

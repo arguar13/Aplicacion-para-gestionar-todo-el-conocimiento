@@ -258,11 +258,21 @@ void main() {
       expect((await queue.next).map((c) => c.front), ['a']);
     });
 
-    test('borrar el elemento borra también sus tarjetas', () async {
+    test('mandar el elemento a la papelera conserva sus tarjetas', () async {
       final itemId = await seedItem();
       await repository.create(itemId: itemId, front: 'a', back: 'b');
 
       await libraryRepository.delete(itemId);
+
+      expect(await repository.watchForItem(itemId).first, hasLength(1));
+    });
+
+    test('borrarlo para siempre borra también sus tarjetas', () async {
+      final itemId = await seedItem();
+      await repository.create(itemId: itemId, front: 'a', back: 'b');
+      await libraryRepository.delete(itemId);
+
+      await libraryRepository.purge([itemId]);
 
       expect(await repository.watchForItem(itemId).first, isEmpty);
     });

@@ -508,14 +508,29 @@ void main() {
     });
   });
 
-  group('borrar para siempre', () {
-    Future<int> count(String table) async =>
-        (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())
-            .read<int>('n');
+  group('la papelera', () {
+    test(
+      'mandar a la papelera pone deletedAt, sube la revisión y lo versiona',
+      () async {
+        await writer.upsert(sourceItem());
+        tick();
 
-    test('se lleva la fila y todo lo que cuelga de ella', () async {
+        final trashed = await writer.trash(['art']);
+
+        expect(trashed, ['art']);
+        final row = await entry('art');
+        expect(row.deletedAt, clockNow);
+        expect(row.rev, 2);
+        expect(row.deviceId, me);
+        expect(
+          (await versions('art'))[EntryField.deletedAt]!.updatedAt,
+          clockNow,
+        );
+      },
+    );
+
+    test('no borra nada: lo que cuelga del elemento sigue ahí', () async {
       await writer.upsert(sourceItem(), changedRenditions: ['r-1']);
-      await writer.upsert(sourceItem(id: 'otro'));
       await db
           .into(db.renditions)
           .insert(
@@ -529,8 +544,160 @@ void main() {
             ),
           );
 
-      await writer.purge('art');
+      await writer.trash(['art']);
 
+      expect(
+        (await db.select(db.renditions).get()).single.content,
+        'El texto.',
+      );
+      expect(await db.select(db.knowledgeSources).get(), hasLength(1));
+    });
+
+    test(
+      'solo cuenta lo que estaba vivo: repetirlo no cambia la fecha',
+      () async {
+        await writer.upsert(sourceItem());
+        final first = clockNow;
+        await writer.trash(['art']);
+        tick();
+
+        final again = await writer.trash(['art', 'no-existe']);
+
+        expect(again, isEmpty);
+        expect((await entry('art')).deletedAt, first);
+        expect((await entry('art')).rev, 2);
+      },
+    );
+
+    test('restaurar quita deletedAt y lo versiona', () async {
+      await writer.upsert(sourceItem());
+      await writer.trash(['art']);
+      tick();
+
+      final restored = await writer.restore(['art']);
+
+      expect(restored, ['art']);
+      final row = await entry('art');
+      expect(row.deletedAt, isNull);
+      expect(row.rev, 3);
+      expect(
+        (await versions('art'))[EntryField.deletedAt]!.updatedAt,
+        clockNow,
+      );
+    });
+
+    test('restaurar lo que está vivo no cambia nada', () async {
+      await writer.upsert(sourceItem());
+
+      expect(await writer.restore(['art']), isEmpty);
+      expect((await entry('art')).rev, 1);
+    });
+
+    test('borrar encima de una versión ajena la deja como base', () async {
+      await writer.upsert(sourceItem());
+      final theirs = clockNow.add(const Duration(hours: 1));
+      await putForeignVersion('art', EntryField.deletedAt, at: theirs);
+      tick();
+
+      await writer.trash(['art']);
+
+      final version = (await versions('art'))[EntryField.deletedAt]!;
+      expect(version.deviceId, me);
+      expect(version.baseUpdatedAt, theirs);
+      expect(version.baseDeviceId, other);
+    });
+
+    test('una lista larga se reparte en varias consultas', () async {
+      final ids = [for (var i = 0; i < 900; i++) 'e$i'];
+      await db.batch(
+        (batch) => batch.insertAll(db.knowledgeEntries, [
+          for (final id in ids)
+            KnowledgeEntriesCompanion.insert(
+              id: id,
+              title: id,
+              kind: ItemKind.source,
+              state: ItemState.processed,
+              createdAt: captured,
+              updatedAt: captured,
+              deviceId: me,
+            ),
+        ]),
+      );
+
+      expect(await writer.trash(ids), hasLength(900));
+      expect(await writer.restore(ids), hasLength(900));
+    });
+  });
+
+  group('subtítulo y notas libres', () {
+    test('cambia solo lo que se pasa y lo versiona', () async {
+      await writer.upsert(sourceItem(subtitle: 'Livio', notes: 'Una nota'));
+      tick();
+
+      final found = await writer.setFreeText(
+        'art',
+        notes: const Value('Otra nota'),
+      );
+
+      expect(found, isTrue);
+      final row = await entry('art');
+      expect(row.subtitle, 'Livio');
+      expect(row.notes, 'Otra nota');
+      expect(row.rev, 2);
+      final fields = await versions('art');
+      expect(fields[EntryField.notes]!.updatedAt, clockNow);
+      expect(fields[EntryField.subtitle]!.updatedAt, isNot(clockNow));
+    });
+
+    test('lo que ya tiene ese valor no es un cambio', () async {
+      await writer.upsert(sourceItem(subtitle: 'Livio'));
+
+      await writer.setFreeText('art', subtitle: const Value('Livio'));
+
+      expect((await entry('art')).rev, 1);
+    });
+
+    test(
+      'se puede vaciar, y un elemento que no existe devuelve false',
+      () async {
+        await writer.upsert(sourceItem(subtitle: 'Livio'));
+
+        await writer.setFreeText('art', subtitle: const Value(null));
+
+        expect((await entry('art')).subtitle, isNull);
+        expect(await writer.setFreeText('nada'), isFalse);
+      },
+    );
+  });
+
+  group('borrar para siempre', () {
+    Future<int> count(String table) async =>
+        (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())
+            .read<int>('n');
+
+    Future<void> seedRendition() => db
+        .into(db.renditions)
+        .insert(
+          RenditionsCompanion.insert(
+            id: 'r-1',
+            itemId: 'art',
+            kind: RenditionKind.plainText,
+            isPrimary: true,
+            createdAt: captured,
+            content: const Value('El texto.'),
+          ),
+        );
+
+    test('se lleva la fila y todo lo que cuelga de ella, si ya estaba en la '
+        'papelera', () async {
+      await writer.upsert(sourceItem(), changedRenditions: ['r-1']);
+      await writer.upsert(sourceItem(id: 'otro'));
+      await seedRendition();
+      await writer.trash(['art']);
+
+      final purged = await writer.purge('art');
+
+      expect(purged, isTrue);
       expect(await count('item'), 1);
       expect(await count('source'), 1);
       expect(await count('renditions'), 0);
@@ -539,9 +706,20 @@ void main() {
       expect(left.map((f) => f.itemId).toSet(), {'otro'});
     });
 
-    test('un elemento que no existe no es un error', () async {
-      await writer.purge('nada');
+    test(
+      'un elemento vivo no se borra: la papelera es el único camino',
+      () async {
+        await writer.upsert(sourceItem());
 
+        final purged = await writer.purge('art');
+
+        expect(purged, isFalse);
+        expect(await count('item'), 1);
+      },
+    );
+
+    test('un elemento que no existe no es un error', () async {
+      expect(await writer.purge('nada'), isFalse);
       expect(await count('item'), 0);
     });
   });

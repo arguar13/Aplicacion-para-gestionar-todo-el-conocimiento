@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -34,6 +35,8 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
   final IdGenerator _ids;
   final Clock _clock;
   final TelemetryService _telemetry;
+
+  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
   @override
   Future<Either<Failure, Unit>> call({
@@ -77,6 +80,7 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
       );
 
       await _db.transaction(() async {
+        await _adoptFreeText(keep: keepItem, discard: discardItem);
         await _reassignRelations(keepItemId, discardItemId);
         await _reassignInlineLinks(keepItemId, discardItemId);
         await _reassignProperties(keepItemId, discardItemId);
@@ -111,6 +115,44 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace));
     }
+  }
+
+  /// Lo que el usuario escribió a mano en el descartado —su subtítulo y sus
+  /// notas— pasa al que queda: antes se perdía con el elemento.
+  ///
+  /// El subtítulo solo si el que queda no tiene uno: no se elige cuál de los
+  /// dos es mejor. Las notas se juntan, las del que queda primero; si ya
+  /// contiene las del descartado no se repiten.
+  Future<void> _adoptFreeText({
+    required KnowledgeEntryRow keep,
+    required KnowledgeEntryRow discard,
+  }) async {
+    final keepSubtitle = _nonEmpty(keep.subtitle);
+    final keepNotes = _nonEmpty(keep.notes);
+    final discardSubtitle = _nonEmpty(discard.subtitle);
+    final discardNotes = _nonEmpty(discard.notes);
+
+    final subtitle = keepSubtitle == null && discardSubtitle != null
+        ? Value<String?>(discardSubtitle)
+        : const Value<String?>.absent();
+
+    final Value<String?> notes;
+    if (discardNotes == null ||
+        (keepNotes != null && keepNotes.contains(discardNotes))) {
+      notes = const Value.absent();
+    } else if (keepNotes == null) {
+      notes = Value(discardNotes);
+    } else {
+      notes = Value('$keepNotes\n\n$discardNotes');
+    }
+
+    if (!subtitle.present && !notes.present) return;
+    await _writer.setFreeText(keep.id, subtitle: subtitle, notes: notes);
+  }
+
+  static String? _nonEmpty(String? text) {
+    final trimmed = text?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : text;
   }
 
   /// Los vínculos del descartado pasan al que queda. Uno *entre* los dos
