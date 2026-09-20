@@ -6,6 +6,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/vault_merge_reader.dart';
+import 'package:sinapsis/features/vault/data/services/backup_layout.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// [VaultBackupService] sobre el sistema de archivos, para Android, Windows,
@@ -28,8 +32,8 @@ class LocalVaultBackupService implements VaultBackupService {
   final AppDatabase _database;
   final Future<Directory> Function() _documentsDirectory;
 
-  static const _databaseEntryName = 'sinapsis.sqlite';
-  static const _originalsFolder = 'originales';
+  static const _databaseEntryName = kBackupDatabaseEntryName;
+  static const _originalsFolder = kBackupOriginalsFolder;
 
   @override
   Future<Uint8List> buildBackup() async {
@@ -87,6 +91,19 @@ class LocalVaultBackupService implements VaultBackupService {
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
       return false;
+    }
+  }
+
+  @override
+  Future<VaultMergePreview> previewMerge(Uint8List zipBytes) async {
+    final incoming = await IncomingVault.open(zipBytes);
+    try {
+      return await VaultMergeReader(
+        database: _database,
+        documentsDirectory: await _documentsDirectory(),
+      ).preview(incoming);
+    } finally {
+      await incoming.dispose();
     }
   }
 
