@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
+import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
@@ -19,7 +20,6 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
@@ -1169,7 +1169,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         title: row.title,
         subtitle: row.subtitle,
         notes: row.notes,
-        source: _toSource(row, source),
+        source: sourceFor(row, source),
         processingState: processingStateFor(source?.processingStatus),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -1179,29 +1179,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
         spaceId: row.spaceId,
       );
     }).toList();
-  }
-
-  /// La procedencia de un elemento: la de su fila de `source` o, si es una
-  /// nota, la de una nota escrita a mano —que no tiene fila, ni URL, ni
-  /// autor—. Su id es el del propio elemento: hay una fuente por elemento.
-  Source _toSource(KnowledgeEntryRow item, KnowledgeSourceRow? source) {
-    if (source == null) {
-      return Source(
-        id: item.id,
-        kind: SourceKind.manualNote,
-        capturedAt: item.createdAt,
-      );
-    }
-    return Source(
-      id: item.id,
-      kind: source.sourceType,
-      capturedAt: source.capturedAt,
-      url: source.originUrl,
-      authorName: source.authorName,
-      authorUrl: source.authorUrl,
-      publishedAt: source.publishedAt,
-      originalFilePath: source.originalBlobPath,
-    );
   }
 
   /// De qué columna esté llena depende cuál de las dos variantes se

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
+import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -47,10 +49,10 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
 
     try {
       final discardItem = await (_db.select(
-        _db.items,
+        _db.knowledgeEntries,
       )..where((i) => i.id.equals(discardItemId))).getSingleOrNull();
       final keepItem = await (_db.select(
-        _db.items,
+        _db.knowledgeEntries,
       )..where((i) => i.id.equals(keepItemId))).getSingleOrNull();
       if (discardItem == null || keepItem == null) {
         return left(
@@ -62,9 +64,14 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
         );
       }
 
-      final discardSource = await (_db.select(
-        _db.sources,
-      )..where((s) => s.id.equals(discardItem.sourceId))).getSingle();
+      // Una nota no tiene fila de fuente: su procedencia es la de una nota
+      // escrita a mano, sin URL ni autor.
+      final discardSource = sourceFor(
+        discardItem,
+        await (_db.select(
+          _db.knowledgeSources,
+        )..where((s) => s.itemId.equals(discardItemId))).getSingleOrNull(),
+      );
 
       await _db.transaction(() async {
         await _reassignRelations(keepItemId, discardItemId);
@@ -72,6 +79,7 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
         await _reassignProperties(keepItemId, discardItemId);
         await _reassignFlashcards(keepItemId, discardItemId);
         await _reassignRenditions(keepItemId, discardItemId);
+        await _refreshChunks(keepItemId);
 
         await _db
             .into(_db.mergedProvenances)
@@ -275,6 +283,28 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
             .write(RenditionsCompanion(isPrimary: Value(shouldBePrimary)));
       }
     }
+  }
+
+  /// Los chunks del que queda, al día con el texto con el que se queda.
+  ///
+  /// Reasignar las formas puede cambiar cuál es la principal —la más completa
+  /// gana—, y los chunks describen la principal: sin esto, buscar una palabra
+  /// del descartado ya no encontraría nada, porque sus chunks se van con él y
+  /// los del que queda siguen siendo los del texto de antes, con posiciones que
+  /// ya no corresponden a ningún texto. `save()` los mantiene; la fusión
+  /// escribe formas sin pasar por `save()`.
+  ///
+  /// Si la principal no cambió, no toca nada: el hash del texto lo dice. Sin
+  /// páginas: el texto que queda puede venir de la otra fuente, y numerarlo
+  /// como si fuera el del PDF de este elemento correría los números —mejor
+  /// ninguno que uno equivocado—.
+  Future<void> _refreshChunks(String keepId) async {
+    await chunkAndPersistSource(
+      _db,
+      itemId: keepId,
+      ids: _ids,
+      reportedBy: 'f10_merge',
+    );
   }
 
   Failure _unexpected(Object e, StackTrace stackTrace) {

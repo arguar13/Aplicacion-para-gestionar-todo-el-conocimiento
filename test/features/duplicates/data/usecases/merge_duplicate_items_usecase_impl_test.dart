@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/duplicates/data/usecases/merge_duplicate_items_usecase_impl.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -373,6 +375,124 @@ void main() {
       db.knowledgeEntries,
     )..where((e) => e.id.equals(discardId))).getSingleOrNull();
     expect(entry, isNull);
+  });
+
+  group('lo que lee y lo que deja al día (F10)', () {
+    test('la procedencia del descartado sale de source, no de la tabla '
+        'vieja', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      // Se cambia SOLO el modelo nuevo: si la lectura saliera del viejo, no se
+      // vería.
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals(discardId))).write(
+        const KnowledgeSourcesCompanion(
+          originUrl: Value('https://otro.org/nueva'),
+          authorName: Value('Otra persona'),
+        ),
+      );
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      final provenance = await db.select(db.mergedProvenances).getSingle();
+      expect(provenance.url, 'https://otro.org/nueva');
+      expect(provenance.authorName, 'Otra persona');
+    });
+
+    test('una nota descartada no tiene fila de fuente: se registra como nota '
+        'manual, capturada cuando se creó', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      await library.save(
+        KnowledgeItem(
+          id: 'una-nota',
+          title: 'Una nota',
+          source: Source(
+            id: 'src-una-nota',
+            kind: SourceKind.manualNote,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: DateTime(2026, 3, 4),
+          updatedAt: now,
+        ),
+      );
+
+      final result = await useCase(
+        keepItemId: keepId,
+        discardItemId: 'una-nota',
+      );
+
+      expect(result.isRight(), isTrue);
+      final provenance = await db.select(db.mergedProvenances).getSingle();
+      expect(provenance.sourceKind, SourceKind.manualNote);
+      expect(provenance.url, isNull);
+      expect(provenance.capturedAt, DateTime(2026, 3, 4));
+    });
+
+    test('los chunks del que queda siguen el texto con el que se queda, y el '
+        'invariante se cumple', () async {
+      final keepId = await seedItem(title: 'El que queda', text: 'corto');
+      final discardId = await seedItem(
+        title: 'El descartado',
+        text: 'un texto bastante más largo que el otro',
+      );
+
+      final result = await useCase(
+        keepItemId: keepId,
+        discardItemId: discardId,
+      );
+
+      expect(result.isRight(), isTrue);
+      final chunks =
+          await (db.select(db.chunks)
+                ..where((c) => c.itemId.equals(keepId))
+                ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
+              .get();
+      expect(
+        chunks.map((c) => c.content).join(),
+        'un texto bastante más largo que el otro',
+      );
+      final report = await verifyChunkInvariant(db);
+      expect(report.holds, isTrue, reason: report.violations.join('; '));
+    });
+
+    test('una palabra del texto del descartado se encuentra en el que '
+        'queda', () async {
+      final keepId = await seedItem(title: 'El que queda', text: 'corto');
+      final discardId = await seedItem(
+        title: 'El descartado',
+        text: 'una frase larga con la palabra zarzaparrilla adentro',
+      );
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      final hits = (await library.search(
+        const LibraryQuery(searchText: 'zarzaparrilla'),
+      )).getRight().toNullable()!;
+      expect(hits.map((h) => h.item.id), [keepId]);
+      expect(hits.single.citation, isNotNull);
+    });
+
+    test('si su texto ya era el principal, sus chunks no se tocan', () async {
+      final keepId = await seedItem(
+        title: 'El que queda',
+        text: 'un texto bastante más largo que el otro',
+      );
+      final discardId = await seedItem(title: 'El descartado', text: 'corto');
+      Future<List<String>> chunkIds() async =>
+          (await (db.select(
+                db.chunks,
+              )..where((c) => c.itemId.equals(keepId))).get())
+              .map((c) => c.id)
+              .toList();
+      final before = await chunkIds();
+      expect(before, isNotEmpty);
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await chunkIds(), before);
+    });
   });
 
   group('enlaces en línea (F9)', () {
