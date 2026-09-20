@@ -190,7 +190,7 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
         'SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) AS n '
         'FROM chunks',
       ),
-      'cuerpo del índice (item_search_content.c3)': await bytes(
+      'cuerpo del índice de elementos (item_search_content.c3)': await bytes(
         'SELECT COALESCE(SUM(LENGTH(CAST(c3 AS BLOB))), 0) AS n '
         'FROM item_search_content',
       ),
@@ -203,8 +203,28 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
     );
     String line(String label, int size) =>
         '${label.padRight(46)} ${(size / 1048576).toStringAsFixed(1)} MB';
+    // Lo que ocupan los índices de texto, solo donde la compilación de SQLite
+    // permite verlo (`dbstat`).
+    final indexes = <String, int>{};
+    try {
+      for (final (label, prefix) in [
+        ('índice de texto de los chunks (chunk_search)', 'chunk_search'),
+        ('índice de texto de los elementos (item_search)', 'item_search'),
+      ]) {
+        indexes[label] = await bytes(
+          'SELECT COALESCE(SUM(pgsize), 0) AS n FROM dbstat '
+          "WHERE name LIKE '${prefix}_%'",
+        );
+      }
+      // Cualquier fallo de `dbstat` —no existe en todas las compilaciones de
+      // SQLite— deja el informe sin esa línea; no es un fallo de la medición.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      indexes.clear();
+    }
     final lines = [
       for (final e in copies.entries) line(e.key, e.value),
+      for (final e in indexes.entries) line(e.key, e.value),
       line('el archivo de la base entero', pages * pageSize),
     ];
     env.log(lines.join('\n'));

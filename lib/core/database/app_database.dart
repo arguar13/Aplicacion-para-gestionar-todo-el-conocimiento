@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
 import 'package:sinapsis/core/database/migrations/backfill_inline_links_v15.dart';
 import 'package:sinapsis/core/database/migrations/backfill_source_chunks_v12.dart';
 import 'package:sinapsis/core/database/migrations/classify_existing_items_v8.dart';
@@ -119,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 15;
+  static const currentSchemaVersion = 16;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -129,6 +130,7 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createSearchIndex();
+      await _createChunkSearchIndex();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
     },
     onUpgrade: (migrator, from, to) async {
@@ -336,6 +338,63 @@ class AppDatabase extends _$AppDatabase {
           logger: ConsoleAppLogger(),
         );
       }
+      // Chunks vivos y búsqueda por chunks (F10): `chunk` gana una clave entera
+      // propia —para que el índice de texto no dependa de un `rowid` que un
+      // `VACUUM` puede renumerar—, `item` gana `notes`, se fragmenta toda
+      // fuente que no lo estaba y se construye el índice de texto de los
+      // chunks. Todo aditivo: el índice de siempre, `item_search`, no se toca
+      // hasta que la búsqueda deje de usarlo. La copia previa de la base ya se
+      // hizo, y si algún conteo no coincide, la migración entera revierte.
+      if (from < 16) {
+        // Quien migra desde antes de v8 nunca pasa por `alterTable` ni por
+        // `addColumn`: el `createTable` del paso `from < 8` ya crea `chunk` y
+        // `item` con las columnas que la clase Dart tiene HOY —`row_key` y
+        // `notes` incluidas—, y repetirlas reventaría con "duplicate column
+        // name".
+        if (from >= 8) {
+          final chunksBefore = await _count('chunks');
+          await migrator.alterTable(
+            TableMigration(chunks, newColumns: [chunks.rowKey]),
+          );
+          final chunksAfter = await _count('chunks');
+          if (chunksBefore != chunksAfter) {
+            throw StateError(
+              'La migración a v16 cambió la cantidad de chunks: había '
+              '$chunksBefore y quedaron $chunksAfter.',
+            );
+          }
+          final orphans = await customSelect(
+            'SELECT COUNT(*) AS n FROM embeddings '
+            'WHERE chunk_id NOT IN (SELECT id FROM chunks)',
+          ).getSingle();
+          if (orphans.read<int>('n') != 0) {
+            throw StateError(
+              'La migración a v16 dejó ${orphans.read<int>('n')} embeddings '
+              'sin su chunk.',
+            );
+          }
+          await migrator.addColumn(knowledgeEntries, knowledgeEntries.notes);
+        }
+
+        await backfillChunksAndNotes(
+          this,
+          ids: const UuidV7Generator(),
+          logger: ConsoleAppLogger(),
+        );
+
+        // Recién ahora, con todos los chunks adentro: indexar de una vez es
+        // mucho más rápido que chunk por chunk.
+        await _createChunkSearchIndex();
+        await customStatement(rebuildChunkSearch);
+        final indexed = await _count('chunk_search_docsize');
+        final chunksNow = await _count('chunks');
+        if (indexed != chunksNow) {
+          throw StateError(
+            'El índice de texto de los chunks quedó con $indexed entradas y '
+            'hay $chunksNow chunks.',
+          );
+        }
+      }
     },
     beforeOpen: (details) async {
       // SQLite trae las claves foráneas DESACTIVADAS por defecto, por
@@ -361,6 +420,23 @@ class AppDatabase extends _$AppDatabase {
     for (final trigger in searchTriggers) {
       await customStatement(trigger);
     }
+  }
+
+  /// Crea el índice de texto de los chunks, su vista de vocabulario y los
+  /// triggers que lo mantienen.
+  Future<void> _createChunkSearchIndex() async {
+    await customStatement(createChunkSearchTable);
+    await customStatement(createChunkVocabTable);
+    for (final trigger in chunkSearchTriggers) {
+      await customStatement(trigger);
+    }
+  }
+
+  Future<int> _count(String table) async {
+    final row = await customSelect(
+      'SELECT COUNT(*) AS n FROM $table',
+    ).getSingle();
+    return row.read<int>('n');
   }
 }
 

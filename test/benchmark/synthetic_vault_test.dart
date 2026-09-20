@@ -110,7 +110,13 @@ void main() {
           "AND name LIKE '%_search_%'",
         )
         .getSingle();
-    expect(triggers.read<int>('n'), 6);
+    // Seis del índice de elementos y tres del de chunks.
+    expect(triggers.read<int>('n'), 9);
+
+    final chunkIndexed = await db
+        .customSelect('SELECT COUNT(*) AS n FROM chunk_search_docsize')
+        .getSingle();
+    expect(chunkIndexed.read<int>('n'), vault.counts['chunks']);
   });
 
   test('armarla dos veces da exactamente lo mismo', () async {

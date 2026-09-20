@@ -104,24 +104,25 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
     ),
   );
 
-  for (final chunk in chunks) {
-    await db
-        .into(db.chunks)
-        .insert(
-          ChunksCompanion.insert(
-            id: ids.next(),
-            itemId: itemId,
-            seq: chunk.seq,
-            content: chunk.text,
-            charStart: chunk.charStart,
-            charEnd: chunk.charEnd,
-            startMs: Value(chunk.startMs),
-            endMs: Value(chunk.endMs),
-            pageNumber: Value(chunk.pageNumber),
-            headingPath: Value(chunk.headingPath),
-          ),
-        );
-  }
+  // De una sola vez: una fuente larga tiene cientos de chunks, y con miles de
+  // fuentes en una migración, insertarlos de a uno era lo que más tardaba.
+  await db.batch((batch) {
+    batch.insertAll(db.chunks, [
+      for (final chunk in chunks)
+        ChunksCompanion.insert(
+          id: ids.next(),
+          itemId: itemId,
+          seq: chunk.seq,
+          content: chunk.text,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          startMs: Value(chunk.startMs),
+          endMs: Value(chunk.endMs),
+          pageNumber: Value(chunk.pageNumber),
+          headingPath: Value(chunk.headingPath),
+        ),
+    ]);
+  });
 
   return SourceChunkingOutcome.populated;
 }

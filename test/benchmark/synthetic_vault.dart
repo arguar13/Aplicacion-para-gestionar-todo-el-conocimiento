@@ -7,6 +7,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
@@ -23,7 +24,7 @@ import 'package:sinapsis/core/domain/services/chunking_service.dart';
 
 /// Cambia cuando cambia lo que el generador escribe: invalida la bóveda que el
 /// benchmark dejó guardada en disco y obliga a armarla de nuevo.
-const kSyntheticVaultVersion = 2;
+const kSyntheticVaultVersion = 3;
 
 /// Cuánto hay en la bóveda sintética, con las proporciones de una bóveda de
 /// verdad: la mayoría son fuentes largas (artículos, transcripciones,
@@ -437,18 +438,22 @@ class _VaultBuilder {
     );
   }
 
-  /// Puebla `item_search` como lo habrían hecho los triggers, fila por
-  /// fila: título, subtítulo y el texto de todas las formas del elemento.
+  /// Puebla los índices de texto como lo habrían hecho los triggers:
+  /// `item_search` fila por fila —título, subtítulo y el texto de todas las
+  /// formas del elemento— y `chunk_search` reconstruido desde `chunks`.
   ///
-  /// Cuando el índice de texto cambie de forma —F10 lo pasa a los chunks—,
-  /// esta función cambia con él, y con ella `kSyntheticVaultVersion`.
-  Future<void> _populateSearchIndex() => db.customStatement("""
+  /// Cuando un índice de texto cambie de forma, esta función cambia con él, y
+  /// con ella `kSyntheticVaultVersion`.
+  Future<void> _populateSearchIndex() async {
+    await db.customStatement("""
 INSERT INTO item_search (item_id, title, subtitle, body)
 SELECT i.id, i.title, COALESCE(i.subtitle, ''),
        COALESCE((SELECT GROUP_CONCAT(r.content, char(10)) FROM renditions r
                   WHERE r.item_id = i.id AND r.content IS NOT NULL), '')
   FROM items i
 """);
+    await db.customStatement(rebuildChunkSearch);
+  }
 
   Future<void> _flushItemBlock() async {
     // En el orden de las claves foráneas: cada tabla después de aquello a lo

@@ -105,6 +105,72 @@ CREATE TRIGGER IF NOT EXISTS renditions_search_ad AFTER DELETE ON renditions BEG
 END''',
 ];
 
+/// El índice de texto de los CHUNKS de las fuentes (F10).
+///
+/// Es un FTS5 de contenido externo: guarda solo el índice invertido y vuelve a
+/// `chunks` por su clave entera para leer el texto cuando hace falta —para
+/// mostrar un fragmento, por ejemplo—. No es una segunda copia del texto: la
+/// que ocupaba `item_search.body`, con el texto entero de cada elemento, era
+/// exactamente lo que F10 tenía que quitar.
+///
+/// Buscar por chunks y no por elemento entero es lo que permite decir DÓNDE
+/// está lo que se encontró: el minuto de una transcripción, la página de un
+/// documento.
+///
+/// `content_rowid` es `row_key`, el entero que la propia tabla declara como
+/// clave primaria: ver `Chunks.rowKey` para por qué no puede ser el `rowid`
+/// implícito.
+const createChunkSearchTable = '''
+CREATE VIRTUAL TABLE IF NOT EXISTS chunk_search USING fts5(
+  content,
+  content = 'chunks',
+  content_rowid = 'row_key',
+  tokenize = "unicode61 remove_diacritics 2"
+)''';
+
+/// Cuántos chunks contienen cada palabra, según el propio índice.
+///
+/// Una vista sobre `chunk_search`, sin datos propios. Sirve para saber ANTES
+/// de buscar si una palabra está en todas partes: ordenar por relevancia
+/// cuesta lo que cuestan las coincidencias, y una palabra que aparece en dos
+/// tercios de los chunks no distingue nada.
+const createChunkVocabTable = '''
+CREATE VIRTUAL TABLE IF NOT EXISTS chunk_vocab USING fts5vocab(chunk_search, row)''';
+
+/// Triggers que mantienen `chunk_search` al día: cualquier escritura sobre
+/// `chunks` queda cubierta, venga de donde venga —incluido el borrado en
+/// cascada cuando se borra un elemento—, por el mismo motivo que los de
+/// `item_search`.
+///
+/// En una tabla de contenido externo, borrar o cambiar una fila obliga a
+/// decirle al índice QUÉ texto tenía: por eso los triggers de baja y de cambio
+/// pasan `OLD.content`.
+final chunkSearchTriggers = <String>[
+  '''
+CREATE TRIGGER IF NOT EXISTS chunks_search_ai AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunk_search (rowid, content) VALUES (NEW.row_key, NEW.content);
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS chunks_search_ad AFTER DELETE ON chunks BEGIN
+  INSERT INTO chunk_search (chunk_search, rowid, content)
+  VALUES ('delete', OLD.row_key, OLD.content);
+END''',
+
+  '''
+CREATE TRIGGER IF NOT EXISTS chunks_search_au AFTER UPDATE OF content ON chunks BEGIN
+  INSERT INTO chunk_search (chunk_search, rowid, content)
+  VALUES ('delete', OLD.row_key, OLD.content);
+  INSERT INTO chunk_search (rowid, content) VALUES (NEW.row_key, NEW.content);
+END''',
+];
+
+/// Reconstruye `chunk_search` desde `chunks`. Para la migración, que primero
+/// inserta todos los chunks y recién entonces indexa: hacerlo de una vez es
+/// mucho más rápido que indexar chunk por chunk.
+const rebuildChunkSearch =
+    "INSERT INTO chunk_search (chunk_search) VALUES ('rebuild')";
+
 /// Convierte lo que escribió el usuario en una consulta de FTS5.
 ///
 /// Hace falta porque la sintaxis de FTS5 tiene operadores propios (`AND`,

@@ -26,9 +26,12 @@ class KnowledgeEntries extends Table {
   TextColumn get id => text()();
   TextColumn get title => text()();
   TextColumn get subtitle => text().nullable()();
-  TextColumn get spaceId => text()
-      .nullable()
-      .references(Spaces, #id, onDelete: KeyAction.setNull)();
+
+  /// El texto libre que el usuario escribe junto a un elemento. Vivía en
+  /// `Items.notes`; F10 la pasa acá porque `Items` se retira.
+  TextColumn get notes => text().nullable()();
+  TextColumn get spaceId =>
+      text().nullable().references(Spaces, #id, onDelete: KeyAction.setNull)();
   TextColumn get kind => textEnum<ItemKind>()();
   TextColumn get state => textEnum<ItemState>()();
   DateTimeColumn get createdAt => dateTime()();

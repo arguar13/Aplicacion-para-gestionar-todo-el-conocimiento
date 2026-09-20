@@ -138,6 +138,32 @@ void main() {
     expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
   });
 
+  test('la búsqueda por chunks entra por el índice y vuelve al chunk por su '
+      'clave entera', () async {
+    final plan = await planOf(
+      'SELECT chunks.item_id FROM chunk_search '
+      'JOIN chunks ON chunks.row_key = chunk_search.rowid '
+      'WHERE chunk_search MATCH ? ORDER BY chunk_search.rank LIMIT 50',
+      [vault.mediumTerm],
+    );
+    expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
+    // Un salto por la clave primaria, no un recorrido de la tabla.
+    expect(plan, isNot(contains('SCAN chunks')), reason: plan);
+    expect(
+      plan,
+      contains('SEARCH chunks USING INTEGER PRIMARY KEY'),
+      reason: plan,
+    );
+  });
+
+  test('los chunks de un elemento, en orden, y su vocabulario', () async {
+    await expectSearched(
+      'chunks',
+      'SELECT * FROM chunks WHERE item_id = ? AND start_ms IS NOT NULL',
+      ['x'],
+    );
+  });
+
   test('la búsqueda de la biblioteca resuelve el orden y la página en la '
       'base, sin traer todas las coincidencias', () async {
     final ids = LibraryQuerySql(
