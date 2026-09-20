@@ -21,6 +21,59 @@ void main() {
     }
   }
 
+  group('número de página', () {
+    const chunker = ChunkingService();
+    List<int?> pagesOf(String text, {bool paged = true}) => [
+      for (final c in chunker.chunk(
+        text,
+        kind: RenditionKind.markdown,
+        paged: paged,
+      ))
+        c.pageNumber,
+    ];
+
+    test('cada separador abre la página siguiente, y el separador pertenece '
+        'a la que cierra', () {
+      const text = 'uno\n\n---\n\ndos\n\ntres\n\n---\n\ncuatro';
+
+      // uno | --- | dos | tres | --- | cuatro
+      expect(pagesOf(text), [1, 1, 2, 2, 2, 3]);
+    });
+
+    test('una página en blanco ocupa su lugar: la siguiente lleva su número '
+        'de verdad', () {
+      // Tres páginas, la del medio vacía: el texto que deja el parser.
+      const text = 'uno\n\n---\n\n\n\n---\n\ntres';
+
+      final chunks = chunker.chunk(
+        text,
+        kind: RenditionKind.markdown,
+        paged: true,
+      );
+
+      expect(chunks.last.text, 'tres');
+      expect(chunks.last.pageNumber, 3);
+    });
+
+    test('sin paginado, ningún chunk trae página: no es un PDF', () {
+      const text = 'uno\n\n---\n\ndos';
+
+      expect(pagesOf(text, paged: false), [null, null, null]);
+    });
+
+    test('el paginado no cambia el texto: los chunks reconstruyen exacto', () {
+      const text = 'uno\n\n---\n\n\n\n---\n\ntres\n\ncuatro';
+
+      final chunks = chunker.chunk(
+        text,
+        kind: RenditionKind.markdown,
+        paged: true,
+      );
+
+      expect(chunkingInvariantHolds(text, chunks), isTrue);
+    });
+  });
+
   group('reconstrucción byte a byte', () {
     test('un párrafo simple, sin separadores, da un solo fragmento', () {
       const text = 'Una idea completa, sin ninguna línea en blanco.';

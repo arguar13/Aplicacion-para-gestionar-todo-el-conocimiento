@@ -98,14 +98,49 @@ final _paragraphSeparatorPattern = RegExp('\n{2,}');
 class ChunkingService {
   const ChunkingService();
 
-  List<TextChunk> chunk(String fullText, {required RenditionKind kind}) {
+  /// Parte [fullText] en fragmentos.
+  ///
+  /// Con [paged], el texto viene de un PDF cuyas páginas están separadas por
+  /// `---` en una línea propia, una por segmento —páginas en blanco incluidas,
+  /// vacías—: cada fragmento sabe entonces en qué página está
+  /// ([TextChunk.pageNumber]). Solo tiene sentido si el texto se generó así;
+  /// con otro texto —un artículo, un EPUB cuyos capítulos se separan igual—
+  /// numeraría algo que no son páginas, y un número de página equivocado es
+  /// peor que ninguno.
+  List<TextChunk> chunk(
+    String fullText, {
+    required RenditionKind kind,
+    bool paged = false,
+  }) {
     if (fullText.isEmpty) return const [];
 
     if (kind == RenditionKind.blocks) return _chunkBlocks(fullText);
     if (_looksLikeTimedTranscript(fullText)) {
       return _chunkTimedTranscript(fullText);
     }
-    return _chunkByParagraph(fullText);
+    final chunks = _chunkByParagraph(fullText);
+    return paged ? _numberPages(chunks) : chunks;
+  }
+
+  /// Le pone a cada fragmento la página en la que está: la primera empieza en 1
+  /// y cada separador de página (`---`) abre la siguiente. El propio separador
+  /// pertenece a la página que cierra.
+  List<TextChunk> _numberPages(List<TextChunk> chunks) {
+    var page = 1;
+    final numbered = <TextChunk>[];
+    for (final chunk in chunks) {
+      numbered.add(
+        TextChunk(
+          seq: chunk.seq,
+          text: chunk.text,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          pageNumber: page,
+        ),
+      );
+      if (chunk.text.trim() == '---') page++;
+    }
+    return numbered;
   }
 
   /// Corta en cada línea en blanco (`\n` repetido). El separador queda

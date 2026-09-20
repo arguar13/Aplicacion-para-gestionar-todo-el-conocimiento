@@ -78,11 +78,14 @@ class PdfParser implements DocumentParser {
 
     final document = await _open(bytes);
     try {
-      final pages = <String>[];
+      // Cada página ocupa su lugar aunque esté en blanco: el segmento número
+      // N del texto es la página N. Descartar las vacías corría todas las
+      // siguientes, y con ellas el número de página que un resultado de
+      // búsqueda cita (ver `ChunkingService`).
+      var pages = <String>[];
       for (final page in document.pages) {
         final text = (await page.loadText())?.fullText ?? '';
-        final cleaned = cleanPdfPageText(text);
-        if (cleaned.isNotEmpty) pages.add(cleaned);
+        pages.add(cleanPdfPageText(text));
       }
 
       // Ninguna página trajo texto propio: puede ser un escaneo. Antes de
@@ -90,12 +93,16 @@ class PdfParser implements DocumentParser {
       // página. Si alguna página sí tenía texto, no se toca nada: mezclar
       // texto real con lo que reconoce un OCR —que siempre tiene algún
       // error— degradaría la única parte que ya se sabe exacta.
-      if (pages.isEmpty) {
-        pages.addAll(await _ocrPages(document));
+      if (pages.every((page) => page.isEmpty)) {
+        pages = await _ocrPages(document);
       }
 
+      // Un documento sin una sola letra sale vacío, no como una fila de
+      // separadores.
       return ParsedDocument(
-        markdown: pages.join('\n\n---\n\n'),
+        markdown: pages.every((page) => page.isEmpty)
+            ? ''
+            : pages.join('\n\n---\n\n'),
         pageCount: document.pages.length,
       );
     } finally {
@@ -114,16 +121,15 @@ class PdfParser implements DocumentParser {
     for (final page in document.pages) {
       try {
         final text = await _ocrPage(page, files, extractor);
-        final cleaned = cleanPdfPageText(text);
-        if (cleaned.isNotEmpty) pages.add(cleaned);
+        pages.add(cleanPdfPageText(text));
         // Una página que no se pudo renderizar o reconocer no tira abajo
         // el resto del documento: se sigue con la próxima, y lo que sí se
-        // reconoció queda igual. Ninguna de las dos fallas tiene un tipo
-        // propio en Dart —vienen de PDFium y de un motor de OCR de
-        // terceros—.
+        // reconoció queda igual —la fallida ocupa su lugar, vacía—. Ninguna de
+        // las dos fallas tiene un tipo propio en Dart —vienen de PDFium y de un
+        // motor de OCR de terceros—.
         // ignore: avoid_catches_without_on_clauses
       } catch (_) {
-        continue;
+        pages.add('');
       }
     }
     return pages;

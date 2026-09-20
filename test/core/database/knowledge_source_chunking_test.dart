@@ -197,6 +197,83 @@ void main() {
     expect(report.holds, isTrue, reason: report.violations.join('\n'));
   });
 
+  group('número de página', () {
+    const pdfText = 'uno\n\n---\n\n\n\n---\n\ntres';
+
+    Future<KnowledgeItem> saveDocument(String? path, {String? id}) async {
+      final n = counter++;
+      final item = KnowledgeItem(
+        id: 'doc-$n',
+        title: 'Un documento',
+        source: Source(
+          id: 'src-doc-$n',
+          kind: SourceKind.document,
+          capturedAt: now,
+          originalFilePath: path,
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+        renditions: [
+          Rendition.text(
+            id: 'rend-doc-$n',
+            itemId: 'doc-$n',
+            kind: RenditionKind.markdown,
+            content: pdfText,
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+      );
+      return (await libraryRepository.save(item)).getRight().toNullable()!;
+    }
+
+    test(
+      'un PDF guardado numera sus chunks, y la página en blanco cuenta',
+      () async {
+        final item = await saveDocument('archivos/informe.pdf');
+
+        final chunks = await chunksOf(item.id);
+
+        expect(chunks.map((c) => c.content.trim()), [
+          'uno',
+          '---',
+          '---',
+          'tres',
+        ]);
+        expect(chunks.map((c) => c.pageNumber), [1, 1, 2, 3]);
+      },
+    );
+
+    test(
+      'lo que no es un PDF no se numera, aunque tenga separadores',
+      () async {
+        final item = await saveDocument('archivos/libro.epub');
+
+        expect(
+          (await chunksOf(item.id)).map((c) => c.pageNumber),
+          everyElement(isNull),
+        );
+      },
+    );
+
+    test('las migraciones no numeran: un PDF de antes puede no traer sus '
+        'páginas en blanco', () async {
+      final item = await saveDocument('archivos/viejo.pdf');
+      await (db.delete(db.chunks)..where((c) => c.itemId.equals(item.id))).go();
+      await (db.update(db.knowledgeSources)
+            ..where((s) => s.itemId.equals(item.id)))
+          .write(const KnowledgeSourcesCompanion(contentHash: Value('')));
+
+      // Sin `assignPages`, como lo llaman los backfills.
+      await chunkAndPersistSource(db, itemId: item.id, ids: ids);
+
+      final chunks = await chunksOf(item.id);
+      expect(chunks, isNotEmpty);
+      expect(chunks.map((c) => c.pageNumber), everyElement(isNull));
+    });
+  });
+
   test('una nota no se fragmenta', () async {
     final result = await libraryRepository.save(
       KnowledgeItem(

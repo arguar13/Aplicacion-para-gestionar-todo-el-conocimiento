@@ -130,6 +130,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
       itemId: item.id,
       ids: _ids,
       reportedBy: 'f10_save',
+      assignPages: true,
     );
   }
 

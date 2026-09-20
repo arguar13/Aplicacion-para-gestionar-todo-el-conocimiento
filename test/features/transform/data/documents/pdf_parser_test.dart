@@ -127,6 +127,20 @@ void main() {
       expect(result.markdown, contains('\n\n---\n\n'));
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
+    test('una pagina en blanco conserva su lugar: el segmento N es la pagina '
+        'N', () async {
+      final result = await parser.parse(
+        buildPdf(pageTexts: ['Pagina uno', '', 'Pagina tres']),
+      );
+
+      expect(result.pageCount, 3);
+      final segments = result.markdown.split('\n\n---\n\n');
+      expect(segments, hasLength(3));
+      expect(segments[0], contains('Pagina uno'));
+      expect(segments[1], isEmpty);
+      expect(segments[2], contains('Pagina tres'));
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
     test('un PDF escaneado sale vacio, no falla', () async {
       // Un escaneo es un album de fotos de paginas: no contiene ni una letra.
       // Fallar lo pondria en rojo y ofreceria reintentar algo que no puede
@@ -182,9 +196,7 @@ void main() {
           ocrFileStore: files,
         );
 
-        final result = await parserConOcr.parse(
-          buildPdf(pageTexts: ['', '']),
-        );
+        final result = await parserConOcr.parse(buildPdf(pageTexts: ['', '']));
 
         expect(result.markdown, contains('texto reconocido'));
         expect(result.pageCount, 2);

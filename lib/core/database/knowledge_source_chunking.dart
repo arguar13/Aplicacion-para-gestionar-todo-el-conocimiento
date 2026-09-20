@@ -59,11 +59,19 @@ Future<RenditionRow?> sourceTextRendition(AppDatabase db, String itemId) async {
 /// Una fuente cuyo texto no reconstruye exacto —o cualquier error al
 /// fragmentarla— **no** se pisa ni queda a medias: se reporta en
 /// `MigrationIssues` y se sigue, nunca se pierde el texto.
+///
+/// Con [assignPages], y si la fuente es un PDF, cada chunk se numera con su
+/// página. Solo lo pide `save()`: el texto de un PDF que se capturó ANTES de
+/// que el parser conservara las páginas en blanco no tiene el lugar de cada
+/// página, y numerarlo con su posición correría todos los números que siguen a
+/// una página vacía. Las migraciones no lo piden; esos PDF quedan sin número de
+/// página, que es honesto, en vez de con uno que puede estar equivocado.
 Future<SourceChunkingOutcome> chunkAndPersistSource(
   AppDatabase db, {
   required String itemId,
   required IdGenerator ids,
   String reportedBy = 'f5_relation_engine',
+  bool assignPages = false,
 }) async {
   final source = await (db.select(
     db.knowledgeSources,
@@ -93,7 +101,11 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
   const chunker = ChunkingService();
   List<TextChunk> chunks;
   try {
-    chunks = chunker.chunk(fullText, kind: chosen.kind);
+    chunks = chunker.chunk(
+      fullText,
+      kind: chosen.kind,
+      paged: assignPages && _isPdf(source),
+    );
   } on Object catch (e) {
     await _reportIssue(
       db,
@@ -152,6 +164,10 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
       ? SourceChunkingOutcome.rebuilt
       : SourceChunkingOutcome.populated;
 }
+
+/// Si el archivo original de la fuente es un PDF.
+bool _isPdf(KnowledgeSourceRow source) =>
+    source.originalBlobPath?.toLowerCase().endsWith('.pdf') ?? false;
 
 /// Mismo criterio que `fragmentExistingSources`: se prefiere la
 /// rendition marcada como principal; sin ninguna marcada, la primera

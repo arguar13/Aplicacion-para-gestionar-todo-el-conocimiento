@@ -311,6 +311,41 @@ void main() {
       expect(citation.timestamp, isNull);
     });
 
+    test('un PDF guardado cita la página real donde está lo buscado, aunque '
+        'una página anterior esté en blanco', () async {
+      final n = counter++;
+      await repository.save(
+        KnowledgeItem(
+          id: 'pdf-$n',
+          title: 'Un informe',
+          source: Source(
+            id: 'src-pdf-$n',
+            kind: SourceKind.document,
+            capturedAt: now,
+            originalFilePath: 'archivos/informe.pdf',
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+          renditions: [
+            Rendition.text(
+              id: 'rend-pdf-$n',
+              itemId: 'pdf-$n',
+              kind: RenditionKind.markdown,
+              // La página 2 está en blanco; el paradigma está en la 3.
+              content: 'Portada.\n\n---\n\n\n\n---\n\nEl paradigma científico.',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+
+      final hits = await hitsFor('paradigma');
+
+      expect(hits.single.citation!.pageNumber, 3);
+    });
+
     test('un elemento que coincide solo por el título, o una nota, no trae '
         'cita: no hay dónde señalar', () async {
       await save('Sobre el paradigma');
