@@ -1,0 +1,3235 @@
+{
+  "_meta": {
+    "description": "This file contains a serialized version of schema entities for drift.",
+    "version": "1.3.0"
+  },
+  "options": {
+    "store_date_time_values_as_text": false
+  },
+  "entities": [
+    {
+      "id": 0,
+      "references": [],
+      "type": "table",
+      "data": {
+        "name": "spaces",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "name",
+            "getter_name": "name",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "references": [
+        0
+      ],
+      "type": "table",
+      "data": {
+        "name": "item",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "title",
+            "getter_name": "title",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "subtitle",
+            "getter_name": "subtitle",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "notes",
+            "getter_name": "notes",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "space_id",
+            "getter_name": "spaceId",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES spaces (id) ON DELETE SET NULL",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES spaces (id) ON DELETE SET NULL"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "spaces",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "setNull"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kind",
+            "getter_name": "kind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<ItemKind>(ItemKind.values)",
+              "dart_type_name": "ItemKind"
+            }
+          },
+          {
+            "name": "state",
+            "getter_name": "state",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<ItemState>(ItemState.values)",
+              "dart_type_name": "ItemState"
+            }
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "updated_at",
+            "getter_name": "updatedAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "deleted_at",
+            "getter_name": "deletedAt",
+            "moor_type": "dateTime",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "device_id",
+            "getter_name": "deviceId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "rev",
+            "getter_name": "rev",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('1')",
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "renditions",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kind",
+            "getter_name": "kind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<RenditionKind>(RenditionKind.values)",
+              "dart_type_name": "RenditionKind"
+            }
+          },
+          {
+            "name": "content",
+            "getter_name": "content",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "relative_path",
+            "getter_name": "relativePath",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "is_primary",
+            "getter_name": "isPrimary",
+            "moor_type": "bool",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "CHECK (\"is_primary\" IN (0, 1))",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "CHECK (\"is_primary\" IN (0, 1))"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "CHECK ((content IS NULL) <> (relative_path IS NULL))"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "relations",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "from_item_id",
+            "getter_name": "fromItemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "to_item_id",
+            "getter_name": "toItemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "kind",
+            "getter_name": "kind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<RelationKind>(RelationKind.values)",
+              "dart_type_name": "RelationKind"
+            }
+          },
+          {
+            "name": "note",
+            "getter_name": "note",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "reviewed_at",
+            "getter_name": "reviewedAt",
+            "moor_type": "dateTime",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "source_char_start",
+            "getter_name": "sourceCharStart",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "source_char_end",
+            "getter_name": "sourceCharEnd",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (from_item_id, to_item_id, kind)",
+          "CHECK (from_item_id <> to_item_id)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "references": [
+        2
+      ],
+      "type": "table",
+      "data": {
+        "name": "highlights",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "rendition_id",
+            "getter_name": "renditionId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES renditions (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES renditions (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "renditions",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "start_offset",
+            "getter_name": "startOffset",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "end_offset",
+            "getter_name": "endOffset",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "excerpt",
+            "getter_name": "excerpt",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "note",
+            "getter_name": "note",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "CHECK (end_offset > start_offset)",
+          "CHECK (start_offset >= 0)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "flashcards",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "front",
+            "getter_name": "front",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "back",
+            "getter_name": "back",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "ease_factor",
+            "getter_name": "easeFactor",
+            "moor_type": "double",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('2.5')",
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "interval_days",
+            "getter_name": "intervalDays",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('0')",
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "repetitions",
+            "getter_name": "repetitions",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('0')",
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "due_at",
+            "getter_name": "dueAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "last_reviewed_at",
+            "getter_name": "lastReviewedAt",
+            "moor_type": "dateTime",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "references": [],
+      "type": "table",
+      "data": {
+        "name": "conversations",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "mode",
+            "getter_name": "mode",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<ChatConversationMode>(ChatConversationMode.values)",
+              "dart_type_name": "ChatConversationMode"
+            }
+          },
+          {
+            "name": "title",
+            "getter_name": "title",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "updated_at",
+            "getter_name": "updatedAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "references": [
+        6
+      ],
+      "type": "table",
+      "data": {
+        "name": "chat_messages",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "conversation_id",
+            "getter_name": "conversationId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES conversations (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES conversations (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "conversations",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "is_user",
+            "getter_name": "isUser",
+            "moor_type": "bool",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "CHECK (\"is_user\" IN (0, 1))",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "CHECK (\"is_user\" IN (0, 1))"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "content",
+            "getter_name": "content",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "sources_json",
+            "getter_name": "sourcesJson",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "attachments_json",
+            "getter_name": "attachmentsJson",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "error",
+            "getter_name": "error",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "references": [],
+      "type": "table",
+      "data": {
+        "name": "property_definitions",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "name",
+            "getter_name": "name",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "UNIQUE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "UNIQUE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              "unique"
+            ]
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "type",
+            "getter_name": "type",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('\\'text\\'')",
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<PropertyValueType>(PropertyValueType.values)",
+              "dart_type_name": "PropertyValueType"
+            }
+          },
+          {
+            "name": "is_system",
+            "getter_name": "isSystem",
+            "moor_type": "bool",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "CHECK (\"is_system\" IN (0, 1))",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "CHECK (\"is_system\" IN (0, 1))"
+            },
+            "default_dart": "const CustomExpression('0')",
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (name COLLATE NOCASE)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "references": [
+        8
+      ],
+      "type": "table",
+      "data": {
+        "name": "property_values",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "definition_id",
+            "getter_name": "definitionId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES property_definitions (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES property_definitions (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "property_definitions",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "value",
+            "getter_name": "value",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "number_value",
+            "getter_name": "numberValue",
+            "moor_type": "double",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_from_year",
+            "getter_name": "dateFromYear",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_from_month",
+            "getter_name": "dateFromMonth",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_from_day",
+            "getter_name": "dateFromDay",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_to_year",
+            "getter_name": "dateToYear",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_to_month",
+            "getter_name": "dateToMonth",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_to_day",
+            "getter_name": "dateToDay",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "date_precision",
+            "getter_name": "datePrecision",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<DatePrecision>(DatePrecision.values)",
+              "dart_type_name": "DatePrecision"
+            }
+          },
+          {
+            "name": "date_is_circa",
+            "getter_name": "dateIsCirca",
+            "moor_type": "bool",
+            "nullable": true,
+            "customConstraints": null,
+            "defaultConstraints": "CHECK (\"date_is_circa\" IN (0, 1))",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "CHECK (\"date_is_circa\" IN (0, 1))"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (definition_id, value COLLATE NOCASE)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "references": [
+        1,
+        9
+      ],
+      "type": "table",
+      "data": {
+        "name": "item_property_values",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "property_value_id",
+            "getter_name": "propertyValueId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES property_values (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES property_values (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "property_values",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "origin",
+            "getter_name": "origin",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('\\'manual\\'')",
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<ItemPropertyOrigin>(ItemPropertyOrigin.values)",
+              "dart_type_name": "ItemPropertyOrigin"
+            }
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "item_id",
+          "property_value_id"
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "references": [
+        9,
+        8
+      ],
+      "type": "table",
+      "data": {
+        "name": "property_aliases",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "property_value_id",
+            "getter_name": "propertyValueId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES property_values (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES property_values (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "property_values",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "definition_id",
+            "getter_name": "definitionId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES property_definitions (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES property_definitions (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "property_definitions",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "alias",
+            "getter_name": "alias",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (definition_id, alias COLLATE NOCASE)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "source",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "source_type",
+            "getter_name": "sourceType",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<SourceKind>(SourceKind.values)",
+              "dart_type_name": "SourceKind"
+            }
+          },
+          {
+            "name": "origin_url",
+            "getter_name": "originUrl",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "author_name",
+            "getter_name": "authorName",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "author_url",
+            "getter_name": "authorUrl",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "published_at",
+            "getter_name": "publishedAt",
+            "moor_type": "dateTime",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "captured_at",
+            "getter_name": "capturedAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "original_blob_path",
+            "getter_name": "originalBlobPath",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "content_hash",
+            "getter_name": "contentHash",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "dedup_hash",
+            "getter_name": "dedupHash",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "simhash",
+            "getter_name": "simhash",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "processing_status",
+            "getter_name": "processingStatus",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<SourceProcessingStatus>(SourceProcessingStatus.values)",
+              "dart_type_name": "SourceProcessingStatus"
+            }
+          },
+          {
+            "name": "processing_error",
+            "getter_name": "processingError",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "processing_attempts",
+            "getter_name": "processingAttempts",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('0')",
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "note",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "note_kind",
+            "getter_name": "noteKind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<NoteKind>(NoteKind.values)",
+              "dart_type_name": "NoteKind"
+            }
+          },
+          {
+            "name": "maturity",
+            "getter_name": "maturity",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<NoteMaturity>(NoteMaturity.values)",
+              "dart_type_name": "NoteMaturity"
+            }
+          },
+          {
+            "name": "dedup_hash",
+            "getter_name": "dedupHash",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "simhash",
+            "getter_name": "simhash",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "item_id"
+        ]
+      }
+    },
+    {
+      "id": 14,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "chunks",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "row_key",
+            "getter_name": "rowKey",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "PRIMARY KEY AUTOINCREMENT",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "PRIMARY KEY AUTOINCREMENT"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              "auto-increment"
+            ]
+          },
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "UNIQUE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "UNIQUE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              "unique"
+            ]
+          },
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "seq",
+            "getter_name": "seq",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "content",
+            "getter_name": "content",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "char_start",
+            "getter_name": "charStart",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "char_end",
+            "getter_name": "charEnd",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "start_ms",
+            "getter_name": "startMs",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "end_ms",
+            "getter_name": "endMs",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "page_number",
+            "getter_name": "pageNumber",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "heading_path",
+            "getter_name": "headingPath",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (item_id, seq)"
+        ]
+      }
+    },
+    {
+      "id": 15,
+      "references": [
+        14
+      ],
+      "type": "table",
+      "data": {
+        "name": "embeddings",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "chunk_id",
+            "getter_name": "chunkId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES chunks (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES chunks (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "chunks",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "vector",
+            "getter_name": "vector",
+            "moor_type": "blob",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "model_version",
+            "getter_name": "modelVersion",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "chunk_id"
+        ]
+      }
+    },
+    {
+      "id": 16,
+      "references": [],
+      "type": "table",
+      "data": {
+        "name": "migration_issues",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "migration",
+            "getter_name": "migration",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "stage",
+            "getter_name": "stage",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "message",
+            "getter_name": "message",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 17,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "suggestions",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "kind",
+            "getter_name": "kind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<SuggestionKind>(SuggestionKind.values)",
+              "dart_type_name": "SuggestionKind"
+            }
+          },
+          {
+            "name": "target_item_id",
+            "getter_name": "targetItemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "payload_json",
+            "getter_name": "payloadJson",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "confidence",
+            "getter_name": "confidence",
+            "moor_type": "double",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "status",
+            "getter_name": "status",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('\\'pending\\'')",
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<SuggestionStatus>(SuggestionStatus.values)",
+              "dart_type_name": "SuggestionStatus"
+            }
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 18,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "merged_provenances",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "item_id",
+            "getter_name": "itemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "source_kind",
+            "getter_name": "sourceKind",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [],
+            "type_converter": {
+              "dart_expr": "const EnumNameConverter<SourceKind>(SourceKind.values)",
+              "dart_type_name": "SourceKind"
+            }
+          },
+          {
+            "name": "url",
+            "getter_name": "url",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "author_name",
+            "getter_name": "authorName",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "author_url",
+            "getter_name": "authorUrl",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "published_at",
+            "getter_name": "publishedAt",
+            "moor_type": "dateTime",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "captured_at",
+            "getter_name": "capturedAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "merged_at",
+            "getter_name": "mergedAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 19,
+      "references": [
+        1
+      ],
+      "type": "table",
+      "data": {
+        "name": "inline_link",
+        "was_declared_in_moor": false,
+        "columns": [
+          {
+            "name": "id",
+            "getter_name": "id",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "from_item_id",
+            "getter_name": "fromItemId",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE CASCADE",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE CASCADE"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "cascade"
+                }
+              }
+            ]
+          },
+          {
+            "name": "target_title",
+            "getter_name": "targetTitle",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "normalized_title",
+            "getter_name": "normalizedTitle",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "to_item_id",
+            "getter_name": "toItemId",
+            "moor_type": "string",
+            "nullable": true,
+            "customConstraints": null,
+            "defaultConstraints": "REFERENCES item (id) ON DELETE SET NULL",
+            "dialectAwareDefaultConstraints": {
+              "sqlite": "REFERENCES item (id) ON DELETE SET NULL"
+            },
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": [
+              {
+                "foreign_key": {
+                  "to": {
+                    "table": "item",
+                    "column": "id"
+                  },
+                  "initially_deferred": false,
+                  "on_update": null,
+                  "on_delete": "setNull"
+                }
+              }
+            ]
+          },
+          {
+            "name": "created_at",
+            "getter_name": "createdAt",
+            "moor_type": "dateTime",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          }
+        ],
+        "is_virtual": false,
+        "without_rowid": false,
+        "constraints": [
+          "UNIQUE (from_item_id, normalized_title)"
+        ],
+        "explicit_pk": [
+          "id"
+        ]
+      }
+    },
+    {
+      "id": 20,
+      "references": [
+        2
+      ],
+      "type": "index",
+      "data": {
+        "on": 2,
+        "name": "idx_renditions_item",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 21,
+      "references": [
+        3
+      ],
+      "type": "index",
+      "data": {
+        "on": 3,
+        "name": "idx_relations_from",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "from_item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 22,
+      "references": [
+        3
+      ],
+      "type": "index",
+      "data": {
+        "on": 3,
+        "name": "idx_relations_to",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "to_item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 23,
+      "references": [
+        4
+      ],
+      "type": "index",
+      "data": {
+        "on": 4,
+        "name": "idx_highlights_rendition",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "rendition_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 24,
+      "references": [
+        5
+      ],
+      "type": "index",
+      "data": {
+        "on": 5,
+        "name": "idx_flashcards_item",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 25,
+      "references": [
+        5
+      ],
+      "type": "index",
+      "data": {
+        "on": 5,
+        "name": "idx_flashcards_due_at",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "due_at",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 26,
+      "references": [
+        6
+      ],
+      "type": "index",
+      "data": {
+        "on": 6,
+        "name": "idx_conversations_mode",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "mode",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 27,
+      "references": [
+        6
+      ],
+      "type": "index",
+      "data": {
+        "on": 6,
+        "name": "idx_conversations_updated_at",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "updated_at",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 28,
+      "references": [
+        7
+      ],
+      "type": "index",
+      "data": {
+        "on": 7,
+        "name": "idx_chat_messages_conversation",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "conversation_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 29,
+      "references": [
+        9
+      ],
+      "type": "index",
+      "data": {
+        "on": 9,
+        "name": "idx_property_values_definition",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "definition_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "references": [
+        10
+      ],
+      "type": "index",
+      "data": {
+        "on": 10,
+        "name": "idx_item_property_values_value",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "property_value_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "references": [
+        11
+      ],
+      "type": "index",
+      "data": {
+        "on": 11,
+        "name": "idx_property_aliases_value",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "property_value_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "references": [
+        1
+      ],
+      "type": "index",
+      "data": {
+        "on": 1,
+        "name": "idx_knowledge_entries_state_kind",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "state",
+            "order_by": null
+          },
+          {
+            "column": "kind",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 33,
+      "references": [
+        1
+      ],
+      "type": "index",
+      "data": {
+        "on": 1,
+        "name": "idx_knowledge_entries_space",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "space_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 34,
+      "references": [
+        1
+      ],
+      "type": "index",
+      "data": {
+        "on": 1,
+        "name": "idx_knowledge_entries_updated_at",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "updated_at",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 35,
+      "references": [
+        1
+      ],
+      "type": "index",
+      "data": {
+        "on": 1,
+        "name": "idx_knowledge_entries_kind_updated",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "kind",
+            "order_by": null
+          },
+          {
+            "column": "updated_at",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 36,
+      "references": [
+        12
+      ],
+      "type": "index",
+      "data": {
+        "on": 12,
+        "name": "idx_knowledge_sources_content_hash",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "content_hash",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 37,
+      "references": [
+        12
+      ],
+      "type": "index",
+      "data": {
+        "on": 12,
+        "name": "idx_knowledge_sources_dedup_hash",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "dedup_hash",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 38,
+      "references": [
+        12
+      ],
+      "type": "index",
+      "data": {
+        "on": 12,
+        "name": "idx_knowledge_sources_processing_status",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "processing_status",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 39,
+      "references": [
+        13
+      ],
+      "type": "index",
+      "data": {
+        "on": 13,
+        "name": "idx_knowledge_notes_dedup_hash",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "dedup_hash",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 40,
+      "references": [
+        14
+      ],
+      "type": "index",
+      "data": {
+        "on": 14,
+        "name": "idx_chunks_item_seq",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "item_id",
+            "order_by": null
+          },
+          {
+            "column": "seq",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 41,
+      "references": [
+        14
+      ],
+      "type": "index",
+      "data": {
+        "on": 14,
+        "name": "idx_chunks_item_start_ms",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "item_id",
+            "order_by": null
+          },
+          {
+            "column": "start_ms",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 42,
+      "references": [
+        17
+      ],
+      "type": "index",
+      "data": {
+        "on": 17,
+        "name": "idx_suggestions_target_status",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "target_item_id",
+            "order_by": null
+          },
+          {
+            "column": "status",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 43,
+      "references": [
+        18
+      ],
+      "type": "index",
+      "data": {
+        "on": 18,
+        "name": "idx_merged_provenances_item",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 44,
+      "references": [
+        19
+      ],
+      "type": "index",
+      "data": {
+        "on": 19,
+        "name": "idx_inline_link_target",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "to_item_id",
+            "order_by": null
+          }
+        ]
+      }
+    },
+    {
+      "id": 45,
+      "references": [
+        19
+      ],
+      "type": "index",
+      "data": {
+        "on": 19,
+        "name": "idx_inline_link_title",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "normalized_title",
+            "order_by": null
+          }
+        ]
+      }
+    }
+  ],
+  "fixed_sql": [
+    {
+      "name": "spaces",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"spaces\" (\"id\" TEXT NOT NULL, \"name\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "item",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"item\" (\"id\" TEXT NOT NULL, \"title\" TEXT NOT NULL, \"subtitle\" TEXT NULL, \"notes\" TEXT NULL, \"space_id\" TEXT NULL REFERENCES spaces (id) ON DELETE SET NULL, \"kind\" TEXT NOT NULL, \"state\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, \"device_id\" TEXT NOT NULL, \"rev\" INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "renditions",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"renditions\" (\"id\" TEXT NOT NULL, \"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"kind\" TEXT NOT NULL, \"content\" TEXT NULL, \"relative_path\" TEXT NULL, \"is_primary\" INTEGER NOT NULL CHECK (\"is_primary\" IN (0, 1)), \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"), CHECK ((content IS NULL) <> (relative_path IS NULL)));"
+        }
+      ]
+    },
+    {
+      "name": "relations",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"relations\" (\"id\" TEXT NOT NULL, \"from_item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"to_item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"kind\" TEXT NOT NULL, \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"reviewed_at\" INTEGER NULL, \"source_char_start\" INTEGER NULL, \"source_char_end\" INTEGER NULL, PRIMARY KEY (\"id\"), UNIQUE (from_item_id, to_item_id, kind), CHECK (from_item_id <> to_item_id));"
+        }
+      ]
+    },
+    {
+      "name": "highlights",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"highlights\" (\"id\" TEXT NOT NULL, \"rendition_id\" TEXT NOT NULL REFERENCES renditions (id) ON DELETE CASCADE, \"start_offset\" INTEGER NOT NULL, \"end_offset\" INTEGER NOT NULL, \"excerpt\" TEXT NOT NULL, \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"), CHECK (end_offset > start_offset), CHECK (start_offset >= 0));"
+        }
+      ]
+    },
+    {
+      "name": "flashcards",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"flashcards\" (\"id\" TEXT NOT NULL, \"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"front\" TEXT NOT NULL, \"back\" TEXT NOT NULL, \"ease_factor\" REAL NOT NULL DEFAULT 2.5, \"interval_days\" INTEGER NOT NULL DEFAULT 0, \"repetitions\" INTEGER NOT NULL DEFAULT 0, \"due_at\" INTEGER NOT NULL, \"created_at\" INTEGER NOT NULL, \"last_reviewed_at\" INTEGER NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "conversations",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"conversations\" (\"id\" TEXT NOT NULL, \"mode\" TEXT NOT NULL, \"title\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "chat_messages",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"chat_messages\" (\"id\" TEXT NOT NULL, \"conversation_id\" TEXT NOT NULL REFERENCES conversations (id) ON DELETE CASCADE, \"is_user\" INTEGER NOT NULL CHECK (\"is_user\" IN (0, 1)), \"content\" TEXT NOT NULL, \"sources_json\" TEXT NULL, \"attachments_json\" TEXT NULL, \"error\" TEXT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "property_definitions",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"property_definitions\" (\"id\" TEXT NOT NULL, \"name\" TEXT NOT NULL UNIQUE, \"created_at\" INTEGER NOT NULL, \"type\" TEXT NOT NULL DEFAULT 'text', \"is_system\" INTEGER NOT NULL DEFAULT 0 CHECK (\"is_system\" IN (0, 1)), PRIMARY KEY (\"id\"), UNIQUE (name COLLATE NOCASE));"
+        }
+      ]
+    },
+    {
+      "name": "property_values",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"property_values\" (\"id\" TEXT NOT NULL, \"definition_id\" TEXT NOT NULL REFERENCES property_definitions (id) ON DELETE CASCADE, \"value\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, \"number_value\" REAL NULL, \"date_from_year\" INTEGER NULL, \"date_from_month\" INTEGER NULL, \"date_from_day\" INTEGER NULL, \"date_to_year\" INTEGER NULL, \"date_to_month\" INTEGER NULL, \"date_to_day\" INTEGER NULL, \"date_precision\" TEXT NULL, \"date_is_circa\" INTEGER NULL CHECK (\"date_is_circa\" IN (0, 1)), PRIMARY KEY (\"id\"), UNIQUE (definition_id, value COLLATE NOCASE));"
+        }
+      ]
+    },
+    {
+      "name": "item_property_values",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"item_property_values\" (\"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"property_value_id\" TEXT NOT NULL REFERENCES property_values (id) ON DELETE CASCADE, \"origin\" TEXT NOT NULL DEFAULT 'manual', PRIMARY KEY (\"item_id\", \"property_value_id\"));"
+        }
+      ]
+    },
+    {
+      "name": "property_aliases",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"property_aliases\" (\"id\" TEXT NOT NULL, \"property_value_id\" TEXT NOT NULL REFERENCES property_values (id) ON DELETE CASCADE, \"definition_id\" TEXT NOT NULL REFERENCES property_definitions (id) ON DELETE CASCADE, \"alias\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"), UNIQUE (definition_id, alias COLLATE NOCASE));"
+        }
+      ]
+    },
+    {
+      "name": "source",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"source\" (\"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"source_type\" TEXT NOT NULL, \"origin_url\" TEXT NULL, \"author_name\" TEXT NULL, \"author_url\" TEXT NULL, \"published_at\" INTEGER NULL, \"captured_at\" INTEGER NOT NULL, \"original_blob_path\" TEXT NULL, \"content_hash\" TEXT NOT NULL, \"dedup_hash\" TEXT NULL, \"simhash\" TEXT NULL, \"processing_status\" TEXT NOT NULL, \"processing_error\" TEXT NULL, \"processing_attempts\" INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (\"item_id\"));"
+        }
+      ]
+    },
+    {
+      "name": "note",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"note\" (\"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"note_kind\" TEXT NOT NULL, \"maturity\" TEXT NOT NULL, \"dedup_hash\" TEXT NULL, \"simhash\" TEXT NULL, PRIMARY KEY (\"item_id\"));"
+        }
+      ]
+    },
+    {
+      "name": "chunks",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"chunks\" (\"row_key\" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, \"id\" TEXT NOT NULL UNIQUE, \"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"seq\" INTEGER NOT NULL, \"content\" TEXT NOT NULL, \"char_start\" INTEGER NOT NULL, \"char_end\" INTEGER NOT NULL, \"start_ms\" INTEGER NULL, \"end_ms\" INTEGER NULL, \"page_number\" INTEGER NULL, \"heading_path\" TEXT NULL, UNIQUE (item_id, seq));"
+        }
+      ]
+    },
+    {
+      "name": "embeddings",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"embeddings\" (\"chunk_id\" TEXT NOT NULL REFERENCES chunks (id) ON DELETE CASCADE, \"vector\" BLOB NOT NULL, \"model_version\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"chunk_id\"));"
+        }
+      ]
+    },
+    {
+      "name": "migration_issues",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"migration_issues\" (\"id\" TEXT NOT NULL, \"migration\" TEXT NOT NULL, \"item_id\" TEXT NOT NULL, \"stage\" TEXT NOT NULL, \"message\" TEXT NOT NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "suggestions",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"suggestions\" (\"id\" TEXT NOT NULL, \"kind\" TEXT NOT NULL, \"target_item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"payload_json\" TEXT NOT NULL, \"confidence\" REAL NULL, \"status\" TEXT NOT NULL DEFAULT 'pending', \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "merged_provenances",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"merged_provenances\" (\"id\" TEXT NOT NULL, \"item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"source_kind\" TEXT NOT NULL, \"url\" TEXT NULL, \"author_name\" TEXT NULL, \"author_url\" TEXT NULL, \"published_at\" INTEGER NULL, \"captured_at\" INTEGER NOT NULL, \"merged_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"));"
+        }
+      ]
+    },
+    {
+      "name": "inline_link",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE TABLE IF NOT EXISTS \"inline_link\" (\"id\" TEXT NOT NULL, \"from_item_id\" TEXT NOT NULL REFERENCES item (id) ON DELETE CASCADE, \"target_title\" TEXT NOT NULL, \"normalized_title\" TEXT NOT NULL, \"to_item_id\" TEXT NULL REFERENCES item (id) ON DELETE SET NULL, \"created_at\" INTEGER NOT NULL, PRIMARY KEY (\"id\"), UNIQUE (from_item_id, normalized_title));"
+        }
+      ]
+    },
+    {
+      "name": "idx_renditions_item",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_renditions_item ON renditions (item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_relations_from",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_relations_from ON relations (from_item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_relations_to",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_relations_to ON relations (to_item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_highlights_rendition",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_highlights_rendition ON highlights (rendition_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_flashcards_item",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_flashcards_item ON flashcards (item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_flashcards_due_at",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_flashcards_due_at ON flashcards (due_at)"
+        }
+      ]
+    },
+    {
+      "name": "idx_conversations_mode",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_conversations_mode ON conversations (mode)"
+        }
+      ]
+    },
+    {
+      "name": "idx_conversations_updated_at",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_conversations_updated_at ON conversations (updated_at)"
+        }
+      ]
+    },
+    {
+      "name": "idx_chat_messages_conversation",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_chat_messages_conversation ON chat_messages (conversation_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_property_values_definition",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_property_values_definition ON property_values (definition_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_item_property_values_value",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_item_property_values_value ON item_property_values (property_value_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_property_aliases_value",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_property_aliases_value ON property_aliases (property_value_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_entries_state_kind",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_entries_state_kind ON item (state, kind)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_entries_space",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_entries_space ON item (space_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_entries_updated_at",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_entries_updated_at ON item (updated_at)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_entries_kind_updated",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_entries_kind_updated ON item (kind, updated_at)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_sources_content_hash",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_sources_content_hash ON source (content_hash)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_sources_dedup_hash",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_sources_dedup_hash ON source (dedup_hash)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_sources_processing_status",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_sources_processing_status ON source (processing_status)"
+        }
+      ]
+    },
+    {
+      "name": "idx_knowledge_notes_dedup_hash",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_knowledge_notes_dedup_hash ON note (dedup_hash)"
+        }
+      ]
+    },
+    {
+      "name": "idx_chunks_item_seq",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_chunks_item_seq ON chunks (item_id, seq)"
+        }
+      ]
+    },
+    {
+      "name": "idx_chunks_item_start_ms",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_chunks_item_start_ms ON chunks (item_id, start_ms)"
+        }
+      ]
+    },
+    {
+      "name": "idx_suggestions_target_status",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_suggestions_target_status ON suggestions (target_item_id, status)"
+        }
+      ]
+    },
+    {
+      "name": "idx_merged_provenances_item",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_merged_provenances_item ON merged_provenances (item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_inline_link_target",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_inline_link_target ON inline_link (to_item_id)"
+        }
+      ]
+    },
+    {
+      "name": "idx_inline_link_title",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX idx_inline_link_title ON inline_link (normalized_title)"
+        }
+      ]
+    }
+  ]
+}

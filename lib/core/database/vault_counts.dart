@@ -34,6 +34,11 @@ class VaultCounts {
     'merged_provenances',
   ];
 
+  /// El modelo de conocimiento en sí: la fila de cada elemento y su fuente o su
+  /// nota. Se cuenta aparte de [userDataTables] porque el paso v18 puede
+  /// completarlo con lo que faltaba; desde v19 no debe cambiar de tamaño.
+  static const modelTables = <String>['item', 'source', 'note'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

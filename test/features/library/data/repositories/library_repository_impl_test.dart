@@ -156,47 +156,42 @@ void main() {
       expect(all.single.title, 'Título corregido');
     });
 
-    test(
-      'el guardado es atómico: si algo falla, no queda nada a medias',
-      () async {
-        // Una forma inválida —sin texto ni archivo— viola el CHECK del esquema
-        // en mitad de la transacción, después de haber escrito la fuente y el
-        // elemento.
-        final base = buildItem();
-        final broken = base.copyWith(
-          renditions: [
-            Rendition.file(
-              id: 'r1',
-              itemId: base.id,
-              kind: RenditionKind.image,
-              relativePath: '',
-              isPrimary: true,
-              createdAt: now,
-            ),
-          ],
-        );
+    test('el guardado es atómico: si algo falla al final, no queda nada a '
+        'medias', () async {
+      final base = buildItem();
+      final failing = base.copyWith(
+        renditions: [
+          Rendition.text(
+            id: 'r1',
+            itemId: base.id,
+            kind: RenditionKind.plainText,
+            content: 'texto',
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+        // El último paso del guardado: una propiedad de una categoría que no
+        // existe viola la clave foránea DESPUÉS de haber escrito el elemento,
+        // su fuente y su forma.
+        properties: [
+          ItemProperty(
+            definitionId: 'categoria-que-no-existe',
+            definitionName: 'X',
+            valueId: 'valor-1',
+            value: 'un valor',
+            createdAt: now,
+          ),
+        ],
+      );
 
-        // Se fuerza el fallo insertando directamente una forma inválida con el
-        // mismo identificador, para que el upsert choque.
-        await db.customStatement(
-          'INSERT INTO sources (id, kind, captured_at) VALUES (?, ?, ?)',
-          [base.source.id, 'webPage', now.millisecondsSinceEpoch ~/ 1000],
-        );
+      final result = await repository.save(failing);
 
-        final result = await repository.save(broken.copyWith(title: 'x' * 10));
-
-        // Sea cual sea el desenlace, lo que no puede pasar es que quede un
-        // elemento sin sus formas: o entró todo, o no entró nada.
-        if (result.isRight()) {
-          final found = (await repository.findById(
-            broken.id,
-          )).getRight().toNullable();
-          expect(found!.renditions, hasLength(1));
-        } else {
-          expect(await db.select(db.knowledgeEntries).get(), isEmpty);
-        }
-      },
-    );
+      expect(result.isLeft(), isTrue);
+      // La transacción tiene que haber deshecho todo lo anterior.
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
+      expect(await db.select(db.knowledgeSources).get(), isEmpty);
+      expect(await db.select(db.renditions).get(), isEmpty);
+    });
   });
 
   group('actualizar sin destruir', () {
@@ -1072,7 +1067,6 @@ void main() {
         expect(source.sourceType, item.source.kind);
         expect(source.originUrl, item.source.url);
         expect(source.authorName, item.source.authorName);
-        expect(source.fullText, isEmpty);
         expect(source.contentHash, isEmpty);
       },
     );
@@ -1134,7 +1128,7 @@ void main() {
       expect(processed.state, ItemState.processed);
     });
 
-    test('fullText/contentHash puestos a mano sobreviven a una edición '
+    test('el contentHash puesto por el chunking sobrevive a una edición '
         'posterior', () async {
       final item = buildItem();
       await repository.save(item);
@@ -1142,10 +1136,7 @@ void main() {
       await (db.update(
         db.knowledgeSources,
       )..where((s) => s.itemId.equals(item.id))).write(
-        const KnowledgeSourcesCompanion(
-          fullText: Value('El texto íntegro de la fuente.'),
-          contentHash: Value('hash-simulado'),
-        ),
+        const KnowledgeSourcesCompanion(contentHash: Value('hash-simulado')),
       );
 
       await repository.save(item.copyWith(title: 'Otro título'));
@@ -1153,7 +1144,6 @@ void main() {
       final source = await (db.select(
         db.knowledgeSources,
       )..where((s) => s.itemId.equals(item.id))).getSingle();
-      expect(source.fullText, 'El texto íntegro de la fuente.');
       expect(source.contentHash, 'hash-simulado');
     });
 
@@ -1390,22 +1380,24 @@ void main() {
   });
 
   group('una sola escritura (F10)', () {
-    test(
-      'guardar escribe solo el modelo nuevo: items y sources quedan vacías',
-      () async {
-        await repository.save(buildItem());
-        await repository.save(buildItem(sourceKind: SourceKind.manualNote));
+    test('guardar escribe el elemento una vez: item, y su source o su note; el '
+        'modelo viejo ya no existe', () async {
+      await repository.save(buildItem());
+      await repository.save(buildItem(sourceKind: SourceKind.manualNote));
 
-        expect(await db.select(db.items).get(), isEmpty);
-        expect(await db.select(db.sources).get(), isEmpty);
-        expect(await db.select(db.knowledgeEntries).get(), hasLength(2));
-        expect(await db.select(db.knowledgeSources).get(), hasLength(1));
-        expect(await db.select(db.knowledgeNotes).get(), hasLength(1));
-      },
-    );
+      expect(await db.select(db.knowledgeEntries).get(), hasLength(2));
+      expect(await db.select(db.knowledgeSources).get(), hasLength(1));
+      expect(await db.select(db.knowledgeNotes).get(), hasLength(1));
+      final legacy = await db
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN "
+            "('items', 'sources', 'tags', 'item_tags')",
+          )
+          .get();
+      expect(legacy, isEmpty);
+    });
 
-    test('mover de tema y borrar tampoco tocan las tablas viejas, y borrar se '
-        'lleva todo lo que cuelga de item', () async {
+    test('borrar se lleva de item todo lo que cuelga de él', () async {
       final saved = buildItem().copyWith(
         renditions: [
           Rendition.text(
@@ -1425,14 +1417,12 @@ void main() {
             SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
           );
       await repository.assignSpace(itemId: 'item-una', spaceId: 'sp');
-      expect(await db.select(db.items).get(), isEmpty);
 
       await repository.delete('item-una');
 
       expect(await db.select(db.knowledgeEntries).get(), isEmpty);
       expect(await db.select(db.knowledgeSources).get(), isEmpty);
       expect(await db.select(db.renditions).get(), isEmpty);
-      expect(await db.select(db.items).get(), isEmpty);
     });
   });
 

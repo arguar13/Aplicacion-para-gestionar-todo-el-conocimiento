@@ -8,8 +8,7 @@ part 'property_value.freezed.dart';
 ///
 /// Aparte de [ItemProperty], que es "este elemento tiene puesto este
 /// valor": [PropertyValue] es el valor en sí, el que se lista para
-/// sugerir mientras se escribe uno nuevo o para armar un filtro — la
-/// misma distinción que ya existe entre [Tag] y una fila de `ItemTags`.
+/// sugerir mientras se escribe uno nuevo o para armar un filtro.
 @freezed
 sealed class PropertyValue with _$PropertyValue {
   const factory PropertyValue({

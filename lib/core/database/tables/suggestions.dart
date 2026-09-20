@@ -7,10 +7,8 @@ import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 /// escribe nada por su cuenta, solo queda acá hasta que alguien la acepte
 /// o la descarte —ver `SuggestionRepository`—.
 ///
-/// `targetItemId` referencia el modelo NUEVO (`KnowledgeEntries`, SQL
-/// `item`), no la vieja `Items`: son el mismo id para todo elemento que
-/// pasó por el espejo de F3, y la Bandeja de entrada —donde esto se
-/// revisa— ya vive del lado del modelo nuevo.
+/// `targetItemId` referencia `item` (`KnowledgeEntries`): la Bandeja de
+/// entrada, donde esto se revisa, vive de ese lado.
 @DataClassName('SuggestionRow')
 @TableIndex(
   name: 'idx_suggestions_target_status',

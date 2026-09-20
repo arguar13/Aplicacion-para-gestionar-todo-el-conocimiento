@@ -12,10 +12,10 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 /// momento exacto de cada escritura (un enlace roto que debe seguir roto hasta
 /// que se pida resolverlo, un elemento renombrado a mano).
 ///
-/// Dejan el elemento como lo deja `save()`: en las tablas viejas
-/// (`items`/`sources`) y en el modelo nuevo (`item`, y `source` o `note`). Que
-/// las dos escrituras vivan acá y no repartidas por los tests es lo que hará
-/// barato retirar las viejas: se cambia este archivo, no cada prueba.
+/// Dejan el elemento como lo deja `save()`: la fila de `item` y, según sea, su
+/// `source` o su `note`. Que estas escrituras vivan acá y no repartidas por los
+/// tests es lo que hace barato cambiar el modelo: se cambia este archivo, no
+/// cada prueba.
 
 /// Inserta un elemento. Una nota (`SourceKind.manualNote`) no tiene fila en
 /// `source`, como en la app.
@@ -29,25 +29,6 @@ Future<void> insertItemRows(
   ProcessingState processingState = ProcessingState.ready,
 }) async {
   final at = createdAt ?? DateTime(2026, 9, 19, 10);
-
-  await db
-      .into(db.sources)
-      .insert(
-        SourcesCompanion.insert(id: 'src-$id', kind: kind, capturedAt: at),
-      );
-  await db
-      .into(db.items)
-      .insert(
-        ItemsCompanion.insert(
-          id: id,
-          title: title,
-          subtitle: Value(subtitle),
-          sourceId: 'src-$id',
-          processingState: processingState,
-          createdAt: at,
-          updatedAt: at,
-        ),
-      );
 
   final itemKind = itemKindFor(kind);
   await db
@@ -92,19 +73,15 @@ Future<void> insertItemRows(
       );
 }
 
-/// Cambia el título de un elemento, en los dos modelos.
+/// Cambia el título de un elemento.
 Future<void> retitleItemRows(AppDatabase db, String id, String title) async {
-  await (db.update(
-    db.items,
-  )..where((i) => i.id.equals(id))).write(ItemsCompanion(title: Value(title)));
   await (db.update(db.knowledgeEntries)..where((e) => e.id.equals(id))).write(
     KnowledgeEntriesCompanion(title: Value(title)),
   );
 }
 
-/// Borra un elemento, en los dos modelos. Sus dependientes (enlaces, chunks,
-/// formas) se van por las claves foráneas, como con `delete()`.
+/// Borra un elemento. Sus dependientes (enlaces, chunks, formas, la fuente o la
+/// nota) se van por las claves foráneas, como con `delete()`.
 Future<void> deleteItemRows(AppDatabase db, String id) async {
-  await (db.delete(db.items)..where((i) => i.id.equals(id))).go();
   await (db.delete(db.knowledgeEntries)..where((e) => e.id.equals(id))).go();
 }

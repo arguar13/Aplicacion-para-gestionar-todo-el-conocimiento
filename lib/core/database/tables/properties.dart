@@ -133,8 +133,8 @@ class PropertyAliases extends Table {
 /// Qué valor de propiedad tiene puesto cada elemento.
 ///
 /// La clave primaria compuesta impide poner el mismo valor dos veces al
-/// mismo elemento, igual que `ItemTags`. A diferencia de `Items.spaceId`
-/// —un elemento pertenece a lo sumo a un espacio—, acá sí hace falta esta
+/// mismo elemento. A diferencia de `KnowledgeEntries.spaceId` —un elemento
+/// pertenece a lo sumo a un espacio—, acá sí hace falta esta
 /// tabla de unión: un elemento puede tener varios valores bajo la misma
 /// categoría a la vez ("Región: Roma" y "Región: Egipto" en el mismo
 /// video).

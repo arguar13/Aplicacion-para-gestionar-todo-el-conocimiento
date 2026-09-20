@@ -7,14 +7,15 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 /// pertenece, y en qué estado de trabajo intelectual está.
 ///
 /// El nombre SQL es `item` (no `knowledge_entries`) porque es el
-/// vocabulario que usa el resto del modelo nuevo —`source`/`note`
-/// referencian `item_id`—; el nombre de la clase Dart es
-/// `KnowledgeEntries` porque `Items` ya existe como la tabla vieja que
-/// este modelo reemplaza por fases. Las dos conviven durante la
-/// transición: ver la decisión sobre el modelo Fuente/Nota en
-/// docs/arquitectura.md.
+/// vocabulario que usa el resto del modelo —`source`/`note` y todo lo que
+/// cuelga de un elemento referencian `item`—; la clase Dart se llama
+/// `KnowledgeEntries` por el nombre que tuvo mientras convivía con la tabla
+/// vieja `items`, que F10 retiró: ver la decisión sobre el modelo Fuente/Nota
+/// en docs/arquitectura.md.
 @DataClassName('KnowledgeEntryRow')
 @TableIndex(name: 'idx_knowledge_entries_state_kind', columns: {#state, #kind})
+@TableIndex(name: 'idx_knowledge_entries_space', columns: {#spaceId})
+@TableIndex(name: 'idx_knowledge_entries_updated_at', columns: {#updatedAt})
 @TableIndex(
   name: 'idx_knowledge_entries_kind_updated',
   columns: {#kind, #updatedAt},
@@ -27,8 +28,8 @@ class KnowledgeEntries extends Table {
   TextColumn get title => text()();
   TextColumn get subtitle => text().nullable()();
 
-  /// El texto libre que el usuario escribe junto a un elemento. Vivía en
-  /// `Items.notes`; F10 la pasa acá porque `Items` se retira.
+  /// El texto libre que el usuario escribe junto a un elemento. Vivía en la
+  /// tabla vieja `items`; F10 lo pasó acá al retirarla.
   TextColumn get notes => text().nullable()();
   TextColumn get spaceId =>
       text().nullable().references(Spaces, #id, onDelete: KeyAction.setNull)();

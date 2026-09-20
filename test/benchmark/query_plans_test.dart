@@ -39,6 +39,12 @@ void main() {
     return rows.map((r) => r.read<String>('detail')).join('\n');
   }
 
+  /// Si el plan recorre TODA la tabla [table]. Se compara el nombre entero: con
+  /// `contains('SCAN item')` un recorrido de `item_search` pasaría por uno de
+  /// `item`.
+  bool scans(String plan, String table) =>
+      RegExp('SCAN $table(?![A-Za-z0-9_])').hasMatch(plan);
+
   /// Ningún recorrido completo de [table]: cada acceso es una búsqueda por un
   /// índice.
   Future<void> expectSearched(
@@ -48,8 +54,8 @@ void main() {
   ]) async {
     final plan = await planOf(sql, args);
     expect(
-      plan,
-      isNot(contains('SCAN $table')),
+      scans(plan, table),
+      isFalse,
       reason: 'recorre toda la tabla $table:\n$plan',
     );
     expect(plan, contains('SEARCH $table'), reason: plan);
@@ -127,7 +133,7 @@ void main() {
       'item',
       "SELECT * FROM item WHERE state = 'captured' AND kind = 'source'",
     );
-    await expectSearched('items', 'SELECT * FROM items WHERE space_id = ?', id);
+    await expectSearched('item', 'SELECT * FROM item WHERE space_id = ?', id);
   });
 
   test('la búsqueda de texto entra por el índice de texto completo', () async {
@@ -181,8 +187,8 @@ void main() {
         .get();
     final plan = rows.map((r) => r.read<String>('detail')).join('\n');
     expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
-    for (final table in ['items', 'sources']) {
-      expect(plan, isNot(contains('SCAN $table')), reason: plan);
+    for (final table in ['item', 'source']) {
+      expect(scans(plan, table), isFalse, reason: plan);
     }
   });
 
@@ -215,8 +221,8 @@ void main() {
           .get();
       final plan = rows.map((r) => r.read<String>('detail')).join('\n');
       expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
-      for (final table in ['items', 'sources', 'chunks']) {
-        expect(plan, isNot(contains('SCAN $table')), reason: plan);
+      for (final table in ['item', 'source', 'chunks']) {
+        expect(scans(plan, table), isFalse, reason: plan);
       }
     },
   );

@@ -2,12 +2,10 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
-import 'package:sinapsis/core/domain/entities/item_kind.dart';
-import 'package:sinapsis/core/domain/entities/item_state.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
+
+import '../../support/item_rows.dart';
 
 /// Estas pruebas corren contra SQLite de verdad, en memoria — no contra un
 /// doble.
@@ -36,60 +34,9 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<String> insertSource({
-    SourceKind kind = SourceKind.webPage,
-    String? url = 'https://ejemplo.org/articulo',
-  }) async {
-    final id = 'src-${counter++}';
-    await db
-        .into(db.sources)
-        .insert(
-          SourcesCompanion.insert(
-            id: id,
-            kind: kind,
-            capturedAt: now,
-            url: Value(url),
-          ),
-        );
-    return id;
-  }
-
-  Future<String> insertItem({
-    required String sourceId,
-    String title = 'Un artículo cualquiera',
-    String? subtitle,
-  }) async {
+  Future<String> insertItem({String title = 'Un artículo cualquiera'}) async {
     final id = 'item-${counter++}';
-    await db
-        .into(db.items)
-        .insert(
-          ItemsCompanion.insert(
-            id: id,
-            title: title,
-            sourceId: sourceId,
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-            subtitle: Value(subtitle),
-          ),
-        );
-    // El modelo nuevo: desde v18 las formas y los vínculos cuelgan de `item`, y
-    // sin su fila ninguna restricción de esas tablas se llegaría a ejercitar
-    // —un insert fallaría antes, por la clave foránea—.
-    await db
-        .into(db.knowledgeEntries)
-        .insert(
-          KnowledgeEntriesCompanion.insert(
-            id: id,
-            title: title,
-            subtitle: Value(subtitle),
-            kind: ItemKind.source,
-            state: ItemState.processed,
-            createdAt: now,
-            updatedAt: now,
-            deviceId: 'test',
-          ),
-        );
+    await insertItemRows(db, id: id, title: title, createdAt: now);
     return id;
   }
 
@@ -121,18 +68,8 @@ void main() {
       expect(pragma.data.values.first, 1);
     });
 
-    test('borrar la fuente borra su elemento: nada puede quedar sin decir de '
-        'dónde salió', () async {
-      final sourceId = await insertSource();
-      await insertItem(sourceId: sourceId);
-
-      await (db.delete(db.sources)..where((s) => s.id.equals(sourceId))).go();
-
-      expect(await db.select(db.items).get(), isEmpty);
-    });
-
     test('borrar un elemento borra sus formas', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
       await insertTextRendition(itemId: itemId, content: 'texto');
 
       await (db.delete(
@@ -142,17 +79,18 @@ void main() {
       expect(await db.select(db.renditions).get(), isEmpty);
     });
 
-    test('las formas cuelgan de item, no de items: borrar la fila vieja no las '
-        'toca', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
-      await insertTextRendition(itemId: itemId, content: 'texto');
+    test('borrar un elemento borra también su fuente: nada puede quedar sin '
+        'decir de quién es', () async {
+      final itemId = await insertItem();
 
-      await (db.delete(db.items)..where((i) => i.id.equals(itemId))).go();
+      await (db.delete(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(itemId))).go();
 
-      expect(await db.select(db.renditions).get(), hasLength(1));
+      expect(await db.select(db.knowledgeSources).get(), isEmpty);
     });
 
-    test('no se puede agregar una forma a un elemento que no está en item', () {
+    test('no se puede agregar una forma a un elemento que no existe', () {
       expect(
         () => insertTextRendition(itemId: 'no-existe', content: 'texto'),
         throwsA(isA<SqliteException>()),
@@ -160,7 +98,7 @@ void main() {
     });
 
     test('borrar una forma borra sus subrayados', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
       final renditionId = await insertTextRendition(
         itemId: itemId,
         content: 'una frase importante acá',
@@ -184,21 +122,11 @@ void main() {
 
       expect(await db.select(db.highlights).get(), isEmpty);
     });
-
-    test(
-      'no se puede crear un elemento apuntando a una fuente inexistente',
-      () async {
-        expect(
-          () => insertItem(sourceId: 'fuente-que-no-existe'),
-          throwsA(isA<SqliteException>()),
-        );
-      },
-    );
   });
 
   group('restricciones del esquema', () {
     test('una forma no puede tener texto Y archivo a la vez', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
 
       expect(
         () => db
@@ -219,7 +147,7 @@ void main() {
     });
 
     test('ni tampoco quedarse sin ninguno de los dos', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
 
       expect(
         () => db
@@ -238,7 +166,7 @@ void main() {
     });
 
     test('nada puede relacionarse consigo mismo', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
 
       expect(
         () => db
@@ -257,9 +185,8 @@ void main() {
     });
 
     test('el mismo vínculo del mismo tipo no se puede duplicar', () async {
-      final sourceId = await insertSource();
-      final a = await insertItem(sourceId: sourceId, title: 'A');
-      final b = await insertItem(sourceId: sourceId, title: 'B');
+      final a = await insertItem(title: 'A');
+      final b = await insertItem(title: 'B');
 
       Future<void> relate(String id) => db
           .into(db.relations)
@@ -279,9 +206,8 @@ void main() {
 
     test('pero sí se pueden relacionar dos elementos de dos maneras '
         'distintas', () async {
-      final sourceId = await insertSource();
-      final a = await insertItem(sourceId: sourceId, title: 'A');
-      final b = await insertItem(sourceId: sourceId, title: 'B');
+      final a = await insertItem(title: 'A');
+      final b = await insertItem(title: 'B');
 
       Future<void> relate(String id, RelationKind kind) => db
           .into(db.relations)
@@ -301,21 +227,8 @@ void main() {
       expect(await db.select(db.relations).get(), hasLength(2));
     });
 
-    test('las etiquetas son únicas sin distinguir mayúsculas: "Filosofía" y '
-        '"filosofía" no pueden convivir', () async {
-      // Si convivieran, la biblioteca quedaría partida en dos mitades que no
-      // se encuentran entre sí, y el usuario nunca sabría por qué le faltan
-      // cosas.
-      Future<void> addTag(String id, String name) => db
-          .into(db.tags)
-          .insert(TagsCompanion.insert(id: id, name: name, createdAt: now));
-
-      await addTag('t1', 'Filosofía');
-      expect(() => addTag('t2', 'filosofía'), throwsA(isA<SqliteException>()));
-    });
-
     test('un subrayado no puede terminar antes de donde empieza', () async {
-      final itemId = await insertItem(sourceId: await insertSource());
+      final itemId = await insertItem();
       final renditionId = await insertTextRendition(
         itemId: itemId,
         content: 'texto',
@@ -337,24 +250,5 @@ void main() {
         throwsA(isA<SqliteException>()),
       );
     });
-
-    test(
-      'la misma etiqueta no se puede poner dos veces al mismo elemento',
-      () async {
-        final itemId = await insertItem(sourceId: await insertSource());
-        await db
-            .into(db.tags)
-            .insert(
-              TagsCompanion.insert(id: 't1', name: 'filosofía', createdAt: now),
-            );
-
-        Future<void> tagIt() => db
-            .into(db.itemTags)
-            .insert(ItemTagsCompanion.insert(itemId: itemId, tagId: 't1'));
-
-        await tagIt();
-        expect(tagIt, throwsA(isA<SqliteException>()));
-      },
-    );
   });
 }

@@ -7,10 +7,8 @@ import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.da
 import 'package:sinapsis/core/database/vault_counts.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v16.dart' as v16;
@@ -300,10 +298,11 @@ void main() {
       (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())
           .read<int>('n');
 
-  test('la migración llega a la forma del snapshot de v18', () async {
+  test('la migración llega a la forma del último snapshot', () async {
     await migrateFrom16(seed: seedVault);
-    // `migrateAndValidate` ya comparó el esquema contra el snapshot.
-    expect(latestSchemaSnapshot, 18);
+    // `migrateAndValidate` ya comparó el esquema contra el snapshot: la base
+    // sembrada en v16 pasa por v18 y llega hasta la versión de hoy.
+    expect(latestSchemaSnapshot, greaterThanOrEqualTo(18));
   });
 
   group('lo que el usuario creó', () {
@@ -423,7 +422,7 @@ void main() {
       () async {
         final db = await migrateFrom16(seed: seedVault);
 
-        expect(await count(db, 'item'), await count(db, 'items'));
+        expect(await count(db, 'item'), 4);
         final entry = await (db.select(
           db.knowledgeEntries,
         )..where((e) => e.id.equals('nota2'))).getSingle();
@@ -578,33 +577,23 @@ void main() {
   });
 
   group('el plan (dry-run)', () {
-    test('cuenta lo que encuentra y no escribe nada', () async {
+    /// `items` ya no existe en el esquema de hoy —F10 la retiró—, pero el plan
+    /// corre contra bases que todavía la tienen y solo le pide los ids: se arma
+    /// esa parte.
+    Future<AppDatabase> databaseWithLegacyItems(List<String> legacyIds) async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
+      await db.customStatement('CREATE TABLE items (id TEXT PRIMARY KEY)');
+      for (final id in legacyIds) {
+        await db.customStatement('INSERT INTO items (id) VALUES (?)', [id]);
+      }
+      return db;
+    }
+
+    test('cuenta lo que encuentra y no escribe nada', () async {
+      final db = await databaseWithLegacyItems(['ok', 'solo-viejo']);
       final now = DateTime(2026, 9, 20);
       await insertItemRows(db, id: 'ok', title: 'Completo', createdAt: now);
-      // Solo en el modelo viejo.
-      await db
-          .into(db.sources)
-          .insert(
-            SourcesCompanion.insert(
-              id: 'src-viejo',
-              kind: SourceKind.webPage,
-              capturedAt: now,
-            ),
-          );
-      await db
-          .into(db.items)
-          .insert(
-            ItemsCompanion.insert(
-              id: 'solo-viejo',
-              title: 'Solo en items',
-              sourceId: 'src-viejo',
-              processingState: ProcessingState.ready,
-              createdAt: now,
-              updatedAt: now,
-            ),
-          );
       // Solo en el nuevo.
       await db
           .into(db.knowledgeEntries)
@@ -633,10 +622,8 @@ void main() {
             ),
           );
       await db.customStatement('PRAGMA foreign_keys = ON');
-      final before = await captureVaultCounts(
-        db,
-        tables: [...VaultCounts.userDataTables, 'item', 'items'],
-      );
+      final tables = [...VaultCounts.userDataTables, 'item', 'items'];
+      final before = await captureVaultCounts(db, tables: tables);
 
       final plan = await planItemReferenceRepoint(db);
 
@@ -647,16 +634,12 @@ void main() {
       expect(plan.canProceed, isFalse);
       expect(plan.summary(), contains('relations.to_item_id=1'));
       // Calcular el plan no escribió nada.
-      final after = await captureVaultCounts(
-        db,
-        tables: [...VaultCounts.userDataTables, 'item', 'items'],
-      );
+      final after = await captureVaultCounts(db, tables: tables);
       expect(after.rows, before.rows);
     });
 
     test('una bóveda completa puede seguir', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
+      final db = await databaseWithLegacyItems(['a', 'b']);
       await insertItemRows(db, id: 'a', title: 'A');
       await insertItemRows(db, id: 'b', title: 'B');
 

@@ -23,7 +23,7 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 ///
 /// Los elementos se siembran con `LibraryRepositoryImpl.save`, igual que en
 /// `organize_repository_impl_test.dart`, y no con un `itemId` de texto
-/// suelto: `Flashcards.itemId` referencia a `Items` con
+/// suelto: `Flashcards.itemId` referencia a `item` con
 /// `foreign_keys = ON` de verdad, así que un `itemId` inventado hace que el
 /// insert falle en silencio —se captura y se devuelve `Left`— y con eso la
 /// tabla nunca notifica el cambio: cualquier prueba que esperara ese cambio

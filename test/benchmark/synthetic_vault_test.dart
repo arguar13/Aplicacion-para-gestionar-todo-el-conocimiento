@@ -22,8 +22,7 @@ void main() {
   tearDown(() => db.close());
 
   test('tiene la forma que pide el perfil', () {
-    expect(vault.counts['items'], profile.items);
-    expect(vault.counts['sources'], profile.items);
+    expect(vault.counts['item'], profile.items);
     expect(vault.counts['renditions'], profile.items);
     expect(vault.counts['note'], profile.notes);
     expect(
@@ -52,19 +51,21 @@ void main() {
     expect(violations, isEmpty);
   });
 
-  test('el modelo viejo y el espejo tienen los mismos elementos', () async {
-    final onlyOld = await db
+  test('cada elemento es una fuente o una nota, no las dos', () async {
+    final both = await db
         .customSelect(
-          'SELECT id FROM items WHERE id NOT IN (SELECT id FROM item)',
+          'SELECT id FROM item WHERE id IN (SELECT item_id FROM source) '
+          'AND id IN (SELECT item_id FROM note)',
         )
         .get();
-    final onlyNew = await db
+    final neither = await db
         .customSelect(
-          'SELECT id FROM item WHERE id NOT IN (SELECT id FROM items)',
+          'SELECT id FROM item WHERE id NOT IN (SELECT item_id FROM source) '
+          'AND id NOT IN (SELECT item_id FROM note)',
         )
         .get();
-    expect(onlyOld, isEmpty);
-    expect(onlyNew, isEmpty);
+    expect(both, isEmpty);
+    expect(neither, isEmpty);
   });
 
   test('los chunks reconstruyen el texto de cada fuente', () async {
@@ -81,7 +82,7 @@ void main() {
     ]) {
       final row = await db
           .customSelect(
-            'SELECT id FROM items WHERE id = ?',
+            'SELECT id FROM item WHERE id = ?',
             variables: [Variable.withString(id)],
           )
           .get();

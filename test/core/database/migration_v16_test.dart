@@ -9,15 +9,13 @@ import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v15.dart' as v15;
 import '../../support/fake_id_generator.dart';
+import '../../support/item_rows.dart';
 import '../../support/schema_snapshot.dart';
 
 class _SilentLogger implements AppLogger {
@@ -458,61 +456,23 @@ void main() {
   group('el paso de la migración, por sí solo', () {
     late AppDatabase db;
 
-    setUp(() => db = AppDatabase(NativeDatabase.memory()));
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      // El paso lee de `items` solo el texto libre de cada elemento. La tabla
+      // ya no existe en el esquema de hoy —F10 la retiró—, pero el paso corre
+      // contra bases que todavía la tienen: se arma la parte que usa.
+      await db.customStatement(
+        'CREATE TABLE items (id TEXT PRIMARY KEY, notes TEXT)',
+      );
+    });
     tearDown(() => db.close());
 
     Future<void> seedUnchunked() async {
       // Directo en las tablas, como las dejó una app anterior: fuentes con
       // texto y sin chunks.
+      final now = DateTime(2026, 9, 19);
       for (final (id, text) in [('a', 'Uno.\n\nDos.'), ('b', 'Tres.')]) {
-        final now = DateTime(2026, 9, 19);
-        await db
-            .into(db.sources)
-            .insert(
-              SourcesCompanion.insert(
-                id: 'src-$id',
-                kind: SourceKind.webPage,
-                capturedAt: now,
-              ),
-            );
-        await db
-            .into(db.items)
-            .insert(
-              ItemsCompanion.insert(
-                id: id,
-                title: 'Fuente $id',
-                sourceId: 'src-$id',
-                processingState: ProcessingState.ready,
-                createdAt: now,
-                updatedAt: now,
-                notes: Value('notas de $id'),
-              ),
-            );
-        // El espejo primero: desde v18 las formas cuelgan de `item`.
-        await db
-            .into(db.knowledgeEntries)
-            .insert(
-              KnowledgeEntriesCompanion.insert(
-                id: id,
-                title: 'Fuente $id',
-                kind: ItemKind.source,
-                state: ItemState.processed,
-                createdAt: now,
-                updatedAt: now,
-                deviceId: 'test',
-              ),
-            );
-        await db
-            .into(db.knowledgeSources)
-            .insert(
-              KnowledgeSourcesCompanion.insert(
-                itemId: id,
-                sourceType: SourceKind.webPage,
-                capturedAt: now,
-                contentHash: '',
-                processingStatus: SourceProcessingStatus.done,
-              ),
-            );
+        await insertItemRows(db, id: id, title: 'Fuente $id', createdAt: now);
         await db
             .into(db.renditions)
             .insert(
@@ -525,6 +485,10 @@ void main() {
                 content: Value(text),
               ),
             );
+        await db.customStatement(
+          'INSERT INTO items (id, notes) VALUES (?, ?)',
+          [id, 'notas de $id'],
+        );
       }
     }
 

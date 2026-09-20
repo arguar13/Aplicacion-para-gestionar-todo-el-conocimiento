@@ -317,8 +317,6 @@ class _VaultBuilder {
   _VaultBuilder(this.db, this.profile, this.random, this.onProgress)
     : text = _Text(random),
       _spaces = _Buffer(db, db.spaces),
-      _sources = _Buffer(db, db.sources),
-      _items = _Buffer(db, db.items),
       _renditions = _Buffer(db, db.renditions),
       _entries = _Buffer(db, db.knowledgeEntries),
       _knowledgeSources = _Buffer(db, db.knowledgeSources),
@@ -341,8 +339,6 @@ class _VaultBuilder {
   final _flushTime = <String, Duration>{};
 
   final _Buffer<SpaceRow> _spaces;
-  final _Buffer<SourceRow> _sources;
-  final _Buffer<ItemRow> _items;
   final _Buffer<RenditionRow> _renditions;
   final _Buffer<KnowledgeEntryRow> _entries;
   final _Buffer<KnowledgeSourceRow> _knowledgeSources;
@@ -454,8 +450,6 @@ class _VaultBuilder {
     // que apunta. Desde v18 las formas, las tarjetas y los vínculos cuelgan de
     // `item`, no de `items`.
     for (final (name, buffer) in [
-      ('sources', _sources),
-      ('items', _items),
       ('item', _entries),
       ('source', _knowledgeSources),
       ('note', _knowledgeNotes),
@@ -647,7 +641,6 @@ class _VaultBuilder {
     required bool dated,
   }) async {
     final id = _id('item', index);
-    final sourceId = _id('sour', index);
     final renditionId = _id('rend', index);
     final createdAt = _kNow.subtract(
       Duration(minutes: 1 + index * 97 % 1500000),
@@ -690,37 +683,9 @@ class _VaultBuilder {
     _itemIds.add(id);
     _itemTitles.add(title);
 
-    _sources.add(
-      SourcesCompanion.insert(
-        id: sourceId,
-        kind: kind,
-        capturedAt: createdAt,
-        url: isNote
-            ? const Value.absent()
-            : Value('https://ejemplo.org/$index'),
-        authorName: isNote
-            ? const Value.absent()
-            : Value('Autor ${index % 400}'),
-        publishedAt: isNote
-            ? const Value.absent()
-            : Value(createdAt.subtract(Duration(days: random.nextInt(2000)))),
-      ),
-    );
     final processing = random.nextInt(100) < 96
         ? ProcessingState.ready
         : ProcessingState.values[random.nextInt(4)];
-    _items.add(
-      ItemsCompanion.insert(
-        id: id,
-        title: title,
-        sourceId: sourceId,
-        spaceId: Value(spaceId),
-        processingState: processing,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        subtitle: index % 5 == 0 ? Value(text.title(5)) : const Value.absent(),
-      ),
-    );
     _renditions.add(
       RenditionsCompanion.insert(
         id: renditionId,
@@ -732,11 +697,12 @@ class _VaultBuilder {
       ),
     );
 
-    // El espejo, tal como lo deja `save()`.
+    // El elemento, tal como lo deja `save()`.
     _entries.add(
       KnowledgeEntriesCompanion.insert(
         id: id,
         title: title,
+        subtitle: index % 5 == 0 ? Value(text.title(5)) : const Value.absent(),
         kind: itemKindFor(kind),
         state: _stateFor(processing),
         createdAt: createdAt,
@@ -763,10 +729,13 @@ class _VaultBuilder {
           itemId: id,
           sourceType: kind,
           capturedAt: createdAt,
-          fullText: Value(content),
           contentHash: sha256.convert(utf8.encode(content)).toString(),
           processingStatus: sourceProcessingStatusFor(processing),
           originUrl: Value('https://ejemplo.org/$index'),
+          authorName: Value('Autor ${index % 400}'),
+          publishedAt: Value(
+            createdAt.subtract(Duration(days: random.nextInt(2000))),
+          ),
         ),
       );
       for (final chunk in chunks) {
@@ -971,8 +940,6 @@ class _VaultBuilder {
 /// Cuántas filas tiene cada tabla que la bóveda sintética llena.
 Future<Map<String, int>> countVaultRows(AppDatabase db) async {
   const tables = [
-    'items',
-    'sources',
     'renditions',
     'item',
     'source',

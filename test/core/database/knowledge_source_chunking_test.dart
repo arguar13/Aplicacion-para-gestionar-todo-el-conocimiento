@@ -116,8 +116,6 @@ void main() {
       db.knowledgeSources,
     )..where((s) => s.itemId.equals(item.id))).getSingle();
     expect(source.contentHash, isNotEmpty);
-    // El texto íntegro está UNA vez, en su forma principal: no se copia.
-    expect(source.fullText, isEmpty);
 
     // Y pedirlo de nuevo no cambia nada.
     final outcome = await chunkAndPersistSource(db, itemId: item.id, ids: ids);

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
+import 'package:sinapsis/core/database/migrations/drop_legacy_model_v19.dart';
 import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
@@ -13,7 +14,6 @@ import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/inline_links.dart';
-import 'package:sinapsis/core/database/tables/items.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
 import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
@@ -22,10 +22,8 @@ import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
-import 'package:sinapsis/core/database/tables/sources.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
-import 'package:sinapsis/core/database/tables/tags.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
 // generado es un `part` de este archivo y hereda sus imports, no los de las
@@ -39,7 +37,6 @@ import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -57,11 +54,7 @@ part 'app_database.g.dart';
 /// que esta base referencia.
 @DriftDatabase(
   tables: [
-    Sources,
-    Items,
     Renditions,
-    Tags,
-    ItemTags,
     Relations,
     Highlights,
     Spaces,
@@ -116,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 18;
+  static const currentSchemaVersion = 19;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -223,18 +216,28 @@ class AppDatabase extends _$AppDatabase {
             logger: ConsoleAppLogger(),
           );
           await _rebuildItemSearchIndex();
-          final changed = before.differencesWith(
-            await captureVaultCounts(this),
-          );
-          if (changed.isNotEmpty) {
-            final detail = [
-              for (final e in changed.entries)
-                '${e.key} (${e.value.$1} → ${e.value.$2})',
-            ].join(', ');
-            throw StateError(
-              'La migración a v18 cambió la cantidad de filas de $detail.',
-            );
-          }
+          await _requireSameCounts(before, step: 'v18');
+        }
+        // El modelo viejo se suelta (F10): `items`, `sources`, `tags` y
+        // `item_tags`, y la columna `source.full_text` —el texto íntegro vive
+        // una vez, en la forma de texto principal—. Antes de quitar la columna
+        // se comprueba que ninguna fuente tenga su texto solo ahí; los conteos
+        // de lo que el usuario creó y del modelo nuevo son compuerta, y la
+        // migración entera revierte si alguno cambia.
+        if (from < 19) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await dropLegacyModel(this, migrator, logger: ConsoleAppLogger());
+          // Los dos índices de `items` que las consultas de la Biblioteca
+          // usan —filtrar por espacio, ordenar por última modificación— y que
+          // `item` no tenía: sin ellos esas consultas recorrerían la tabla
+          // entera.
+          await migrator.createIndex(idxKnowledgeEntriesSpace);
+          await migrator.createIndex(idxKnowledgeEntriesUpdatedAt);
+          await _requireSameCounts(before, step: 'v19', tables: tables);
         }
       });
     },
@@ -293,6 +296,27 @@ class AppDatabase extends _$AppDatabase {
     for (final trigger in chunkSearchTriggers) {
       await customStatement(trigger);
     }
+  }
+
+  /// Lanza si alguna tabla de [tables] tiene hoy otra cantidad de filas que en
+  /// [before]. Como corre dentro de la transacción de la migración, lanzar
+  /// revierte todo: nada se sigue "a ver qué pasa".
+  Future<void> _requireSameCounts(
+    VaultCounts before, {
+    required String step,
+    Iterable<String> tables = VaultCounts.userDataTables,
+  }) async {
+    final changed = before.differencesWith(
+      await captureVaultCounts(this, tables: tables),
+    );
+    if (changed.isEmpty) return;
+    final detail = [
+      for (final e in changed.entries)
+        '${e.key} (${e.value.$1} → ${e.value.$2})',
+    ].join(', ');
+    throw StateError(
+      'La migración a $step cambió la cantidad de filas de $detail.',
+    );
   }
 
   Future<int> _count(String table) async {

@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
-import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items_v10.dart';
+import 'package:sinapsis/core/database/migrations/mirror_unmirrored_items.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
