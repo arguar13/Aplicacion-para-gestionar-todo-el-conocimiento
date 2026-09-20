@@ -85,3 +85,19 @@ Future<void> retitleItemRows(AppDatabase db, String id, String title) async {
 Future<void> deleteItemRows(AppDatabase db, String id) async {
   await (db.delete(db.knowledgeEntries)..where((e) => e.id.equals(id))).go();
 }
+
+/// Manda un elemento a la papelera —le pone `deleted_at`— sin pasar por el
+/// repositorio: para las pruebas que solo necesitan que ya esté ahí y ver qué
+/// hace con eso lo que se lee.
+Future<void> trashItemRows(AppDatabase db, String id, {DateTime? at}) async {
+  await (db.update(db.knowledgeEntries)..where((e) => e.id.equals(id))).write(
+    KnowledgeEntriesCompanion(deletedAt: Value(at ?? DateTime(2026, 9, 20))),
+  );
+}
+
+/// Lo saca de la papelera: el elemento vuelve tal cual estaba.
+Future<void> restoreItemRows(AppDatabase db, String id) async {
+  await (db.update(db.knowledgeEntries)..where((e) => e.id.equals(id))).write(
+    const KnowledgeEntriesCompanion(deletedAt: Value(null)),
+  );
+}

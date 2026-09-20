@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
@@ -31,7 +32,8 @@ class HealthRepositoryImpl implements HealthRepository {
   Stream<NoteComposition> watchNoteComposition() {
     return watchQuery(
       db: _db,
-      tables: [_db.knowledgeNotes],
+      // `item` también: una nota que va a la papelera deja de contar.
+      tables: [_db.knowledgeNotes, _db.knowledgeEntries],
       read: _readComposition,
       telemetry: _telemetry,
       hint: 'HealthRepositoryImpl.watchNoteComposition',
@@ -42,14 +44,18 @@ class HealthRepositoryImpl implements HealthRepository {
     final notes = _db.knowledgeNotes;
     final count = notes.itemId.count();
 
+    final alive = itemIsActive(_db, notes.itemId);
+
     final kindRows =
         await (_db.selectOnly(notes)
               ..addColumns([notes.noteKind, count])
+              ..where(alive)
               ..groupBy([notes.noteKind]))
             .get();
     final maturityRows =
         await (_db.selectOnly(notes)
               ..addColumns([notes.maturity, count])
+              ..where(alive)
               ..groupBy([notes.maturity]))
             .get();
 
@@ -70,16 +76,20 @@ class HealthRepositoryImpl implements HealthRepository {
   Stream<int> watchUnreviewedContradictionCount() {
     return watchQuery(
       db: _db,
-      tables: [_db.relations],
+      tables: [_db.relations, _db.knowledgeEntries],
       read: () async {
         final relations = _db.relations;
         final count = relations.id.count();
+        // Una contradicción con algo que está en la papelera no hay quién la
+        // revise.
         final row =
             await (_db.selectOnly(relations)
                   ..addColumns([count])
                   ..where(
                     relations.kind.equalsValue(RelationKind.contradicts) &
-                        relations.reviewedAt.isNull(),
+                        relations.reviewedAt.isNull() &
+                        itemIsActive(_db, relations.fromItemId) &
+                        itemIsActive(_db, relations.toItemId),
                   ))
                 .getSingle();
         return row.read(count)!;
@@ -93,14 +103,17 @@ class HealthRepositoryImpl implements HealthRepository {
   Stream<int> watchBrokenLinkCount() {
     return watchQuery(
       db: _db,
-      tables: [_db.inlineLinks],
+      tables: [_db.inlineLinks, _db.knowledgeEntries],
       read: () async {
         final links = _db.inlineLinks;
         final count = links.normalizedTitle.count(distinct: true);
         final row =
             await (_db.selectOnly(links)
                   ..addColumns([count])
-                  ..where(links.toItemId.isNull()))
+                  ..where(
+                    links.toItemId.isNull() &
+                        itemIsActive(_db, links.fromItemId),
+                  ))
                 .getSingle();
         return row.read(count)!;
       },
@@ -140,7 +153,7 @@ class HealthRepositoryImpl implements HealthRepository {
     final entries = _db.knowledgeEntries;
     final candidateRows = await (_db.select(notes).join([
       innerJoin(entries, entries.id.equalsExp(notes.itemId)),
-    ])..where(notes.noteKind.isInValues(kinds))).get();
+    ])..where(notes.noteKind.isInValues(kinds) & entries.isActive)).get();
     final candidates = {
       for (final row in candidateRows)
         row.readTable(notes).itemId: (
@@ -191,7 +204,9 @@ class HealthRepositoryImpl implements HealthRepository {
     final touched =
         await (_db.selectOnly(items)
               ..addColumns([items.id])
-              ..where(items.updatedAt.isBiggerOrEqualValue(since)))
+              ..where(
+                items.updatedAt.isBiggerOrEqualValue(since) & items.isActive,
+              ))
             .get();
     final touchedCandidates = [
       for (final row in touched)
@@ -239,9 +254,14 @@ class HealthRepositoryImpl implements HealthRepository {
     Set<String> candidateIds,
     DateTime since,
   ) async {
-    final relations = await (_db.select(
-      _db.relations,
-    )..where((r) => r.createdAt.isBiggerOrEqualValue(since))).get();
+    final relations =
+        await (_db.select(_db.relations)..where(
+              (r) =>
+                  r.createdAt.isBiggerOrEqualValue(since) &
+                  itemIsActive(_db, r.fromItemId) &
+                  itemIsActive(_db, r.toItemId),
+            ))
+            .get();
 
     final counts = <String, int>{};
     for (final relation in relations) {

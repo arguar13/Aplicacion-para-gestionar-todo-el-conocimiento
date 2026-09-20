@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
@@ -48,12 +49,14 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
     }
 
     try {
-      final discardItem = await (_db.select(
-        _db.knowledgeEntries,
-      )..where((i) => i.id.equals(discardItemId))).getSingleOrNull();
+      // Vivos los dos: uno en la papelera «ya no existe» para el usuario.
+      final discardItem =
+          await (_db.select(_db.knowledgeEntries)
+                ..where((i) => i.id.equals(discardItemId) & i.isActive))
+              .getSingleOrNull();
       final keepItem = await (_db.select(
         _db.knowledgeEntries,
-      )..where((i) => i.id.equals(keepItemId))).getSingleOrNull();
+      )..where((i) => i.id.equals(keepItemId) & i.isActive)).getSingleOrNull();
       if (discardItem == null || keepItem == null) {
         return left(
           const Failure.unexpected(

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
@@ -265,13 +266,84 @@ void main() {
       expect(
         indexes,
         containsAll([
-          'idx_knowledge_entries_deleted_at',
+          'idx_item_trashed',
           'idx_merge_conflict_resolved',
           'idx_merge_conflict_item',
           'idx_review_log_flashcard',
         ]),
       );
     });
+
+    test('el índice de la papelera es parcial, y el común que tuvo v20 no '
+        'queda', () async {
+      final db = await migrateFrom19(seed: seedVault);
+
+      final sql =
+          (await db
+                  .customSelect(
+                    'SELECT sql FROM sqlite_master '
+                    "WHERE name = 'idx_item_trashed'",
+                  )
+                  .getSingle())
+              .read<String>('sql');
+
+      expect(sql, contains('WHERE deleted_at IS NOT NULL'));
+      expect(
+        await namesOf(
+          db,
+          "SELECT name FROM sqlite_master WHERE type = 'index' "
+          "AND name = 'idx_knowledge_entries_deleted_at'",
+        ),
+        isEmpty,
+      );
+    });
+
+    test('una base que ya tenía el índice común de v20 lo cambia por el '
+        'parcial al abrirse', () async {
+      final db = await migrateFrom19(seed: seedVault);
+      await db.customStatement('DROP INDEX idx_item_trashed');
+      await db.customStatement(
+        'CREATE INDEX idx_knowledge_entries_deleted_at ON item (deleted_at)',
+      );
+
+      // `beforeOpen` corre en cada apertura: se simula abriendo de nuevo.
+      await db.customStatement(dropSupersededTrashIndex);
+      await db.customStatement(createTrashIndex);
+
+      expect(
+        await namesOf(
+          db,
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND name IN "
+          "('idx_item_trashed', 'idx_knowledge_entries_deleted_at')",
+        ),
+        {'idx_item_trashed'},
+      );
+    });
+
+    test(
+      'la papelera se busca por su índice y lo vivo NO: el índice común '
+      'habría recorrido los diez mil elementos para pedir uno por su id',
+      () async {
+        final db = await migrateFrom19(seed: seedVault);
+        Future<String> planOf(String sql) async => [
+          for (final row
+              in await db.customSelect('EXPLAIN QUERY PLAN $sql').get())
+            row.read<String>('detail'),
+        ].join(' | ');
+
+        final trash = await planOf(
+          'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL',
+        );
+        final live = await planOf(
+          'SELECT id FROM item WHERE deleted_at IS NULL '
+          "AND id IN ('art', 'nota')",
+        );
+
+        expect(trash, contains('idx_item_trashed'), reason: trash);
+        expect(live, isNot(contains('idx_item_trashed')), reason: live);
+        expect(live, contains('sqlite_autoindex_item_1'), reason: live);
+      },
+    );
 
     test('las claves apuntan a lo que dicen', () async {
       final db = await migrateFrom19(seed: seedVault);

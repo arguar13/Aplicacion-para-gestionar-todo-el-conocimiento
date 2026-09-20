@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/device_identity.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
 import 'package:sinapsis/core/database/migrations/drop_legacy_model_v19.dart';
@@ -282,7 +283,6 @@ class AppDatabase extends _$AppDatabase {
               await migrator.addColumn(flashcards, column);
             }
           }
-          await migrator.createIndex(idxKnowledgeEntriesDeletedAt);
           await _requireSameCounts(before, step: 'v20', tables: tables);
         }
       });
@@ -298,6 +298,13 @@ class AppDatabase extends _$AppDatabase {
       // la conexión*, no del esquema: hay que volver a activarlo cada vez que
       // se abre la base.
       await customStatement('PRAGMA foreign_keys = ON');
+
+      // El índice de la papelera: ver `createTrashIndex`. Va acá y no en la
+      // migración porque no es parte del modelo de datos —drift no modela un
+      // índice parcial— sino un objeto de la base, como `item_search`, y así
+      // lo tiene también una base que ya estaba en v20 antes de que existiera.
+      await customStatement(dropSupersededTrashIndex);
+      await customStatement(createTrashIndex);
     },
   );
 

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -41,7 +42,8 @@ class InboxRepositoryImpl implements InboxRepository {
                   ..where(
                     (e) =>
                         e.kind.equalsValue(ItemKind.source) &
-                        e.state.equalsValue(ItemState.processed),
+                        e.state.equalsValue(ItemState.processed) &
+                        e.isActive,
                   )
                   ..orderBy([(e) => OrderingTerm(expression: e.updatedAt)]))
                 .get();
@@ -92,7 +94,8 @@ class InboxRepositoryImpl implements InboxRepository {
               ),
             ])..where(
               _db.knowledgeEntries.kind.equalsValue(ItemKind.note) &
-                  _db.knowledgeNotes.noteKind.equalsValue(NoteKind.living),
+                  _db.knowledgeNotes.noteKind.equalsValue(NoteKind.living) &
+                  _db.knowledgeEntries.isActive,
             );
 
         if (trimmed != null && trimmed.isNotEmpty) {

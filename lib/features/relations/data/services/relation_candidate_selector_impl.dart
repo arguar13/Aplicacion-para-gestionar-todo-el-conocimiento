@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
@@ -28,9 +29,15 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     final seedCentroid = await _centroidFor(seedItemId);
     if (seedCentroid == null) return const [];
 
-    final otherChunks = await (_db.select(
-      _db.chunks,
-    )..where((c) => c.itemId.equals(seedItemId).not())).get();
+    // Solo de elementos vivos: sugerir vincular con algo que está en la
+    // papelera sería mandar al usuario a un elemento que ya borró.
+    final otherChunks =
+        await (_db.select(_db.chunks)..where(
+              (c) =>
+                  c.itemId.equals(seedItemId).not() &
+                  itemIsActive(_db, c.itemId),
+            ))
+            .get();
     final chunksByItem = <String, List<ChunkRow>>{};
     for (final chunk in otherChunks) {
       chunksByItem.putIfAbsent(chunk.itemId, () => []).add(chunk);
@@ -86,7 +93,7 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
   Future<String?> _titleFor(String itemId) async {
     final row = await (_db.select(
       _db.knowledgeEntries,
-    )..where((e) => e.id.equals(itemId))).getSingleOrNull();
+    )..where((e) => e.id.equals(itemId) & e.isActive)).getSingleOrNull();
     return row?.title;
   }
 

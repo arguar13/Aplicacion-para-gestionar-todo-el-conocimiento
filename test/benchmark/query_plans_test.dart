@@ -221,9 +221,36 @@ void main() {
           .get();
       final plan = rows.map((r) => r.read<String>('detail')).join('\n');
       expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
-      for (final table in ['item', 'source', 'chunks']) {
+      // `ti` y `tc` son `item` y `chunks` dentro de la exclusión de la
+      // papelera: EXPLAIN muestra el alias, no la tabla.
+      for (final table in ['item', 'source', 'chunks', 'ti', 'tc']) {
         expect(scans(plan, table), isFalse, reason: plan);
       }
+      // Y lo borrado se saca ANTES del corte, por el índice de la papelera.
+      expect(plan, contains('idx_item_trashed'), reason: plan);
     },
   );
+
+  test('lo que está en la papelera se lee por su índice parcial; lo vivo, '
+      'por la clave', () async {
+    final trash = await planOf(
+      'SELECT ti.id FROM item ti WHERE ti.deleted_at IS NOT NULL',
+    );
+    expect(trash, contains('SEARCH ti USING INDEX idx_item_trashed'));
+    expect(scans(trash, 'ti'), isFalse, reason: trash);
+
+    // Pedir elementos por id con el filtro de lo vivo sigue siendo una
+    // búsqueda por la clave: un índice común sobre `deleted_at` habría hecho
+    // que SQLite recorriera el índice entero para cada consulta.
+    final ids = LibraryQuerySql(const LibraryQuery(ids: {'a', 'b', 'c'})).ids();
+    final live = await planOf(ids.sql, [
+      for (final v in ids.variables) v.value!,
+    ]);
+    expect(live, contains('sqlite_autoindex_item_1'), reason: live);
+    expect(
+      live,
+      isNot(contains('SEARCH item USING INDEX idx_item')),
+      reason: live,
+    );
+  });
 }

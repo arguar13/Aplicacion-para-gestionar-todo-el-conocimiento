@@ -31,6 +31,7 @@ import 'package:sinapsis/features/organize/data/repositories/organize_repository
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -2797,6 +2798,85 @@ void main() {
           expect(values.single.historicalDate, date);
         },
       );
+    });
+  });
+
+  group('la papelera (F11)', () {
+    Future<void> link(KnowledgeItem from, KnowledgeItem to) =>
+        repository.createRelation(
+          fromItemId: from.id,
+          toItemId: to.id,
+          kind: RelationKind.relatedTo,
+        );
+
+    test('un vínculo con algo en la papelera no se muestra, en ningún '
+        'sentido; vuelve al restaurarlo', () async {
+      final a = await seedItem();
+      final b = await seedItem();
+      final c = await seedItem();
+      await link(a, b);
+      await link(c, a);
+      await trashItemRows(db, b.id);
+      await trashItemRows(db, c.id);
+
+      expect(await repository.watchRelationsForItem(a.id).first, isEmpty);
+
+      await restoreItemRows(db, b.id);
+      await restoreItemRows(db, c.id);
+
+      final relations = await repository.watchRelationsForItem(a.id).first;
+      expect(
+        relations.map((r) => r.otherItemId),
+        unorderedEquals([b.id, c.id]),
+      );
+    });
+
+    test('todas las relaciones —las del grafo completo— dejan afuera las que '
+        'tocan la papelera', () async {
+      final a = await seedItem();
+      final b = await seedItem();
+      final c = await seedItem();
+      await link(a, b);
+      await link(b, c);
+      await trashItemRows(db, c.id);
+
+      final edges = await repository.watchAllRelations().first;
+
+      expect(edges.map((e) => (e.fromItemId, e.toItemId)), [(a.id, b.id)]);
+    });
+
+    test('el vecindario no llega a lo que está en la papelera ni pasa por '
+        'ello', () async {
+      final a = await seedItem();
+      final b = await seedItem();
+      final c = await seedItem();
+      await link(a, b);
+      await link(b, c);
+      await trashItemRows(db, b.id);
+
+      final around = await repository
+          .watchNeighborhood(seedItemId: a.id, maxNodes: 10, degree: null)
+          .first;
+
+      // b es el único puente hacia c: sin b, no hay nada que recorrer.
+      expect(around.nodeIds, isEmpty);
+      expect(around.edges, isEmpty);
+    });
+
+    test('el vecindario que sí sobrevive queda entero', () async {
+      final a = await seedItem();
+      final b = await seedItem();
+      final c = await seedItem();
+      await link(a, b);
+      await link(a, c);
+      await trashItemRows(db, c.id);
+
+      final around = await repository
+          .watchNeighborhood(seedItemId: a.id, maxNodes: 10)
+          .first;
+
+      expect(around.nodeIds, {a.id, b.id});
+      expect(around.edges.map((e) => e.toItemId), [b.id]);
     });
   });
 }

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -126,7 +127,7 @@ class LinkRepositoryImpl implements LinkRepository {
         await (_db.select(links).join([
                 innerJoin(items, items.id.equalsExp(links.fromItemId)),
               ])
-              ..where(links.toItemId.isNull())
+              ..where(links.toItemId.isNull() & items.isActive)
               ..orderBy([
                 OrderingTerm(expression: links.createdAt),
                 OrderingTerm(expression: links.id),

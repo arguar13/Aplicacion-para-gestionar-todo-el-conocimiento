@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_candidate_selector.dart';
@@ -107,6 +108,10 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
   /// `itemId` en `null` no excluye nada — el caso de un texto que todavía
   /// no es un elemento, sin ningún `itemId` propio que pudiera coincidir
   /// consigo mismo.
+  ///
+  /// Solo de elementos vivos: lo que está en la papelera no es de la
+  /// biblioteca, y proponerlo como duplicado de algo nuevo sería ofrecer
+  /// fusionarlo con un elemento que el usuario ya borró.
   Future<List<({String itemId, String dedupHash, String? simhash})>>
   _allFingerprintsExcept(String? itemId) async {
     final sources =
@@ -115,7 +120,8 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
                   (itemId == null
                       ? const Constant(true)
                       : s.itemId.equals(itemId).not()) &
-                  s.dedupHash.isNotNull(),
+                  s.dedupHash.isNotNull() &
+                  itemIsActive(_db, s.itemId),
             ))
             .get();
     final notes =
@@ -124,7 +130,8 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
                   (itemId == null
                       ? const Constant(true)
                       : n.itemId.equals(itemId).not()) &
-                  n.dedupHash.isNotNull(),
+                  n.dedupHash.isNotNull() &
+                  itemIsActive(_db, n.itemId),
             ))
             .get();
 
@@ -147,7 +154,7 @@ class DuplicateCandidateSelectorImpl implements DuplicateCandidateSelector {
   Future<String?> _titleFor(String itemId) async {
     final row = await (_db.select(
       _db.knowledgeEntries,
-    )..where((e) => e.id.equals(itemId))).getSingleOrNull();
+    )..where((e) => e.id.equals(itemId) & e.isActive)).getSingleOrNull();
     return row?.title;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
@@ -137,10 +138,12 @@ class NoteSourcesRepositoryImpl implements NoteSourcesRepository {
     });
   }
 
+  /// El tipo de cada uno de [ids] que está vivo: lo que está en la papelera no
+  /// se cita, ni directo ni a través de una nota atómica.
   Future<Map<String, ItemKind>> _entryKinds(Set<String> ids) async {
     final rows = await (_db.select(
       _db.knowledgeEntries,
-    )..where((e) => e.id.isIn(ids))).get();
+    )..where((e) => e.id.isIn(ids) & e.isActive)).get();
     return {for (final row in rows) row.id: row.kind};
   }
 
@@ -165,13 +168,18 @@ class NoteSourcesRepositoryImpl implements NoteSourcesRepository {
   }
 
   Future<Map<String, SourceKind>> _sourceKinds(Set<String> itemIds) async {
-    final rows = await (_db.select(_db.knowledgeEntries).join([
-      // Una nota no tiene fila de fuente: es una nota manual.
-      leftOuterJoin(
-        _db.knowledgeSources,
-        _db.knowledgeSources.itemId.equalsExp(_db.knowledgeEntries.id),
-      ),
-    ])..where(_db.knowledgeEntries.id.isIn(itemIds))).get();
+    final rows =
+        await (_db.select(_db.knowledgeEntries).join([
+              // Una nota no tiene fila de fuente: es una nota manual.
+              leftOuterJoin(
+                _db.knowledgeSources,
+                _db.knowledgeSources.itemId.equalsExp(_db.knowledgeEntries.id),
+              ),
+            ])..where(
+              _db.knowledgeEntries.id.isIn(itemIds) &
+                  _db.knowledgeEntries.isActive,
+            ))
+            .get();
     return {
       for (final row in rows)
         row.readTable(_db.knowledgeEntries).id:

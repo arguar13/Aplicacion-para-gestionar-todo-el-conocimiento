@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
@@ -57,9 +58,13 @@ class GenerateDuplicateSuggestionsUseCase
       // este chequeo, la inserción de abajo rompe una restricción de
       // llave foránea: no es un error de la app, es una carrera
       // benigna, así que se resuelve en silencio, no con telemetría.
-      final stillExist = await (_db.select(
-        _db.knowledgeEntries,
-      )..where((e) => e.id.isIn([item.id, candidate.itemId]))).get();
+      //
+      // Y sigue vivo: uno que fue a la papelera en el medio tampoco se propone.
+      final stillExist =
+          await (_db.select(_db.knowledgeEntries)..where(
+                (e) => e.id.isIn([item.id, candidate.itemId]) & e.isActive,
+              ))
+              .get();
       if (stillExist.length != 2) return;
 
       await _suggestions.createDuplicateSuggestion(

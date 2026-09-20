@@ -15,6 +15,7 @@ import 'package:sinapsis/features/organize/data/repositories/organize_repository
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -499,6 +500,50 @@ void main() {
 
       await expectation.timeout(const Duration(seconds: 5));
     });
+  });
+
+  group('la papelera (F11)', () {
+    test(
+      'una fuente en la papelera no se cita, y vuelve al restaurarla',
+      () async {
+        final note = await seed('viva', kind: SourceKind.manualNote);
+        final source = await seed('fuente');
+        await relate(note, source, RelationKind.cites);
+
+        await trashItemRows(db, source);
+        expect(await cited(note), isEmpty);
+
+        await restoreItemRows(db, source);
+        expect((await cited(note)).map((c) => c.id), [source]);
+      },
+    );
+
+    test(
+      'lo que salió de una nota atómica en la papelera no se cita',
+      () async {
+        final note = await seed('viva', kind: SourceKind.manualNote);
+        final source = await seed('fuente');
+        final atomic1 = await atomic(
+          'atomica-1',
+          living: note,
+          source: source,
+          start: 1,
+          end: 5,
+        );
+        await atomic(
+          'atomica-2',
+          living: note,
+          source: source,
+          start: 9,
+          end: 20,
+        );
+
+        await trashItemRows(db, atomic1);
+
+        final fragments = (await cited(note)).single.fragments;
+        expect(fragments.map((f) => f.note), ['atomica-2']);
+      },
+    );
   });
 }
 

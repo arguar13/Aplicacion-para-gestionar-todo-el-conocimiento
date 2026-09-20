@@ -14,6 +14,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -340,6 +341,64 @@ void main() {
       final result = await repository.getAll();
 
       expect(result.getRight().toNullable(), isEmpty);
+    });
+  });
+
+  group('la papelera (F11)', () {
+    Future<void> card(String itemId, String front) =>
+        repository.create(itemId: itemId, front: front, back: 'respuesta');
+
+    test('las tarjetas de algo en la papelera no tocan repasar, y vuelven al '
+        'restaurarlo', () async {
+      final trashed = await seedItem();
+      final live = await seedItem();
+      await card(trashed, 'de lo borrado');
+      await card(live, 'de lo vivo');
+      final queue = StreamQueue(repository.watchDue());
+      addTearDown(queue.cancel);
+      expect((await queue.next).map((c) => c.front), hasLength(2));
+
+      await trashItemRows(db, trashed);
+      var due = await queue.next;
+      while (due.length != 1) {
+        due = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(due.single.front, 'de lo vivo');
+
+      await restoreItemRows(db, trashed);
+      due = await queue.next;
+      while (due.length != 2) {
+        due = await queue.next.timeout(const Duration(seconds: 5));
+      }
+    });
+
+    test('el contador de pendientes tampoco las cuenta', () async {
+      final trashed = await seedItem();
+      await card(trashed, 'de lo borrado');
+      await trashItemRows(db, trashed);
+
+      expect(await repository.watchDueCount().first, 0);
+    });
+
+    test('la exportación —todas las tarjetas— las deja afuera', () async {
+      final trashed = await seedItem();
+      final live = await seedItem();
+      await card(trashed, 'de lo borrado');
+      await card(live, 'de lo vivo');
+      await trashItemRows(db, trashed);
+
+      final all = (await repository.getAll()).getRight().toNullable()!;
+
+      expect(all.map((c) => c.front), ['de lo vivo']);
+    });
+
+    test('las tarjetas de un elemento, pedidas por su id, siguen ahí: es lo '
+        'que se ve al restaurarlo', () async {
+      final trashed = await seedItem();
+      await card(trashed, 'de lo borrado');
+      await trashItemRows(db, trashed);
+
+      expect(await repository.watchForItem(trashed).first, hasLength(1));
     });
   });
 }

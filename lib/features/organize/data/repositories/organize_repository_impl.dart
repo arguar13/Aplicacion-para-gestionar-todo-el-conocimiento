@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
@@ -384,7 +385,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         _db.knowledgeSources,
         _db.knowledgeSources.itemId.equalsExp(_db.knowledgeEntries.id),
       ),
-    ])..where(ownColumn.equals(itemId));
+      // El otro extremo tiene que estar vivo: un vínculo con algo que está en
+      // la papelera no se muestra —y vuelve si lo restauran—.
+    ])..where(ownColumn.equals(itemId) & _db.knowledgeEntries.isActive);
 
     final rows = await query.get();
 
@@ -412,9 +415,15 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   Stream<List<RelationEdge>> watchAllRelations() {
     return watchQuery(
       db: _db,
-      tables: [_db.relations],
+      tables: [_db.relations, _db.knowledgeEntries],
       read: () async {
-        final rows = await _db.select(_db.relations).get();
+        final rows =
+            await (_db.select(_db.relations)..where(
+                  (r) =>
+                      itemIsActive(_db, r.fromItemId) &
+                      itemIsActive(_db, r.toItemId),
+                ))
+                .get();
         return rows
             .map(
               (row) => RelationEdge(
@@ -440,7 +449,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }) {
     return watchQuery(
       db: _db,
-      tables: [_db.relations],
+      tables: [_db.relations, _db.knowledgeEntries],
       read: () => _readNeighborhood(seedItemId, maxNodes, degree),
       telemetry: _telemetry,
       hint: 'OrganizeRepositoryImpl.watchNeighborhood',
@@ -529,8 +538,12 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     for (var start = 0; start < list.length; start += _idsPerQuery) {
       final batch = list.skip(start).take(_idsPerQuery).toList();
       rows.addAll(
-        await (_db.select(_db.relations)
-              ..where((r) => r.fromItemId.isIn(batch) | r.toItemId.isIn(batch)))
+        await (_db.select(_db.relations)..where(
+              (r) =>
+                  (r.fromItemId.isIn(batch) | r.toItemId.isIn(batch)) &
+                  itemIsActive(_db, r.fromItemId) &
+                  itemIsActive(_db, r.toItemId),
+            ))
             .get(),
       );
     }

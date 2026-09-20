@@ -3,7 +3,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -17,6 +20,7 @@ import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -506,5 +510,140 @@ void main() {
         isNull,
       );
     });
+  });
+
+  group('la papelera (F11)', () {
+    /// [count] elementos YA en la papelera, cada uno con un solo chunk corto
+    /// que dice [term]: un chunk corto con la palabra puntúa mejor que uno
+    /// largo que la nombra una vez, así que estos ocupan los primeros lugares
+    /// de cualquier ranking.
+    Future<void> seedTrashedNoise(String term, int count) async {
+      final ids = [for (var i = 0; i < count; i++) 'ruido-$i'];
+      await db.batch((batch) {
+        batch
+          ..insertAll(db.knowledgeEntries, [
+            for (final id in ids)
+              KnowledgeEntriesCompanion.insert(
+                id: id,
+                title: 'Borrado $id',
+                kind: ItemKind.source,
+                state: ItemState.processed,
+                createdAt: now,
+                updatedAt: now,
+                deviceId: 'test',
+                deletedAt: Value(now),
+              ),
+          ])
+          ..insertAll(db.knowledgeSources, [
+            for (final id in ids)
+              KnowledgeSourcesCompanion.insert(
+                itemId: id,
+                sourceType: SourceKind.webPage,
+                capturedAt: now,
+                contentHash: '',
+                processingStatus: sourceProcessingStatusFor(
+                  ProcessingState.ready,
+                ),
+              ),
+          ])
+          ..insertAll(db.chunks, [
+            for (final id in ids)
+              ChunksCompanion.insert(
+                id: 'chunk-$id',
+                itemId: id,
+                seq: 0,
+                content: 'El $term.',
+                charStart: 0,
+                charEnd: term.length + 4,
+              ),
+          ]);
+      });
+    }
+
+    const longText =
+        'Una crónica larga sobre la historia de la república, sus cónsules, '
+        'sus campañas militares en el Mediterráneo, las guerras contra '
+        'Cartago, los tribunos de la plebe, las reformas agrarias de los '
+        'Gracos y, entre tantas otras instituciones, el senado, que '
+        'gobernaba en la práctica la política exterior y las finanzas.';
+
+    test('lo que está en la papelera no se encuentra, ni por su título ni por '
+        'su texto', () async {
+      final byTitle = await save('El senado', text: 'Un discurso.');
+      final byText = await save('Otra cosa', text: 'Hablaron en el senado.');
+      await save('Sin relación', text: 'Nada que ver.');
+      await trashItemRows(db, byTitle.id);
+      await trashItemRows(db, byText.id);
+
+      expect(await titlesOf('senado'), isEmpty);
+      expect(await hitsFor('senado'), isEmpty);
+
+      await restoreItemRows(db, byTitle.id);
+      await restoreItemRows(db, byText.id);
+
+      expect(
+        await titlesOf('senado'),
+        unorderedEquals(['El senado', 'Otra cosa']),
+      );
+    });
+
+    test('una papelera llena de coincidencias no tapa lo que sigue '
+        'guardado', () async {
+      final live = await save('Fuente viva', text: longText);
+      // Más que los chunks que se piden al índice para una página: si el
+      // corte se hiciera ANTES de sacar lo borrado, todos serían de la
+      // papelera y la búsqueda no encontraría lo que sí está.
+      await seedTrashedNoise('senado', 330);
+
+      final hits = await hitsFor('senado', limit: 10);
+
+      expect(hits.map((h) => h.item.id), [live.id]);
+      expect(hits.single.citation, isNotNull);
+    });
+
+    test(
+      'con otros filtros —otra forma de armar la cita— pasa lo mismo',
+      () async {
+        final live = await save('Fuente viva', text: longText);
+        await seedTrashedNoise('senado', 330);
+
+        final hits = (await repository.search(
+          const LibraryQuery(
+            searchText: 'senado',
+            sourceKinds: {SourceKind.webPage},
+            sortBy: LibrarySort.relevance,
+            limit: 10,
+          ),
+        )).getRight().toNullable()!;
+
+        expect(hits.map((h) => h.item.id), [live.id]);
+        // La cita se busca aparte, y también tiene que saltar lo borrado.
+        expect(hits.single.citation, isNotNull);
+      },
+    );
+
+    test(
+      'buscando en una ventana de los chunks más recientes, tampoco',
+      () async {
+        final windowed = LibraryRepositoryImpl(
+          database: db,
+          telemetry: MockTelemetryService(),
+          files: InMemoryFileStore(),
+          rankedHitsCap: 1,
+        );
+        final live = await save('Fuente viva', text: longText);
+        // Más que la ventana (600), y más NUEVOS que el chunk vivo.
+        await seedTrashedNoise('senado', 700);
+
+        final items = (await windowed.list(
+          const LibraryQuery(
+            searchText: 'senado',
+            sortBy: LibrarySort.relevance,
+          ),
+        )).getRight().toNullable()!;
+
+        expect(items.map((i) => i.id), [live.id]);
+      },
+    );
   });
 }

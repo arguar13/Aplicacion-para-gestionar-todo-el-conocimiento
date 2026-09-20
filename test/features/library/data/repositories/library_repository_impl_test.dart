@@ -28,6 +28,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -1727,6 +1728,127 @@ void main() {
 
       await repository.delete('n1');
       expect(await db.select(db.inlineLinks).get(), isEmpty);
+    });
+  });
+
+  group('la papelera (F11): lo borrado no es de la biblioteca', () {
+    Future<List<String>> listedIds([
+      LibraryQuery query = const LibraryQuery(),
+    ]) async => [
+      for (final item in (await repository.list(
+        query,
+      )).getRight().toNullable()!)
+        item.id,
+    ];
+
+    test('la lista, la cuenta y los ids no lo incluyen; vuelve al '
+        'restaurarlo', () async {
+      final a = buildItem();
+      final b = buildItem();
+      await repository.save(a);
+      await repository.save(b);
+
+      await trashItemRows(db, a.id);
+
+      expect(await listedIds(), [b.id]);
+      expect(
+        (await repository.count(const LibraryQuery())).getRight().toNullable(),
+        1,
+      );
+      expect(
+        (await repository.matchingIds(
+          const LibraryQuery(),
+        )).getRight().toNullable(),
+        [b.id],
+      );
+
+      await restoreItemRows(db, a.id);
+
+      expect(await listedIds(), unorderedEquals([a.id, b.id]));
+    });
+
+    test('pedirlo por su id tampoco lo trae', () async {
+      final a = buildItem();
+      await repository.save(a);
+      await trashItemRows(db, a.id);
+
+      expect((await repository.findById(a.id)).getRight().toNullable(), isNull);
+      expect(await listedIds(LibraryQuery(ids: {a.id})), isEmpty);
+    });
+
+    test('con cualquier filtro sigue afuera', () async {
+      final a = buildItem(title: 'Roma');
+      await repository.save(a);
+      await trashItemRows(db, a.id);
+
+      expect(
+        await listedIds(const LibraryQuery(sourceKinds: {SourceKind.webPage})),
+        isEmpty,
+      );
+      expect(await listedIds(const LibraryQuery(searchText: 'Roma')), isEmpty);
+      expect(
+        await listedIds(
+          const LibraryQuery(sortBy: LibrarySort.title, limit: 10),
+        ),
+        isEmpty,
+      );
+    });
+
+    test('la lista observada lo saca en cuanto va a la papelera, y lo '
+        'devuelve al restaurarlo', () async {
+      final a = buildItem();
+      final b = buildItem();
+      await repository.save(a);
+      await repository.save(b);
+      final queue = StreamQueue(repository.watch(const LibraryQuery()));
+      addTearDown(queue.cancel);
+      expect(
+        (await queue.next).map((i) => i.id),
+        unorderedEquals([a.id, b.id]),
+      );
+
+      await trashItemRows(db, a.id);
+      expect((await queue.next).map((i) => i.id), [b.id]);
+
+      await restoreItemRows(db, a.id);
+      expect(
+        (await queue.next).map((i) => i.id),
+        unorderedEquals([a.id, b.id]),
+      );
+    });
+
+    test(
+      'el elemento observado por su id pasa a null en la papelera',
+      () async {
+        final a = buildItem();
+        await repository.save(a);
+        final queue = StreamQueue(repository.watchById(a.id));
+        addTearDown(queue.cancel);
+        expect((await queue.next)?.id, a.id);
+
+        await trashItemRows(db, a.id);
+        expect(await queue.next, isNull);
+
+        await restoreItemRows(db, a.id);
+        expect((await queue.next)?.id, a.id);
+      },
+    );
+
+    test('guardarlo mientras está en la papelera no lo saca de ella', () async {
+      final a = buildItem(title: 'Antes');
+      await repository.save(a);
+      await trashItemRows(db, a.id);
+
+      // El procesamiento en segundo plano puede terminar después de que el
+      // usuario lo borró.
+      await repository.save(a.copyWith(title: 'Después'));
+
+      expect((await repository.findById(a.id)).getRight().toNullable(), isNull);
+      await restoreItemRows(db, a.id);
+      expect(
+        (await repository.findById(a.id)).getRight().toNullable()?.title,
+        'Después',
+      );
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
@@ -114,7 +115,8 @@ class TimelineRepositoryImpl implements TimelineRepository {
             definitions.name.lower().equals(
               kFechaDelHechoCategoryName.toLowerCase(),
             ) &
-            values.datePrecision.isNotNull(),
+            values.datePrecision.isNotNull() &
+            items.isActive,
       );
   }
 

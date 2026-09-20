@@ -23,6 +23,7 @@ import 'package:sinapsis/features/links/domain/entities/broken_link.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -465,6 +466,50 @@ void main() {
 
       expect(result.getRight().toNullable(), 0);
       expect(await db.select(db.knowledgeEntries).get(), isEmpty);
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('el enlace roto que escribe una nota en la papelera no se lista, y '
+        'vuelve al restaurarla', () async {
+      await seedNote('n1', 'Viaje', ['[[Cartago]]']);
+      await seedNote('n2', 'Diario', ['[[Atenas]]']);
+      await trashItemRows(db, 'n1');
+
+      final links = await repository.watchBrokenLinks().first;
+      expect(links.map((l) => l.title), ['Atenas']);
+
+      await restoreItemRows(db, 'n1');
+
+      final again = await repository.watchBrokenLinks().first;
+      expect(again.map((l) => l.title), ['Atenas', 'Cartago']);
+    });
+
+    test('un título que solo tiene un elemento en la papelera está '
+        'faltando', () async {
+      await seedItem('roma', 'Roma');
+      await trashItemRows(db, 'roma');
+
+      final missing = await repository.findMissingTitles({'roma'});
+
+      expect(missing.getRight().toNullable(), {'roma'});
+
+      await restoreItemRows(db, 'roma');
+
+      expect(
+        (await repository.findMissingTitles({'roma'})).getRight().toNullable(),
+        isEmpty,
+      );
+    });
+
+    test('crear la nota de un título que solo está en la papelera crea una '
+        'nueva', () async {
+      await seedItem('roma', 'Roma');
+      await trashItemRows(db, 'roma');
+
+      final created = await repository.createNoteForLink(title: 'Roma');
+
+      expect(created.getRight().toNullable()!.id, isNot('roma'));
     });
   });
 }

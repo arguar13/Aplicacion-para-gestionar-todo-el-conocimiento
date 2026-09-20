@@ -27,6 +27,7 @@ import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 import '../../timeline_fixtures.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
@@ -459,6 +460,34 @@ void main() {
       await repository.watchEvents(const LibraryQuery()).first;
 
       verifyNever(() => unused.matchingIds(any()));
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('lo que está en la papelera no es un evento, y vuelve al '
+        'restaurarlo', () async {
+      await seedItem('roma', title: 'Caída de Roma');
+      await seedItem('egipto', title: 'Ramsés');
+      await setDate('roma', dateOf(476));
+      await setDate('egipto', dateOf(1279, bce: true));
+      await trashItemRows(db, 'roma');
+
+      expect(ids(await read()), ['egipto']);
+
+      await restoreItemRows(db, 'roma');
+
+      expect(ids(await read()), unorderedEquals(['roma', 'egipto']));
+    });
+
+    test('con un filtro de la biblioteca tampoco', () async {
+      await seedItem('roma');
+      await setDate('roma', dateOf(476));
+      await trashItemRows(db, 'roma');
+
+      expect(
+        await read(const LibraryQuery(sourceKinds: {SourceKind.webPage})),
+        isEmpty,
+      );
     });
   });
 }

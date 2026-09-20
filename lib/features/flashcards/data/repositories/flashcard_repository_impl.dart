@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
@@ -191,12 +192,18 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
   Stream<List<Flashcard>> watchDue() {
     return watchQuery(
       db: _db,
-      tables: [_db.flashcards],
+      // `item` también: repasar tarjetas de algo que se mandó a la papelera
+      // —o volver a verlas si se lo restaura— cambia la lista.
+      tables: [_db.flashcards, _db.knowledgeEntries],
       read: () async {
         final now = _clock();
         final rows =
             await (_db.select(_db.flashcards)
-                  ..where((f) => f.dueAt.isSmallerOrEqualValue(now))
+                  ..where(
+                    (f) =>
+                        f.dueAt.isSmallerOrEqualValue(now) &
+                        itemIsActive(_db, f.itemId),
+                  )
                   ..orderBy([(f) => OrderingTerm(expression: f.dueAt)]))
                 .get();
         return rows.map(_toEntity).toList();
@@ -214,9 +221,11 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
   @override
   Future<Either<Failure, List<Flashcard>>> getAll() async {
     try {
-      final rows = await (_db.select(
-        _db.flashcards,
-      )..orderBy([(f) => OrderingTerm(expression: f.createdAt)])).get();
+      final rows =
+          await (_db.select(_db.flashcards)
+                ..where((f) => itemIsActive(_db, f.itemId))
+                ..orderBy([(f) => OrderingTerm(expression: f.createdAt)]))
+              .get();
       return right(rows.map(_toEntity).toList());
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses

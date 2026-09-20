@@ -22,6 +22,7 @@ import 'package:sinapsis/features/suggestions/data/repositories/suggestion_repos
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -231,4 +232,27 @@ void main() {
       expect(pendingForIncoming.length + pendingForExisting.length, 1);
     },
   );
+
+  group('la papelera (F11)', () {
+    test('no propone como duplicado algo que está en la papelera', () async {
+      final existing = await seedItem(
+        title: 'Ya existente',
+        text: 'el mismo texto exacto',
+      );
+      final incoming = await seedItem(
+        title: 'Recién llegado',
+        text: 'el mismo texto exacto',
+      );
+      await generator.generate(existing);
+      await trashItemRows(db, existing.id);
+
+      await generator.generate(incoming);
+
+      expect(
+        await suggestions.watchPendingSuggestions(incoming.id).first,
+        isEmpty,
+      );
+      expect(await db.select(db.suggestions).get(), isEmpty);
+    });
+  });
 }

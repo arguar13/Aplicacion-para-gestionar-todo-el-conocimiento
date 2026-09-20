@@ -6,6 +6,8 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/data/services/relation_candidate_selector_impl.dart';
 
+import '../../../../support/item_rows.dart';
+
 /// Contra SQLite real, en memoria, sembrando `KnowledgeEntries`/`Chunks`/
 /// `Embeddings` directo a mano con vectores de juguete —no hace falta la
 /// dimensión 768 real del modelo para probar que la selección ordena y
@@ -142,5 +144,27 @@ void main() {
     );
 
     expect(result, hasLength(3));
+  });
+
+  group('la papelera (F11)', () {
+    test('no propone vincular con algo que está en la papelera', () async {
+      final seedId = await seedItemWithVector([1, 0, 0], title: 'Semilla');
+      final trashedId = await seedItemWithVector([1, 0, 0], title: 'Borrado');
+      final liveId = await seedItemWithVector([1, 0, 0], title: 'Vivo');
+      await trashItemRows(db, trashedId);
+
+      final result = await selector.selectCandidates(seedItemId: seedId);
+
+      expect(result.map((c) => c.itemId), [liveId]);
+
+      await restoreItemRows(db, trashedId);
+
+      expect(
+        (await selector.selectCandidates(
+          seedItemId: seedId,
+        )).map((c) => c.itemId),
+        unorderedEquals([liveId, trashedId]),
+      );
+    });
   });
 }

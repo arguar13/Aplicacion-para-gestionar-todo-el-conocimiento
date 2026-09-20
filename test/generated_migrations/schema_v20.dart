@@ -10063,10 +10063,6 @@ class DatabaseAtV20 extends GeneratedDatabase {
     'idx_knowledge_entries_updated_at',
     'CREATE INDEX idx_knowledge_entries_updated_at ON item (updated_at)',
   );
-  late final Index idxKnowledgeEntriesDeletedAt = Index(
-    'idx_knowledge_entries_deleted_at',
-    'CREATE INDEX idx_knowledge_entries_deleted_at ON item (deleted_at)',
-  );
   late final Index idxKnowledgeEntriesKindUpdated = Index(
     'idx_knowledge_entries_kind_updated',
     'CREATE INDEX idx_knowledge_entries_kind_updated ON item (kind, updated_at)',
@@ -10166,7 +10162,6 @@ class DatabaseAtV20 extends GeneratedDatabase {
     idxKnowledgeEntriesStateKind,
     idxKnowledgeEntriesSpace,
     idxKnowledgeEntriesUpdatedAt,
-    idxKnowledgeEntriesDeletedAt,
     idxKnowledgeEntriesKindUpdated,
     idxKnowledgeSourcesContentHash,
     idxKnowledgeSourcesDedupHash,

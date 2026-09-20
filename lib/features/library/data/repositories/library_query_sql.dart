@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
@@ -139,6 +140,9 @@ class LibraryQuerySql {
       _from = _plainFrom;
     }
 
+    // Lo que está en la papelera no es de la biblioteca, sea cual sea el resto
+    // de la consulta.
+    _where.add(kActiveItemSql);
     if (query.sourceKinds.isNotEmpty) {
       _where.add('$_kindSql IN (${_marks(query.sourceKinds.length)})');
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
@@ -241,12 +245,13 @@ class LibraryQuerySql {
         ? 'SELECT w.item_id, 0 AS t, NULL AS s FROM ( '
               'SELECT c.item_id AS item_id FROM chunk_search '
               'JOIN chunks c ON c.row_key = chunk_search.rowid '
-              'WHERE chunk_search MATCH ? '
+              'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
               'ORDER BY chunk_search.rowid DESC LIMIT ?) w'
         : topChunks
         ? 'SELECT c.item_id, 0 AS t, top.s FROM ( '
               'SELECT chunk_search.rowid AS rid, chunk_search.rank AS s '
-              'FROM chunk_search WHERE chunk_search MATCH ? '
+              'FROM chunk_search '
+              'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
               'ORDER BY chunk_search.rank LIMIT ?) top '
               'JOIN chunks c ON c.row_key = top.rid'
         : 'SELECT c.item_id, 0 AS t, chunk_search.rank AS s '
@@ -334,7 +339,8 @@ class LibraryQuerySql {
         'SELECT c.item_id AS item_id, top.rid AS chunk_key, '
         'MIN(top.s) AS s FROM ( '
         'SELECT chunk_search.rowid AS rid, chunk_search.rank AS s '
-        'FROM chunk_search WHERE chunk_search MATCH ? '
+        'FROM chunk_search '
+        'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
         'ORDER BY chunk_search.rank LIMIT ?) top '
         'JOIN chunks c ON c.row_key = top.rid GROUP BY c.item_id) '
         'SELECT item.id AS id, best.chunk_key AS chunk_key FROM ( '
@@ -345,6 +351,7 @@ class LibraryQuerySql {
         ') cand GROUP BY cand.item_id) cands '
         'LEFT JOIN best ON best.item_id = cands.item_id '
         'JOIN item ON item.id = cands.item_id '
+        'WHERE $kActiveItemSql '
         'ORDER BY cands.t DESC, (best.s IS NULL), best.s LIMIT ? OFFSET ?';
 
     return (

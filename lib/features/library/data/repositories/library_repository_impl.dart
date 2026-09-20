@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
@@ -200,7 +201,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
     try {
       final rows = await (_db.select(
         _db.knowledgeEntries,
-      )..where((e) => e.id.equals(id))).get();
+      )..where((e) => e.id.equals(id) & e.isActive)).get();
 
       if (rows.isEmpty) return right(null);
 
@@ -332,7 +333,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return _watching(() async {
       final rows = await (_db.select(
         _db.knowledgeEntries,
-      )..where((e) => e.id.equals(id))).get();
+      )..where((e) => e.id.equals(id) & e.isActive)).get();
 
       if (rows.isEmpty) return null;
       return (await _assemble(rows)).single;
@@ -479,7 +480,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
               .customSelect(
                 'SELECT $columns FROM ( '
                 'SELECT chunk_search.rowid AS rid FROM chunk_search '
-                'WHERE chunk_search MATCH ? '
+                'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
                 'ORDER BY chunk_search.rowid DESC LIMIT ?) w '
                 'JOIN chunks c ON c.row_key = w.rid '
                 'ORDER BY w.rid DESC',
@@ -493,7 +494,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
               .customSelect(
                 'SELECT $columns FROM ( '
                 'SELECT chunk_search.rowid AS rid, chunk_search.rank AS s '
-                'FROM chunk_search WHERE chunk_search MATCH ? '
+                'FROM chunk_search '
+                'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
                 'ORDER BY chunk_search.rank LIMIT ?) top '
                 'JOIN chunks c ON c.row_key = top.rid '
                 'ORDER BY top.s',
@@ -925,7 +927,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
     final rows = await (_db.select(
       _db.knowledgeEntries,
-    )..where((e) => e.id.isIn(ids))).get();
+    )..where((e) => e.id.isIn(ids) & e.isActive)).get();
 
     final assembled = await _assemble(rows);
 

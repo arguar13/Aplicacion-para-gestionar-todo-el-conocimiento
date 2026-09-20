@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -20,9 +21,13 @@ Future<Map<String, List<LinkCandidate>>> itemsByLinkTitle(
   AppDatabase db,
 ) async {
   final entries = db.knowledgeEntries;
-  final rows = await (db.selectOnly(
-    entries,
-  )..addColumns([entries.id, entries.title, entries.createdAt])).get();
+  // Lo que está en la papelera no recibe enlaces: un `[[Título]]` que solo
+  // coincide con un elemento borrado queda roto, y se resuelve si lo restauran.
+  final rows =
+      await (db.selectOnly(entries)
+            ..addColumns([entries.id, entries.title, entries.createdAt])
+            ..where(entries.isActive))
+          .get();
 
   final byTitle = <String, List<LinkCandidate>>{};
   for (final row in rows) {

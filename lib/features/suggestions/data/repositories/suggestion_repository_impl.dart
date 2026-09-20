@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -57,7 +58,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   Stream<List<Suggestion>> watchPendingSuggestions(String itemId) {
     return watchQuery(
       db: _db,
-      tables: [_db.suggestions],
+      tables: [_db.suggestions, _db.knowledgeEntries],
       read: () async {
         final rows =
             await (_db.select(_db.suggestions)
@@ -68,7 +69,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
                   )
                   ..orderBy([(s) => OrderingTerm(expression: s.createdAt)]))
                 .get();
-        return rows.map(_toSuggestion).toList();
+        return _aboutLiveItems(rows.map(_toSuggestion));
       },
       telemetry: _telemetry,
       hint: 'SuggestionRepositoryImpl.watchPendingSuggestions',
@@ -79,7 +80,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   Stream<List<Suggestion>> watchPendingDuplicateSuggestions() {
     return watchQuery(
       db: _db,
-      tables: [_db.suggestions],
+      tables: [_db.suggestions, _db.knowledgeEntries],
       read: () async {
         final rows =
             await (_db.select(_db.suggestions)
@@ -90,7 +91,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
                   )
                   ..orderBy([(s) => OrderingTerm(expression: s.createdAt)]))
                 .get();
-        return rows.map(_toSuggestion).toList();
+        return _aboutLiveItems(rows.map(_toSuggestion));
       },
       telemetry: _telemetry,
       hint: 'SuggestionRepositoryImpl.watchPendingDuplicateSuggestions',
@@ -507,6 +508,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       db: _db,
       tables: [
         _db.suggestions,
+        _db.knowledgeEntries,
         _db.propertyDefinitions,
         _db.propertyValues,
         _db.propertyAliases,
@@ -537,10 +539,13 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         d.id: d.name,
     };
 
+    final trashed = await trashedItemIds(_db);
     final grouped = <(String, String), List<PropertySuggestion>>{};
     for (final row in rows) {
       final suggestion = _toSuggestion(row);
       if (suggestion is! PropertySuggestion) continue;
+      // Lo que se le iba a poner a algo que está en la papelera no se ofrece.
+      if (trashed.contains(suggestion.targetItemId)) continue;
       // Las que no se pueden aplicar se dejan afuera: una sola que fallara
       // haría fallar el lote entero de `acceptMany`.
       if (!definitionNames.containsKey(suggestion.definitionId)) continue;
@@ -578,6 +583,26 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       if (byCategory != 0) return byCategory;
       return a.normalizedValue.compareTo(b.normalizedValue);
     });
+  }
+
+  /// Las sugerencias de [all] que no tocan nada de lo que está en la papelera:
+  /// ni el elemento al que apuntan ni el otro, en una relación o un duplicado.
+  /// Vuelven solas si el elemento se restaura.
+  Future<List<Suggestion>> _aboutLiveItems(Iterable<Suggestion> all) async {
+    final trashed = await trashedItemIds(_db);
+    if (trashed.isEmpty) return all.toList();
+    return [
+      for (final suggestion in all)
+        if (!trashed.contains(suggestion.targetItemId) &&
+            switch (suggestion) {
+              RelationSuggestionEntry(:final relatedItemId) =>
+                !trashed.contains(relatedItemId),
+              DuplicateSuggestionEntry(:final duplicateItemId) =>
+                !trashed.contains(duplicateItemId),
+              _ => true,
+            })
+          suggestion,
+    ];
   }
 
   /// El valor como lo escribió la mayoría; a igual cantidad, el primero que se

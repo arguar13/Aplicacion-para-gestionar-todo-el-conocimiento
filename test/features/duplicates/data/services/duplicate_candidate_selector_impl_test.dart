@@ -11,6 +11,8 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/features/duplicates/data/services/duplicate_candidate_selector_impl.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_candidate_selector.dart';
 
+import '../../../../support/item_rows.dart';
+
 /// Contra SQLite real, en memoria, sembrando `KnowledgeEntries`/
 /// `KnowledgeSources`/`KnowledgeNotes` directo a mano con huellas de
 /// juguete —hex de 16 caracteres (64 bits), como las que produce
@@ -198,4 +200,54 @@ void main() {
       expect(result.single.itemId, duplicateSourceId);
     },
   );
+
+  group('la papelera (F11)', () {
+    test('un elemento en la papelera no es candidato a duplicado', () async {
+      final seedId = await seedSource(
+        title: 'Semilla',
+        dedupHash: 'hash-a',
+        simhash: '0000000000000000',
+      );
+      final duplicateId = await seedSource(
+        title: 'Idéntico',
+        dedupHash: 'hash-a',
+        simhash: '0000000000000000',
+      );
+      final noteId = await seedNote(
+        title: 'Nota idéntica',
+        dedupHash: 'hash-a',
+        simhash: '0000000000000000',
+      );
+      await trashItemRows(db, duplicateId);
+      await trashItemRows(db, noteId);
+
+      final result = await selector.selectCandidates(seedItemId: seedId);
+
+      expect(result, isEmpty);
+
+      await restoreItemRows(db, duplicateId);
+
+      expect(
+        (await selector.selectCandidates(seedItemId: seedId)).single.itemId,
+        duplicateId,
+      );
+    });
+
+    test('un texto que todavía no es un elemento tampoco se compara con lo '
+        'que está en la papelera', () async {
+      final trashed = await seedSource(
+        title: 'Borrado',
+        dedupHash: 'hash-a',
+        simhash: '0000000000000000',
+      );
+      await trashItemRows(db, trashed);
+
+      final result = await selector.selectCandidatesForFingerprint(
+        dedupHash: 'hash-a',
+        simhash: '0000000000000000',
+      );
+
+      expect(result, isEmpty);
+    });
+  });
 }

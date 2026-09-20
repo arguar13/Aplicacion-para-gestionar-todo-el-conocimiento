@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -9,6 +10,8 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
+
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -391,6 +394,35 @@ void main() {
       final fields = await versionsOf(id);
       expect(fields[EntryField.noteKind]!.deviceId, 'telefono');
       expect(fields[EntryField.maturity]!.updatedAt, clockNow);
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('una fuente en la papelera no espera triaje, y vuelve al '
+        'restaurarla', () async {
+      final id = await seedEntry(title: 'Borrada');
+      final other = await seedEntry(title: 'Otra');
+      final queue = StreamQueue(repository.watchPendingIds());
+      addTearDown(queue.cancel);
+      expect(await queue.next, unorderedEquals([id, other]));
+
+      await trashItemRows(db, id);
+      expect(await queue.next, [other]);
+
+      await restoreItemRows(db, id);
+      expect(await queue.next, unorderedEquals([id, other]));
+    });
+
+    test('una nota viva en la papelera no se ofrece para vincular', () async {
+      final viva = await seedEntry(kind: ItemKind.note, title: 'Viva');
+      await seedNote(viva);
+      final borrada = await seedEntry(kind: ItemKind.note, title: 'Borrada');
+      await seedNote(borrada);
+      await trashItemRows(db, borrada);
+
+      final notes = await repository.watchLivingNotes().first;
+
+      expect(notes.map((n) => n.id), [viva]);
     });
   });
 }

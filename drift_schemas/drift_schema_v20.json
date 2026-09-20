@@ -3058,25 +3058,6 @@
       "type": "index",
       "data": {
         "on": 1,
-        "name": "idx_knowledge_entries_deleted_at",
-        "sql": null,
-        "unique": false,
-        "columns": [
-          {
-            "column": "deleted_at",
-            "order_by": null
-          }
-        ]
-      }
-    },
-    {
-      "id": 39,
-      "references": [
-        1
-      ],
-      "type": "index",
-      "data": {
-        "on": 1,
         "name": "idx_knowledge_entries_kind_updated",
         "sql": null,
         "unique": false,
@@ -3093,7 +3074,7 @@
       }
     },
     {
-      "id": 40,
+      "id": 39,
       "references": [
         13
       ],
@@ -3112,7 +3093,7 @@
       }
     },
     {
-      "id": 41,
+      "id": 40,
       "references": [
         13
       ],
@@ -3131,7 +3112,7 @@
       }
     },
     {
-      "id": 42,
+      "id": 41,
       "references": [
         13
       ],
@@ -3150,7 +3131,7 @@
       }
     },
     {
-      "id": 43,
+      "id": 42,
       "references": [
         14
       ],
@@ -3169,7 +3150,7 @@
       }
     },
     {
-      "id": 44,
+      "id": 43,
       "references": [
         5
       ],
@@ -3192,7 +3173,7 @@
       }
     },
     {
-      "id": 45,
+      "id": 44,
       "references": [
         5
       ],
@@ -3215,7 +3196,7 @@
       }
     },
     {
-      "id": 46,
+      "id": 45,
       "references": [
         17
       ],
@@ -3238,7 +3219,7 @@
       }
     },
     {
-      "id": 47,
+      "id": 46,
       "references": [
         18
       ],
@@ -3257,7 +3238,7 @@
       }
     },
     {
-      "id": 48,
+      "id": 47,
       "references": [
         19
       ],
@@ -3276,7 +3257,7 @@
       }
     },
     {
-      "id": 49,
+      "id": 48,
       "references": [
         19
       ],
@@ -3295,7 +3276,7 @@
       }
     },
     {
-      "id": 50,
+      "id": 49,
       "references": [
         21
       ],
@@ -3314,7 +3295,7 @@
       }
     },
     {
-      "id": 51,
+      "id": 50,
       "references": [
         21
       ],
@@ -3333,7 +3314,7 @@
       }
     },
     {
-      "id": 52,
+      "id": 51,
       "references": [
         22
       ],
@@ -3696,15 +3677,6 @@
         {
           "dialect": "sqlite",
           "sql": "CREATE INDEX idx_knowledge_entries_updated_at ON item (updated_at)"
-        }
-      ]
-    },
-    {
-      "name": "idx_knowledge_entries_deleted_at",
-      "sql": [
-        {
-          "dialect": "sqlite",
-          "sql": "CREATE INDEX idx_knowledge_entries_deleted_at ON item (deleted_at)"
         }
       ]
     },

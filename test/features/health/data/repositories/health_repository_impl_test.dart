@@ -19,6 +19,7 @@ import 'package:sinapsis/features/health/data/repositories/health_repository_imp
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -489,6 +490,101 @@ void main() {
         latest = await queue.next.timeout(const Duration(seconds: 5));
       }
       expect(latest.single.newBlocks, 1);
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('una nota en la papelera deja de contar en la composición', () async {
+      await seedNote('a', kind: NoteKind.atomic);
+      await seedNote('v');
+      final queue = StreamQueue(repository.watchNoteComposition());
+      addTearDown(queue.cancel);
+      expect((await queue.next).total, 2);
+
+      await trashItemRows(db, 'a');
+      var latest = await queue.next;
+      while (latest.total != 1) {
+        latest = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(latest.byKind[NoteKind.atomic], 0);
+
+      await restoreItemRows(db, 'a');
+      latest = await queue.next;
+      while (latest.total != 2) {
+        latest = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(latest.byKind[NoteKind.atomic], 1);
+    });
+
+    test(
+      'una contradicción con algo en la papelera no espera revisión',
+      () async {
+        await seedNote('a');
+        await seedNote('b');
+        await seedNote('c');
+        await relate('a', 'b', kind: RelationKind.contradicts);
+        await relate('a', 'c', kind: RelationKind.contradicts);
+
+        await trashItemRows(db, 'b');
+        expect(await repository.watchUnreviewedContradictionCount().first, 1);
+
+        await trashItemRows(db, 'a');
+        expect(await repository.watchUnreviewedContradictionCount().first, 0);
+
+        await restoreItemRows(db, 'a');
+        await restoreItemRows(db, 'b');
+        expect(await repository.watchUnreviewedContradictionCount().first, 2);
+      },
+    );
+
+    test('el enlace roto de una nota en la papelera no se cuenta', () async {
+      await seedNote(
+        'n1',
+        blocks: const [ContentBlock.paragraph(text: '[[Cartago]]')],
+      );
+      await seedNote(
+        'n2',
+        blocks: const [ContentBlock.paragraph(text: '[[Atenas]]')],
+      );
+
+      await trashItemRows(db, 'n1');
+      expect(await repository.watchBrokenLinkCount().first, 1);
+
+      await restoreItemRows(db, 'n1');
+      expect(await repository.watchBrokenLinkCount().first, 2);
+    });
+
+    test(
+      'una nota en la papelera no aparece entre las que crecieron',
+      () async {
+        await seedNote(
+          'a',
+          updatedAt: later,
+          blocks: [ContentBlock.paragraph(text: 'nuevo', addedAt: after)],
+        );
+        await seedNote(
+          'b',
+          updatedAt: later,
+          blocks: [ContentBlock.paragraph(text: 'nuevo', addedAt: after)],
+        );
+        await trashItemRows(db, 'a');
+
+        final grown = await repository.watchGrownNotes(since: since).first;
+
+        expect(grown.map((n) => n.itemId), ['b']);
+      },
+    );
+
+    test('un vínculo nuevo con algo en la papelera no cuenta como '
+        'crecimiento', () async {
+      await seedNote('a', updatedAt: later);
+      await seedNote('b');
+      await relate('a', 'b', createdAt: after);
+      await trashItemRows(db, 'b');
+
+      final grown = await repository.watchGrownNotes(since: since).first;
+
+      expect(grown, isEmpty);
     });
   });
 }

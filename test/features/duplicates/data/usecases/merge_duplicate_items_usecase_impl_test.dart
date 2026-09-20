@@ -19,6 +19,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -580,6 +581,37 @@ void main() {
       await useCase(keepItemId: keepId, discardItemId: discardId);
 
       expect(await links(), isEmpty);
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('un elemento en la papelera ya no existe para fusionar', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await trashItemRows(db, discardId);
+
+      final result = await useCase(
+        keepItemId: keepId,
+        discardItemId: discardId,
+      );
+
+      expect(result.isLeft(), isTrue);
+      // Y no se tocó nada: el elemento sigue en la papelera, con todo lo suyo.
+      expect(await db.select(db.mergedProvenances).get(), isEmpty);
+    });
+
+    test('tampoco si el que estaba en la papelera es el que iba a '
+        'quedar', () async {
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await trashItemRows(db, keepId);
+
+      final result = await useCase(
+        keepItemId: keepId,
+        discardItemId: discardId,
+      );
+
+      expect(result.isLeft(), isTrue);
     });
   });
 }

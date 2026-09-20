@@ -26,6 +26,7 @@ import 'package:sinapsis/features/suggestions/domain/entities/property_suggestio
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -932,6 +933,94 @@ void main() {
 
         expect(result.getRight().toNullable(), 0);
       });
+    });
+  });
+
+  group('la papelera (F11)', () {
+    test('una sugerencia de duplicado con algo en la papelera no se ofrece, '
+        'en ninguno de los dos extremos', () async {
+      final keep = await seedItem(title: 'El que queda');
+      final other = await seedItem(title: 'El posible duplicado');
+      await repository.createDuplicateSuggestion(
+        targetItemId: keep.id,
+        duplicateItemId: other.id,
+        duplicateItemTitle: other.title,
+        matchKind: DuplicateMatchKind.exact,
+      );
+
+      await trashItemRows(db, other.id);
+      expect(
+        await repository.watchPendingDuplicateSuggestions().first,
+        isEmpty,
+      );
+      expect(await repository.watchPendingSuggestions(keep.id).first, isEmpty);
+
+      await restoreItemRows(db, other.id);
+      await trashItemRows(db, keep.id);
+      expect(
+        await repository.watchPendingDuplicateSuggestions().first,
+        isEmpty,
+      );
+
+      await restoreItemRows(db, keep.id);
+      expect(
+        await repository.watchPendingDuplicateSuggestions().first,
+        hasLength(1),
+      );
+    });
+
+    test('una sugerencia de relación con algo en la papelera no se '
+        'ofrece', () async {
+      final a = await seedItem(title: 'A');
+      final b = await seedItem(title: 'B');
+      await repository.createRelationSuggestion(
+        targetItemId: a.id,
+        relatedItemId: b.id,
+        relatedItemTitle: 'B',
+        kind: RelationKind.relatedTo,
+        reason: 'Hablan de lo mismo.',
+      );
+      await trashItemRows(db, b.id);
+
+      expect(await repository.watchPendingSuggestions(a.id).first, isEmpty);
+
+      await restoreItemRows(db, b.id);
+
+      expect(
+        await repository.watchPendingSuggestions(a.id).first,
+        hasLength(1),
+      );
+    });
+
+    test('las sugerencias de propiedad de algo en la papelera no entran en '
+        'los grupos', () async {
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-region',
+              name: 'Región',
+              createdAt: now,
+            ),
+          );
+      final a = await seedItem(title: 'A');
+      final b = await seedItem(title: 'B');
+      for (final item in [a, b]) {
+        await repository.createPropertySuggestion(
+          targetItemId: item.id,
+          definitionId: 'def-region',
+          definitionName: 'Región',
+          value: 'Roma',
+          isNewValue: true,
+        );
+      }
+      await trashItemRows(db, b.id);
+
+      final groups = await repository
+          .watchPendingPropertySuggestionGroups()
+          .first;
+
+      expect(groups.single.suggestions.map((s) => s.targetItemId), [a.id]);
     });
   });
 }
