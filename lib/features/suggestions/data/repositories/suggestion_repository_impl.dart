@@ -388,6 +388,58 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, int>> revertAcceptedMany(List<String> ids) async {
+    final unique = ids.toSet().toList();
+    if (unique.isEmpty) return right(0);
+
+    try {
+      await _db.transaction(() async {
+        final rows = await (_db.select(
+          _db.suggestions,
+        )..where((s) => s.id.isIn(unique))).get();
+        final byId = {for (final row in rows) row.id: row};
+        for (final id in unique) {
+          final row = byId[id];
+          if (row == null ||
+              row.kind != SuggestionKind.property ||
+              row.status != SuggestionStatus.accepted) {
+            throw const _BatchAborted(
+              Failure.validation(
+                message:
+                    'Alguna sugerencia ya no está aceptada, ya no existe o no '
+                    'es de propiedad: no se deshizo ninguna.',
+              ),
+            );
+          }
+        }
+
+        // Todas o ninguna: lanzar es lo que deshace la transacción entera.
+        for (final row in byId.values) {
+          await _removeWhatItPut(row);
+          await (_db.update(
+            _db.suggestions,
+          )..where((s) => s.id.equals(row.id))).write(
+            const SuggestionsCompanion(status: Value(SuggestionStatus.pending)),
+          );
+        }
+      });
+      return right(unique.length);
+    } on _BatchAborted catch (aborted) {
+      return left(aborted.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.revertAcceptedMany',
+        ),
+      );
+    }
+  }
+
   /// Quita del elemento la propiedad que puso la aceptación de [row], y el
   /// valor si la aceptación lo creó y nadie más lo usa.
   Future<void> _removeWhatItPut(SuggestionRow row) async {

@@ -2826,6 +2826,19 @@
       }
     }
   },
+  "suggestionReviewUndo": "Undo",
+  "@suggestionReviewUndo": {
+    "description": "Botón del aviso tras aceptar en lote: deshace esa aceptación."
+  },
+  "suggestionReviewUndone": "{count, plural, =1{1 accepted suggestion undone} other{{count} accepted suggestions undone}}",
+  "@suggestionReviewUndone": {
+    "description": "Aviso tras deshacer en bloque una aceptación en lote.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "navInbox": "Inbox",
   "@navInbox": {
     "description": "Etiqueta corta del destino de la Bandeja de entrada en la navegación principal."

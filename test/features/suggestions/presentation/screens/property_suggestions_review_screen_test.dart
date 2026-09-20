@@ -269,6 +269,126 @@ void main() {
     expect(find.byType(FilledButton), findsNothing);
   });
 
+  Future<Map<String, String>> acceptTwoOfThree(WidgetTester tester) async {
+    final ids = await seedItems(['A', 'B', 'C']);
+    await seedRegion();
+    await suggest(ids['A']!, 'Roma');
+    await suggest(ids['B']!, 'Roma');
+    await suggest(ids['C']!, 'Roma');
+    await pumpScreen(tester);
+    await tester.tap(row('A'));
+    await tester.tap(row('C'));
+    await tester.pump();
+    await tester.tap(
+      find.widgetWithText(FilledButton, es.suggestionReviewAccept(2)),
+    );
+    await tester.pumpAndSettle();
+    return ids;
+  }
+
+  testWidgets(
+    'deshacer en lote: el aviso ofrece deshacer, y deshace todas juntas: '
+    'quita lo que pusieron y las deja pendientes',
+    (tester) async {
+      final ids = await acceptTwoOfThree(tester);
+      expect(find.text(es.suggestionReviewUndo), findsOneWidget);
+
+      await tester.tap(find.text(es.suggestionReviewUndo));
+      await tester.pumpAndSettle();
+
+      expect(
+        await harness.database
+            .select(harness.database.itemPropertyValues)
+            .get(),
+        isEmpty,
+      );
+      // El valor que la aceptación creó y nadie usa se va con ella.
+      expect(
+        await harness.database.select(harness.database.propertyValues).get(),
+        isEmpty,
+      );
+      expect(await statuses(), {
+        ids['A']: SuggestionStatus.pending,
+        ids['B']: SuggestionStatus.pending,
+        ids['C']: SuggestionStatus.pending,
+      });
+      expect(find.text(es.suggestionReviewUndone(2)), findsOneWidget);
+      // Vuelven a la lista, sin marcar.
+      expect(row('A'), findsOneWidget);
+      expect(row('C'), findsOneWidget);
+      expect(find.byType(FilledButton), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'deshacer en lote: descartar no ofrece deshacer: no aplicó nada',
+    (tester) async {
+      final ids = await seedItems(['A', 'B']);
+      await seedRegion();
+      await suggest(ids['A']!, 'Roma');
+      await suggest(ids['B']!, 'Roma');
+      await pumpScreen(tester);
+      await tester.tap(groupCheckbox('Región: Roma'));
+      await tester.pump();
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, es.suggestionReviewReject(2)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.suggestionReviewUndo), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'deshacer en lote: sigue andando aunque la pantalla ya no esté, porque '
+    'el aviso es de la app',
+    (tester) async {
+      final ids = await acceptTwoOfThree(tester);
+
+      GoRouter.of(
+        tester.element(find.byType(PropertySuggestionsReviewScreen)),
+      ).go(RoutePaths.itemDetail('otro'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PropertySuggestionsReviewScreen), findsNothing);
+      expect(find.text(es.suggestionReviewUndo), findsOneWidget);
+
+      await tester.tap(find.text(es.suggestionReviewUndo));
+      await tester.pumpAndSettle();
+
+      expect((await statuses())[ids['A']], SuggestionStatus.pending);
+      expect((await statuses())[ids['C']], SuggestionStatus.pending);
+      expect(find.text(es.suggestionReviewUndone(2)), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deshacer en lote: si una ya no se puede, avisa y no deshace ninguna',
+    (tester) async {
+      final ids = await acceptTwoOfThree(tester);
+      // Alguien la deshizo por su cuenta mientras el aviso seguía a la vista.
+      final repository = harness.container.read(suggestionRepositoryProvider);
+      final accepted = await (harness.database.select(
+        harness.database.suggestions,
+      )..where((s) => s.targetItemId.equals(ids['C']!))).getSingle();
+      await repository.revertAccepted(accepted.id);
+
+      await tester.tap(find.text(es.suggestionReviewUndo));
+      await tester.pumpAndSettle();
+
+      // A sigue aceptada y con su propiedad: nada a medias.
+      expect((await statuses())[ids['A']], SuggestionStatus.accepted);
+      expect(
+        (await harness.database
+                .select(harness.database.itemPropertyValues)
+                .get())
+            .map((r) => r.itemId),
+        [ids['A']],
+      );
+      expect(find.text(es.suggestionReviewUndone(2)), findsNothing);
+    },
+  );
+
   testWidgets('descartar marca rechazadas las marcadas sin aplicar nada', (
     tester,
   ) async {

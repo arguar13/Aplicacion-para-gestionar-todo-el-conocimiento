@@ -577,6 +577,179 @@ void main() {
     });
   });
 
+  group('revertAcceptedMany (F12)', () {
+    late PropertyDefinition region;
+
+    setUp(() async {
+      region = (await organizeRepository.getOrCreatePropertyDefinition(
+        'Región',
+      )).getRight().toNullable()!;
+    });
+
+    Future<Suggestion> suggest(
+      KnowledgeItem item, {
+      String value = 'Roma',
+      bool isNewValue = true,
+    }) async => (await repository.createPropertySuggestion(
+      targetItemId: item.id,
+      definitionId: region.id,
+      definitionName: 'Región',
+      value: value,
+      isNewValue: isNewValue,
+    )).getRight().toNullable()!;
+
+    Future<List<ItemProperty>> propertiesOf(KnowledgeItem item) async =>
+        (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!.properties;
+
+    Future<List<PropertyValueRow>> valuesOfRegion() => (db.select(
+      db.propertyValues,
+    )..where((v) => v.definitionId.equals(region.id))).get();
+
+    /// Tres elementos con la propiedad aceptada en lote, y las ids de sus
+    /// sugerencias.
+    Future<(List<KnowledgeItem>, List<String>)> threeAccepted() async {
+      final items = [for (var i = 0; i < 3; i++) await seedItem(title: 'E$i')];
+      final ids = [for (final item in items) (await suggest(item)).id];
+      expect((await repository.acceptMany(ids)).getRight().toNullable(), 3);
+      return (items, ids);
+    }
+
+    test('deshace todas: quita lo que pusieron, las deja pendientes y se va '
+        'el valor que crearon', () async {
+      final (items, ids) = await threeAccepted();
+      expect(await valuesOfRegion(), hasLength(1));
+
+      final result = await repository.revertAcceptedMany(ids);
+
+      expect(result.getRight().toNullable(), 3);
+      for (final item in items) {
+        expect(await propertiesOf(item), isEmpty, reason: item.title);
+        expect(
+          await repository.watchPendingSuggestions(item.id).first,
+          hasLength(1),
+          reason: item.title,
+        );
+      }
+      // El valor lo creó la aceptación en lote y ya nadie lo usa: no queda
+      // huérfano en el vocabulario.
+      expect(await valuesOfRegion(), isEmpty);
+    });
+
+    test('un valor que otro elemento usa se queda, y el otro elemento lo '
+        'conserva', () async {
+      final (items, ids) = await threeAccepted();
+      final other = await seedItem(title: 'Otro');
+      await organizeRepository.assignProperty(
+        itemId: other.id,
+        definitionId: region.id,
+        value: 'Roma',
+      );
+
+      await repository.revertAcceptedMany(ids);
+
+      expect((await propertiesOf(other)).map((p) => p.value), ['Roma']);
+      expect(await valuesOfRegion(), hasLength(1));
+    });
+
+    test('lo que un elemento ya tenía a mano no se le quita', () async {
+      final manual = await seedItem(title: 'A mano');
+      await organizeRepository.assignProperty(
+        itemId: manual.id,
+        definitionId: region.id,
+        value: 'Roma',
+      );
+      final other = await seedItem(title: 'Otro');
+      final suggestions = [
+        await suggest(manual, isNewValue: false),
+        await suggest(other, isNewValue: false),
+      ];
+      await repository.acceptMany([for (final s in suggestions) s.id]);
+
+      await repository.revertAcceptedMany([for (final s in suggestions) s.id]);
+
+      final kept = await propertiesOf(manual);
+      expect(kept.map((p) => p.value), ['Roma']);
+      expect(kept.single.origin, ItemPropertyOrigin.manual);
+      expect(await propertiesOf(other), isEmpty);
+    });
+
+    test(
+      'es atómico: si una ya no está aceptada, no se deshace ninguna',
+      () async {
+        final (items, ids) = await threeAccepted();
+        // Una la deshizo alguien por su cuenta mientras el aviso seguía a la
+        // vista.
+        await repository.revertAccepted(ids.last);
+        final before = [for (final item in items) await propertiesOf(item)];
+
+        final result = await repository.revertAcceptedMany(ids);
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        final after = [for (final item in items) await propertiesOf(item)];
+        expect(
+          [for (final properties in after) properties.length],
+          [for (final properties in before) properties.length],
+        );
+        // Las dos que seguían aceptadas siguen aplicadas.
+        expect(after.take(2).every((p) => p.length == 1), isTrue);
+      },
+    );
+
+    test('falla sin deshacer nada si alguna no existe, está pendiente o no es '
+        'de propiedad', () async {
+      final (items, ids) = await threeAccepted();
+      final pending = await suggest(await seedItem(title: 'Pendiente'));
+      final relation = (await repository.createRelationSuggestion(
+        targetItemId: items.first.id,
+        relatedItemId: items.last.id,
+        relatedItemTitle: 'E2',
+        kind: RelationKind.relatedTo,
+        reason: 'se parecen',
+      )).getRight().toNullable()!;
+
+      for (final other in ['no-existe', pending.id, relation.id]) {
+        final result = await repository.revertAcceptedMany([ids.first, other]);
+
+        expect(
+          result.getLeft().toNullable(),
+          isA<ValidationFailure>(),
+          reason: other,
+        );
+      }
+      for (final item in items) {
+        expect(await propertiesOf(item), hasLength(1), reason: item.title);
+      }
+    });
+
+    test(
+      'un id repetido cuenta una vez y una lista vacía no hace nada',
+      () async {
+        final (_, ids) = await threeAccepted();
+        final first = ids.first;
+
+        final once = await repository.revertAcceptedMany([first, first]);
+        final none = await repository.revertAcceptedMany(const []);
+
+        expect(once.getRight().toNullable(), 1);
+        expect(none.getRight().toNullable(), 0);
+      },
+    );
+
+    test('el lote se puede volver a aceptar después de deshacerlo', () async {
+      final (items, ids) = await threeAccepted();
+      await repository.revertAcceptedMany(ids);
+
+      final again = await repository.acceptMany(ids);
+
+      expect(again.getRight().toNullable(), 3);
+      for (final item in items) {
+        expect(await propertiesOf(item), hasLength(1), reason: item.title);
+      }
+    });
+  });
+
   group('sugerencias de propiedad en lote (F9)', () {
     Future<void> seedDefinition(String id, String name) => db
         .into(db.propertyDefinitions)

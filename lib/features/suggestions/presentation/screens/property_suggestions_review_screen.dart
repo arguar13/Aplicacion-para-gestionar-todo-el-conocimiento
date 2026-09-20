@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_batch_actions.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_group_tile.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -29,38 +29,22 @@ class _PropertySuggestionsReviewScreenState
   var _busy = false;
 
   Future<void> _apply(List<String> ids, {required bool accept}) async {
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
     final repository = ref.read(suggestionRepositoryProvider);
     setState(() => _busy = true);
 
-    final result = accept
-        ? await repository.acceptMany(ids)
-        : await repository.rejectMany(ids);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    messenger.hideCurrentSnackBar();
-    final failure = result.getLeft().toNullable();
-    if (failure != null) {
-      // Nada se aplicó: la selección queda para reintentar.
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure.localizedMessage(l10n))),
-      );
-      return;
-    }
-
-    setState(() => _selected.removeAll(ids));
-    final count = result.getRight().toNullable() ?? 0;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          accept
-              ? l10n.suggestionReviewAccepted(count)
-              : l10n.suggestionReviewRejected(count),
-        ),
-      ),
+    final count = await applyPropertySuggestionBatch(
+      context: context,
+      repository: repository,
+      ids: ids,
+      accept: accept,
     );
+    if (!mounted) return;
+
+    // Si nada se aplicó, la selección queda para reintentar.
+    setState(() {
+      _busy = false;
+      if (count != null) _selected.removeAll(ids);
+    });
   }
 
   void _toggleGroup(PropertySuggestionGroup group, {required bool select}) {

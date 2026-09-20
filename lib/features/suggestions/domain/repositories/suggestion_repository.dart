@@ -104,4 +104,18 @@ abstract interface class SuggestionRepository {
   ///
   /// Falla si la sugerencia no existe, no es de propiedad o no está aceptada.
   Future<Either<Failure, Unit>> revertAccepted(String id);
+
+  /// Deshace de una vez la aceptación de varias sugerencias de propiedad
+  /// —lo que [acceptMany] aplicó— igual que [revertAccepted] con cada una, y
+  /// devuelve cuántas.
+  ///
+  /// Es atómico, como [acceptMany]: si alguna no se puede deshacer —no existe,
+  /// no es de propiedad o ya no está aceptada, porque otra cosa la tocó
+  /// mientras tanto—, ninguna se deshace y todas siguen como estaban. Un id
+  /// repetido cuenta una vez.
+  ///
+  /// El valor que la aceptación en lote haya creado se va cuando la última
+  /// asignación se quita y nadie más lo usa: no queda un valor huérfano en el
+  /// vocabulario.
+  Future<Either<Failure, int>> revertAcceptedMany(List<String> ids);
 }
