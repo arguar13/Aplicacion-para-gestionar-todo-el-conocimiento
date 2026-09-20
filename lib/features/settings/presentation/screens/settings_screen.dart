@@ -113,6 +113,12 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.brokenLinks),
               ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text(l10n.trashTitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.trash),
+              ),
             ],
           ),
           const SizedBox(height: 24),

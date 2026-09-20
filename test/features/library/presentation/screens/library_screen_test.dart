@@ -821,9 +821,8 @@ void main() {
       expect(movedTitles, {'Uno', 'Dos'});
     });
 
-    testWidgets('elimina lo elegido de una vez, con confirmación', (
-      tester,
-    ) async {
+    testWidgets('manda lo elegido a la papelera de una vez, sin preguntar, y '
+        'avisa', (tester) async {
       await harness.capture('Uno');
       await harness.capture('Dos');
       await harness.capture('Tres');
@@ -836,39 +835,36 @@ void main() {
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
 
-      expect(find.text(es.libraryBulkDeleteConfirm(2)), findsOneWidget);
-
-      await tester.tap(find.text(es.detailDelete));
-      await tester.pumpAndSettle();
-
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Uno'), findsNothing);
       expect(find.text('Dos'), findsNothing);
       expect(find.text('Tres'), findsOneWidget);
-      expect(find.text(es.libraryBulkDeleted(2)), findsOneWidget);
+      expect(find.text(es.trashMoved(2)), findsOneWidget);
     });
 
-    testWidgets('cancelar la confirmación de eliminar no borra nada', (
-      tester,
-    ) async {
+    testWidgets('«Deshacer» devuelve a la biblioteca lo que se acaba de '
+        'mandar a la papelera', (tester) async {
       await harness.capture('Uno');
+      await harness.capture('Dos');
       await pumpLibrary(tester);
 
       await tester.longPress(find.text('Uno'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Dos'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.commonCancel));
+      await tester.tap(find.text(es.trashUndo));
       await tester.pumpAndSettle();
 
       expect(find.text('Uno'), findsOneWidget);
-      expect(find.text(es.librarySelectedCount(1)), findsOneWidget);
+      expect(find.text('Dos'), findsOneWidget);
     });
   });
 
   group('el menú de tres puntos de cada fila', () {
-    testWidgets('eliminar pide confirmación y saca el elemento de la lista', (
-      tester,
-    ) async {
+    testWidgets('eliminar lo manda a la papelera, lo saca de la lista y '
+        'avisa', (tester) async {
       await harness.capture('Algo para borrar');
       await pumpLibrary(tester);
 
@@ -876,24 +872,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.detailDelete).last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.detailDelete).last);
-      await tester.pumpAndSettle();
 
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('Algo para borrar'), findsNothing);
-    });
-
-    testWidgets('cancelar la confirmación no borra nada', (tester) async {
-      await harness.capture('Algo que se queda');
-      await pumpLibrary(tester);
-
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.detailDelete).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.commonCancel));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Algo que se queda'), findsOneWidget);
+      expect(find.text(es.trashMoved(1)), findsOneWidget);
     });
 
     testWidgets('mover a un espacio lo deja asignado y avisa', (tester) async {

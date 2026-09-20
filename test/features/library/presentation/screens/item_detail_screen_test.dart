@@ -692,38 +692,18 @@ void main() {
     });
   });
 
-  group('eliminar', () {
-    testWidgets('pide confirmación antes de borrar algo irreversible', (
-      tester,
-    ) async {
-      final id = await captureAndGetId('algo que se va a borrar');
+  group('eliminar (papelera, F11)', () {
+    Future<List<String>> listedIds() async =>
+        (await harness.container
+                .read(libraryRepositoryProvider)
+                .list(const LibraryQuery()))
+            .getRight()
+            .toNullable()!
+            .map((i) => i.id)
+            .toList();
 
-      await pumpDetail(tester, id);
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pumpAndSettle();
-
-      expect(find.text(es.detailDeleteConfirm), findsOneWidget);
-    });
-
-    testWidgets('cancelar no borra nada', (tester) async {
-      final id = await captureAndGetId('algo que NO se va a borrar');
-
-      await pumpDetail(tester, id);
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(es.commonCancel));
-      await tester.pumpAndSettle();
-
-      final items =
-          (await harness.container
-                  .read(libraryRepositoryProvider)
-                  .list(const LibraryQuery()))
-              .getRight()
-              .toNullable()!;
-      expect(items, hasLength(1));
-    });
-
-    testWidgets('confirmar borra y vuelve a la biblioteca', (tester) async {
+    testWidgets('no pide confirmación: manda el elemento a la papelera y '
+        'vuelve a la biblioteca', (tester) async {
       final id = await captureAndGetId('algo que se va a borrar');
 
       await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -733,11 +713,36 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.detailDelete).last);
-      await tester.pumpAndSettle();
 
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(LibraryScreen), findsOneWidget);
       expect(find.text(es.emptyLibraryTitle), findsOneWidget);
+      // No se borró: está en la papelera. Se lee la fila y no el flujo de
+      // `watchTrash`: esperar un flujo de la base bajo `testWidgets` se cuelga.
+      final rows = await harness.database
+          .select(harness.database.knowledgeEntries)
+          .get();
+      expect(rows.map((r) => r.id), [id]);
+      expect(rows.single.deletedAt, isNotNull);
+    });
+
+    testWidgets('avisa en la pantalla a la que vuelve, con un «Deshacer» que '
+        'lo restaura', (tester) async {
+      final id = await captureAndGetId('algo que se va a borrar');
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.pushTo(RoutePaths.itemDetail(id));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.trashMoved(1)), findsOneWidget);
+
+      await tester.tap(find.text(es.trashUndo));
+      await tester.pumpAndSettle();
+
+      expect(await listedIds(), [id]);
     });
   });
 

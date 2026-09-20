@@ -23,6 +23,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
+import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -381,50 +382,19 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// Manda lo elegido a la papelera, con su «Deshacer»: no destruye nada, así
+  /// que no pregunta.
   Future<void> _deleteSelection(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    final count = _selectedIds.length;
-    if (count == 0) return;
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.libraryBulkDeleteConfirm(count)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.detailDelete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
+    final moved = await moveToTrashWithUndo(context, ref, ids);
+    if (!moved || !mounted) return;
 
-    final result = await ref
-        .read(libraryRepositoryProvider)
-        .deleteMany(_selectedIds.toList());
-    if (!context.mounted) return;
-
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      (_) {
-        setState(() {
-          _selectionModeActive = false;
-          _selectedIds.clear();
-        });
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(l10n.libraryBulkDeleted(count))),
-          );
-      },
-    );
+    setState(() {
+      _selectionModeActive = false;
+      _selectedIds.clear();
+    });
   }
 }
 

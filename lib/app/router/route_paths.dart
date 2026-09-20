@@ -118,6 +118,9 @@ abstract final class RoutePaths {
   /// Idioma, tema, modelo de transcripción, copia de seguridad y bloqueo de
   /// la bóveda, todo junto.
   static const settings = '/settings';
+
+  /// Lo que se borró y todavía se puede restaurar (F11).
+  static const trash = '/trash';
 }
 
 abstract final class RouteNames {
@@ -148,4 +151,5 @@ abstract final class RouteNames {
   static const graphLocal = 'graph-local';
   static const review = 'review';
   static const settings = 'settings';
+  static const trash = 'trash';
 }

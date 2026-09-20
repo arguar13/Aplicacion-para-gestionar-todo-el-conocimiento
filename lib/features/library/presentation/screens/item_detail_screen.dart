@@ -34,6 +34,7 @@ import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.d
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
@@ -76,7 +77,7 @@ class ItemDetailScreen extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
-              onPressed: () => _confirmDelete(context, ref),
+              onPressed: () => _moveToTrash(context, ref),
             ),
           ],
         ],
@@ -94,33 +95,11 @@ class ItemDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Borrar se lleva el contenido, la procedencia, los subrayados y las
-    // notas, y no hay papelera de la que rescatarlo. Un paso intermedio es lo
-    // mínimo para algo irreversible.
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.detailDeleteConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.detailDelete),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-
-    await ref.read(libraryRepositoryProvider).delete(itemId);
-    if (!context.mounted) return;
+  /// Manda el elemento a la papelera —con su «Deshacer»— y vuelve. No pregunta
+  /// antes: no destruye nada, se restaura tal cual.
+  Future<void> _moveToTrash(BuildContext context, WidgetRef ref) async {
+    final moved = await moveToTrashWithUndo(context, ref, [itemId]);
+    if (!moved || !context.mounted) return;
 
     // Mismo cuidado que en la captura: a un detalle se puede llegar por
     // enlace directo, y entonces no hay pila que desapilar.

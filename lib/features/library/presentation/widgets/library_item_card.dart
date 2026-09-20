@@ -14,6 +14,7 @@ import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.d
 import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -312,31 +313,9 @@ class _ItemMenuButton extends ConsumerWidget {
     }
   }
 
+  /// A la papelera, con su «Deshacer»: no destruye nada, así que no pregunta.
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Mismo paso intermedio que el botón de eliminar del detalle: se lleva
-    // el contenido, la procedencia y todo lo que tenga, sin papelera de la
-    // que rescatarlo.
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.detailDeleteConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.detailDelete),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    await ref.read(libraryRepositoryProvider).delete(item.id);
+    await moveToTrashWithUndo(context, ref, [item.id]);
   }
 
   Future<void> _move(BuildContext context, WidgetRef ref) async {

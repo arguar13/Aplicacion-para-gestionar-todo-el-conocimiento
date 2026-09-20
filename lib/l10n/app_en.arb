@@ -148,24 +148,6 @@
   "@libraryBulkDeleteTooltip": {
     "description": "Botón que elimina los elementos seleccionados, en el modo de selección múltiple."
   },
-  "libraryBulkDeleteConfirm": "{count, plural, =1{Delete this item and everything in it? This can't be undone.} other{Delete these {count} items and everything in them? This can't be undone.}}",
-  "@libraryBulkDeleteConfirm": {
-    "description": "Pregunta de confirmación antes de eliminar varios elementos a la vez.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "libraryBulkDeleted": "{count, plural, =1{Item deleted} other{{count} items deleted}}",
-  "@libraryBulkDeleted": {
-    "description": "Confirmación tras eliminar varios elementos a la vez.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "libraryBulkMoved": "{count, plural, =1{Item moved to {space}} other{{count} items moved to {space}}}",
   "@libraryBulkMoved": {
     "description": "Confirmación tras mover varios elementos a la vez a un tema.",
@@ -762,10 +744,6 @@
   "detailDelete": "Delete",
   "@detailDelete": {
     "description": "Button that deletes an item"
-  },
-  "detailDeleteConfirm": "Delete this and everything in it? This can't be undone.",
-  "@detailDeleteConfirm": {
-    "description": "Confirmation question before deleting an item"
   },
   "commonCancel": "Cancel",
   "@commonCancel": {
@@ -2793,7 +2771,7 @@
   "@duplicatesMergeConfirmTitle": {
     "description": "Título del diálogo de confirmación antes de fusionar, en la pantalla \"Posibles duplicados\", F7."
   },
-  "duplicatesMergeConfirmBody": "\"{discardTitle}\" will be deleted. Its provenance and text move to \"{keepTitle}\".",
+  "duplicatesMergeConfirmBody": "\"{discardTitle}\" goes to the trash. Its provenance, text, subtitle and notes move to \"{keepTitle}\".",
   "@duplicatesMergeConfirmBody": {
     "description": "Cuerpo del diálogo de confirmación antes de fusionar, F7.",
     "placeholders": {
@@ -3160,5 +3138,89 @@
         "type": "String"
       }
     }
+  },
+  "trashTitle": "Trash",
+  "@trashTitle": {
+    "description": "Título de la pantalla de la papelera y de su entrada en ajustes."
+  },
+  "trashHint": "Whatever you delete is kept here. Nothing is really deleted until you ask.",
+  "@trashHint": {
+    "description": "Explicación al principio de la papelera."
+  },
+  "trashEmptyTitle": "The trash is empty",
+  "@trashEmptyTitle": {
+    "description": "Título de la papelera cuando no hay nada."
+  },
+  "trashEmptyBody": "Items you delete will show up here, and you will be able to restore them.",
+  "@trashEmptyBody": {
+    "description": "Explicación de la papelera vacía."
+  },
+  "trashDeletedOn": "Deleted on {date}",
+  "@trashDeletedOn": {
+    "description": "Cuándo se mandó a la papelera un elemento, bajo su título.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "trashRestore": "Restore",
+  "@trashRestore": {
+    "description": "Botón que saca un elemento de la papelera y lo devuelve a la biblioteca."
+  },
+  "trashRestored": "Item restored",
+  "@trashRestored": {
+    "description": "Aviso tras restaurar un elemento."
+  },
+  "trashDeleteForever": "Delete forever",
+  "@trashDeleteForever": {
+    "description": "Botón que borra de verdad un elemento de la papelera."
+  },
+  "trashDeleteForeverConfirm": "Delete “{title}” forever? Its text, links, flashcards and original file are deleted too. This can't be undone.",
+  "@trashDeleteForeverConfirm": {
+    "description": "Confirmación antes de borrar de verdad un elemento de la papelera.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "trashDeletedForever": "Deleted forever",
+  "@trashDeletedForever": {
+    "description": "Aviso tras borrar de verdad un elemento."
+  },
+  "trashEmptyAction": "Empty the trash",
+  "@trashEmptyAction": {
+    "description": "Botón que borra de verdad todo lo que hay en la papelera."
+  },
+  "trashEmptyConfirm": "{count, plural, =1{Delete the item in the trash forever? Its text, links, flashcards and original file are deleted too. This can't be undone.} other{Delete the {count} items in the trash forever? Their texts, links, flashcards and original files are deleted too. This can't be undone.}}",
+  "@trashEmptyConfirm": {
+    "description": "Confirmación antes de vaciar la papelera.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "trashEmptied": "Trash emptied",
+  "@trashEmptied": {
+    "description": "Aviso tras vaciar la papelera."
+  },
+  "trashLoadError": "Couldn't load the trash.",
+  "@trashLoadError": {
+    "description": "Error al leer la papelera."
+  },
+  "trashMoved": "{count, plural, =1{Item moved to the trash} other{{count} items moved to the trash}}",
+  "@trashMoved": {
+    "description": "Aviso tras mandar elementos a la papelera; lleva un botón para deshacerlo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "trashUndo": "Undo",
+  "@trashUndo": {
+    "description": "Botón del aviso que devuelve a la biblioteca lo que se acaba de mandar a la papelera."
   }
 }

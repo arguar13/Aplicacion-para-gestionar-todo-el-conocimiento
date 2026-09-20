@@ -100,24 +100,6 @@
   "@libraryBulkDeleteTooltip": {
     "description": "Botón que elimina los elementos seleccionados, en el modo de selección múltiple."
   },
-  "libraryBulkDeleteConfirm": "{count, plural, =1{¿Eliminar este elemento y todo lo que contiene? No se puede deshacer.} other{¿Eliminar estos {count} elementos y todo lo que contienen? No se puede deshacer.}}",
-  "@libraryBulkDeleteConfirm": {
-    "description": "Pregunta de confirmación antes de eliminar varios elementos a la vez.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "libraryBulkDeleted": "{count, plural, =1{Elemento eliminado} other{{count} elementos eliminados}}",
-  "@libraryBulkDeleted": {
-    "description": "Confirmación tras eliminar varios elementos a la vez.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "libraryBulkMoved": "{count, plural, =1{Elemento movido a {space}} other{{count} elementos movidos a {space}}}",
   "@libraryBulkMoved": {
     "description": "Confirmación tras mover varios elementos a la vez a un tema.",
@@ -609,7 +591,6 @@
   "detailRetry": "Reintentar",
   "detailExtractionFailed": "No se pudo traer el contenido. El enlace y todo lo que se sabe sigue guardado.",
   "detailDelete": "Eliminar",
-  "detailDeleteConfirm": "¿Eliminar esto y todo lo que contiene? No se puede deshacer.",
   "commonCancel": "Cancelar",
   "emptyLibraryTitle": "Tu bóveda está vacía",
   "emptyLibraryMessage": "Lo que guardes acá —un video, un hilo, un artículo, un PDF— se convierte en texto que podés buscar, sin perder de dónde salió.",
@@ -2524,7 +2505,7 @@
   "duplicatesMergeAction": "Fusionar",
   "duplicatesDiscardAction": "Descartar",
   "duplicatesMergeConfirmTitle": "¿Fusionar estos dos?",
-  "duplicatesMergeConfirmBody": "\"{discardTitle}\" se va a borrar. Su procedencia y su texto pasan a \"{keepTitle}\".",
+  "duplicatesMergeConfirmBody": "\"{discardTitle}\" va a la papelera. Su procedencia, su texto, su subtítulo y sus notas pasan a \"{keepTitle}\".",
   "duplicatesDiscarded": "Descartado, sin fusionar nada.",
   "vocabularyTitle": "Vocabulario",
   "vocabularySettingsTooltip": "Vocabulario",
@@ -2582,5 +2563,89 @@
   "vocabularyAliasesEmpty": "Sin alias. Un alias es otro nombre que se resuelve a este valor.",
   "vocabularyAddAliasLabel": "Nuevo alias",
   "vocabularyAddAliasAction": "Agregar",
-  "vocabularyRemoveAliasTooltip": "Quitar el alias «{alias}»"
+  "vocabularyRemoveAliasTooltip": "Quitar el alias «{alias}»",
+  "trashTitle": "Papelera",
+  "@trashTitle": {
+    "description": "Título de la pantalla de la papelera y de su entrada en ajustes."
+  },
+  "trashHint": "Lo que borres se guarda acá. Nada se borra de verdad hasta que lo pidas.",
+  "@trashHint": {
+    "description": "Explicación al principio de la papelera."
+  },
+  "trashEmptyTitle": "La papelera está vacía",
+  "@trashEmptyTitle": {
+    "description": "Título de la papelera cuando no hay nada."
+  },
+  "trashEmptyBody": "Los elementos que borres van a aparecer acá, y vas a poder restaurarlos.",
+  "@trashEmptyBody": {
+    "description": "Explicación de la papelera vacía."
+  },
+  "trashDeletedOn": "Borrado el {date}",
+  "@trashDeletedOn": {
+    "description": "Cuándo se mandó a la papelera un elemento, bajo su título.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "trashRestore": "Restaurar",
+  "@trashRestore": {
+    "description": "Botón que saca un elemento de la papelera y lo devuelve a la biblioteca."
+  },
+  "trashRestored": "Elemento restaurado",
+  "@trashRestored": {
+    "description": "Aviso tras restaurar un elemento."
+  },
+  "trashDeleteForever": "Borrar para siempre",
+  "@trashDeleteForever": {
+    "description": "Botón que borra de verdad un elemento de la papelera."
+  },
+  "trashDeleteForeverConfirm": "¿Borrar «{title}» para siempre? Se borran también su texto, sus vínculos, sus tarjetas y su archivo original. No se puede deshacer.",
+  "@trashDeleteForeverConfirm": {
+    "description": "Confirmación antes de borrar de verdad un elemento de la papelera.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "trashDeletedForever": "Borrado para siempre",
+  "@trashDeletedForever": {
+    "description": "Aviso tras borrar de verdad un elemento."
+  },
+  "trashEmptyAction": "Vaciar la papelera",
+  "@trashEmptyAction": {
+    "description": "Botón que borra de verdad todo lo que hay en la papelera."
+  },
+  "trashEmptyConfirm": "{count, plural, =1{¿Borrar para siempre el elemento que hay en la papelera? Se borran también su texto, sus vínculos, sus tarjetas y su archivo original. No se puede deshacer.} other{¿Borrar para siempre los {count} elementos que hay en la papelera? Se borran también sus textos, sus vínculos, sus tarjetas y sus archivos originales. No se puede deshacer.}}",
+  "@trashEmptyConfirm": {
+    "description": "Confirmación antes de vaciar la papelera.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "trashEmptied": "Papelera vaciada",
+  "@trashEmptied": {
+    "description": "Aviso tras vaciar la papelera."
+  },
+  "trashLoadError": "No se pudo cargar la papelera.",
+  "@trashLoadError": {
+    "description": "Error al leer la papelera."
+  },
+  "trashMoved": "{count, plural, =1{Elemento movido a la papelera} other{{count} elementos movidos a la papelera}}",
+  "@trashMoved": {
+    "description": "Aviso tras mandar elementos a la papelera; lleva un botón para deshacerlo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "trashUndo": "Deshacer",
+  "@trashUndo": {
+    "description": "Botón del aviso que devuelve a la biblioteca lo que se acaba de mandar a la papelera."
+  }
 }
