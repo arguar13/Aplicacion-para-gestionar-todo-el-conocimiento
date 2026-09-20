@@ -119,7 +119,6 @@ class HealthRepositoryImpl implements HealthRepository {
       tables: [
         _db.knowledgeNotes,
         _db.knowledgeEntries,
-        _db.items,
         _db.renditions,
         _db.relations,
       ],
@@ -188,7 +187,7 @@ class HealthRepositoryImpl implements HealthRepository {
     Set<String> candidateIds,
     DateTime since,
   ) async {
-    final items = _db.items;
+    final items = _db.knowledgeEntries;
     final touched =
         await (_db.selectOnly(items)
               ..addColumns([items.id])

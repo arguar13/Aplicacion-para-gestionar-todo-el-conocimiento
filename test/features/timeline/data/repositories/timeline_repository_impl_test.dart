@@ -163,6 +163,26 @@ void main() {
       expect(events.single.noteKind, isNull);
     });
 
+    test('el título y el tipo de fuente salen de item y de source, no de las '
+        'tablas viejas', () async {
+      await seedItem('roma', title: 'Roma');
+      await setDate('roma', dateOf(476));
+      // Se cambia SOLO el modelo nuevo: si la lectura saliera del viejo, no se
+      // vería.
+      await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('roma')))
+          .write(const KnowledgeEntriesCompanion(title: Value('De ahora')));
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('roma'))).write(
+        const KnowledgeSourcesCompanion(sourceType: Value(SourceKind.document)),
+      );
+
+      final event = (await read()).single;
+
+      expect(event.title, 'De ahora');
+      expect(event.sourceKind, SourceKind.document);
+    });
+
     test('una nota trae su subtipo', () async {
       await seedItem('n', kind: SourceKind.manualNote);
       await setDate('n', dateOf(1453));

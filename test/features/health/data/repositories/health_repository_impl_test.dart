@@ -447,6 +447,31 @@ void main() {
       expect(result.every((g) => g.$2 == 1), isTrue);
     });
 
+    test('qué notas se tocaron desde la fecha lo dice item, y la lista se '
+        'actualiza sola cuando eso cambia', () async {
+      // Una nota con un bloque nacido esta semana, pero guardada por última vez
+      // antes de la fecha: no se la considera tocada.
+      await seedNote(
+        'a',
+        updatedAt: before,
+        blocks: [ContentBlock.paragraph(text: 'nuevo', addedAt: after)],
+      );
+      final queue = StreamQueue(repository.watchGrownNotes(since: since));
+      addTearDown(queue.cancel);
+      expect(await queue.next, isEmpty);
+
+      // Se cambia SOLO la fila nueva: si la lectura saliera de la tabla vieja,
+      // la nota seguiría sin contar.
+      await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('a')))
+          .write(KnowledgeEntriesCompanion(updatedAt: Value(later)));
+
+      var latest = await queue.next;
+      while (latest.isEmpty) {
+        latest = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(latest.single.newBlocks, 1);
+    });
+
     test('se actualiza sola cuando una nota gana un bloque', () async {
       await seedNote('a', updatedAt: later);
       final queue = StreamQueue(repository.watchGrownNotes(since: since));

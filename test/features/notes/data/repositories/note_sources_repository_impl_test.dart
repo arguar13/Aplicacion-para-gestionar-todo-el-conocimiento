@@ -183,6 +183,38 @@ void main() {
       expect(sources.single.fragments, isEmpty);
     });
 
+    test('el título y el tipo de la fuente citada salen de item y de source, '
+        'no de las tablas viejas', () async {
+      final note = await seed('viva', kind: SourceKind.manualNote);
+      final source = await seed('fuente', title: 'Título de antes');
+      await relate(note, source, RelationKind.cites);
+      // Se cambia SOLO el modelo nuevo.
+      await (db.update(db.knowledgeEntries)..where((e) => e.id.equals(source)))
+          .write(const KnowledgeEntriesCompanion(title: Value('De ahora')));
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals(source))).write(
+        const KnowledgeSourcesCompanion(sourceType: Value(SourceKind.document)),
+      );
+
+      final cited = (await repository.watchCitedSources(note).first).single;
+
+      expect(cited.title, 'De ahora');
+      expect(cited.sourceKind, SourceKind.document);
+    });
+
+    test('lo extraído de una nota, que no tiene fila de fuente, se cita como '
+        'nota manual', () async {
+      final living = await seed('viva', kind: SourceKind.manualNote);
+      final origin = await seed('origen', kind: SourceKind.manualNote);
+      await atomic('atomica', living: living, source: origin);
+
+      final cited = (await repository.watchCitedSources(living).first).single;
+
+      expect(cited.sourceId, origin);
+      expect(cited.sourceKind, SourceKind.manualNote);
+    });
+
     test('un cites hacia otra nota no es una fuente citada', () async {
       final note = await seed('viva', kind: SourceKind.manualNote);
       final other = await seed('otra', kind: SourceKind.manualNote);

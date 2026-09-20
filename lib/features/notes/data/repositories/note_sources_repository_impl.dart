@@ -26,9 +26,8 @@ class NoteSourcesRepositoryImpl implements NoteSourcesRepository {
       db: _db,
       tables: [
         _db.relations,
-        _db.items,
-        _db.sources,
         _db.knowledgeEntries,
+        _db.knowledgeSources,
         _db.knowledgeNotes,
         _db.chunks,
       ],
@@ -160,18 +159,24 @@ class NoteSourcesRepositoryImpl implements NoteSourcesRepository {
 
   Future<Map<String, String>> _titles(Set<String> ids) async {
     final rows = await (_db.select(
-      _db.items,
-    )..where((i) => i.id.isIn(ids))).get();
+      _db.knowledgeEntries,
+    )..where((e) => e.id.isIn(ids))).get();
     return {for (final row in rows) row.id: row.title};
   }
 
   Future<Map<String, SourceKind>> _sourceKinds(Set<String> itemIds) async {
-    final rows = await (_db.select(_db.items).join([
-      innerJoin(_db.sources, _db.sources.id.equalsExp(_db.items.sourceId)),
-    ])..where(_db.items.id.isIn(itemIds))).get();
+    final rows = await (_db.select(_db.knowledgeEntries).join([
+      // Una nota no tiene fila de fuente: es una nota manual.
+      leftOuterJoin(
+        _db.knowledgeSources,
+        _db.knowledgeSources.itemId.equalsExp(_db.knowledgeEntries.id),
+      ),
+    ])..where(_db.knowledgeEntries.id.isIn(itemIds))).get();
     return {
       for (final row in rows)
-        row.readTable(_db.items).id: row.readTable(_db.sources).kind,
+        row.readTable(_db.knowledgeEntries).id:
+            row.readTableOrNull(_db.knowledgeSources)?.sourceType ??
+            SourceKind.manualNote,
     };
   }
 

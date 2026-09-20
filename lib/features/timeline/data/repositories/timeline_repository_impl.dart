@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -32,8 +33,8 @@ class TimelineRepositoryImpl implements TimelineRepository {
       // valor de fecha que tiene puesto— y las que usa la biblioteca para
       // decidir qué elementos entran (el texto vive en las formas).
       tables: [
-        _db.items,
-        _db.sources,
+        _db.knowledgeEntries,
+        _db.knowledgeSources,
         _db.renditions,
         _db.knowledgeNotes,
         _db.propertyValues,
@@ -51,7 +52,7 @@ class TimelineRepositoryImpl implements TimelineRepository {
 
     final events = <TimelineEvent>[];
     for (final row in rows) {
-      final itemId = row.read(_db.items.id)!;
+      final itemId = row.read(_db.knowledgeEntries.id)!;
       if (allowed != null && !allowed.contains(itemId)) continue;
       events.add(_toEvent(itemId, row));
     }
@@ -84,8 +85,8 @@ class TimelineRepositoryImpl implements TimelineRepository {
     final placed = _db.itemPropertyValues;
     final values = _db.propertyValues;
     final definitions = _db.propertyDefinitions;
-    final items = _db.items;
-    final sources = _db.sources;
+    final items = _db.knowledgeEntries;
+    final sources = _db.knowledgeSources;
     final notes = _db.knowledgeNotes;
 
     return _db.selectOnly(placed)
@@ -93,13 +94,14 @@ class TimelineRepositoryImpl implements TimelineRepository {
         innerJoin(values, values.id.equalsExp(placed.propertyValueId)),
         innerJoin(definitions, definitions.id.equalsExp(values.definitionId)),
         innerJoin(items, items.id.equalsExp(placed.itemId)),
-        innerJoin(sources, sources.id.equalsExp(items.sourceId)),
+        // Una nota no tiene fila de fuente: por eso `LEFT`.
+        leftOuterJoin(sources, sources.itemId.equalsExp(items.id)),
         leftOuterJoin(notes, notes.itemId.equalsExp(items.id)),
       ])
       ..addColumns([
         items.id,
         items.title,
-        sources.kind,
+        sources.sourceType,
         notes.noteKind,
         values.dateFromYear,
         values.dateFromMonth,
@@ -122,7 +124,7 @@ class TimelineRepositoryImpl implements TimelineRepository {
     final precision = row.readWithConverter(values.datePrecision)!;
     return TimelineEvent(
       itemId: itemId,
-      title: row.read(_db.items.title)!,
+      title: row.read(_db.knowledgeEntries.title)!,
       date: HistoricalDate.fromStored(
         astronomicalYear: row.read(values.dateFromYear)!,
         precision: precision,
@@ -130,7 +132,9 @@ class TimelineRepositoryImpl implements TimelineRepository {
         day: row.read(values.dateFromDay),
         isCirca: row.read(values.dateIsCirca),
       ),
-      sourceKind: row.readWithConverter(_db.sources.kind)!,
+      sourceKind:
+          row.readWithConverter(_db.knowledgeSources.sourceType) ??
+          SourceKind.manualNote,
       noteKind: row.readWithConverter(_db.knowledgeNotes.noteKind),
     );
   }
