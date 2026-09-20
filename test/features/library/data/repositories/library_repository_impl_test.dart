@@ -20,6 +20,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
@@ -1185,6 +1186,206 @@ void main() {
 
       final remaining = await db.select(db.knowledgeEntries).get();
       expect(remaining, isEmpty);
+    });
+  });
+
+  group('la lectura sale del modelo nuevo (F10)', () {
+    Future<KnowledgeItem> found(String id) async =>
+        (await repository.findById(id)).getRight().toNullable()!;
+
+    test('el título, el subtítulo, las notas y el espacio vienen de item, no '
+        'de la tabla vieja', () async {
+      final saved = buildItem(title: 'Título de antes');
+      await repository.save(saved);
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
+          );
+
+      // Se cambia SOLO la fila nueva: si la lectura saliera de la vieja, no se
+      // vería.
+      await (db.update(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(saved.id))).write(
+        const KnowledgeEntriesCompanion(
+          title: Value('Título de ahora'),
+          subtitle: Value('Un subtítulo'),
+          notes: Value('Una nota mía'),
+          spaceId: Value('sp'),
+        ),
+      );
+
+      final read = await found(saved.id);
+      expect(read.title, 'Título de ahora');
+      expect(read.subtitle, 'Un subtítulo');
+      expect(read.notes, 'Una nota mía');
+      expect(read.spaceId, 'sp');
+    });
+
+    test(
+      'la procedencia viene de source, y su id es el del elemento',
+      () async {
+        final saved = buildItem();
+        await repository.save(saved);
+        await (db.update(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals(saved.id))).write(
+          const KnowledgeSourcesCompanion(
+            originUrl: Value('https://otro.org/x'),
+            authorName: Value('Otra persona'),
+          ),
+        );
+
+        final read = await found(saved.id);
+
+        expect(read.source.url, 'https://otro.org/x');
+        expect(read.source.authorName, 'Otra persona');
+        expect(read.source.kind, saved.source.kind);
+        expect(read.source.id, saved.id);
+      },
+    );
+
+    test('el estado del pipeline sale del de la fuente, y una nota está '
+        'siempre lista', () async {
+      final source = buildItem();
+      final note = buildItem(sourceKind: SourceKind.manualNote);
+      await repository.save(source);
+      await repository.save(note);
+
+      Future<ProcessingState> stateOf(String id) async =>
+          (await found(id)).processingState;
+
+      for (final (status, expected) in [
+        (SourceProcessingStatus.pending, ProcessingState.pending),
+        (SourceProcessingStatus.running, ProcessingState.processing),
+        (SourceProcessingStatus.done, ProcessingState.ready),
+        (SourceProcessingStatus.failed, ProcessingState.failed),
+      ]) {
+        await (db.update(db.knowledgeSources)
+              ..where((s) => s.itemId.equals(source.id)))
+            .write(KnowledgeSourcesCompanion(processingStatus: Value(status)));
+        expect(await stateOf(source.id), expected, reason: status.name);
+      }
+      expect(await stateOf(note.id), ProcessingState.ready);
+    });
+
+    test('una nota no tiene fila de fuente: su procedencia es una nota '
+        'manual, capturada cuando se creó', () async {
+      final note = buildItem(sourceKind: SourceKind.manualNote);
+      await repository.save(note);
+
+      final read = await found(note.id);
+
+      expect(read.source.kind, SourceKind.manualNote);
+      expect(read.source.capturedAt, note.createdAt);
+      expect(read.source.url, isNull);
+      expect(
+        await (db.select(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals(note.id))).get(),
+        isEmpty,
+      );
+    });
+
+    test('filtrar por estado usa el estado de la fuente, y una nota cuenta '
+        'como lista', () async {
+      final failed = buildItem(title: 'Fallida', state: ProcessingState.failed);
+      final pending = buildItem(
+        title: 'Pendiente',
+        state: ProcessingState.pending,
+      );
+      final note = buildItem(
+        title: 'Una nota',
+        sourceKind: SourceKind.manualNote,
+      );
+      for (final item in [failed, pending, note]) {
+        await repository.save(item);
+      }
+
+      Future<List<String>> titles(Set<ProcessingState> states) async {
+        final items = (await repository.list(
+          LibraryQuery(processingStates: states),
+        )).getRight().toNullable()!;
+        return items.map((i) => i.title).toList()..sort();
+      }
+
+      expect(await titles({ProcessingState.failed}), ['Fallida']);
+      expect(await titles({ProcessingState.pending}), ['Pendiente']);
+      expect(await titles({ProcessingState.ready}), ['Una nota']);
+      expect(await titles({ProcessingState.failed, ProcessingState.ready}), [
+        'Fallida',
+        'Una nota',
+      ]);
+    });
+
+    test('por fecha de captura ordena por la de la fuente y, para una nota, '
+        'por la de creación', () async {
+      final old = buildItem(title: 'Vieja', capturedAt: DateTime(2026));
+      final recent = buildItem(
+        title: 'Reciente',
+        capturedAt: DateTime(2026, 8),
+      );
+      final note = buildItem(title: 'Nota', sourceKind: SourceKind.manualNote);
+      // La nota se creó entre las dos.
+      await repository.save(old);
+      await repository.save(recent);
+      await repository.save(note.copyWith(createdAt: DateTime(2026, 4)));
+
+      final items = (await repository.list(
+        const LibraryQuery(descending: false),
+      )).getRight().toNullable()!;
+
+      expect(items.map((i) => i.title), ['Vieja', 'Nota', 'Reciente']);
+    });
+
+    test(
+      'mover un elemento de tema actualiza también el modelo nuevo',
+      () async {
+        final item = buildItem();
+        await repository.save(item);
+        await db
+            .into(db.spaces)
+            .insert(
+              SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
+            );
+
+        await repository.assignSpace(itemId: item.id, spaceId: 'sp');
+
+        final entry = await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals(item.id))).getSingle();
+        expect(entry.spaceId, 'sp');
+        expect((await found(item.id)).spaceId, 'sp');
+      },
+    );
+
+    test('mover varios de tema actualiza también el modelo nuevo', () async {
+      final a = buildItem();
+      final b = buildItem();
+      await repository.save(a);
+      await repository.save(b);
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
+          );
+
+      await repository.assignSpaceMany(itemIds: [a.id, b.id], spaceId: 'sp');
+
+      final entries = await db.select(db.knowledgeEntries).get();
+      expect(entries.map((e) => e.spaceId), ['sp', 'sp']);
+    });
+
+    test('guardar espeja las notas libres del elemento', () async {
+      final item = buildItem().copyWith(notes: 'algo que quiero recordar');
+
+      await repository.save(item);
+
+      final entry = await (db.select(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(item.id))).getSingle();
+      expect(entry.notes, 'algo que quiero recordar');
     });
   });
 

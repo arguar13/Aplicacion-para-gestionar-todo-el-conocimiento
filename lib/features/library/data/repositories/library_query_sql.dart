@@ -140,19 +140,19 @@ class LibraryQuerySql {
     }
 
     if (query.sourceKinds.isNotEmpty) {
-      _where.add('sources.kind IN (${_marks(query.sourceKinds.length)})');
+      _where.add('$_kindSql IN (${_marks(query.sourceKinds.length)})');
       _args.addAll(query.sourceKinds.map((k) => Variable.withString(k.name)));
     }
     if (query.processingStates.isNotEmpty) {
       _where.add(
-        'items.processing_state IN (${_marks(query.processingStates.length)})',
+        '$_processingStateSql IN (${_marks(query.processingStates.length)})',
       );
       _args.addAll(
         query.processingStates.map((s) => Variable.withString(s.name)),
       );
     }
     if (query.spaceId != null) {
-      _where.add('items.space_id = ?');
+      _where.add('item.space_id = ?');
       _args.add(Variable.withString(query.spaceId!));
     }
     final ids = query.ids;
@@ -161,7 +161,7 @@ class LibraryQuerySql {
         // `IN ()` no es SQL válido y un conjunto vacío no deja pasar nada.
         _where.add('0');
       } else {
-        _where.add('items.id IN (${_marks(ids.length)})');
+        _where.add('item.id IN (${_marks(ids.length)})');
         _args.addAll(ids.map(Variable.withString));
       }
     }
@@ -170,7 +170,7 @@ class LibraryQuerySql {
     for (final valueIds in [query.tagIds, query.propertyValueIds]) {
       if (valueIds.isEmpty) continue;
       _where.add(
-        'items.id IN (SELECT item_id FROM item_property_values '
+        'item.id IN (SELECT item_id FROM item_property_values '
         'WHERE property_value_id IN (${_marks(valueIds.length)}))',
       );
       _args.addAll(valueIds.map(Variable.withString));
@@ -204,8 +204,25 @@ class LibraryQuerySql {
   /// en fragmentos distintos.
   bool get hasEveryWordBranch => _termMatches.isNotEmpty;
 
-  static const _plainFrom =
-      'items JOIN sources ON sources.id = items.source_id';
+  /// Un elemento con su fuente, si la tiene: una nota no tiene fila en
+  /// `source`.
+  static const _plainFrom = 'item LEFT JOIN source ON source.item_id = item.id';
+
+  /// De qué tipo de fuente es el elemento: el de su fila de `source`, o nota si
+  /// no tiene.
+  static const _kindSql = "COALESCE(source.source_type, 'manualNote')";
+
+  /// Cuándo se capturó: lo dice su fuente; una nota, cuando se creó.
+  static const _capturedAtSql = 'COALESCE(source.captured_at, item.created_at)';
+
+  /// El estado del pipeline técnico —pendiente, procesando, listo, fallido— a
+  /// partir del estado de la fuente. Una nota está lista desde que se guarda.
+  static const _processingStateSql =
+      'CASE source.processing_status '
+      "WHEN 'pending' THEN 'pending' "
+      "WHEN 'running' THEN 'processing' "
+      "WHEN 'failed' THEN 'failed' "
+      "ELSE 'ready' END";
 
   /// Los elementos que coinciden con el texto, uno por elemento: si coincide
   /// en el índice de elementos (`t` = 1) y con qué relevancia en el mejor de
@@ -250,8 +267,8 @@ class LibraryQuerySql {
         'FROM item_search WHERE item_search MATCH ? '
         'UNION ALL $chunkHits$everyWord'
         ') hit GROUP BY hit.item_id) hits '
-        'JOIN items ON items.id = hits.item_id '
-        'JOIN sources ON sources.id = items.source_id';
+        'JOIN item ON item.id = hits.item_id '
+        'LEFT JOIN source ON source.item_id = item.id';
   }
 
   late final String _from;
@@ -269,7 +286,7 @@ class LibraryQuerySql {
   /// Los ids de la página que pide [query] —o de todo lo que coincide, si no
   /// trae límite—, en el orden que pide.
   ({String sql, List<Variable<Object>> variables}) ids() {
-    final sql = StringBuffer('SELECT items.id AS id FROM $_from')
+    final sql = StringBuffer('SELECT item.id AS id FROM $_from')
       ..write(_whereClause)
       ..write(' ORDER BY $_orderBy');
     final variables = [..._fromArgs, ..._args];
@@ -320,15 +337,14 @@ class LibraryQuerySql {
         'FROM chunk_search WHERE chunk_search MATCH ? '
         'ORDER BY chunk_search.rank LIMIT ?) top '
         'JOIN chunks c ON c.row_key = top.rid GROUP BY c.item_id) '
-        'SELECT items.id AS id, best.chunk_key AS chunk_key FROM ( '
+        'SELECT item.id AS id, best.chunk_key AS chunk_key FROM ( '
         'SELECT cand.item_id AS item_id, MAX(cand.t) AS t FROM ( '
         'SELECT item_search.item_id AS item_id, 1 AS t FROM item_search '
         'WHERE item_search MATCH ? '
         'UNION ALL SELECT best.item_id, 0 AS t FROM best$everyBranch '
         ') cand GROUP BY cand.item_id) cands '
         'LEFT JOIN best ON best.item_id = cands.item_id '
-        'JOIN items ON items.id = cands.item_id '
-        'JOIN sources ON sources.id = items.source_id '
+        'JOIN item ON item.id = cands.item_id '
         'ORDER BY cands.t DESC, (best.s IS NULL), best.s LIMIT ? OFFSET ?';
 
     return (
@@ -368,13 +384,12 @@ class LibraryQuerySql {
     return switch (query.sortBy) {
       LibrarySort.relevance when ranked && !windowed =>
         'hits.t DESC, (hits.s IS NULL), hits.s',
-      LibrarySort.relevance when ranked =>
-        'hits.t DESC, sources.captured_at DESC',
+      LibrarySort.relevance when ranked => 'hits.t DESC, $_capturedAtSql DESC',
       LibrarySort.relevance ||
-      LibrarySort.capturedAt => 'sources.captured_at $direction',
-      LibrarySort.publishedAt => 'sources.published_at $direction',
-      LibrarySort.updatedAt => 'items.updated_at $direction',
-      LibrarySort.title => 'items.title $direction',
+      LibrarySort.capturedAt => '$_capturedAtSql $direction',
+      LibrarySort.publishedAt => 'source.published_at $direction',
+      LibrarySort.updatedAt => 'item.updated_at $direction',
+      LibrarySort.title => 'item.title $direction',
     };
   }
 }

@@ -38,6 +38,19 @@ SourceProcessingStatus sourceProcessingStatusFor(
   ProcessingState.failed => SourceProcessingStatus.failed,
 };
 
+/// El inverso de [sourceProcessingStatusFor]: el estado del pipeline técnico
+/// que la app usa para dibujar una fila, a partir del que guarda `source`.
+///
+/// Una NOTA no tiene fila en `source` ni pipeline que esperar: está lista
+/// desde que se guarda.
+ProcessingState processingStateFor(SourceProcessingStatus? status) =>
+    switch (status) {
+      null || SourceProcessingStatus.done => ProcessingState.ready,
+      SourceProcessingStatus.pending => ProcessingState.pending,
+      SourceProcessingStatus.running => ProcessingState.processing,
+      SourceProcessingStatus.failed => ProcessingState.failed,
+    };
+
 /// El próximo `ItemState` del espejo, dado el estado actual (si ya
 /// existía fila) y el estado técnico del pipeline.
 ///

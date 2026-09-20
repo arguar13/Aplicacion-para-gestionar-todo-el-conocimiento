@@ -19,6 +19,7 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
@@ -189,8 +190,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<Either<Failure, KnowledgeItem?>> findById(String id) async {
     try {
       final rows = await (_db.select(
-        _db.items,
-      )..where((i) => i.id.equals(id))).get();
+        _db.knowledgeEntries,
+      )..where((e) => e.id.equals(id))).get();
 
       if (rows.isEmpty) return right(null);
 
@@ -307,6 +308,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
       tables: [
         _db.items,
         _db.sources,
+        _db.knowledgeEntries,
+        _db.knowledgeSources,
         _db.renditions,
         _db.propertyValues,
         _db.itemPropertyValues,
@@ -321,8 +324,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Stream<KnowledgeItem?> watchById(String id) {
     return _watching(() async {
       final rows = await (_db.select(
-        _db.items,
-      )..where((i) => i.id.equals(id))).get();
+        _db.knowledgeEntries,
+      )..where((e) => e.id.equals(id))).get();
 
       if (rows.isEmpty) return null;
       return (await _assemble(rows)).single;
@@ -564,12 +567,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
           final filePath = await _originalFilePathOf(id);
           if (filePath != null) filesToDelete.add((id, filePath));
           await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
+          // La fila del modelo nuevo también va DENTRO del recorrido: la
+          // pregunta por el archivo del elemento siguiente se hace sobre
+          // ella, y con esta fila todavía ahí ninguno de los dos se animaría a
+          // borrarlo.
+          await (_db.delete(
+            _db.knowledgeEntries,
+          )..where((e) => e.id.equals(id))).go();
         }
-        // El espejo se borra de una sola vez, no dentro del loop: es una
-        // única sentencia con `isIn`, no hace falta repetirla por id.
-        await (_db.delete(
-          _db.knowledgeEntries,
-        )..where((e) => e.id.isIn(ids))).go();
       });
 
       for (final (id, path) in filesToDelete) {
@@ -588,24 +593,22 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
   /// La ruta del archivo original de un elemento, si tenía uno.
   ///
-  /// La fuente puede estar compartida por varios elementos —el mismo PDF
-  /// capturado dos veces reutiliza su fila— así que solo se borra el archivo
-  /// cuando nadie más lo referencia. Borrarlo sin mirar dejaría al otro
-  /// elemento apuntando a un archivo que ya no está.
+  /// El mismo archivo puede estar en varios elementos —el mismo PDF capturado
+  /// dos veces— así que solo se borra cuando nadie más lo referencia. Borrarlo
+  /// sin mirar dejaría al otro elemento apuntando a un archivo que ya no está.
   Future<String?> _originalFilePathOf(String id) async {
-    final query = _db.select(_db.items).join([
-      innerJoin(_db.sources, _db.sources.id.equalsExp(_db.items.sourceId)),
-    ])..where(_db.items.id.equals(id));
+    final source = await (_db.select(
+      _db.knowledgeSources,
+    )..where((s) => s.itemId.equals(id))).getSingleOrNull();
 
-    final row = await query.getSingleOrNull();
-    final source = row?.readTable(_db.sources);
-
-    final path = source?.originalFilePath;
+    final path = source?.originalBlobPath;
     if (path == null) return null;
 
-    final others = await (_db.select(
-      _db.items,
-    )..where((i) => i.sourceId.equals(source!.id) & i.id.isNotValue(id))).get();
+    final others =
+        await (_db.select(_db.knowledgeSources)..where(
+              (s) => s.originalBlobPath.equals(path) & s.itemId.isNotValue(id),
+            ))
+            .get();
 
     return others.isEmpty ? path : null;
   }
@@ -616,9 +619,16 @@ class LibraryRepositoryImpl implements LibraryRepository {
     required String? spaceId,
   }) async {
     try {
-      await (_db.update(_db.items)..where((i) => i.id.equals(itemId))).write(
-        ItemsCompanion(spaceId: Value(spaceId)),
-      );
+      await _db.transaction(() async {
+        await (_db.update(_db.items)..where((i) => i.id.equals(itemId))).write(
+          ItemsCompanion(spaceId: Value(spaceId)),
+        );
+        // El modelo nuevo también: antes de F10 este método solo tocaba
+        // `items`, y `item.space_id` quedaba con el espacio de antes.
+        await (_db.update(_db.knowledgeEntries)
+              ..where((e) => e.id.equals(itemId)))
+            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+      });
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -637,9 +647,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
     try {
       // Un único `UPDATE ... WHERE id IN (...)`, no [itemIds] llamadas
       // sueltas a [assignSpace]: la misma columna para todos a la vez.
-      await (_db.update(_db.items)..where((i) => i.id.isIn(itemIds))).write(
-        ItemsCompanion(spaceId: Value(spaceId)),
-      );
+      await _db.transaction(() async {
+        await (_db.update(_db.items)..where((i) => i.id.isIn(itemIds))).write(
+          ItemsCompanion(spaceId: Value(spaceId)),
+        );
+        await (_db.update(_db.knowledgeEntries)
+              ..where((e) => e.id.isIn(itemIds)))
+            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+      });
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -950,6 +965,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
             id: item.id,
             title: item.title,
             subtitle: Value(item.subtitle),
+            notes: Value(item.notes),
             spaceId: Value(item.spaceId),
             kind: kind,
             state: state,
@@ -1007,8 +1023,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
     if (ids.isEmpty) return [];
 
     final rows = await (_db.select(
-      _db.items,
-    )..where((i) => i.id.isIn(ids))).get();
+      _db.knowledgeEntries,
+    )..where((e) => e.id.isIn(ids))).get();
 
     final assembled = await _assemble(rows);
 
@@ -1086,16 +1102,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// clásico —una lista de cincuenta elementos disparando ciento cincuenta
   /// consultas— que no se nota en una prueba con tres filas y arruina la
   /// pantalla principal con una biblioteca de verdad.
-  Future<List<KnowledgeItem>> _assemble(List<ItemRow> itemRows) async {
+  Future<List<KnowledgeItem>> _assemble(
+    List<KnowledgeEntryRow> itemRows,
+  ) async {
     if (itemRows.isEmpty) return [];
 
     final itemIds = itemRows.map((i) => i.id).toList();
-    final sourceIds = itemRows.map((i) => i.sourceId).toSet().toList();
 
     final sourceRows = await (_db.select(
-      _db.sources,
-    )..where((s) => s.id.isIn(sourceIds))).get();
-    final sourcesById = {for (final s in sourceRows) s.id: _toSource(s)};
+      _db.knowledgeSources,
+    )..where((s) => s.itemId.isIn(itemIds))).get();
+    final sourcesById = {for (final s in sourceRows) s.itemId: s};
 
     final renditionRows = await (_db.select(
       _db.renditions,
@@ -1146,13 +1163,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }
 
     return itemRows.map((row) {
+      final source = sourcesById[row.id];
       return KnowledgeItem(
         id: row.id,
         title: row.title,
         subtitle: row.subtitle,
         notes: row.notes,
-        source: sourcesById[row.sourceId]!,
-        processingState: row.processingState,
+        source: _toSource(row, source),
+        processingState: processingStateFor(source?.processingStatus),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         renditions: renditionsByItem[row.id] ?? const [],
@@ -1163,16 +1181,28 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }).toList();
   }
 
-  Source _toSource(SourceRow row) => Source(
-    id: row.id,
-    kind: row.kind,
-    capturedAt: row.capturedAt,
-    url: row.url,
-    authorName: row.authorName,
-    authorUrl: row.authorUrl,
-    publishedAt: row.publishedAt,
-    originalFilePath: row.originalFilePath,
-  );
+  /// La procedencia de un elemento: la de su fila de `source` o, si es una
+  /// nota, la de una nota escrita a mano —que no tiene fila, ni URL, ni
+  /// autor—. Su id es el del propio elemento: hay una fuente por elemento.
+  Source _toSource(KnowledgeEntryRow item, KnowledgeSourceRow? source) {
+    if (source == null) {
+      return Source(
+        id: item.id,
+        kind: SourceKind.manualNote,
+        capturedAt: item.createdAt,
+      );
+    }
+    return Source(
+      id: item.id,
+      kind: source.sourceType,
+      capturedAt: source.capturedAt,
+      url: source.originUrl,
+      authorName: source.authorName,
+      authorUrl: source.authorUrl,
+      publishedAt: source.publishedAt,
+      originalFilePath: source.originalBlobPath,
+    );
+  }
 
   /// De qué columna esté llena depende cuál de las dos variantes se
   /// construye. La base garantiza con un CHECK que siempre haya exactamente
