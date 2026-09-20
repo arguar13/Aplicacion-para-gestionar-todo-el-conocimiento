@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 
 /// Una tarjeta de repaso: una pregunta, una respuesta, y el estado de
@@ -43,6 +44,20 @@ class Flashcards extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get lastReviewedAt => dateTime().nullable()();
+
+  /// El fragmento de la fuente del que salió la tarjeta (F11), si se sabe.
+  ///
+  /// Si el texto de la fuente se rehace, sus chunks se reemplazan y esta
+  /// referencia queda en nulo: por eso la tarjeta guarda además el rango de
+  /// caracteres, que es lo que usa el lector para saltar al lugar —y que sigue
+  /// valiendo mientras el texto no cambie—.
+  TextColumn get sourceChunkId =>
+      text().nullable().references(Chunks, #id, onDelete: KeyAction.setNull)();
+
+  /// Dónde, en el texto de la forma principal del elemento, está el fragmento
+  /// del que salió. Los mismos desplazamientos que usan `Chunks` y `Relations`.
+  IntColumn get sourceCharStart => integer().nullable()();
+  IntColumn get sourceCharEnd => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

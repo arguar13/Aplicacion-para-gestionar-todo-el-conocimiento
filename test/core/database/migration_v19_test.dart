@@ -303,10 +303,11 @@ void main() {
       r.read<String>('name'),
   };
 
-  test('la migración llega a la forma del snapshot de v19', () async {
+  test('la migración llega a la forma del último snapshot', () async {
     await migrateFrom18(seed: seedVault);
-    // `migrateAndValidate` ya comparó el esquema contra el snapshot.
-    expect(latestSchemaSnapshot, 19);
+    // `migrateAndValidate` ya comparó el esquema contra el snapshot: la base
+    // sembrada en v18 pasa por v19 y llega hasta la versión de hoy.
+    expect(latestSchemaSnapshot, greaterThanOrEqualTo(19));
   });
 
   group('el modelo viejo', () {

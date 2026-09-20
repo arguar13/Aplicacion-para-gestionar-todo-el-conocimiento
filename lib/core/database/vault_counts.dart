@@ -39,6 +39,15 @@ class VaultCounts {
   /// completarlo con lo que faltaba; desde v19 no debe cambiar de tamaño.
   static const modelTables = <String>['item', 'source', 'note'];
 
+  /// Las tablas de durabilidad (F11). No están en [userDataTables] a propósito:
+  /// los pasos de migración anteriores a v20 cuentan esa lista, y estas tablas
+  /// todavía no existían cuando corrían.
+  static const durabilityTables = <String>[
+    'field_version',
+    'merge_conflict',
+    'review_log',
+  ];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

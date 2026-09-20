@@ -11,17 +11,20 @@ import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/embeddings.dart';
+import 'package:sinapsis/core/database/tables/field_versions.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/inline_links.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
 import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
+import 'package:sinapsis/core/database/tables/merge_conflicts.dart';
 import 'package:sinapsis/core/database/tables/merged_provenances.dart';
 import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
+import 'package:sinapsis/core/database/tables/review_log.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
@@ -74,6 +77,9 @@ part 'app_database.g.dart';
     Suggestions,
     MergedProvenances,
     InlineLinks,
+    FieldVersions,
+    MergeConflicts,
+    ReviewLogs,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -109,7 +115,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 19;
+  static const currentSchemaVersion = 20;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -239,6 +245,36 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createIndex(idxKnowledgeEntriesUpdatedAt);
           await _requireSameCounts(before, step: 'v19', tables: tables);
         }
+        // Durabilidad (F11): versión por campo, conflictos de fusión, historial
+        // de repasos, de dónde salió cada tarjeta y un índice para la
+        // papelera. Todo aditivo —tablas nuevas y columnas nulas—: ninguna fila
+        // existente cambia, y los conteos de todo lo anterior son compuerta.
+        if (from < 20) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(fieldVersions);
+          await migrator.createTable(mergeConflicts);
+          await migrator.createIndex(idxMergeConflictResolved);
+          await migrator.createIndex(idxMergeConflictItem);
+          await migrator.createTable(reviewLogs);
+          await migrator.createIndex(idxReviewLogFlashcard);
+          // Una base que pasó por v18 en esta misma actualización ya trae las
+          // tres columnas —la reconstrucción de `flashcards` las creó—.
+          for (final column in [
+            flashcards.sourceChunkId,
+            flashcards.sourceCharStart,
+            flashcards.sourceCharEnd,
+          ]) {
+            if (!await _columnExists('flashcards', column.name)) {
+              await migrator.addColumn(flashcards, column);
+            }
+          }
+          await migrator.createIndex(idxKnowledgeEntriesDeletedAt);
+          await _requireSameCounts(before, step: 'v20', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -317,6 +353,15 @@ class AppDatabase extends _$AppDatabase {
     throw StateError(
       'La migración a $step cambió la cantidad de filas de $detail.',
     );
+  }
+
+  /// Si la tabla [table] ya tiene una columna llamada [column].
+  Future<bool> _columnExists(String table, String column) async {
+    final rows = await customSelect(
+      'SELECT 1 AS present FROM pragma_table_info(?) WHERE name = ?',
+      variables: [Variable.withString(table), Variable.withString(column)],
+    ).get();
+    return rows.isNotEmpty;
   }
 
   Future<int> _count(String table) async {

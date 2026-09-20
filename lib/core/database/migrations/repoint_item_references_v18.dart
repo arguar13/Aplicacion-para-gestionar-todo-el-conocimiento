@@ -163,7 +163,20 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
 
   await migrator.alterTable(TableMigration(db.renditions));
   await migrator.alterTable(TableMigration(db.relations));
-  await migrator.alterTable(TableMigration(db.flashcards));
+  // `alterTable` reconstruye la tabla con su definición de HOY: `flashcards`
+  // ganó tres columnas en v20, que una base de v16 o v17 todavía no tiene. Sin
+  // `newColumns` intentaría copiarlas desde una tabla que no las trae. v20 las
+  // agrega solo si faltan.
+  await migrator.alterTable(
+    TableMigration(
+      db.flashcards,
+      newColumns: [
+        db.flashcards.sourceChunkId,
+        db.flashcards.sourceCharStart,
+        db.flashcards.sourceCharEnd,
+      ],
+    ),
+  );
   await migrator.alterTable(TableMigration(db.inlineLinks));
   await migrator.alterTable(TableMigration(db.itemPropertyValues));
 

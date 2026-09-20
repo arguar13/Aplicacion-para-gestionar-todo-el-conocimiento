@@ -367,7 +367,8 @@ void main() {
 
         expect(await targets('renditions'), {'item'});
         expect(await targets('relations'), {'item'});
-        expect(await targets('flashcards'), {'item'});
+        // Desde v20 una tarjeta también puede apuntar al chunk del que salió.
+        expect(await targets('flashcards'), {'item', 'chunks'});
         expect(await targets('inline_link'), {'item'});
         expect(await targets('item_property_values'), {
           'item',

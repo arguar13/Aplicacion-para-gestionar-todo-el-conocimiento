@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 @TableIndex(name: 'idx_knowledge_entries_state_kind', columns: {#state, #kind})
 @TableIndex(name: 'idx_knowledge_entries_space', columns: {#spaceId})
 @TableIndex(name: 'idx_knowledge_entries_updated_at', columns: {#updatedAt})
+@TableIndex(name: 'idx_knowledge_entries_deleted_at', columns: {#deletedAt})
 @TableIndex(
   name: 'idx_knowledge_entries_kind_updated',
   columns: {#kind, #updatedAt},
