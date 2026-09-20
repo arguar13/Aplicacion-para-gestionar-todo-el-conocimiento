@@ -90,6 +90,7 @@ class BenchmarkEnvironment {
     required this.log,
     required this.save,
     this.targetDivisor = 1,
+    this.description = 'escritorio, sin describir',
   });
 
   final Future<({AppDatabase db, SyntheticVault vault})> Function() open;
@@ -104,6 +105,11 @@ class BenchmarkEnvironment {
   /// escritorio es [kDesktopFactor], porque el objetivo es para un teléfono; en
   /// el teléfono mismo es 1: se exige el objetivo tal cual.
   final int targetDivisor;
+
+  /// Dónde corrió, para el encabezado del informe: el modelo del teléfono, su
+  /// Android y su memoria; o el equipo de escritorio. Un informe sin esto no
+  /// dice de qué máquina son sus cifras.
+  final String description;
 }
 
 /// Registra los escenarios: cada uno mide lo que hace la app de verdad para una
@@ -140,6 +146,11 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
   tearDownAll(() async {
     final report = StringBuffer('# Benchmark de la bóveda sintética\n\n')
       ..writeln('Esquema v${AppDatabase.currentSchemaVersion}')
+      ..writeln('Equipo: ${env.description}')
+      ..writeln(
+        'Umbral: objetivo del encargo'
+        '${env.targetDivisor == 1 ? '' : ' / ${env.targetDivisor}'}',
+      )
       ..writeln()
       ..writeln('```');
     for (final m in results) {

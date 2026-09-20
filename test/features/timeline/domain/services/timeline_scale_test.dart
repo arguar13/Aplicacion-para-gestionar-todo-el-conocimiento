@@ -1,8 +1,4 @@
-import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/domain/entities/date_precision.dart';
-import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 import 'package:sinapsis/features/timeline/domain/services/lane_layout.dart';
 import 'package:sinapsis/features/timeline/domain/services/timeline_index.dart';
@@ -23,37 +19,8 @@ void main() {
   late List<TimelineEvent> events;
   late TimelineIndex index;
 
-  /// Diez mil hechos repartidos entre 3000 a.C. y 2025 d.C., con de todo: años,
-  /// meses, días, décadas, siglos y aproximados.
-  List<TimelineEvent> tenThousand() {
-    final random = Random(2026);
-    return [
-      for (var i = 0; i < total; i++)
-        () {
-          final bce = random.nextInt(3) == 0;
-          return eventAt(
-            'e${i.toString().padLeft(5, '0')}',
-            HistoricalDate(
-              year: 1 + random.nextInt(bce ? 3000 : 2025),
-              precision: switch (random.nextInt(10)) {
-                0 => DatePrecision.century,
-                1 || 2 => DatePrecision.decade,
-                3 || 4 => DatePrecision.day,
-                5 => DatePrecision.month,
-                _ => DatePrecision.year,
-              },
-              month: 1 + random.nextInt(12),
-              day: 1 + random.nextInt(28),
-              isBce: bce,
-              isCirca: random.nextInt(8) == 0,
-            ),
-          );
-        }(),
-    ];
-  }
-
   setUpAll(() {
-    events = tenThousand();
+    events = tenThousandTimelineEvents();
     index = TimelineIndex(events);
   });
 

@@ -1,0 +1,50 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../test/benchmark/vault_migration_benchmark.dart';
+
+const _deviceInfo = String.fromEnvironment(
+  'BENCH_DEVICE_INFO',
+  defaultValue: 'dispositivo sin describir',
+);
+
+/// La migración a escala, EN el dispositivo: la bóveda de 10.000 elementos de
+/// un esquema anterior (v17, ~909 MB) llevada de una vez al esquema actual,
+/// con el respaldo previo del archivo entero —el peor caso de entrada y salida
+/// contra la flash—.
+///
+/// La bóveda vieja no se puede armar en el teléfono —el generador solo arma la
+/// actual—: se empuja con `tool/bench_android.ps1 -PushVaults`, a la carpeta
+/// `files/bench` de la app. Necesita unos 3 GB libres (la bóveda, su copia y el
+/// respaldo).
+void main() {
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final reports = <String, dynamic>{};
+
+  group(
+    'benchmark de la migración a escala, en el dispositivo',
+    () => registerVaultMigrationBenchmark(
+      MigrationBenchmarkEnvironment(
+        oldVaultFile: () async {
+          final external = await getExternalStorageDirectory();
+          if (external == null) return null;
+          final file = File('${external.path}/bench/vault_s17_g4_10000.sqlite');
+          return file.existsSync() ? file : null;
+        },
+        log: debugPrint,
+        save: (name, content) {
+          reports[name] = content;
+          binding.reportData = Map<String, dynamic>.of(reports);
+        },
+        description: _deviceInfo,
+        // Sin cifras de un teléfono todavía: un techo que solo avisa de algo
+        // absurdo, hasta tener un primer dato real.
+        ceiling: const Duration(minutes: 30),
+      ),
+    ),
+  );
+}

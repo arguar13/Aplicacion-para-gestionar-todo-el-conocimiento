@@ -26,6 +26,10 @@ void main() {
           '.dart_tool/sinapsis_benchmark/$name',
         ).writeAsStringSync(content),
         targetDivisor: kDesktopFactor,
+        description: const String.fromEnvironment(
+          'BENCH_DEVICE_INFO',
+          defaultValue: 'escritorio',
+        ),
       ),
     ),
   );
