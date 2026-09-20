@@ -6,10 +6,10 @@ import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gatewa
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// Deja elegir un `.zip` de copia y confirma que tenga la forma esperada,
-/// sin restaurar nada todavía —eso es `RestoreVaultBackupUseCase`, un paso
-/// aparte porque entre elegir el archivo y restaurarlo la presentación tiene
-/// que pedir confirmación y cerrar la base actual, y ninguna de las dos
-/// cosas es asunto de este caso de uso.
+/// sin fusionar nada todavía —eso es `MergeVaultBackupUseCase`, un paso aparte
+/// porque entre elegir el archivo y fusionarlo la presentación muestra qué
+/// traería (`PreviewVaultMergeUseCase`) y pide confirmación, y ninguna de las
+/// dos cosas es asunto de este caso de uso.
 class PickVaultBackupFileUseCase
     implements UseCase<VaultBackupFilePick, NoParams> {
   const PickVaultBackupFileUseCase({

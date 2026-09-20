@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/services/local_vault_backup_service.dart';
-import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// Corre contra SQLite y un sistema de archivos de verdad, en un directorio
 /// temporal — igual que `app_database_test.dart`: lo que se prueba acá es
@@ -119,52 +118,5 @@ void main() {
 
       expect(await service.isValidBackup(bytes), isFalse);
     });
-  });
-
-  group('restoreBackup', () {
-    test('reemplaza los archivos originales por los del backup', () async {
-      await writeOriginal('viejo/archivo.txt', 'esto debería desaparecer');
-      final backupBeforeChange = await service.buildBackup();
-
-      // Después de armar el backup, la bóveda "actual" cambia: agrega un
-      // archivo nuevo que no estaba en la copia.
-      await writeOriginal('nuevo/archivo.txt', 'esto es posterior al backup');
-
-      await service.restoreBackup(backupBeforeChange);
-
-      final restoredOld = File(
-        p.join(docsDir.path, 'originales', 'viejo', 'archivo.txt'),
-      );
-      final restoredNew = File(
-        p.join(docsDir.path, 'originales', 'nuevo', 'archivo.txt'),
-      );
-
-      expect(await restoredOld.readAsString(), 'esto debería desaparecer');
-      // El archivo posterior al backup no estaba en el zip, así que
-      // restaurar lo borra: es justo lo que significa "reemplazar todo".
-      expect(restoredNew.existsSync(), isFalse);
-    });
-
-    test('escribe la base de datos del backup en el lugar esperado', () async {
-      final bytes = await service.buildBackup();
-      await service.restoreBackup(bytes);
-
-      final dbFile = File(p.join(docsDir.path, 'sinapsis.sqlite'));
-      expect(dbFile.existsSync(), isTrue);
-    });
-
-    test(
-      'lanza InvalidVaultBackupException si el zip no trae la base',
-      () async {
-        final archive = Archive()
-          ..addFile(ArchiveFile.bytes('otra-cosa.txt', [1, 2, 3]));
-        final bytes = Uint8List.fromList(ZipEncoder().encodeBytes(archive));
-
-        expect(
-          () => service.restoreBackup(bytes),
-          throwsA(isA<InvalidVaultBackupException>()),
-        );
-      },
-    );
   });
 }

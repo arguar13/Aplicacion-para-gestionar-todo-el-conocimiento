@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 
-/// Arma y restaura una copia completa de la bóveda: la base de datos entera
+/// Arma y fusiona una copia completa de la bóveda: la base de datos entera
 /// y todos los archivos originales que guarda, empaquetados en un `.zip`.
 ///
 /// Existe para poder usar la misma bóveda en dos dispositivos —la compu y el
@@ -11,7 +11,7 @@ import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart'
 /// 1 en docs/arquitectura.md: sin servidor propio, y ninguna sincronización
 /// en tiempo real es gratis en esfuerzo). El camino es manual a propósito:
 /// exportar acá, pasar el archivo como sea —un cable, una nube que el
-/// usuario ya use—, e importar allá.
+/// usuario ya use—, y fusionarlo allá con lo que ya hay.
 abstract interface class VaultBackupService {
   /// Los bytes del `.zip` con la base y los archivos originales. No toca
   /// nada del disco: quien llama decide dónde guardarlo.
@@ -46,19 +46,9 @@ abstract interface class VaultBackupService {
   /// copia que no sirve, y `VaultMergeGateException` si la fusión se revirtió
   /// por una compuerta.
   ///
-  /// A diferencia de [restoreBackup] no reemplaza nada ni pide reiniciar la
-  /// app: la conexión abierta sigue siendo la misma.
+  /// No reemplaza nada ni pide reiniciar la app: la conexión abierta sigue
+  /// siendo la misma.
   Future<VaultMergeResult> mergeBackup(Uint8List zipBytes);
-
-  /// Reemplaza la base y los archivos originales de esta bóveda con los que
-  /// traiga [zipBytes]. Lanza [InvalidVaultBackupException] si no tiene la
-  /// forma esperada —no debería pasar si ya se llamó a [isValidBackup]
-  /// antes, pero esto no confía en que quien llama lo haya hecho—.
-  ///
-  /// Después de esto, la conexión a la base que la app tenía abierta queda
-  /// apuntando a un archivo que ya no existe: quien llama es responsable de
-  /// cerrarla antes de invocar esto, y de que la app se reinicie después.
-  Future<void> restoreBackup(Uint8List zipBytes);
 }
 
 /// La copia es de una versión de Sinapsis más nueva que esta: su base tiene un
@@ -96,4 +86,19 @@ class InvalidVaultBackupException implements Exception {
 
   @override
   String toString() => 'Copia de bóveda inválida: $message';
+}
+
+/// Una compuerta de la fusión no se cumplió: la fusión se revirtió entera
+/// (F11).
+class VaultMergeGateException implements Exception {
+  const VaultMergeGateException(this.gate, this.message);
+
+  /// Cuál: `items`, `counts`, `text` o `references`.
+  final String gate;
+
+  /// Qué se encontró, sin el contenido de ninguna fila.
+  final String message;
+
+  @override
+  String toString() => 'VaultMergeGateException($gate): $message';
 }

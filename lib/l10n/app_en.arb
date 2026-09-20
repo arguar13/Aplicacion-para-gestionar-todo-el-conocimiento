@@ -1271,49 +1271,241 @@
       }
     }
   },
-  "vaultBackupImportSectionTitle": "Restore a backup",
-  "@vaultBackupImportSectionTitle": {
-    "description": "Encabezado de la sección para importar una copia."
+  "vaultMergeSectionTitle": "Bring in another copy",
+  "@vaultMergeSectionTitle": {
+    "description": "Encabezado de la sección para unir una copia con esta bóveda."
   },
-  "vaultBackupImportExplanation": "Replaces everything in this vault with the contents of a backup made earlier. This can't be undone.",
-  "@vaultBackupImportExplanation": {
-    "description": "Explica qué hace restaurar una copia, y que es irreversible."
+  "vaultMergeExplanation": "Pick a copy made on another device —or an earlier one of yours— and it is merged into this vault: what is new is added and nothing you have here is deleted. Whatever changed on both sides is kept for you to review.",
+  "@vaultMergeExplanation": {
+    "description": "Explica qué hace unir una copia: suma, no borra, y guarda los conflictos."
   },
-  "vaultBackupImportAction": "Restore backup",
-  "@vaultBackupImportAction": {
-    "description": "Botón que empieza a elegir un archivo de copia para restaurar."
+  "vaultMergeAction": "Choose a copy",
+  "@vaultMergeAction": {
+    "description": "Botón que empieza a elegir un archivo de copia para unir."
   },
-  "vaultBackupImportInvalidFile": "That file isn't a Sinapsis backup.",
-  "@vaultBackupImportInvalidFile": {
+  "vaultMergeInvalidFile": "That file is not a Sinapsis copy.",
+  "@vaultMergeInvalidFile": {
     "description": "Mensaje cuando el archivo elegido no tiene la forma esperada."
   },
-  "vaultBackupImportConfirmTitle": "Restore this backup?",
-  "@vaultBackupImportConfirmTitle": {
-    "description": "Título del diálogo de confirmación antes de restaurar."
+  "vaultMergeReading": "Reading the copy…",
+  "@vaultMergeReading": {
+    "description": "Mensaje mientras se lee la copia para mostrar qué traería."
   },
-  "vaultBackupImportConfirmMessage": "Everything currently in this vault —notes, tags, highlights— will be replaced with what the backup brings. There's no way to undo this.",
-  "@vaultBackupImportConfirmMessage": {
-    "description": "Cuerpo del diálogo de confirmación antes de restaurar."
+  "vaultMergeInProgress": "Merging the copy…",
+  "@vaultMergeInProgress": {
+    "description": "Mensaje mientras se une la copia con la bóveda."
   },
-  "vaultBackupImportConfirmAction": "Restore",
-  "@vaultBackupImportConfirmAction": {
-    "description": "Botón de confirmación final para restaurar la copia."
+  "vaultMergePreviewTitle": "What the copy would bring",
+  "@vaultMergePreviewTitle": {
+    "description": "Título del diálogo que resume lo que traería la copia, antes de unirla."
   },
-  "vaultBackupImportInProgress": "Restoring…",
-  "@vaultBackupImportInProgress": {
-    "description": "Mensaje mientras se restaura la copia."
+  "vaultMergePreviewSafety": "Nothing you have in this vault is deleted. If anything fails, nothing is changed.",
+  "@vaultMergePreviewSafety": {
+    "description": "Pie del resumen: unir no borra y es todo o nada."
   },
-  "vaultBackupImportSuccessTitle": "Backup restored",
-  "@vaultBackupImportSuccessTitle": {
-    "description": "Título del diálogo tras restaurar con éxito."
+  "vaultMergePreviewNothingTitle": "Nothing new",
+  "@vaultMergePreviewNothingTitle": {
+    "description": "Título del aviso cuando la copia no trae nada que esta bóveda no tenga."
   },
-  "vaultBackupImportSuccessMessage": "The vault was replaced with the backup. Sinapsis is going to close: open it again to see the result.",
-  "@vaultBackupImportSuccessMessage": {
-    "description": "Cuerpo del diálogo tras restaurar con éxito, explicando el reinicio."
+  "vaultMergePreviewNothingMessage": "This copy brings nothing you do not already have: there is no need to merge it.",
+  "@vaultMergePreviewNothingMessage": {
+    "description": "Cuerpo del aviso cuando la copia no trae nada nuevo."
   },
-  "vaultBackupImportCloseAppAction": "Close Sinapsis",
-  "@vaultBackupImportCloseAppAction": {
-    "description": "Botón que cierra la app después de restaurar, para que se vuelva a abrir con la copia."
+  "vaultMergePreviewItems": "{count, plural, =1{1 new item} other{{count} new items}}",
+  "@vaultMergePreviewItems": {
+    "description": "Renglón del resumen: elementos que la copia trae y esta bóveda no tiene.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewUpdated": "{count, plural, =1{1 item with changes} other{{count} items with changes}}",
+  "@vaultMergePreviewUpdated": {
+    "description": "Renglón del resumen: elementos que las dos bóvedas tienen y cambiarían.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewConflicts": "{count, plural, =1{1 change to review: it was modified in both vaults} other{{count} changes to review: they were modified in both vaults}}",
+  "@vaultMergePreviewConflicts": {
+    "description": "Renglón del resumen: conflictos que quedarían guardados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewRenditions": "{count, plural, =1{1 more text version} other{{count} more text versions}}",
+  "@vaultMergePreviewRenditions": {
+    "description": "Renglón del resumen: formas de texto que la copia agrega a elementos existentes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewRelations": "{count, plural, =1{1 link} other{{count} links}}",
+  "@vaultMergePreviewRelations": {
+    "description": "Renglón del resumen: vínculos entre elementos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewHighlights": "{count, plural, =1{1 highlight} other{{count} highlights}}",
+  "@vaultMergePreviewHighlights": {
+    "description": "Renglón del resumen: resaltados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewFlashcards": "{count, plural, =1{1 flashcard} other{{count} flashcards}}",
+  "@vaultMergePreviewFlashcards": {
+    "description": "Renglón del resumen: tarjetas de repaso.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewSpaces": "{count, plural, =1{1 topic} other{{count} topics}}",
+  "@vaultMergePreviewSpaces": {
+    "description": "Renglón del resumen: espacios (temas) que la copia trae.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewValues": "{count, plural, =1{1 label or value} other{{count} labels or values}}",
+  "@vaultMergePreviewValues": {
+    "description": "Renglón del resumen: valores de propiedades y etiquetas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewConversations": "{count, plural, =1{1 conversation} other{{count} conversations}}",
+  "@vaultMergePreviewConversations": {
+    "description": "Renglón del resumen: conversaciones del chat.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergePreviewFiles": "{count, plural, =1{1 original file ({size})} other{{count} original files ({size})}}",
+  "@vaultMergePreviewFiles": {
+    "description": "Renglón del resumen: archivos originales que faltan acá y se copiarían.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultMergePreviewFilesMissing": "{count, plural, =1{A file the copy mentions is not inside it: that item is left without its original.} other{{count} files the copy mentions are not inside it: those items are left without their originals.}}",
+  "@vaultMergePreviewFilesMissing": {
+    "description": "Aviso del resumen: archivos que la copia dice tener y no trae.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeConfirmAction": "Merge",
+  "@vaultMergeConfirmAction": {
+    "description": "Botón de confirmación final para unir la copia."
+  },
+  "vaultMergeDoneTitle": "Copy merged",
+  "@vaultMergeDoneTitle": {
+    "description": "Título del diálogo tras unir la copia con éxito."
+  },
+  "vaultMergeDoneAdded": "{count, plural, =0{No new items were added.} =1{1 new item was added.} other{{count} new items were added.}}",
+  "@vaultMergeDoneAdded": {
+    "description": "Resultado de unir: elementos que se sumaron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeDoneUpdated": "{count, plural, =1{1 item was updated.} other{{count} items were updated.}}",
+  "@vaultMergeDoneUpdated": {
+    "description": "Resultado de unir: elementos que cambiaron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeDoneConflicts": "{count, plural, =1{1 change was kept for you to review.} other{{count} changes were kept for you to review.}}",
+  "@vaultMergeDoneConflicts": {
+    "description": "Resultado de unir: conflictos guardados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeDoneFiles": "{count, plural, =1{1 original file was copied.} other{{count} original files were copied.}}",
+  "@vaultMergeDoneFiles": {
+    "description": "Resultado de unir: archivos originales copiados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeDoneNothing": "Nothing needed to change.",
+  "@vaultMergeDoneNothing": {
+    "description": "Resultado de unir cuando la copia no cambió nada."
+  },
+  "vaultMergeDoneClose": "Done",
+  "@vaultMergeDoneClose": {
+    "description": "Botón que cierra el resultado de unir."
+  },
+  "vaultMergeTooNew": "That copy is from a newer version of Sinapsis (schema v{backup}) and this one only understands up to v{current}. Update the app and try again. Nothing was changed.",
+  "@vaultMergeTooNew": {
+    "description": "Rechazo: la copia es de una versión más nueva.",
+    "placeholders": {
+      "backup": {
+        "type": "int"
+      },
+      "current": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeTooOld": "That copy is from a version of Sinapsis that is too old (schema v{backup}): this version can only read from v{minimum} on. Nothing was changed.",
+  "@vaultMergeTooOld": {
+    "description": "Rechazo: la copia es de una versión demasiado vieja.",
+    "placeholders": {
+      "backup": {
+        "type": "int"
+      },
+      "minimum": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultMergeReverted": "The merge was cancelled: it failed a safety check ({gate}). Nothing was changed.",
+  "@vaultMergeReverted": {
+    "description": "La fusión se revirtió por una compuerta.",
+    "placeholders": {
+      "gate": {
+        "type": "String"
+      }
+    }
   },
   "spacesNewAction": "New topic",
   "@spacesNewAction": {

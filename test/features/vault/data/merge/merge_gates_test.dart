@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_gates.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
+import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 import '../../../../support/test_vault.dart';
 

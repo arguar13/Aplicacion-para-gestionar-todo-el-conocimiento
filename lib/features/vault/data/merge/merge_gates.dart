@@ -2,21 +2,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
-
-/// Una compuerta de la fusión no se cumplió: la fusión se revirtió entera
-/// (F11).
-class VaultMergeGateException implements Exception {
-  const VaultMergeGateException(this.gate, this.message);
-
-  /// Cuál: `items`, `counts`, `text` o `references`.
-  final String gate;
-
-  /// Qué se encontró, sin el contenido de ninguna fila.
-  final String message;
-
-  @override
-  String toString() => 'VaultMergeGateException($gate): $message';
-}
+import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// Cómo estaba la bóveda antes de fusionar.
 class MergeSnapshot {

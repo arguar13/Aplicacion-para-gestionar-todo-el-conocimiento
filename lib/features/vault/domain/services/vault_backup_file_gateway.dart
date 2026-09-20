@@ -10,7 +10,7 @@ abstract interface class VaultBackupFileGateway {
   /// cancela el selector.
   Future<String?> saveZip({required String fileName, required Uint8List bytes});
 
-  /// Deja elegir un archivo `.zip` para restaurar. Sus bytes, o `null` si se
+  /// Deja elegir un archivo `.zip` para fusionar. Sus bytes, o `null` si se
   /// cancela el selector.
   Future<Uint8List?> pickZip();
 }

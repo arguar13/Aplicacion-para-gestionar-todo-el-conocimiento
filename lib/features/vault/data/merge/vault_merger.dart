@@ -73,7 +73,7 @@ class VaultMerger {
   /// Fusiona [incoming] con esta bóveda. No la cierra: quien la abrió la
   /// suelta.
   ///
-  /// Lanza [VaultMergeGateException] si una compuerta no se cumple; en ese
+  /// Lanza `VaultMergeGateException` si una compuerta no se cumple; en ese
   /// caso, y en cualquier otro fallo, ni la base ni la carpeta de documentos
   /// quedan cambiadas.
   Future<VaultMergeResult> merge(IncomingVault incoming) async {

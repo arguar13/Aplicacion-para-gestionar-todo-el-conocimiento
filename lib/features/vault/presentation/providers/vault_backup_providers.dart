@@ -5,8 +5,9 @@ import 'package:sinapsis/features/vault/data/services/system_vault_backup_file_g
 import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gateway.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 import 'package:sinapsis/features/vault/domain/usecases/export_vault_backup_usecase.dart';
+import 'package:sinapsis/features/vault/domain/usecases/merge_vault_backup_usecase.dart';
 import 'package:sinapsis/features/vault/domain/usecases/pick_vault_backup_file_usecase.dart';
-import 'package:sinapsis/features/vault/domain/usecases/restore_vault_backup_usecase.dart';
+import 'package:sinapsis/features/vault/domain/usecases/preview_vault_merge_usecase.dart';
 
 /// `autoDispose`: a diferencia de la sesión de la bóveda, esto no necesita
 /// sobrevivir entre pantallas — se arma de nuevo cada vez que se entra a la
@@ -40,9 +41,16 @@ final pickVaultBackupFileUseCaseProvider =
       );
     });
 
-final restoreVaultBackupUseCaseProvider =
-    Provider.autoDispose<RestoreVaultBackupUseCase>((ref) {
-      return RestoreVaultBackupUseCase(
+final previewVaultMergeUseCaseProvider =
+    Provider.autoDispose<PreviewVaultMergeUseCase>((ref) {
+      return PreviewVaultMergeUseCase(
+        backupService: ref.watch(vaultBackupServiceProvider),
+      );
+    });
+
+final mergeVaultBackupUseCaseProvider =
+    Provider.autoDispose<MergeVaultBackupUseCase>((ref) {
+      return MergeVaultBackupUseCase(
         backupService: ref.watch(vaultBackupServiceProvider),
       );
     });

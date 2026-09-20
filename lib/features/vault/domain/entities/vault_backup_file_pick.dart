@@ -4,7 +4,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'vault_backup_file_pick.freezed.dart';
 
-/// El resultado de elegir un archivo para restaurar, ya validado.
+/// El resultado de elegir un archivo para fusionar, ya validado.
 ///
 /// [VaultBackupFileInvalid] existe aparte de un fallo de dominio porque no
 /// es un error de la app: es que el usuario eligió el archivo equivocado, y
