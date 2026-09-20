@@ -18,8 +18,8 @@ class KnowledgeNotes extends Table {
 
   /// SHA-256 del contenido normalizado (minúsculas, sin puntuación,
   /// espacios colapsados) — F7, deduplicación. A diferencia de
-  /// `KnowledgeSources`, acá no hay ningún `fullText`/`contentHash`
-  /// previo que preservar: una nota es mutable, así que este valor se
+  /// `KnowledgeSources`, acá no hay ningún `contentHash` previo que
+  /// preservar: una nota es mutable, así que este valor se
   /// recalcula en cada guardado, sin guarda de idempotencia — ver
   /// `LibraryRepositoryImpl.save()`.
   TextColumn get dedupHash => text().nullable()();

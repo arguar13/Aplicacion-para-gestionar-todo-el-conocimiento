@@ -171,7 +171,10 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       LibraryQuery(searchText: term, sortBy: LibrarySort.relevance, limit: 50);
 
   // -------------------------------------------------------------------
-  // Cuánto pesa el texto en disco: cuántas veces está guardado.
+  // Cuánto pesa el texto en disco: cuántas veces está guardado. Desde F10 el
+  // texto íntegro de una fuente vive UNA vez en su forma principal
+  // (`renditions.content`) y sus trozos en `chunks.content`; la tercera copia,
+  // `source.full_text`, se retiró en v19.
   // -------------------------------------------------------------------
   test('el peso del texto en disco', () async {
     Future<int> bytes(String sql) async =>
@@ -181,10 +184,6 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       'formas de contenido (renditions.content)': await bytes(
         'SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) AS n '
         'FROM renditions',
-      ),
-      'texto íntegro (source.full_text)': await bytes(
-        'SELECT COALESCE(SUM(LENGTH(CAST(full_text AS BLOB))), 0) AS n '
-        'FROM source',
       ),
       'chunks (chunks.content)': await bytes(
         'SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) AS n '

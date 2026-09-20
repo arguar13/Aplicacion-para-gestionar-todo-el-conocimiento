@@ -4,8 +4,8 @@ import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 /// Un fragmento del texto íntegro de una fuente —indexado, no reducción—.
 ///
 /// Concatenar [content] de todos los chunks de un `itemId`, en orden de
-/// [seq], reproduce `KnowledgeSources.fullText` carácter a carácter. Ver
-/// `ChunkingService`/`chunkingInvariantHolds` en
+/// [seq], reproduce el texto de la forma principal del elemento carácter a
+/// carácter. Ver `ChunkingService`/`chunkingInvariantHolds` en
 /// `lib/core/domain/services/chunking_service.dart`.
 @DataClassName('ChunkRow')
 @TableIndex(name: 'idx_chunks_item_seq', columns: {#itemId, #seq})

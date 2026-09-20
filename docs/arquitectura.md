@@ -2047,6 +2047,10 @@ pagarlos:**
   por `onCreate` o por `onUpgrade`, así que cubren la misma lógica sin ese
   riesgo.
 
+**Actualización de F10.** El modelo viejo —`Items`, `Sources`, `Tags`,
+`ItemTags`— se retiró en el esquema v19 y el modelo nuevo es hoy el único: ver la
+decisión 43.
+
 ### 35. F2 del vocabulario controlado: tipo, alias y fusión sobre las Properties existentes
 
 Segunda fase del refactor de siete fases (ver la decisión 34): vocabulario
@@ -2173,6 +2177,12 @@ después de Biblioteca. Su ícono es `move_to_inbox`, no `inbox_outlined`:
 ese ya lo usan los estados vacíos de Biblioteca y Explorador, y
 coincidir los dejaba ambiguos en pantalla ancha, donde el riel y un
 estado vacío conviven en la misma pantalla.
+
+**Actualización de F10.** El espejo en vivo se retiró: `save`, `delete` y mover de
+tema escriben solo `item`/`source`/`note`, y el modelo viejo dejó de existir. El
+espejo fue durante F3 a F9 la única red que sostenía que las dos mitades
+coincidieran; F10 lo reemplaza por claves foráneas al modelo nuevo y por
+conteos como compuerta de la migración (decisión 43).
 
 ### 37. F4 de clasificación asistida: herencia mecánica, sugerencias del modelo, y el circuito de a un elemento
 
@@ -2558,7 +2568,8 @@ relación, porque una asignación tiene datos propios —su `origin`:
 `suggestedAccepted`, `inherited`— y borrarla para reinsertarla la
 degradaría a `manual`; una propiedad de Tema que llegue en
 `item.properties` se trata como etiqueta en vez de perderse. `Tags` e
-`ItemTags` quedaron marcadas obsoletas en el código: las retira F10.
+`ItemTags` quedaron marcadas obsoletas en el código: las retiró F10 (ver la
+decisión 43).
 
 **Resolver por texto sin distinguir acentos.** `normalizeVocabularyLabel`
 —minúsculas, sin acentos, sin plegar `ñ` ni `ç` porque "año" y "ano" son
@@ -2653,7 +2664,7 @@ palabras y pueden ser cosas distintas. Toda operación se puede deshacer, la
 - Una hoja modal tapa con su barrera el aviso con "Deshacer" de la pantalla
   de abajo: el detalle de un valor es una página.
 
-**Lo que F8 no hace.** No retira `Tags`/`ItemTags` (F10). No hay panel de
+**Lo que F8 no hace.** No retira `Tags`/`ItemTags` (lo hizo F10, decisión 43). No hay panel de
 salud ni acceso al vocabulario desde él (F9). No detecta espacios temáticos
 (F11). El respaldo previo no existe en la web. Los valores de Tema sin
 etiqueta —creados en el editor de propiedades, o lo que quedó de una
@@ -2697,7 +2708,7 @@ columnas nulas en `Relations`: `reviewedAt` (la marca de contradicción revisada
 y `sourceCharStart`/`sourceCharEnd` (de dónde salió una extracción). Con el
 respaldo previo de F8 y un backfill de los enlaces de las notas existentes que
 informa lo que no pudo leer, con su plan en seco. `inline_link` referencia
-`Items` como `Relations`: F10 las repunta juntas.
+`Items` como `Relations`: F10 las repuntó juntas (v18, decisión 43).
 
 **Enlaces rotos.** Guardar una nota sincroniza sus enlaces y, al revés, guardar
 o renombrar cualquier elemento resuelve los rotos que tenían ese título y crea
@@ -2805,9 +2816,169 @@ chip) está escrito en español aunque la app esté en inglés: viene de F5 y es
 valor guardado, no una presentación. El deshacer de la Bandeja alcanza a la
 última acción, no a un historial; aceptar sugerencias en lote no tiene deshacer
 en bloque. El umbral de la Bandeja no es "sostenido" porque no hay historial. Y
-el modelo viejo sigue de fuente de verdad: unificarlo, y retirar `Tags`/`ItemTags`
-y el espejo, es F10; el borrado suave y la fusión no destructiva al restaurar son
-F11.
+el modelo viejo seguía de fuente de verdad: unificarlo, y retirar `Tags`/`ItemTags`
+y el espejo, lo hizo F10 (decisión 43); el borrado suave y la fusión no destructiva
+al restaurar son F11.
+
+### 43. F10 de unificación: un solo modelo de datos, el texto de una fuente en su forma principal, y una búsqueda que cita el minuto o la página
+
+Tercera fase del encargo de cierre (F8 a F11, ver la decisión 34). Hasta F9 la
+app escribía cada elemento dos veces —`Items`/`Sources` y su espejo `item`/
+`source`/`note`— y leía casi todo del modelo viejo; el texto de una fuente
+estaba guardado tres veces; la búsqueda iba contra un índice de elementos
+enteros que no sabía decir DÓNDE; y nadie comprobaba que las dos mitades
+coincidieran. F10 lo unifica en dieciocho commits, en cuatro tramos: medir,
+poner los chunks a trabajar, leer del modelo nuevo, y apuntar las claves,
+escribir una sola vez y retirar el viejo.
+
+**Dónde el encargo chocó con el código real.** Se dijo antes de resolver.
+`Renditions`, `Highlights`, `Relations`, `Flashcards`, `InlineLinks` e
+`ItemPropertyValues` no estaban duplicadas: el modelo nuevo no tenía
+equivalente, solo colgaban de `Items` por clave foránea. No se retiraron: se
+**repuntaron** a `item`. `Sources` era N:1 con `Items` y `source` es 1:1: el id de
+una fuente deja de ser propio y es el del elemento —una fuente compartida ya
+estaba duplicada, una fila por elemento, desde el backfill de F1—. «El texto
+íntegro una sola vez» no se puede cumplir del todo: queda el documento entero
+UNA vez, en su forma de texto principal, pero los chunks conservan su porción
+porque es la unidad que se recupera, se embebe y se cita sin cargar el documento;
+son dos copias, no tres. `chunk` tenía clave primaria de texto, o sea `rowid`
+implícito, y `VACUUM INTO` —que usan los respaldos— puede renumerarlo: un FTS5 de
+contenido externo atado a ese `rowid` habría quedado apuntando a filas
+equivocadas sin avisar. `substr` de SQLite cuenta puntos de código y los
+desplazamientos de chunks y resaltados son unidades UTF-16: todo recorte por
+posición se hace en Dart. Y el benchmark en un Android de gama media no se puede
+correr desde acá.
+
+**Medir antes de tocar (tramo 0).** Una bóveda sintética de 10.000 elementos
+—7.200 fuentes y 2.800 notas, 312.793 chunks, 25.000 relaciones— generada de
+forma determinista y guardada en `.dart_tool`, y un arnés con dos capas: las
+afirmaciones de `EXPLAIN QUERY PLAN` y de paginación corren siempre, y el
+cronometraje solo con `--dart-define=BENCH=true`, con un umbral de escritorio de
+objetivo/3 como sustituto de un dispositivo (estimación, no medición). El mismo
+arnés corre en un dispositivo con `integration_test`. La línea base dio dos
+problemas reales antes de migrar nada: la búsqueda traía TODOS los ids a Dart
+antes de paginar, y el grafo local cargaba la biblioteca entera y todas sus
+aristas —casi un minuto con 10.000 elementos—. Se arreglaron primero: la búsqueda pagina en
+SQL, y el grafo local lee solo la vecindad (`watchNeighborhood`, con tope de 30
+nodos en el panel y 200 en la pantalla) y su disposición usa arreglos tipados en
+vez de mapas, bit a bit igual que la versión anterior. No se migra sobre una base
+lenta.
+
+**Chunks vivos y una búsqueda que cita (tramo 1, esquema v16).** `chunk` gana
+`row_key`, un entero autoincremental que pasa a ser su clave primaria —un entero
+declarado clave ES el `rowid` y no se renumera—; `id` sigue siendo la identidad,
+única, para que los embeddings le sigan apuntando. `chunk_search` es un FTS5 de
+contenido externo sobre `chunks.content` —65,2 MB de índice para 218,7 MB de
+texto, sin segunda copia— y `chunk_vocab` una vista `fts5vocab` que dice, antes de
+buscar, en cuántos chunks está cada palabra. Con eso `save()` mantiene los
+chunks: idempotente por el SHA-256 del texto de la forma principal —si no cambió
+no hace nada; si cambió, reemplaza los chunks y con ellos sus embeddings, que ya no
+describían el texto—, en la misma transacción. La búsqueda de la Biblioteca va
+sobre los chunks y cada resultado lleva su cita —`mm:ss` o `p. N`— y un fragmento.
+Ordenar por relevancia cuesta lo que cuestan las coincidencias (≈1,5 µs cada una),
+y una palabra en dos tercios de los chunks no distingue nada: por encima de 30.000
+coincidencias se ordena una ventana de las 600 más recientes en vez de todas; la
+conjunción de palabras se resuelve a nivel de elemento con INTERSECT, y el corte
+por relevancia va sobre el índice SOLO, antes de unir con `chunks`. Para citar una
+PÁGINA hizo falta arreglar el texto, no el chunker: el parser de PDF descartaba las
+páginas vacías, con lo que numerar por posición habría corrido en silencio todos
+los números siguientes. Ahora conserva cada página en su lugar y el chunker numera
+con `paged: true`. Vale para los PDF capturados desde ahora: uno de antes no trae el
+lugar de sus páginas en blanco, se sigue encontrando y citando por fragmento, sin
+página, y lo único que lo arreglaría es volver a analizar el archivo y reescribir
+el texto de una fuente, que no se hace.
+
+**Leer del modelo nuevo, una superficie por commit (tramo 2).** La Biblioteca,
+los vínculos de organize, la fusión de duplicados, los enlaces en línea, y el
+panel de salud, la línea de tiempo y las fuentes citadas dejaron de consultar
+`items`/`sources`. Flashcards, vocabulario, sugerencias y `property_value_merge`
+nunca las leían: solo las claves. Cinco commits en vez de los diez previstos.
+`sourceFor(item, source?)` es la regla única de qué es la procedencia de un
+elemento —una nota no tiene fila de fuente: es una nota manual, capturada cuando
+se creó—. Leer del modelo nuevo destapó cuatro defectos que ninguna prueba veía
+porque los dos modelos coincidían por casualidad: `assignSpace` y
+`assignSpaceMany` escribían solo `items.space_id` y `item.space_id` quedaba con el
+tema de antes; el espejo no copiaba las notas libres; la fusión de duplicados
+reasignaba las formas del descartado —y con ellas quizá el texto principal— sin
+rehacer los chunks del que queda, con lo que el invariante dejaba de cumplirse y
+buscar una palabra del descartado ya no encontraba nada; y `save()` escribía el
+espejo DESPUÉS de resolver los enlaces en línea, con lo que una nota que se
+guardaba por primera vez no se reconocía a sí misma y quedaba con un enlace roto
+hacia sí misma.
+
+**Apuntar las claves y escribir una vez (tramo 3, esquemas v18 y v19).** Antes de
+v18 se retiraron los pasos de migración anteriores a v15, con sus pruebas y sus
+snapshots —la compatibilidad mínima de actualización es v15; una base más vieja
+falla con `SchemaTooOldException` y un mensaje que dice qué hacer, antes de tocar
+nada—: sus pruebas sembraban `items` sobre el esquema de hoy y no podían convivir
+con las claves nuevas. **v18** reconstruye con `alterTable` las cinco tablas hijas
+—formas, vínculos, tarjetas, enlaces en línea y asignaciones de propiedad— con sus
+claves hacia `item`, y rehace el índice de texto de los elementos sobre `item`
+—sus triggers dejarían de dispararse en cuanto `items` no se escribiera—. Con un
+dry-run que no escribe nada y estas compuertas: si a `items` le falta la fila de
+`item` de algún elemento se completa con el catch-up de siempre; si después queda
+un elemento sin ella o una fila que apunta a uno que no existe, lanza y no sigue;
+`PRAGMA foreign_key_check` tiene que quedar vacío; y los conteos de las 16 tablas
+de lo que el usuario creó (`captureVaultCounts`) tienen que ser iguales antes y
+después. `save`, `delete` y mover de tema escriben solo el modelo nuevo: una
+escritura, sin transacción de a dos. **v19** suelta `items`, `sources`, `tags`,
+`item_tags` y `source.full_text`; antes de quitar la columna comprueba que ninguna
+fuente tenga su texto SOLO ahí —si la hay, lanza: perder el texto de una fuente
+está descartado—, y compara los conteos de las 19 tablas de datos y de modelo.
+
+**Lo que este trabajo encontró de fondo.** Cuatro cosas, dichas sin adornos.
+Primera: `onUpgrade` de drift NO es transaccional por sí solo —cada sentencia se
+confirma sola; la propia documentación de drift lo envuelve a mano con
+`transaction`—. Las compuertas de v16 decían «si algún conteo no coincide, la
+migración entera revierte», y no revertían. Lo destapó la prueba de v18 que forzaba
+un huérfano (la fila del espejo que el catch-up había completado quedaba). Desde
+v18 todos los pasos van dentro de UNA transacción y hay prueba: un huérfano corta
+la migración, la base queda con las mismas filas y todavía en la versión de antes.
+Segunda: `items` tenía cinco índices y `item` dos, que no sirven para filtrar por
+espacio ni ordenar por modificación; desde P2 esas consultas recorrían la tabla
+entera y solo lo dijo la guarda de plan de consulta al retirar `items`. v19 crea
+`idx_knowledge_entries_space` e `idx_knowledge_entries_updated_at`. Tercera: desde
+P2 esas guardas seguían comparando contra `items` y `sources`, tablas que ninguna
+consulta tocaba, y pasaban solas; ahora comparan contra `item` y `source`, con el
+nombre entero (`contains('SCAN item')` dejaba pasar un recorrido de `item_search`).
+Cuarta: la prueba «el guardado es atómico» no forzaba ningún fallo —la forma que
+creía inválida cumplía el CHECK y aceptaba cualquier desenlace—; ahora una
+propiedad de una categoría inexistente viola la clave foránea al FINAL del guardado
+y se comprueba que no queda ni el elemento, ni su fuente, ni su forma.
+
+**Medido, en el escritorio del que construye la app** (un Core i5-10300H,
+enchufado; el escenario de vocabulario, cuyo código no cambió, dio 79 ms al medir
+la línea base y 73 ms ahora: los números son comparables). Mediana, en ms, línea
+base de v15 → hoy: búsqueda de una palabra rara 94 → 29, mediana 401 → 40, en casi
+todo 702 → 56, dos palabras 85 → 23, prefijo 616 → 53 —el objetivo era 300—;
+detalle de la fuente con más chunks 2 → 2 y de una nota con enlaces 15 → 15;
+grafo local del elemento más conectado 59.482 → 39 en el panel y 109 en la
+pantalla —el objetivo era 500—; línea de tiempo 153 → 131; panel de salud 43 →
+42. Migrar una copia de la bóveda sintética de 10.000 elementos (909 MB, esquema
+v17) de una vez a v19 tarda 5,9 s: los 19 conteos, iguales; cero violaciones de
+claves; el texto de las formas, idéntico (226,6 MB); `verifyChunkInvariant` en
+verde sobre las 7.200 fuentes y los 312.793 chunks. El archivo queda en 1.141 MB,
+463 de ellos páginas libres reutilizables —soltar tablas no achica el archivo—, y
+en 669 MB tras un `VACUUM`: el 26 % menos. Una bóveda recién generada en v19 pesa
+683 MB. Lo que dejó de estar es la tercera copia del texto, 218,5 MB; quedan la
+forma principal (226,7 MB) y los chunks (218,7 MB), más 65,2 MB del índice de los
+chunks y 14,4 MB del de elementos.
+
+**Lo que F10 no hace, dicho sin adornos.** No hay cifras de Android: el arnés
+corre en un dispositivo, pero no se corrió en ninguno. Solo se migró una bóveda
+sintética; en esta máquina no había una base real. La cita de página vale para los
+PDF nuevos. Las notas no se fragmentan: su texto lo indexa `item_search`, y no
+tienen minuto ni página que citar. El archivo no se compacta solo después de
+migrar: hace falta un `VACUUM`, que no puede correr dentro de la transacción y
+pide espacio libre en disco del tamaño de la base; queda para quien lo decida. La
+fusión de duplicados sigue sin conservar el subtítulo ni las notas libres del
+descartado. La pantalla del grafo completo sigue cargando todos los elementos; solo
+el grafo local está acotado. El borrado sigue siendo físico, y `deletedAt`,
+`deviceId` y `rev` siguen sin lector: borrado suave con papelera, versionado por
+campo y fusión no destructiva al restaurar son F11. `Source.id` sigue en la
+entidad, igual al id del elemento, y `knowledge_mirror_mapping.dart` conserva un
+nombre de cuando había un espejo. Las etiquetas viejas que quedaban en `tags`/
+`item_tags` se sueltan sin más: F8 ya las había unido a Tema.
 
 ## Estado y orden de construcción
 
@@ -3032,6 +3203,16 @@ F11.
   fragmento del que salió cada nota; las fuentes citadas de una nota viva y su
   madurez editable; y la distinción visual entre fuente y nota en todas las
   pantallas —ver la decisión 42—. Un cambio de esquema aditivo (v15).
+- **F10 de unificación: un solo modelo de datos.** Los chunks se mantienen al
+  guardar y la búsqueda de la Biblioteca va sobre ellos y cita el minuto o la
+  página; las lecturas, las claves foráneas y la escritura pasan al modelo
+  nuevo, y se retiran `Items`, `Sources`, `Tags`, `ItemTags` y `source.fullText`,
+  con el texto de una fuente guardado en su forma principal y en sus chunks, no
+  en tres lugares. Cuatro cambios de esquema (v16 a v19), cada uno con respaldo
+  previo, un plan en seco y conteos como compuerta, y todos los pasos de una
+  migración en una sola transacción —cosa que antes no era cierta—. Una
+  bóveda de 10.000 elementos migra en 6 s y la búsqueda más lenta tarda 56 ms
+  —ver la decisión 43—.
 
 ### Por construir
 
@@ -3042,8 +3223,7 @@ app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 El refactor de la capa de organización (ver la decisión 34) llegó a
 F1-F7, y su encargo de cierre (F8 a F11) va en orden estricto: F8 —la
 higiene del vocabulario, ver la decisión 41— y F9 —la consolidación, ver la
-decisión 42— están construidas. Quedan F10 (unificar el modelo de datos:
-retirar el modelo viejo y el espejo, y con ellos `Tags`/`ItemTags`) y F11
-(durabilidad: borrado suave con papelera, versionado por campo, fusión no
-destructiva al restaurar). Cada una se planea —plan breve, aprobado, después
-código— cuando le toca.
+decisión 42— y F10 —la unificación del modelo de datos, ver la decisión 43—
+están construidas. Queda F11 (durabilidad: borrado suave con papelera,
+versionado por campo, fusión no destructiva al restaurar), que se planea —plan
+breve, aprobado, después código— cuando le toca.
