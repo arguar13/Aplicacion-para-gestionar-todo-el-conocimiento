@@ -108,4 +108,23 @@ void main() {
 
     expect(result.lastReviewedAt, now);
   });
+
+  group('la calidad de cada nota (F11)', () {
+    test('las cuatro notas de repaso y su calidad en SM-2', () {
+      expect(qualityOf(ReviewGrade.again), 0);
+      expect(qualityOf(ReviewGrade.hard), 3);
+      expect(qualityOf(ReviewGrade.good), 4);
+      expect(qualityOf(ReviewGrade.easy), 5);
+    });
+
+    test('es la que usa el planificador: una nota por debajo de 3 reinicia la '
+        'tarjeta y una de 3 o más, no', () {
+      final card = newCard(repetitions: 4, intervalDays: 30);
+
+      for (final grade in ReviewGrade.values) {
+        final next = scheduleNext(card, grade, now: now);
+        expect(next.repetitions == 0, qualityOf(grade) < 3, reason: grade.name);
+      }
+    });
+  });
 }

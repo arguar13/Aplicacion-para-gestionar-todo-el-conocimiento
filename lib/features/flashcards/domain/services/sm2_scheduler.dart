@@ -14,7 +14,7 @@ Flashcard scheduleNext(
   ReviewGrade grade, {
   required DateTime now,
 }) {
-  final quality = _qualityOf(grade);
+  final quality = qualityOf(grade);
   final nextEase = _nextEase(card.easeFactor, quality);
 
   // Quality < 3 (no se recordó, "de nuevo"): SM-2 reinicia la tarjeta como
@@ -51,7 +51,13 @@ Flashcard scheduleNext(
   );
 }
 
-int _qualityOf(ReviewGrade grade) => switch (grade) {
+/// La calidad de SM-2 (0 a 5) que le corresponde a lo que eligió la persona.
+///
+/// Pública porque el historial de repasos guarda las dos cosas —el nombre de la
+/// nota y el número que usó el algoritmo—, y el número no puede calcularse en
+/// otro lado: si esta tabla cambiara, el historial diría otra cosa que el
+/// algoritmo.
+int qualityOf(ReviewGrade grade) => switch (grade) {
   ReviewGrade.again => 0,
   ReviewGrade.hard => 3,
   ReviewGrade.good => 4,

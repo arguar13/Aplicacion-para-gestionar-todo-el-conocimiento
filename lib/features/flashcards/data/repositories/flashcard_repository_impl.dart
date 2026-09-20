@@ -138,29 +138,54 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     required ReviewGrade grade,
   }) async {
     try {
-      final row = await (_db.select(
-        _db.flashcards,
-      )..where((f) => f.id.equals(id))).getSingleOrNull();
+      // El estado de la tarjeta y el renglón del historial van juntos: o quedan
+      // los dos o no queda ninguno.
+      final scheduled = await _db.transaction(() async {
+        final row = await (_db.select(
+          _db.flashcards,
+        )..where((f) => f.id.equals(id))).getSingleOrNull();
+        if (row == null) return null;
 
-      if (row == null) {
+        final now = _clock();
+        final next = scheduleNext(_toEntity(row), grade, now: now);
+
+        await (_db.update(_db.flashcards)..where((f) => f.id.equals(id))).write(
+          FlashcardsCompanion(
+            easeFactor: Value(next.easeFactor),
+            intervalDays: Value(next.intervalDays),
+            repetitions: Value(next.repetitions),
+            dueAt: Value(next.dueAt),
+            lastReviewedAt: Value(next.lastReviewedAt),
+          ),
+        );
+
+        // Hasta F11 cada repaso sobrescribía el estado y el dato se perdía.
+        await _db
+            .into(_db.reviewLogs)
+            .insert(
+              ReviewLogsCompanion.insert(
+                id: _ids.next(),
+                flashcardId: id,
+                reviewedAt: now,
+                grade: grade.name,
+                quality: qualityOf(grade),
+                intervalBefore: row.intervalDays,
+                intervalAfter: next.intervalDays,
+                easeBefore: row.easeFactor,
+                easeAfter: next.easeFactor,
+                deviceId: _db.deviceId,
+              ),
+            );
+        return next;
+      });
+
+      if (scheduled == null) {
         return left(
           const Failure.unexpected(
             message: 'La tarjeta ya no existe; puede que se haya borrado.',
           ),
         );
       }
-
-      final scheduled = scheduleNext(_toEntity(row), grade, now: _clock());
-
-      await (_db.update(_db.flashcards)..where((f) => f.id.equals(id))).write(
-        FlashcardsCompanion(
-          easeFactor: Value(scheduled.easeFactor),
-          intervalDays: Value(scheduled.intervalDays),
-          repetitions: Value(scheduled.repetitions),
-          dueAt: Value(scheduled.dueAt),
-          lastReviewedAt: Value(scheduled.lastReviewedAt),
-        ),
-      );
 
       return right(scheduled);
       // Ver `_unexpected`: un TypeError es Error, no Exception.

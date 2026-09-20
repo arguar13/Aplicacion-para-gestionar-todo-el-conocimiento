@@ -1,4 +1,5 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -409,6 +410,145 @@ void main() {
       await trashItemRows(db, trashed);
 
       expect(await repository.watchForItem(trashed).first, hasLength(1));
+    });
+  });
+
+  group('historial de repasos (F11)', () {
+    Future<List<ReviewLogRow>> log() => (db.select(
+      db.reviewLogs,
+    )..orderBy([(r) => OrderingTerm(expression: r.reviewedAt)])).get();
+
+    Future<String> newCard() async {
+      final itemId = await seedItem();
+      return (await repository.create(
+        itemId: itemId,
+        front: 'a',
+        back: 'b',
+      )).getRight().toNullable()!.id;
+    }
+
+    test('cada repaso deja un renglón con la nota, la calidad y cómo cambió '
+        'la tarjeta', () async {
+      final id = await newCard();
+
+      await repository.review(id: id, grade: ReviewGrade.good);
+
+      final row = (await log()).single;
+      expect(row.flashcardId, id);
+      expect(row.reviewedAt, now);
+      expect(row.grade, 'good');
+      expect(row.quality, 4);
+      // Una tarjeta nueva parte de intervalo 0 y termina en 1 día.
+      expect(row.intervalBefore, 0);
+      expect(row.intervalAfter, 1);
+      expect(row.easeBefore, 2.5);
+      expect(row.easeAfter, 2.5);
+      expect(row.deviceId, 'unspecified');
+    });
+
+    test('varios repasos son varios renglones, y cada uno parte de donde '
+        'quedó el anterior', () async {
+      final id = await newCard();
+
+      await repository.review(id: id, grade: ReviewGrade.good);
+      now = now.add(const Duration(days: 1));
+      await repository.review(id: id, grade: ReviewGrade.good);
+      now = now.add(const Duration(days: 6));
+      await repository.review(id: id, grade: ReviewGrade.again);
+
+      final rows = await log();
+      expect(rows.map((r) => r.grade), ['good', 'good', 'again']);
+      expect(rows.map((r) => r.quality), [4, 4, 0]);
+      expect(rows.map((r) => r.intervalBefore), [0, 1, 6]);
+      expect(rows.map((r) => r.intervalAfter), [1, 6, 1]);
+      // Una tarjeta que se olvidó pierde facilidad.
+      expect(rows.last.easeAfter, lessThan(rows.last.easeBefore));
+    });
+
+    test('lo que guarda coincide con lo que quedó en la tarjeta', () async {
+      final id = await newCard();
+
+      final reviewed = (await repository.review(
+        id: id,
+        grade: ReviewGrade.easy,
+      )).getRight().toNullable()!;
+
+      final row = (await log()).single;
+      expect(row.intervalAfter, reviewed.intervalDays);
+      expect(row.easeAfter, reviewed.easeFactor);
+      expect(row.quality, 5);
+    });
+
+    test('la nota que elige la persona y la calidad del algoritmo se guardan '
+        'las dos', () async {
+      final id = await newCard();
+      for (final grade in ReviewGrade.values) {
+        await repository.review(id: id, grade: grade);
+        now = now.add(const Duration(minutes: 1));
+      }
+
+      final rows = await log();
+      expect(
+        {for (final r in rows) r.grade: r.quality},
+        {'again': 0, 'hard': 3, 'good': 4, 'easy': 5},
+      );
+    });
+
+    test('una tarjeta que no existe no deja ningún renglón', () async {
+      await repository.review(id: 'no-existe', grade: ReviewGrade.good);
+
+      expect(await log(), isEmpty);
+    });
+
+    test('el dispositivo que repasó queda registrado', () async {
+      final other = AppDatabase(NativeDatabase.memory(), deviceId: 'telefono');
+      addTearDown(other.close);
+      final library = LibraryRepositoryImpl(
+        database: other,
+        telemetry: MockTelemetryService(),
+        files: InMemoryFileStore(),
+      );
+      final cards = FlashcardRepositoryImpl(
+        database: other,
+        telemetry: MockTelemetryService(),
+        ids: FakeIdGenerator(),
+        clock: () => now,
+      );
+      await library.save(
+        KnowledgeItem(
+          id: 'item-x',
+          title: 'X',
+          source: Source(
+            id: 'src-x',
+            kind: SourceKind.manualNote,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      final id = (await cards.create(
+        itemId: 'item-x',
+        front: 'a',
+        back: 'b',
+      )).getRight().toNullable()!.id;
+
+      await cards.review(id: id, grade: ReviewGrade.good);
+
+      expect(
+        (await other.select(other.reviewLogs).getSingle()).deviceId,
+        'telefono',
+      );
+    });
+
+    test('borrar la tarjeta se lleva su historial', () async {
+      final id = await newCard();
+      await repository.review(id: id, grade: ReviewGrade.good);
+
+      await repository.delete(id);
+
+      expect(await log(), isEmpty);
     });
   });
 }
