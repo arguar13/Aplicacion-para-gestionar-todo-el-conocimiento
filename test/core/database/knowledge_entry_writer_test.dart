@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
@@ -504,6 +505,44 @@ void main() {
 
       expect(await writer.setNoteKind('art', NoteKind.atomic), isFalse);
       expect(await writer.setMaturity('art', NoteMaturity.mature), isFalse);
+    });
+  });
+
+  group('borrar para siempre', () {
+    Future<int> count(String table) async =>
+        (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())
+            .read<int>('n');
+
+    test('se lleva la fila y todo lo que cuelga de ella', () async {
+      await writer.upsert(sourceItem(), changedRenditions: ['r-1']);
+      await writer.upsert(sourceItem(id: 'otro'));
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'r-1',
+              itemId: 'art',
+              kind: RenditionKind.plainText,
+              isPrimary: true,
+              createdAt: captured,
+              content: const Value('El texto.'),
+            ),
+          );
+
+      await writer.purge('art');
+
+      expect(await count('item'), 1);
+      expect(await count('source'), 1);
+      expect(await count('renditions'), 0);
+      // Sus versiones por campo también: solo quedan las del otro elemento.
+      final left = await db.select(db.fieldVersions).get();
+      expect(left.map((f) => f.itemId).toSet(), {'otro'});
+    });
+
+    test('un elemento que no existe no es un error', () async {
+      await writer.purge('nada');
+
+      expect(await count('item'), 0);
     });
   });
 }

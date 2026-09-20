@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
@@ -8,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
@@ -15,11 +17,18 @@ class InboxRepositoryImpl implements InboxRepository {
   const InboxRepositoryImpl({
     required AppDatabase database,
     required TelemetryService telemetry,
+    Clock clock = DateTime.now,
   }) : _db = database,
-       _telemetry = telemetry;
+       _telemetry = telemetry,
+       _clock = clock;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
+  final Clock _clock;
+
+  /// Quien escribe el estado, el subtipo y la madurez: ver
+  /// [KnowledgeEntryWriter].
+  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
   @override
   Stream<List<String>> watchPendingIds() {
@@ -49,12 +58,7 @@ class InboxRepositoryImpl implements InboxRepository {
     required ItemState to,
   }) async {
     try {
-      final updated =
-          await (_db.update(_db.knowledgeEntries)
-                ..where((e) => e.id.equals(itemId)))
-              .writeReturning(KnowledgeEntriesCompanion(state: Value(to)));
-
-      if (updated.isEmpty) {
+      if (!await _writer.setState(itemId, to)) {
         return left(
           const Failure.unexpected(
             message: 'El elemento ya no existe; puede que se haya borrado.',
@@ -152,14 +156,7 @@ class InboxRepositoryImpl implements InboxRepository {
     required NoteMaturity maturity,
   }) async {
     try {
-      final updated =
-          await (_db.update(
-            _db.knowledgeNotes,
-          )..where((n) => n.itemId.equals(itemId))).writeReturning(
-            KnowledgeNotesCompanion(maturity: Value(maturity)),
-          );
-
-      if (updated.isEmpty) {
+      if (!await _writer.setMaturity(itemId, maturity)) {
         return left(
           const Failure.unexpected(
             message: 'La nota ya no existe; puede que se haya borrado.',
@@ -183,12 +180,7 @@ class InboxRepositoryImpl implements InboxRepository {
     required NoteKind kind,
   }) async {
     try {
-      final updated =
-          await (_db.update(_db.knowledgeNotes)
-                ..where((n) => n.itemId.equals(itemId)))
-              .writeReturning(KnowledgeNotesCompanion(noteKind: Value(kind)));
-
-      if (updated.isEmpty) {
+      if (!await _writer.setNoteKind(itemId, kind)) {
         return left(
           const Failure.unexpected(
             message: 'La nota ya no existe; puede que se haya borrado.',

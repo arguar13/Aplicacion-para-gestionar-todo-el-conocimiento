@@ -537,9 +537,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o nota
       // se van solos por las cascadas del esquema (ver `PRAGMA foreign_keys` en
       // AppDatabase): todo cuelga de la fila de `item`.
-      await (_db.delete(
-        _db.knowledgeEntries,
-      )..where((e) => e.id.equals(id))).go();
+      await _writer.purge(id);
 
       if (filePath != null) await _deleteFileQuietly(filePath, id);
 
@@ -572,9 +570,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
           // La fila se borra DENTRO del recorrido: la pregunta por el archivo
           // del elemento siguiente se hace sobre ella, y con esta fila todavía
           // ahí ninguno de los dos se animaría a borrarlo.
-          await (_db.delete(
-            _db.knowledgeEntries,
-          )..where((e) => e.id.equals(id))).go();
+          await _writer.purge(id);
         }
       });
 

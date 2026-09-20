@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -1173,6 +1174,32 @@ void main() {
           db.knowledgeNotes,
         )..where((n) => n.itemId.equals(nota.id))).getSingle();
         expect(note.noteKind, NoteKind.atomic);
+      });
+
+      test('el cambio de subtipo queda registrado: la revisión y la versión '
+          'del campo', () async {
+        final nota = await seedNote();
+        final fuente = await seedItem();
+        Future<KnowledgeEntryRow> entry() => (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals(nota.id))).getSingle();
+        final before = (await entry()).rev;
+
+        await repository.createRelation(
+          fromItemId: nota.id,
+          toItemId: fuente.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        expect((await entry()).rev, before + 1);
+        final version =
+            await (db.select(db.fieldVersions)..where(
+                  (f) =>
+                      f.itemId.equals(nota.id) &
+                      f.fieldName.equals(EntryField.noteKind),
+                ))
+                .getSingle();
+        expect(version.updatedAt, now);
       });
 
       test('otro tipo de vínculo no toca noteKind', () async {

@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -21,12 +22,15 @@ void main() {
 
   final now = DateTime(2026, 9, 18, 10);
   var counter = 0;
+  var clockNow = DateTime(2026, 9, 20, 9);
 
   setUp(() {
-    db = AppDatabase(NativeDatabase.memory());
+    clockNow = DateTime(2026, 9, 20, 9);
+    db = AppDatabase(NativeDatabase.memory(), deviceId: 'telefono');
     repository = InboxRepositoryImpl(
       database: db,
       telemetry: MockTelemetryService(),
+      clock: () => clockNow,
     );
     counter = 0;
   });
@@ -330,6 +334,63 @@ void main() {
       );
 
       expect(result.isLeft(), isTrue);
+    });
+  });
+
+  group('quién y cuándo (F11)', () {
+    Future<KnowledgeEntryRow> entryOf(String id) => (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle();
+
+    Future<Map<String, FieldVersionRow>> versionsOf(String id) async => {
+      for (final row in await (db.select(
+        db.fieldVersions,
+      )..where((f) => f.itemId.equals(id))).get())
+        row.fieldName: row,
+    };
+
+    test('pasar un elemento de estado deja su firma y su versión', () async {
+      final id = await seedEntry();
+
+      await repository.transitionState(itemId: id, to: ItemState.triaged);
+
+      final entry = await entryOf(id);
+      expect(entry.state, ItemState.triaged);
+      expect(entry.rev, 2);
+      expect(entry.deviceId, 'telefono');
+      final state = (await versionsOf(id))[EntryField.state]!;
+      expect(state.updatedAt, clockNow);
+      expect(state.deviceId, 'telefono');
+    });
+
+    test('«pasar» al estado que ya tiene no cuenta como un cambio', () async {
+      final id = await seedEntry();
+
+      final result = await repository.transitionState(
+        itemId: id,
+        to: ItemState.processed,
+      );
+
+      expect(result.isRight(), isTrue);
+      expect((await entryOf(id)).rev, 1);
+      expect(await versionsOf(id), isEmpty);
+    });
+
+    test('cambiar el subtipo y la madurez de una nota los versiona', () async {
+      final id = await seedEntry(kind: ItemKind.note);
+      await seedNote(id);
+
+      await repository.setNoteKind(itemId: id, kind: NoteKind.atomic);
+      clockNow = clockNow.add(const Duration(minutes: 5));
+      await repository.setNoteMaturity(
+        itemId: id,
+        maturity: NoteMaturity.mature,
+      );
+
+      expect((await entryOf(id)).rev, 3);
+      final fields = await versionsOf(id);
+      expect(fields[EntryField.noteKind]!.deviceId, 'telefono');
+      expect(fields[EntryField.maturity]!.updatedAt, clockNow);
     });
   });
 }

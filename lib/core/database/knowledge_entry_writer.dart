@@ -202,6 +202,16 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Borra [itemId] de la base, para siempre: la fila de `item` y, por las
+  /// cascadas del esquema, todo lo que cuelga de ella —su fuente o nota, sus
+  /// formas, subrayados, chunks, vínculos, tarjetas y versiones por campo—.
+  ///
+  /// El archivo original en el disco NO se toca: el disco no tiene cascadas, y
+  /// decidir si otro elemento todavía lo usa es cosa de quien llama.
+  Future<void> purge(String itemId) => (_db.delete(
+    _db.knowledgeEntries,
+  )..where((e) => e.id.equals(itemId))).go();
+
   // ---------------------------------------------------------------------
 
   /// Cuántos ids entran en una sola consulta: por debajo del tope de parámetros

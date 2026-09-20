@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
@@ -42,6 +43,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   final TelemetryService _telemetry;
   final IdGenerator _ids;
   final Clock _clock;
+
+  /// Quien escribe el subtipo de una nota: ver [KnowledgeEntryWriter].
+  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
   // ---------------------------------------------------------------------
   // Etiquetas
@@ -237,14 +241,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         // `fromItemId` es siempre la nota nueva en este tipo de vínculo
         // —así lo usa `HighlightableText._extractSelection`—, así que
         // esto corrige `noteKind` tanto ahí como en la Bandeja de
-        // entrada (F3). Un UPDATE que no afecta ninguna fila no es un
-        // error: no debería pasar, pero el espejo de esa nota podría no
-        // existir todavía.
-        await (_db.update(
-          _db.knowledgeNotes,
-        )..where((n) => n.itemId.equals(fromItemId))).write(
-          const KnowledgeNotesCompanion(noteKind: Value(NoteKind.atomic)),
-        );
+        // entrada (F3). Que la nota no exista no es un error —el escritor
+        // devuelve `false` y no hace nada—: no debería pasar.
+        await _writer.setNoteKind(fromItemId, NoteKind.atomic);
 
         // Herencia (F4): la nota nueva hereda las propiedades de la
         // fuente de la que se extrajo — extraer 8 fragmentos de un

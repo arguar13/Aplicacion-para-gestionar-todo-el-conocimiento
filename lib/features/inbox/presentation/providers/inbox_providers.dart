@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
@@ -13,6 +14,7 @@ final inboxRepositoryProvider = Provider<InboxRepository>((ref) {
   return InboxRepositoryImpl(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
+    clock: ref.watch(clockProvider),
   );
 });
 
