@@ -258,21 +258,21 @@ void main() {
       final result = await repository.createNoteForLink(title: 'roma');
 
       expect(result.getRight().toNullable()!.id, 'roma');
-      expect(await db.select(db.items).get(), hasLength(1));
+      expect(await db.select(db.knowledgeEntries).get(), hasLength(1));
     });
 
     test('un título vacío es un fallo de validación y no crea nada', () async {
       final result = await repository.createNoteForLink(title: '   ');
 
       expect(result.getLeft().toNullable(), isA<ValidationFailure>());
-      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     });
 
     test('crear dos veces el mismo título deja una sola nota', () async {
       await repository.createNoteForLink(title: 'Cartago');
       await repository.createNoteForLink(title: 'CARTAGO');
 
-      expect(await db.select(db.items).get(), hasLength(1));
+      expect(await db.select(db.knowledgeEntries).get(), hasLength(1));
     });
   });
 
@@ -401,7 +401,7 @@ void main() {
       ], kind: NoteKind.atomic);
 
       expect(result.getRight().toNullable(), 2);
-      final items = await db.select(db.items).get();
+      final items = await db.select(db.knowledgeEntries).get();
       expect(items.map((i) => i.title).toSet(), {'Cartago', 'Atenas'});
       for (final item in items) {
         expect((await mirrorOf(item.id)).noteKind, NoteKind.atomic);
@@ -432,10 +432,12 @@ void main() {
       ]);
 
       expect(result.getRight().toNullable(), 1);
-      expect((await db.select(db.items).get()).map((i) => i.title).toSet(), {
-        'Roma',
-        'Atenas',
-      });
+      expect(
+        (await db.select(db.knowledgeEntries).get())
+            .map((i) => i.title)
+            .toSet(),
+        {'Roma', 'Atenas'},
+      );
     });
 
     test('es atómico: si una falla no queda ninguna', () async {
@@ -450,7 +452,9 @@ void main() {
       ]);
 
       expect(result.getLeft().toNullable(), isA<ValidationFailure>());
-      expect((await db.select(db.items).get()).map((i) => i.title), ['Viaje']);
+      expect((await db.select(db.knowledgeEntries).get()).map((i) => i.title), [
+        'Viaje',
+      ]);
       final link = await db.select(db.inlineLinks).getSingle();
       expect(link.toItemId, isNull);
       expect(await db.select(db.relations).get(), isEmpty);
@@ -460,7 +464,7 @@ void main() {
       final result = await repository.createNotesForLinks(const []);
 
       expect(result.getRight().toNullable(), 0);
-      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     });
   });
 }

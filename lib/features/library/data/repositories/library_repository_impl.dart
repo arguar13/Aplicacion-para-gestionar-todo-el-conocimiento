@@ -19,7 +19,6 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
@@ -82,13 +81,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
     try {
       await _db.transaction(() async {
-        await _upsertSource(item.source);
-        await _upsertItem(item);
-        // Antes que lo que lee `item`: los enlaces en línea resuelven sus
-        // títulos contra el modelo nuevo, y una nota que se guarda por primera
-        // vez —o que cambia de título— tiene que estar ya ahí para reconocerse
-        // a sí misma.
-        await _mirrorItem(item);
+        // Primero el elemento: las formas, los vínculos y todo lo demás
+        // cuelgan de `item`, y los enlaces en línea resuelven sus títulos
+        // contra él —una nota que se guarda por primera vez, o que cambia de
+        // título, tiene que estar ya ahí para reconocerse a sí misma—.
+        await _upsertEntry(item);
         await _syncRenditions(item);
         await _syncInlineLinks(item);
         await resolveBrokenInlineLinks(
@@ -310,8 +307,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return watchQuery<T>(
       db: _db,
       tables: [
-        _db.items,
-        _db.sources,
         _db.knowledgeEntries,
         _db.knowledgeSources,
         _db.renditions,
@@ -531,16 +526,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // tiene cascadas.
       final filePath = await _originalFilePathOf(id);
 
-      // Las formas, etiquetas, vínculos y subrayados se van solos por las
-      // cascadas del esquema (ver `PRAGMA foreign_keys` en AppDatabase).
-      // El espejo del modelo nuevo se borra en la misma transacción: su
-      // propia cascada real se lleva `source`/`note` con él.
-      await _db.transaction(() async {
-        await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
-        await (_db.delete(
-          _db.knowledgeEntries,
-        )..where((e) => e.id.equals(id))).go();
-      });
+      // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o nota
+      // se van solos por las cascadas del esquema (ver `PRAGMA foreign_keys` en
+      // AppDatabase): todo cuelga de la fila de `item`.
+      await (_db.delete(
+        _db.knowledgeEntries,
+      )..where((e) => e.id.equals(id))).go();
 
       if (filePath != null) await _deleteFileQuietly(filePath, id);
 
@@ -570,11 +561,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
         for (final id in ids) {
           final filePath = await _originalFilePathOf(id);
           if (filePath != null) filesToDelete.add((id, filePath));
-          await (_db.delete(_db.items)..where((i) => i.id.equals(id))).go();
-          // La fila del modelo nuevo también va DENTRO del recorrido: la
-          // pregunta por el archivo del elemento siguiente se hace sobre
-          // ella, y con esta fila todavía ahí ninguno de los dos se animaría a
-          // borrarlo.
+          // La fila se borra DENTRO del recorrido: la pregunta por el archivo
+          // del elemento siguiente se hace sobre ella, y con esta fila todavía
+          // ahí ninguno de los dos se animaría a borrarlo.
           await (_db.delete(
             _db.knowledgeEntries,
           )..where((e) => e.id.equals(id))).go();
@@ -623,16 +612,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
     required String? spaceId,
   }) async {
     try {
-      await _db.transaction(() async {
-        await (_db.update(_db.items)..where((i) => i.id.equals(itemId))).write(
-          ItemsCompanion(spaceId: Value(spaceId)),
-        );
-        // El modelo nuevo también: antes de F10 este método solo tocaba
-        // `items`, y `item.space_id` quedaba con el espacio de antes.
-        await (_db.update(_db.knowledgeEntries)
-              ..where((e) => e.id.equals(itemId)))
-            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
-      });
+      await (_db.update(_db.knowledgeEntries)
+            ..where((e) => e.id.equals(itemId)))
+          .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -651,14 +633,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
     try {
       // Un único `UPDATE ... WHERE id IN (...)`, no [itemIds] llamadas
       // sueltas a [assignSpace]: la misma columna para todos a la vez.
-      await _db.transaction(() async {
-        await (_db.update(_db.items)..where((i) => i.id.isIn(itemIds))).write(
-          ItemsCompanion(spaceId: Value(spaceId)),
-        );
-        await (_db.update(_db.knowledgeEntries)
-              ..where((e) => e.id.isIn(itemIds)))
-            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
-      });
+      await (_db.update(_db.knowledgeEntries)..where((e) => e.id.isIn(itemIds)))
+          .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -694,41 +670,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
   // ---------------------------------------------------------------------
   // Escritura
   // ---------------------------------------------------------------------
-
-  Future<void> _upsertSource(Source source) {
-    return _db
-        .into(_db.sources)
-        .insertOnConflictUpdate(
-          SourcesCompanion.insert(
-            id: source.id,
-            kind: source.kind,
-            capturedAt: source.capturedAt,
-            url: Value(source.url),
-            authorName: Value(source.authorName),
-            authorUrl: Value(source.authorUrl),
-            publishedAt: Value(source.publishedAt),
-            originalFilePath: Value(source.originalFilePath),
-          ),
-        );
-  }
-
-  Future<void> _upsertItem(KnowledgeItem item) {
-    return _db
-        .into(_db.items)
-        .insertOnConflictUpdate(
-          ItemsCompanion.insert(
-            id: item.id,
-            title: item.title,
-            sourceId: item.source.id,
-            processingState: item.processingState,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            subtitle: Value(item.subtitle),
-            notes: Value(item.notes),
-            spaceId: Value(item.spaceId),
-          ),
-        );
-  }
 
   /// Deja las formas guardadas igual a las del elemento.
   ///
@@ -941,17 +882,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }
   }
 
-  /// Mantiene `item`/`source`/`note` —el modelo nuevo de F1— sincronizado
-  /// con lo que se acaba de guardar en las tablas viejas. Ver la decisión
-  /// sobre F3 en docs/arquitectura.md.
+  /// Escribe el elemento: la fila de `item` y, según sea, su `source` o su
+  /// `note`. Desde F10 es lo ÚNICO que se escribe del elemento en sí —antes
+  /// había además una copia en `items`/`sources`, de la que este método era el
+  /// espejo—.
   ///
-  /// `title`/`subtitle`/`spaceId`/`updatedAt` y los campos estructurales
-  /// de `source` se sobreescriben siempre: son un reflejo directo de
-  /// [item]. `state` —y, para una nota, `noteKind`/`maturity`,
-  /// `fullText`/`contentHash` de una fuente— se preservan si ya existían:
-  /// los escribe otra cosa (la Bandeja, `createRelation`, F5/F7), nunca
-  /// este método.
-  Future<void> _mirrorItem(KnowledgeItem item) async {
+  /// `title`/`subtitle`/`notes`/`spaceId`/`updatedAt` y los campos estructurales
+  /// de `source` se sobreescriben siempre: son un reflejo directo de [item].
+  /// `state` —y, para una nota, `noteKind`/`maturity`, y `contentHash` de una
+  /// fuente— se preservan si ya existían: los escribe otra cosa (la Bandeja,
+  /// `createRelation`, el chunking), nunca este método.
+  Future<void> _upsertEntry(KnowledgeItem item) async {
     final existingEntry = await (_db.select(
       _db.knowledgeEntries,
     )..where((e) => e.id.equals(item.id))).getSingleOrNull();

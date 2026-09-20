@@ -193,7 +193,7 @@ void main() {
           )).getRight().toNullable();
           expect(found!.renditions, hasLength(1));
         } else {
-          expect(await db.select(db.items).get(), isEmpty);
+          expect(await db.select(db.knowledgeEntries).get(), isEmpty);
         }
       },
     );
@@ -279,7 +279,7 @@ void main() {
 
       await repository.delete(base.id);
 
-      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
       expect(await db.select(db.renditions).get(), isEmpty);
       expect(await db.select(db.itemPropertyValues).get(), isEmpty);
       // La etiqueta en sí sobrevive: puede estar en uso por otros elementos,
@@ -345,7 +345,7 @@ void main() {
       final result = await repository.delete(base.id);
 
       expect(result.isRight(), isTrue);
-      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     });
 
     test('un elemento sin archivo no intenta borrar nada', () async {
@@ -370,7 +370,7 @@ void main() {
       final result = await repository.deleteMany(['item-a', 'item-b']);
 
       expect(result.isRight(), isTrue);
-      final remaining = await db.select(db.items).get();
+      final remaining = await db.select(db.knowledgeEntries).get();
       expect(remaining.map((r) => r.id), ['item-c']);
     });
 
@@ -432,7 +432,7 @@ void main() {
       final result = await repository.deleteMany(['item-a', 'item-b']);
 
       expect(result.isRight(), isTrue);
-      expect(await db.select(db.items).get(), isEmpty);
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
     });
   });
 
@@ -1386,6 +1386,53 @@ void main() {
         db.knowledgeEntries,
       )..where((e) => e.id.equals(item.id))).getSingle();
       expect(entry.notes, 'algo que quiero recordar');
+    });
+  });
+
+  group('una sola escritura (F10)', () {
+    test(
+      'guardar escribe solo el modelo nuevo: items y sources quedan vacías',
+      () async {
+        await repository.save(buildItem());
+        await repository.save(buildItem(sourceKind: SourceKind.manualNote));
+
+        expect(await db.select(db.items).get(), isEmpty);
+        expect(await db.select(db.sources).get(), isEmpty);
+        expect(await db.select(db.knowledgeEntries).get(), hasLength(2));
+        expect(await db.select(db.knowledgeSources).get(), hasLength(1));
+        expect(await db.select(db.knowledgeNotes).get(), hasLength(1));
+      },
+    );
+
+    test('mover de tema y borrar tampoco tocan las tablas viejas, y borrar se '
+        'lleva todo lo que cuelga de item', () async {
+      final saved = buildItem().copyWith(
+        renditions: [
+          Rendition.text(
+            id: 'rend-una',
+            itemId: 'item-una',
+            kind: RenditionKind.plainText,
+            content: 'texto',
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+      );
+      await repository.save(saved.copyWith(id: 'item-una'));
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
+          );
+      await repository.assignSpace(itemId: 'item-una', spaceId: 'sp');
+      expect(await db.select(db.items).get(), isEmpty);
+
+      await repository.delete('item-una');
+
+      expect(await db.select(db.knowledgeEntries).get(), isEmpty);
+      expect(await db.select(db.knowledgeSources).get(), isEmpty);
+      expect(await db.select(db.renditions).get(), isEmpty);
+      expect(await db.select(db.items).get(), isEmpty);
     });
   });
 

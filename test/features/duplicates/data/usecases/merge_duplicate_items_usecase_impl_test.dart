@@ -367,10 +367,6 @@ void main() {
 
     await useCase(keepItemId: keepId, discardItemId: discardId);
 
-    final item = await (db.select(
-      db.items,
-    )..where((i) => i.id.equals(discardId))).getSingleOrNull();
-    expect(item, isNull);
     final entry = await (db.select(
       db.knowledgeEntries,
     )..where((e) => e.id.equals(discardId))).getSingleOrNull();
