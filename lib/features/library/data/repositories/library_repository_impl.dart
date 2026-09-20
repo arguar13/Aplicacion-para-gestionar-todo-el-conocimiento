@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
@@ -15,8 +16,6 @@ import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -77,6 +76,10 @@ class LibraryRepositoryImpl implements LibraryRepository {
   final Clock _clock;
   final int _rankedHitsCap;
 
+  /// Quien escribe el elemento en sí (`item`, `note`, `source`): ver
+  /// [KnowledgeEntryWriter]. No guarda estado: es la base y el reloj.
+  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
+
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
     try {
@@ -85,7 +88,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
         // cuelgan de `item`, y los enlaces en línea resuelven sus títulos
         // contra él —una nota que se guarda por primera vez, o que cambia de
         // título, tiene que estar ya ahí para reconocerse a sí misma—.
-        await _upsertEntry(item);
+        //
+        // Qué formas cambian se decide ANTES de escribirlas, contra lo que hay.
+        await _writer.upsert(
+          item,
+          changedRenditions: await _changedRenditionIds(item),
+        );
         await _syncRenditions(item);
         await _syncInlineLinks(item);
         await resolveBrokenInlineLinks(
@@ -612,9 +620,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
     required String? spaceId,
   }) async {
     try {
-      await (_db.update(_db.knowledgeEntries)
-            ..where((e) => e.id.equals(itemId)))
-          .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+      await _writer.setSpace([itemId], spaceId);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -631,10 +637,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
     required String? spaceId,
   }) async {
     try {
-      // Un único `UPDATE ... WHERE id IN (...)`, no [itemIds] llamadas
-      // sueltas a [assignSpace]: la misma columna para todos a la vez.
-      await (_db.update(_db.knowledgeEntries)..where((e) => e.id.isIn(itemIds)))
-          .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+      // Una sola transacción para todos, y solo los que de verdad cambian de
+      // espacio suben su versión.
+      await _writer.setSpace(itemIds, spaceId);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -670,6 +675,35 @@ class LibraryRepositoryImpl implements LibraryRepository {
   // ---------------------------------------------------------------------
   // Escritura
   // ---------------------------------------------------------------------
+
+  /// Los ids de las formas de [item] que este guardado crea o cambia: las que
+  /// no están, o están con otro texto —o, si son un archivo, con otra ruta—.
+  ///
+  /// La comparación la hace la base y no trae el texto de vuelta: una
+  /// transcripción puede pesar megabytes y esto corre en cada guardado.
+  Future<List<String>> _changedRenditionIds(KnowledgeItem item) async {
+    final changed = <String>[];
+    for (final rendition in item.renditions) {
+      final query = _db.selectOnly(_db.renditions)
+        ..addColumns([_db.renditions.id])
+        ..where(
+          _db.renditions.id.equals(rendition.renditionId) &
+              _db.renditions.itemId.equals(item.id) &
+              switch (rendition) {
+                TextRendition(:final content) => _db.renditions.content.equals(
+                  content,
+                ),
+                FileRendition(:final relativePath) =>
+                  _db.renditions.relativePath.equals(relativePath),
+              },
+        )
+        ..limit(1);
+      if (await query.getSingleOrNull() == null) {
+        changed.add(rendition.renditionId);
+      }
+    }
+    return changed;
+  }
 
   /// Deja las formas guardadas igual a las del elemento.
   ///
@@ -880,80 +914,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
             ),
           );
     }
-  }
-
-  /// Escribe el elemento: la fila de `item` y, según sea, su `source` o su
-  /// `note`. Desde F10 es lo ÚNICO que se escribe del elemento en sí —antes
-  /// había además una copia en `items`/`sources`, de la que este método era el
-  /// espejo—.
-  ///
-  /// `title`/`subtitle`/`notes`/`spaceId`/`updatedAt` y los campos estructurales
-  /// de `source` se sobreescriben siempre: son un reflejo directo de [item].
-  /// `state` —y, para una nota, `noteKind`/`maturity`, y `contentHash` de una
-  /// fuente— se preservan si ya existían: los escribe otra cosa (la Bandeja,
-  /// `createRelation`, el chunking), nunca este método.
-  Future<void> _upsertEntry(KnowledgeItem item) async {
-    final existingEntry = await (_db.select(
-      _db.knowledgeEntries,
-    )..where((e) => e.id.equals(item.id))).getSingleOrNull();
-
-    final state = nextMirrorState(
-      current: existingEntry?.state,
-      processingState: item.processingState,
-    );
-    final kind = itemKindFor(item.source.kind);
-
-    await _db
-        .into(_db.knowledgeEntries)
-        .insertOnConflictUpdate(
-          KnowledgeEntriesCompanion.insert(
-            id: item.id,
-            title: item.title,
-            subtitle: Value(item.subtitle),
-            notes: Value(item.notes),
-            spaceId: Value(item.spaceId),
-            kind: kind,
-            state: state,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            deviceId: kMirrorDeviceIdPlaceholder,
-          ),
-        );
-
-    if (kind == ItemKind.note) {
-      await _db
-          .into(_db.knowledgeNotes)
-          .insert(
-            KnowledgeNotesCompanion.insert(
-              itemId: item.id,
-              noteKind: NoteKind.living,
-              maturity: NoteMaturity.seed,
-            ),
-            mode: InsertMode.insertOrIgnore,
-          );
-      return;
-    }
-
-    final existingSource = await (_db.select(
-      _db.knowledgeSources,
-    )..where((s) => s.itemId.equals(item.id))).getSingleOrNull();
-
-    await _db
-        .into(_db.knowledgeSources)
-        .insertOnConflictUpdate(
-          KnowledgeSourcesCompanion.insert(
-            itemId: item.id,
-            sourceType: item.source.kind,
-            originUrl: Value(item.source.url),
-            authorName: Value(item.source.authorName),
-            authorUrl: Value(item.source.authorUrl),
-            publishedAt: Value(item.source.publishedAt),
-            capturedAt: item.source.capturedAt,
-            originalBlobPath: Value(item.source.originalFilePath),
-            contentHash: existingSource?.contentHash ?? '',
-            processingStatus: sourceProcessingStatusFor(item.processingState),
-          ),
-        );
   }
 
   // ---------------------------------------------------------------------

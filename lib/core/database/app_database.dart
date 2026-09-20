@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sinapsis/core/database/device_identity.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
 import 'package:sinapsis/core/database/migrations/drop_legacy_model_v19.dart';
 import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.dart';
@@ -84,7 +85,11 @@ part 'app_database.g.dart';
 )
 class AppDatabase extends _$AppDatabase {
   /// Para los tests, que pasan una base en memoria.
-  AppDatabase(super.executor);
+  ///
+  /// [deviceId] es quién escribe en esta base: lo llevan `item.device_id` y
+  /// cada fila de `field_version`. Los tests que no lo necesitan lo dejan en
+  /// [kUnspecifiedDeviceId].
+  AppDatabase(super.executor, {this.deviceId = kUnspecifiedDeviceId});
 
   /// La base real, en el directorio de datos de la app.
   ///
@@ -100,7 +105,7 @@ class AppDatabase extends _$AppDatabase {
   /// dentro de `onUpgrade` ya hay una transacción abierta y `VACUUM INTO` no
   /// puede correr en una. En web no hay archivo que copiar y `native` se
   /// ignora: ahí la migración, al ser transaccional, revierte si falla.
-  AppDatabase.open()
+  AppDatabase.open({required this.deviceId})
     : super(
         driftDatabase(
           name: 'sinapsis',
@@ -111,6 +116,11 @@ class AppDatabase extends _$AppDatabase {
           native: const DriftNativeOptions(setup: _backupBeforeMigrating),
         ),
       );
+
+  /// Quién escribe en esta base: el identificador de esta instalación (ver
+  /// `DeviceIdentity`). Es una propiedad de la CONEXIÓN y no de la base: la
+  /// base viaja entre equipos en una copia, el identificador no.
+  final String deviceId;
 
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y

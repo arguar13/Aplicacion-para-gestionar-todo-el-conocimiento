@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/app.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/database/device_identity.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
@@ -69,6 +71,8 @@ Future<void> bootstrap() async {
       // sola vez, para que `ThemeModeNotifier` pueda leer/guardar la
       // preferencia de tema de forma síncrona el resto del tiempo.
       final prefs = await SharedPreferences.getInstance();
+      // Quién es esta instalación: lo que firma cada cambio que se guarda.
+      final device = await DeviceIdentity.loadOrCreate(prefs);
 
       // Requisito del propio paquete: ninguna otra API de `flutter_gemma`
       // —`installModel`, `hasActiveModel`, `getActiveModel`— funciona sin
@@ -89,6 +93,7 @@ Future<void> bootstrap() async {
             appLoggerProvider.overrideWithValue(logger),
             telemetryServiceProvider.overrideWithValue(telemetry),
             sharedPreferencesProvider.overrideWithValue(prefs),
+            deviceIdentityProvider.overrideWithValue(device),
           ],
           child: const App(),
         ),
