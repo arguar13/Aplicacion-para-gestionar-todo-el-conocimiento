@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -19,6 +20,8 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -28,6 +31,7 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
+import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -775,6 +779,143 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.byTooltip(es.flashcardsViewSource), findsNothing);
+    });
+  });
+
+  group('tarjetas generadas con IA y su cita (F11)', () {
+    /// Un generador de mentira: devuelve los borradores que se le den, con las
+    /// citas que se quieran probar.
+    Future<void> pumpWithDrafts(
+      WidgetTester tester,
+      String id,
+      List<FlashcardDraft> drafts,
+    ) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        harness.wrap(
+          ProviderScope(
+            overrides: [
+              flashcardGeneratorProvider.overrideWithValue(
+                _FakeFlashcardGenerator(drafts),
+              ),
+            ],
+            child: ItemDetailScreen(itemId: id),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<List<FlashcardRow>> cards() =>
+        harness.database.select(harness.database.flashcards).get();
+
+    Future<String> textOf(String id) async {
+      final item =
+          (await harness.container.read(libraryRepositoryProvider).findById(id))
+              .getRight()
+              .toNullable()!;
+      return extractableRendition(item)!.content;
+    }
+
+    Future<void> generateAndSave(WidgetTester tester) async {
+      await tester.tap(find.byTooltip(es.flashcardsGenerateAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.flashcardsSaveSelected));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('una cita que está textual en la fuente deja la tarjeta con su '
+        'fragmento', (tester) async {
+      final id = await captureAndGetId(
+        'Un título\n\n'
+        'Rómulo fundó la ciudad en el 753 a. C., según la tradición.',
+      );
+      final text = await textOf(id);
+      const quote = 'Rómulo fundó la ciudad en el 753 a. C.';
+      await pumpWithDrafts(tester, id, [
+        const FlashcardDraft(front: '¿Quién?', back: 'Rómulo.', quote: quote),
+      ]);
+
+      await generateAndSave(tester);
+
+      final card = (await cards()).single;
+      expect(card.sourceCharStart, text.indexOf(quote));
+      expect(card.sourceCharEnd, text.indexOf(quote) + quote.length);
+      expect(text.substring(card.sourceCharStart!, card.sourceCharEnd), quote);
+    });
+
+    testWidgets('una cita que el modelo cambió no inventa un fragmento: la '
+        'tarjeta se guarda sin él', (tester) async {
+      final id = await captureAndGetId(
+        'Un título\n\n'
+        'Rómulo fundó la ciudad en el 753 a. C., según la tradición.',
+      );
+      await pumpWithDrafts(tester, id, [
+        const FlashcardDraft(
+          front: '¿Quién?',
+          back: 'Rómulo.',
+          quote: 'Rómulo fundó la urbe en el 753 antes de Cristo',
+        ),
+      ]);
+
+      await generateAndSave(tester);
+
+      final card = (await cards()).single;
+      expect(card.front, '¿Quién?');
+      expect(card.sourceCharStart, isNull);
+      expect(card.sourceCharEnd, isNull);
+      expect(card.sourceChunkId, isNull);
+    });
+
+    testWidgets('sin cita, la tarjeta se guarda igual y sin fragmento', (
+      tester,
+    ) async {
+      final id = await captureAndGetId(
+        'Un título\n\nRómulo fundó la ciudad en el 753 a. C.',
+      );
+      await pumpWithDrafts(tester, id, [
+        const FlashcardDraft(front: '¿Quién?', back: 'Rómulo.'),
+      ]);
+
+      await generateAndSave(tester);
+
+      final card = (await cards()).single;
+      expect(card.sourceCharStart, isNull);
+    });
+
+    testWidgets('varias tarjetas: cada una con su propia cita, o sin ella', (
+      tester,
+    ) async {
+      final id = await captureAndGetId(
+        'Un título\n\nPrimera frase de la fuente. Segunda frase de la fuente.',
+      );
+      final text = await textOf(id);
+      await pumpWithDrafts(tester, id, [
+        const FlashcardDraft(
+          front: 'Uno',
+          back: 'a',
+          quote: 'Primera frase de la fuente.',
+        ),
+        const FlashcardDraft(
+          front: 'Dos',
+          back: 'b',
+          quote: 'no está en la fuente',
+        ),
+        const FlashcardDraft(
+          front: 'Tres',
+          back: 'c',
+          quote: '«Segunda frase de la fuente.»',
+        ),
+      ]);
+
+      await generateAndSave(tester);
+
+      final byFront = {for (final c in await cards()) c.front: c};
+      expect(byFront['Uno']!.sourceCharStart, text.indexOf('Primera'));
+      expect(byFront['Dos']!.sourceCharStart, isNull);
+      expect(byFront['Tres']!.sourceCharStart, text.indexOf('Segunda'));
     });
   });
 
@@ -2015,4 +2156,17 @@ void main() {
       expect(find.text(es.globalErrorExportFailed), findsOneWidget);
     });
   });
+}
+
+/// Devuelve siempre los mismos borradores, sin tocar ningún modelo.
+class _FakeFlashcardGenerator implements FlashcardGenerator {
+  _FakeFlashcardGenerator(this.drafts);
+
+  final List<FlashcardDraft> drafts;
+
+  @override
+  Future<List<FlashcardDraft>> generate({
+    required String content,
+    int count = 5,
+  }) async => drafts;
 }

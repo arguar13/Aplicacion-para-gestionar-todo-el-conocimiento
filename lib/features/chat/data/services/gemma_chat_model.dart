@@ -32,7 +32,9 @@ const _flashcardSystemInstruction =
     'estudio con su respuesta a partir del contenido que se te da, '
     'basándote ÚNICAMENTE en ese contenido. Usá EXACTAMENTE este formato, '
     'una pregunta y una respuesta por vez, sin numerar, sin usar Markdown '
-    'ni comillas:\nP: <pregunta>\nR: <respuesta>';
+    'ni comillas:\nP: <pregunta>\nR: <respuesta>\nC: <la frase del '
+    'contenido de la que sale la respuesta, copiada TEXTUALMENTE, sin '
+    'cambiar ni una palabra>';
 
 /// Mismo criterio que `_flashcardSystemInstruction`, para juzgar vínculos en
 /// vez de generar tarjetas: un formato exacto y estricto, para que un

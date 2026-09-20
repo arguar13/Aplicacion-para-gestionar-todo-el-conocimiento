@@ -2100,6 +2100,14 @@
   "@flashcardsViewSource": {
     "description": "Botón de una tarjeta que abre la fuente en el fragmento del que salió."
   },
+  "flashcardsFromSelection": "Crear tarjeta",
+  "@flashcardsFromSelection": {
+    "description": "Acción de la lectura que crea una tarjeta con el fragmento seleccionado."
+  },
+  "flashcardsCreatedFromSelection": "Tarjeta creada",
+  "@flashcardsCreatedFromSelection": {
+    "description": "Aviso tras crear una tarjeta desde la lectura."
+  },
   "flashcardsAddAction": "Agregar tarjeta",
   "@flashcardsAddAction": {
     "description": "Botón para agregar una tarjeta a mano."

@@ -5,8 +5,11 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las tarjetas de repaso de un elemento: la lista, agregar una a mano, y
@@ -25,10 +28,7 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
 
   Future<void> _addManually() async {
     final l10n = AppLocalizations.of(context)!;
-    final result = await showDialog<(String, String)>(
-      context: context,
-      builder: (context) => const _FlashcardEditDialog(),
-    );
+    final result = await showFlashcardEditDialog(context);
     if (result == null || !context.mounted) return;
 
     final (front, back) = result;
@@ -45,7 +45,12 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
 
   Future<void> _generateWithAi() async {
     final l10n = AppLocalizations.of(context)!;
-    final content = widget.item.searchableText.trim();
+    // El mismo texto que abre la lectura —la forma principal que no es de
+    // bloques—: el rango de una cita tiene que ser de ESE texto para que
+    // «Ver en la fuente» caiga en el lugar. Sin él —una nota de bloques—, el
+    // texto que se buscó siempre y sin fragmentos.
+    final sourceText = extractableRendition(widget.item)?.content;
+    final content = (sourceText ?? widget.item.searchableText).trim();
     if (content.isEmpty) {
       _showMessage(l10n.flashcardsNoContentToGenerate);
       return;
@@ -83,10 +88,17 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
 
     final repository = ref.read(flashcardRepositoryProvider);
     for (final draft in accepted) {
+      // La cita la escribió el modelo: solo cuenta como el lugar de la fuente
+      // si está textual. Si no, la tarjeta se guarda igual, sin fragmento.
+      final range = sourceText == null
+          ? null
+          : locateQuote(sourceText, draft.quote);
       await repository.create(
         itemId: widget.item.id,
         front: draft.front,
         back: draft.back,
+        sourceCharStart: range?.start,
+        sourceCharEnd: range?.end,
       );
     }
   }
@@ -190,61 +202,6 @@ class _FlashcardTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FlashcardEditDialog extends StatefulWidget {
-  const _FlashcardEditDialog();
-
-  @override
-  State<_FlashcardEditDialog> createState() => _FlashcardEditDialogState();
-}
-
-class _FlashcardEditDialogState extends State<_FlashcardEditDialog> {
-  final _frontController = TextEditingController();
-  final _backController = TextEditingController();
-
-  @override
-  void dispose() {
-    _frontController.dispose();
-    _backController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return AlertDialog(
-      title: Text(l10n.flashcardsAddAction),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _frontController,
-            autofocus: true,
-            decoration: InputDecoration(hintText: l10n.flashcardsFrontHint),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _backController,
-            decoration: InputDecoration(hintText: l10n.flashcardsBackHint),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).pop((_frontController.text, _backController.text)),
-          child: Text(l10n.detailSave),
-        ),
-      ],
     );
   }
 }

@@ -11,6 +11,8 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -43,6 +45,13 @@ class HighlightableTextController extends ChangeNotifier {
   Future<void> highlightSelection() async {
     if (!hasSelection) return;
     await _state?._highlightSelection(_selection);
+  }
+
+  /// Crea una tarjeta con la selección como respuesta, pidiendo la pregunta. La
+  /// tarjeta guarda de qué fragmento salió. No hace nada sin selección.
+  Future<void> createFlashcardFromSelection() async {
+    if (!hasSelection) return;
+    await _state?._createFlashcardFromSelection(_selection);
   }
 
   /// Lleva la vista al fragmento `[start, end)` del texto —posiciones del
@@ -255,6 +264,47 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
         );
   }
 
+  /// Crea una tarjeta de repaso con el fragmento seleccionado como respuesta
+  /// (F11): la pregunta la escribe la persona, y la tarjeta guarda el rango del
+  /// que salió, para poder volver a él desde el repaso.
+  Future<void> _createFlashcardFromSelection(TextSelection selection) async {
+    // Mismo cuidado que al resaltar: la selección llega en posiciones del
+    // texto renderizado y se guarda contra el contenido crudo.
+    final startOffset = _rendered.renderToRaw(selection.start);
+    final endOffset = _rendered.renderToRaw(selection.end, isEnd: true);
+    if (endOffset <= startOffset) return;
+    final excerpt = widget.content.substring(startOffset, endOffset);
+
+    final answer = await showFlashcardEditDialog(context, initialBack: excerpt);
+    if (answer == null || !mounted) return;
+    final (front, back) = answer;
+
+    final result = await ref
+        .read(flashcardRepositoryProvider)
+        .create(
+          itemId: widget.itemId,
+          front: front,
+          back: back,
+          sourceCharStart: startOffset,
+          sourceCharEnd: endOffset,
+        );
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result.match(
+              (failure) => failure.localizedMessage(l10n),
+              (_) => l10n.flashcardsCreatedFromSelection,
+            ),
+          ),
+        ),
+      );
+  }
+
   /// Agrega "Resaltar" y "Extraer como nota" al menú de selección que
   /// Flutter ya arma para Copiar/Compartir, en vez de dibujar uno propio:
   /// mismo look nativo del resto del menú, y Flutter lo posiciona solo
@@ -282,9 +332,19 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       label: l10n.detailExtractSelection,
     );
 
+    final flashcard = ContextMenuButtonItem(
+      onPressed: () {
+        ContextMenuController.removeAny();
+        unawaited(_createFlashcardFromSelection(selection));
+      },
+      label: l10n.flashcardsFromSelection,
+    );
+
     final buttonItems = [
       if (!selection.isCollapsed)
-        ...widget.extractFirst ? [extract, highlight] : [highlight, extract],
+        ...widget.extractFirst
+            ? [extract, highlight, flashcard]
+            : [highlight, extract, flashcard],
       ...editableTextState.contextMenuButtonItems,
     ];
 

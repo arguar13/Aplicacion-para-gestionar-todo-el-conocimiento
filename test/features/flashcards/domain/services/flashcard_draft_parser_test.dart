@@ -95,4 +95,89 @@ R: Respuesta
   test('una entrada sin ningún formato reconocible no devuelve nada', () {
     expect(parseFlashcardDrafts('esto no tiene ningún formato'), isEmpty);
   });
+
+  group('la cita de la fuente (F11)', () {
+    test('una línea C: después de la respuesta es la cita de la tarjeta', () {
+      const raw = '''
+P: ¿Quién fundó Roma?
+R: Rómulo.
+C: Rómulo fundó la ciudad en el 753 a. C.
+''';
+
+      final drafts = parseFlashcardDrafts(raw);
+
+      expect(drafts, hasLength(1));
+      expect(drafts.single.front, '¿Quién fundó Roma?');
+      expect(drafts.single.back, 'Rómulo.');
+      expect(drafts.single.quote, 'Rómulo fundó la ciudad en el 753 a. C.');
+    });
+
+    test('sin la línea C: la tarjeta queda sin cita, no se pierde', () {
+      final drafts = parseFlashcardDrafts('P: pregunta\nR: respuesta');
+
+      expect(drafts.single.quote, isNull);
+    });
+
+    test(
+      'cada cita va con su tarjeta, también cuando solo algunas la traen',
+      () {
+        const raw = '''
+P: Uno
+R: Respuesta uno
+C: cita uno
+P: Dos
+R: Respuesta dos
+P: Tres
+R: Respuesta tres
+C: cita tres
+''';
+
+        final drafts = parseFlashcardDrafts(raw);
+
+        expect(drafts.map((d) => d.quote), ['cita uno', null, 'cita tres']);
+      },
+    );
+
+    test('una C: suelta, antes de cualquier tarjeta, se ignora', () {
+      final drafts = parseFlashcardDrafts('C: una cita sin tarjeta');
+
+      expect(drafts, isEmpty);
+    });
+
+    test('una C: entre la pregunta y su respuesta no es la cita de nadie', () {
+      const raw = '''
+P: pregunta
+C: cita fuera de lugar
+R: respuesta
+''';
+
+      final drafts = parseFlashcardDrafts(raw);
+
+      expect(drafts.single.front, 'pregunta');
+      expect(drafts.single.back, 'respuesta');
+      expect(drafts.single.quote, isNull);
+    });
+
+    test('una segunda C: para la misma tarjeta no pisa la primera', () {
+      const raw = '''
+P: pregunta
+R: respuesta
+C: la primera
+C: la segunda
+''';
+
+      expect(parseFlashcardDrafts(raw).single.quote, 'la primera');
+    });
+
+    test('una cita en blanco no cuenta', () {
+      expect(parseFlashcardDrafts('P: p\nR: r\nC:   ').single.quote, isNull);
+    });
+
+    test('no distingue mayúsculas en el prefijo', () {
+      expect(
+        parseFlashcardDrafts('p: p\nr: r\nc: la cita').single.quote,
+        'la cita',
+      );
+    });
+  });
 }

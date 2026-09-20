@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -519,6 +520,111 @@ void main() {
       await pumpReading(tester, id);
 
       expect(find.text(es.readingSelectHint), findsNothing);
+    });
+  });
+
+  group('crear una tarjeta con la selección (F11)', () {
+    Future<List<FlashcardRow>> cards() =>
+        harness.database.select(harness.database.flashcards).get();
+
+    testWidgets('con un fragmento seleccionado ofrece crear la tarjeta; sin '
+        'selección no', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+
+      expect(find.byTooltip(es.flashcardsFromSelection), findsNothing);
+
+      await select(tester, 0, 20);
+
+      expect(find.byTooltip(es.flashcardsFromSelection), findsOneWidget);
+    });
+
+    testWidgets('el diálogo trae el fragmento como respuesta: solo falta la '
+        'pregunta', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      await select(tester, 0, 20);
+
+      await tester.tap(find.byTooltip(es.flashcardsFromSelection));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(TextField, essay.substring(0, 20)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('guardar crea la tarjeta con la respuesta y el rango exacto '
+        'del fragmento', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      await select(tester, 0, 20);
+      await tester.tap(find.byTooltip(es.flashcardsFromSelection));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, '¿Qué cayó en 476?');
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      final card = (await cards()).single;
+      expect(card.itemId, id);
+      expect(card.front, '¿Qué cayó en 476?');
+      expect(card.back, essay.substring(0, 20));
+      expect(card.sourceCharStart, 0);
+      expect(card.sourceCharEnd, 20);
+      expect(find.text(es.flashcardsCreatedFromSelection), findsOneWidget);
+    });
+
+    testWidgets('el rango es el del fragmento seleccionado, no el del '
+        'principio', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      final start = essay.indexOf('Párrafo número 3:');
+      await select(tester, start, start + 25);
+
+      await tester.tap(find.byTooltip(es.flashcardsFromSelection));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, '¿Cuál?');
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      final card = (await cards()).single;
+      expect(card.sourceCharStart, start);
+      expect(card.sourceCharEnd, start + 25);
+      expect(
+        essay.substring(card.sourceCharStart!, card.sourceCharEnd),
+        card.back,
+      );
+    });
+
+    testWidgets('cancelar no crea nada', (tester) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      await select(tester, 0, 20);
+      await tester.tap(find.byTooltip(es.flashcardsFromSelection));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(await cards(), isEmpty);
+    });
+
+    testWidgets('una pregunta en blanco no crea la tarjeta y lo avisa', (
+      tester,
+    ) async {
+      final id = await seedSource();
+      await pumpReading(tester, id);
+      await select(tester, 0, 20);
+      await tester.tap(find.byTooltip(es.flashcardsFromSelection));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(await cards(), isEmpty);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text(es.flashcardsCreatedFromSelection), findsNothing);
     });
   });
 

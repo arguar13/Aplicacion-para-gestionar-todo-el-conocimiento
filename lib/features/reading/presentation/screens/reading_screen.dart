@@ -164,6 +164,15 @@ class _SelectionBar extends StatelessWidget {
                     icon: const Icon(Icons.highlight),
                     label: Text(l10n.detailHighlightSelection),
                   ),
+                  const SizedBox(width: 8),
+                  // Solo el ícono: con tres acciones con texto la barra no
+                  // entra en un teléfono. El menú de selección la dice con
+                  // palabras.
+                  IconButton.outlined(
+                    onPressed: controller.createFlashcardFromSelection,
+                    icon: const Icon(Icons.style_outlined),
+                    tooltip: l10n.flashcardsFromSelection,
+                  ),
                 ],
               );
             },

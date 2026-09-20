@@ -2,10 +2,16 @@
 /// pidió tiene que poder revisarla, editarla o descartarla antes de que
 /// exista de verdad.
 class FlashcardDraft {
-  const FlashcardDraft({required this.front, required this.back});
+  const FlashcardDraft({required this.front, required this.back, this.quote});
 
   final String front;
   final String back;
+
+  /// La frase del contenido de la que dice salir la respuesta, tal como la
+  /// escribió el modelo (F11). Es una AFIRMACIÓN del modelo, no un dato:
+  /// nadie sabe todavía si esa frase está de verdad en el texto. Quien la use
+  /// para señalar un lugar tiene que comprobarlo antes con `locateQuote`.
+  final String? quote;
 }
 
 /// Propone tarjetas de estudio a partir del contenido de un elemento,
