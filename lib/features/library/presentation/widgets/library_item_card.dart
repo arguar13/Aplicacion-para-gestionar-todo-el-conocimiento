@@ -11,6 +11,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
+import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
@@ -35,11 +36,21 @@ class LibraryItemCard extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onSelectedChanged,
+    this.citation,
+    this.onCitationTap,
     super.key,
   });
 
   final KnowledgeItem item;
   final VoidCallback onTap;
+
+  /// DÓNDE de la fuente está lo que se buscó, en un resultado de búsqueda:
+  /// el fragmento y el minuto o la página. `null` fuera de una búsqueda, o si
+  /// el resultado coincide solo por su título.
+  final SearchCitation? citation;
+
+  /// Adónde lleva tocar el fragmento: al lugar de la fuente donde está.
+  final VoidCallback? onCitationTap;
 
   /// Punto de entrada al modo de selección múltiple, en las listas donde
   /// existe. `null` en las que no lo ofrecen.
@@ -131,6 +142,13 @@ class LibraryItemCard extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (citation case final citation?) ...[
+                      const SizedBox(height: 6),
+                      _CitationLine(
+                        citation: citation,
+                        onTap: selectionMode ? null : onCitationTap,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -139,6 +157,86 @@ class LibraryItemCard extends StatelessWidget {
               // o "exportar" invitaría a un toque accidental sobre un ítem
               // que se estaba por marcar, no por borrar.
               if (!selectionMode) _ItemMenuButton(item: item),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lo que un resultado de búsqueda dice de DÓNDE está lo encontrado: el minuto
+/// o la página, y el fragmento con la coincidencia resaltada. Tocarlo lleva al
+/// lugar de la fuente.
+class _CitationLine extends StatelessWidget {
+  const _CitationLine({required this.citation, required this.onTap});
+
+  final SearchCitation citation;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final place = citation.timestamp != null
+        ? (Icons.schedule, citation.timestamp!)
+        : citation.pageNumber != null
+        ? (
+            Icons.article_outlined,
+            l10n.searchCitationPage(citation.pageNumber!),
+          )
+        : null;
+
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: colors.onSurfaceVariant,
+    );
+
+    return Tooltip(
+      message: l10n.searchCitationOpen,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (place != null) ...[
+                Icon(place.$1, size: 14, color: colors.primary),
+                const SizedBox(width: 3),
+                Text(
+                  place.$2,
+                  style: style?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: style,
+                    children: [
+                      for (final part in citation.parts)
+                        TextSpan(
+                          text: part.text,
+                          style: part.highlighted
+                              ? TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.onSurface,
+                                  backgroundColor: colors.primaryContainer
+                                      .withValues(alpha: 0.6),
+                                )
+                              : null,
+                        ),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),

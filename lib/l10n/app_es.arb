@@ -1329,6 +1329,19 @@
   "@localGraphPanelOpenFull": {
     "description": "Texto/tooltip del botón que abre LocalGraphScreen desde el panel embebido en el detalle."
   },
+  "searchCitationPage": "p. {page}",
+  "@searchCitationPage": {
+    "description": "En qué página está lo que se encontró, en un resultado de búsqueda.",
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "searchCitationOpen": "Ir al fragmento",
+  "@searchCitationOpen": {
+    "description": "Tooltip del fragmento que un resultado de búsqueda muestra: lleva al lugar de la fuente donde está."
+  },
   "localGraphOmitted": "+{count} más sin mostrar",
   "@localGraphOmitted": {
     "description": "Aviso del grafo local cuando un elemento tiene más vecinos de los que se dibujan: cuántos faltan.",

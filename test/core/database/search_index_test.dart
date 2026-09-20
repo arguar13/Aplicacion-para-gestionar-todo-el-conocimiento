@@ -27,16 +27,16 @@ void main() {
 
     tearDown(() => db.close());
 
-    Future<String> newItem({required String title, String? subtitle}) async {
+    Future<String> newItem({
+      required String title,
+      String? subtitle,
+      SourceKind kind = SourceKind.manualNote,
+    }) async {
       final n = counter++;
       await db
           .into(db.sources)
           .insert(
-            SourcesCompanion.insert(
-              id: 'src-$n',
-              kind: SourceKind.webPage,
-              capturedAt: now,
-            ),
+            SourcesCompanion.insert(id: 'src-$n', kind: kind, capturedAt: now),
           );
       await db
           .into(db.items)
@@ -54,7 +54,14 @@ void main() {
       return 'item-$n';
     }
 
-    Future<String> addText(String itemId, String content) async {
+    /// Una forma de texto. Los elementos de estas pruebas son NOTAS salvo que
+    /// se diga otra cosa: el cuerpo de este índice solo guarda el texto de una
+    /// nota desde F10; el de una fuente lo indexa `chunk_search`.
+    Future<String> addText(
+      String itemId,
+      String content, {
+      RenditionKind kind = RenditionKind.plainText,
+    }) async {
       final id = 'rend-${counter++}';
       await db
           .into(db.renditions)
@@ -62,7 +69,7 @@ void main() {
             RenditionsCompanion.insert(
               id: id,
               itemId: itemId,
-              kind: RenditionKind.plainText,
+              kind: kind,
               isPrimary: true,
               createdAt: now,
               content: Value(content),
@@ -100,9 +107,9 @@ void main() {
     });
 
     test(
-      'agregar una transcripción lo vuelve buscable por su contenido',
+      'agregar el texto de una nota lo vuelve buscable por su contenido',
       () async {
-        final id = await newItem(title: 'Charla sin descripción');
+        final id = await newItem(title: 'Una nota sin título útil');
         expect(await search('paradigma'), isEmpty);
 
         await addText(id, 'Lo que define un paradigma es su capacidad...');
@@ -110,6 +117,24 @@ void main() {
         expect(await search('paradigma'), [id]);
       },
     );
+
+    test('el texto de una FUENTE no está en este índice: lo cubre el de '
+        'chunks, con su minuto o su página', () async {
+      final id = await newItem(
+        title: 'Charla sin descripción',
+        kind: SourceKind.youtube,
+      );
+
+      await addText(
+        id,
+        'Lo que define un paradigma es su capacidad...',
+        kind: RenditionKind.markdown,
+      );
+
+      expect(await search('paradigma'), isEmpty);
+      // El título sigue siendo suyo.
+      expect(await search('charla'), [id]);
+    });
 
     test('cambiar el título actualiza el índice', () async {
       final id = await newItem(title: 'Título provisorio');
@@ -145,10 +170,10 @@ void main() {
       expect(await search('charla'), [id]);
     });
 
-    test('varias formas de texto se buscan todas juntas', () async {
-      final id = await newItem(title: 'Un video con transcripción y resumen');
-      await addText(id, 'la transcripción completa menciona enzimas');
-      await addText(id, 'el resumen menciona catalizadores');
+    test('varias formas de bloques se buscan todas juntas', () async {
+      final id = await newItem(title: 'Una nota en dos partes');
+      await addText(id, 'la primera parte menciona enzimas');
+      await addText(id, 'la segunda menciona catalizadores');
 
       expect(await search('enzimas'), [id]);
       expect(await search('catalizadores'), [id]);

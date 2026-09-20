@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
@@ -25,9 +26,13 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
+import 'package:sinapsis/features/library/data/repositories/chunk_hit_estimate.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
+import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
+import 'package:sinapsis/features/library/domain/services/search_snippet.dart';
 
 class LibraryRepositoryImpl implements LibraryRepository {
   const LibraryRepositoryImpl({
@@ -51,7 +56,13 @@ class LibraryRepositoryImpl implements LibraryRepository {
     /// enterarse.
     IdGenerator ids = const UuidV7Generator(),
     Clock clock = DateTime.now,
-  }) : _db = database,
+
+    /// Cuántos chunks puede tener una palabra para ordenar por relevancia:
+    /// ver [kRankedHitsCap]. Las pruebas lo bajan para ejercitar el otro
+    /// camino sin armar decenas de miles de chunks.
+    int rankedHitsCap = kRankedHitsCap,
+  }) : _rankedHitsCap = rankedHitsCap,
+       _db = database,
        _telemetry = telemetry,
        _files = files,
        _duplicateSuggestionGenerator = duplicateSuggestionGenerator,
@@ -64,6 +75,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
   final DuplicateSuggestionGenerator? _duplicateSuggestionGenerator;
   final IdGenerator _ids;
   final Clock _clock;
+  final int _rankedHitsCap;
 
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
@@ -314,6 +326,192 @@ class LibraryRepositoryImpl implements LibraryRepository {
       if (rows.isEmpty) return null;
       return (await _assemble(rows)).single;
     }, hint: 'LibraryRepositoryImpl.watchById');
+  }
+
+  @override
+  Future<Either<Failure, List<SearchHit>>> search(LibraryQuery query) async {
+    try {
+      return right(await _search(query));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.search'));
+    }
+  }
+
+  @override
+  Stream<List<SearchHit>> watchSearch(LibraryQuery query) => _watching(
+    () => _search(query),
+    hint: 'LibraryRepositoryImpl.watchSearch',
+  );
+
+  /// Los resultados de [query], cada uno con dónde está lo que se encontró.
+  ///
+  /// Si la consulta es de texto puro por relevancia y con página, la página y
+  /// los chunks salen de UNA pasada por el índice: ver
+  /// [LibraryQuerySql.mergedIds]. Con otros filtros, otro orden o una palabra
+  /// que está en casi todo, los resultados se resuelven como siempre y las
+  /// citas se buscan aparte para esos elementos.
+  Future<List<SearchHit>> _search(LibraryQuery query) async {
+    if (!query.hasSearchText) {
+      return [for (final item in await _list(query)) SearchHit(item: item)];
+    }
+    final sql = await _sqlFor(query);
+    if (sql.matchesNothing) return [];
+
+    if (!sql.canMerge) {
+      final items = await _list(query);
+      final citations = await _citationsByRanking(
+        query.searchText!,
+        items.map((i) => i.id),
+      );
+      return [
+        for (final item in items)
+          SearchHit(item: item, citation: citations[item.id]),
+      ];
+    }
+
+    var merged = sql.mergedIds(everyWord: false)!;
+    var rows = await _db
+        .customSelect(merged.sql, variables: merged.variables)
+        .get();
+    // Los elementos que tienen todas las palabras pero en fragmentos distintos
+    // van DESPUÉS de los que las tienen juntas: solo hace falta buscarlos si la
+    // página no se llenó sin ellos.
+    if (sql.hasEveryWordBranch && rows.length < query.limit!) {
+      merged = sql.mergedIds(everyWord: true)!;
+      rows = await _db
+          .customSelect(merged.sql, variables: merged.variables)
+          .get();
+    }
+
+    final ids = [for (final row in rows) row.read<String>('id')];
+    final keys = {
+      for (final row in rows)
+        if (row.readNullable<int>('chunk_key') case final key?)
+          row.read<String>('id'): key,
+    };
+    final items = await _itemsInOrder(ids);
+    final citations = await _citationsFor(query.searchText!, keys);
+    return [
+      for (final item in items)
+        SearchHit(item: item, citation: citations[item.id]),
+    ];
+  }
+
+  /// Las citas de los chunks [keys] —el `row_key` del mejor chunk de cada
+  /// elemento—: su posición y un fragmento con lo buscado resaltado.
+  Future<Map<String, SearchCitation>> _citationsFor(
+    String searchText,
+    Map<String, int> keys,
+  ) async {
+    if (keys.isEmpty) return const {};
+    final terms = searchTerms(searchText);
+    final rows = await _db
+        .customSelect(
+          'SELECT item_id, id AS chunk_id, row_key, char_start, char_end, '
+          'start_ms, end_ms, page_number, content FROM chunks '
+          'WHERE row_key IN (${List.filled(keys.length, '?').join(', ')})',
+          variables: [for (final key in keys.values) Variable.withInt(key)],
+        )
+        .get();
+    return {
+      for (final row in rows)
+        row.read<String>('item_id'): SearchCitation(
+          itemId: row.read<String>('item_id'),
+          chunkId: row.read<String>('chunk_id'),
+          snippet: buildSnippet(row.read<String>('content'), [
+            for (final t in terms) t.term,
+          ]),
+          charStart: row.read<int>('char_start'),
+          charEnd: row.read<int>('char_end'),
+          startMs: row.readNullable<int>('start_ms'),
+          endMs: row.readNullable<int>('end_ms'),
+          pageNumber: row.readNullable<int>('page_number'),
+        ),
+    };
+  }
+
+  /// Las citas de [itemIds] buscando los mejores chunks: para las consultas que
+  /// no se resuelven en una pasada, porque tienen otros filtros o piden otro
+  /// orden.
+  Future<Map<String, SearchCitation>> _citationsByRanking(
+    String searchText,
+    Iterable<String> itemIds,
+  ) async {
+    final ids = itemIds.toSet().toList();
+    final terms = searchTerms(searchText);
+    if (ids.isEmpty || terms.isEmpty) return const {};
+
+    // Se resuelve igual que la búsqueda: ordenando por relevancia, o en una
+    // ventana de los chunks más recientes si la palabra está en casi todo.
+    final plan = await _sqlFor(
+      LibraryQuery(searchText: searchText),
+    ).then((sql) => sql.plan);
+    final match = buildSearchQuery(searchText);
+
+    const columns =
+        'c.item_id AS item_id, c.id AS chunk_id, '
+        'c.char_start AS char_start, c.char_end AS char_end, '
+        'c.start_ms AS start_ms, c.end_ms AS end_ms, '
+        'c.page_number AS page_number, c.content AS content';
+
+    // UNA pasada por los MEJORES chunks, quedándose con el primero de cada
+    // elemento pedido. La versión anterior le preguntaba al índice por cada
+    // chunk de esos elementos y tardaba lo que tardan las coincidencias por
+    // cada uno: dos segundos con una palabra frecuente. Y los mejores chunks
+    // son entre los que la búsqueda eligió a esos elementos, así que el suyo
+    // está ahí: ver [topChunksFor].
+    final wanted = ids.toSet();
+    final rows = plan.windowed
+        ? await _db
+              .customSelect(
+                'SELECT $columns FROM ( '
+                'SELECT chunk_search.rowid AS rid FROM chunk_search '
+                'WHERE chunk_search MATCH ? '
+                'ORDER BY chunk_search.rowid DESC LIMIT ?) w '
+                'JOIN chunks c ON c.row_key = w.rid '
+                'ORDER BY w.rid DESC',
+                variables: [
+                  Variable.withString(match),
+                  Variable.withInt(kSearchWindowChunks),
+                ],
+              )
+              .get()
+        : await _db
+              .customSelect(
+                'SELECT $columns FROM ( '
+                'SELECT chunk_search.rowid AS rid, chunk_search.rank AS s '
+                'FROM chunk_search WHERE chunk_search MATCH ? '
+                'ORDER BY chunk_search.rank LIMIT ?) top '
+                'JOIN chunks c ON c.row_key = top.rid '
+                'ORDER BY top.s',
+                variables: [
+                  Variable.withString(match),
+                  Variable.withInt(topChunksFor(ids.length)),
+                ],
+              )
+              .get();
+
+    final citations = <String, SearchCitation>{};
+    for (final row in rows) {
+      final itemId = row.read<String>('item_id');
+      // Vienen del mejor al peor: el primero de cada elemento es el suyo.
+      if (!wanted.contains(itemId) || citations.containsKey(itemId)) continue;
+      citations[itemId] = SearchCitation(
+        itemId: itemId,
+        chunkId: row.read<String>('chunk_id'),
+        snippet: buildSnippet(row.read<String>('content'), [
+          for (final t in terms) t.term,
+        ]),
+        charStart: row.read<int>('char_start'),
+        charEnd: row.read<int>('char_end'),
+        startMs: row.readNullable<int>('start_ms'),
+        endMs: row.readNullable<int>('end_ms'),
+        pageNumber: row.readNullable<int>('page_number'),
+      );
+    }
+    return citations;
   }
 
   @override
@@ -800,8 +998,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
   // Lectura
   // ---------------------------------------------------------------------
 
-  Future<List<KnowledgeItem>> _list(LibraryQuery query) async {
-    final ids = await _matchingIds(query);
+  Future<List<KnowledgeItem>> _list(LibraryQuery query) async =>
+      _itemsInOrder(await _matchingIds(query));
+
+  /// Los elementos de [ids], armados, en ESE orden.
+  Future<List<KnowledgeItem>> _itemsInOrder(List<String> ids) async {
     if (ids.isEmpty) return [];
 
     final rows = await (_db.select(
@@ -827,7 +1028,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// El filtrado, el orden —también el de relevancia— y la página los
   /// resuelve la base en una sola consulta: ver [LibraryQuerySql].
   Future<List<String>> _matchingIds(LibraryQuery query) async {
-    final sql = LibraryQuerySql(query);
+    final sql = await _sqlFor(query);
     if (sql.matchesNothing) return [];
 
     final ids = sql.ids();
@@ -837,8 +1038,37 @@ class LibraryRepositoryImpl implements LibraryRepository {
     return [for (final row in rows) row.read<String>('id')];
   }
 
+  /// El SQL de [query], decidiendo antes cómo se resuelve su texto: ordenado
+  /// por relevancia, o en una ventana de los chunks más recientes si la palabra
+  /// está en tantos que ordenarla no distingue nada —ver [kRankedHitsCap]—.
+  Future<LibraryQuerySql> _sqlFor(LibraryQuery query) async {
+    if (!query.hasSearchText) return LibraryQuerySql(query);
+    final match = buildSearchQuery(query.searchText!);
+    if (match.isEmpty) {
+      return LibraryQuerySql(query, plan: TextSearchPlan(match: match));
+    }
+    final terms = await estimateTermHits(_db, query.searchText!);
+    final rarest = terms.isEmpty
+        ? 0
+        : terms.map((t) => t.hits).reduce((a, b) => a < b ? a : b);
+    final windowed = rarest > _rankedHitsCap;
+    return LibraryQuerySql(
+      query,
+      plan: TextSearchPlan(
+        match: match,
+        windowed: windowed,
+        termMatches: terms.length < 2
+            ? const []
+            : [
+                for (final t in terms)
+                  if (t.hits <= _rankedHitsCap) t.match,
+              ],
+      ),
+    );
+  }
+
   Future<int> _countMatching(LibraryQuery query) async {
-    final sql = LibraryQuerySql(query);
+    final sql = await _sqlFor(query);
     if (sql.matchesNothing) return 0;
 
     final count = sql.count();

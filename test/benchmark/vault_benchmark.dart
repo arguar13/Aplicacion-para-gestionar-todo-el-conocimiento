@@ -245,8 +245,11 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       check(
         await measure(
           'búsqueda: $label',
-          () => library.list(search(term())),
+          // Lo que hace la pantalla: la página de resultados, cada uno con
+          // dónde está lo que se encontró.
+          () => library.search(search(term())),
           target: 300,
+          runs: 9,
         ),
       );
     });

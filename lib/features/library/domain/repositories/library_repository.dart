@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 
 /// El acceso a todo lo guardado.
 ///
@@ -62,6 +63,21 @@ abstract interface class LibraryRepository {
   /// contarla sería traer megabytes de transcripciones para mostrar un
   /// número.
   Future<Either<Failure, int>> count(LibraryQuery query);
+
+  /// Los resultados de [query] con DÓNDE está lo que se encontró en cada uno:
+  /// el chunk que mejor coincide, con su fragmento y su posición —el minuto, la
+  /// página, los caracteres—.
+  ///
+  /// Aparte de [list] a propósito: la cita sale de la misma pasada por el
+  /// índice que elige y ordena los resultados, en vez de una segunda consulta
+  /// que recorra de nuevo todas las coincidencias. Sin texto buscado, es
+  /// [list] con una cita vacía en cada uno. Un elemento que coincide solo por
+  /// su título o su subtítulo, o cuya coincidencia no está en un chunk —una
+  /// nota—, no trae cita: no hay dónde señalar.
+  Future<Either<Failure, List<SearchHit>>> search(LibraryQuery query);
+
+  /// Lo mismo que [search], emitiendo de nuevo cada vez que algo cambia.
+  Stream<List<SearchHit>> watchSearch(LibraryQuery query);
 
   /// Borra un elemento y todo lo que cuelga de él.
   Future<Either<Failure, Unit>> delete(String id);

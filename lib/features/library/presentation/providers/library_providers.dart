@@ -7,6 +7,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este
@@ -36,6 +37,17 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
 final libraryItemsProvider = StreamProvider.autoDispose
     .family<List<KnowledgeItem>, LibraryQuery>((ref, query) {
       return ref.watch(libraryRepositoryProvider).watch(query);
+    });
+
+/// Los resultados de una búsqueda de texto, cada uno con DÓNDE está lo que se
+/// encontró —el minuto, la página—, actualizándose solos.
+///
+/// Aparte de [libraryItemsProvider] porque trae más: la cita sale de la misma
+/// pasada por el índice que elige los resultados. La pantalla usa este cuando
+/// hay texto buscado, y aquel cuando no.
+final librarySearchProvider = StreamProvider.autoDispose
+    .family<List<SearchHit>, LibraryQuery>((ref, query) {
+      return ref.watch(libraryRepositoryProvider).watchSearch(query);
     });
 
 /// Un elemento concreto, actualizándose solo.

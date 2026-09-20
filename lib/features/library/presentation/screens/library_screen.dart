@@ -15,6 +15,8 @@ import 'package:sinapsis/features/export/domain/entities/notebooklm_export_resul
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
+import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -64,6 +66,10 @@ extension _LibraryViewModePresentation on LibraryViewMode {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  /// DÓNDE está lo encontrado en cada resultado de la búsqueda en curso, por
+  /// id de elemento. Vacío fuera de una búsqueda.
+  Map<String, SearchCitation> _citations = const {};
+
   /// Vacío significa "no está en modo selección", no "seleccionó todo y
   /// después nada". Entrar al modo pasando por acá, y no por un booleano
   /// aparte, evita el estado imposible de "modo activo, pero no se sabe con
@@ -135,7 +141,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
-    final items = ref.watch(libraryItemsProvider(query));
+    // Con texto buscado, los resultados traen DÓNDE está lo encontrado; sin
+    // él, es la lista de siempre.
+    final hits = query.hasSearchText
+        ? ref.watch(librarySearchProvider(query))
+        : null;
+    final items = hits != null
+        ? hits.whenData((found) => [for (final hit in found) hit.item])
+        : ref.watch(libraryItemsProvider(query));
+    _citations = {
+      for (final hit in hits?.valueOrNull ?? const <SearchHit>[])
+        if (hit.citation != null) hit.item.id: hit.citation!,
+    };
     // Se mira acá, no adentro de `_moveSelection`, aunque el único lugar que
     // lo necesita sea ese método: `allSpacesProvider` es `autoDispose`, y en
     // modo selección `_SearchAndFilters` —su otro mirón— ni siquiera está
@@ -259,6 +276,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           child: switch (_viewMode) {
             LibraryViewMode.list => _ItemList(
               items: list,
+              citations: _citations,
               selectionMode: _selectionModeActive,
               selectedIds: _selectedIds,
               onLongPressItem: _enterSelectionMode,
@@ -898,6 +916,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
 class _ItemList extends StatelessWidget {
   const _ItemList({
     required this.items,
+    required this.citations,
     required this.selectionMode,
     required this.selectedIds,
     required this.onLongPressItem,
@@ -905,6 +924,7 @@ class _ItemList extends StatelessWidget {
   });
 
   final List<KnowledgeItem> items;
+  final Map<String, SearchCitation> citations;
   final bool selectionMode;
   final Set<String> selectedIds;
   final ValueChanged<String> onLongPressItem;
@@ -922,8 +942,21 @@ class _ItemList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = items[index];
+        final citation = citations[item.id];
         return LibraryItemCard(
           item: item,
+          citation: citation,
+          // La vista de lectura salta al fragmento: el texto de una fuente y
+          // su transcripción tienen las mismas posiciones que los chunks.
+          onCitationTap: citation == null
+              ? null
+              : () => context.push(
+                  RoutePaths.reading(
+                    item.id,
+                    start: citation.charStart,
+                    end: citation.charEnd,
+                  ),
+                ),
           onTap: () => context.push('${RoutePaths.library}/${item.id}'),
           onLongPress: () => onLongPressItem(item.id),
           selectionMode: selectionMode,

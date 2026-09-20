@@ -120,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 16;
+  static const currentSchemaVersion = 17;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -395,6 +395,15 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+      // Búsqueda por chunks (F10): `item_search` deja de guardar el texto de
+      // las fuentes —lo indexa `chunk_search`, con su minuto o su página— y
+      // queda con título, subtítulo y el texto de las notas. Sin tabla ni
+      // columna nueva de las que drift modela —por eso no hay snapshot de
+      // v17—: solo se rehace el índice. Si no queda con una entrada por
+      // elemento, la migración entera revierte.
+      if (from < 17) {
+        await _rebuildItemSearchIndex();
+      }
     },
     beforeOpen: (details) async {
       // SQLite trae las claves foráneas DESACTIVADAS por defecto, por
@@ -419,6 +428,27 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(createSearchTable);
     for (final trigger in searchTriggers) {
       await customStatement(trigger);
+    }
+  }
+
+  /// Rehace `item_search` con la forma de v17: título, subtítulo y texto de
+  /// las notas. Quita los triggers y la tabla de antes —con el cuerpo de todas
+  /// las formas— y los vuelve a crear.
+  Future<void> _rebuildItemSearchIndex() async {
+    for (final name in searchTriggerNames) {
+      await customStatement('DROP TRIGGER IF EXISTS $name');
+    }
+    await customStatement('DROP TABLE IF EXISTS item_search');
+    await _createSearchIndex();
+    await customStatement(populateItemSearch);
+
+    final indexed = await _count('item_search');
+    final items = await _count('items');
+    if (indexed != items) {
+      throw StateError(
+        'El índice de texto de los elementos quedó con $indexed entradas y '
+        'hay $items elementos.',
+      );
     }
   }
 

@@ -39,17 +39,37 @@ CREATE VIRTUAL TABLE IF NOT EXISTS item_search USING fts5(
 )
 ''';
 
-/// Recalcula el cuerpo buscable de un elemento juntando el texto de todas sus
-/// formas.
+/// Recalcula el cuerpo buscable de un elemento juntando el texto de sus formas
+/// —solo si es una NOTA: una fuente devuelve el texto vacío—.
+///
+/// Solo las notas, desde F10: el texto de una fuente lo indexa `chunk_search`
+/// por chunks —con su minuto o su página—, y guardarlo además acá era el texto
+/// entero de cada fuente repetido en el índice. Una nota, en cambio, no se
+/// fragmenta ni tiene posición que citar, y su texto es corto. Es nota lo que
+/// tiene una fuente de tipo `manualNote`, escrita con bloques o como texto.
 ///
 /// Se repite dentro de varios triggers en vez de vivir en una función porque
 /// SQLite no tiene funciones definidas por el usuario en SQL puro. Es la única
 /// duplicación del archivo y está aislada acá para que cambiarla sea cambiar
 /// un solo lugar.
+///
+/// Los alias de adentro (`ni`, `ns`) NO son `i` ni `s` a propósito: se usa
+/// desde `INSERT ... SELECT ... FROM items i`, y un `i` repetido adentro
+/// taparía al de afuera y haría que la condición fuera verdad para cualquier
+/// elemento.
 const _bodyOf = '''
-(SELECT COALESCE(GROUP_CONCAT(content, char(10)), '')
-   FROM renditions
-  WHERE item_id = %ID% AND content IS NOT NULL)''';
+(SELECT COALESCE(GROUP_CONCAT(r.content, char(10)), '')
+   FROM renditions r
+  WHERE r.item_id = %ID% AND r.content IS NOT NULL
+    AND EXISTS (SELECT 1 FROM items ni JOIN sources ns ON ns.id = ni.source_id
+                 WHERE ni.id = %ID% AND ns.kind = 'manualNote'))''';
+
+/// Si el elemento [idExpression] es una nota: la condición de los triggers de
+/// las formas, para no reescribir la fila de una fuente por cada forma que se
+/// guarda.
+String _isNote(String idExpression) => '''
+EXISTS (SELECT 1 FROM items ni JOIN sources ns ON ns.id = ni.source_id
+         WHERE ni.id = $idExpression AND ns.kind = 'manualNote')''';
 
 String _body(String idExpression) => _bodyOf.replaceAll('%ID%', idExpression);
 
@@ -60,7 +80,9 @@ String _body(String idExpression) => _bodyOf.replaceAll('%ID%', idExpression);
 /// - `items` da título y subtítulo, y marca el alta y la baja de la fila del
 ///   índice.
 /// - `renditions` da el cuerpo. Cada vez que se agrega, cambia o borra una
-///   forma, se recalcula el texto del elemento al que pertenece.
+///   forma de una NOTA, se recalcula el texto del elemento al que pertenece;
+///   las de una fuente no lo tocan, así que guardar una fuente no reescribe su
+///   fila del índice por cada forma.
 ///
 /// El caso de borrado de una rendition merece atención: el trigger usa
 /// `OLD.item_id`, y si el borrado vino en cascada porque se borró el elemento
@@ -87,23 +109,45 @@ CREATE TRIGGER IF NOT EXISTS items_search_ad AFTER DELETE ON items BEGIN
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS renditions_search_ai AFTER INSERT ON renditions BEGIN
+CREATE TRIGGER IF NOT EXISTS renditions_search_ai AFTER INSERT ON renditions
+WHEN ${_isNote('NEW.item_id')} BEGIN
   UPDATE item_search SET body = ${_body('NEW.item_id')}
    WHERE item_id = NEW.item_id;
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS renditions_search_au AFTER UPDATE ON renditions BEGIN
+CREATE TRIGGER IF NOT EXISTS renditions_search_au AFTER UPDATE ON renditions
+WHEN ${_isNote('NEW.item_id')} BEGIN
   UPDATE item_search SET body = ${_body('NEW.item_id')}
    WHERE item_id = NEW.item_id;
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS renditions_search_ad AFTER DELETE ON renditions BEGIN
+CREATE TRIGGER IF NOT EXISTS renditions_search_ad AFTER DELETE ON renditions
+WHEN ${_isNote('OLD.item_id')} BEGIN
   UPDATE item_search SET body = ${_body('OLD.item_id')}
    WHERE item_id = OLD.item_id;
 END''',
 ];
+
+/// Los triggers de [searchTriggers], por nombre: la migración a v17 los quita
+/// antes de rehacer el índice.
+const searchTriggerNames = <String>[
+  'items_search_ai',
+  'items_search_au',
+  'items_search_ad',
+  'renditions_search_ai',
+  'renditions_search_au',
+  'renditions_search_ad',
+];
+
+/// Puebla `item_search` desde cero, como lo habrían hecho los triggers fila por
+/// fila: título, subtítulo y el texto de las notas de cada elemento.
+final populateItemSearch =
+    '''
+INSERT INTO item_search (item_id, title, subtitle, body)
+SELECT i.id, i.title, COALESCE(i.subtitle, ''), ${_body('i.id')}
+  FROM items i''';
 
 /// El índice de texto de los CHUNKS de las fuentes (F10).
 ///
@@ -184,20 +228,27 @@ const rebuildChunkSearch =
 /// ningún carácter tiene significado especial— y agregarle `*` al final para
 /// que la búsqueda encuentre resultados mientras se escribe: "filos" ya
 /// encuentra "filosofía", sin esperar a terminar la palabra.
-String buildSearchQuery(String rawInput) {
-  final terms = rawInput
-      .split(RegExp(r'\s+'))
-      .map((term) => term.trim())
-      // Las comillas dobles son lo único que puede romper un literal entre
-      // comillas; en FTS5 se escapan duplicándolas.
-      .map((term) => term.replaceAll('"', '""'))
-      .where((term) => term.isNotEmpty)
-      .toList();
+String buildSearchQuery(String rawInput) =>
+    searchTerms(rawInput).map((t) => t.match).join(' ');
 
-  if (terms.isEmpty) return '';
-
+/// Las palabras que escribió el usuario, cada una con la forma en que se le
+/// pasa a FTS5 —entre comillas y con prefijo—.
+///
+/// Se necesitan por separado, no solo unidas por [buildSearchQuery]: la
+/// búsqueda por chunks también pregunta por cada palabra sola, para encontrar
+/// los elementos que las tienen todas aunque estén en fragmentos distintos.
+List<({String term, String match})> searchTerms(String rawInput) {
+  final terms = <({String term, String match})>[];
+  for (final piece in rawInput.split(RegExp(r'\s+'))) {
+    final term = piece.trim();
+    if (term.isEmpty) continue;
+    // Las comillas dobles son lo único que puede romper un literal entre
+    // comillas; en FTS5 se escapan duplicándolas.
+    final escaped = term.replaceAll('"', '""');
+    terms.add((term: term, match: '"$escaped"*'));
+  }
   // Se unen con AND implícito (el comportamiento por defecto de FTS5): quien
   // escribe dos palabras espera lo que tenga las dos, no lo que tenga
   // cualquiera de ellas.
-  return terms.map((term) => '"$term"*').join(' ');
+  return terms;
 }

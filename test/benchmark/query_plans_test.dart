@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
@@ -184,4 +185,39 @@ void main() {
       expect(plan, isNot(contains('SCAN $table')), reason: plan);
     }
   });
+
+  test(
+    'la búsqueda con citas pide los mejores chunks al índice SOLO y recién '
+    'después los une con chunks: no una búsqueda por cada coincidencia',
+    () async {
+      final sql = LibraryQuerySql(
+        LibraryQuery(
+          searchText: vault.mediumTerm,
+          sortBy: LibrarySort.relevance,
+          limit: 50,
+        ),
+        plan: TextSearchPlan(match: buildSearchQuery(vault.mediumTerm)),
+      );
+      final merged = sql.mergedIds(everyWord: false)!;
+
+      // El corte por relevancia es parte de la consulta al índice, no de la
+      // unión: la unión va sobre un `LIMIT`, sobre el resultado del corte.
+      expect(
+        merged.sql,
+        contains('ORDER BY chunk_search.rank LIMIT ?) top JOIN chunks'),
+      );
+
+      final rows = await db
+          .customSelect(
+            'EXPLAIN QUERY PLAN ${merged.sql}',
+            variables: merged.variables,
+          )
+          .get();
+      final plan = rows.map((r) => r.read<String>('detail')).join('\n');
+      expect(plan, contains('VIRTUAL TABLE INDEX'), reason: plan);
+      for (final table in ['items', 'sources', 'chunks']) {
+        expect(plan, isNot(contains('SCAN $table')), reason: plan);
+      }
+    },
+  );
 }

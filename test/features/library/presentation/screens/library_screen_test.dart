@@ -1,9 +1,18 @@
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -15,7 +24,9 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -451,6 +462,145 @@ void main() {
       await pumpLibrary(tester);
 
       expect(find.text(es.spacesNewAction), findsOneWidget);
+    });
+  });
+
+  group('la búsqueda dice DÓNDE está lo encontrado (F10)', () {
+    final now = DateTime(2026, 9, 19, 10);
+
+    /// Guarda una fuente con su texto por el repositorio, como lo hace la app:
+    /// `save()` la fragmenta, y de esos chunks sale la cita.
+    Future<KnowledgeItem> saveSource(
+      String title,
+      String text, {
+      SourceKind kind = SourceKind.youtube,
+    }) async {
+      final item = KnowledgeItem(
+        id: 'fuente-${title.hashCode}',
+        title: title,
+        source: Source(
+          id: 'src-${title.hashCode}',
+          kind: kind,
+          capturedAt: now,
+          url: 'https://ejemplo.org/${title.hashCode}',
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+        renditions: [
+          Rendition.text(
+            id: 'rend-${title.hashCode}',
+            itemId: 'fuente-${title.hashCode}',
+            kind: RenditionKind.markdown,
+            content: text,
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+      );
+      final result = await harness.container
+          .read(libraryRepositoryProvider)
+          .save(item);
+      return result.getRight().toNullable()!;
+    }
+
+    const transcript =
+        '[00:00] Introducción al tema de hoy.\n'
+        '[00:30] Seguimos con la introducción.\n'
+        '[01:20] Aquí hablamos del paradigma científico.\n'
+        '[02:10] Y cerramos con las conclusiones.';
+
+    testWidgets('una transcripción muestra el minuto y el fragmento con lo '
+        'buscado', (tester) async {
+      await saveSource('Charla grabada', transcript);
+      await pumpLibrary(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'paradigma');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Charla grabada'), findsOneWidget);
+      expect(find.byIcon(Icons.schedule), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Text && RegExp(r'^\d+:\d{2}$').hasMatch(w.data ?? ''),
+        ),
+        findsOneWidget,
+      );
+      // Dentro de la tarjeta: el texto de la búsqueda, arriba, también lo dice.
+      expect(
+        find.descendant(
+          of: find.byType(LibraryItemCard),
+          matching: find.textContaining('paradigma', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('lo que solo coincide por el título no muestra fragmento', (
+      tester,
+    ) async {
+      await saveSource('Sobre el paradigma', 'Sin nada relacionado.');
+      await pumpLibrary(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'paradigma');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sobre el paradigma'), findsOneWidget);
+      expect(find.byIcon(Icons.schedule), findsNothing);
+      expect(find.byTooltip(es.searchCitationOpen), findsNothing);
+    });
+
+    testWidgets('sin texto buscado no hay fragmentos', (tester) async {
+      await saveSource('Charla grabada', transcript);
+      await pumpLibrary(tester);
+
+      expect(find.text('Charla grabada'), findsOneWidget);
+      expect(find.byTooltip(es.searchCitationOpen), findsNothing);
+    });
+
+    testWidgets('una fuente con página la cita con su número', (tester) async {
+      final item = await saveSource(
+        'Un documento',
+        'El paradigma, en la página.',
+        kind: SourceKind.document,
+      );
+      final db = harness.container.read(appDatabaseProvider);
+      await (db.update(db.chunks)..where((c) => c.itemId.equals(item.id)))
+          .write(const ChunksCompanion(pageNumber: Value(34)));
+      await pumpLibrary(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'paradigma');
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.searchCitationPage(34)), findsOneWidget);
+    });
+
+    testWidgets('tocar el fragmento abre la vista de lectura en ese '
+        'fragmento', (tester) async {
+      await saveSource('Charla grabada', transcript);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'paradigma');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(es.searchCitationOpen));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ReadingScreen), findsOneWidget);
+    });
+
+    testWidgets('tocar la fila, fuera del fragmento, sigue abriendo el '
+        'detalle', (tester) async {
+      await saveSource('Charla grabada', transcript);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'paradigma');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Charla grabada'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ItemDetailScreen), findsOneWidget);
     });
   });
 
