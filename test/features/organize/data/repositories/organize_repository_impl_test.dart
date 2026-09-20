@@ -671,6 +671,104 @@ void main() {
       expect(await queue.next, hasLength(1));
     });
 
+    group('el otro elemento sale del modelo nuevo (F10)', () {
+      test('su título y su tipo de fuente vienen de item y de source, no de '
+          'las tablas viejas', () async {
+        final a = await seedItem();
+        final b = await seedItem(title: 'Título de antes');
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.relatedTo,
+        );
+
+        // Se cambia SOLO el modelo nuevo: si la lectura saliera del viejo, no
+        // se vería.
+        await (db.update(db.knowledgeEntries)..where((e) => e.id.equals(b.id)))
+            .write(const KnowledgeEntriesCompanion(title: Value('De ahora')));
+        await (db.update(
+          db.knowledgeSources,
+        )..where((s) => s.itemId.equals(b.id))).write(
+          const KnowledgeSourcesCompanion(
+            sourceType: Value(SourceKind.document),
+          ),
+        );
+
+        final relation =
+            (await repository.watchRelationsForItem(a.id).first).single;
+        expect(relation.otherItemTitle, 'De ahora');
+        expect(relation.otherItemSourceKind, SourceKind.document);
+      });
+
+      test('una nota no tiene fila de fuente y sigue apareciendo vinculada, '
+          'como nota', () async {
+        final source = await seedItem();
+        final note = (await libraryRepository.save(
+          KnowledgeItem(
+            id: 'una-nota',
+            title: 'Mi nota',
+            source: Source(
+              id: 'src-una-nota',
+              kind: SourceKind.manualNote,
+              capturedAt: now,
+            ),
+            processingState: ProcessingState.ready,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        )).getRight().toNullable()!;
+        expect(
+          await (db.select(
+            db.knowledgeSources,
+          )..where((s) => s.itemId.equals(note.id))).get(),
+          isEmpty,
+        );
+        await repository.createRelation(
+          fromItemId: source.id,
+          toItemId: note.id,
+          kind: RelationKind.relatedTo,
+        );
+        await repository.createRelation(
+          fromItemId: note.id,
+          toItemId: source.id,
+          kind: RelationKind.extractedFrom,
+        );
+
+        final fromSource =
+            (await repository.watchRelationsForItem(source.id).first)
+                .firstWhere((r) => r.otherItemId == note.id);
+        expect(fromSource.otherItemTitle, 'Mi nota');
+        expect(fromSource.otherItemSourceKind, SourceKind.manualNote);
+
+        // Y al revés: la nota es la que mira, y lo que aparece es la fuente.
+        final fromNote = (await repository.watchRelationsForItem(note.id).first)
+            .firstWhere((r) => r.otherItemId == source.id);
+        expect(fromNote.otherItemSourceKind, SourceKind.webPage);
+      });
+
+      test(
+        'se actualiza sola cuando cambia el título del otro elemento',
+        () async {
+          final a = await seedItem();
+          final b = await seedItem(title: 'Título de antes');
+          await repository.createRelation(
+            fromItemId: a.id,
+            toItemId: b.id,
+            kind: RelationKind.relatedTo,
+          );
+          final queue = StreamQueue(repository.watchRelationsForItem(a.id));
+          addTearDown(queue.cancel);
+          expect((await queue.next).single.otherItemTitle, 'Título de antes');
+
+          await (db.update(db.knowledgeEntries)
+                ..where((e) => e.id.equals(b.id)))
+              .write(const KnowledgeEntriesCompanion(title: Value('De ahora')));
+
+          expect((await queue.next).single.otherItemTitle, 'De ahora');
+        },
+      );
+    });
+
     group('todos los vínculos', () {
       test('trae los de toda la bóveda, no de un elemento', () async {
         final a = await seedItem();

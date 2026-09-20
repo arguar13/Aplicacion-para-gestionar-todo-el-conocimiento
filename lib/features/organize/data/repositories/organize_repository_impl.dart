@@ -18,6 +18,7 @@ import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -335,7 +336,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   Stream<List<ItemRelation>> watchRelationsForItem(String itemId) {
     return watchQuery(
       db: _db,
-      tables: [_db.relations, _db.items, _db.sources],
+      tables: [_db.relations, _db.knowledgeEntries, _db.knowledgeSources],
       read: () async {
         final outgoing = await _relationsQuery(
           itemId: itemId,
@@ -375,16 +376,23 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         : _db.relations.fromItemId;
 
     final query = _db.select(_db.relations).join([
-      innerJoin(_db.items, _db.items.id.equalsExp(otherColumn)),
-      innerJoin(_db.sources, _db.sources.id.equalsExp(_db.items.sourceId)),
+      innerJoin(
+        _db.knowledgeEntries,
+        _db.knowledgeEntries.id.equalsExp(otherColumn),
+      ),
+      // Una nota no tiene fila de fuente: por eso `LEFT`.
+      leftOuterJoin(
+        _db.knowledgeSources,
+        _db.knowledgeSources.itemId.equalsExp(_db.knowledgeEntries.id),
+      ),
     ])..where(ownColumn.equals(itemId));
 
     final rows = await query.get();
 
     return rows.map((row) {
       final relation = row.readTable(_db.relations);
-      final otherItem = row.readTable(_db.items);
-      final otherSource = row.readTable(_db.sources);
+      final otherItem = row.readTable(_db.knowledgeEntries);
+      final otherSource = row.readTableOrNull(_db.knowledgeSources);
 
       return ItemRelation(
         relationId: relation.id,
@@ -394,7 +402,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         note: relation.note,
         otherItemId: otherItem.id,
         otherItemTitle: otherItem.title,
-        otherItemSourceKind: otherSource.kind,
+        otherItemSourceKind: otherSource?.sourceType ?? SourceKind.manualNote,
         sourceCharStart: relation.sourceCharStart,
         sourceCharEnd: relation.sourceCharEnd,
       );
