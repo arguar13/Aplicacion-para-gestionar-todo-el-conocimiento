@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_group_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las propiedades que el modelo sugirió para una fuente, como chips que se
@@ -12,6 +15,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// sugerencias *pendientes*, así que la que se acaba de aceptar dejaría de
 /// llegar y el chip desaparecería sin dejar volver atrás. Por eso se guardan
 /// las que se vieron mientras la tarjeta estuvo abierta.
+///
+/// Debajo de los chips, si otros elementos tienen la misma sugerencia, la
+/// oferta de revisarlos juntos: «14 elementos más parecen ser `Región: Roma`».
+/// Abre una hoja sobre la tarjeta —no una pantalla—, así que quien está triando
+/// no sale de la Bandeja, y la oferta sigue ahí después de aceptar el chip de
+/// esta fuente: aceptar una no es un motivo para no querer las demás.
 ///
 /// Es una tarjeta por fuente: quien lo usa le pone una `key` por elemento, así
 /// lo visto y lo aceptado no pasa de una fuente a la siguiente.
@@ -72,10 +81,35 @@ class _SuggestedPropertyChipsState
     });
   }
 
+  /// Cuántos elementos —sin contar el de esta tarjeta— tienen una sugerencia
+  /// del mismo grupo que [suggestion], y el grupo. El grupo es el que arma la
+  /// revisión en lote: la misma categoría y el mismo valor sin distinguir
+  /// mayúsculas ni acentos.
+  ({int count, PropertySuggestionGroup group})? _othersLike(
+    PropertySuggestion suggestion,
+    List<PropertySuggestionGroup> groups,
+  ) {
+    final normalized = normalizeVocabularyLabel(suggestion.value);
+    for (final group in groups) {
+      if (group.definitionId != suggestion.definitionId ||
+          group.normalizedValue != normalized) {
+        continue;
+      }
+      final count = group.suggestions
+          .where((s) => s.targetItemId != widget.itemId)
+          .length;
+      return count == 0 ? null : (count: count, group: group);
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final groups =
+        ref.watch(pendingPropertySuggestionGroupsProvider).valueOrNull ??
+        const <PropertySuggestionGroup>[];
 
     for (final suggestion
         in (ref.watch(pendingSuggestionsProvider(widget.itemId)).valueOrNull ??
@@ -112,6 +146,28 @@ class _SuggestedPropertyChipsState
                 ),
             ],
           ),
+          for (final suggestion in _seen.values)
+            if (_othersLike(suggestion, groups) case final offer?)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: ValueKey('suggested-more-${suggestion.id}'),
+                  icon: const Icon(Icons.checklist),
+                  label: Text(
+                    l10n.inboxSuggestionMore(
+                      offer.count,
+                      suggestion.definitionName,
+                      offer.group.value,
+                    ),
+                  ),
+                  onPressed: () => showPropertySuggestionGroupSheet(
+                    context,
+                    definitionId: suggestion.definitionId,
+                    normalizedValue: offer.group.normalizedValue,
+                    excludeItemId: widget.itemId,
+                  ),
+                ),
+              ),
         ],
       ),
     );

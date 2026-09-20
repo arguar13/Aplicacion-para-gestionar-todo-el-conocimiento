@@ -2918,6 +2918,21 @@
   "@inboxSuggestedProperties": {
     "description": "Encabezado de los chips de propiedades sugeridas en la tarjeta de la Bandeja."
   },
+  "inboxSuggestionMore": "{count, plural, =1{1 more item looks like {definition}: {value}} other{{count} more items look like {definition}: {value}}}",
+  "@inboxSuggestionMore": {
+    "description": "Oferta en la tarjeta de la Bandeja: cuántos otros elementos tienen la misma sugerencia de propiedad; abre la revisión de ese grupo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "definition": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "readingOpenAction": "Read to distill",
   "@readingOpenAction": {
     "description": "Botón del detalle que abre la vista de lectura para sacar notas de la fuente."

@@ -13,6 +13,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// pantalla del lote y la hoja de la Bandeja, así que las dos avisan y
 /// deshacen igual.
 ///
+/// Con [onFailure] un fallo se cuenta ahí, con su texto, en vez de con un
+/// aviso: la hoja de la Bandeja lo muestra adentro, porque la barrera de una
+/// hoja modal tapa los avisos de la pantalla de abajo.
+///
 /// Lo que necesita del contexto —el aviso, los textos— se toma ANTES de
 /// esperar: la pantalla que lo pidió puede haberse cerrado cuando termine, y el
 /// «Deshacer» tiene que seguir andando en la que quedó abajo.
@@ -21,6 +25,7 @@ Future<int?> applyPropertySuggestionBatch({
   required SuggestionRepository repository,
   required List<String> ids,
   required bool accept,
+  void Function(String message)? onFailure,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
@@ -32,9 +37,12 @@ Future<int?> applyPropertySuggestionBatch({
   messenger.hideCurrentSnackBar();
   final failure = result.getLeft().toNullable();
   if (failure != null) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(failure.localizedMessage(l10n))),
-    );
+    final message = failure.localizedMessage(l10n);
+    if (onFailure != null) {
+      onFailure(message);
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
     return null;
   }
 

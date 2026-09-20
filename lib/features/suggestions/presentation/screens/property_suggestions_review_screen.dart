@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_action_bar.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_batch_actions.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_group_tile.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -106,7 +107,7 @@ class _PropertySuggestionsReviewScreenState
                     ),
                   ),
                   if (selected.isNotEmpty)
-                    _ActionBar(
+                    PropertySuggestionActionBar(
                       count: selected.length,
                       busy: _busy,
                       onAccept: () => _apply(selected.toList(), accept: true),
@@ -114,53 +115,6 @@ class _PropertySuggestionsReviewScreenState
                     ),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.count,
-    required this.busy,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  final int count;
-  final bool busy;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Material(
-      elevation: 3,
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: busy ? null : onReject,
-                  child: Text(l10n.suggestionReviewReject(count)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: busy ? null : onAccept,
-                  child: Text(l10n.suggestionReviewAccept(count)),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
