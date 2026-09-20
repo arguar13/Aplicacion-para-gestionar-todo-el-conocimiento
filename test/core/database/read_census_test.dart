@@ -29,6 +29,10 @@ void main() {
         'migración: opera sobre toda la base',
     'lib/core/database/migrations/repoint_item_references_v18.dart':
         'migración: opera sobre toda la base',
+    'lib/features/vault/data/merge/vault_merge_reader.dart':
+        'la vista previa de una fusión cuenta TODOS los elementos de la copia, '
+        'también los que están en su papelera: un elemento borrado viaja con '
+        'su borrado, y no es una pantalla que se le muestre al usuario',
   };
 
   /// Lo que cuenta como «decidí qué hacer con lo borrado».
@@ -41,6 +45,9 @@ void main() {
     expect(readsItem('await _db.select(_db.knowledgeEntries).get();'), isTrue);
     expect(readsItem('SELECT id FROM item WHERE x = 1'), isTrue);
     expect(readsItem('... JOIN item ON item.id = c.item_id'), isTrue);
+    // Nombrando la base: la fusión lee `main.item` con otra adjuntada.
+    expect(readsItem('SELECT 1 FROM main.item m WHERE m.id = 1'), isTrue);
+    expect(readsItem('SELECT 1 FROM incoming.item i'), isFalse);
     expect(readsItem('await _db.select(_db.flashcards).get();'), isFalse);
     expect(readsItem('SELECT * FROM item_search WHERE x'), isFalse);
     expect(readsItem('SELECT * FROM item_property_values'), isFalse);
@@ -103,7 +110,10 @@ bool readsItem(String source) {
 
 final _tableGetter = RegExp(r'\bknowledgeEntries\b');
 
-final _rawSql = RegExp(r'\b(?:FROM|JOIN)\s+item(?![\w])', caseSensitive: false);
+final _rawSql = RegExp(
+  r'\b(?:FROM|JOIN)\s+(?:main\.)?item(?![\w])',
+  caseSensitive: false,
+);
 
 /// Sin los comentarios: leer algo «en teoría» no es leerlo.
 String _withoutComments(String source) => source

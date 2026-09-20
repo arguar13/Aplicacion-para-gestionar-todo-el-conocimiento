@@ -7,7 +7,8 @@ part 'vault_merge_preview.freezed.dart';
 ///
 /// Es una vista previa en seco: se calcula leyendo las dos bases, sin escribir
 /// ninguna. Lo que muestra son las novedades que traería la copia —lo que esta
-/// bóveda no tiene—; fusionar nunca borra nada de lo que ya hay.
+/// bóveda no tiene y los campos que la copia cambió con más derecho—; fusionar
+/// nunca borra nada de lo que ya hay.
 @freezed
 sealed class VaultMergePreview with _$VaultMergePreview {
   const factory VaultMergePreview({
@@ -22,6 +23,14 @@ sealed class VaultMergePreview with _$VaultMergePreview {
 
     /// Los que las dos bóvedas tienen.
     required int commonItems,
+
+    /// De esos, cuántos cambiarían y cuántos campos en total: los que la copia
+    /// modificó partiendo de la versión de esta bóveda, o los que nadie había
+    /// modificado acá. Los conflictos aparte: son campos modificados en las
+    /// dos bóvedas a la vez, y se guardan para que el usuario los revise.
+    @Default(0) int itemsToUpdate,
+    @Default(0) int fieldsToUpdate,
+    @Default(0) int conflicts,
 
     /// Lo que cuelga de los elementos y esta bóveda no tiene.
     @Default(0) int newRelations,
@@ -44,6 +53,8 @@ sealed class VaultMergePreview with _$VaultMergePreview {
   /// Si la copia no trae nada que esta bóveda no tenga.
   bool get hasNothingNew =>
       newItems == 0 &&
+      fieldsToUpdate == 0 &&
+      conflicts == 0 &&
       newRelations == 0 &&
       newHighlights == 0 &&
       newFlashcards == 0 &&

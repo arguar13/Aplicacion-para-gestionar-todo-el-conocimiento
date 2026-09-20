@@ -35,6 +35,10 @@ void main() {
         'con el dispositivo del espejo (todavía no había identidad)',
     'lib/core/database/migrations/backfill_chunks_v16.dart':
         'migración v16: content_hash de las fuentes que ya tenían texto',
+    'lib/features/vault/data/merge/entry_merge_applier.dart':
+        'la fusión de bóvedas aplica versiones AJENAS que ya traen su linaje: '
+        'copia las filas y su field_version tal como vienen; pasarlas por el '
+        'escritor les pondría el dispositivo de acá y perdería de qué partían',
   };
 
   test('el detector ve las tres formas de escribir', () {
@@ -80,6 +84,20 @@ void main() {
       ),
       isNotEmpty,
     );
+    // También la que nombra la base: la fusión escribe `main.item` con otra
+    // adjuntada, y un detector que solo mirara `item` no la vería.
+    for (final sql in [
+      'UPDATE main.item SET x = 1',
+      'INSERT INTO main.note (a) VALUES (1)',
+      'INSERT OR REPLACE INTO main.source (a) VALUES (1)',
+      'DELETE FROM main.item WHERE 1',
+    ]) {
+      expect(
+        writesOfKnowledgeRows("await db.customStatement('$sql');"),
+        isNotEmpty,
+        reason: sql,
+      );
+    }
   });
 
   test('y no confunde una lectura, un comentario ni otra tabla', () {
@@ -100,6 +118,9 @@ void main() {
         await _db.into(_db.relations).insert(x);
         await db.customStatement('INSERT INTO item_search(x) VALUES (1)');
         await db.customStatement('UPDATE item_property_values SET a = 1');
+        await db.customStatement('INSERT INTO main.field_version (a) VALUES (1)');
+        await db.customStatement('UPDATE main.spaces SET name = 1');
+        await db.customStatement('UPDATE incoming.item SET a = 1 WHERE 0');
         '''),
       isEmpty,
     );
@@ -165,7 +186,7 @@ final _companion = RegExp(
 /// `item_property_values`—.
 final _rawSql = RegExp(
   r'(?:\bUPDATE|\bINSERT(?:\s+OR\s+\w+)?\s+INTO|\bDELETE\s+FROM|'
-  r'\bREPLACE\s+INTO)\s+"?(?:item|note|source)"?(?![\w])',
+  r'\bREPLACE\s+INTO)\s+"?(?:main\.)?(?:item|note|source)"?(?![\w])',
   caseSensitive: false,
 );
 

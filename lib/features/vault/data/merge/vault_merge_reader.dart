@@ -2,15 +2,20 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 
 /// Lee una copia de otra bóveda contra ESTA y dice qué traería (F11).
 ///
 /// La vista previa en seco de una fusión: solo lee las dos bases, con la de la
-/// copia adjuntada a la conexión de esta, y no escribe ninguna. Lo hace en
-/// SQL y no trayendo las filas a Dart: una bóveda de diez mil elementos se
-/// cuenta en milisegundos, y sus textos no pasan por la memoria.
+/// copia adjuntada a la conexión de esta, y no escribe ninguna. Cuenta en SQL
+/// y no trayendo las filas a Dart: una bóveda de diez mil elementos se cuenta
+/// en milisegundos, y sus textos no pasan por la memoria. Los campos que
+/// cambiarían los decide el mismo planificador que usa la fusión, con la misma
+/// regla: lo que la vista previa dice y lo que la fusión hace no pueden
+/// discrepar.
 class VaultMergeReader {
   const VaultMergeReader({
     required AppDatabase database,
@@ -65,12 +70,17 @@ class VaultMergeReader {
     }
 
     final files = await _files(incoming);
+    final spaces = await SpaceMerge.compute(_db);
+    final plan = await EntryMergePlanner(_db).plan(spaces);
 
     return VaultMergePreview(
       incomingItems: total,
       newSources: newSources,
       newNotes: newNotes,
       commonItems: common,
+      itemsToUpdate: plan.itemsToUpdate,
+      fieldsToUpdate: plan.fieldsToUpdate,
+      conflicts: plan.conflicts,
       // Un vínculo es el mismo si tiene el mismo id o si une lo mismo con el
       // mismo tipo: dos bóvedas pudieron crearlo por separado.
       newRelations: await _scalar('''
@@ -93,11 +103,7 @@ class VaultMergeReader {
       ),
       // Un espacio es el mismo si tiene el mismo id o el mismo nombre sin
       // distinguir mayúsculas: dos con el mismo nombre no pueden convivir.
-      newSpaces: await _scalar('''
-        SELECT COUNT(*) FROM $_incoming.spaces s
-         WHERE NOT EXISTS (
-           SELECT 1 FROM main.spaces m
-            WHERE m.id = s.id OR lower(m.name) = lower(s.name))'''),
+      newSpaces: spaces.toAdd.length,
       newFiles: files.missingLocally.length,
       newFilesBytes: files.missingLocallyBytes,
       filesMissingInBackup: files.missingInBackup,
