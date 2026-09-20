@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/timeline/domain/entities/timeline_event.dart';
 
 /// Alto de un carril: la barra, el rótulo y el aire entre carriles.
@@ -7,6 +6,13 @@ const kTimelineLaneHeight = 38.0;
 
 /// Alto de la barra de un evento.
 const kTimelineBarHeight = 10.0;
+
+/// Lo menos que ocupa la caja de un evento: la barra y su rótulo.
+const kTimelineMinBoxWidth = 28.0;
+
+/// Lo que se ve de un evento a poco zoom: un año a escala de siglos mide menos
+/// de un píxel y desaparecería.
+const kTimelineMinCorePx = 6.0;
 
 /// Cómo se dibuja un evento según lo que se sabe de su fecha.
 ///
@@ -40,87 +46,94 @@ extension TimelineEventStyle on TimelineEvent {
   bool get hasFuzzyEdges => fuzz > 0;
 }
 
-/// Un evento sobre el eje: su barra y, debajo, su título.
+/// Dibuja en [canvas] la barra de un evento en [bar] según su [style].
 ///
-/// Es una caja de [width] píxeles —lo que ocupa el evento contando su rótulo—
-/// y adentro la barra se dibuja según el zoom: [pxPerYear] traduce el tramo y
-/// el borde difuso a píxeles. Tocarlo abre el elemento.
-class TimelineEventBar extends StatelessWidget {
-  const TimelineEventBar({
-    required this.event,
-    required this.width,
-    required this.pxPerYear,
-    required this.labelOffset,
-    required this.onTap,
-    super.key,
-  });
+/// [fuzzPx] es el ancho del borde difuso de cada lado, en píxeles, y [corePx]
+/// el del tramo mismo, sin los bordes. [paint] es el pincel que se reutiliza de
+/// una barra a otra: con cientos de barras por cuadro, uno por barra es
+/// basura que el recolector paga.
+void paintTimelineBar(
+  Canvas canvas,
+  Rect bar, {
+  required TimelineBarStyle style,
+  required Color color,
+  required double fuzzPx,
+  required double corePx,
+  required Paint paint,
+}) {
+  final height = bar.height;
+  final coreWidth = corePx < kTimelineMinCorePx ? kTimelineMinCorePx : corePx;
+  final core = Rect.fromLTWH(bar.left + fuzzPx, bar.top, coreWidth, height);
 
-  final TimelineEvent event;
-  final double width;
-  final double pxPerYear;
-
-  /// Cuánto se corre el rótulo hacia la derecha: cuando el evento empieza
-  /// antes del borde izquierdo de la pantalla, el título sigue a la vista.
-  final double labelOffset;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    // Una fuente y una nota no se ven igual: ver `EntityRole`.
-    final color = event.sourceKind.role.accent(scheme);
-
-    return Semantics(
-      button: true,
-      label: '${event.title}, ${event.date.label}',
-      excludeSemantics: true,
-      child: Tooltip(
-        message: '${event.title}\n${event.date.label}',
-        waitDuration: const Duration(milliseconds: 500),
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: width,
-            height: kTimelineLaneHeight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: width,
-                  height: kTimelineBarHeight,
-                  child: CustomPaint(
-                    painter: TimelineBarPainter(
-                      style: event.barStyle,
-                      color: color,
-                      fuzzPx: event.fuzz * pxPerYear,
-                      corePx: (event.to - event.from) * pxPerYear,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Padding(
-                  padding: EdgeInsets.only(left: labelOffset),
-                  child: Text(
-                    event.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  if (fuzzPx > 0) {
+    _paintFade(
+      canvas,
+      Rect.fromLTWH(bar.left, bar.top, fuzzPx, height),
+      color,
+      toRight: true,
     );
+    _paintFade(
+      canvas,
+      Rect.fromLTWH(core.right, bar.top, fuzzPx, height),
+      color,
+      toRight: false,
+    );
+  }
+
+  final rounded = RRect.fromRectAndRadius(core, Radius.circular(height / 2));
+  switch (style) {
+    case TimelineBarStyle.exact:
+    case TimelineBarStyle.approximate:
+      canvas.drawRRect(
+        rounded,
+        paint
+          ..style = PaintingStyle.fill
+          ..shader = null
+          ..color = color,
+      );
+    case TimelineBarStyle.period:
+    case TimelineBarStyle.approximatePeriod:
+      canvas
+        ..drawRRect(
+          rounded,
+          paint
+            ..style = PaintingStyle.fill
+            ..shader = null
+            ..color = color.withValues(alpha: 0.22),
+        )
+        ..drawRRect(
+          rounded.deflate(0.75),
+          paint
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..color = color,
+        );
   }
 }
 
-/// Dibuja la barra de un evento según su [style].
-class TimelineBarPainter extends CustomPainter {
-  const TimelineBarPainter({
+/// Un degradado de transparente a [color] (o al revés), para el borde de un
+/// "circa".
+void _paintFade(
+  Canvas canvas,
+  Rect rect,
+  Color color, {
+  required bool toRight,
+}) {
+  final strong = color.withValues(alpha: 0.55);
+  final clear = color.withValues(alpha: 0);
+  canvas.drawRect(
+    rect,
+    Paint()
+      ..shader = LinearGradient(
+        colors: toRight ? [clear, strong] : [strong, clear],
+      ).createShader(rect),
+  );
+}
+
+/// Dibuja UNA barra que ocupa todo el lienzo: la muestra de la leyenda, con la
+/// misma pintura que las barras del eje.
+class TimelineBarSamplePainter extends CustomPainter {
+  const TimelineBarSamplePainter({
     required this.style,
     required this.color,
     required this.fuzzPx,
@@ -129,69 +142,22 @@ class TimelineBarPainter extends CustomPainter {
 
   final TimelineBarStyle style;
   final Color color;
-
-  /// El ancho del borde difuso de cada lado, en píxeles; 0 si no hay.
   final double fuzzPx;
-
-  /// El ancho del tramo mismo, sin los bordes.
   final double corePx;
 
-  /// Lo que se ve de un evento a poco zoom: un año a escala de siglos mide
-  /// menos de un píxel y desaparecería.
-  static const _minCorePx = 6.0;
+  @override
+  void paint(Canvas canvas, Size size) => paintTimelineBar(
+    canvas,
+    Offset.zero & size,
+    style: style,
+    color: color,
+    fuzzPx: fuzzPx,
+    corePx: corePx,
+    paint: Paint(),
+  );
 
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.clipRect(Offset.zero & size);
-    final height = size.height;
-
-    final coreWidth = corePx < _minCorePx ? _minCorePx : corePx;
-    final core = Rect.fromLTWH(fuzzPx, 0, coreWidth, height);
-
-    if (fuzzPx > 0) {
-      _paintFade(canvas, Rect.fromLTWH(0, 0, fuzzPx, height), toRight: true);
-      _paintFade(
-        canvas,
-        Rect.fromLTWH(core.right, 0, fuzzPx, height),
-        toRight: false,
-      );
-    }
-
-    final rounded = RRect.fromRectAndRadius(core, Radius.circular(height / 2));
-    switch (style) {
-      case TimelineBarStyle.exact:
-      case TimelineBarStyle.approximate:
-        canvas.drawRRect(rounded, Paint()..color = color);
-      case TimelineBarStyle.period:
-      case TimelineBarStyle.approximatePeriod:
-        canvas
-          ..drawRRect(rounded, Paint()..color = color.withValues(alpha: 0.22))
-          ..drawRRect(
-            rounded.deflate(0.75),
-            Paint()
-              ..color = color
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1.5,
-          );
-    }
-  }
-
-  /// Un degradado de transparente a [color] (o al revés), para el borde de un
-  /// "circa".
-  void _paintFade(Canvas canvas, Rect rect, {required bool toRight}) {
-    final strong = color.withValues(alpha: 0.55);
-    final clear = color.withValues(alpha: 0);
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = LinearGradient(
-          colors: toRight ? [clear, strong] : [strong, clear],
-        ).createShader(rect),
-    );
-  }
-
-  @override
-  bool shouldRepaint(TimelineBarPainter oldDelegate) =>
+  bool shouldRepaint(TimelineBarSamplePainter oldDelegate) =>
       oldDelegate.style != style ||
       oldDelegate.color != color ||
       oldDelegate.fuzzPx != fuzzPx ||

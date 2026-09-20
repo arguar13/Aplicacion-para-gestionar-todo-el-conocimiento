@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,8 @@ import 'package:sinapsis/features/timeline/domain/services/timeline_index.dart';
 import 'package:sinapsis/features/timeline/domain/services/timeline_viewport.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/axis_labels.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_frame.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que ocupa el eje con sus marcas, abajo.
@@ -25,9 +28,11 @@ const _maxLabelWidth = 180.0;
 /// El eje con los hechos: los dibuja, y se mueve y se acerca con los dedos, la
 /// rueda, el teclado y los botones.
 ///
-/// Solo se construye lo que se ve. El índice devuelve los eventos de la
+/// Solo se calcula lo que se ve. El índice devuelve los eventos de la
 /// ventana actual y el reparto en carriles trabaja sobre esos, así que mover
-/// la vista cuesta lo que hay en pantalla y no lo que hay guardado.
+/// la vista cuesta lo que hay en pantalla y no lo que hay guardado. Y lo que se
+/// ve se dibuja en UN solo lienzo, no en un widget por evento: ver
+/// [TimelineFrame].
 ///
 /// La vista se conserva mientras los datos cambian —un hecho que se fecha no
 /// la mueve—; quien quiera encuadrar de nuevo, como al cambiar los filtros,
@@ -60,6 +65,18 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
   // mientras alguien escribe en la búsqueda se lo sacaría en cada tecla.
   final _focusNode = FocusNode();
 
+  /// Los rótulos ya medidos: arrastrar repinta los mismos con el mismo ancho.
+  final _labels = TimelineLabelCache();
+
+  // La ayuda de un evento —su título y su fecha completa—: con el mouse, un
+  // momento después de apoyarse; con el dedo, al mantener apretado. Es una sola
+  // para todo el lienzo, no una por evento.
+  static const _tipDelay = Duration(milliseconds: 500);
+  static const _touchTipDuration = Duration(seconds: 3);
+  TimelineBox? _hovered;
+  TimelineBox? _tip;
+  Timer? _tipTimer;
+
   @override
   void initState() {
     super.initState();
@@ -69,8 +86,50 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
 
   @override
   void dispose() {
+    _tipTimer?.cancel();
+    _labels.clear();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _hideTip() {
+    _tipTimer?.cancel();
+    if (_tip != null || _hovered != null) {
+      setState(() {
+        _tip = null;
+        _hovered = null;
+      });
+    }
+  }
+
+  /// Con el mouse encima de un evento, su ayuda aparece a los [_tipDelay].
+  void _onHover(TimelineBox? box) {
+    if (box?.event.itemId == _hovered?.event.itemId &&
+        box?.event.date.label == _hovered?.event.date.label) {
+      return;
+    }
+    _tipTimer?.cancel();
+    setState(() {
+      _hovered = box;
+      _tip = null;
+    });
+    if (box == null) return;
+    _tipTimer = Timer(_tipDelay, () {
+      if (mounted) setState(() => _tip = box);
+    });
+  }
+
+  /// Con el dedo, mantener apretado un evento muestra su ayuda un rato.
+  void _onLongPress(TimelineBox? box) {
+    if (box == null) return;
+    _tipTimer?.cancel();
+    setState(() {
+      _hovered = box;
+      _tip = box;
+    });
+    _tipTimer = Timer(_touchTipDuration, () {
+      if (mounted) _hideTip();
+    });
   }
 
   @override
@@ -89,7 +148,12 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
 
   void _setViewport(TimelineViewport viewport) {
     if (viewport == _viewport) return;
-    setState(() => _viewport = viewport);
+    _tipTimer?.cancel();
+    setState(() {
+      _viewport = viewport;
+      _hovered = null;
+      _tip = null;
+    });
   }
 
   void _fit() => _setViewport(TimelineViewport.fit(_limits));
@@ -172,6 +236,14 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
           footprint: (event) => _labelYears(event, pxPerYear),
         );
 
+        final frame = TimelineFrame.place(
+          layout.placed,
+          from: _viewport.from,
+          pxPerYear: pxPerYear,
+          top: _topPadding,
+          labelYears: (event) => _labelYears(event, pxPerYear),
+        );
+
         final scale = axisScale(
           from: _viewport.from,
           to: _viewport.to,
@@ -200,65 +272,92 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
             focusNode: _focusNode,
             child: Listener(
               onPointerSignal: (event) => _onPointerSignal(event, width),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTapDown: (_) => _focusNode.requestFocus(),
-                onScaleStart: (details) => _onScaleStart(details, width),
-                onScaleUpdate: (details) => _onScaleUpdate(details, width),
-                child: ClipRect(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _AxisPainter(
-                            ticks: [
-                              for (final tick in scale.ticks)
-                                (
-                                  x:
-                                      (tick.position - _viewport.from) *
-                                      pxPerYear,
-                                  label: axisTickLabel(
-                                    l10n,
-                                    locale,
-                                    scale.unit,
-                                    tick,
+              child: MouseRegion(
+                cursor: _hovered == null
+                    ? MouseCursor.defer
+                    : SystemMouseCursors.click,
+                onHover: (event) =>
+                    _onHover(frame.hitTest(event.localPosition)),
+                onExit: (_) => _hideTip(),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (_) => _focusNode.requestFocus(),
+                  onTapUp: (details) {
+                    final box = frame.hitTest(details.localPosition);
+                    if (box != null) widget.onOpen(box.event.itemId);
+                  },
+                  onLongPressStart: (details) =>
+                      _onLongPress(frame.hitTest(details.localPosition)),
+                  onScaleStart: (details) => _onScaleStart(details, width),
+                  onScaleUpdate: (details) => _onScaleUpdate(details, width),
+                  child: ClipRect(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _AxisPainter(
+                              ticks: [
+                                for (final tick in scale.ticks)
+                                  (
+                                    x:
+                                        (tick.position - _viewport.from) *
+                                        pxPerYear,
+                                    label: axisTickLabel(
+                                      l10n,
+                                      locale,
+                                      scale.unit,
+                                      tick,
+                                    ),
                                   ),
-                                ),
-                            ],
-                            axisHeight: _axisHeight,
-                            lineColor: Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant,
-                            textStyle: Theme.of(context).textTheme.labelSmall!
-                                .copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
+                              ],
+                              axisHeight: _axisHeight,
+                              lineColor: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                              textStyle: Theme.of(context).textTheme.labelSmall!
+                                  .copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
                           ),
                         ),
-                      ),
-                      for (final placed in layout.placed)
-                        _positioned(placed, pxPerYear, width),
-                      Positioned(
-                        right: 8,
-                        bottom: _axisHeight + 8,
-                        child: _Controls(
-                          onZoomIn: () => _zoom(1.5),
-                          onZoomOut: () => _zoom(1 / 1.5),
-                          onFit: _fit,
+                        Positioned.fill(
+                          child: CustomPaint(
+                            key: const ValueKey('timeline-events'),
+                            painter: TimelineEventsPainter(
+                              frame: frame,
+                              scheme: Theme.of(context).colorScheme,
+                              labelStyle: Theme.of(
+                                context,
+                              ).textTheme.labelSmall!,
+                              labels: _labels,
+                              onOpen: widget.onOpen,
+                            ),
+                          ),
                         ),
-                      ),
-                      if (layout.hidden > 0)
                         Positioned(
-                          left: 8,
+                          right: 8,
                           bottom: _axisHeight + 8,
-                          child: Chip(
-                            visualDensity: VisualDensity.compact,
-                            label: Text(l10n.timelineHidden(layout.hidden)),
+                          child: _Controls(
+                            onZoomIn: () => _zoom(1.5),
+                            onZoomOut: () => _zoom(1 / 1.5),
+                            onFit: _fit,
                           ),
                         ),
-                    ],
+                        if (layout.hidden > 0)
+                          Positioned(
+                            left: 8,
+                            bottom: _axisHeight + 8,
+                            child: Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text(l10n.timelineHidden(layout.hidden)),
+                            ),
+                          ),
+                        if (_tip case final tip?) _tipFor(tip, width),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -269,33 +368,40 @@ class _TimelineCanvasState extends State<TimelineCanvas> {
     );
   }
 
-  Widget _positioned(PlacedEvent placed, double pxPerYear, double width) {
-    final event = placed.event;
-    final left = (event.reachFrom - _viewport.from) * pxPerYear;
-    final reachPx = (event.reachTo - event.reachFrom) * pxPerYear;
-    final boxWidth = math.max(
-      math.max(reachPx, _labelYears(event, pxPerYear) * pxPerYear),
-      _minBoxWidth,
-    );
-    // Un evento que empieza antes de la pantalla deja el rótulo a la vista.
-    final labelOffset = left < 0 ? math.min(-left, boxWidth - 28) : 0.0;
+  /// La ayuda de un evento: su título y su fecha completa, debajo de su caja.
+  Widget _tipFor(TimelineBox box, double canvasWidth) {
+    final theme = Theme.of(context);
+    final event = box.event;
+    const maxWidth = 260.0;
+    final left = box.rect.left
+        .clamp(8, math.max(8, canvasWidth - maxWidth - 8))
+        .toDouble();
 
     return Positioned(
-      key: ValueKey('timeline-event-${event.itemId}-${event.date.label}'),
+      key: const ValueKey('timeline-tip'),
       left: left,
-      top: _topPadding + placed.lane * kTimelineLaneHeight,
-      width: boxWidth,
-      child: TimelineEventBar(
-        event: event,
-        width: boxWidth,
-        pxPerYear: pxPerYear,
-        labelOffset: math.max(0, labelOffset),
-        onTap: () => widget.onOpen(event.itemId),
+      top: box.rect.bottom + 4,
+      child: IgnorePointer(
+        child: Material(
+          elevation: 3,
+          color: theme.colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                '${event.title}\n${event.date.label}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onInverseSurface,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
-
-  static const _minBoxWidth = 28.0;
 }
 
 /// Los botones para acercar, alejar y encuadrar todo, para quien no tiene rueda

@@ -12,7 +12,7 @@ import 'package:sinapsis/features/timeline/domain/services/timeline_index.dart';
 import 'package:sinapsis/features/timeline/presentation/providers/timeline_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_canvas.dart';
-import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../test/features/timeline/timeline_fixtures.dart';
@@ -123,8 +123,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    final bars = find.byType(TimelineEventBar).evaluate().length;
-    say('- barras en pantalla tras acercar: $bars');
+    final painter =
+        tester
+                .widget<CustomPaint>(
+                  find.byKey(const ValueKey('timeline-events')),
+                )
+                .painter!
+            as TimelineEventsPainter;
+    say('- barras en pantalla tras acercar: ${painter.frame.boxes.length}');
 
     // 4. El arrastre sostenido, con los cuadros que produce.
     await binding.watchPerformance(() async {

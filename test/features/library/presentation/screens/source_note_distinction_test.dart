@@ -19,6 +19,8 @@ import 'package:sinapsis/features/library/presentation/widgets/library_kanban_vi
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_frame.dart';
 
 import '../../../../support/library_harness.dart';
 import '../../../timeline/timeline_fixtures.dart';
@@ -378,50 +380,54 @@ void main() {
     testWidgets('la barra de una nota y la de una fuente tienen otro color', (
       tester,
     ) async {
+      TimelineBox boxOf(String id, SourceKind kind, double top) => TimelineBox(
+        event: eventAt(id, dateOf(476), sourceKind: kind),
+        rect: Rect.fromLTWH(0, top, 300, kTimelineLaneHeight),
+        labelOffset: 0,
+        fuzzPx: 0,
+        corePx: 40,
+      );
+
+      final labels = TimelineLabelCache();
+      addTearDown(labels.clear);
       await pump(
         tester,
         Scaffold(
-          body: Column(
-            children: [
-              for (final (id, kind) in [
-                ('fuente', SourceKind.webPage),
-                ('nota', SourceKind.manualNote),
-              ])
-                SizedBox(
-                  width: 300,
-                  height: 40,
-                  child: TimelineEventBar(
-                    event: eventAt(id, dateOf(476), sourceKind: kind),
-                    width: 300,
-                    pxPerYear: 10,
-                    labelOffset: 0,
-                    onTap: () {},
-                  ),
+          body: Builder(
+            builder: (context) => SizedBox(
+              width: 300,
+              height: 100,
+              child: CustomPaint(
+                key: const ValueKey('events'),
+                painter: TimelineEventsPainter(
+                  frame: TimelineFrame([
+                    boxOf('fuente', SourceKind.webPage, 0),
+                    boxOf('nota', SourceKind.manualNote, kTimelineLaneHeight),
+                  ]),
+                  scheme: Theme.of(context).colorScheme,
+                  labelStyle: Theme.of(context).textTheme.labelSmall!,
+                  labels: labels,
+                  onOpen: (_) {},
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       );
-      final scheme = schemeOf(tester, find.byType(TimelineEventBar));
+      final scheme = schemeOf(tester, find.byKey(const ValueKey('events')));
 
-      Color colorOf(String id) =>
-          (tester
-                      .widget<CustomPaint>(
-                        find.descendant(
-                          of: find.byWidgetPredicate(
-                            (w) =>
-                                w is TimelineEventBar && w.event.itemId == id,
-                          ),
-                          matching: find.byType(CustomPaint),
-                        ),
-                      )
-                      .painter!
-                  as TimelineBarPainter)
-              .color;
-
-      expect(colorOf('fuente'), EntityRole.source.accent(scheme));
-      expect(colorOf('nota'), EntityRole.note.accent(scheme));
-      expect(colorOf('fuente'), isNot(colorOf('nota')));
+      // Una barra por elemento, en el orden del eje, y cada una con el color de
+      // su rol.
+      expect(
+        tester.renderObject(find.byKey(const ValueKey('events'))),
+        paints
+          ..rrect(color: EntityRole.source.accent(scheme))
+          ..rrect(color: EntityRole.note.accent(scheme)),
+      );
+      expect(
+        EntityRole.source.accent(scheme),
+        isNot(EntityRole.note.accent(scheme)),
+      );
     });
   });
 }

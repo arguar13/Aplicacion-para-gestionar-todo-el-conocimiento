@@ -240,7 +240,7 @@ class _Legend extends StatelessWidget {
             width: 44,
             height: kTimelineBarHeight,
             child: CustomPaint(
-              painter: TimelineBarPainter(
+              painter: TimelineBarSamplePainter(
                 style: style,
                 color: color,
                 fuzzPx: fuzz,

@@ -21,6 +21,8 @@ import 'package:sinapsis/features/timeline/presentation/providers/timeline_provi
 import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_canvas.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
+import 'package:sinapsis/features/timeline/presentation/widgets/timeline_frame.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -123,11 +125,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder eventBox(String id, String label) =>
-      find.byKey(ValueKey('timeline-event-$id-$label'));
+  final canvasKey = find.byKey(const ValueKey('timeline-events'));
 
-  double left(WidgetTester tester, String id, String label) =>
-      tester.getTopLeft(eventBox(id, label)).dx;
+  /// El cuadro que la pantalla está dibujando: dónde puso cada evento. Los
+  /// eventos no son widgets —se dibujan en un solo lienzo—, así que se miran en
+  /// el modelo del que salen el dibujo, el toque y la semántica.
+  TimelineFrame frameOf(WidgetTester tester) =>
+      (tester.widget<CustomPaint>(canvasKey).painter! as TimelineEventsPainter)
+          .frame;
+
+  bool shows(WidgetTester tester, String title) =>
+      canvasKey.evaluate().isNotEmpty &&
+      frameOf(tester).boxes.any((box) => box.event.title == title);
+
+  TimelineBox boxOf(WidgetTester tester, String title) =>
+      frameOf(tester).boxes.singleWhere((box) => box.event.title == title);
+
+  double left(WidgetTester tester, String title) =>
+      boxOf(tester, title).rect.left;
+
+  /// Toca el centro de la caja del evento [title], como lo haría un dedo.
+  Future<void> tapEvent(WidgetTester tester, String title) => tester.tapAt(
+    tester.getTopLeft(canvasKey) + boxOf(tester, title).rect.center,
+  );
 
   group('sin hechos', () {
     testWidgets('explica cómo fechar un elemento', (tester) async {
@@ -175,9 +195,9 @@ void main() {
     ) async {
       await pumpScreen(tester);
 
-      expect(find.text('César'), findsOneWidget);
-      expect(find.text('Caída de Roma'), findsOneWidget);
-      expect(find.text('Constantinopla'), findsOneWidget);
+      expect(shows(tester, 'César'), isTrue);
+      expect(shows(tester, 'Caída de Roma'), isTrue);
+      expect(shows(tester, 'Constantinopla'), isTrue);
       expect(find.text(es.timelineEventCount(3)), findsOneWidget);
     });
 
@@ -185,9 +205,9 @@ void main() {
         'proporcional a los años que los separan', (tester) async {
       await pumpScreen(tester);
 
-      final cesar = left(tester, 'cesar', '44 a.C.');
-      final roma = left(tester, 'roma', '476');
-      final constantinopla = left(tester, 'constantinopla', '1453');
+      final cesar = left(tester, 'César');
+      final roma = left(tester, 'Caída de Roma');
+      final constantinopla = left(tester, 'Constantinopla');
 
       expect(cesar, lessThan(roma));
       expect(roma, lessThan(constantinopla));
@@ -201,10 +221,99 @@ void main() {
     testWidgets('tocar un hecho abre su detalle', (tester) async {
       await pumpScreen(tester);
 
-      await tester.tap(find.text('Caída de Roma'));
+      await tapEvent(tester, 'Caída de Roma');
       await tester.pumpAndSettle();
 
       expect(find.text('detalle de roma'), findsOneWidget);
+    });
+
+    testWidgets('tocar donde no hay un hecho no abre nada', (tester) async {
+      await pumpScreen(tester);
+
+      // Un punto del lienzo lejos de todo evento: hay tres, en los primeros
+      // carriles.
+      await tester.tapAt(tester.getTopLeft(canvasKey) + const Offset(300, 400));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('detalle de'), findsNothing);
+      expect(find.byType(TimelineCanvas), findsOneWidget);
+    });
+
+    testWidgets('cada hecho es un nodo de semántica con su título y su fecha, '
+        'que se puede activar', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpScreen(tester);
+
+      final roma = find.semantics.byLabel('Caída de Roma, 476');
+      expect(roma.evaluate(), hasLength(1));
+      expect(roma.evaluate().single.flagsCollection.isButton, isTrue);
+      expect(find.semantics.byLabel('César, 44 a.C.').evaluate(), hasLength(1));
+
+      tester.semantics.tap(roma);
+      await tester.pumpAndSettle();
+
+      expect(find.text('detalle de roma'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('con el mouse encima, la ayuda dice el título y la fecha '
+        'completa', (tester) async {
+      await pumpScreen(tester);
+      final mouse = TestPointer(1, PointerDeviceKind.mouse);
+      final at =
+          tester.getTopLeft(canvasKey) +
+          boxOf(tester, 'Caída de Roma').rect.center;
+
+      await tester.sendEventToBinding(mouse.hover(at));
+      // Todavía no: la ayuda espera un momento, como la de cualquier botón.
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('timeline-tip')), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const ValueKey('timeline-tip')), findsOneWidget);
+      expect(find.textContaining('Caída de Roma\n476'), findsOneWidget);
+
+      // Al salir, se va.
+      await tester.sendEventToBinding(mouse.hover(const Offset(1, 1)));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('timeline-tip')), findsNothing);
+    });
+
+    testWidgets('con el dedo, mantener apretado un hecho muestra su ayuda', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      final at =
+          tester.getTopLeft(canvasKey) +
+          boxOf(tester, 'Caída de Roma').rect.center;
+
+      final gesture = await tester.startGesture(at);
+      await tester.pump(const Duration(seconds: 1));
+      await gesture.up();
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('timeline-tip')), findsOneWidget);
+      expect(find.textContaining('Caída de Roma\n476'), findsOneWidget);
+
+      // Y se va sola.
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.byKey(const ValueKey('timeline-tip')), findsNothing);
+    });
+
+    testWidgets('mover la vista esconde la ayuda', (tester) async {
+      await pumpScreen(tester);
+      final mouse = TestPointer(1, PointerDeviceKind.mouse);
+      final at =
+          tester.getTopLeft(canvasKey) +
+          boxOf(tester, 'Caída de Roma').rect.center;
+      await tester.sendEventToBinding(mouse.hover(at));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byKey(const ValueKey('timeline-tip')), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.timelineZoomIn));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('timeline-tip')), findsNothing);
     });
   });
 
@@ -224,15 +333,8 @@ void main() {
       );
     });
 
-    TimelineBarStyle styleOf(WidgetTester tester, String title) {
-      final bar = tester.widget<TimelineEventBar>(
-        find.ancestor(
-          of: find.text(title),
-          matching: find.byType(TimelineEventBar),
-        ),
-      );
-      return bar.event.barStyle;
-    }
+    TimelineBarStyle styleOf(WidgetTester tester, String title) =>
+        boxOf(tester, title).event.barStyle;
 
     testWidgets('cada grado de imprecisión se dibuja con su propio estilo', (
       tester,
@@ -248,33 +350,20 @@ void main() {
       );
     });
 
-    testWidgets('las barras se pintan con pintores distintos', (tester) async {
+    testWidgets('lo aproximado tiene el borde difuso; lo exacto, no', (
+      tester,
+    ) async {
       await pumpScreen(tester);
 
-      final painters = {
-        for (final title in ['Exacta', 'Circa', 'Década', 'Siglo circa'])
-          title:
-              tester
-                      .widget<CustomPaint>(
-                        find.descendant(
-                          of: find.ancestor(
-                            of: find.text(title),
-                            matching: find.byType(TimelineEventBar),
-                          ),
-                          matching: find.byType(CustomPaint),
-                        ),
-                      )
-                      .painter!
-                  as TimelineBarPainter,
-      };
-
-      // Los cuatro estilos son distintos entre sí.
-      expect(painters.values.map((p) => p.style).toSet(), hasLength(4));
-      // Lo aproximado tiene borde difuso; lo exacto, no.
-      expect(painters['Exacta']!.fuzzPx, 0);
-      expect(painters['Circa']!.fuzzPx, greaterThan(0));
-      expect(painters['Década']!.fuzzPx, 0);
-      expect(painters['Siglo circa']!.fuzzPx, greaterThan(0));
+      expect(boxOf(tester, 'Exacta').fuzzPx, 0);
+      expect(boxOf(tester, 'Circa').fuzzPx, greaterThan(0));
+      expect(boxOf(tester, 'Década').fuzzPx, 0);
+      expect(boxOf(tester, 'Siglo circa').fuzzPx, greaterThan(0));
+      // Y un período ocupa más eje que un año.
+      expect(
+        boxOf(tester, 'Década').corePx,
+        greaterThan(boxOf(tester, 'Exacta').corePx),
+      );
     });
 
     testWidgets('la leyenda explica los tres estilos', (tester) async {
@@ -297,16 +386,16 @@ void main() {
     });
 
     double gap(WidgetTester tester) =>
-        left(tester, 'b', '1260') - left(tester, 'a', '1240');
+        left(tester, 'Dos') - left(tester, 'Uno');
 
     testWidgets('arrastrar corre el eje', (tester) async {
       await pumpScreen(tester);
-      final before = left(tester, 'a', '1240');
+      final before = left(tester, 'Uno');
 
       await tester.drag(find.byType(TimelineCanvas), const Offset(-150, 0));
       await tester.pumpAndSettle();
 
-      expect(left(tester, 'a', '1240'), lessThan(before - 100));
+      expect(left(tester, 'Uno'), lessThan(before - 100));
     });
 
     testWidgets('el botón de acercar separa los hechos', (tester) async {
@@ -331,7 +420,7 @@ void main() {
 
     testWidgets('mostrar todo vuelve al encuadre de partida', (tester) async {
       await pumpScreen(tester);
-      final before = left(tester, 'a', '1240');
+      final before = left(tester, 'Uno');
 
       await tester.tap(find.byTooltip(es.timelineZoomIn));
       await tester.pumpAndSettle();
@@ -340,7 +429,7 @@ void main() {
       await tester.tap(find.byTooltip(es.timelineFit));
       await tester.pumpAndSettle();
 
-      expect(left(tester, 'a', '1240'), closeTo(before, 0.01));
+      expect(left(tester, 'Uno'), closeTo(before, 0.01));
     });
 
     testWidgets('la rueda acerca alrededor del cursor', (tester) async {
@@ -366,11 +455,11 @@ void main() {
         tester.getCenter(find.byType(TimelineCanvas)) + const Offset(0, 150),
       );
       await tester.pump();
-      final before = left(tester, 'a', '1240');
+      final before = left(tester, 'Uno');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(left(tester, 'a', '1240'), lessThan(before));
+      expect(left(tester, 'Uno'), lessThan(before));
 
       final gapBefore = gap(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.minus);
@@ -422,9 +511,9 @@ void main() {
 
       await search(tester, 'imperio');
 
-      expect(find.text('Imperio romano en la web'), findsOneWidget);
-      expect(find.text('Imperio bizantino'), findsOneWidget);
-      expect(find.text('Revolución francesa'), findsNothing);
+      expect(shows(tester, 'Imperio romano en la web'), isTrue);
+      expect(shows(tester, 'Imperio bizantino'), isTrue);
+      expect(shows(tester, 'Revolución francesa'), isFalse);
       expect(find.text(es.timelineEventCount(2)), findsOneWidget);
     });
 
@@ -440,7 +529,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // Todavía no buscó: sigue viéndose todo.
-      expect(find.text('Revolución francesa'), findsOneWidget);
+      expect(shows(tester, 'Revolución francesa'), isTrue);
     });
 
     testWidgets('sin coincidencias avisa y ofrece quitar los filtros', (
@@ -454,7 +543,7 @@ void main() {
       await tester.tap(find.text(es.timelineFilterClear));
       await tester.pumpAndSettle();
 
-      expect(find.text('Revolución francesa'), findsOneWidget);
+      expect(shows(tester, 'Revolución francesa'), isTrue);
       expect(
         tester
             .widget<TextField>(
@@ -473,7 +562,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      expect(find.text('Revolución francesa'), findsOneWidget);
+      expect(shows(tester, 'Revolución francesa'), isTrue);
     });
 
     testWidgets('el panel filtra por tipo de elemento', (tester) async {
@@ -488,8 +577,8 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      expect(find.text('Imperio bizantino'), findsOneWidget);
-      expect(find.text('Imperio romano en la web'), findsNothing);
+      expect(shows(tester, 'Imperio bizantino'), isTrue);
+      expect(shows(tester, 'Imperio romano en la web'), isFalse);
       // El botón del panel avisa que hay un filtro puesto.
       expect(find.text('1'), findsOneWidget);
     });
@@ -518,8 +607,8 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      expect(find.text('Revolución francesa'), findsOneWidget);
-      expect(find.text('Imperio bizantino'), findsNothing);
+      expect(shows(tester, 'Revolución francesa'), isTrue);
+      expect(shows(tester, 'Imperio bizantino'), isFalse);
     });
 
     testWidgets('quitar los filtros desde el panel vuelve a mostrar todo', (
@@ -546,13 +635,13 @@ void main() {
     ) async {
       await seedEvent('a', dateOf(1000), title: 'Primero');
       await pumpScreen(tester);
-      expect(find.text('Segundo'), findsNothing);
+      expect(shows(tester, 'Segundo'), isFalse);
 
       // Con un solo hecho la vista abarca diez años alrededor: 1002 entra.
       await seedEvent('b', dateOf(1002), title: 'Segundo');
       await tester.pumpAndSettle();
 
-      expect(find.text('Segundo'), findsOneWidget);
+      expect(shows(tester, 'Segundo'), isTrue);
       expect(find.text(es.timelineEventCount(2)), findsOneWidget);
     });
 
@@ -560,19 +649,19 @@ void main() {
         'moviendo o con "mostrar todo"', (tester) async {
       await seedEvent('a', dateOf(1000), title: 'Primero');
       await pumpScreen(tester);
-      final before = left(tester, 'a', '1000');
+      final before = left(tester, 'Primero');
 
       await seedEvent('b', dateOf(1500), title: 'Lejano');
       await tester.pumpAndSettle();
 
       expect(find.text(es.timelineEventCount(2)), findsOneWidget);
-      expect(find.text('Lejano'), findsNothing);
-      expect(left(tester, 'a', '1000'), before);
+      expect(shows(tester, 'Lejano'), isFalse);
+      expect(left(tester, 'Primero'), before);
 
       await tester.tap(find.byTooltip(es.timelineFit));
       await tester.pumpAndSettle();
 
-      expect(find.text('Lejano'), findsOneWidget);
+      expect(shows(tester, 'Lejano'), isTrue);
     });
   });
 
@@ -614,19 +703,19 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('con diez mil hechos solo se construye lo que se ve', (
+    testWidgets('con diez mil hechos solo se dibuja lo que se ve', (
       tester,
     ) async {
       await pumpWith(tester, tenThousand(), size: const Size(900, 900));
 
-      final built = find.byType(TimelineEventBar).evaluate().length;
+      final built = frameOf(tester).boxes.length;
 
       expect(built, greaterThan(0));
       expect(built, lessThan(400));
       expect(find.text(es.timelineEventCount(10000)), findsOneWidget);
     });
 
-    testWidgets('acercar y mover con diez mil hechos sigue construyendo poco', (
+    testWidgets('acercar y mover con diez mil hechos sigue dibujando poco', (
       tester,
     ) async {
       await pumpWith(tester, tenThousand(), size: const Size(900, 900));
@@ -638,7 +727,7 @@ void main() {
       await tester.drag(find.byType(TimelineCanvas), const Offset(-300, 0));
       await tester.pumpAndSettle();
 
-      expect(find.byType(TimelineEventBar).evaluate().length, lessThan(400));
+      expect(frameOf(tester).boxes.length, lessThan(400));
     });
 
     testWidgets('lo que no cabe se cuenta y se avisa', (tester) async {
@@ -649,7 +738,7 @@ void main() {
       ];
       await pumpWith(tester, crowd, size: const Size(900, 500));
 
-      final shown = find.byType(TimelineEventBar).evaluate().length;
+      final shown = frameOf(tester).boxes.length;
 
       expect(shown, lessThan(30));
       expect(find.text(es.timelineHidden(30 - shown)), findsOneWidget);
