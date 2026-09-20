@@ -451,14 +451,15 @@ class _VaultBuilder {
 
   Future<void> _flushItemBlock() async {
     // En el orden de las claves foráneas: cada tabla después de aquello a lo
-    // que apunta.
+    // que apunta. Desde v18 las formas, las tarjetas y los vínculos cuelgan de
+    // `item`, no de `items`.
     for (final (name, buffer) in [
       ('sources', _sources),
       ('items', _items),
-      ('renditions', _renditions),
       ('item', _entries),
       ('source', _knowledgeSources),
       ('note', _knowledgeNotes),
+      ('renditions', _renditions),
       ('chunks', _chunks),
       ('highlights', _highlights),
       ('flashcards', _flashcards),

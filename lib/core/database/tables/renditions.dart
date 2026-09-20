@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 
 /// Cada forma en que existe el contenido de un elemento.
@@ -15,7 +15,7 @@ class Renditions extends Table {
   TextColumn get id => text()();
 
   TextColumn get itemId =>
-      text().references(Items, #id, onDelete: KeyAction.cascade)();
+      text().references(KnowledgeEntries, #id, onDelete: KeyAction.cascade)();
 
   TextColumn get kind => textEnum<RenditionKind>()();
 

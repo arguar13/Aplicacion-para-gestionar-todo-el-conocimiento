@@ -46,30 +46,30 @@ CREATE VIRTUAL TABLE IF NOT EXISTS item_search USING fts5(
 /// por chunks —con su minuto o su página—, y guardarlo además acá era el texto
 /// entero de cada fuente repetido en el índice. Una nota, en cambio, no se
 /// fragmenta ni tiene posición que citar, y su texto es corto. Es nota lo que
-/// tiene una fuente de tipo `manualNote`, escrita con bloques o como texto.
+/// `kind = 'note'` en `item`: una fuente de tipo `manualNote`, escrita con
+/// bloques o como texto.
 ///
 /// Se repite dentro de varios triggers en vez de vivir en una función porque
 /// SQLite no tiene funciones definidas por el usuario en SQL puro. Es la única
 /// duplicación del archivo y está aislada acá para que cambiarla sea cambiar
 /// un solo lugar.
 ///
-/// Los alias de adentro (`ni`, `ns`) NO son `i` ni `s` a propósito: se usa
-/// desde `INSERT ... SELECT ... FROM items i`, y un `i` repetido adentro
-/// taparía al de afuera y haría que la condición fuera verdad para cualquier
-/// elemento.
+/// El alias de adentro (`ni`) NO es `i` a propósito: se usa desde
+/// `INSERT ... SELECT ... FROM item i`, y un `i` repetido adentro taparía al de
+/// afuera y haría que la condición fuera verdad para cualquier elemento.
 const _bodyOf = '''
 (SELECT COALESCE(GROUP_CONCAT(r.content, char(10)), '')
    FROM renditions r
   WHERE r.item_id = %ID% AND r.content IS NOT NULL
-    AND EXISTS (SELECT 1 FROM items ni JOIN sources ns ON ns.id = ni.source_id
-                 WHERE ni.id = %ID% AND ns.kind = 'manualNote'))''';
+    AND EXISTS (SELECT 1 FROM item ni
+                 WHERE ni.id = %ID% AND ni.kind = 'note'))''';
 
 /// Si el elemento [idExpression] es una nota: la condición de los triggers de
 /// las formas, para no reescribir la fila de una fuente por cada forma que se
 /// guarda.
 String _isNote(String idExpression) => '''
-EXISTS (SELECT 1 FROM items ni JOIN sources ns ON ns.id = ni.source_id
-         WHERE ni.id = $idExpression AND ns.kind = 'manualNote')''';
+EXISTS (SELECT 1 FROM item ni
+         WHERE ni.id = $idExpression AND ni.kind = 'note')''';
 
 String _body(String idExpression) => _bodyOf.replaceAll('%ID%', idExpression);
 
@@ -77,7 +77,7 @@ String _body(String idExpression) => _bodyOf.replaceAll('%ID%', idExpression);
 ///
 /// Cubren las dos tablas que aportan texto:
 ///
-/// - `items` da título y subtítulo, y marca el alta y la baja de la fila del
+/// - `item` da título y subtítulo, y marca el alta y la baja de la fila del
 ///   índice.
 /// - `renditions` da el cuerpo. Cada vez que se agrega, cambia o borra una
 ///   forma de una NOTA, se recalcula el texto del elemento al que pertenece;
@@ -90,13 +90,14 @@ String _body(String idExpression) => _bodyOf.replaceAll('%ID%', idExpression);
 /// afecta a nada. Es correcto y no hace falta ordenarlo de otra manera.
 final searchTriggers = <String>[
   '''
-CREATE TRIGGER IF NOT EXISTS items_search_ai AFTER INSERT ON items BEGIN
+CREATE TRIGGER IF NOT EXISTS entry_search_ai AFTER INSERT ON item BEGIN
   INSERT INTO item_search (item_id, title, subtitle, body)
   VALUES (NEW.id, NEW.title, COALESCE(NEW.subtitle, ''), ${_body('NEW.id')});
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS items_search_au AFTER UPDATE ON items BEGIN
+CREATE TRIGGER IF NOT EXISTS entry_search_au
+AFTER UPDATE OF title, subtitle ON item BEGIN
   UPDATE item_search
      SET title = NEW.title,
          subtitle = COALESCE(NEW.subtitle, '')
@@ -104,7 +105,7 @@ CREATE TRIGGER IF NOT EXISTS items_search_au AFTER UPDATE ON items BEGIN
 END''',
 
   '''
-CREATE TRIGGER IF NOT EXISTS items_search_ad AFTER DELETE ON items BEGIN
+CREATE TRIGGER IF NOT EXISTS entry_search_ad AFTER DELETE ON item BEGIN
   DELETE FROM item_search WHERE item_id = OLD.id;
 END''',
 
@@ -130,15 +131,23 @@ WHEN ${_isNote('OLD.item_id')} BEGIN
 END''',
 ];
 
-/// Los triggers de [searchTriggers], por nombre: la migración a v17 los quita
+/// Los triggers de [searchTriggers], por nombre: las migraciones los quitan
 /// antes de rehacer el índice.
 const searchTriggerNames = <String>[
-  'items_search_ai',
-  'items_search_au',
-  'items_search_ad',
+  'entry_search_ai',
+  'entry_search_au',
+  'entry_search_ad',
   'renditions_search_ai',
   'renditions_search_au',
   'renditions_search_ad',
+];
+
+/// Los triggers de `item_search` de antes de v18, colgados de `items`: el
+/// paso v18 los quita —`items` deja de escribirse— junto con los de arriba.
+const legacySearchTriggerNames = <String>[
+  'items_search_ai',
+  'items_search_au',
+  'items_search_ad',
 ];
 
 /// Puebla `item_search` desde cero, como lo habrían hecho los triggers fila por
@@ -147,7 +156,7 @@ final populateItemSearch =
     '''
 INSERT INTO item_search (item_id, title, subtitle, body)
 SELECT i.id, i.title, COALESCE(i.subtitle, ''), ${_body('i.id')}
-  FROM items i''';
+  FROM item i''';
 
 /// El índice de texto de los CHUNKS de las fuentes (F10).
 ///

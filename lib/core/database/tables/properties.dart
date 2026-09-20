@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -142,7 +142,7 @@ class PropertyAliases extends Table {
 @TableIndex(name: 'idx_item_property_values_value', columns: {#propertyValueId})
 class ItemPropertyValues extends Table {
   TextColumn get itemId =>
-      text().references(Items, #id, onDelete: KeyAction.cascade)();
+      text().references(KnowledgeEntries, #id, onDelete: KeyAction.cascade)();
 
   TextColumn get propertyValueId =>
       text().references(PropertyValues, #id, onDelete: KeyAction.cascade)();

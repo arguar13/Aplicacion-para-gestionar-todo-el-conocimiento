@@ -3,9 +3,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/search_index.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+
+import '../../support/item_rows.dart';
 
 /// El índice de búsqueda se mantiene con triggers de SQLite, así que solo
 /// SQLite puede confirmar que funciona. Estas pruebas corren contra una base
@@ -32,26 +33,16 @@ void main() {
       String? subtitle,
       SourceKind kind = SourceKind.manualNote,
     }) async {
-      final n = counter++;
-      await db
-          .into(db.sources)
-          .insert(
-            SourcesCompanion.insert(id: 'src-$n', kind: kind, capturedAt: now),
-          );
-      await db
-          .into(db.items)
-          .insert(
-            ItemsCompanion.insert(
-              id: 'item-$n',
-              title: title,
-              sourceId: 'src-$n',
-              processingState: ProcessingState.ready,
-              createdAt: now,
-              updatedAt: now,
-              subtitle: Value(subtitle),
-            ),
-          );
-      return 'item-$n';
+      final id = 'item-${counter++}';
+      await insertItemRows(
+        db,
+        id: id,
+        title: title,
+        subtitle: subtitle,
+        kind: kind,
+        createdAt: now,
+      );
+      return id;
     }
 
     /// Una forma de texto. Los elementos de estas pruebas son NOTAS salvo que
@@ -139,9 +130,7 @@ void main() {
     test('cambiar el título actualiza el índice', () async {
       final id = await newItem(title: 'Título provisorio');
 
-      await (db.update(db.items)..where((i) => i.id.equals(id))).write(
-        const ItemsCompanion(title: Value('Epistemología aplicada')),
-      );
+      await retitleItemRows(db, id, 'Epistemología aplicada');
 
       expect(await search('provisorio'), isEmpty);
       expect(await search('epistemología'), [id]);
@@ -151,7 +140,7 @@ void main() {
       final id = await newItem(title: 'Algo que se va a borrar');
       await addText(id, 'con su transcripción y todo');
 
-      await (db.delete(db.items)..where((i) => i.id.equals(id))).go();
+      await deleteItemRows(db, id);
 
       expect(await search('borrar'), isEmpty);
       expect(await search('transcripción'), isEmpty);
@@ -278,27 +267,12 @@ void main() {
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
-      await db
-          .into(db.sources)
-          .insert(
-            SourcesCompanion.insert(
-              id: 'src',
-              kind: SourceKind.webPage,
-              capturedAt: DateTime(2026, 9, 11),
-            ),
-          );
-      await db
-          .into(db.items)
-          .insert(
-            ItemsCompanion.insert(
-              id: 'item',
-              title: 'Algo sobre C++ y otras cosas',
-              sourceId: 'src',
-              processingState: ProcessingState.ready,
-              createdAt: DateTime(2026, 9, 11),
-              updatedAt: DateTime(2026, 9, 11),
-            ),
-          );
+      await insertItemRows(
+        db,
+        id: 'item',
+        title: 'Algo sobre C++ y otras cosas',
+        createdAt: DateTime(2026, 9, 11),
+      );
     });
 
     tearDown(() => db.close());

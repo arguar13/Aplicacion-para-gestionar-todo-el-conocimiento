@@ -3,11 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
 /// El explorador de UNA categoría, contra SQLite real.
@@ -25,29 +24,8 @@ void main() {
     tema = await temaDefinitionId(db);
   });
 
-  Future<void> seedItem(String id) async {
-    await db
-        .into(db.sources)
-        .insert(
-          SourcesCompanion.insert(
-            id: 'src-$id',
-            kind: SourceKind.webPage,
-            capturedAt: now,
-          ),
-        );
-    await db
-        .into(db.items)
-        .insert(
-          ItemsCompanion.insert(
-            id: id,
-            title: 'Elemento $id',
-            sourceId: 'src-$id',
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-  }
+  Future<void> seedItem(String id) =>
+      insertItemRows(db, id: id, title: 'Elemento $id', createdAt: now);
 
   Future<void> addValue(
     String id,

@@ -23,6 +23,7 @@ Future<void> insertItemRows(
   AppDatabase db, {
   required String id,
   required String title,
+  String? subtitle,
   DateTime? createdAt,
   SourceKind kind = SourceKind.webPage,
   ProcessingState processingState = ProcessingState.ready,
@@ -40,6 +41,7 @@ Future<void> insertItemRows(
         ItemsCompanion.insert(
           id: id,
           title: title,
+          subtitle: Value(subtitle),
           sourceId: 'src-$id',
           processingState: processingState,
           createdAt: at,
@@ -54,6 +56,7 @@ Future<void> insertItemRows(
         KnowledgeEntriesCompanion.insert(
           id: id,
           title: title,
+          subtitle: Value(subtitle),
           kind: itemKind,
           state: nextMirrorState(
             current: null,

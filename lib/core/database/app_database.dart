@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
+import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
@@ -25,6 +26,7 @@ import 'package:sinapsis/core/database/tables/sources.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/tables/tags.dart';
+import 'package:sinapsis/core/database/vault_counts.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
 // generado es un `part` de este archivo y hereda sus imports, no los de las
 // tablas donde cada enum se declara. Sin esto, `app_database.g.dart` no
@@ -114,7 +116,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 17;
+  static const currentSchemaVersion = 18;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -143,65 +145,98 @@ class AppDatabase extends _$AppDatabase {
           minimum: minimumUpgradableSchemaVersion,
         );
       }
-      // Chunks vivos y búsqueda por chunks (F10): `chunk` gana una clave entera
-      // propia —para que el índice de texto no dependa de un `rowid` que un
-      // `VACUUM` puede renumerar—, `item` gana `notes`, se fragmenta toda
-      // fuente que no lo estaba y se construye el índice de texto de los
-      // chunks. Todo aditivo: el índice de siempre, `item_search`, no se toca
-      // hasta que la búsqueda deje de usarlo. La copia previa de la base ya se
-      // hizo, y si algún conteo no coincide, la migración entera revierte.
-      if (from < 16) {
-        final chunksBefore = await _count('chunks');
-        await migrator.alterTable(
-          TableMigration(chunks, newColumns: [chunks.rowKey]),
-        );
-        final chunksAfter = await _count('chunks');
-        if (chunksBefore != chunksAfter) {
-          throw StateError(
-            'La migración a v16 cambió la cantidad de chunks: había '
-            '$chunksBefore y quedaron $chunksAfter.',
+      // Una sola transacción para todos los pasos: las migraciones de drift NO
+      // son transaccionales por sí solas —cada sentencia se confirma sola—, y
+      // sin esto un conteo que no cierra, o cualquier error a mitad de camino,
+      // dejaba hecho lo que ya se había hecho. Con ella, si algún paso lanza
+      // no queda nada de la migración: la base sigue en la versión de antes,
+      // lista para reintentar, además de la copia previa. (`alterTable` abre
+      // la suya, que dentro de esta es un punto de guardado.)
+      await transaction(() async {
+        // Chunks vivos y búsqueda por chunks (F10): `chunk` gana una clave
+        // entera propia —para que el índice de texto no dependa de un `rowid`
+        // que un `VACUUM` puede renumerar—, `item` gana `notes`, se fragmenta
+        // toda fuente que no lo estaba y se construye el índice de texto de los
+        // chunks. Todo aditivo: el índice de siempre, `item_search`, no se toca
+        // hasta que la búsqueda deje de usarlo. La copia previa de la base ya
+        // se hizo, y si algún conteo no coincide, la migración entera revierte.
+        if (from < 16) {
+          final chunksBefore = await _count('chunks');
+          await migrator.alterTable(
+            TableMigration(chunks, newColumns: [chunks.rowKey]),
           );
-        }
-        final orphans = await customSelect(
-          'SELECT COUNT(*) AS n FROM embeddings '
-          'WHERE chunk_id NOT IN (SELECT id FROM chunks)',
-        ).getSingle();
-        if (orphans.read<int>('n') != 0) {
-          throw StateError(
-            'La migración a v16 dejó ${orphans.read<int>('n')} embeddings '
-            'sin su chunk.',
-          );
-        }
-        await migrator.addColumn(knowledgeEntries, knowledgeEntries.notes);
+          final chunksAfter = await _count('chunks');
+          if (chunksBefore != chunksAfter) {
+            throw StateError(
+              'La migración a v16 cambió la cantidad de chunks: había '
+              '$chunksBefore y quedaron $chunksAfter.',
+            );
+          }
+          final orphans = await customSelect(
+            'SELECT COUNT(*) AS n FROM embeddings '
+            'WHERE chunk_id NOT IN (SELECT id FROM chunks)',
+          ).getSingle();
+          if (orphans.read<int>('n') != 0) {
+            throw StateError(
+              'La migración a v16 dejó ${orphans.read<int>('n')} embeddings '
+              'sin su chunk.',
+            );
+          }
+          await migrator.addColumn(knowledgeEntries, knowledgeEntries.notes);
 
-        await backfillChunksAndNotes(
-          this,
-          ids: const UuidV7Generator(),
-          logger: ConsoleAppLogger(),
-        );
-
-        // Recién ahora, con todos los chunks adentro: indexar de una vez es
-        // mucho más rápido que chunk por chunk.
-        await _createChunkSearchIndex();
-        await customStatement(rebuildChunkSearch);
-        final indexed = await _count('chunk_search_docsize');
-        final chunksNow = await _count('chunks');
-        if (indexed != chunksNow) {
-          throw StateError(
-            'El índice de texto de los chunks quedó con $indexed entradas y '
-            'hay $chunksNow chunks.',
+          await backfillChunksAndNotes(
+            this,
+            ids: const UuidV7Generator(),
+            logger: ConsoleAppLogger(),
           );
+
+          // Recién ahora, con todos los chunks adentro: indexar de una vez es
+          // mucho más rápido que chunk por chunk.
+          await _createChunkSearchIndex();
+          await customStatement(rebuildChunkSearch);
+          final indexed = await _count('chunk_search_docsize');
+          final chunksNow = await _count('chunks');
+          if (indexed != chunksNow) {
+            throw StateError(
+              'El índice de texto de los chunks quedó con $indexed entradas y '
+              'hay $chunksNow chunks.',
+            );
+          }
         }
-      }
-      // Búsqueda por chunks (F10): `item_search` deja de guardar el texto de
-      // las fuentes —lo indexa `chunk_search`, con su minuto o su página— y
-      // queda con título, subtítulo y el texto de las notas. Sin tabla ni
-      // columna nueva de las que drift modela —por eso no hay snapshot de
-      // v17—: solo se rehace el índice. Si no queda con una entrada por
-      // elemento, la migración entera revierte.
-      if (from < 17) {
-        await _rebuildItemSearchIndex();
-      }
+        // Las claves foráneas pasan de `items` a `item` (F10), y el índice de
+        // texto de los elementos —`item_search`, que desde F10 tiene título,
+        // subtítulo y el texto de las notas; el de las fuentes lo indexa
+        // `chunk_search` por chunks— se rehace sobre `item`: desde acá `items`
+        // deja de ser la fuente de nada y sus triggers dejarían de dispararse.
+        // El paso completa el espejo si faltaba algún elemento, y los conteos
+        // de lo que el usuario creó son compuerta: si alguno cambia, la
+        // migración entera revierte. La copia previa de la base ya se hizo.
+        //
+        // No hay paso `from < 17`: v17 solo rehacía `item_search`, y este paso
+        // lo rehace con la forma definitiva.
+        if (from < 18) {
+          final before = await captureVaultCounts(this);
+          await repointItemReferences(
+            this,
+            migrator,
+            ids: const UuidV7Generator(),
+            logger: ConsoleAppLogger(),
+          );
+          await _rebuildItemSearchIndex();
+          final changed = before.differencesWith(
+            await captureVaultCounts(this),
+          );
+          if (changed.isNotEmpty) {
+            final detail = [
+              for (final e in changed.entries)
+                '${e.key} (${e.value.$1} → ${e.value.$2})',
+            ].join(', ');
+            throw StateError(
+              'La migración a v18 cambió la cantidad de filas de $detail.',
+            );
+          }
+        }
+      });
     },
     beforeOpen: (details) async {
       // SQLite trae las claves foráneas DESACTIVADAS por defecto, por
@@ -233,7 +268,7 @@ class AppDatabase extends _$AppDatabase {
   /// las notas. Quita los triggers y la tabla de antes —con el cuerpo de todas
   /// las formas— y los vuelve a crear.
   Future<void> _rebuildItemSearchIndex() async {
-    for (final name in searchTriggerNames) {
+    for (final name in [...searchTriggerNames, ...legacySearchTriggerNames]) {
       await customStatement('DROP TRIGGER IF EXISTS $name');
     }
     await customStatement('DROP TABLE IF EXISTS item_search');
@@ -241,7 +276,7 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(populateItemSearch);
 
     final indexed = await _count('item_search');
-    final items = await _count('items');
+    final items = await _count('item');
     if (indexed != items) {
       throw StateError(
         'El índice de texto de los elementos quedó con $indexed entradas y '

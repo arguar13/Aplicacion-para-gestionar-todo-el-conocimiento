@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
 import '../../support/fake_id_generator.dart';
+import '../../support/item_rows.dart';
 
 /// El motor de fusión de valores y su deshacer, contra SQLite real. El
 /// invariante que importa: fusionar y deshacer deja el vocabulario EXACTAMENTE
@@ -25,29 +24,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> seedItem(String id) async {
-    await db
-        .into(db.sources)
-        .insert(
-          SourcesCompanion.insert(
-            id: 'src-$id',
-            kind: SourceKind.webPage,
-            capturedAt: now,
-          ),
-        );
-    await db
-        .into(db.items)
-        .insert(
-          ItemsCompanion.insert(
-            id: id,
-            title: 'Elemento $id',
-            sourceId: 'src-$id',
-            processingState: ProcessingState.ready,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-  }
+  Future<void> seedItem(String id) =>
+      insertItemRows(db, id: id, title: 'Elemento $id', createdAt: now);
 
   Future<String> temaId() async => (await (db.select(
     db.propertyDefinitions,

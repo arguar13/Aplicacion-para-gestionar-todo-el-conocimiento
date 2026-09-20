@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -71,6 +73,23 @@ void main() {
             subtitle: Value(subtitle),
           ),
         );
+    // El modelo nuevo: desde v18 las formas y los vínculos cuelgan de `item`, y
+    // sin su fila ninguna restricción de esas tablas se llegaría a ejercitar
+    // —un insert fallaría antes, por la clave foránea—.
+    await db
+        .into(db.knowledgeEntries)
+        .insert(
+          KnowledgeEntriesCompanion.insert(
+            id: id,
+            title: title,
+            subtitle: Value(subtitle),
+            kind: ItemKind.source,
+            state: ItemState.processed,
+            createdAt: now,
+            updatedAt: now,
+            deviceId: 'test',
+          ),
+        );
     return id;
   }
 
@@ -116,9 +135,28 @@ void main() {
       final itemId = await insertItem(sourceId: await insertSource());
       await insertTextRendition(itemId: itemId, content: 'texto');
 
-      await (db.delete(db.items)..where((i) => i.id.equals(itemId))).go();
+      await (db.delete(
+        db.knowledgeEntries,
+      )..where((e) => e.id.equals(itemId))).go();
 
       expect(await db.select(db.renditions).get(), isEmpty);
+    });
+
+    test('las formas cuelgan de item, no de items: borrar la fila vieja no las '
+        'toca', () async {
+      final itemId = await insertItem(sourceId: await insertSource());
+      await insertTextRendition(itemId: itemId, content: 'texto');
+
+      await (db.delete(db.items)..where((i) => i.id.equals(itemId))).go();
+
+      expect(await db.select(db.renditions).get(), hasLength(1));
+    });
+
+    test('no se puede agregar una forma a un elemento que no está en item', () {
+      expect(
+        () => insertTextRendition(itemId: 'no-existe', content: 'texto'),
+        throwsA(isA<SqliteException>()),
+      );
     });
 
     test('borrar una forma borra sus subrayados', () async {

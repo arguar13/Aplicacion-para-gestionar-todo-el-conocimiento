@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 
 /// Un `[[Título]]` escrito dentro de una nota, con el elemento al que apunta
 /// si ya existe.
@@ -13,8 +13,8 @@ import 'package:sinapsis/core/database/tables/items.dart';
 /// verdad de "estos dos están vinculados"; esto es el registro de lo que el
 /// texto dice.
 ///
-/// Referencia a `Items`, no al espejo nuevo, igual que `Relations`: F10 las
-/// repunta juntas.
+/// Referencia a `item`, igual que `Relations`: desde v18 las claves foráneas
+/// apuntan al modelo nuevo.
 @DataClassName('InlineLinkRow')
 @TableIndex(name: 'idx_inline_link_target', columns: {#toItemId})
 @TableIndex(name: 'idx_inline_link_title', columns: {#normalizedTitle})
@@ -26,7 +26,7 @@ class InlineLinks extends Table {
 
   /// La nota que contiene el enlace. Si se borra, sus enlaces se van con ella.
   TextColumn get fromItemId =>
-      text().references(Items, #id, onDelete: KeyAction.cascade)();
+      text().references(KnowledgeEntries, #id, onDelete: KeyAction.cascade)();
 
   /// El título como se escribió entre corchetes, recortado: con él se crea la
   /// nota que falta.
@@ -38,8 +38,11 @@ class InlineLinks extends Table {
   /// El elemento al que apunta, o `null` si el enlace está ROTO. Si ese
   /// elemento se borra, el enlace vuelve a quedar roto —no desaparece—: el
   /// texto de la nota sigue diciendo `[[Título]]`.
-  TextColumn get toItemId =>
-      text().nullable().references(Items, #id, onDelete: KeyAction.setNull)();
+  TextColumn get toItemId => text().nullable().references(
+    KnowledgeEntries,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
 
   DateTimeColumn get createdAt => dateTime()();
 

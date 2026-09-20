@@ -488,18 +488,7 @@ void main() {
                 notes: Value('notas de $id'),
               ),
             );
-        await db
-            .into(db.renditions)
-            .insert(
-              RenditionsCompanion.insert(
-                id: 'r-$id',
-                itemId: id,
-                kind: RenditionKind.markdown,
-                isPrimary: true,
-                createdAt: now,
-                content: Value(text),
-              ),
-            );
+        // El espejo primero: desde v18 las formas cuelgan de `item`.
         await db
             .into(db.knowledgeEntries)
             .insert(
@@ -522,6 +511,18 @@ void main() {
                 capturedAt: now,
                 contentHash: '',
                 processingStatus: SourceProcessingStatus.done,
+              ),
+            );
+        await db
+            .into(db.renditions)
+            .insert(
+              RenditionsCompanion.insert(
+                id: 'r-$id',
+                itemId: id,
+                kind: RenditionKind.markdown,
+                isPrimary: true,
+                createdAt: now,
+                content: Value(text),
               ),
             );
       }

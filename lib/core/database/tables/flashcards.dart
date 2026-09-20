@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
-import 'package:sinapsis/core/database/tables/items.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 
 /// Una tarjeta de repaso: una pregunta, una respuesta, y el estado de
 /// repetición espaciada que decide cuándo volver a mostrarla.
 ///
-/// Cuelga de un elemento (`Items`, `CASCADE`) y no de una rendition: a
+/// Cuelga de un elemento (`item`, `CASCADE`) y no de una rendition: a
 /// diferencia de un resaltado —que marca un fragmento concreto de un texto
 /// concreto—, una tarjeta es una síntesis de lo que el elemento enseña, y
 /// eso no cambia si la transcripción se rehace con un modelo mejor.
@@ -15,7 +15,7 @@ class Flashcards extends Table {
   TextColumn get id => text()();
 
   TextColumn get itemId =>
-      text().references(Items, #id, onDelete: KeyAction.cascade)();
+      text().references(KnowledgeEntries, #id, onDelete: KeyAction.cascade)();
 
   TextColumn get front => text()();
   TextColumn get back => text()();

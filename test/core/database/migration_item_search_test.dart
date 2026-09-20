@@ -8,12 +8,14 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v16.dart' as v16;
 
-/// La migración 16→17 —la búsqueda por chunks (F10)—: `item_search` deja de
-/// guardar el texto de las fuentes, que pasa a `chunk_search`, y queda con
-/// título, subtítulo y el texto de las notas.
+/// El índice de texto de los elementos (`item_search`) al migrar desde v16
+/// (F10): deja de guardar el texto de las fuentes, que pasa a `chunk_search`, y
+/// queda con título, subtítulo y el texto de las notas, calculado sobre `item`.
 ///
-/// No cambia la forma del esquema que drift modela —el índice es una tabla
-/// virtual—, por eso no hay snapshot de v17 y se siembra desde v16.
+/// Se siembra desde v16 —el snapshot más reciente anterior a v18— y se migra
+/// hasta la versión actual: el paso que rehace el índice es el de v18, que
+/// absorbió al de v17, y completa además el espejo `item` que esta bóveda
+/// sembrada a mano no trae.
 void main() {
   final verifier = SchemaVerifier(GeneratedHelper());
   const seconds = 1789000000;
@@ -108,8 +110,7 @@ END''');
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
     // `migrateAndValidate` afirma que la versión de destino es la que se le
-    // pasa, y no hay snapshot de v17 —la forma del esquema no cambia—: con solo
-    // abrir la base, drift migra de la 16 a la 17.
+    // pasa: con solo abrir la base, drift la migra de la 16 a la actual.
     await db.customSelect('SELECT 1').get();
     return db;
   }
@@ -180,15 +181,39 @@ END''');
     },
   );
 
-  test('reemplaza el trigger de antes por el de ahora', () async {
+  test(
+    'reemplaza el trigger de antes por el de ahora, que mira item',
+    () async {
+      final db = await migrateFrom16(seed: seedV16Vault);
+
+      final trigger = await db
+          .customSelect(
+            "SELECT sql FROM sqlite_master WHERE name = 'renditions_search_ai'",
+          )
+          .getSingle();
+      expect(trigger.read<String>('sql'), contains("ni.kind = 'note'"));
+      expect(trigger.read<String>('sql'), isNot(contains('sources')));
+    },
+  );
+
+  test('los triggers de título y subtítulo cuelgan de item; los de items ya no '
+      'existen', () async {
     final db = await migrateFrom16(seed: seedV16Vault);
 
-    final trigger = await db
+    final rows = await db
         .customSelect(
-          "SELECT sql FROM sqlite_master WHERE name = 'renditions_search_ai'",
+          "SELECT name, tbl_name FROM sqlite_master WHERE type = 'trigger' "
+          "AND name LIKE '%search%'",
         )
-        .getSingle();
-    expect(trigger.read<String>('sql'), contains("ns.kind = 'manualNote'"));
+        .get();
+    final byName = {
+      for (final r in rows) r.read<String>('name'): r.read<String>('tbl_name'),
+    };
+
+    expect(byName['entry_search_ai'], 'item');
+    expect(byName['entry_search_au'], 'item');
+    expect(byName['entry_search_ad'], 'item');
+    expect(byName.keys.where((n) => n.startsWith('items_search')), isEmpty);
   });
 
   test('una base sin índice de antes también migra', () async {
