@@ -1,4 +1,5 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -330,6 +331,64 @@ void main() {
         links = await queue.next.timeout(const Duration(seconds: 5));
       }
       expect(links.single.title, 'Atenas');
+    });
+  });
+
+  group('los títulos salen del modelo nuevo (F10)', () {
+    Future<void> retitleOnlyEntry(String id, String title) =>
+        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(id))).write(
+          KnowledgeEntriesCompanion(title: Value(title)),
+        );
+
+    Future<List<InlineLinkRow>> linksOf(String itemId) => (db.select(
+      db.inlineLinks,
+    )..where((l) => l.fromItemId.equals(itemId))).get();
+
+    test('qué títulos existen lo dice item, no la tabla vieja', () async {
+      await seedItem('roma', 'Roma');
+      // Se cambia SOLO la fila nueva: si la lectura saliera de la vieja, "Roma"
+      // seguiría existiendo y "Cartago" no.
+      await retitleOnlyEntry('roma', 'Cartago');
+
+      final result = await repository.findMissingTitles({'roma', 'cartago'});
+
+      expect(result.getRight().toNullable(), {'roma'});
+    });
+
+    test('los enlaces rotos nombran la nota por el título de item, y la lista '
+        'se actualiza sola cuando cambia', () async {
+      await seedNote('n1', 'Viaje', ['[[Cartago]]']);
+      final queue = StreamQueue(repository.watchBrokenLinks());
+      addTearDown(queue.cancel);
+      expect((await queue.next).single.sources.single.title, 'Viaje');
+
+      await retitleOnlyEntry('n1', 'Diario de viaje');
+
+      var links = await queue.next;
+      while (links.single.sources.single.title != 'Diario de viaje') {
+        links = await queue.next.timeout(const Duration(seconds: 5));
+      }
+      expect(links.single.sources.single.title, 'Diario de viaje');
+    });
+
+    test('una nota nueva que se menciona a sí misma no queda con un enlace '
+        'roto hacia sí misma', () async {
+      // Al guardarla, el modelo nuevo tiene que conocerla antes de resolver sus
+      // enlaces: si no, su propio título no existe todavía para ella.
+      await seedNote('yo', 'Yo', ['Me llamo [[Yo]].']);
+
+      expect(await linksOf('yo'), isEmpty);
+      expect(await repository.watchBrokenLinks().first, isEmpty);
+    });
+
+    test('una nota que pasa a llamarse como su enlace roto deja de tenerlo, '
+        'al guardarla', () async {
+      await seedNote('n1', 'Viaje', ['[[Roma]]']);
+      expect(await linksOf('n1'), hasLength(1));
+
+      await seedNote('n1', 'Roma', ['[[Roma]]']);
+
+      expect(await linksOf('n1'), isEmpty);
     });
   });
 

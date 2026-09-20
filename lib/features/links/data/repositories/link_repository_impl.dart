@@ -112,7 +112,7 @@ class LinkRepositoryImpl implements LinkRepository {
   Stream<List<BrokenLink>> watchBrokenLinks() {
     return watchQuery(
       db: _db,
-      tables: [_db.inlineLinks, _db.items],
+      tables: [_db.inlineLinks, _db.knowledgeEntries],
       read: _readBrokenLinks,
       telemetry: _telemetry,
       hint: 'LinkRepositoryImpl.watchBrokenLinks',
@@ -121,7 +121,7 @@ class LinkRepositoryImpl implements LinkRepository {
 
   Future<List<BrokenLink>> _readBrokenLinks() async {
     final links = _db.inlineLinks;
-    final items = _db.items;
+    final items = _db.knowledgeEntries;
     final rows =
         await (_db.select(links).join([
                 innerJoin(items, items.id.equalsExp(links.fromItemId)),

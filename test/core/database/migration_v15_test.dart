@@ -49,6 +49,33 @@ void main() {
             updatedAt: createdAt,
           ),
         );
+    // Una bóveda de v13 ya tiene el espejo: `save()` lo escribe desde F3 y el
+    // paso de v10 lo completó para lo anterior. Los enlaces se resuelven contra
+    // sus títulos —leen `item`, no `items`—.
+    await db
+        .into(db.item)
+        .insert(
+          v13.ItemCompanion.insert(
+            id: id,
+            title: title,
+            kind: 'source',
+            state: 'processed',
+            createdAt: createdAt,
+            updatedAt: createdAt,
+            deviceId: 'f3-espejo-sin-sync',
+          ),
+        );
+    await db
+        .into(db.source)
+        .insert(
+          v13.SourceCompanion.insert(
+            itemId: id,
+            sourceType: 'webPage',
+            capturedAt: createdAt,
+            contentHash: '',
+            processingStatus: 'done',
+          ),
+        );
   }
 
   Future<void> addBlocks(v13.DatabaseAtV13 db, String itemId, String content) =>

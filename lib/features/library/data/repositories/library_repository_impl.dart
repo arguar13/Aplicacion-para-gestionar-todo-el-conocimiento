@@ -84,6 +84,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
       await _db.transaction(() async {
         await _upsertSource(item.source);
         await _upsertItem(item);
+        // Antes que lo que lee `item`: los enlaces en línea resuelven sus
+        // títulos contra el modelo nuevo, y una nota que se guarda por primera
+        // vez —o que cambia de título— tiene que estar ya ahí para reconocerse
+        // a sí misma.
+        await _mirrorItem(item);
         await _syncRenditions(item);
         await _syncInlineLinks(item);
         await resolveBrokenInlineLinks(
@@ -96,7 +101,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
         final temaId = await temaDefinitionId(_db);
         await _syncTags(item, temaId);
         await _syncProperties(item, temaId);
-        await _mirrorItem(item);
         await _syncChunks(item);
       });
       _generateDuplicateSuggestionForNote(item);

@@ -4,11 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/migrations/backfill_inline_links_v15.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
 import '../../support/fake_id_generator.dart';
+import '../../support/item_rows.dart';
 import '../../support/silent_logger.dart';
 
 class _RecordingLogger extends SilentLogger {
@@ -39,30 +38,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> seedItem(String id, String title, {DateTime? createdAt}) async {
-    final at = createdAt ?? now;
-    await db
-        .into(db.sources)
-        .insert(
-          SourcesCompanion.insert(
-            id: 'src-$id',
-            kind: SourceKind.webPage,
-            capturedAt: at,
-          ),
-        );
-    await db
-        .into(db.items)
-        .insert(
-          ItemsCompanion.insert(
-            id: id,
-            title: title,
-            sourceId: 'src-$id',
-            processingState: ProcessingState.ready,
-            createdAt: at,
-            updatedAt: at,
-          ),
-        );
-  }
+  Future<void> seedItem(String id, String title, {DateTime? createdAt}) =>
+      insertItemRows(db, id: id, title: title, createdAt: createdAt ?? now);
 
   Future<void> addRendition(
     String itemId,
@@ -221,43 +198,26 @@ void main() {
     test('recorre todas las notas aunque no quepan en una página', () async {
       await seedItem('destino', 'Destino');
       const notes = 450; // más de dos páginas de 200.
+      for (var i = 0; i < notes; i++) {
+        await seedItem('n$i', 'Nota $i');
+      }
       await db.batch((batch) {
         for (var i = 0; i < notes; i++) {
-          batch
-            ..insert(
-              db.sources,
-              SourcesCompanion.insert(
-                id: 'src-n$i',
-                kind: SourceKind.webPage,
-                capturedAt: now,
+          batch.insert(
+            db.renditions,
+            RenditionsCompanion.insert(
+              id: 'r-n$i',
+              itemId: 'n$i',
+              kind: RenditionKind.blocks,
+              content: Value(
+                encodeContentBlocks(const [
+                  ContentBlock.paragraph(text: 'Ver [[Destino]].'),
+                ]),
               ),
-            )
-            ..insert(
-              db.items,
-              ItemsCompanion.insert(
-                id: 'n$i',
-                title: 'Nota $i',
-                sourceId: 'src-n$i',
-                processingState: ProcessingState.ready,
-                createdAt: now,
-                updatedAt: now,
-              ),
-            )
-            ..insert(
-              db.renditions,
-              RenditionsCompanion.insert(
-                id: 'r-n$i',
-                itemId: 'n$i',
-                kind: RenditionKind.blocks,
-                content: Value(
-                  encodeContentBlocks(const [
-                    ContentBlock.paragraph(text: 'Ver [[Destino]].'),
-                  ]),
-                ),
-                isPrimary: true,
-                createdAt: now,
-              ),
-            );
+              isPrimary: true,
+              createdAt: now,
+            ),
+          );
         }
       });
 

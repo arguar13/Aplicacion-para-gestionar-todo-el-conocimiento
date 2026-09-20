@@ -1,14 +1,12 @@
-import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
-import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
 import '../../support/fake_id_generator.dart';
+import '../../support/item_rows.dart';
 
 /// Los `[[Título]]` de una nota, sincronizados con `inline_link` al guardarla
 /// (F9), y los enlaces rotos que se resuelven cuando aparece el título que
@@ -28,30 +26,8 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<void> seedItem(String id, String title, {DateTime? createdAt}) async {
-    final at = createdAt ?? now;
-    await db
-        .into(db.sources)
-        .insert(
-          SourcesCompanion.insert(
-            id: 'src-$id',
-            kind: SourceKind.webPage,
-            capturedAt: at,
-          ),
-        );
-    await db
-        .into(db.items)
-        .insert(
-          ItemsCompanion.insert(
-            id: id,
-            title: title,
-            sourceId: 'src-$id',
-            processingState: ProcessingState.ready,
-            createdAt: at,
-            updatedAt: at,
-          ),
-        );
-  }
+  Future<void> seedItem(String id, String title, {DateTime? createdAt}) =>
+      insertItemRows(db, id: id, title: title, createdAt: createdAt ?? now);
 
   Future<void> sync(String itemId, List<String> paragraphs) => syncInlineLinks(
     db,
@@ -162,9 +138,7 @@ void main() {
       await sync('n1', ['[[Roma]]']);
       expect(await linksOf('n1'), {('roma', null)});
 
-      await (db.update(db.items)..where((i) => i.id.equals('n1'))).write(
-        const ItemsCompanion(title: Value('Roma')),
-      );
+      await retitleItemRows(db, 'n1', 'Roma');
       await sync('n1', ['[[Roma]]']);
 
       expect(await linksOf('n1'), isEmpty);
@@ -234,7 +208,7 @@ void main() {
       await sync('n1', ['[[Roma]]']);
       expect(await linksOf('n1'), {('roma', 'roma')});
 
-      await (db.delete(db.items)..where((i) => i.id.equals('roma'))).go();
+      await deleteItemRows(db, 'roma');
       expect(await linksOf('n1'), {('roma', null)});
 
       await sync('n1', ['[[Roma]]']);
@@ -300,9 +274,7 @@ void main() {
         await seedItem('x', 'Algo');
         await sync('n1', ['[[Roma Antigua]]']);
 
-        await (db.update(db.items)..where((i) => i.id.equals('x'))).write(
-          const ItemsCompanion(title: Value('Roma Antigua')),
-        );
+        await retitleItemRows(db, 'x', 'Roma Antigua');
         final resolved = await resolveFor('x', 'Roma Antigua');
 
         expect(resolved, 1);
@@ -335,9 +307,7 @@ void main() {
       await seedItem('n1', 'Uno');
       await sync('n1', ['[[Roma]]']);
       // La nota pasa a llamarse "Roma": su propio enlace no apunta a sí misma.
-      await (db.update(db.items)..where((i) => i.id.equals('n1'))).write(
-        const ItemsCompanion(title: Value('Roma')),
-      );
+      await retitleItemRows(db, 'n1', 'Roma');
 
       final resolved = await resolveFor('n1', 'Roma');
 

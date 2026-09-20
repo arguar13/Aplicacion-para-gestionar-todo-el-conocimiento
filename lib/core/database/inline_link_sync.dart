@@ -19,17 +19,18 @@ typedef LinkCandidate = ({String id, DateTime createdAt});
 Future<Map<String, List<LinkCandidate>>> itemsByLinkTitle(
   AppDatabase db,
 ) async {
+  final entries = db.knowledgeEntries;
   final rows = await (db.selectOnly(
-    db.items,
-  )..addColumns([db.items.id, db.items.title, db.items.createdAt])).get();
+    entries,
+  )..addColumns([entries.id, entries.title, entries.createdAt])).get();
 
   final byTitle = <String, List<LinkCandidate>>{};
   for (final row in rows) {
     byTitle
-        .putIfAbsent(normalizeLinkTitle(row.read(db.items.title)!), () => [])
+        .putIfAbsent(normalizeLinkTitle(row.read(entries.title)!), () => [])
         .add((
-          id: row.read(db.items.id)!,
-          createdAt: row.read(db.items.createdAt)!,
+          id: row.read(entries.id)!,
+          createdAt: row.read(entries.createdAt)!,
         ));
   }
   for (final candidates in byTitle.values) {
