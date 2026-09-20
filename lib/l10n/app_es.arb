@@ -1200,6 +1200,185 @@
       }
     }
   },
+  "conflictsTitle": "Cambios para revisar",
+  "@conflictsTitle": {
+    "description": "Título de la pantalla de conflictos de fusión y de su acceso en ajustes."
+  },
+  "conflictsSettingsSubtitle": "{count, plural, =0{Nada pendiente} =1{1 pendiente} other{{count} pendientes}}",
+  "@conflictsSettingsSubtitle": {
+    "description": "Subtítulo del acceso en ajustes: cuántos conflictos hay sin resolver.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "conflictsIntro": "Esto se cambió en las dos bóvedas. Hasta que elijas, está en uso la versión más reciente; las dos se conservan.",
+  "@conflictsIntro": {
+    "description": "Explicación al comienzo de la lista de conflictos."
+  },
+  "conflictsEmptyTitle": "Nada para revisar",
+  "@conflictsEmptyTitle": {
+    "description": "Título del estado vacío de la pantalla de conflictos."
+  },
+  "conflictsEmptyBody": "Cuando traigas una copia y algo se haya cambiado en las dos bóvedas, aparece acá para que elijas.",
+  "@conflictsEmptyBody": {
+    "description": "Cuerpo del estado vacío de la pantalla de conflictos."
+  },
+  "conflictsFieldTitle": "Título",
+  "@conflictsFieldTitle": {
+    "description": "Nombre del campo título en un conflicto."
+  },
+  "conflictsFieldSubtitle": "Subtítulo",
+  "@conflictsFieldSubtitle": {
+    "description": "Nombre del campo subtítulo en un conflicto."
+  },
+  "conflictsFieldNotes": "Notas",
+  "@conflictsFieldNotes": {
+    "description": "Nombre del campo notas en un conflicto."
+  },
+  "conflictsFieldSpace": "Tema",
+  "@conflictsFieldSpace": {
+    "description": "Nombre del campo espacio en un conflicto."
+  },
+  "conflictsFieldState": "Estado",
+  "@conflictsFieldState": {
+    "description": "Nombre del campo estado en un conflicto."
+  },
+  "conflictsFieldDeleted": "Papelera",
+  "@conflictsFieldDeleted": {
+    "description": "Nombre del campo borrado en un conflicto."
+  },
+  "conflictsFieldNoteKind": "Tipo de nota",
+  "@conflictsFieldNoteKind": {
+    "description": "Nombre del campo tipo de nota en un conflicto."
+  },
+  "conflictsFieldMaturity": "Madurez",
+  "@conflictsFieldMaturity": {
+    "description": "Nombre del campo madurez en un conflicto."
+  },
+  "conflictsFieldOriginUrl": "Dirección de origen",
+  "@conflictsFieldOriginUrl": {
+    "description": "Nombre del campo dirección de origen en un conflicto."
+  },
+  "conflictsFieldAuthor": "Autor",
+  "@conflictsFieldAuthor": {
+    "description": "Nombre del campo autor en un conflicto."
+  },
+  "conflictsFieldAuthorUrl": "Dirección del autor",
+  "@conflictsFieldAuthorUrl": {
+    "description": "Nombre del campo dirección del autor en un conflicto."
+  },
+  "conflictsFieldPublishedAt": "Fecha de publicación",
+  "@conflictsFieldPublishedAt": {
+    "description": "Nombre del campo fecha de publicación en un conflicto."
+  },
+  "conflictsFieldOriginalFile": "Archivo original",
+  "@conflictsFieldOriginalFile": {
+    "description": "Nombre del campo archivo original en un conflicto."
+  },
+  "conflictsFieldText": "Texto",
+  "@conflictsFieldText": {
+    "description": "Nombre de un conflicto de texto."
+  },
+  "conflictsSideLocal": "En este dispositivo",
+  "@conflictsSideLocal": {
+    "description": "Rótulo de la versión que había en esta bóveda."
+  },
+  "conflictsSideIncoming": "En la otra copia",
+  "@conflictsSideIncoming": {
+    "description": "Rótulo de la versión que trajo la otra copia."
+  },
+  "conflictsInUse": "En uso ahora",
+  "@conflictsInUse": {
+    "description": "Insignia de la versión que está en uso."
+  },
+  "conflictsVersionMeta": "{device} · {date}",
+  "@conflictsVersionMeta": {
+    "description": "Quién y cuándo escribió una versión.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictsEmptyValue": "(vacío)",
+  "@conflictsEmptyValue": {
+    "description": "Valor de un campo que estaba vacío."
+  },
+  "conflictsGone": "Esta versión ya no está.",
+  "@conflictsGone": {
+    "description": "Aviso cuando una de las versiones ya no existe."
+  },
+  "conflictsInLibrary": "En la biblioteca",
+  "@conflictsInLibrary": {
+    "description": "Valor del campo papelera: el elemento está en la biblioteca."
+  },
+  "conflictsInTrash": "En la papelera desde {date}",
+  "@conflictsInTrash": {
+    "description": "Valor del campo papelera: el elemento está borrado.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictsTextLength": "{count, plural, =1{1 carácter} other{{count} caracteres}}",
+  "@conflictsTextLength": {
+    "description": "Cuánto texto tiene una versión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "conflictsStateCaptured": "Capturado",
+  "@conflictsStateCaptured": {
+    "description": "Estado de un elemento."
+  },
+  "conflictsStateProcessed": "Procesado",
+  "@conflictsStateProcessed": {
+    "description": "Estado de un elemento."
+  },
+  "conflictsStateTriaged": "Revisado",
+  "@conflictsStateTriaged": {
+    "description": "Estado de un elemento."
+  },
+  "conflictsStateDistilled": "Destilado",
+  "@conflictsStateDistilled": {
+    "description": "Estado de un elemento."
+  },
+  "conflictsStateDiscarded": "Descartado",
+  "@conflictsStateDiscarded": {
+    "description": "Estado de un elemento."
+  },
+  "conflictsKeepThis": "Conservar esta",
+  "@conflictsKeepThis": {
+    "description": "Botón: dejar la versión que ya está en uso."
+  },
+  "conflictsUseThis": "Usar esta",
+  "@conflictsUseThis": {
+    "description": "Botón: pasar a usar esta versión."
+  },
+  "conflictsKeepBoth": "Guardar las dos",
+  "@conflictsKeepBoth": {
+    "description": "Botón: juntar las dos versiones de un texto libre."
+  },
+  "conflictsItemInTrash": "El elemento está en la papelera.",
+  "@conflictsItemInTrash": {
+    "description": "Aviso en un conflicto de un elemento borrado."
+  },
+  "conflictsResolved": "Listo, quedó guardado.",
+  "@conflictsResolved": {
+    "description": "Aviso tras resolver un conflicto."
+  },
+  "vaultMergeDoneReview": "Revisar",
+  "@vaultMergeDoneReview": {
+    "description": "Botón del resultado de unir: ir a los cambios para revisar."
+  },
   "spacesNewAction": "Nuevo tema",
   "@spacesNewAction": {
     "description": "Chip y botón para crear un tema nuevo."

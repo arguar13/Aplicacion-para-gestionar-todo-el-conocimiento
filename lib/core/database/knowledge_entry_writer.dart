@@ -296,6 +296,139 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Pone el campo [field] de [itemId] en [value], que llega como TEXTO: así
+  /// lo guarda un conflicto de fusión, sea cual sea el campo (F11).
+  ///
+  /// Los enumerados llegan por su nombre, las fechas como segundos desde 1970 y
+  /// un espacio por su identificador. Es una modificación como cualquier otra:
+  /// sube el `rev`, escribe el dispositivo de acá y registra la versión del
+  /// campo, así que una fusión posterior la ve como lo que es —una edición
+  /// nueva— y no como el conflicto de antes.
+  ///
+  /// Devuelve `false`, sin tocar nada, si el elemento no existe, si [field] no
+  /// es uno de los campos versionados o si [value] no sirve para él (un nombre
+  /// de enumerado que no existe, un título vacío).
+  Future<bool> setFieldFromText(
+    String itemId,
+    String field,
+    String? value,
+  ) async {
+    switch (field) {
+      case EntryField.title:
+        return _setTitle(itemId, value);
+      case EntryField.subtitle:
+        return setFreeText(itemId, subtitle: Value(value));
+      case EntryField.notes:
+        return setFreeText(itemId, notes: Value(value));
+      case EntryField.spaceId:
+        if (await _entry(itemId) == null) return false;
+        await setSpace([itemId], value);
+        return true;
+      case EntryField.state:
+        final to = ItemState.values.asNameMap()[value];
+        return to == null ? false : setState(itemId, to);
+      case EntryField.deletedAt:
+        if (await _entry(itemId) == null) return false;
+        if (value == null) {
+          await restore([itemId]);
+        } else {
+          await trash([itemId]);
+        }
+        return true;
+      case EntryField.noteKind:
+        final to = NoteKind.values.asNameMap()[value];
+        return to == null ? false : setNoteKind(itemId, to);
+      case EntryField.maturity:
+        final to = NoteMaturity.values.asNameMap()[value];
+        return to == null ? false : setMaturity(itemId, to);
+      case EntryField.originUrl:
+      case EntryField.authorName:
+      case EntryField.authorUrl:
+      case EntryField.originalBlobPath:
+        return _setSourceText(itemId, field, value);
+      case EntryField.publishedAt:
+        final seconds = value == null ? null : int.tryParse(value);
+        if (value != null && seconds == null) return false;
+        return _setSourceDate(
+          itemId,
+          seconds == null
+              ? null
+              : DateTime.fromMillisecondsSinceEpoch(seconds * 1000),
+        );
+    }
+    return false;
+  }
+
+  Future<bool> _setTitle(String itemId, String? title) async {
+    if (title == null || title.trim().isEmpty) return false;
+    return _db.transaction(() async {
+      final row = await _entry(itemId);
+      if (row == null) return false;
+      if (row.title == title) return true;
+      final now = _clock();
+      await _writeEntry(
+        row,
+        KnowledgeEntriesCompanion(title: Value(title), updatedAt: Value(now)),
+      );
+      await _touch(itemId, EntryField.title, now);
+      return true;
+    });
+  }
+
+  Future<bool> _setSourceText(String itemId, String field, String? text) {
+    return _setSource(itemId, field, (source) {
+      final current = switch (field) {
+        EntryField.originUrl => source.originUrl,
+        EntryField.authorName => source.authorName,
+        EntryField.authorUrl => source.authorUrl,
+        _ => source.originalBlobPath,
+      };
+      if (current == text) return null;
+      return switch (field) {
+        EntryField.originUrl => KnowledgeSourcesCompanion(
+          originUrl: Value(text),
+        ),
+        EntryField.authorName => KnowledgeSourcesCompanion(
+          authorName: Value(text),
+        ),
+        EntryField.authorUrl => KnowledgeSourcesCompanion(
+          authorUrl: Value(text),
+        ),
+        _ => KnowledgeSourcesCompanion(originalBlobPath: Value(text)),
+      };
+    });
+  }
+
+  Future<bool> _setSourceDate(String itemId, DateTime? date) {
+    return _setSource(itemId, EntryField.publishedAt, (source) {
+      if (source.publishedAt == date) return null;
+      return KnowledgeSourcesCompanion(publishedAt: Value(date));
+    });
+  }
+
+  /// Aplica el cambio que [change] decide sobre la fila de `source` de
+  /// [itemId] —`null` si no hay nada que cambiar— y lo versiona.
+  Future<bool> _setSource(
+    String itemId,
+    String field,
+    KnowledgeSourcesCompanion? Function(KnowledgeSourceRow source) change,
+  ) async {
+    return _db.transaction(() async {
+      final source = await (_db.select(
+        _db.knowledgeSources,
+      )..where((s) => s.itemId.equals(itemId))).getSingleOrNull();
+      if (source == null) return false;
+      final companion = change(source);
+      if (companion == null) return true;
+      await (_db.update(
+        _db.knowledgeSources,
+      )..where((s) => s.itemId.equals(itemId))).write(companion);
+      await _bumpEntry(itemId);
+      await _touch(itemId, field, _clock());
+      return true;
+    });
+  }
+
   /// Borra [itemId] de la base, para siempre: la fila de `item` y, por las
   /// cascadas del esquema, todo lo que cuelga de ella —su fuente o nota, sus
   /// formas, subrayados, chunks, vínculos, tarjetas y versiones por campo—.

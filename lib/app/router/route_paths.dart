@@ -121,6 +121,10 @@ abstract final class RoutePaths {
 
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
+
+  /// Los cambios que una fusión no pudo decidir sola y esperan que el usuario
+  /// elija (F11).
+  static const conflicts = '/conflicts';
 }
 
 abstract final class RouteNames {
@@ -152,4 +156,5 @@ abstract final class RouteNames {
   static const review = 'review';
   static const settings = 'settings';
   static const trash = 'trash';
+  static const conflicts = 'conflicts';
 }

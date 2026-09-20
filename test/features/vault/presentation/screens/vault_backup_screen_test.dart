@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
@@ -319,6 +321,61 @@ void main() {
         expect(find.textContaining('Cerrar Sinapsis'), findsNothing);
       },
     );
+
+    testWidgets(
+      'con conflictos guardados ofrece revisarlos y va a su pantalla',
+      (tester) async {
+        service.onMerge = (_) async =>
+            const VaultMergeResult(itemsAdded: 1, conflictsRecorded: 2);
+        final router = GoRouter(
+          routes: [
+            GoRoute(path: '/', builder: (_, _) => const VaultBackupScreen()),
+            GoRoute(
+              path: RoutePaths.conflicts,
+              builder: (_, _) => const Scaffold(body: Text('LOS CONFLICTOS')),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              vaultBackupServiceProvider.overrideWithValue(service),
+              vaultBackupFileGatewayProvider.overrideWithValue(gateway),
+            ],
+            child: MaterialApp.router(
+              locale: const Locale('es'),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tapChoose(tester);
+        await tester.tap(find.text(es.vaultMergeConfirmAction));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.vaultMergeDoneConflicts(2)), findsOneWidget);
+        await tester.tap(find.text(es.vaultMergeDoneReview));
+        await tester.pumpAndSettle();
+
+        expect(find.text('LOS CONFLICTOS'), findsOneWidget);
+      },
+    );
+
+    testWidgets('sin conflictos no ofrece revisar nada', (tester) async {
+      await pumpScreen(tester);
+      await tapChoose(tester);
+
+      await tester.tap(find.text(es.vaultMergeConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.vaultMergeDoneReview), findsNothing);
+    });
 
     testWidgets('mientras fusiona lo dice, y no deja empezar otra', (
       tester,

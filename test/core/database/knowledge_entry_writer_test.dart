@@ -723,4 +723,226 @@ void main() {
       expect(await count('item'), 0);
     });
   });
+
+  group('poner un campo desde su valor como texto', () {
+    Future<KnowledgeSourceRow> source(String id) => (db.select(
+      db.knowledgeSources,
+    )..where((x) => x.itemId.equals(id))).getSingle();
+
+    test('cada campo de `item`, con su versión y su rev', () async {
+      await writer.upsert(sourceItem());
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(
+              id: 'sp',
+              name: 'Historia',
+              createdAt: captured,
+            ),
+          );
+      final before = await entry('art');
+      tick();
+
+      expect(
+        await writer.setFieldFromText('art', EntryField.title, 'Nuevo'),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.subtitle, 'Sub'),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.notes, 'Notas'),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.spaceId, 'sp'),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.state, 'triaged'),
+        isTrue,
+      );
+
+      final after = await entry('art');
+      expect(after.title, 'Nuevo');
+      expect(after.subtitle, 'Sub');
+      expect(after.notes, 'Notas');
+      expect(after.spaceId, 'sp');
+      expect(after.state, ItemState.triaged);
+      expect(after.rev, greaterThan(before.rev));
+      final v = await versions('art');
+      for (final field in [
+        EntryField.title,
+        EntryField.subtitle,
+        EntryField.notes,
+        EntryField.spaceId,
+        EntryField.state,
+      ]) {
+        expect(v[field]!.deviceId, me, reason: field);
+        expect(v[field]!.updatedAt, clockNow, reason: field);
+      }
+    });
+
+    test('vaciar un campo: el subtítulo, las notas y el espacio', () async {
+      await writer.upsert(sourceItem(subtitle: 'Sub', notes: 'N'));
+      tick();
+
+      await writer.setFieldFromText('art', EntryField.subtitle, null);
+      await writer.setFieldFromText('art', EntryField.notes, null);
+
+      final row = await entry('art');
+      expect(row.subtitle, isNull);
+      expect(row.notes, isNull);
+    });
+
+    test('la papelera: un valor la manda, nulo la saca', () async {
+      await writer.upsert(sourceItem());
+      tick();
+
+      await writer.setFieldFromText('art', EntryField.deletedAt, '1789000000');
+      expect((await entry('art')).deletedAt, isNotNull);
+      tick();
+      await writer.setFieldFromText('art', EntryField.deletedAt, null);
+      expect((await entry('art')).deletedAt, isNull);
+    });
+
+    test('la nota: su subtipo y su madurez', () async {
+      await writer.upsert(noteItem());
+      tick();
+
+      expect(
+        await writer.setFieldFromText('nota', EntryField.noteKind, 'map'),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText('nota', EntryField.maturity, 'mature'),
+        isTrue,
+      );
+
+      final note = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('nota'))).getSingle();
+      expect(note.noteKind, NoteKind.map);
+      expect(note.maturity, NoteMaturity.mature);
+    });
+
+    test('los datos de la fuente, con su fecha de publicación', () async {
+      await writer.upsert(sourceItem(authorName: 'Ana'));
+      tick();
+
+      await writer.setFieldFromText('art', EntryField.authorName, 'Beto');
+      await writer.setFieldFromText(
+        'art',
+        EntryField.originUrl,
+        'https://otra.org',
+      );
+      await writer.setFieldFromText(
+        'art',
+        EntryField.authorUrl,
+        'https://beto.org',
+      );
+      await writer.setFieldFromText(
+        'art',
+        EntryField.originalBlobPath,
+        'originales/art/x.pdf',
+      );
+      await writer.setFieldFromText(
+        'art',
+        EntryField.publishedAt,
+        '1789000000',
+      );
+
+      final row = await source('art');
+      expect(row.authorName, 'Beto');
+      expect(row.originUrl, 'https://otra.org');
+      expect(row.authorUrl, 'https://beto.org');
+      expect(row.originalBlobPath, 'originales/art/x.pdf');
+      expect(
+        row.publishedAt,
+        DateTime.fromMillisecondsSinceEpoch(1789000000 * 1000),
+      );
+      expect((await versions('art'))[EntryField.authorName]!.deviceId, me);
+      expect((await entry('art')).rev, greaterThan(1));
+    });
+
+    test('un valor igual al de ahora no cambia ni versiona nada', () async {
+      await writer.upsert(sourceItem());
+      final before = await entry('art');
+      final versionsBefore = await versions('art');
+      tick();
+
+      expect(
+        await writer.setFieldFromText(
+          'art',
+          EntryField.title,
+          'La república romana',
+        ),
+        isTrue,
+      );
+      expect(
+        await writer.setFieldFromText(
+          'art',
+          EntryField.originUrl,
+          'https://ejemplo.org/roma',
+        ),
+        isTrue,
+      );
+
+      expect(await entry('art'), before);
+      expect((await versions('art')).keys, versionsBefore.keys);
+    });
+
+    test('lo que no sirve devuelve false y no toca nada', () async {
+      await writer.upsert(sourceItem());
+      final before = await entry('art');
+
+      expect(
+        await writer.setFieldFromText('nada', EntryField.title, 'X'),
+        isFalse,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.title, null),
+        isFalse,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.title, '  '),
+        isFalse,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.state, 'no-existe'),
+        isFalse,
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.noteKind, 'map'),
+        isFalse,
+        reason: 'una fuente no tiene subtipo',
+      );
+      expect(
+        await writer.setFieldFromText('art', EntryField.publishedAt, 'ayer'),
+        isFalse,
+      );
+      expect(await writer.setFieldFromText('art', 'rendition:x', 'x'), isFalse);
+      expect(await writer.setFieldFromText('art', 'inventado', 'x'), isFalse);
+
+      expect(await entry('art'), before);
+    });
+
+    test(
+      'una edición nueva, para el linaje: parte de la versión que había',
+      () async {
+        await writer.upsert(sourceItem());
+        tick();
+        // Llegó por una fusión: la versión de la computadora.
+        await putForeignVersion('art', EntryField.title, at: clockNow);
+        tick();
+
+        await writer.setFieldFromText('art', EntryField.title, 'Resuelto');
+
+        final v = (await versions('art'))[EntryField.title]!;
+        expect(v.deviceId, me);
+        expect(v.baseDeviceId, other);
+      },
+    );
+  });
 }

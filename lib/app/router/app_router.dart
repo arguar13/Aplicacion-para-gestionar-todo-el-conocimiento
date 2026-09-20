@@ -33,6 +33,7 @@ import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen.dart';
+import 'package:sinapsis/features/vault/presentation/screens/merge_conflicts_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/vault_backup_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
@@ -126,6 +127,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.trash,
         name: RouteNames.trash,
         builder: (context, state) => const TrashScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.conflicts,
+        name: RouteNames.conflicts,
+        builder: (context, state) => const MergeConflictsScreen(),
       ),
       GoRoute(
         path: RoutePaths.suggestionReview,

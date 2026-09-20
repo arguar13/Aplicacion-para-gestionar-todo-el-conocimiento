@@ -72,7 +72,14 @@ class DerivedRebuild {
     for (final row in touched) {
       final itemId = row.read<String>('id');
       if (row.read<String>('kind') == 'note') {
-        if (await _linkNote(itemId, row.read<String>('title'))) linked++;
+        final done = await relinkNoteLinks(
+          _db,
+          itemId: itemId,
+          title: row.read<String>('title'),
+          ids: _ids,
+          clock: _clock,
+        );
+        if (done) linked++;
         continue;
       }
       final outcome = await chunkAndPersistSource(
@@ -101,47 +108,6 @@ class DerivedRebuild {
     );
   }
 
-  /// Registra los `[[ ]]` de la nota, como al guardarla. Devuelve si tenía
-  /// alguna forma de bloques que leer.
-  Future<bool> _linkNote(String itemId, String title) async {
-    final rows = await _db
-        .customSelect(
-          '''
-      SELECT content FROM main.renditions
-       WHERE item_id = ? AND kind = 'blocks' AND content IS NOT NULL
-       ORDER BY id''',
-          variables: [Variable<String>(itemId)],
-        )
-        .get();
-
-    final blocks = <ContentBlock>[];
-    for (final row in rows) {
-      final decoded = tryDecodeContentBlocks(row.read<String>('content'));
-      // Bloques que no se pueden leer: los enlaces registrados se dejan como
-      // estaban, igual que al guardar. No se borran a ciegas.
-      if (decoded == null) return false;
-      blocks.addAll(decoded);
-    }
-    if (rows.isEmpty) return false;
-
-    await syncInlineLinks(
-      _db,
-      itemId: itemId,
-      blocks: blocks,
-      ids: _ids,
-      clock: _clock,
-    );
-    // Los enlaces rotos de otras notas que apuntaban a este título.
-    await resolveBrokenInlineLinks(
-      _db,
-      itemId: itemId,
-      title: title,
-      ids: _ids,
-      clock: _clock,
-    );
-    return true;
-  }
-
   /// A las tarjetas que entraron sin fragmento —los identificadores de los
   /// chunks no viajan— se les vuelve a encontrar el suyo por el rango de
   /// caracteres, como al crearlas: el primero que contiene el comienzo.
@@ -158,4 +124,55 @@ class DerivedRebuild {
        AND item_id IN (SELECT id FROM ${MergeWork.touchedItems})''',
     updates: {_db.flashcards},
   );
+}
+
+/// Registra los `[[ ]]` de la nota [itemId], como al guardarla, y resuelve los
+/// enlaces rotos de otras notas que apuntaban a su título [title]. Devuelve si
+/// tenía alguna forma de bloques que leer.
+///
+/// Lo usan la fusión, para las notas que llegan o cambian, y la resolución de
+/// un conflicto de texto, cuando cambia cuál es el texto de la nota.
+Future<bool> relinkNoteLinks(
+  AppDatabase db, {
+  required String itemId,
+  required String title,
+  required IdGenerator ids,
+  Clock clock = DateTime.now,
+}) async {
+  final rows = await db
+      .customSelect(
+        '''
+    SELECT content FROM main.renditions
+     WHERE item_id = ? AND kind = 'blocks' AND content IS NOT NULL
+     ORDER BY id''',
+        variables: [Variable<String>(itemId)],
+      )
+      .get();
+
+  final blocks = <ContentBlock>[];
+  for (final row in rows) {
+    final decoded = tryDecodeContentBlocks(row.read<String>('content'));
+    // Bloques que no se pueden leer: los enlaces registrados se dejan como
+    // estaban, igual que al guardar. No se borran a ciegas.
+    if (decoded == null) return false;
+    blocks.addAll(decoded);
+  }
+  if (rows.isEmpty) return false;
+
+  await syncInlineLinks(
+    db,
+    itemId: itemId,
+    blocks: blocks,
+    ids: ids,
+    clock: clock,
+  );
+  // Los enlaces rotos de otras notas que apuntaban a este título.
+  await resolveBrokenInlineLinks(
+    db,
+    itemId: itemId,
+    title: title,
+    ids: ids,
+    clock: clock,
+  );
+  return true;
 }

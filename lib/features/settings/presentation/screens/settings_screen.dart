@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -118,6 +119,17 @@ class SettingsScreen extends ConsumerWidget {
                 title: Text(l10n.trashTitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.trash),
+              ),
+              ListTile(
+                leading: const Icon(Icons.merge_type_outlined),
+                title: Text(l10n.conflictsTitle),
+                subtitle: Text(
+                  l10n.conflictsSettingsSubtitle(
+                    ref.watch(pendingMergeConflictsProvider).value?.length ?? 0,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.conflicts),
               ),
             ],
           ),

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' show Left, Right;
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
@@ -274,6 +276,15 @@ class _VaultBackupScreenState extends ConsumerState<VaultBackupScreen> {
           ],
         ),
         actions: [
+          // Los conflictos que quedaron guardados se revisan en su pantalla.
+          if (result.conflictsRecorded > 0)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.push(RoutePaths.conflicts);
+              },
+              child: Text(l10n.vaultMergeDoneReview),
+            ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(l10n.vaultMergeDoneClose),
