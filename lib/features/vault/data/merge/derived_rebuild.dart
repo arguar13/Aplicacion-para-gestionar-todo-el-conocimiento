@@ -69,15 +69,21 @@ class DerivedRebuild {
     var chunked = 0;
     var pending = 0;
     var linked = 0;
+    // Los títulos de la bóveda no cambian mientras se rehace lo derivado: el
+    // índice con el que se resuelven los `[[ ]]` se arma UNA vez, con la
+    // primera nota que lo pide, y sirve para todas.
+    Map<String, List<LinkCandidate>>? titleIndex;
     for (final row in touched) {
       final itemId = row.read<String>('id');
       if (row.read<String>('kind') == 'note') {
+        titleIndex ??= await itemsByLinkTitle(_db);
         final done = await relinkNoteLinks(
           _db,
           itemId: itemId,
           title: row.read<String>('title'),
           ids: _ids,
           clock: _clock,
+          titleIndex: titleIndex,
         );
         if (done) linked++;
         continue;
@@ -130,6 +136,9 @@ class DerivedRebuild {
 /// enlaces rotos de otras notas que apuntaban a su título [title]. Devuelve si
 /// tenía alguna forma de bloques que leer.
 ///
+/// Quien la llama para muchas notas seguidas pasa [titleIndex], el índice de
+/// títulos de la bóveda, para no armarlo por cada una: ver `syncInlineLinks`.
+///
 /// Lo usan la fusión, para las notas que llegan o cambian, y la resolución de
 /// un conflicto de texto, cuando cambia cuál es el texto de la nota.
 Future<bool> relinkNoteLinks(
@@ -138,6 +147,7 @@ Future<bool> relinkNoteLinks(
   required String title,
   required IdGenerator ids,
   Clock clock = DateTime.now,
+  Map<String, List<LinkCandidate>>? titleIndex,
 }) async {
   final rows = await db
       .customSelect(
@@ -165,6 +175,7 @@ Future<bool> relinkNoteLinks(
     blocks: blocks,
     ids: ids,
     clock: clock,
+    titleIndex: titleIndex,
   );
   // Los enlaces rotos de otras notas que apuntaban a este título.
   await resolveBrokenInlineLinks(

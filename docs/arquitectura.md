@@ -1022,6 +1022,12 @@ cuenta, y un archivo que el usuario controla de punta a punta: se puede
 abrir dentro de diez años con cualquier programa que entienda un `.zip`, ni
 siquiera hace falta Sinapsis para ver qué hay adentro.
 
+**Actualización de F11.** Restaurar dejó de reemplazar: «Traer otra copia» lee
+el `.zip`, muestra qué traería y lo fusiona con la bóveda de acá en una sola
+transacción, sin cerrar la conexión y sin reiniciar la app. Lo que este texto
+dice de cerrar `appDatabaseProvider`, de `exit(0)` y de que restaurar «siempre
+reemplaza todo» describe cómo era hasta F10: ver la decisión 44.
+
 ### 17. Espacios: carpetas, no otra forma de etiquetar
 
 Las etiquetas (decisión de la Fase 5) ya resuelven "marcar" un elemento con
@@ -2546,6 +2552,10 @@ restricción de llave foránea contra un elemento que la fusión ya había
 borrado — una carrera benigna, resuelta en silencio en vez de con
 telemetría.
 
+**Actualización de F11.** Fusionar dos duplicados ya no es irreversible ni pierde
+lo escrito a mano: el descartado va a la papelera —de ahí se restaura— y su
+subtítulo y sus notas pasan al que queda (decisión 44).
+
 ### 41. F8 de higiene: una sola fuente de verdad para las etiquetas, y el mantenimiento del vocabulario
 
 Primera fase del encargo de cierre del refactor (F8 a F11, ver la decisión
@@ -2980,6 +2990,241 @@ entidad, igual al id del elemento, y `knowledge_mirror_mapping.dart` conserva un
 nombre de cuando había un espejo. Las etiquetas viejas que quedaban en `tags`/
 `item_tags` se sueltan sin más: F8 ya las había unido a Tema.
 
+### 44. F11 de durabilidad: una papelera, una versión por campo y una restauración que fusiona en vez de reemplazar
+
+Cuarta y última fase del encargo de cierre (F8 a F11, ver la decisión 34). Hasta
+F10 nada dolía; dolía el día que hacía falta. Borrar era un `DELETE` físico y sin
+vuelta —cuatro puntos de la interfaz lo confirmaban con «No se puede deshacer»—;
+`deletedAt`, `deviceId` y `rev` eran columnas sin lector: todo lo escrito llevaba
+el texto fijo `f3-espejo-sin-sync` y `rev` valía 1 para siempre; y «Restaurar
+copia» cerraba la base, la pisaba entera con la del `.zip`, borraba `originales/`
+y pedía cerrar la app: el único camino que perdía datos en silencio. F11 lo
+cambia en dieciocho commits, en cuatro tramos: la base (esquema, identidad y un
+solo escritor), la papelera, cuatro complementos menores y la fusión. La
+restricción que no se negocia: **el texto de una fuente no se pierde ni se
+reescribe**; ninguna fusión ni migración lo toca.
+
+**Dónde el encargo chocó con el código real, y qué decidió el usuario.** Se dijo
+antes de resolver. No había identidad de dispositivo: `deviceId` era el marcador
+de F3. Con las cuatro columnas que pedía el encargo, `field_version` no distingue
+«edité ENCIMA de la versión que me llegó» de «edité a la vez que el otro»: en el
+uso normal —teléfono, compu, teléfono— casi todo se marcaría como conflicto.
+«Mismo identificador, mismo objeto» no alcanza para el vocabulario: los nombres de
+propiedad y las etiquetas son únicos sin distinguir mayúsculas, y cada bóveda
+siembra su «Tema» y su «Fecha del hecho» con identificadores propios. Los
+identificadores de chunk no son estables —al rehacerse el texto de una fuente se
+reemplazan—, así que una tarjeta no puede apuntar solo a uno. Y los chunks, los
+embeddings y los enlaces en línea son derivados: se calculan del texto y no se
+copian. El usuario decidió dos cosas: que restaurar es SOLO fusionar —el
+reemplazo total se retira, sin reiniciar la app y con vista previa— y que
+`field_version` lleva seis columnas, con linaje.
+
+**La base (tramo 1, esquema v20).** Aditivo, dentro de la transacción única de
+`onUpgrade`, con respaldo previo, plan en seco y los conteos de las 19 tablas como
+compuerta. `field_version(item_id, field_name, updated_at, device_id,
+base_updated_at, base_device_id)` guarda quién modificó cada campo por última vez,
+cuándo y —el linaje— la versión AJENA sobre la que se editó, nula si la cadena es
+propia. `merge_conflict` guarda las dos versiones de lo que una fusión no pudo
+decidir sola; `review_log`, un renglón por repaso de tarjeta; y `flashcards` gana
+`source_chunk_id` (clave al chunk, `SET NULL`) y el rango de caracteres del que
+salió. La identidad de dispositivo (`DeviceIdentity`) es un UUID por instalación en
+`SharedPreferences` y NO en la base, a propósito: un `.zip` lleva la base a otro
+equipo, y si el identificador viajara con ella los dos equipos pasarían a ser «el
+mismo dispositivo» y ningún conflicto se vería nunca. Reinstalar crea otro, que
+para una fusión es lo que es. Lo escrito antes queda con el centinela `legacy`. La
+prueba de cadena de v18 destapó un detalle: ese paso reconstruye `flashcards` con
+la definición de HOY y una base de v16 o v17 no tiene las columnas nuevas; v18 las
+declara y v20 las agrega solo si faltan.
+
+**Un solo escritor (tramo 1).** `KnowledgeEntryWriter` es el único lugar que
+escribe los campos de un elemento (`item`, `note`, `source`). Compara lo que hay
+con lo que llega y solo si algo cambió de verdad sube `rev`, escribe el
+dispositivo real y registra la versión de cada campo que cambió: un guardado
+idéntico —el pipeline guarda más de una vez lo mismo— no ensucia la historia. La
+regla del linaje: sin fila previa, la base es nula; si la última edición fue de
+este mismo dispositivo, conserva su base; si fue de OTRO —una versión que llegó
+por una fusión—, esa versión pasa a ser la base de la nueva. Que sea el ÚNICO lo
+hace cumplir una prueba que recorre `lib` y falla si otro archivo escribe esas
+tablas, y otra que falla si algo lee `item` sin dejar afuera lo borrado. Las dos
+llevan una lista de permisos con el motivo al lado, y la vigilan en los dos
+sentidos —un archivo permitido que ya no lo hace también falla—, para que no se
+vuelva un permiso general. Buscan las tres formas en que se escribe con drift:
+sobre la tabla, con una companion y con SQL crudo.
+
+**Borrar manda a la papelera (tramo 2).** `delete` pone `deletedAt` —con su
+versión y su linaje, para que una fusión distinga «lo borró el otro» de «lo edité
+yo»— y no borra nada: ni la fila, ni el texto, ni lo que cuelga, ni el archivo.
+`restore` lo quita. `purge` es lo único que borra de verdad, solo sobre algo que
+ya está en la papelera y a pedido, y no borra un archivo original que use otro
+elemento, contando también los que siguen en la papelera. Antes de que nada mandara
+un elemento a la papelera, todas las lecturas aprendieron a dejarlo afuera
+—Biblioteca, búsqueda, Bandeja, salud, línea de tiempo, grafo, enlaces `[[ ]]`,
+candidatos, tarjetas—: no hay un solo momento en que un borrado se siga viendo. La
+búsqueda pedía al índice los mejores N chunks y RECIÉN entonces unía con `item`,
+así que una papelera con muchas coincidencias dejaba páginas vacías —los N lugares
+eran de lo borrado y no aparecía nada de lo que sí seguía guardado—: el filtro va
+DENTRO de la etapa del ranking, y una contraprueba con la condición anulada rompe
+las tres pruebas de saturación. El primer índice sobre `deleted_at` empeoró el
+benchmark: sin estadísticas, SQLite creía selectiva la igualdad y recorría entero
+un índice de diez mil entradas, todas nulas, volviendo a la tabla fila por fila.
+Ahora es un índice PARCIAL —solo las filas borradas—, creado con SQL en
+`beforeOpen` porque drift no modela los parciales. En la interfaz, borrar ya no
+pregunta: avisa con un «Deshacer». Solo borrar para siempre y vaciar la papelera
+piden confirmación, y dicen qué se pierde. La fusión de duplicados manda al
+descartado a la papelera y ya no pierde su subtítulo ni sus notas.
+
+**Cuatro complementos (tramo 3).** Cada repaso de una tarjeta deja un renglón en
+`review_log` —la nota elegida y la calidad de SM-2, el intervalo y la facilidad
+antes y después, cuándo y en qué dispositivo—, en la misma transacción que el
+nuevo estado de la tarjeta; es solo un registro, sin pantalla. `RelationKind.indexes`
+le da a una nota de mapa una forma de decir «esto es el índice de aquello»; se
+guarda por su nombre, sin cambiar el esquema. Crear o renombrar un tema cuyo
+nombre ya es una etiqueta avisa antes —son dos cosas distintas con el mismo
+nombre—, pero no lo impide. Y una tarjeta dice de qué fragmento salió, y «Ver en
+la fuente» lleva de vuelta usando el rango de caracteres, que es lo que sigue
+valiendo cuando los chunks se rehacen; se crean desde la selección de la lectura
+y desde la IA. La cita de la IA la escribió un modelo, y un modelo chico la cambia
+sin avisar: se busca con una búsqueda EXACTA en el texto que abre la lectura, y si
+no coincide la tarjeta se guarda sin fragmento. Mejor ninguno que uno equivocado.
+
+**La fusión no destructiva (tramo 4).** `mergeBackup` reemplaza a `restoreBackup`,
+que se retira con su caso de uso, su diálogo y sus textos. Una copia se abre en un
+temporal y solo para leerla (`IncomingVault`): si su esquema es más nuevo que el de
+la app se rechaza, si es anterior a v15 también, y si es intermedio se migra ELLA
+—la copia, nunca esta bóveda—. Se adjunta a la conexión (`ATTACH`, que no admite
+una transacción abierta), una vista previa en seco dice qué traería —usa el mismo
+planificador que después escribe, y una prueba compara lo que anuncia con lo que
+hace—, y con la confirmación corre UNA transacción. Primero las guardas:
+disparadores temporales que existen solo mientras dura la fusión y hacen
+IMPOSIBLE, no solo detectable, borrar un elemento o una forma de texto, reescribir
+el texto o el archivo de una forma de una fuente, o tocar los chunks de lo que no
+se marcó para reprocesar. Cualquier sentencia que lo intente, la escriba quien la
+escriba, aborta todo en el acto.
+
+Los campos se deciden uno a uno con `FieldMergeRule`, una función pura de las dos
+versiones. (1) Si el valor es el mismo, nada. (2) Sin versión es el valor de
+partida: si solo un lado la tiene, ese lo modificó y gana; si ninguno, gana el
+elemento modificado más recientemente. (3) Un dispositivo `legacy` no tiene
+conflicto con nadie: gana lo más reciente. (4) El mismo dispositivo de los dos
+lados: una edición siguió a la otra. (5) Linaje: si una versión se escribió SOBRE
+la otra, gana la que sigue, aunque su reloj marque una hora anterior —los relojes
+de dos equipos no coinciden, y es lo que evita marcar como conflicto el uso
+normal—. (6) Dos dispositivos conocidos que modificaron el campo sin que ninguno
+partiera del otro: conflicto real. Queda en uso el más reciente —por hora y, si
+empatan, por dispositivo, igual desde cualquiera de las dos bóvedas— y el otro se
+guarda en `merge_conflict`. El linaje reconoce solo la descendencia directa: si
+una edición pasó por un tercer dispositivo se trata como concurrente, un conflicto
+de más y nunca una edición pisada de menos. Un borrado que llega junto a una
+edición del otro lado NO se aplica: quien editó no sabía del borrado ni quien
+borró de la edición, así que el elemento queda vivo y el borrado se guarda como
+conflicto; uno que llega solo se aplica. Y un conflicto que ya se guardó —resuelto
+o no— no se guarda otra vez: fusionar dos veces la misma copia da todo en cero.
+
+El texto tiene su propia regla. Un elemento nuevo trae todas sus formas; una forma
+que acá falta se agrega como no principal. Cuando el MISMO identificador tiene un
+texto distinto, en una FUENTE nunca se pisa —ni con el linaje a favor ni con la
+copia más reciente—: el de acá queda byte a byte y el de la copia entra como otra
+forma del mismo elemento, con un conflicto que la señala. En una NOTA, que es lo
+que el usuario escribe, manda el linaje; si se editó a la vez, queda lo de acá y lo
+de la copia entra al lado con su conflicto, de modo que cada bóveda termina con
+los dos textos. Vínculos, resaltados, tarjetas, repasos, procedencias y
+conversaciones se UNEN: entra lo que acá no hay y nada se quita —sin lápidas, así
+que una quita hecha acá puede reaparecer si la copia todavía lo tenía—. El
+vocabulario se une por nombre de categoría y, dentro de ella, por identificador o
+por etiqueta; una etiqueta que cambió de nombre en un lado queda como alias en el
+otro. Lo derivado no viaja: los chunks y los enlaces en línea se rehacen con las
+mismas funciones que usa guardar un elemento, solo para lo que llegó o recibió un
+texto, y los embeddings los rehace el proceso de siempre. Los archivos originales
+se copian al final, solo los que alguna fila referencia y no están en el disco,
+sin pisar nunca uno que ya está —el disco no tiene transacciones, así que lo que
+se copió se anota y se borra si algo falla después—.
+
+Antes de confirmar se verifica el resultado: los elementos de antes siguen y los
+nuevos entraron; ninguna tabla de lo que creó el usuario tiene menos filas, salvo
+las versiones por campo; el texto de lo que se fragmentó de nuevo se reconstruye
+exacto desde sus chunks (`verifyChunkInvariant`, ahora capaz de mirar solo unas
+fuentes); y no hay referencias rotas que antes no había. Si algo falla, se
+revierte la base y se borran los archivos copiados.
+
+**Los conflictos, a la vista.** Ajustes → «Cambios para revisar», y un botón
+«Revisar» en el resultado de una fusión que los dejó. Cada uno es una tarjeta con
+las dos versiones lado a lado, cuál está en uso y un botón por versión. Elegir un
+campo corto es una edición del usuario y se escribe como tal, por el único
+escritor y con su linaje: por eso la otra bóveda recibe lo resuelto SIN que vuelva
+a ser un conflicto —una prueba fusiona de vuelta y comprueba cero conflictos y el
+mismo valor—. En un texto ninguna versión se borra: «usar el otro» intercambia
+cuál de las dos formas es la principal, y como cambió el texto de la fuente se
+rehacen sus chunks.
+
+**Lo que este trabajo encontró de fondo.** Cuatro cosas. Primera: el índice común
+sobre `deleted_at` hacía más lento todo lo demás, y solo lo dijo el benchmark
+enchufado; el filtro nuevo no se dio por gratis. Segunda: `buildBackup`
+nombraba su archivo temporal con el reloj en microsegundos, y en Windows, donde el
+reloj avanza de a un milisegundo, dos copias casi simultáneas compartían archivo y
+una fallaba con «database is locked». Apareció como una prueba intermitente; ahora
+cada copia usa su propio directorio temporal. Tercera: una prueba de
+atomicidad que fuerza un fallo cuando todavía no hay nada escrito pasa con o sin
+transacción; la de la fusión trae un espacio bueno que se escribe ANTES del
+elemento roto, así que solo pasa si todo se revierte. Cuarta, y la que solo
+encontró el benchmark de escala, al cierre: la primera medición de traer una copia
+de 10.000 elementos a una bóveda vacía dio 385 s —6,4 minutos—, trece veces lo que
+cuesta armar la bóveda sintética entera. Un perfil por etapas lo puso en un solo
+lugar: rehacer los enlaces `[[ ]]` de cada nota que llegaba armaba el índice de
+títulos de TODA la bóveda, una vez por nota —2.800 recorridos completos—. Guardar
+una nota hace lo mismo, pero una sola vez, y nadie lo nota. Ahora la fusión arma
+el índice una vez y se lo pasa a cada nota; una prueba cuenta los recorridos y
+falla —con 30 en vez de 1— si se vuelve a armar por nota. La misma importación
+pasó de 385 s a 68 s. Con los 1.500 elementos que se habían medido antes
+no se veía: el costo era cuadrático.
+
+**Medido, en este mismo equipo** (el de F10). La migración de una copia de la
+bóveda sintética de 10.000 elementos (esquema v19, 314.213 chunks) a v20 tarda
+0,25 s, y 3,2 s con el respaldo previo del archivo entero; los 19 conteos,
+iguales; las tablas nuevas, vacías; cero violaciones de claves;
+`verifyChunkInvariant` en verde sobre las 7.200 fuentes. La fusión, con dos
+dispositivos que parten de esa bóveda —`pc` edita cien títulos, cinco de los que
+`tel` manda a la papelera, el texto de cinco fuentes y suma cien fuentes propias;
+`tel` edita quinientos títulos, cincuenta en común con `pc`, manda treinta
+elementos a la papelera, agrega un párrafo al texto de veinte fuentes y suma
+doscientas fuentes, cincuenta notas, trescientos vínculos y cien tarjetas—: traer
+la copia de `tel` a `pc` tarda 9,8 s (250 elementos nuevos, 475 con cambios, 300
+vínculos, 100 tarjetas, 200 fuentes fragmentadas de nuevo, y 75 conflictos
+guardados: 50 títulos editados a la vez, 5 borrados contra una edición y 20
+textos de fuente que entran como otra forma); fusionar lo mismo otra vez, 1,6 s,
+sin cambiar nada; y traer la copia entera, con sus 10.250 elementos y 320.229
+chunks, a una bóveda vacía, 68 s, casi todo fragmentar de nuevo y reindexar. El
+tiempo sigue a lo que cambia, no a lo que hay. Ningún texto de fuente de `pc`
+cambió —un hash de todas sus formas, antes y después—, el de `tel` entró entero
+como otra forma en las veinte fuentes en conflicto, y en la bóveda vacía el hash
+de los textos es el de la copia. `verifyChunkInvariant`, sobre la bóveda entera,
+se cumple: 7.500 fuentes y 323.217 chunks en `pc` (3,1 s), 7.400 y 320.229 en la
+vacía (3,6 s); y no hay claves rotas. Los 13 escenarios del benchmark de F10
+siguen dentro de su umbral con todo lo de F11 puesto, incluido el filtro de lo
+borrado en cada lectura. Mediana, en ms: búsqueda de una palabra rara 33, mediana
+42, en casi todo 56, dos palabras 24, prefijo 53 (F10 cerró en 29, 40, 56, 23 y
+53); detalle de la fuente con más chunks 3 y de una nota con enlaces 16; grafo
+local del elemento más conectado 40 en el panel y 119 en la pantalla (F10: 39 y
+109); línea de tiempo 126; panel de salud 49; vocabulario 75. Este equipo varía
+el doble o el triple de una corrida a otra según lo que esté haciendo: una
+diferencia de unos pocos milisegundos no es una regresión.
+
+**Lo que F11 no hace, dicho sin adornos.** No hay sincronización en tiempo real
+ni fusión al abrir la app: se trae una copia cuando la persona lo pide. No hay
+lápidas para lo que se une por conjuntos: una quita puede reaparecer. No se
+corrigen los relojes entre dispositivos —el linaje lo mitiga y lo desempata la
+hora y luego el identificador—. Lo escrito antes de F11 no tiene dispositivo ni
+versión: entre dos valores de origen desconocido gana el del elemento modificado
+más recientemente, sin aviso, y el otro no se guarda —el texto de una fuente
+queda a salvo, esto es de los campos cortos—. Una edición que pasó por un tercer
+dispositivo se marca como conflicto aunque descienda de la otra. Los embeddings no
+se copian: se recalculan. `suggestions` y `migration_issues` no se importan. La
+papelera no se vacía sola. La fusión no hace un respaldo del archivo antes de
+empezar: su garantía es la transacción única y la compuerta; quien quiera una red
+más, hace una copia antes. Un `.zip` se sigue leyendo entero en memoria. No hay
+cifras de Android: nada de esto se corrió en un dispositivo. `review_log` guarda
+datos y no tiene pantalla. Y las bóvedas medidas son sintéticas: en esta máquina no
+había una base real.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -3068,7 +3313,8 @@ nombre de cuando había un espejo. Las etiquetas viejas que quedaban en `tags`/
 - **Copia de seguridad completa de la bóveda.** `VaultBackupService`
   empaqueta la base entera —vía `VACUUM INTO`, consistente sin necesidad de
   cerrar nada— y todos los archivos originales en un `.zip`, y lo
-  restaura del otro lado reemplazando ambos. Es el mecanismo manual que
+  restaura del otro lado reemplazando ambos —hasta F10; desde F11 lo
+  fusiona, ver la decisión 44—. Es el mecanismo manual que
   permite usar la misma bóveda en dos dispositivos —ver la decisión 16—,
   accesible desde el ícono de backup en la biblioteca. Probado contra
   SQLite y un sistema de archivos reales, igual que la fundación de datos
@@ -3213,6 +3459,18 @@ nombre de cuando había un espejo. Las etiquetas viejas que quedaban en `tags`/
   migración en una sola transacción —cosa que antes no era cierta—. Una
   bóveda de 10.000 elementos migra en 6 s y la búsqueda más lenta tarda 56 ms
   —ver la decisión 43—.
+- **F11 de durabilidad: papelera, versión por campo y una restauración que
+  fusiona.** Borrar manda a la papelera y se deshace; solo la persona, sobre algo
+  que ya estaba ahí, lo borra de verdad. Cada campo de un elemento lleva quién lo
+  modificó y cuándo, con el linaje de la edición, y cada instalación tiene su
+  identidad de dispositivo. «Restaurar copia» pasó a ser «Traer otra copia»: se ve
+  qué traería, se confirma, y una sola transacción une la copia con la bóveda sin
+  pisar nada —el texto de una fuente queda intacto—, deja para revisar lo que las
+  dos bóvedas modificaron a la vez y se comprueba antes de confirmarse; la app no se
+  cierra. Además, el historial de repasos, el tipo de vínculo «indexa», el aviso de
+  un tema que se llama como una etiqueta y tarjetas que llevan de vuelta al
+  fragmento del que salieron. Un cambio de esquema aditivo (v20). Última fase del
+  encargo de cierre F8 a F11 —ver la decisión 44—.
 
 ### Por construir
 
@@ -3221,9 +3479,14 @@ Android y la web —las dos plataformas reales de quien construye esta
 app, sin ningún dispositivo iOS de por medio— funcionan a fondo.
 
 El refactor de la capa de organización (ver la decisión 34) llegó a
-F1-F7, y su encargo de cierre (F8 a F11) va en orden estricto: F8 —la
-higiene del vocabulario, ver la decisión 41— y F9 —la consolidación, ver la
-decisión 42— y F10 —la unificación del modelo de datos, ver la decisión 43—
-están construidas. Queda F11 (durabilidad: borrado suave con papelera,
-versionado por campo, fusión no destructiva al restaurar), que se planea —plan
-breve, aprobado, después código— cuando le toca.
+F1-F7, y su encargo de cierre (F8 a F11) está completo: F8 —la higiene del
+vocabulario, ver la decisión 41—, F9 —la consolidación, ver la decisión 42—,
+F10 —la unificación del modelo de datos, ver la decisión 43— y F11 —la
+durabilidad: papelera, versión por campo y fusión no destructiva, ver la
+decisión 44—.
+
+Lo que queda son las cosas que la decisión 44 dice, sin adornos, que no
+hace: una sincronización que no dependa de traer una copia a mano, lápidas
+para lo que se une por conjuntos, la medición en un dispositivo Android y la
+compactación del archivo después de migrar. Ninguna está planeada; se
+planean —plan breve, aprobado, después código— cuando le toquen.

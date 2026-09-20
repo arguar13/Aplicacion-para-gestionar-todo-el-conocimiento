@@ -1,8 +1,30 @@
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart'
+    show ApplyInterceptor, QueryExecutor, QueryInterceptor, Variable;
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 
 import '../../../../support/test_vault.dart';
+
+/// Cuenta las veces que se recorren los títulos de TODOS los elementos —el
+/// índice con el que se resuelve un `[[Título]]`—: la consulta que trae solo el
+/// id, el título y la fecha de alta de cada uno.
+class _TitleIndexCounter extends QueryInterceptor {
+  int reads = 0;
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) {
+    if (statement.contains('"item"."title" AS "item.title"') &&
+        statement.contains('"item"."created_at" AS "item.created_at"')) {
+      reads++;
+    }
+    return super.runSelect(executor, statement, args);
+  }
+}
 
 /// Lo derivado en la fusión (F11): los chunks de las fuentes, los enlaces en
 /// línea de las notas y el fragmento de las tarjetas.
@@ -220,6 +242,37 @@ void main() {
         expect(link.read<String?>('to_item_id'), 'cartago');
       },
     );
+
+    test('las notas que llegan comparten UN índice de títulos', () async {
+      // Armar el índice recorre todos los elementos: una vez por cada nota que
+      // llega era un recorrido de la bóveda entera por nota, cuadrático, y con
+      // miles de notas era casi todo el tiempo de restaurar una copia.
+      pc.at(1);
+      for (var i = 0; i < 30; i++) {
+        await pc.saveBlocksNote('n$i', ['Ver [[Nota n${i + 1}]].']);
+      }
+      final counter = _TitleIndexCounter();
+      final receiver = await TestVault.create(
+        deviceId: 'nueva',
+        executor: NativeDatabase.memory().interceptWith(counter),
+      );
+      addTearDown(receiver.dispose);
+
+      final result = await receiver.mergeFrom(pc);
+
+      expect(result.itemsAdded, 30);
+      expect(counter.reads, 1);
+      // Y resolvió los treinta enlaces —el último apunta a una nota que no
+      // existe—: el índice compartido sirve igual que uno por nota.
+      final resolved = await receiver.db
+          .customSelect(
+            'SELECT COUNT(*) AS n FROM inline_link '
+            'WHERE to_item_id IS NOT NULL',
+          )
+          .getSingle();
+      expect(resolved.read<int>('n'), 29);
+      expect(await receiver.count('inline_link'), 30);
+    });
 
     test('una nota sin bloques no tiene enlaces ni falla', () async {
       pc.at(1);

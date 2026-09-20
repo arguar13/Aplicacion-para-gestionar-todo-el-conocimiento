@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
@@ -229,6 +230,105 @@ void main() {
         ]) {
           await expectLater(IncomingVault.open(zip), throwsA(isA<Object>()));
         }
+      });
+
+      expect(leftovers(), isEmpty);
+    });
+  });
+
+  group('una base ya desempaquetada', () {
+    /// Una base de Sinapsis en un archivo de [tempRoot], con una fuente `a`.
+    Future<File> vaultFile(String name) async {
+      final file = File(p.join(tempRoot.path, name));
+      final vault = await TestVault.onFile(file, deviceId: 'tel');
+      await vault.saveSource('a', text: 'Texto de a.');
+      await vault.dispose();
+      return file;
+    }
+
+    test('se abre una copia del archivo y el original no se toca', () async {
+      final file = await vaultFile('tel.sqlite');
+      final before = file.readAsBytesSync();
+
+      final incoming = await IncomingVault.fromDatabaseFile(file);
+      addTearDown(incoming.dispose);
+
+      expect(incoming.schemaVersion, AppDatabase.currentSchemaVersion);
+      expect(incoming.databaseFile.path, isNot(file.path));
+      expect(incoming.originalPaths, isEmpty);
+      final db = sqlite3.sqlite3.open(
+        incoming.databaseFile.path,
+        mode: sqlite3.OpenMode.readOnly,
+      );
+      addTearDown(db.close);
+      expect(db.select('SELECT id FROM item').single['id'], 'a');
+
+      await incoming.dispose();
+      expect(file.readAsBytesSync(), before);
+    });
+
+    test('una base vieja se actualiza en la copia, no en el archivo', () async {
+      final entry = ZipDecoder()
+          .decodeBytes(await vaultCopyAtV19())
+          .files
+          .firstWhere((f) => f.name == kBackupDatabaseEntryName);
+      final file = File(p.join(tempRoot.path, 'vieja.sqlite'))
+        ..writeAsBytesSync(entry.content as List<int>);
+
+      final incoming = await IncomingVault.fromDatabaseFile(file);
+      addTearDown(incoming.dispose);
+
+      expect(incoming.schemaVersion, 19);
+      int versionOf(String path) {
+        final db = sqlite3.sqlite3.open(path, mode: sqlite3.OpenMode.readOnly);
+        try {
+          return db.select('PRAGMA user_version').single.values.single! as int;
+        } finally {
+          db.close();
+        }
+      }
+
+      expect(
+        versionOf(incoming.databaseFile.path),
+        AppDatabase.currentSchemaVersion,
+      );
+      expect(versionOf(file.path), 19);
+    });
+
+    test('se fusiona como cualquier copia', () async {
+      final file = await vaultFile('tel.sqlite');
+      final pc = await TestVault.create(deviceId: 'pc');
+      addTearDown(pc.dispose);
+      await pc.saveSource('propia');
+
+      final result = await pc.mergeDatabaseFile(file);
+
+      expect(result.itemsAdded, 1);
+      expect((await pc.entry('a')).title, 'Fuente a');
+      expect(await pc.count('item'), 2);
+    });
+
+    test('lo que no sirve se rechaza y no deja el temporal', () async {
+      final tooNew = File(p.join(tempRoot.path, 'nueva.sqlite'))
+        ..writeAsBytesSync(await sqliteBytesAtVersion(99));
+      final tooOld = File(p.join(tempRoot.path, 'vieja14.sqlite'))
+        ..writeAsBytesSync(await sqliteBytesAtVersion(14));
+      final garbage = File(p.join(tempRoot.path, 'basura.sqlite'))
+        ..writeAsBytesSync(utf8Bytes('basura' * 50));
+
+      await withOwnTemp(() async {
+        await expectLater(
+          IncomingVault.fromDatabaseFile(tooNew),
+          throwsA(isA<VaultBackupTooNewException>()),
+        );
+        await expectLater(
+          IncomingVault.fromDatabaseFile(tooOld),
+          throwsA(isA<SchemaTooOldException>()),
+        );
+        await expectLater(
+          IncomingVault.fromDatabaseFile(garbage),
+          throwsA(isA<InvalidVaultBackupException>()),
+        );
       });
 
       expect(leftovers(), isEmpty);

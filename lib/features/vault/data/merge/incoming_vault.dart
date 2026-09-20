@@ -79,27 +79,10 @@ class IncomingVault {
       final file = File(p.join(directory.path, 'incoming.sqlite'));
       await file.writeAsBytes(databaseEntry.content as List<int>, flush: true);
 
-      final version = _userVersionOf(file);
-      if (version > AppDatabase.currentSchemaVersion) {
-        throw VaultBackupTooNewException(
-          backupVersion: version,
-          currentVersion: AppDatabase.currentSchemaVersion,
-        );
-      }
-      if (version < AppDatabase.minimumUpgradableSchemaVersion) {
-        throw SchemaTooOldException(
-          from: version,
-          minimum: AppDatabase.minimumUpgradableSchemaVersion,
-        );
-      }
-      if (version < AppDatabase.currentSchemaVersion) {
-        await _upgrade(file);
-      }
-
       return IncomingVault._(
         directory: directory,
         databaseFile: file,
-        schemaVersion: version,
+        schemaVersion: await _readyToRead(file),
         archive: archive,
       );
       // Cualquier fallo deja el temporal limpio: nadie más sabe que existe.
@@ -108,6 +91,52 @@ class IncomingVault {
       await _deleteQuietly(directory);
       rethrow;
     }
+  }
+
+  /// Abre una copia que ya está descomprimida: el archivo de su base [source].
+  ///
+  /// Para las pruebas y los bancos de medida, que fusionan bóvedas de cientos
+  /// de megas sin empaquetarlas en un `.zip` que cabría mal en memoria. Trabaja
+  /// sobre una copia del archivo —el original no se toca— y no trae archivos
+  /// originales. Se rechaza igual que [open].
+  static Future<IncomingVault> fromDatabaseFile(File source) async {
+    final directory = await Directory.systemTemp.createTemp('sinapsis-merge-');
+    try {
+      final file = File(p.join(directory.path, 'incoming.sqlite'));
+      await source.copy(file.path);
+
+      return IncomingVault._(
+        directory: directory,
+        databaseFile: file,
+        schemaVersion: await _readyToRead(file),
+        archive: Archive(),
+      );
+      // Igual que en [open]: cualquier fallo deja el temporal limpio.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await _deleteQuietly(directory);
+      rethrow;
+    }
+  }
+
+  /// Comprueba el esquema de la base [file] y, si es más vieja, la actualiza.
+  /// Devuelve el esquema que traía.
+  static Future<int> _readyToRead(File file) async {
+    final version = _userVersionOf(file);
+    if (version > AppDatabase.currentSchemaVersion) {
+      throw VaultBackupTooNewException(
+        backupVersion: version,
+        currentVersion: AppDatabase.currentSchemaVersion,
+      );
+    }
+    if (version < AppDatabase.minimumUpgradableSchemaVersion) {
+      throw SchemaTooOldException(
+        from: version,
+        minimum: AppDatabase.minimumUpgradableSchemaVersion,
+      );
+    }
+    if (version < AppDatabase.currentSchemaVersion) await _upgrade(file);
+    return version;
   }
 
   /// El esquema de la base [file], leído sin abrirla con drift: abrirla la

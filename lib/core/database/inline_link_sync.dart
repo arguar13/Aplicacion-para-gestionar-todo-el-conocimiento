@@ -78,12 +78,21 @@ Future<Map<String, List<LinkCandidate>>> itemsByLinkTitle(
 ///    usuario borró esa relación a propósito, guardar la nota no la resucita.
 ///    Si el destino se borró, la clave foránea lo dejó roto y vuelve a
 ///    resolverse acá.
+///
+/// Resolver un título necesita el índice de los de toda la bóveda
+/// ([itemsByLinkTitle]), que recorre todos los elementos. Guardar una nota lo
+/// arma una vez; quien sincroniza MUCHAS seguidas —la fusión, que rehace los
+/// enlaces de todas las notas que llegan— pasa el suyo en [titleIndex] y lo
+/// arma una sola vez: armarlo por nota es un recorrido de la bóveda entera por
+/// cada una, cuadrático, y con 2.800 notas en 10.000 elementos era casi todo
+/// el tiempo de una restauración. Sirve mientras los títulos no cambien.
 Future<void> syncInlineLinks(
   AppDatabase db, {
   required String itemId,
   required List<ContentBlock> blocks,
   required IdGenerator ids,
   required Clock clock,
+  Map<String, List<LinkCandidate>>? titleIndex,
 }) async {
   final mentions = extractInlineLinksFromBlocks(blocks);
   final mentioned = {for (final m in mentions) m.normalizedTitle};
@@ -107,7 +116,7 @@ Future<void> syncInlineLinks(
     (m) => registered[m.normalizedTitle]?.toItemId == null,
   );
   final byTitle = needsResolving
-      ? await itemsByLinkTitle(db)
+      ? titleIndex ?? await itemsByLinkTitle(db)
       : const <String, List<LinkCandidate>>{};
   final now = clock();
 

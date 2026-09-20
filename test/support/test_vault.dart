@@ -3,7 +3,12 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart'
-    show BooleanExpressionOperators, OrderingTerm, Value, driftRuntimeOptions;
+    show
+        BooleanExpressionOperators,
+        OrderingTerm,
+        QueryExecutor,
+        Value,
+        driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:mocktail/mocktail.dart';
@@ -142,8 +147,13 @@ class TestVault {
   }
 
   /// Una bóveda nueva y vacía. Su reloj es suyo —los dos dispositivos de una
-  /// prueba no comparten hora— y se mueve con [at].
-  static Future<TestVault> create({required String deviceId}) async {
+  /// prueba no comparten hora— y se mueve con [at]. Con [executor] la base es
+  /// esa —una en memoria a la que se le mira lo que ejecuta, por ejemplo— y no
+  /// la de siempre.
+  static Future<TestVault> create({
+    required String deviceId,
+    QueryExecutor? executor,
+  }) async {
     final docs = await Directory.systemTemp.createTemp(
       'sinapsis_vault_$deviceId',
     );
@@ -151,7 +161,21 @@ class TestVault {
     // con su propia conexión: el aviso de drift —que habla de una MISMA
     // conexión— es un falso positivo, y aquí se calla para todo el archivo.
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-    final db = AppDatabase(NativeDatabase.memory(), deviceId: deviceId);
+    final db = AppDatabase(
+      executor ?? NativeDatabase.memory(),
+      deviceId: deviceId,
+    );
+    return TestVault._(deviceId: deviceId, db: db, docs: docs);
+  }
+
+  /// Una bóveda de prueba sobre la base del archivo [file] —una copia de la
+  /// bóveda grande de un banco de medida— en lugar de una en memoria.
+  static Future<TestVault> onFile(File file, {required String deviceId}) async {
+    final docs = await Directory.systemTemp.createTemp(
+      'sinapsis_vault_$deviceId',
+    );
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+    final db = AppDatabase(NativeDatabase(file), deviceId: deviceId);
     return TestVault._(deviceId: deviceId, db: db, docs: docs);
   }
 
@@ -607,6 +631,21 @@ class TestVault {
         clock: () => _now,
         afterWrites: afterWrites,
         afterFiles: afterFiles,
+      ).merge(incoming);
+    } finally {
+      await incoming.dispose();
+    }
+  }
+
+  /// Fusiona la copia cuya base es [databaseFile], ya desempaquetada: para las
+  /// bóvedas que no caben en un `.zip` en memoria.
+  Future<VaultMergeResult> mergeDatabaseFile(File databaseFile) async {
+    final incoming = await IncomingVault.fromDatabaseFile(databaseFile);
+    try {
+      return await VaultMerger(
+        database: db,
+        documentsDirectory: docs,
+        clock: () => _now,
       ).merge(incoming);
     } finally {
       await incoming.dispose();

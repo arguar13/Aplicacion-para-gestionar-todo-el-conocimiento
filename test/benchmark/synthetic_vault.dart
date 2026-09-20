@@ -962,6 +962,32 @@ Future<Map<String, int>> countVaultRows(AppDatabase db) async {
   return counts;
 }
 
+/// Los archivos con los que la bóveda sintética de [profile] queda en
+/// [directory]: la base, su resumen y la marca de que está completa.
+({File file, File summary, File ready}) _benchmarkVaultFiles(
+  VaultProfile profile,
+  Directory? directory,
+) {
+  final dir = (directory ?? Directory('.dart_tool/sinapsis_benchmark'))
+    ..createSync(recursive: true);
+  final name =
+      'vault_s${AppDatabase.currentSchemaVersion}_g$kSyntheticVaultVersion'
+      '_${profile.items}';
+  return (
+    file: File('${dir.path}/$name.sqlite'),
+    summary: File('${dir.path}/$name.json'),
+    ready: File('${dir.path}/$name.ok'),
+  );
+}
+
+/// El archivo de la base de la bóveda sintética de [profile]. Existe una
+/// vez que [openBenchmarkVault] la armó; se copia —no se abre en su lugar—
+/// cuando una medición la tiene que modificar.
+File benchmarkVaultFile({
+  VaultProfile profile = const VaultProfile(),
+  Directory? directory,
+}) => _benchmarkVaultFiles(profile, directory).file;
+
 /// Abre —o arma, la primera vez— la bóveda sintética en disco.
 ///
 /// Armar la de 10.000 elementos tarda; por eso se guarda en `.dart_tool` y las
@@ -974,14 +1000,8 @@ Future<({AppDatabase db, SyntheticVault vault})> openBenchmarkVault({
   /// existe ese directorio y hay que pasar uno de los del sistema.
   Directory? directory,
 }) async {
-  final dir = (directory ?? Directory('.dart_tool/sinapsis_benchmark'))
-    ..createSync(recursive: true);
-  final name =
-      'vault_s${AppDatabase.currentSchemaVersion}_g$kSyntheticVaultVersion'
-      '_${profile.items}';
-  final file = File('${dir.path}/$name.sqlite');
-  final summary = File('${dir.path}/$name.json');
-  final ready = File('${dir.path}/$name.ok');
+  final files = _benchmarkVaultFiles(profile, directory);
+  final (file, summary, ready) = (files.file, files.summary, files.ready);
 
   QueryExecutor open() => NativeDatabase(
     file,
