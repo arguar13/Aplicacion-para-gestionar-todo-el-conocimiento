@@ -164,6 +164,7 @@ extension RelationKindPresentation on RelationKind {
     RelationKind.cites => Icons.format_quote,
     RelationKind.summarizes => Icons.short_text,
     RelationKind.extractedFrom => Icons.content_cut,
+    RelationKind.indexes => Icons.format_list_bulleted,
   };
 
   /// Un color propio por tipo de vínculo, para el grafo: la línea que une
@@ -179,6 +180,7 @@ extension RelationKindPresentation on RelationKind {
     RelationKind.cites => scheme.tertiary,
     RelationKind.summarizes => scheme.secondary,
     RelationKind.extractedFrom => scheme.tertiaryContainer,
+    RelationKind.indexes => scheme.primaryContainer,
   };
 
   /// Un nombre corto, sin dirección: para el selector donde se elige qué
@@ -191,6 +193,7 @@ extension RelationKindPresentation on RelationKind {
     RelationKind.cites => l10n.relationKindLabelCites,
     RelationKind.summarizes => l10n.relationKindLabelSummarizes,
     RelationKind.extractedFrom => l10n.relationKindLabelExtractedFrom,
+    RelationKind.indexes => l10n.relationKindLabelIndexes,
   };
 
   /// Cómo se lee la fila de un vínculo ya existente, con el nombre del otro
@@ -227,6 +230,10 @@ extension RelationKindPresentation on RelationKind {
         outgoing
             ? l10n.relationKindExtractedFromOutgoing(otherItemTitle)
             : l10n.relationKindExtractedFromIncoming(otherItemTitle),
+      RelationKind.indexes =>
+        outgoing
+            ? l10n.relationKindIndexesOutgoing(otherItemTitle)
+            : l10n.relationKindIndexesIncoming(otherItemTitle),
     };
   }
 }

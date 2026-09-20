@@ -2801,6 +2801,74 @@ void main() {
     });
   });
 
+  group('el vínculo «indexa» (F11)', () {
+    test('una nota de mapa que indexa algo: se guarda y se lee desde los dos '
+        'lados, con su dirección', () async {
+      final mapa = await seedItem(title: 'Mapa de Roma');
+      final fuente = await seedItem(title: 'La república');
+
+      final result = await repository.createRelation(
+        fromItemId: mapa.id,
+        toItemId: fuente.id,
+        kind: RelationKind.indexes,
+      );
+
+      expect(result.isRight(), isTrue);
+      final fromMap =
+          (await repository.watchRelationsForItem(mapa.id).first).single;
+      final fromSource =
+          (await repository.watchRelationsForItem(fuente.id).first).single;
+      expect(fromMap.kind, RelationKind.indexes);
+      expect(fromMap.direction, RelationDirection.outgoing);
+      expect(fromMap.otherItemId, fuente.id);
+      expect(fromSource.kind, RelationKind.indexes);
+      expect(fromSource.direction, RelationDirection.incoming);
+      expect(fromSource.otherItemId, mapa.id);
+    });
+
+    test('no es lo mismo que «relacionado»: los dos pueden convivir entre el '
+        'mismo par', () async {
+      final mapa = await seedItem(title: 'Mapa');
+      final fuente = await seedItem(title: 'Fuente');
+      await repository.createRelation(
+        fromItemId: mapa.id,
+        toItemId: fuente.id,
+        kind: RelationKind.relatedTo,
+      );
+
+      final again = await repository.createRelation(
+        fromItemId: mapa.id,
+        toItemId: fuente.id,
+        kind: RelationKind.indexes,
+      );
+
+      expect(again.isRight(), isTrue);
+      expect(
+        await repository.watchRelationsForItem(mapa.id).first,
+        hasLength(2),
+      );
+    });
+
+    test('indexar dos veces lo mismo se rechaza como cualquier vínculo '
+        'repetido', () async {
+      final mapa = await seedItem(title: 'Mapa');
+      final fuente = await seedItem(title: 'Fuente');
+      await repository.createRelation(
+        fromItemId: mapa.id,
+        toItemId: fuente.id,
+        kind: RelationKind.indexes,
+      );
+
+      final again = await repository.createRelation(
+        fromItemId: mapa.id,
+        toItemId: fuente.id,
+        kind: RelationKind.indexes,
+      );
+
+      expect(again.isLeft(), isTrue);
+    });
+  });
+
   group('la papelera (F11)', () {
     Future<void> link(KnowledgeItem from, KnowledgeItem to) =>
         repository.createRelation(

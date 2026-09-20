@@ -24,4 +24,12 @@ enum RelationKind {
   /// El origen es un fragmento atómico extraído del destino, a mano,
   /// seleccionando un pedazo de su texto.
   extractedFrom,
+
+  /// El origen es un índice del destino (F11): una nota de mapa que lo ordena y
+  /// lo señala, como la entrada de un índice remite a la página.
+  ///
+  /// Distinto de [relatedTo] a propósito: «esta nota de mapa reúne estos
+  /// elementos» es estructura, y un vínculo sin más precisión no permite
+  /// distinguirla de un «se parecen».
+  indexes,
 }

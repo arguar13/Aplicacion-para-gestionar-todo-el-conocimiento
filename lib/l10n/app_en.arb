@@ -1125,6 +1125,28 @@
   "@relationKindLabelExtractedFrom": {
     "description": "Nombre corto del tipo de vínculo, para el selector."
   },
+  "relationKindIndexesOutgoing": "Indexes {name}",
+  "@relationKindIndexesOutgoing": {
+    "description": "Este elemento —una nota de mapa— es un índice del otro.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindIndexesIncoming": "Indexed in {name}",
+  "@relationKindIndexesIncoming": {
+    "description": "El otro elemento —una nota de mapa— es un índice de este.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "relationKindLabelIndexes": "Indexes",
+  "@relationKindLabelIndexes": {
+    "description": "Nombre corto del tipo de vínculo, para el selector."
+  },
   "detailHighlightSelection": "Highlight",
   "@detailHighlightSelection": {
     "description": "Botón que aparece al seleccionar texto, para subrayarlo."
