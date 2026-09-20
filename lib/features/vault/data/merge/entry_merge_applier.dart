@@ -1,11 +1,10 @@
 import 'package:sinapsis/core/database/app_database.dart';
-import 'package:sinapsis/core/util/clock.dart';
-import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_fields.dart';
+import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
-import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 
 /// Las columnas de las tablas de un elemento, en el orden en que se copian de
 /// una bóveda a la otra. Un test comprueba que cubren la tabla entera: una
@@ -70,19 +69,18 @@ const kFieldVersionColumns = [
 /// Trabaja con conjuntos —una sentencia por tabla y por grupo de elementos, no
 /// una por fila—: una bóveda de diez mil elementos entra en unas pocas decenas
 /// de sentencias. Tiene que correr DENTRO de la transacción de la fusión, con
-/// la copia adjuntada.
+/// la copia adjuntada y [MergeWork] creado. Cada etapa se llama por separado:
+/// el orden entre ellas y con las de las formas y del vocabulario lo pone
+/// `VaultMerger`.
 class EntryMergeApplier {
   EntryMergeApplier({
     required AppDatabase database,
-    IdGenerator ids = const UuidV7Generator(),
-    Clock clock = DateTime.now,
+    required MergeConflictLog conflicts,
   }) : _db = database,
-       _ids = ids,
-       _clock = clock;
+       _log = conflicts;
 
   final AppDatabase _db;
-  final IdGenerator _ids;
-  final Clock _clock;
+  final MergeConflictLog _log;
 
   static const _incoming = kIncomingSchema;
 
@@ -90,29 +88,10 @@ class EntryMergeApplier {
   /// de parámetros de SQLite.
   static const _idsPerStatement = 400;
 
-  /// Los elementos que están en la copia y no aquí, y solo mientras dura la
-  /// fusión: es lo que une las tablas de un elemento nuevo entre sí.
-  static const _newItems = 'temp.merge_new_items';
+  static const _newItems = MergeWork.newItems;
 
-  Future<VaultMergeResult> apply({
-    required SpaceMerge spaces,
-    required EntryMergePlan plan,
-  }) async {
-    await _addSpaces(spaces);
-    final itemsAdded = await _addItems(spaces);
-    await _updateFields(plan);
-    await _recordConflicts(plan);
-
-    return VaultMergeResult(
-      itemsAdded: itemsAdded,
-      itemsUpdated: plan.itemsToUpdate,
-      fieldsUpdated: plan.fieldsToUpdate,
-      conflictsRecorded: plan.conflicts,
-      spacesAdded: spaces.toAdd.length,
-    );
-  }
-
-  Future<void> _addSpaces(SpaceMerge spaces) async {
+  /// Crea los espacios de la copia que esta bóveda no tiene.
+  Future<void> addSpaces(SpaceMerge spaces) async {
     for (final space in spaces.toAdd) {
       await _db.customStatement(
         'INSERT INTO main.spaces (id, name, created_at) VALUES (?, ?, ?)',
@@ -122,46 +101,42 @@ class EntryMergeApplier {
   }
 
   /// Copia los elementos que esta bóveda no tiene, con su nota o su fuente y
-  /// sus versiones por campo. Devuelve cuántos.
-  Future<int> _addItems(SpaceMerge spaces) async {
-    await _db.customStatement('DROP TABLE IF EXISTS $_newItems');
-    try {
-      await _db.customStatement('''
-        CREATE TEMP TABLE merge_new_items AS
-        SELECT i.id AS id FROM $_incoming.item i
-         WHERE NOT EXISTS (SELECT 1 FROM main.item m WHERE m.id = i.id)''');
-      final count =
-          (await _db
-                  .customSelect('SELECT COUNT(*) AS n FROM $_newItems')
-                  .getSingle())
-              .read<int>('n');
-      if (count == 0) return 0;
+  /// sus versiones por campo, y deja anotados cuáles son
+  /// ([MergeWork.newItems]). Devuelve cuántos.
+  Future<int> addItems(SpaceMerge spaces) async {
+    await _db.customStatement('''
+      INSERT INTO $_newItems (id)
+      SELECT i.id FROM $_incoming.item i
+       WHERE NOT EXISTS (SELECT 1 FROM main.item m WHERE m.id = i.id)''');
+    final count =
+        (await _db
+                .customSelect('SELECT COUNT(*) AS n FROM $_newItems')
+                .getSingle())
+            .read<int>('n');
+    if (count == 0) return 0;
 
-      // El espacio de la copia con el identificador de acá. Con la copia sin
-      // nada que traducir, el identificador se copia tal cual.
-      final remap = spaces.remap.entries.toList();
-      final space = remap.isEmpty
-          ? 'x.space_id'
-          : 'CASE x.space_id '
-                '${List.filled(remap.length, 'WHEN ? THEN ?').join(' ')} '
-                'ELSE x.space_id END';
-      await _db.customStatement(
-        '''
-        INSERT INTO main.item (${kItemColumns.join(', ')})
-        SELECT ${kItemColumns.map((c) => c == 'space_id' ? space : 'x.$c').join(', ')}
-          FROM $_incoming.item x JOIN $_newItems n ON n.id = x.id''',
-        [
-          for (final entry in remap) ...[entry.key, entry.value],
-        ],
-      );
+    // El espacio de la copia con el identificador de acá. Con la copia sin
+    // nada que traducir, el identificador se copia tal cual.
+    final remap = spaces.remap.entries.toList();
+    final space = remap.isEmpty
+        ? 'x.space_id'
+        : 'CASE x.space_id '
+              '${List.filled(remap.length, 'WHEN ? THEN ?').join(' ')} '
+              'ELSE x.space_id END';
+    await _db.customStatement(
+      '''
+      INSERT INTO main.item (${kItemColumns.join(', ')})
+      SELECT ${kItemColumns.map((c) => c == 'space_id' ? space : 'x.$c').join(', ')}
+        FROM $_incoming.item x JOIN $_newItems n ON n.id = x.id''',
+      [
+        for (final entry in remap) ...[entry.key, entry.value],
+      ],
+    );
 
-      await _copyByItem('note', kNoteColumns, 'item_id');
-      await _copyByItem('source', kSourceColumns, 'item_id');
-      await _copyByItem('field_version', kFieldVersionColumns, 'item_id');
-      return count;
-    } finally {
-      await _db.customStatement('DROP TABLE IF EXISTS $_newItems');
-    }
+    await _copyByItem('note', kNoteColumns, 'item_id');
+    await _copyByItem('source', kSourceColumns, 'item_id');
+    await _copyByItem('field_version', kFieldVersionColumns, 'item_id');
+    return count;
   }
 
   /// Copia de la copia las filas de [table] que cuelgan de un elemento nuevo.
@@ -175,8 +150,8 @@ class EntryMergeApplier {
       FROM $_incoming.$table x JOIN $_newItems n ON n.id = x.$itemColumn''');
 
   /// Pone en los elementos de acá el valor de la copia en cada campo que ganó,
-  /// junto con su versión, y sube el `rev` de cada elemento que cambió.
-  Future<void> _updateFields(EntryMergePlan plan) async {
+  /// junto con su versión. No sube el `rev`: ver [bumpItems].
+  Future<void> updateFields(EntryMergePlan plan) async {
     final byField = <MergeField, List<FieldChange>>{};
     for (final change in plan.updates) {
       (byField[change.field] ??= []).add(change);
@@ -228,56 +203,45 @@ class EntryMergeApplier {
         );
       });
     }
-
-    // Cada elemento cambiado, una vez: su `rev` sube y se pone el dispositivo
-    // de acá, que es quien lo cambió en esta bóveda; su fecha es la más
-    // reciente de las dos.
-    final changed = {for (final c in plan.updates) c.itemId}.toList();
-    await _forChunks(changed, (marks, chunk) {
-      return _db.customStatement(
-        '''
-        UPDATE main.item
-           SET rev = rev + 1,
-               device_id = ?,
-               updated_at = MAX(updated_at, (
-                 SELECT x.updated_at FROM $_incoming.item x
-                  WHERE x.id = item.id))
-         WHERE id IN ($marks)''',
-        [_db.deviceId, ...chunk],
-      );
-    });
   }
 
-  /// Guarda cada conflicto: las dos versiones, de quién era cada una y cuándo
-  /// se detectó. La que queda en vivo ya se escribió; esto es la otra.
-  Future<void> _recordConflicts(EntryMergePlan plan) async {
-    final detectedAt = _clock().millisecondsSinceEpoch ~/ 1000;
+  /// Anota que los elementos [itemIds] cambiaron en esta bóveda, UNA vez cada
+  /// uno aunque hayan cambiado por varios lados: su `rev` sube y se pone el
+  /// dispositivo de acá, que es quien los cambió; su fecha es la más reciente
+  /// de las dos.
+  ///
+  /// Lo llama `VaultMerger` con todo lo que cambió —campos y texto—, y no cada
+  /// paso por su cuenta: este es el único archivo de la fusión que escribe
+  /// `item`.
+  Future<void> bumpItems(Iterable<String> itemIds) =>
+      _forChunks(itemIds.toSet().toList(), (marks, chunk) {
+        return _db.customStatement(
+          '''
+          UPDATE main.item
+             SET rev = rev + 1,
+                 device_id = ?,
+                 updated_at = MAX(updated_at, (
+                   SELECT x.updated_at FROM $_incoming.item x
+                    WHERE x.id = item.id))
+           WHERE id IN ($marks)''',
+          [_db.deviceId, ...chunk],
+        );
+      });
+
+  /// Guarda cada conflicto de campo: las dos versiones, de quién era cada una y
+  /// cuándo se detectó. La que queda en vivo ya se escribió; esto es la otra.
+  Future<void> recordConflicts(EntryMergePlan plan) async {
     for (final change in plan.conflictChanges) {
-      await _db.customStatement(
-        '''
-        INSERT INTO main.merge_conflict (
-          id, item_id, field_name, local_value, incoming_value,
-          local_updated_at, local_device_id,
-          incoming_updated_at, incoming_device_id, detected_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          _ids.next(),
-          change.itemId,
-          change.field.name,
-          change.localValue,
-          change.incomingValue,
-          _seconds(change.localStamp?.updatedAt),
-          change.localStamp?.deviceId,
-          _seconds(change.incomingStamp?.updatedAt),
-          change.incomingStamp?.deviceId,
-          detectedAt,
-        ],
+      await _log.record(
+        itemId: change.itemId,
+        field: change.field.name,
+        localValue: change.localValue,
+        incomingValue: change.incomingValue,
+        localStamp: change.localStamp,
+        incomingStamp: change.incomingStamp,
       );
     }
   }
-
-  static int? _seconds(DateTime? at) =>
-      at == null ? null : at.millisecondsSinceEpoch ~/ 1000;
 
   /// Corre [statement] por cada tramo de [ids] que entra en una sentencia, con
   /// los signos de pregunta que le corresponden.

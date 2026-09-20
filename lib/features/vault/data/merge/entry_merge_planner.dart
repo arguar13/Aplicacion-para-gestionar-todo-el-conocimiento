@@ -1,10 +1,11 @@
-import 'package:drift/drift.dart' show QueryRow;
 import 'package:meta/meta.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/stamp_rows.dart';
 import 'package:sinapsis/features/vault/domain/merge/field_merge_rule.dart';
 
 /// La decisión sobre un campo de un elemento que las dos bóvedas tienen
@@ -85,7 +86,12 @@ class EntryMergePlanner {
 
   static const _incoming = kIncomingSchema;
 
-  Future<EntryMergePlan> plan(SpaceMerge spaces) async {
+  /// [known] son los conflictos que esta bóveda ya tiene
+  /// ([MergeConflictLog.known]): uno que ya se guardó no se guarda otra vez.
+  Future<EntryMergePlan> plan(
+    SpaceMerge spaces, {
+    required Set<String> known,
+  }) async {
     final byItem = <String, List<FieldChange>>{};
     for (final field in kMergeFields) {
       for (final change in await _differing(field, spaces)) {
@@ -93,7 +99,6 @@ class EntryMergePlanner {
       }
     }
 
-    final known = await _knownConflicts();
     final writes = <FieldChange>[];
     for (final changes in byItem.values) {
       for (final change in _keepAliveWhenEdited(changes)) {
@@ -126,12 +131,7 @@ class EntryMergePlanner {
       SELECT m.id AS item_id,
              CAST($local.${field.column} AS TEXT) AS local_value,
              CAST($incoming.${field.column} AS TEXT) AS incoming_value,
-             lf.updated_at AS l_at, lf.device_id AS l_dev,
-             lf.base_updated_at AS l_base_at, lf.base_device_id AS l_base_dev,
-             inf.updated_at AS i_at, inf.device_id AS i_dev,
-             inf.base_updated_at AS i_base_at, inf.base_device_id AS i_base_dev,
-             m.updated_at AS l_item_at, m.device_id AS l_item_dev,
-             i.updated_at AS i_item_at, i.device_id AS i_item_dev
+             ${StampRows.columns(localVersion: 'lf', incomingVersion: 'inf', localItem: 'm', incomingItem: 'i')}
         FROM main.item m
         JOIN $_incoming.item i ON i.id = m.id$joins
         LEFT JOIN main.field_version lf
@@ -149,21 +149,7 @@ class EntryMergePlanner {
       if (field.isSpace) incomingValue = spaces.localIdOf(incomingValue);
       final differ = localValue != incomingValue;
 
-      final localStamp = _stamp(row, 'l');
-      final incomingStamp = _stamp(row, 'i');
-      final decision = FieldMergeRule.decide(
-        valuesDiffer: differ,
-        local: localStamp,
-        incoming: incomingStamp,
-        localItem: FieldStamp(
-          updatedAt: _dateTime(row.read<int>('l_item_at')),
-          deviceId: row.read<String>('l_item_dev'),
-        ),
-        incomingItem: FieldStamp(
-          updatedAt: _dateTime(row.read<int>('i_item_at')),
-          deviceId: row.read<String>('i_item_dev'),
-        ),
-      );
+      final decision = StampRows.decide(row, valuesDiffer: differ);
       if (decision == FieldDecision.same) continue;
 
       changes.add(
@@ -173,8 +159,8 @@ class EntryMergePlanner {
           decision: decision,
           localValue: localValue,
           incomingValue: incomingValue,
-          localStamp: localStamp,
-          incomingStamp: incomingStamp,
+          localStamp: StampRows.field(row, 'l'),
+          incomingStamp: StampRows.field(row, 'i'),
         ),
       );
     }
@@ -249,58 +235,14 @@ class EntryMergePlanner {
     Set<String> known,
   ) {
     final decision = change.decision;
-    if (!decision.isConflict || !known.contains(_conflictKey(change))) {
-      return decision;
-    }
+    final key = MergeConflictLog.keyFor(
+      change.itemId,
+      change.field.name,
+      change.incomingStamp,
+    );
+    if (!decision.isConflict || !known.contains(key)) return decision;
     return decision.takesIncoming
         ? FieldDecision.takeIncoming
         : FieldDecision.keepLocal;
   }
-
-  /// Los conflictos que esta bóveda ya tiene, por elemento, campo y versión de
-  /// la copia que los provocó.
-  Future<Set<String>> _knownConflicts() async {
-    final rows = await _db.customSelect('''
-      SELECT item_id, field_name, incoming_updated_at, incoming_device_id
-        FROM main.merge_conflict''').get();
-    return {
-      for (final row in rows)
-        _key(
-          row.read<String>('item_id'),
-          row.read<String>('field_name'),
-          row.read<int?>('incoming_updated_at'),
-          row.read<String?>('incoming_device_id'),
-        ),
-    };
-  }
-
-  static String _conflictKey(FieldChange change) => _key(
-    change.itemId,
-    change.field.name,
-    change.incomingStamp == null
-        ? null
-        : change.incomingStamp!.updatedAt.millisecondsSinceEpoch ~/ 1000,
-    change.incomingStamp?.deviceId,
-  );
-
-  static String _key(String item, String field, int? at, String? device) =>
-      '$item\u0000$field\u0000$at\u0000$device';
-
-  /// La versión que hay en las columnas [prefix]`_at`, `_dev`, `_base_at` y
-  /// `_base_dev` de [row], o `null` si el campo no tiene versión.
-  static FieldStamp? _stamp(QueryRow row, String prefix) {
-    final at = row.read<int?>('${prefix}_at');
-    if (at == null) return null;
-    final baseAt = row.read<int?>('${prefix}_base_at');
-    return FieldStamp(
-      updatedAt: _dateTime(at),
-      deviceId: row.read<String>('${prefix}_dev'),
-      baseUpdatedAt: baseAt == null ? null : _dateTime(baseAt),
-      baseDeviceId: row.read<String?>('${prefix}_base_dev'),
-    );
-  }
-
-  /// Los instantes están guardados como segundos desde 1970.
-  static DateTime _dateTime(int seconds) =>
-      DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
 }

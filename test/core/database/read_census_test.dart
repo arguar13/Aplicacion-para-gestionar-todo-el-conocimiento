@@ -29,6 +29,20 @@ void main() {
         'migración: opera sobre toda la base',
     'lib/core/database/migrations/repoint_item_references_v18.dart':
         'migración: opera sobre toda la base',
+    'lib/features/vault/data/merge/rendition_merge.dart':
+        'la fusión decide sobre las formas de TODOS los elementos, también los '
+        'de la papelera: un elemento borrado conserva su texto y lo que le '
+        'llega de la copia',
+    'lib/features/vault/data/merge/set_union_merge.dart':
+        'solo comprueba que el elemento exista —vivo o en la papelera— antes '
+        'de colgarle un vínculo, una tarjeta o una procedencia: no hay '
+        'pantalla que lo muestre',
+    'lib/features/vault/data/merge/vocabulary_merge.dart':
+        'solo comprueba que el elemento exista —vivo o en la papelera— antes '
+        'de asignarle un valor: la asignación de un elemento borrado se '
+        'conserva para cuando se restaure',
+    'lib/features/vault/data/merge/vault_merger.dart':
+        'nombra la tabla solo para avisar que cambió: no lee ninguna fila',
     'lib/features/vault/data/merge/vault_merge_reader.dart':
         'la vista previa de una fusión cuenta TODOS los elementos de la copia, '
         'también los que están en su papelera: un elemento borrado viaja con '

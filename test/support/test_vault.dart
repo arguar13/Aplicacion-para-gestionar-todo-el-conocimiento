@@ -10,6 +10,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -316,6 +318,157 @@ class TestVault {
   Future<void> addSpace(String id, String name) => db
       .into(db.spaces)
       .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+
+  /// Una forma de texto más para [itemId].
+  Future<void> addRendition(
+    String itemId,
+    String id,
+    String text, {
+    bool primary = false,
+  }) => db
+      .into(db.renditions)
+      .insert(
+        RenditionsCompanion.insert(
+          id: id,
+          itemId: itemId,
+          kind: RenditionKind.plainText,
+          content: Value(text),
+          isPrimary: primary,
+          createdAt: now,
+        ),
+      );
+
+  /// Las formas de [itemId], por identificador.
+  Future<List<RenditionRow>> renditionsOf(String itemId) =>
+      (db.select(db.renditions)
+            ..where((r) => r.itemId.equals(itemId))
+            ..orderBy([(r) => OrderingTerm.asc(r.id)]))
+          .get();
+
+  /// El id de la categoría «Tema» de esta bóveda: cada una la siembra con uno
+  /// propio.
+  Future<String> temaId() => temaDefinitionId(db);
+
+  /// Una propiedad nueva.
+  Future<void> addDefinition(String id, String name) => db
+      .into(db.propertyDefinitions)
+      .insert(
+        PropertyDefinitionsCompanion.insert(id: id, name: name, createdAt: now),
+      );
+
+  /// Un valor de la propiedad [definitionId].
+  Future<void> addPropertyValue(String id, String definitionId, String value) =>
+      db
+          .into(db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: id,
+              definitionId: definitionId,
+              value: value,
+              createdAt: now,
+            ),
+          );
+
+  /// Un alias del valor [valueId].
+  Future<void> addAlias(
+    String id,
+    String valueId,
+    String definitionId,
+    String alias,
+  ) => db
+      .into(db.propertyAliases)
+      .insert(
+        PropertyAliasesCompanion.insert(
+          id: id,
+          propertyValueId: valueId,
+          definitionId: definitionId,
+          alias: alias,
+          createdAt: now,
+        ),
+      );
+
+  /// Le asigna el valor [valueId] al elemento [itemId].
+  Future<void> assignValue(String itemId, String valueId) => db
+      .into(db.itemPropertyValues)
+      .insert(
+        ItemPropertyValuesCompanion.insert(
+          itemId: itemId,
+          propertyValueId: valueId,
+        ),
+      );
+
+  /// Una conversación con la hora de esta bóveda.
+  Future<void> addConversation(String id, {String? title}) => db
+      .into(db.conversations)
+      .insert(
+        ConversationsCompanion.insert(
+          id: id,
+          mode: ChatConversationMode.vault,
+          title: Value(title),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+  /// Un mensaje de [conversationId].
+  Future<void> addMessage(
+    String id,
+    String conversationId, {
+    String content = 'Hola',
+  }) => db
+      .into(db.chatMessages)
+      .insert(
+        ChatMessagesCompanion.insert(
+          id: id,
+          conversationId: conversationId,
+          isUser: true,
+          content: content,
+          createdAt: now,
+        ),
+      );
+
+  /// De dónde salió una parte de lo que se fusionó en [itemId].
+  Future<void> addProvenance(String id, String itemId) => db
+      .into(db.mergedProvenances)
+      .insert(
+        MergedProvenancesCompanion.insert(
+          id: id,
+          itemId: itemId,
+          sourceKind: SourceKind.webPage,
+          capturedAt: now,
+          mergedAt: now,
+        ),
+      );
+
+  /// Un repaso de la tarjeta [flashcardId].
+  Future<void> addReview(String id, String flashcardId) => db
+      .into(db.reviewLogs)
+      .insert(
+        ReviewLogsCompanion.insert(
+          id: id,
+          flashcardId: flashcardId,
+          reviewedAt: now,
+          grade: 'good',
+          quality: 4,
+          intervalBefore: 1,
+          intervalAfter: 3,
+          easeBefore: 2.5,
+          easeAfter: 2.5,
+          deviceId: deviceId,
+        ),
+      );
+
+  /// Repasa la tarjeta [flashcardId] a la hora de esta bóveda: cambia su
+  /// calendario.
+  Future<void> reviewCard(String flashcardId, {int intervalDays = 6}) =>
+      (db.update(db.flashcards)..where((f) => f.id.equals(flashcardId))).write(
+        FlashcardsCompanion(
+          intervalDays: Value(intervalDays),
+          repetitions: const Value(2),
+          dueAt: Value(now.add(Duration(days: intervalDays))),
+          lastReviewedAt: Value(now),
+        ),
+      );
 
   /// Escribe un archivo en la carpeta de documentos.
   Future<void> writeOriginal(String relativePath, String content) async {

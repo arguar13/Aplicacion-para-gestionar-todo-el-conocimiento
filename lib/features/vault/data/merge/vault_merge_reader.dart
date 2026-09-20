@@ -4,7 +4,10 @@ import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
+import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 
 /// Lee una copia de otra bóveda contra ESTA y dice qué traería (F11).
@@ -71,16 +74,24 @@ class VaultMergeReader {
 
     final files = await _files(incoming);
     final spaces = await SpaceMerge.compute(_db);
-    final plan = await EntryMergePlanner(_db).plan(spaces);
+    final known = await MergeConflictLog(database: _db).known();
+    final plan = await EntryMergePlanner(_db).plan(spaces, known: known);
+    final texts = await RenditionMergePlanner(_db).plan(known: known);
+    // Un texto de nota que cambia cuenta como un campo del elemento.
+    final updatedItems = {
+      ...plan.updates.map((c) => c.itemId),
+      ...texts.updatedItems,
+    };
 
     return VaultMergePreview(
       incomingItems: total,
       newSources: newSources,
       newNotes: newNotes,
       commonItems: common,
-      itemsToUpdate: plan.itemsToUpdate,
-      fieldsToUpdate: plan.fieldsToUpdate,
-      conflicts: plan.conflicts,
+      itemsToUpdate: updatedItems.length,
+      fieldsToUpdate: plan.fieldsToUpdate + texts.toUpdate,
+      conflicts: plan.conflicts + texts.conflicts,
+      newRenditions: texts.toAdd + texts.conflicts,
       // Un vínculo es el mismo si tiene el mismo id o si une lo mismo con el
       // mismo tipo: dos bóvedas pudieron crearlo por separado.
       newRelations: await _scalar('''
@@ -104,6 +115,12 @@ class VaultMergeReader {
       // Un espacio es el mismo si tiene el mismo id o el mismo nombre sin
       // distinguir mayúsculas: dos con el mismo nombre no pueden convivir.
       newSpaces: spaces.toAdd.length,
+      newPropertyValues: await _scalar(VocabularyMerge.newValuesSql()),
+      newConversations: await _scalar(
+        '''
+        SELECT COUNT(*) FROM $_incoming.conversations c
+         WHERE NOT EXISTS (SELECT 1 FROM main.conversations m WHERE m.id = c.id)''',
+      ),
       newFiles: files.missingLocally.length,
       newFilesBytes: files.missingLocallyBytes,
       filesMissingInBackup: files.missingInBackup,

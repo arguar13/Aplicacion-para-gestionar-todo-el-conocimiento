@@ -32,11 +32,17 @@ sealed class VaultMergePreview with _$VaultMergePreview {
     @Default(0) int fieldsToUpdate,
     @Default(0) int conflicts,
 
+    /// Formas de texto que la copia agrega a elementos que las dos tienen —
+    /// también los textos distintos, que entran como otra forma—.
+    @Default(0) int newRenditions,
+
     /// Lo que cuelga de los elementos y esta bóveda no tiene.
     @Default(0) int newRelations,
     @Default(0) int newHighlights,
     @Default(0) int newFlashcards,
     @Default(0) int newSpaces,
+    @Default(0) int newPropertyValues,
+    @Default(0) int newConversations,
 
     /// Archivos originales de la copia que esta bóveda no tiene, con cuánto
     /// pesan; y los que la copia dice tener y no trae.
@@ -55,9 +61,12 @@ sealed class VaultMergePreview with _$VaultMergePreview {
       newItems == 0 &&
       fieldsToUpdate == 0 &&
       conflicts == 0 &&
+      newRenditions == 0 &&
       newRelations == 0 &&
       newHighlights == 0 &&
       newFlashcards == 0 &&
       newSpaces == 0 &&
+      newPropertyValues == 0 &&
+      newConversations == 0 &&
       newFiles == 0;
 }

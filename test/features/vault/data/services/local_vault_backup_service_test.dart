@@ -66,6 +66,39 @@ void main() {
 
       expect(archive.files.map((f) => f.name), ['sinapsis.sqlite']);
     });
+
+    test('muchas copias a la vez no chocan entre sí', () async {
+      // Antes el archivo de trabajo se llamaba con la hora en microsegundos, y
+      // en Windows —reloj a saltos de un milisegundo— dos copias casi
+      // simultáneas elegían el mismo y una fallaba con «database is locked».
+      final copies = await Future.wait([
+        for (var i = 0; i < 12; i++) service.buildBackup(),
+      ]);
+
+      for (final bytes in copies) {
+        expect(await service.isValidBackup(bytes), isTrue);
+      }
+    });
+
+    test('no deja archivos de trabajo, ni si la copia falla', () async {
+      final temp = await Directory.systemTemp.createTemp('sinapsis_bk_test_');
+      addTearDown(() => temp.delete(recursive: true));
+
+      await IOOverrides.runZoned(() async {
+        await service.buildBackup();
+        // Una base cerrada: `VACUUM INTO` falla a mitad de la copia.
+        await db.close();
+        await expectLater(service.buildBackup(), throwsA(isA<Object>()));
+      }, getSystemTempDirectory: () => temp);
+
+      expect(temp.listSync(), isEmpty);
+      // Vuelve a abrirse una para que el `tearDown` pueda cerrarla.
+      db = AppDatabase(NativeDatabase.memory());
+      service = LocalVaultBackupService(
+        database: db,
+        documentsDirectory: () async => docsDir,
+      );
+    });
   });
 
   group('isValidBackup', () {

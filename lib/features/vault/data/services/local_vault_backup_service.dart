@@ -43,26 +43,32 @@ class LocalVaultBackupService implements VaultBackupService {
     // de nuevo entre reinicios — no hace falta el canal de plataforma de
     // `getTemporaryDirectory()` para eso, y así esta clase se puede probar
     // con `flutter test` puro, sin inicializar ningún binding.
-    final tempDbCopy = File(
-      p.join(
-        Directory.systemTemp.path,
-        'sinapsis-backup-${DateTime.now().microsecondsSinceEpoch}.sqlite',
-      ),
-    );
+    //
+    // Un directorio propio, creado por el sistema, y no un nombre armado con la
+    // hora: en Windows el reloj avanza a saltos de un milisegundo, y dos copias
+    // pedidas casi a la vez —dos procesos, o dos pruebas en paralelo— elegían
+    // el mismo archivo y `VACUUM INTO` fallaba con «database is locked». Y como
+    // se borra en un `finally`, una copia que falla no deja el archivo a
+    // medias.
+    final workDir = await Directory.systemTemp.createTemp('sinapsis-backup-');
+    final Uint8List databaseBytes;
+    try {
+      final tempDbCopy = File(p.join(workDir.path, _databaseEntryName));
 
-    // `VACUUM INTO` deja una copia consistente del archivo aunque la base
-    // siga abierta y en uso —a diferencia de copiar el archivo a mano, que
-    // podría llevarse una escritura a mitad de camino, o los archivos `-wal`
-    // / `-shm` sueltos si la conexión usa journal en modo WAL—. Corre sobre
-    // la misma conexión que ya tiene la app abierta: no hace falta cerrar
-    // nada para exportar.
-    await _database.customStatement('VACUUM INTO ?', [tempDbCopy.path]);
+      // `VACUUM INTO` deja una copia consistente del archivo aunque la base
+      // siga abierta y en uso —a diferencia de copiar el archivo a mano, que
+      // podría llevarse una escritura a mitad de camino, o los archivos `-wal`
+      // / `-shm` sueltos si la conexión usa journal en modo WAL—. Corre sobre
+      // la misma conexión que ya tiene la app abierta: no hace falta cerrar
+      // nada para exportar.
+      await _database.customStatement('VACUUM INTO ?', [tempDbCopy.path]);
+      databaseBytes = await tempDbCopy.readAsBytes();
+    } finally {
+      await workDir.delete(recursive: true);
+    }
 
     final archive = Archive()
-      ..addFile(
-        ArchiveFile.bytes(_databaseEntryName, await tempDbCopy.readAsBytes()),
-      );
-    await tempDbCopy.delete();
+      ..addFile(ArchiveFile.bytes(_databaseEntryName, databaseBytes));
 
     final originalsDir = Directory(p.join(docsDir.path, _originalsFolder));
     if (originalsDir.existsSync()) {
