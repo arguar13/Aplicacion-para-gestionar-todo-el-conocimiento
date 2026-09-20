@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -2798,6 +2799,69 @@ void main() {
           expect(values.single.historicalDate, date);
         },
       );
+    });
+  });
+
+  group('el nombre de un espacio contra las etiquetas (F11)', () {
+    Future<bool> isTag(String name) async =>
+        (await repository.isTemaValueName(name)).getRight().toNullable()!;
+
+    test('el nombre de una etiqueta existente se reconoce, sin mirar '
+        'mayúsculas ni acentos', () async {
+      await repository.getOrCreateTag('Filosofía');
+
+      expect(await isTag('Filosofía'), isTrue);
+      expect(await isTag('filosofia'), isTrue);
+      expect(await isTag('  FILOSOFÍA  '), isTrue);
+    });
+
+    test('un alias de una etiqueta cuenta como su nombre', () async {
+      final tag = (await repository.getOrCreateTag(
+        'Historia antigua',
+      )).getRight().toNullable()!;
+      final tema = await temaDefinitionId(db);
+      await db
+          .into(db.propertyAliases)
+          .insert(
+            PropertyAliasesCompanion.insert(
+              id: 'alias-1',
+              definitionId: tema,
+              propertyValueId: tag.id,
+              alias: 'Roma clásica',
+              createdAt: now,
+            ),
+          );
+
+      expect(await isTag('roma clasica'), isTrue);
+    });
+
+    test('un nombre que ninguna etiqueta tiene no se reconoce', () async {
+      await repository.getOrCreateTag('Filosofía');
+
+      expect(await isTag('Cocina'), isFalse);
+      expect(await isTag(''), isFalse);
+    });
+
+    test('el valor de otra propiedad no es una etiqueta', () async {
+      final region = (await repository.getOrCreatePropertyDefinition(
+        'Región',
+      )).getRight().toNullable()!;
+      await repository.assignProperty(
+        itemId: (await seedItem()).id,
+        definitionId: region.id,
+        value: 'Mediterráneo',
+      );
+
+      expect(await isTag('Mediterráneo'), isFalse);
+    });
+
+    test('no impide nada: crear un espacio con ese nombre sigue siendo '
+        'posible', () async {
+      await repository.getOrCreateTag('Filosofía');
+
+      final space = await repository.createSpace('Filosofía');
+
+      expect(space.isRight(), isTrue);
     });
   });
 

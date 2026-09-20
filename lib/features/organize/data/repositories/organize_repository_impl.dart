@@ -736,6 +736,21 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
   }
 
   @override
+  Future<Either<Failure, bool>> isTemaValueName(String name) async {
+    try {
+      final temaId = await temaDefinitionId(_db);
+      final match = await findValueByLabelOrAlias(_db, temaId, name);
+      return right(match != null);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.isTemaValueName'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Space>> renameSpace({
     required String id,
     required String name,

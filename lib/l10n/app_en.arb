@@ -1327,6 +1327,27 @@
   "@spacesNameHint": {
     "description": "Placeholder del campo de nombre al crear o renombrar un tema."
   },
+  "spacesNameIsTagTitle": "There is already a tag with that name",
+  "@spacesNameIsTagTitle": {
+    "description": "Título del aviso al crear o renombrar un tema con el nombre de una etiqueta existente."
+  },
+  "spacesNameIsTagBody": "“{name}” is already a Theme tag. A theme and a tag are not the same thing: an item is in a single theme, but it can have many tags. With the same name they get mixed up when searching and sorting.",
+  "@spacesNameIsTagBody": {
+    "description": "Explica que un tema y una etiqueta con el mismo nombre no son lo mismo.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "spacesNameIsTagCreate": "Create anyway",
+  "@spacesNameIsTagCreate": {
+    "description": "Botón que crea el tema igual, a pesar del aviso."
+  },
+  "spacesNameIsTagRename": "Rename anyway",
+  "@spacesNameIsTagRename": {
+    "description": "Botón que renombra el tema igual, a pesar del aviso."
+  },
   "spacesRenameAction": "Rename",
   "@spacesRenameAction": {
     "description": "Opción para renombrar un tema."

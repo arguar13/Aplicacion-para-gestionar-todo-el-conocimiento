@@ -169,6 +169,16 @@ abstract interface class OrganizeRepository {
   /// mismo amerita avisarle, no unificarlo en silencio.
   Future<Either<Failure, Space>> createSpace(String name);
 
+  /// Si [name] ya es un valor de la propiedad Tema —una etiqueta—, o un alias
+  /// de uno, sin distinguir mayúsculas ni acentos (F11).
+  ///
+  /// Un tema de la biblioteca (un espacio) y un valor de Tema se llaman igual y
+  /// no son lo mismo: el espacio es una carpeta, y un elemento está en una
+  /// sola; la etiqueta se pone a muchos. Con el mismo nombre se confunden. No
+  /// impide nada —a veces es lo que se quiere—: es lo que le permite a quien
+  /// crea o renombra un espacio avisar antes.
+  Future<Either<Failure, bool>> isTemaValueName(String name);
+
   /// Le cambia el nombre a un espacio.
   Future<Either<Failure, Space>> renameSpace({
     required String id,

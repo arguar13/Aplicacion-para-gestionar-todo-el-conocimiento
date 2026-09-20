@@ -465,6 +465,123 @@ void main() {
     });
   });
 
+  group('el nombre de un tema contra las etiquetas (F11)', () {
+    Future<List<String>> spaceNames() async => [
+      for (final row
+          in await harness.database.select(harness.database.spaces).get())
+        row.name,
+    ];
+
+    Future<void> createTag(String name) =>
+        harness.container.read(organizeRepositoryProvider).getOrCreateTag(name);
+
+    Future<void> startCreating(WidgetTester tester, String name) async {
+      await pumpLibrary(tester);
+      await tester.tap(find.text(es.spacesNewAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, name);
+      await tester.tap(find.text(es.spacesNewAction).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('un nombre que ninguna etiqueta tiene se crea sin avisar', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+
+      await startCreating(tester, 'Cocina');
+
+      expect(find.text(es.spacesNameIsTagTitle), findsNothing);
+      expect(await spaceNames(), ['Cocina']);
+    });
+
+    testWidgets('el nombre de una etiqueta avisa, y cancelar no crea nada', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+      await createTag('Filosofía');
+
+      await startCreating(tester, 'filosofia');
+
+      expect(find.text(es.spacesNameIsTagTitle), findsOneWidget);
+      expect(find.text(es.spacesNameIsTagBody('filosofia')), findsOneWidget);
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(await spaceNames(), isEmpty);
+    });
+
+    testWidgets('«Crear igual» lo crea a pesar del aviso', (tester) async {
+      await harness.capture('algo');
+      await createTag('Filosofía');
+
+      await startCreating(tester, 'Filosofía');
+      await tester.tap(find.text(es.spacesNameIsTagCreate));
+      await tester.pumpAndSettle();
+
+      expect(await spaceNames(), ['Filosofía']);
+    });
+
+    Future<void> startRenaming(
+      WidgetTester tester,
+      String from,
+      String to,
+    ) async {
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createSpace(from);
+      await pumpLibrary(tester);
+      await tester.longPress(find.text(from));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesRenameAction).last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, to);
+      await tester.tap(find.text(es.detailSave).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('renombrar a una etiqueta existente avisa, y «Renombrar '
+        'igual» lo renombra', (tester) async {
+      await harness.capture('algo');
+      await createTag('Filosofía');
+
+      await startRenaming(tester, 'Cocina', 'Filosofía');
+
+      expect(find.text(es.spacesNameIsTagTitle), findsOneWidget);
+      await tester.tap(find.text(es.spacesNameIsTagRename));
+      await tester.pumpAndSettle();
+
+      expect(await spaceNames(), ['Filosofía']);
+    });
+
+    testWidgets('renombrar y cancelar el aviso deja el nombre como estaba', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+      await createTag('Filosofía');
+
+      await startRenaming(tester, 'Cocina', 'Filosofía');
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(await spaceNames(), ['Cocina']);
+    });
+
+    testWidgets('quedarse con su propio nombre no avisa: no es un nombre '
+        'nuevo', (tester) async {
+      await harness.capture('algo');
+      await createTag('Filosofía');
+
+      // El tema se llama igual que una etiqueta desde antes: solo se le
+      // cambian las mayúsculas.
+      await startRenaming(tester, 'Filosofía', 'filosofía');
+
+      expect(find.text(es.spacesNameIsTagTitle), findsNothing);
+      expect(await spaceNames(), ['filosofía']);
+    });
+  });
+
   group('la búsqueda dice DÓNDE está lo encontrado (F10)', () {
     final now = DateTime(2026, 9, 19, 10);
 

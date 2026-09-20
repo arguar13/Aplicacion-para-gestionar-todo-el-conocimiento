@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
@@ -570,6 +571,15 @@ class _SearchAndFilters extends ConsumerWidget {
       ),
     );
     if (name == null || name.trim().isEmpty || !context.mounted) return;
+    if (!await _confirmNameNotATag(
+      context,
+      ref,
+      name,
+      action: l10n.spacesNameIsTagCreate,
+    )) {
+      return;
+    }
+    if (!context.mounted) return;
 
     final result = await ref.read(organizeRepositoryProvider).createSpace(name);
     if (!context.mounted) return;
@@ -598,6 +608,44 @@ class _SearchAndFilters extends ConsumerWidget {
         ref.read(libraryQueryNotifierProvider.notifier).selectSpace(space.id);
       }),
     );
+  }
+
+  /// Avisa si [name] ya es una etiqueta (un valor de Tema) y pregunta si se
+  /// sigue igual. Devuelve `true` si no hay nada que avisar o si se sigue.
+  ///
+  /// Un tema y una etiqueta se llaman igual y no son lo mismo —el tema es una
+  /// carpeta y un elemento está en una sola; la etiqueta se pone a muchos—: con
+  /// el mismo nombre se confunden. Avisar y dejar seguir, no impedir.
+  Future<bool> _confirmNameNotATag(
+    BuildContext context,
+    WidgetRef ref,
+    String name, {
+    required String action,
+  }) async {
+    final l10n = AppLocalizations.of(context)!;
+    final isTag =
+        (await ref.read(organizeRepositoryProvider).isTemaValueName(name))
+            .getOrElse((_) => false);
+    if (!isTag || !context.mounted) return true;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.spacesNameIsTagTitle),
+        content: Text(l10n.spacesNameIsTagBody(name.trim())),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
   }
 
   Future<void> _manageSpace(
@@ -650,6 +698,18 @@ class _SearchAndFilters extends ConsumerWidget {
       ),
     );
     if (name == null || name.trim().isEmpty || !context.mounted) return;
+    // Quedarse con el mismo nombre no es un nombre nuevo que avisar.
+    if (normalizeVocabularyLabel(name) !=
+            normalizeVocabularyLabel(space.name) &&
+        !await _confirmNameNotATag(
+          context,
+          ref,
+          name,
+          action: l10n.spacesNameIsTagRename,
+        )) {
+      return;
+    }
+    if (!context.mounted) return;
 
     final result = await ref
         .read(organizeRepositoryProvider)
