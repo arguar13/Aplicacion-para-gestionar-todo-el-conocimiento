@@ -26,7 +26,7 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 /// La restricción inalienable del encargo, comprobada contra F8: nada de lo
 /// que F8 hace —unificar etiquetas, fusionar valores, renombrar, alias,
 /// borrar lo que no se usa, y deshacer todo eso— toca el texto de una fuente
-/// ni sus chunks. Concatenar los chunks sigue reproduciendo `fullText`
+/// ni sus chunks. Concatenar los chunks sigue reproduciendo el texto
 /// carácter a carácter, y los chunks siguen siendo LOS MISMOS, con sus ids.
 void main() {
   late AppDatabase db;
@@ -96,10 +96,15 @@ void main() {
       '${c.content.hashCode}';
 
   /// Lo que describe el texto de las fuentes, en una lista comparable: el
-  /// `fullText` de cada una y cada chunk con su id, su posición y su texto.
+  /// texto de cada una —el de su forma principal— y cada chunk con su id, su
+  /// posición y su texto.
   Future<List<String>> textSnapshot() async => [
     for (final s in await db.select(db.knowledgeSources).get())
-      'fuente ${s.itemId}|${s.fullText.length}|${s.fullText.hashCode}',
+      for (final r in await (db.select(
+        db.renditions,
+      )..where((r) => r.itemId.equals(s.itemId))).get())
+        if (r.content case final text?)
+          'texto ${s.itemId}|${r.id}|${text.length}|${text.hashCode}',
     for (final c in await db.select(db.chunks).get()) chunkKey(c),
   ]..sort();
 
@@ -193,7 +198,7 @@ void main() {
     ])).getRight().toNullable()!;
     await vocabulary.undo(unused);
 
-    // Nada de eso tocó el texto: mismos chunks, mismos ids, mismo fullText...
+    // Nada de eso tocó el texto: mismos chunks, mismos ids, mismo texto...
     expect(await textSnapshot(), before);
     // ...y el invariante central sigue valiendo sobre toda la bóveda.
     final report = await verifyChunkInvariant(db);

@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
+import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
@@ -83,6 +84,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         await _syncTags(item, temaId);
         await _syncProperties(item, temaId);
         await _mirrorItem(item);
+        await _syncChunks(item);
       });
       _generateDuplicateSuggestionForNote(item);
       return right(item);
@@ -91,6 +93,32 @@ class LibraryRepositoryImpl implements LibraryRepository {
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.save'));
     }
+  }
+
+  /// Deja los chunks de la fuente al día con el texto que se acaba de guardar.
+  ///
+  /// Van en la misma transacción que el resto: o queda la fuente con su texto
+  /// y sus chunks, o no queda nada. Antes solo los escribían el motor de
+  /// relaciones y las migraciones, así que una fuente capturada hoy no tenía
+  /// chunks hasta que algo los pedía —y sin chunks no hay búsqueda por
+  /// chunks—.
+  ///
+  /// Si el texto no cambió desde el último guardado no hace nada: comparar el
+  /// hash es barato, fragmentar de nuevo no. Y si el fragmentador falla, se
+  /// informa en `MigrationIssues` y el guardado sigue: reconstruir un índice
+  /// no puede impedir que se guarde lo capturado.
+  ///
+  /// Las notas no se fragmentan: son texto del usuario, mutable, y el chunker
+  /// las corta en trozos crudos del JSON de sus bloques —no en texto—. Su
+  /// texto lo indexa `item_search`, y no tienen minuto ni página que citar.
+  Future<void> _syncChunks(KnowledgeItem item) async {
+    if (itemKindFor(item.source.kind) == ItemKind.note) return;
+    await chunkAndPersistSource(
+      _db,
+      itemId: item.id,
+      ids: _ids,
+      reportedBy: 'f10_save',
+    );
   }
 
   /// Deja registrados los `[[ ]]` de las notas de bloques del elemento.
@@ -762,7 +790,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
             publishedAt: Value(item.source.publishedAt),
             capturedAt: item.source.capturedAt,
             originalBlobPath: Value(item.source.originalFilePath),
-            fullText: Value(existingSource?.fullText ?? ''),
             contentHash: existingSource?.contentHash ?? '',
             processingStatus: sourceProcessingStatusFor(item.processingState),
           ),

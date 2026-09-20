@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
 
 /// Qué encontró mal la verificación en una fuente.
 enum ChunkInvariantProblem {
@@ -47,10 +48,10 @@ class ChunkInvariantReport {
     required this.violations,
   });
 
-  /// Fuentes con `fullText` no vacío: las que de verdad se comprobaron.
+  /// Fuentes con texto: las que de verdad se comprobaron.
   final int sourcesChecked;
 
-  /// Fuentes con `fullText` vacío —todavía sin fragmentar, o sin texto—:
+  /// Fuentes sin texto —todavía sin procesar, o vacías—:
   /// ni pasan ni fallan, y se cuentan aparte para que un antes/después
   /// (F10) pueda comprobar que no cambió.
   final int sourcesWithoutText;
@@ -91,11 +92,11 @@ Future<ChunkInvariantReport> verifyChunkInvariant(AppDatabase db) async {
   final violations = <ChunkInvariantViolation>[];
 
   for (final itemId in itemIds) {
-    final source = await (db.select(
-      db.knowledgeSources,
-    )..where((s) => s.itemId.equals(itemId))).getSingle();
+    // El texto íntegro es el de la forma de texto principal: F10 lo guarda una
+    // sola vez, y los chunks se comprueban contra él.
+    final fullText = (await sourceTextRendition(db, itemId))?.content ?? '';
 
-    if (source.fullText.isEmpty) {
+    if (fullText.isEmpty) {
       sourcesWithoutText++;
       continue;
     }
@@ -108,7 +109,7 @@ Future<ChunkInvariantReport> verifyChunkInvariant(AppDatabase db) async {
 
     sourcesChecked++;
     chunksChecked += chunks.length;
-    violations.addAll(_checkSource(itemId, source.fullText, chunks));
+    violations.addAll(_checkSource(itemId, fullText, chunks));
   }
 
   return ChunkInvariantReport(

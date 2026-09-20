@@ -3,7 +3,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -83,104 +85,186 @@ void main() {
     expect(chunks, isEmpty);
   });
 
-  test('chunking exitoso puebla fullText/contentHash y los chunks', () async {
+  Rendition textRendition(String text, {String id = 'rend-0'}) =>
+      Rendition.text(
+        id: id,
+        itemId: 'item-0',
+        kind: RenditionKind.plainText,
+        content: text,
+        isPrimary: true,
+        createdAt: now,
+      );
+
+  Future<List<ChunkRow>> chunksOf(String itemId) =>
+      (db.select(db.chunks)
+            ..where((c) => c.itemId.equals(itemId))
+            ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
+          .get();
+
+  test('guardar una fuente con texto la fragmenta: no hace falta pedirlo '
+      'aparte', () async {
     final item = await seedItem(
-      renditions: [
-        Rendition.text(
-          id: 'rend-0',
-          itemId: 'item-0',
-          kind: RenditionKind.plainText,
-          content: 'Primer párrafo.\n\nSegundo párrafo.',
-          isPrimary: true,
-          createdAt: now,
-        ),
-      ],
+      renditions: [textRendition('Primer párrafo.\n\nSegundo párrafo.')],
     );
+
+    final chunks = await chunksOf(item.id);
+    expect(chunks, hasLength(2));
+    expect(chunks[0].content, 'Primer párrafo.\n\n');
+    expect(chunks[1].content, 'Segundo párrafo.');
+
+    final source = await (db.select(
+      db.knowledgeSources,
+    )..where((s) => s.itemId.equals(item.id))).getSingle();
+    expect(source.contentHash, isNotEmpty);
+    // El texto íntegro está UNA vez, en su forma principal: no se copia.
+    expect(source.fullText, isEmpty);
+
+    // Y pedirlo de nuevo no cambia nada.
+    final outcome = await chunkAndPersistSource(db, itemId: item.id, ids: ids);
+    expect(outcome, SourceChunkingOutcome.alreadyDone);
+  });
+
+  test('pedirlo antes de que save() lo haga se fragmenta igual, con el mismo '
+      'resultado', () async {
+    final item = await seedItem();
+    // Un texto que llega después, sin pasar por save(): lo que hace el
+    // procesamiento en segundo plano por otros caminos.
+    await db
+        .into(db.renditions)
+        .insert(
+          RenditionsCompanion.insert(
+            id: 'rend-tarde',
+            itemId: item.id,
+            kind: RenditionKind.plainText,
+            isPrimary: true,
+            createdAt: now,
+            content: const Value('Uno.\n\nDos.'),
+          ),
+        );
 
     final outcome = await chunkAndPersistSource(db, itemId: item.id, ids: ids);
 
     expect(outcome, SourceChunkingOutcome.populated);
-    final source = await (db.select(
-      db.knowledgeSources,
-    )..where((s) => s.itemId.equals(item.id))).getSingle();
-    expect(source.fullText, 'Primer párrafo.\n\nSegundo párrafo.');
-    expect(source.contentHash, isNotEmpty);
-
-    final chunks =
-        await (db.select(db.chunks)
-              ..where((c) => c.itemId.equals(item.id))
-              ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
-            .get();
-    expect(chunks, hasLength(2));
-    expect(chunks[0].content, 'Primer párrafo.\n\n');
-    expect(chunks[1].content, 'Segundo párrafo.');
+    expect((await chunksOf(item.id)).map((c) => c.content), [
+      'Uno.\n\n',
+      'Dos.',
+    ]);
   });
 
-  test('contentHash ya poblado: no duplica nada (idempotencia)', () async {
+  test(
+    'guardar de nuevo con el mismo texto no toca los chunks: mismos ids',
+    () async {
+      final item = await seedItem(
+        renditions: [textRendition('Texto original.\n\nOtro párrafo.')],
+      );
+      final before = (await chunksOf(item.id)).map((c) => c.id).toList();
+
+      await libraryRepository.save(item.copyWith(title: 'Otro título'));
+
+      expect((await chunksOf(item.id)).map((c) => c.id), before);
+    },
+  );
+
+  test('si el texto cambia, los chunks se rehacen, y los embeddings de los '
+      'viejos se van con ellos', () async {
+    final item = await seedItem(
+      renditions: [textRendition('Texto original.\n\nOtro párrafo.')],
+    );
+    final old = await chunksOf(item.id);
+    await db
+        .into(db.embeddings)
+        .insert(
+          EmbeddingsCompanion.insert(
+            chunkId: old.first.id,
+            vector: Uint8List.fromList([1, 2, 3, 4]),
+            modelVersion: 'm',
+            createdAt: now,
+          ),
+        );
+
+    await libraryRepository.save(
+      item.copyWith(
+        renditions: [textRendition('Un texto distinto por completo.')],
+      ),
+    );
+
+    final rebuilt = await chunksOf(item.id);
+    expect(rebuilt.map((c) => c.content), ['Un texto distinto por completo.']);
+    expect(rebuilt.map((c) => c.id), isNot(contains(old.first.id)));
+    expect(await db.select(db.embeddings).get(), isEmpty);
+    // Y sigue reconstruyendo el texto de la forma principal.
+    final report = await verifyChunkInvariant(db);
+    expect(report.holds, isTrue, reason: report.violations.join('\n'));
+  });
+
+  test('una nota no se fragmenta', () async {
+    final result = await libraryRepository.save(
+      KnowledgeItem(
+        id: 'nota',
+        title: 'Una nota',
+        source: Source(
+          id: 'src-nota',
+          kind: SourceKind.manualNote,
+          capturedAt: now,
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+        renditions: [
+          Rendition.text(
+            id: 'rend-nota',
+            itemId: 'nota',
+            kind: RenditionKind.blocks,
+            content: encodeContentBlocks([
+              const ContentBlock.paragraph(text: 'Algo que pensé.'),
+            ]),
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+      ),
+    );
+
+    expect(result.isRight(), isTrue);
+    expect(await db.select(db.chunks).get(), isEmpty);
+  });
+
+  test('el chunking falla: se reporta en MigrationIssues, el guardado sigue y '
+      'no se persiste ningún chunk', () async {
     final item = await seedItem(
       renditions: [
         Rendition.text(
           id: 'rend-0',
           itemId: 'item-0',
-          kind: RenditionKind.plainText,
-          content: 'Texto original.',
+          kind: RenditionKind.blocks,
+          content: 'esto no es JSON válido',
           isPrimary: true,
           createdAt: now,
         ),
       ],
     );
-    await chunkAndPersistSource(db, itemId: item.id, ids: ids);
-    final chunksBefore = await (db.select(
-      db.chunks,
-    )..where((c) => c.itemId.equals(item.id))).get();
 
+    // El guardado NO se cayó: la fuente está, con su texto.
+    final found = (await libraryRepository.findById(
+      item.id,
+    )).getRight().toNullable();
+    expect(found, isNotNull);
+    final source = await (db.select(
+      db.knowledgeSources,
+    )..where((s) => s.itemId.equals(item.id))).getSingle();
+    expect(source.contentHash, isEmpty);
+    expect(await chunksOf(item.id), isEmpty);
+    final issues = await (db.select(
+      db.migrationIssues,
+    )..where((i) => i.itemId.equals(item.id))).get();
+    expect(issues, hasLength(1));
+    expect(issues.single.migration, 'f10_save');
+    expect(issues.single.stage, 'chunk');
+
+    // Pedirlo por otro camino falla igual, y lo informa con su propio nombre.
     final outcome = await chunkAndPersistSource(db, itemId: item.id, ids: ids);
-
-    expect(outcome, SourceChunkingOutcome.alreadyDone);
-    final chunksAfter = await (db.select(
-      db.chunks,
-    )..where((c) => c.itemId.equals(item.id))).get();
-    expect(chunksAfter, hasLength(chunksBefore.length));
+    expect(outcome, SourceChunkingOutcome.failed);
+    final all = await db.select(db.migrationIssues).get();
+    expect(all.map((i) => i.migration), ['f10_save', 'f5_relation_engine']);
   });
-
-  test(
-    'el chunking falla: se reporta en MigrationIssues, sin persistir nada',
-    () async {
-      final item = await seedItem(
-        renditions: [
-          Rendition.text(
-            id: 'rend-0',
-            itemId: 'item-0',
-            kind: RenditionKind.blocks,
-            content: 'esto no es JSON válido',
-            isPrimary: true,
-            createdAt: now,
-          ),
-        ],
-      );
-
-      final outcome = await chunkAndPersistSource(
-        db,
-        itemId: item.id,
-        ids: ids,
-      );
-
-      expect(outcome, SourceChunkingOutcome.failed);
-      final source = await (db.select(
-        db.knowledgeSources,
-      )..where((s) => s.itemId.equals(item.id))).getSingle();
-      expect(source.contentHash, isEmpty);
-      final chunks = await (db.select(
-        db.chunks,
-      )..where((c) => c.itemId.equals(item.id))).get();
-      expect(chunks, isEmpty);
-
-      final issues = await (db.select(
-        db.migrationIssues,
-      )..where((i) => i.itemId.equals(item.id))).get();
-      expect(issues, hasLength(1));
-      expect(issues.single.migration, 'f5_relation_engine');
-      expect(issues.single.stage, 'chunk');
-    },
-  );
 }

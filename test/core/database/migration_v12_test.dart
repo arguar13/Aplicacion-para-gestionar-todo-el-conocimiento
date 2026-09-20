@@ -87,7 +87,9 @@ void main() {
     final source = await (db.select(
       db.knowledgeSources,
     )..where((s) => s.itemId.equals(item.id))).getSingle();
-    expect(source.fullText, 'Texto de la fuente.');
+    // F10: el texto no se copia a `source`; lo que queda es su hash y los
+    // chunks, que lo reconstruyen.
+    expect(source.fullText, isEmpty);
     expect(source.contentHash, isNotEmpty);
     final chunks = await (db.select(
       db.chunks,
