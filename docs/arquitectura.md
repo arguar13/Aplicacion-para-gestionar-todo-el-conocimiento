@@ -2990,6 +2990,19 @@ entidad, igual al id del elemento, y `knowledge_mirror_mapping.dart` conserva un
 nombre de cuando había un espejo. Las etiquetas viejas que quedaban en `tags`/
 `item_tags` se sueltan sin más: F8 ya las había unido a Tema.
 
+**Actualización de F12.** Tres de las cosas que F10 dijo que no hacía se
+cerraron. Hay cifras de Android —de un emulador, no de un teléfono real— y los
+trece escenarios cumplen su objetivo: ver la decisión 45. Medirlos desmintió
+algo de esta decisión: la ventana de «una palabra en casi todo» no costaba 600
+chunks sino 300 ms por consulta en Android, porque FTS5 lee TODAS las
+coincidencias de un prefijo antes de dar la primera cuando se le pide el orden
+descendente —en escritorio son 8 ms, y por eso F10 no lo vio—; ahora se pide
+desde una cota y ordena SQLite (`searchWindowFloor`, `kSearchWindowSql`). El
+prefijo de tres letras, que también pide ventana, pasó de 183 a 41 ms. Y el
+archivo ahora se puede compactar después de migrar: una bóveda migrada de 1.141
+MB vuelve a 670, con una pantalla en Ajustes y una oferta única sobre la
+Biblioteca.
+
 ### 44. F11 de durabilidad: una papelera, una versión por campo y una restauración que fusiona en vez de reemplazar
 
 Cuarta y última fase del encargo de cierre (F8 a F11, ver la decisión 34). Hasta
@@ -3224,6 +3237,273 @@ más, hace una copia antes. Un `.zip` se sigue leyendo entero en memoria. No hay
 cifras de Android: nada de esto se corrió en un dispositivo. `review_log` guarda
 datos y no tiene pantalla. Y las bóvedas medidas son sintéticas: en esta máquina no
 había una base real.
+
+**Actualización de F12.** Dos de las limitaciones de esta decisión se cerraron.
+Un `.zip` ya no se lee entero en memoria, ni se arma entero: la copia pasa por
+el zlib nativo por tandas en los dos sentidos, y guardar y elegir van por la
+ruta y no por bytes; en el emulador, armarla crece la memoria de 24 a 43 MB con
+una base de 683 MB, y abrirla, de 45 a 56 MB. Y hay cifras de Android, de un
+emulador y no de un teléfono real: traer la copia de `tel` a `pc` tarda 19,8 s,
+fusionar lo mismo otra vez 11,0 s y traer la copia entera a una bóveda vacía
+68,2 s, con `verifyChunkInvariant` en verde en 2,2 s —ver la decisión 45—.
+
+### 45. F12 de cierre de deuda: cifras de un Android, revisión en lote desde la Bandeja, una bóveda que se compacta y una copia que no pasa entera por la memoria
+
+Primera fase del encargo F12–F17. Cierra los cuatro puntos que F11 dejó abiertos
+—ninguna cifra de un Android; las sugerencias en lote, sin entrada cómoda desde
+la Bandeja; el archivo que no se achica después de migrar; el `.zip` de fusión
+leído entero en memoria— y fija una disciplina: cada commit compila y analiza
+por sí solo. Son dieciocho commits.
+
+**Dónde el encargo chocó con el código y con el entorno.** Se dijo antes de
+resolver. Al empezar, `adb devices` estaba vacío: ningún Android conectado. El
+usuario decidió medir en el emulador de su PC en lugar de conectar un teléfono
+—se armó uno para esto: Android 17, x86_64, 4 GB de RAM y 16 GB de datos—, y eso
+cambia lo que las cifras valen (más abajo). La Bandeja YA tenía la revisión en
+lote (`ReviewSuggestionsAction`, desde F9): un resumen mío anterior dijo lo
+contrario por un `grep` cortado; lo que faltaba era la oferta en la tarjeta, el
+deshacer en bloque y probar que la Bandeja retoma donde estaba. El `.zip` no se
+leía entero en memoria solo al abrirlo: también al armarlo (`buildBackup()`
+devolvía los bytes y `FilePicker.saveFile(bytes:)` los pide así en un teléfono),
+de modo que un teléfono que no puede recibir 900 MB tampoco puede hacer la
+copia; el punto de streaming se amplió a los dos sentidos. `VACUUM` no se puede
+cancelar una vez empezado —ni `sqlite3` ni drift exponen `sqlite3_interrupt`, y
+matar el aislado no corta una llamada nativa— y pide más espacio que el tamaño
+de la base. `flutter test integration_test` corre en debug, donde el Dart sale
+de 5 a 10 veces peor: las cifras salen de `flutter drive --profile`. La bóveda
+de 909 MB del criterio es de esquema v17 y el generador solo arma la actual. Y
+la disciplina de commits no se podía afirmar: el ritual analizaba y probaba el
+ÁRBOL DE TRABAJO, no lo que quedó en el commit —así salió `2fa6ae6`, que no
+compilaba—; `tool/verify_commit.ps1` exporta el commit con `git archive` y lo
+analiza solo.
+
+**Lo que las cifras valen, y lo que no.** Las de abajo son de un EMULADOR en
+modo profile, corriendo sobre la CPU y el disco de la PC que lo aloja —un
+i5-10300H con NVMe—. Sus TIEMPOS no valen como los de un teléfono de gama media,
+ni para bien ni para mal: dependen de la PC. La misma corrida, con la PC
+funcionando a batería en lugar de enchufada, dio de 3 a 5 veces más: armar la
+copia pasó de 45–68 s a más de 220 s y el arrastre de la línea de tiempo, de
+8–12 ms de raster por cuadro a 31. Y aun enchufada, dos corridas iguales
+difieren hasta un 50 %. La MEMORIA no varió, y esa sí vale —el sistema mata la
+app en cuanto se pasa del límite— igual que el hecho de que el código, el arnés
+y las dependencias nativas corren en Android. Los cuadros por segundo de un
+emulador dependen además de cómo dibuje: no son los de la GPU de un teléfono.
+Cada carpeta de `docs/benchmarks/` dice `emulador-…` en su nombre y en
+`dispositivo.md`, que también anota si la PC estaba enchufada; la corrida a
+batería (`2026-09-21-a-bateria`) y la primera, anterior al arreglo de la
+búsqueda (`2026-09-21-antes-del-arreglo-de-la-ventana`), están aparte. F12
+cierra con estas cifras; el encargo pedía un teléfono real, y esa medición sigue
+pendiente.
+
+**Medir encontró cuatro cosas que ninguna cifra de escritorio mostraba.**
+
+*La línea de tiempo, con diez mil hechos* (`fcd6edd`): con 157 barras a la vista
+y un arrastre sostenido, en modo profile y en una PC, 22 a 28 ms por cuadro en
+armarse, 49 a 62 en pintarse y 233 de 299 cuadros pasados del presupuesto. Los
+diez mil hechos NO eran el problema —el índice de intervalos y el reparto en
+carriles cuestan 76 ms por mil ventanas—: eran los widgets, un subárbol con
+`Tooltip`, `InkWell`, semántica y `CustomPaint` por evento, rehecho en cada
+cuadro. Ahora un solo lienzo dibuja todas las barras desde `TimelineFrame`, el
+modelo de lo que se ve, con los rótulos medidos una vez; lo que se ve, lo que se
+toca y lo que lee un lector de pantalla salen del mismo modelo. En el emulador,
+con la PC enchufada, el mismo arrastre en dos corridas —`2026-09-20` y
+`2026-09-21`—: de 5,1 a 6,0 ms de promedio para armar y de 7,5 a 11,7 para
+pintar —percentil 90 de pintar, 12,2 y 23,1—, con 18 de 578 y 123 de 528 cuadros
+fuera del presupuesto de raster.
+
+*La búsqueda de una palabra en casi todo* (`d15f2bf`): 640 ms contra un objetivo
+de 300, el único de los trece escenarios que no cumplía, con el frío igual a la
+mediana. La ventana de los 600 chunks más recientes se pedía con `ORDER BY rowid
+DESC LIMIT 600`, y FTS5, con una palabra buscada como prefijo, no puede dar el
+orden descendente sin leer TODA la lista de coincidencias antes de la primera:
+300 ms con la palabra en 122.531 chunks, pidiera lo que se pidiera —`LIMIT 50`
+costaba lo mismo— y desde donde se pidiera —una cota sobre el `rowid` tampoco lo
+achicaba—; en la pantalla se pagaba dos veces, por la página y por las citas. En
+un escritorio esa lectura cuesta 8 ms, y por eso las cifras de escritorio nunca
+la mostraron. El prefijo de tres letras, que también pide ventana, pagaba lo
+mismo: 183 ms. Ahora se busca hacia adelante desde una cota —`searchWindowFloor`
+prueba tramos cada vez más largos desde el último chunk hasta juntar una ventana
+de coincidencias vivas—, que FTS5 resuelve sin leer todo (5 ms), y el orden lo
+pone SQLite con `ORDER BY rowid + 0`: a una tabla virtual solo se le pasan
+columnas, y con una expresión el orden no puede volver a caerle encima. La
+ventana es la misma chunk por chunk, y un test de plan lo vigila. De paso, el
+plan del texto —cuántas coincidencias tiene, si pide ventana y desde dónde— se
+decidía tres veces por búsqueda y ahora una; y `SELECT MIN(x), MAX(x)` en una
+sola consulta recorre la tabla entera (30 ms con 314.000 chunks), mientras que
+en dos subconsultas usa el índice.
+
+*Memoria al compactar* (`71ee22a`): el SQLite del proyecto se compila con
+`SQLITE_TEMP_STORE=2`, o sea que la copia de trabajo de `VACUUM` vive en RAM,
+una vez el contenido útil. Medido en escritorio, con el disco libre y la memoria
+del proceso sondeados cada milisegundo:
+
+```
+temp_store     útil     disco extra          memoria extra
+por defecto    78,6 MB   78,6 MB (1,00×)      +92 MB
+por defecto   188,2 MB  185–189 MB (1,00×)   +218 MB
+FILE           78,6 MB  155,2 MB (1,98×)      +12 MB
+FILE          188,2 MB  375,2 MB (1,99×)       +5 MB
+```
+
+Un `VACUUM` directo de la bóveda de 909 MB pediría cerca de 1 GB de memoria y el
+sistema mataría la app. Con `PRAGMA temp_store = FILE` la memoria no crece, a
+cambio de disco: el doble de lo ÚTIL —copia de trabajo más el diario de
+reversión—, no del archivo, porque las páginas libres no se copian. De ahí la
+regla del consejero: `2 × útil + 10 % + 16 MiB`; la compactación incremental, `2
+× 2.048 páginas`.
+
+*`archive` no hace streaming con entradas comprimidas* (`103ab2d`, `6d965a6`):
+la versión 4.0.9 acumula en memoria todo lo descomprimido antes de escribirlo
+(`ZLibDecoder.decodeStream` y `ArchiveFile.writeContent`: 95 MB de crecimiento
+con una base de 164 MB) y comprime cada entrada a un `OutputMemoryStream` al
+armar. Solo las entradas sin comprimir y `OutputFileStream.writeStream` (1 MiB)
+van por tandas. La primera versión de `IncomingVault.openFile` suponía lo
+contrario y se corrigió con una prueba de memoria que la desmintió. Ahora la
+copia pasa por el zlib nativo de `dart:io` como `Stream`, con el CRC de cada
+entrada verificado y el archivo parcial borrado si falla. Medir memoria pidió
+cuidado: el RSS del proceso se infla si el fixture se arma en el mismo aislado
+(una prueba «pasó» con +1 MB y era falso), así que el fixture se arma en otro
+(`Isolate.run`) y el RSS se muestrea desde otro
+(`test/support/rss_sampler.dart`).
+
+**Del arnés**, tres cosas que costaron un rato. `flutter drive` desinstala la
+app al terminar, y con ella se va lo que se empujó con `adb`: hay que empujar
+antes de cada corrida. Lo que `adb push` deja en la carpeta de la app queda a
+nombre de `shell` con permiso 660: la app ve la carpeta pero no puede abrir
+ningún archivo, así que el guion les abre los permisos. Y `--no-dds` hace falta
+para medir cuadros: sin él, `watchPerformance` intenta conectarse a un puerto de
+la PC que en el dispositivo no existe. El guion (`tool/bench_android.ps1`)
+reconoce un emulador, arma solo el APK de la ABI del dispositivo y deja las
+cifras en `docs/benchmarks/`.
+
+**Las cifras del emulador**, con la PC enchufada. Los trece escenarios del
+benchmark de F10, sobre la bóveda sintética de 10.000 elementos y 314.213 chunks
+armada en el propio emulador (683 MB), medianas en ms. La columna «escritorio»
+es la referencia en modo profile de F12
+(`escritorio-windows-i5-10300h/2026-09-20`, antes del arreglo de la ventana); «a
+batería» es la misma corrida, tras reiniciar el emulador, con la PC
+desenchufada; «ahora», la última con la PC enchufada:
+
+| escenario | objetivo | escritorio | antes del arreglo | ahora | a batería |
+|---|---:|---:|---:|---:|---:|
+| búsqueda: palabra rara | 300 | 51 | 12 | 13 | 78 |
+| búsqueda: palabra mediana | 300 | 90 | 25 | 26 | 46 |
+| búsqueda: palabra en casi todo | 300 | 88 | **640** | 44 | 53 |
+| búsqueda: dos palabras | 300 | 31 | 14 | 14 | 22 |
+| búsqueda: prefijo | 300 | 83 | 183 | 41 | 60 |
+| detalle: la fuente con más chunks | 200 | 1 | 0 | 0 | 0 |
+| detalle: una nota con enlaces | 200 | 22 | 4 | 5 | 6 |
+| grafo local: panel, elemento típico | 500 | 1 | 0 | 0 | 1 |
+| grafo local: panel, el más conectado | 500 | 156 | 23 | 29 | 34 |
+| grafo local: pantalla, el más conectado | 500 | 200 | 80 | 80 | 109 |
+| línea de tiempo: leer los eventos | 1000 | 115 | 59 | 58 | 83 |
+| panel de salud: todos los indicadores | 600 | 78 | 25 | 24 | 35 |
+| vocabulario: estadísticas + candidatos | 3000 | 135 | 55 | 57 | 81 |
+
+Los trece cumplen su objetivo en todas las corridas, con más de tres veces de
+margen en la búsqueda; el primer cuadro de cada escenario, con la caché fría,
+llega a 173 ms en la búsqueda y a 322 en el grafo local del más conectado. Que
+el emulador dé menos que el escritorio en casi todo no dice que un teléfono sea
+más rápido que una PC: dice que el emulador usa la PC, y que la excepción —lo
+que en Android cuesta distinto— es justo lo que la búsqueda de arriba mostró.
+`kDesktopFactor` (el umbral de escritorio es el objetivo dividido 3) sigue
+siendo una estimación: un emulador que comparte la CPU con el escritorio no
+puede medir el cociente con un teléfono.
+
+Los cuatro escenarios sin objetivo del encargo, medidos, con un presupuesto
+PROPUESTO —a confirmar con un teléfono— de entre dos y cuatro veces el emulador
+enchufado:
+
+- *Apertura en frío* con 10.000 elementos: de montar la app al primer cuadro, 73
+  ms; a la primera lista, 430 ms; memoria residente de 205 a 211 MB. Propuesto:
+  primera lista en menos de 1,5 s.
+- *Fusión de una variante* (dos dispositivos que parten de la misma bóveda;
+  `tel` edita 500 títulos, manda 30 a la papelera y suma 200 fuentes): traer la
+  copia de `tel` a `pc`, 19,8 s; fusionar lo mismo otra vez, 11,0 s; traer la
+  copia entera a una bóveda vacía, 68,2 s; `verifyChunkInvariant` en verde en
+  2,2 s sobre 323.217 y 320.229 chunks. Propuesto: la variante en menos de 90 s
+  y la copia entera en menos de 5 min.
+- *Migración de v17 a v20 con el respaldo previo* de 896 MB: 22,8 s, con los 19
+  conteos iguales, cero claves rotas y el invariante en verde. Propuesto: menos
+  de 2 min.
+- *Línea de tiempo*: árbol de 10.000 eventos en 5 ms, mil ventanas de arrastre
+  en 83 ms, la pantalla abierta en 371 ms, y el arrastre sostenido de arriba.
+  Propuesto: percentil 90 de armado y de raster bajo los 16,6 ms de un cuadro a
+  60 Hz y menos del 5 % de los cuadros fuera del presupuesto. El armado lo
+  cumple en todas las corridas enchufadas (percentil 90 de 8,3 y 10,7 ms);
+  pintar lo cumplió en una (12,2 ms) y en la otra no (23,1 ms, el 23 % de los
+  cuadros fuera), y a batería dio 30,8 ms de promedio y 210 de 268 cuadros
+  fuera. Una cifra de emulador que dice más de la PC y de cómo dibuja el
+  emulador que de la línea de tiempo: el presupuesto no se confirma sin un
+  teléfono.
+
+**La compactación, medida de punta a punta** (12.3). Tras migrar, el archivo
+ocupa 1.140,8 MB y 463,0 son páginas libres; el consejero pide 1.507,2 MB de
+disco y había 9.886. Compactar tarda 33,6 s en el emulador (31,3 reescribir y
+2,1 comprobar): el archivo pasa a 669,8 MB, devuelve 471,0, y la memoria
+residente sube 4,6 MB con 677,8 MB de contenido útil —contra los unos 790 MB que
+la tabla de arriba predice para un `VACUUM` directo—. La comprobación cuenta las
+filas de las veintidós tablas de datos, del modelo y de durabilidad, y corre
+`verifyChunkInvariant` sobre las 7.200 fuentes. La PRIMERA compactación
+reescribe todo (`auto_vacuum = INCREMENTAL` más `VACUUM`, la única forma de
+cambiar ese modo en una base que ya existe) y no se puede detener una vez
+empezada; las siguientes devuelven las páginas libres de a tramos de 2.048
+(`incremental_vacuum`), con avance y cancelables entre tramos. Sin lugar en el
+disco lanza `VaultCompactionNoSpaceException` sin tocar nada, con cuánto falta;
+sin dato de disco lo intenta. El complemento de espacio libre
+(`disk_space_plus`) solo existe en Android e iOS: en escritorio la sonda dice
+«no se sabe» en vez de fallar. Se ofrece en Ajustes → Bóveda y, una sola vez,
+como tarjeta sobre la Biblioteca cuando hay bastante para devolver (al menos 64
+MiB y el 15 %).
+
+**La revisión en lote desde la Bandeja** (12.2). `revertAcceptedMany` deshace un
+lote entero o nada —misma regla que `revertAccepted`: quita solo la propiedad
+que puso esa aceptación y la deja pendiente—; el aviso trae «Deshacer» y dura
+diez segundos, porque deshacer un lote es una decisión y no un reflejo. La
+tarjeta de la Bandeja dice «14 elementos más parecen ser `Región: Roma`» y abre
+una hoja SOBRE la Bandeja, sin nada marcado: la cola, su orden y la tarjeta
+quedan como estaban, y eso es lo que se prueba.
+
+**La copia por tandas** (12.4), en los dos sentidos. Armar: `StreamingZipWriter`
+comprime cada entrada con el zlib nativo a un archivo, sin pasar por la memoria;
+abrir: `IncomingVault.openFile` descomprime por tandas y solo la base sale a un
+temporal. Guardar y elegir van por la ruta y no por bytes: el usuario elige
+DÓNDE antes de armar —armar lleva minutos y cancelar el selector no puede costar
+eso—; en Android es una carpeta por el Storage Access Framework y
+`pasteLocalFile` copia el archivo por tandas, y en escritorio `File.copy`. En el
+emulador enchufado, sobre la bóveda de 683 MB más 49 MB de originales: armar la
+copia tarda entre 45 y 68 s según la corrida, el `.zip` pesa 220,4 MB —el 30 %—
+y la memoria residente crece de 24 a 43 MB; abrirla, de 23 a 28 s y de +45 a +56
+MB; máximo del proceso, 397 MB, con la base abierta. Ni armarla ni abrirla crece
+con lo que pesa la bóveda, y con la PC a batería los tiempos se multiplicaron
+por 4 o 5 pero el crecimiento de memoria siguió entre 19 y 60 MB. La copia se
+lee de vuelta con el CRC de cada entrada verificado: 10.000 elementos, los doce
+originales y un PDF idéntico.
+
+El camino de Android, con los dos selectores del sistema manejados por
+`uiautomator` (`tool/bench_android_pick_folder.ps1`, que hace lo que haría una
+persona: entrar a `Documents`, «Usar esta carpeta», «Permitir»): guardar los
+220,4 MB con `pasteLocalFile` tardó 0,6 s y creció la memoria 0,3 MB; el archivo
+quedó en `primary:Documents/`, se bajó a la PC y `zipfile` de Python lo dio por
+bueno, con sus 13 entradas y el CRC de cada una. Elegirlo de vuelta con el
+selector de archivos copia el `.zip` al almacenamiento temporal de la app en 5,8
+s (+1,4 MB) enchufada y hasta 12 s a batería, se abre desde esa ruta con sus
+10.000 elementos, y `discardPicked` deja el almacenamiento temporal sin él.
+
+**Lo que F12 no hace, dicho sin adornos.** No hay cifras de un teléfono real:
+las del emulador dependen de la PC que lo aloja, y los presupuestos de arriba
+son propuestas hasta confirmarlos con uno. El guardado y la elección por los
+selectores de Android se ejercieron sobre el gateway, con los selectores
+manejados por un guion; no con una persona tocando la pantalla de la copia ni en
+un teléfono. La compactación es una decisión del usuario y no corre sola; el
+cambio a `auto_vacuum = INCREMENTAL` es persistente y no se deshace sin otro
+`VACUUM`. `VACUUM` no es cancelable una vez empezado. La sonda de disco no
+funciona en escritorio. El `.zip` armado por tandas se validó con `zipfile` de
+Python; no se probó con otros descompresores. La pantalla del grafo completo
+sigue cargando todos los elementos. Y las palabras de la bóveda sintética siguen
+una distribución de Zipf: una bóveda real tiene otra, y por eso
+`searchWindowFloor` no supone cuántos chunks hay entre coincidencias, los
+cuenta.
 
 ## Estado y orden de construcción
 
@@ -3472,6 +3752,21 @@ había una base real.
   fragmento del que salieron. Un cambio de esquema aditivo (v20). Última fase del
   encargo de cierre F8 a F11 —ver la decisión 44—.
 
+- **F12 de cierre de deuda: cifras de un Android, revisión en lote, compactación
+  y copia por tandas.** Se midió en un emulador de Android en modo profile —los
+  tiempos dependen de la PC que lo aloja; la memoria, y que el código corre en
+  Android, no—, y esa medición encontró lo que ninguna cifra de escritorio
+  mostraba: la línea de tiempo con diez mil hechos se dibuja ahora en un solo
+  lienzo, y la búsqueda de una palabra en casi todo se pide desde una cota en
+  vez de ordenar el índice de FTS5 (640 ms a 44). La revisión en lote de
+  sugerencias se ofrece desde la tarjeta de la Bandeja, con deshacer en bloque.
+  La bóveda se compacta —una pantalla en Ajustes y una oferta única— sin subir
+  la memoria (`VACUUM` con `temp_store = FILE`). La copia se arma, se guarda, se
+  elige y se abre por tandas, en los dos sentidos, con el CRC de cada entrada
+  verificado. Cada commit compila y analiza por sí solo
+  (`tool/verify_commit.ps1`). Sin cambios de esquema. Primera fase del encargo
+  F12–F17 —ver la decisión 45—.
+
 ### Por construir
 
 Las ocho fases originales están construidas, probadas y documentadas.
@@ -3485,8 +3780,12 @@ F10 —la unificación del modelo de datos, ver la decisión 43— y F11 —la
 durabilidad: papelera, versión por campo y fusión no destructiva, ver la
 decisión 44—.
 
-Lo que queda son las cosas que la decisión 44 dice, sin adornos, que no
-hace: una sincronización que no dependa de traer una copia a mano, lápidas
-para lo que se une por conjuntos, la medición en un dispositivo Android y la
-compactación del archivo después de migrar. Ninguna está planeada; se
-planean —plan breve, aprobado, después código— cuando le toquen.
+Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras de
+un Android, compactación y copia por tandas, ver la decisión 45— está
+construida.
+
+Lo que queda son las cosas que las decisiones 44 y 45 dicen, sin adornos, que no
+hacen: una sincronización que no dependa de traer una copia a mano, lápidas
+para lo que se une por conjuntos y la medición en un teléfono real —F12 midió en
+un emulador—. Ninguna está planeada; se planean —plan breve, aprobado, después
+código— cuando le toquen.

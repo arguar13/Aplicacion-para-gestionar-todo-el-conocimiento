@@ -1,0 +1,6 @@
+formas de contenido (renditions.content)       226.7 MB
+chunks (chunks.content)                        218.7 MB
+cuerpo del índice de elementos (item_search_content.c3) 8.0 MB
+índice de texto de los chunks (chunk_search)   65.2 MB
+índice de texto de los elementos (item_search) 14.4 MB
+el archivo de la base entero                   683.2 MB
