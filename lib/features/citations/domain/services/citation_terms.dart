@@ -43,6 +43,10 @@ class CitationTerms {
     required this.editorsRole,
     required this.directorRole,
     required this.directorsRole,
+    required this.editorAbbr,
+    required this.editorsAbbr,
+    required this.directorAbbr,
+    required this.directorsAbbr,
     required this.volumeAbbr,
     required this.numberAbbr,
     required this.accessed,
@@ -52,6 +56,7 @@ class CitationTerms {
     required this.ordinal,
     required this.longDate,
     required this.retrieved,
+    required this.videoOn,
   });
 
   /// El idioma pedido.
@@ -106,6 +111,10 @@ class CitationTerms {
     editorsRole: 'eds.',
     directorRole: 'dir.',
     directorsRole: 'dirs.',
+    editorAbbr: 'ed.',
+    editorsAbbr: 'eds.',
+    directorAbbr: 'dir.',
+    directorsAbbr: 'dirs.',
     volumeAbbr: 'vol.',
     numberAbbr: 'núm.',
     accessed: 'Consultado el',
@@ -125,6 +134,7 @@ class CitationTerms {
     ordinal: _spanishOrdinal,
     longDate: _spanishLongDate,
     retrieved: _spanishRetrieved,
+    videoOn: _spanishVideoOn,
   );
 
   static const en = CitationTerms(
@@ -199,6 +209,10 @@ class CitationTerms {
     editorsRole: 'editors',
     directorRole: 'director',
     directorsRole: 'directors',
+    editorAbbr: 'ed.',
+    editorsAbbr: 'eds.',
+    directorAbbr: 'dir.',
+    directorsAbbr: 'dirs.',
     volumeAbbr: 'vol.',
     numberAbbr: 'no.',
     accessed: 'Accessed',
@@ -218,6 +232,7 @@ class CitationTerms {
     ordinal: _englishOrdinal,
     longDate: _englishLongDate,
     retrieved: _englishRetrieved,
+    videoOn: _englishVideoOn,
   );
 
   /// «y» / «and»: la conjunción de una lista de nombres.
@@ -304,6 +319,14 @@ class CitationTerms {
   final String directorRole;
   final String directorsRole;
 
+  /// «ed.», «eds.», «dir.» y «dirs.»: cómo Chicago escribe el rol de quien
+  /// figura de autor de una obra que compiló o dirigió. Iguales en los dos
+  /// idiomas.
+  final String editorAbbr;
+  final String editorsAbbr;
+  final String directorAbbr;
+  final String directorsAbbr;
+
   /// «vol.» y «núm.» / «no.».
   final String volumeAbbr;
   final String numberAbbr;
@@ -332,12 +355,28 @@ class CitationTerms {
   final String Function(CitationTerms terms, DateTime date, String url)
   retrieved;
 
+  /// Cómo se describe un video de una plataforma: «YouTube video» en inglés,
+  /// «Video de YouTube» en español.
+  final String Function(String platform) videoOn;
+
   /// El hueco que dice que falta [gap], en este idioma: «[falta: año]».
   GapRun gap(CitationGap gap) =>
       GapRun(field: gap, text: '[$missing: ${gapLabels[gap]}]');
 
   /// El nombre del mes [month] (1 a 12).
   String monthName(int month) => months[month - 1];
+
+  /// La fecha escrita entera, hasta donde se sabe, como la escribe Chicago:
+  /// «March 5, 2020», «March 2020», «2020»; «5 de marzo de 2020», «marzo de
+  /// 2020».
+  String longPartialDate(int year, {int? month, int? day}) {
+    if (month == null) return '$year';
+    final name = monthName(month);
+    if (dayFirst) {
+      return day == null ? '$name de $year' : '$day de $name de $year';
+    }
+    return day == null ? '$name $year' : '$name $day, $year';
+  }
 
   /// La fecha como la escribe MLA: «5 mar. 2020», «mar. 2020», «2020». El día
   /// va antes que el mes en los dos idiomas.
@@ -394,6 +433,10 @@ String _englishOrdinal(int number) {
     _ => '${number}th',
   };
 }
+
+String _spanishVideoOn(String platform) => 'Video de $platform';
+
+String _englishVideoOn(String platform) => '$platform video';
 
 String _spanishLongDate(CitationTerms terms, DateTime date) =>
     '${date.day} de ${terms.monthName(date.month)} de ${date.year}';

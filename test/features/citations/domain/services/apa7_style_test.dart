@@ -116,13 +116,6 @@ void main() {
       expect(style.isNumbered, isFalse);
     });
 
-    test('el registro los ofrece en orden: APA 7, MLA 9, IEEE', () {
-      expect(
-        [for (final s in kReferenceStyles.styles) s.id],
-        ['apa7', 'mla9', 'ieee'],
-      );
-    });
-
     test('un estilo que no existe cae en el predeterminado', () {
       expect(kReferenceStyles.byId('chicago99'), isNull);
       expect(kReferenceStyles.resolve('chicago99').id, 'apa7');

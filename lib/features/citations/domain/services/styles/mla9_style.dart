@@ -1,5 +1,4 @@
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
-import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -120,13 +119,13 @@ class Mla9Style implements ReferenceStyle {
     final names = lead.names;
     final String text;
     if (names.length == 1) {
-      text = _inverted(names.single);
+      text = invertedName(names.single);
     } else if (names.length == 2) {
       final second = names.last.displayName;
       final and = conjunctionBefore(terms.and, second);
-      text = '${_inverted(names.first)}, $and $second';
+      text = '${invertedName(names.first)}, $and $second';
     } else {
-      text = '${_inverted(names.first)}, ${terms.etAl}';
+      text = '${invertedName(names.first)}, ${terms.etAl}';
     }
     builder.plain(text);
 
@@ -140,14 +139,6 @@ class Mla9Style implements ReferenceStyle {
         break;
     }
     builder.period();
-  }
-
-  /// «García Márquez, Gabriel»: el apellido primero, con el nombre entero. Una
-  /// institución o un nombre sin partir va como está.
-  String _inverted(PersonName name) {
-    if (name.isInstitution || name.given.trim().isEmpty) return name.family;
-    final base = '${name.family}, ${name.given}';
-    return name.suffix.isEmpty ? base : '$base, ${name.suffix}';
   }
 
   // Un libro: *Título*. Traducción de X, 2.ª ed., vol. 2, Editorial, 1967.
@@ -325,22 +316,12 @@ class Mla9Style implements ReferenceStyle {
     required bool quoted,
     bool markType = false,
   }) {
-    final title = source.title.trim();
-    if (title.isNotEmpty && quoted) {
-      builder.quoted(title, punctuation: '.');
-      return;
-    }
-    if (title.isEmpty) {
-      builder.gap(CitationGap.title);
-    } else {
-      builder.italic(title);
-    }
-    if (markType) {
-      builder
-        ..plain(' ')
-        ..gap(CitationGap.type);
-    }
-    builder.period();
+    builder.title(
+      source.title,
+      inQuotes: quoted,
+      punctuation: '.',
+      markType: markType,
+    );
   }
 
   /// Los elementos del contenedor, separados por comas y cerrados con un
@@ -373,24 +354,13 @@ class Mla9Style implements ReferenceStyle {
     CitationSource source,
     CitationTerms terms,
   ) {
-    final date = _accessDate(source);
+    final date = accessDateOf(source);
     if (date == null) return;
     final text = terms.mlaDate(date.year, month: date.month, day: date.day);
     builder
       ..space()
       ..plain('${terms.accessed} $text')
       ..period();
-  }
-
-  /// Cuándo se consultó la obra, si MLA lo pide y se sabe: el enlace es una
-  /// dirección —un DOI no cambia—, y alguien cargó la fecha o, sin fecha de
-  /// publicación, se toma la de captura.
-  DateTime? _accessDate(CitationSource source) {
-    if (source.reference.doi != null) return null;
-    final url = source.url;
-    if (url == null || url.isEmpty) return null;
-    return source.accessedAt ??
-        (source.date.year == null ? source.capturedAt : null);
   }
 
   // -------------------------------------------------------------------------

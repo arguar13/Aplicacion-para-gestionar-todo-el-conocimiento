@@ -2,6 +2,7 @@ import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/citation_terms.dart';
@@ -64,6 +65,94 @@ String surnameInitials(PersonName name) {
   if (initials.isEmpty) return name.family;
   final base = '${name.family}, $initials';
   return name.suffix.isEmpty ? base : '$base, ${name.suffix}';
+}
+
+/// «García Márquez, Gabriel José»: el apellido primero, con el nombre entero, y
+/// el sufijo después de una coma —«King, Martin Luther, Jr.»—. Una institución
+/// o un nombre sin partir va como está.
+String invertedName(PersonName name) {
+  if (name.isInstitution || name.given.trim().isEmpty) return name.family;
+  final base = '${name.family}, ${name.given}';
+  return name.suffix.isEmpty ? base : '$base, ${name.suffix}';
+}
+
+/// Si la obra es de la web: un video de una plataforma o una que tiene
+/// dirección.
+bool isOnlineWork(CitationSource source) {
+  final url = source.url;
+  return source.kind == SourceKind.youtube || (url != null && url.isNotEmpty);
+}
+
+/// Cuándo se consultó la obra, si un estilo que lo pide puede escribirlo: la
+/// obra tiene una dirección —un DOI no cambia, así que no la lleva— y alguien
+/// cargó la fecha o, sin fecha de publicación, se toma la de captura.
+DateTime? accessDateOf(CitationSource source) {
+  if (source.reference.doi != null) return null;
+  final url = source.url;
+  if (url == null || url.isEmpty) return null;
+  return source.accessedAt ??
+      (source.date.year == null ? source.capturedAt : null);
+}
+
+/// Las palabras que no pueden quedar colgando al final de un título
+/// abreviado: artículos, preposiciones y conjunciones, en español y en inglés.
+const _danglingWords = {
+  'a',
+  'an',
+  'the',
+  'of',
+  'in',
+  'on',
+  'at',
+  'to',
+  'for',
+  'and',
+  'or',
+  'but',
+  'with',
+  'by',
+  'from',
+  'de',
+  'del',
+  'la',
+  'el',
+  'los',
+  'las',
+  'en',
+  'y',
+  'e',
+  'o',
+  'u',
+  'con',
+  'por',
+  'para',
+  'un',
+  'una',
+  'al',
+};
+
+/// El título abreviado de una nota corta de Chicago: lo que está antes de los
+/// dos puntos, con cuatro palabras como mucho —sin dejar una preposición o un
+/// artículo colgando al final— y, si [dropArticle], sin el «A», «An» o «The»
+/// del principio.
+String shortTitle(String title, {bool dropArticle = false}) {
+  var text = title.trim();
+  final colon = text.indexOf(':');
+  if (colon > 0) text = text.substring(0, colon);
+  var words = text.split(RegExp(r'\s+'));
+  if (dropArticle &&
+      words.length > 1 &&
+      const {'a', 'an', 'the'}.contains(words.first.toLowerCase())) {
+    words = words.sublist(1);
+  }
+  if (words.length > 4) {
+    words = words.sublist(0, 4);
+    while (words.length > 1 &&
+        _danglingWords.contains(words.last.toLowerCase())) {
+      words = words.sublist(0, words.length - 1);
+    }
+  }
+  return words.join(' ').replaceAll(RegExp(r'[,;:]+$'), '');
 }
 
 /// «G. J. García Márquez»: las iniciales y el apellido, para quien va después

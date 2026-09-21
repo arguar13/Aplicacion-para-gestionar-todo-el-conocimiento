@@ -59,6 +59,38 @@ class CitationBuilder {
     }
   }
 
+  /// Agrega el título de una obra —o el hueco del título, si no hay— entre
+  /// comillas si [inQuotes] y en cursiva si no, con la [punctuation] que le
+  /// sigue. [markType] pone el hueco del tipo de obra después del título: lo
+  /// que se escribe de una obra que no dice qué es. Un título que ya termina
+  /// en «.», «?» o «!» no lleva otro signo.
+  void title(
+    String text, {
+    required bool inQuotes,
+    String punctuation = '',
+    bool markType = false,
+  }) {
+    final trimmed = text.trim();
+    if (trimmed.isNotEmpty && inQuotes) {
+      quoted(trimmed, punctuation: punctuation);
+      return;
+    }
+    if (trimmed.isEmpty) {
+      gap(CitationGap.title);
+    } else {
+      italic(trimmed);
+    }
+    if (markType) {
+      plain(' ');
+      gap(CitationGap.type);
+    }
+    final last = _last;
+    if (punctuation.isEmpty || last == '.' || last == '?' || last == '!') {
+      return;
+    }
+    plain(punctuation);
+  }
+
   /// Agrega el hueco de [gap], en el idioma de la cita.
   void gap(CitationGap gap) {
     _runs.add(terms.gap(gap));

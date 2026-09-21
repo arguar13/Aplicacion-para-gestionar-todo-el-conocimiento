@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/citation_builder.dart';
@@ -77,6 +79,28 @@ void main() {
       expect(en.ieeeDate(2020, month: 3), 'Mar. 2020');
       expect(en.ieeeDate(2020, month: 3, day: 5), 'Mar. 5, 2020');
       expect(es.ieeeDate(2020, month: 3, day: 5), '5 mar. 2020');
+    });
+
+    test('la fecha entera de Chicago, hasta donde se sabe', () {
+      expect(en.longPartialDate(2020), '2020');
+      expect(en.longPartialDate(2020, month: 3), 'March 2020');
+      expect(en.longPartialDate(2020, month: 3, day: 5), 'March 5, 2020');
+      expect(es.longPartialDate(2020, month: 3), 'marzo de 2020');
+      expect(es.longPartialDate(2020, month: 3, day: 5), '5 de marzo de 2020');
+    });
+
+    test('cómo se describe un video de una plataforma', () {
+      expect(en.videoOn('YouTube'), 'YouTube video');
+      expect(es.videoOn('YouTube'), 'Video de YouTube');
+    });
+
+    test('el rol abreviado de Chicago es igual en los dos idiomas', () {
+      for (final terms in [es, en]) {
+        expect(terms.editorAbbr, 'ed.');
+        expect(terms.editorsAbbr, 'eds.');
+        expect(terms.directorAbbr, 'dir.');
+        expect(terms.directorsAbbr, 'dirs.');
+      }
     });
 
     test(
@@ -273,6 +297,49 @@ void main() {
 
       expect(quoted.build().toPlainText(), '«Un título»');
       expect(empty.isEmpty, isTrue);
+    });
+
+    test('el título de una obra: en cursiva o entre comillas, o el hueco', () {
+      final italic = CitationBuilder(en)
+        ..title('Swing Time', inQuotes: false, punctuation: '.');
+      final quoted = CitationBuilder(en)
+        ..title('Seeing Red', inQuotes: true, punctuation: ',');
+      final empty = CitationBuilder(en)
+        ..title('  ', inQuotes: false, punctuation: '.');
+      final emptyQuoted = CitationBuilder(en)
+        ..title('', inQuotes: true, punctuation: '.');
+
+      expect(italic.build().runs, const [
+        ItalicRun('Swing Time'),
+        PlainRun('.'),
+      ]);
+      expect(quoted.build().toPlainText(), '“Seeing Red,”');
+      expect(empty.build().toPlainText(), '[missing: title].');
+      expect(emptyQuoted.build().gaps, [CitationGap.title]);
+    });
+
+    test('el título no repite un signo que ya tiene', () {
+      final question = CitationBuilder(en)
+        ..title('Who?', inQuotes: false, punctuation: '.');
+      final period = CitationBuilder(en)
+        ..title('Vol. 2.', inQuotes: false, punctuation: '.');
+
+      expect(question.build().toPlainText(), 'Who?');
+      expect(period.build().toPlainText(), 'Vol. 2.');
+    });
+
+    test('sin puntuación, el título queda como está', () {
+      final b = CitationBuilder(en)..title('Swing Time', inQuotes: false);
+
+      expect(b.build().runs, const [ItalicRun('Swing Time')]);
+    });
+
+    test('el tipo de obra que falta va antes de la puntuación', () {
+      final b = CitationBuilder(en)
+        ..title('Un título', inQuotes: false, punctuation: '.', markType: true);
+
+      expect(b.build().toPlainText(), 'Un título [missing: type of work].');
+      expect(b.build().gaps, [CitationGap.type]);
     });
 
     test('lo entrecomillado es texto sin formato', () {
@@ -475,6 +542,151 @@ void main() {
       expect(
         joinList(['García, G.', 'Iglesias, M.'], es, joiner: 'y'),
         'García, G. e Iglesias, M.',
+      );
+    });
+  });
+
+  group('el nombre invertido', () {
+    test('apellido y nombre entero, con el sufijo después de una coma', () {
+      expect(
+        invertedName(
+          const PersonName(family: 'García Márquez', given: 'Gabriel José'),
+        ),
+        'García Márquez, Gabriel José',
+      );
+      expect(
+        invertedName(
+          const PersonName(
+            family: 'King',
+            given: 'Martin Luther',
+            suffix: 'Jr.',
+          ),
+        ),
+        'King, Martin Luther, Jr.',
+      );
+    });
+
+    test('una institución o un nombre de una palabra va como está', () {
+      expect(
+        invertedName(const PersonName.institution('Organización Mundial')),
+        'Organización Mundial',
+      );
+      expect(invertedName(const PersonName(family: 'Platón')), 'Platón');
+    });
+  });
+
+  group('el título abreviado', () {
+    test('lo que está antes de los dos puntos', () {
+      expect(shortTitle('Seeing Red: Mao Fetishism'), 'Seeing Red');
+    });
+
+    test('cuatro palabras como mucho, sin dejar una colgando', () {
+      expect(shortTitle('One Two Three Four Five'), 'One Two Three Four');
+      expect(shortTitle('Carta a Luis de Santángel'), 'Carta a Luis');
+      expect(shortTitle('Una historia de la lectura'), 'Una historia');
+      expect(shortTitle('One Two Three'), 'One Two Three');
+    });
+
+    test('sin «A», «An» ni «The» del principio, si se pide', () {
+      expect(shortTitle('The Great Gatsby', dropArticle: true), 'Great Gatsby');
+      expect(shortTitle('An Essay', dropArticle: true), 'Essay');
+      expect(shortTitle('The Great Gatsby'), 'The Great Gatsby');
+      expect(shortTitle('The', dropArticle: true), 'The');
+    });
+
+    test('una coma que quedaría al final se quita', () {
+      expect(
+        shortTitle('Culture, Media, Language, Power'),
+        'Culture, Media, Language, Power',
+      );
+      expect(shortTitle('Uno dos tres cuatro, cinco'), 'Uno dos tres cuatro');
+    });
+  });
+
+  group('la obra de la web y la fecha de consulta', () {
+    CitationSource web({
+      String? url,
+      SourceKind? kind,
+      PublicationDate date = const PublicationDate.unknown(),
+      DateTime? accessedAt,
+      DateTime? capturedAt,
+      String? doi,
+    }) => CitationSource(
+      title: 'T',
+      reference: ReferenceData(accessedAt: accessedAt, doi: doi),
+      date: date,
+      url: url,
+      kind: kind,
+      capturedAt: capturedAt,
+    );
+
+    test(
+      'una obra es de la web si es un video de plataforma o tiene dirección',
+      () {
+        expect(isOnlineWork(web(url: 'https://x.org')), isTrue);
+        expect(isOnlineWork(web(kind: SourceKind.youtube)), isTrue);
+        expect(isOnlineWork(web()), isFalse);
+        expect(isOnlineWork(web(url: '')), isFalse);
+      },
+    );
+
+    test(
+      'la fecha de consulta: la cargada, o la de captura sin fecha publicada',
+      () {
+        final loaded = DateTime(2026, 3, 15);
+        final captured = DateTime(2026, 9, 5);
+
+        expect(
+          accessDateOf(web(url: 'https://x.org', accessedAt: loaded)),
+          loaded,
+        );
+        expect(
+          accessDateOf(
+            web(url: 'https://x.org', accessedAt: loaded, capturedAt: captured),
+          ),
+          loaded,
+        );
+        expect(
+          accessDateOf(web(url: 'https://x.org', capturedAt: captured)),
+          captured,
+        );
+        expect(
+          accessDateOf(
+            web(
+              url: 'https://x.org',
+              capturedAt: captured,
+              date: const PublicationDate.undated(),
+            ),
+          ),
+          captured,
+        );
+      },
+    );
+
+    test('con fecha de publicación, la de captura no cuenta', () {
+      expect(
+        accessDateOf(
+          web(
+            url: 'https://x.org',
+            capturedAt: DateTime(2026, 9, 5),
+            date: PublicationDate.ofYear(2020),
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('sin dirección o con DOI no hay fecha de consulta', () {
+      expect(accessDateOf(web(accessedAt: DateTime(2026, 3, 15))), isNull);
+      expect(
+        accessDateOf(
+          web(
+            url: 'https://x.org',
+            doi: '10.1000/xyz',
+            accessedAt: DateTime(2026, 3, 15),
+          ),
+        ),
+        isNull,
       );
     });
   });

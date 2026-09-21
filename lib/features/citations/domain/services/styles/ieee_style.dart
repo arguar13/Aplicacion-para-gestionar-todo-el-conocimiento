@@ -79,7 +79,7 @@ class IeeeStyle implements ReferenceStyle {
       case ReferenceType.primarySource:
         _primarySource(builder, source, terms);
       case ReferenceType.documentary:
-        if (_isOnline(source)) {
+        if (isOnlineWork(source)) {
           _online(builder, source, terms);
         } else {
           _book(builder, source, terms, requirePublisher: false);
@@ -93,13 +93,6 @@ class IeeeStyle implements ReferenceStyle {
         _book(builder, source, terms, requirePublisher: false, markType: true);
     }
     return builder.build();
-  }
-
-  /// Si la obra es de la web: un video de una plataforma o una que tiene
-  /// enlace.
-  bool _isOnline(CitationSource source) {
-    final url = source.url;
-    return source.kind == SourceKind.youtube || (url != null && url.isNotEmpty);
   }
 
   /// Los autores de la entrada: «J. K. Rowling», «A. Ruiz and B. Paz», «A, B,

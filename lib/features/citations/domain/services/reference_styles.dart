@@ -1,5 +1,6 @@
 import 'package:sinapsis/features/citations/domain/services/reference_style.dart';
 import 'package:sinapsis/features/citations/domain/services/styles/apa7_style.dart';
+import 'package:sinapsis/features/citations/domain/services/styles/chicago_style.dart';
 import 'package:sinapsis/features/citations/domain/services/styles/ieee_style.dart';
 import 'package:sinapsis/features/citations/domain/services/styles/mla9_style.dart';
 
@@ -10,5 +11,7 @@ import 'package:sinapsis/features/citations/domain/services/styles/mla9_style.da
 const kReferenceStyles = ReferenceStyleRegistry([
   Apa7Style(),
   Mla9Style(),
+  ChicagoStyle.notes(),
+  ChicagoStyle.authorDate(),
   IeeeStyle(),
 ]);
