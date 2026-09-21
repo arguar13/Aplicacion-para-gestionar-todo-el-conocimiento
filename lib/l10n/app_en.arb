@@ -337,6 +337,135 @@
   "@referencePrecisionUndated": {
     "description": "The work has no publication date"
   },
+  "referenceSectionTitle": "Reference",
+  "@referenceSectionTitle": {
+    "description": "Title of the card that shows and edits the bibliographic data of a source"
+  },
+  "referenceEmptyHint": "No bibliographic data yet. With it the citation comes out complete and the work can join a bibliography.",
+  "@referenceEmptyHint": {
+    "description": "Shown in the reference card of a source that has no bibliographic data"
+  },
+  "referenceCompleteAction": "Complete the reference",
+  "@referenceCompleteAction": {
+    "description": "Button that opens the reference form of a source that has no data yet"
+  },
+  "referenceEditAction": "Edit the reference",
+  "@referenceEditAction": {
+    "description": "Button that opens the reference form of a source that already has data"
+  },
+  "referenceSaveAction": "Save",
+  "@referenceSaveAction": {
+    "description": "Button that saves the reference form"
+  },
+  "referenceCancelAction": "Cancel",
+  "@referenceCancelAction": {
+    "description": "Button that closes the reference form without saving"
+  },
+  "referenceNoType": "No type",
+  "@referenceNoType": {
+    "description": "Option of the work type selector: the type is not said"
+  },
+  "referenceAddPersonAction": "Add {role}",
+  "@referenceAddPersonAction": {
+    "description": "Button that adds a person to the reference; role is the lowercase role: author, translator, editor, director",
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "referencePersonHint": "Last name, First name",
+  "@referencePersonHint": {
+    "description": "Hint of the field where a person is written"
+  },
+  "referencePersonInstitution": "It is an institution",
+  "@referencePersonInstitution": {
+    "description": "Tooltip of the toggle that marks a person as an institution: its name is not split into last and first name"
+  },
+  "referencePersonRemove": "Remove",
+  "@referencePersonRemove": {
+    "description": "Tooltip of the button that removes a person from the reference"
+  },
+  "referencePersonMoveUp": "Move up",
+  "@referencePersonMoveUp": {
+    "description": "Tooltip of the button that moves a person one place up"
+  },
+  "referencePersonMoveDown": "Move down",
+  "@referencePersonMoveDown": {
+    "description": "Tooltip of the button that moves a person one place down"
+  },
+  "referenceDateTitle": "Publication date",
+  "@referenceDateTitle": {
+    "description": "Title of the publication date group of the reference form"
+  },
+  "referenceYear": "Year",
+  "@referenceYear": {
+    "description": "Label of the year field"
+  },
+  "referenceMonth": "Month",
+  "@referenceMonth": {
+    "description": "Label of the month field"
+  },
+  "referenceDay": "Day",
+  "@referenceDay": {
+    "description": "Label of the day field"
+  },
+  "referenceUndatedSwitch": "The work has no date",
+  "@referenceUndatedSwitch": {
+    "description": "Switch: the work has no publication date, as opposed to a date nobody entered"
+  },
+  "referenceMoreData": "More data",
+  "@referenceMoreData": {
+    "description": "Title of the folded section with the less common fields of the reference form"
+  },
+  "referenceErrorDoi": "The DOI is not valid",
+  "@referenceErrorDoi": {
+    "description": "Error under the DOI field"
+  },
+  "referenceErrorIsbn": "The ISBN is not valid",
+  "@referenceErrorIsbn": {
+    "description": "Error under the ISBN field"
+  },
+  "referenceErrorIssn": "The ISSN is not valid",
+  "@referenceErrorIssn": {
+    "description": "Error under the ISSN field"
+  },
+  "referenceErrorDate": "The date does not exist",
+  "@referenceErrorDate": {
+    "description": "Error under the publication date"
+  },
+  "referenceErrorAccessed": "Format: YYYY-MM-DD",
+  "@referenceErrorAccessed": {
+    "description": "Error under the access date field"
+  },
+  "referenceContainerBook": "Book",
+  "@referenceContainerBook": {
+    "description": "Label of the container field of a chapter: the book that contains it"
+  },
+  "referenceContainerJournal": "Journal",
+  "@referenceContainerJournal": {
+    "description": "Label of the container field of an article: the journal that contains it"
+  },
+  "referenceContainerSite": "Site",
+  "@referenceContainerSite": {
+    "description": "Label of the container field of a web page: the site that contains it"
+  },
+  "referencePublisherUniversity": "University",
+  "@referencePublisherUniversity": {
+    "description": "Label of the publisher field of a thesis"
+  },
+  "referencePublisherArchive": "Archive",
+  "@referencePublisherArchive": {
+    "description": "Label of the publisher field of a primary source"
+  },
+  "referencePublisherProducer": "Producer",
+  "@referencePublisherProducer": {
+    "description": "Label of the publisher field of a documentary"
+  },
+  "referenceSaveFailed": "The reference could not be saved",
+  "@referenceSaveFailed": {
+    "description": "Notice when saving the reference fails"
+  },
   "processingPending": "Waiting",
   "@processingPending": {
     "description": "Badge on an item whose content has not been extracted yet"

@@ -312,6 +312,27 @@ void main() {
     });
   });
 
+  group('la referencia (F15)', () {
+    testWidgets('una fuente muestra su tarjeta de referencia', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/un-articulo');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.referenceSectionTitle), findsOneWidget);
+      expect(find.text(es.referenceCompleteAction), findsOneWidget);
+    });
+
+    testWidgets('una nota no la muestra: no se cita, se escribe', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('una nota cualquiera');
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.referenceSectionTitle), findsNothing);
+    });
+  });
+
   group('nota mapa', () {
     testWidgets('una nota muestra el chip de nota mapa, sin marcar', (
       tester,

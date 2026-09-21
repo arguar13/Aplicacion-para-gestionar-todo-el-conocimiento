@@ -2,6 +2,7 @@ import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/features/reference/domain/services/reference_draft.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cómo se nombran, para quien los mira, los tipos de obra, los roles y la
@@ -47,6 +48,51 @@ extension ContributorRolePresentation on ContributorRole {
     ContributorRole.editor => l10n.referenceFieldEditors,
     ContributorRole.director => l10n.referenceFieldDirectors,
   };
+}
+
+extension ReferenceFieldPresentation on ReferenceField {
+  /// Cómo se llama este dato para una obra de [type]: el contenedor de un
+  /// capítulo es un libro y el de un artículo, una revista; la editorial de una
+  /// tesis es una universidad.
+  String label(AppLocalizations l10n, ReferenceType? type) => switch (this) {
+    ReferenceField.container => switch (type) {
+      ReferenceType.chapter => l10n.referenceContainerBook,
+      ReferenceType.article => l10n.referenceContainerJournal,
+      ReferenceType.website ||
+      ReferenceType.onlinePublication => l10n.referenceContainerSite,
+      _ => l10n.referenceFieldContainer,
+    },
+    ReferenceField.publisher => switch (type) {
+      ReferenceType.thesis => l10n.referencePublisherUniversity,
+      ReferenceType.primarySource => l10n.referencePublisherArchive,
+      ReferenceType.documentary => l10n.referencePublisherProducer,
+      _ => l10n.referenceFieldPublisher,
+    },
+    ReferenceField.place => l10n.referenceFieldPlace,
+    ReferenceField.edition => l10n.referenceFieldEdition,
+    ReferenceField.volume => l10n.referenceFieldVolume,
+    ReferenceField.issue => l10n.referenceFieldIssue,
+    ReferenceField.pages => l10n.referenceFieldPages,
+    ReferenceField.isbn => l10n.referenceFieldIsbn,
+    ReferenceField.issn => l10n.referenceFieldIssn,
+    ReferenceField.doi => l10n.referenceFieldDoi,
+    ReferenceField.accessed => l10n.referenceFieldAccessed,
+    ReferenceField.citationKey => l10n.referenceFieldCitationKey,
+  };
+}
+
+/// La fecha de publicación como se muestra: «2020», «2020-03», «2020-03-15» o
+/// «Sin fecha». `null` si nadie la cargó.
+String? publicationDateText(AppLocalizations l10n, PublicationDate date) {
+  if (date.isUndated) return l10n.referencePrecisionUndated;
+  final year = date.year;
+  if (year == null) return null;
+  final month = date.month;
+  if (month == null) return '$year';
+  final mm = month.toString().padLeft(2, '0');
+  final day = date.day;
+  if (day == null) return '$year-$mm';
+  return '$year-$mm-${day.toString().padLeft(2, '0')}';
 }
 
 /// Los datos de [reference] uno por línea, «Etiqueta: valor», solo los que

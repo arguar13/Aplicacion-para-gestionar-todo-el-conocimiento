@@ -44,6 +44,7 @@ import 'package:sinapsis/features/organize/presentation/widgets/property_editor.
 import 'package:sinapsis/features/organize/presentation/widgets/relations_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
+import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -272,6 +273,11 @@ class _DetailBody extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 24),
+                // Los datos con que se cita: una nota no se cita, se escribe.
+                if (item.source.kind != SourceKind.manualNote) ...[
+                  ReferenceSection(item: item),
+                  const SizedBox(height: 24),
+                ],
                 CitationSection(item: item),
                 const SizedBox(height: 16),
                 const Divider(),
