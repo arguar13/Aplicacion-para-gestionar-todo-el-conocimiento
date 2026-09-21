@@ -4,6 +4,7 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 
@@ -27,6 +28,26 @@ final knowledgeMapEngineProvider = Provider<KnowledgeMapEngine>((ref) {
   ref.onDispose(engine.dispose);
   return engine;
 });
+
+/// El tablero de un pedido: lo que se cuenta además del grafo de temas.
+///
+/// Se vuelve a leer cuando el mapa se recalcula y no por su cuenta: comparte la
+/// espera por lotes del motor, así que una importación grande no lo lee mil
+/// veces.
+final mapDashboardProvider = FutureProvider.autoDispose
+    .family<MapDashboard, MapRequest>((ref, request) {
+      ref.watch(
+        knowledgeMapProvider(request).select(
+          (state) => switch (state) {
+            AsyncData(value: MapReady(:final snapshot)) => snapshot.sequence,
+            _ => -1,
+          },
+        ),
+      );
+      return ref
+          .watch(knowledgeMapRepositoryProvider)
+          .readDashboard(filter: request.filter);
+    });
 
 /// El mapa de un pedido, que se actualiza solo.
 ///

@@ -1,4 +1,5 @@
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 
 /// De dónde sale el mapa de conocimiento (F14).
@@ -19,6 +20,13 @@ abstract interface class KnowledgeMapRepository {
   /// llama —el motor del mapa— decide qué mostrar en su lugar.
   Future<TopicGraphInput> readTopicInput(
     String definitionId, {
+    LibraryQuery filter = const LibraryQuery(),
+  });
+
+  /// Lo que el tablero cuenta además del grafo de temas —las contradicciones
+  /// abiertas, cuánto creció la bóveda, la madurez de las notas— sobre los
+  /// mismos elementos que [readTopicInput]: los vivos que pasan [filter].
+  Future<MapDashboard> readDashboard({
     LibraryQuery filter = const LibraryQuery(),
   });
 

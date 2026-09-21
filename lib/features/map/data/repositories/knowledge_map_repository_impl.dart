@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
@@ -7,8 +9,10 @@ import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.dart';
+import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
+import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
 
 class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   const KnowledgeMapRepositoryImpl({
@@ -39,6 +43,59 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
       values: await _readValues(definitionId),
       items: items,
       relations: await _readRelations({for (final item in items) item.id}),
+    );
+  }
+
+  @override
+  Future<MapDashboard> readDashboard({
+    LibraryQuery filter = const LibraryQuery(),
+  }) async {
+    final allowed = await _allowedItemIds(filter);
+
+    final itemRows = await _db
+        .customSelect(mapDashboardItemsSql, readsFrom: mapTables(_db).toSet())
+        .get();
+    final items = <DashboardItem>[];
+    for (final row in itemRows) {
+      final data = row.data;
+      final id = data['id'] as String;
+      if (allowed != null && !allowed.contains(id)) continue;
+      final maturity = data['maturity'] as String?;
+      items.add(
+        DashboardItem(
+          id: id,
+          isNote: data['kind'] == ItemKind.note.name,
+          // La fecha por `read`: cómo se guarda un instante lo sabe drift.
+          createdAt: row.read<DateTime>('created_at'),
+          maturity: maturity == null
+              ? null
+              : NoteMaturity.values.byName(maturity),
+        ),
+      );
+    }
+
+    final contradictionRows = await _db
+        .customSelect(
+          mapOpenContradictionsSql,
+          variables: [Variable.withString(RelationKind.contradicts.name)],
+          readsFrom: mapTables(_db).toSet(),
+        )
+        .get();
+    return buildMapDashboard(
+      items: items,
+      contradictions: [
+        for (final row in contradictionRows)
+          DashboardContradiction(
+            at: row.read<DateTime>('created_at'),
+            contradiction: OpenContradiction(
+              relationId: row.data['id'] as String,
+              fromId: row.data['from_id'] as String,
+              fromTitle: row.data['from_title'] as String,
+              toId: row.data['to_id'] as String,
+              toTitle: row.data['to_title'] as String,
+            ),
+          ),
+      ],
     );
   }
 

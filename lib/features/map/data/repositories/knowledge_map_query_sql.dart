@@ -2,16 +2,16 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 
-/// Lo que el grafo de temas lee: cualquier escritura en estas tablas puede
-/// cambiarlo. `item` también —un elemento que va a la papelera deja de
-/// contar— y por eso va junto a las consultas, que son las que dicen qué hacen
-/// con lo borrado.
+/// Lo que el mapa lee: cualquier escritura en estas tablas puede cambiarlo.
+/// `item` también —un elemento que va a la papelera deja de contar— y por eso
+/// va junto a las consultas, que son las que dicen qué hacen con lo borrado.
 List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
   db.propertyValues,
   db.propertyDefinitions,
   db.itemPropertyValues,
   db.relations,
   db.knowledgeEntries,
+  db.knowledgeNotes,
 ];
 
 /// Lo que se suma cuando el mapa se calcula sobre lo que pasa un filtro: lo que
@@ -60,4 +60,39 @@ SELECT from_item_id AS from_id,
        kind AS kind,
        reviewed_at IS NOT NULL AS reviewed
 FROM relations
+''';
+
+/// Los elementos vivos con lo que el tablero cuenta de cada uno: qué es, cuándo
+/// se guardó y, si es una nota, su madurez. Una fila por elemento.
+const mapDashboardItemsSql =
+    '''
+SELECT item.id AS id,
+       item.kind AS kind,
+       item.created_at AS created_at,
+       note.maturity AS maturity
+FROM item
+LEFT JOIN note ON note.item_id = item.id
+WHERE $kActiveItemSql
+''';
+
+/// Las contradicciones sin revisar entre dos elementos vivos. Variable: `?1` el
+/// tipo de vínculo `contradicts`.
+///
+/// Acá la papelera sí va en la consulta y no del lado de Dart: son pocas filas
+/// y traer los títulos de lo borrado sería trabajo tirado.
+final mapOpenContradictionsSql =
+    '''
+SELECT r.id AS id,
+       r.from_item_id AS from_id,
+       r.to_item_id AS to_id,
+       r.created_at AS created_at,
+       a.title AS from_title,
+       b.title AS to_title
+FROM relations r
+JOIN item a ON a.id = r.from_item_id
+JOIN item b ON b.id = r.to_item_id
+WHERE r.kind = ?1
+  AND r.reviewed_at IS NULL
+  AND ${activeItemSql('a')}
+  AND ${activeItemSql('b')}
 ''';

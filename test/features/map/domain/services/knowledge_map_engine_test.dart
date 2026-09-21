@@ -16,6 +16,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
@@ -48,6 +49,11 @@ class FakeMapRepository implements KnowledgeMapRepository {
     if (failure != null) throw failure;
     return input;
   }
+
+  @override
+  Future<MapDashboard> readDashboard({
+    LibraryQuery filter = const LibraryQuery(),
+  }) async => const MapDashboard.empty();
 
   @override
   Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) =>
@@ -430,6 +436,26 @@ void main() {
 
       expect(readyOf(seen.states), hasLength(2));
       await seen.subscription.cancel();
+    });
+
+    test('volver a mirar un mapa que falló lo reintenta, aunque nada haya '
+        'cambiado', () async {
+      final first = listenTo(engine.watch(request));
+      await until(() => readyOf(first.states).isNotEmpty);
+      repository.fail(StateError('falla'));
+      await until(() => first.states.last is MapFailed);
+      await first.subscription.cancel();
+
+      // Se arregla lo que fallaba, sin que la base avise de ningún cambio.
+      repository.failure = null;
+      final second = listenTo(engine.watch(request));
+      await until(
+        () => second.states.any((s) => s is MapReady),
+        reason: 'reintento',
+      );
+
+      expect(engine.computations, 3);
+      await second.subscription.cancel();
     });
 
     test('un fallo del cálculo en sí también queda contenido', () async {

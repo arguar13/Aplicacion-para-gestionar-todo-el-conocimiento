@@ -31,6 +31,10 @@ abstract final class RoutePaths {
   /// Un destino de navegación principal.
   static const atlas = '/atlas';
 
+  /// El mapa de conocimiento: el tablero, el esquema y el grafo de temas
+  /// (F14).
+  static const map = '/map';
+
   /// La Bandeja de entrada: lo recién procesado, esperando triaje.
   static const inbox = '/inbox';
 
@@ -154,6 +158,7 @@ abstract final class RouteNames {
   static const itemDetail = 'item-detail';
   static const explorer = 'explorer';
   static const atlas = 'atlas';
+  static const map = 'map';
   static const inbox = 'inbox';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';

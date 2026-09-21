@@ -220,7 +220,12 @@ class KnowledgeMapEngine {
     // los avisos en camino.
     await Future<void>.delayed(Duration.zero);
     if (entry.closed || _disposed) return;
-    final fresh = entry.snapshot != null && entry.generation == _generation;
+    // Un mapa que falló no está al día aunque nada haya cambiado: volver a
+    // mirarlo es pedir que se reintente.
+    final fresh =
+        entry.snapshot != null &&
+        entry.generation == _generation &&
+        entry.state is! MapFailed;
     // Con un cálculo en curso o esperando su turno, el mapa nuevo les llega a
     // todos los que miran cuando termine: no se pide otro.
     if (fresh || entry.timer != null || entry.running) return;

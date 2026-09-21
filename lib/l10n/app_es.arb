@@ -2852,6 +2852,162 @@
   "@atlasExportSaved": {
     "description": "Aviso de que el Atlas se guardó como Markdown."
   },
+  "mapTitle": "Mapa",
+  "@mapTitle": {
+    "description": "Título de la pantalla del mapa de conocimiento y de su destino de navegación."
+  },
+  "mapCategoryTooltip": "Categoría del mapa",
+  "@mapCategoryTooltip": {
+    "description": "Tooltip del selector de categoría del mapa."
+  },
+  "mapViewSelectorLabel": "Vista del mapa",
+  "@mapViewSelectorLabel": {
+    "description": "Etiqueta accesible del selector entre las vistas del mapa."
+  },
+  "mapViewBoard": "Tablero",
+  "@mapViewBoard": {
+    "description": "Nombre de la vista de tablero del mapa: los números que resumen la bóveda."
+  },
+  "mapEmptyTitle": "Todavía no hay temas",
+  "@mapEmptyTitle": {
+    "description": "Título del estado vacío del mapa: la categoría no tiene valores."
+  },
+  "mapEmptyMessage": "Cuando esta categoría tenga valores, el mapa va a mostrar cómo se relacionan.",
+  "@mapEmptyMessage": {
+    "description": "Mensaje del estado vacío del mapa."
+  },
+  "mapLoadError": "No se pudo armar el mapa.",
+  "@mapLoadError": {
+    "description": "Aviso cuando el cálculo del mapa falló y no hay un mapa anterior que mostrar."
+  },
+  "mapRetry": "Reintentar",
+  "@mapRetry": {
+    "description": "Botón para volver a intentar armar el mapa."
+  },
+  "mapStaleNotice": "No se pudo actualizar: se muestra el último mapa que se armó.",
+  "@mapStaleNotice": {
+    "description": "Aviso sobre el mapa cuando el último recálculo falló y se muestra el anterior."
+  },
+  "mapTopicCount": "{count, plural, =1{1 tema} other{{count} temas}}",
+  "@mapTopicCount": {
+    "description": "Cuántos temas tiene el mapa.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapCommunityCount": "{count, plural, =1{1 comunidad} other{{count} comunidades}}",
+  "@mapCommunityCount": {
+    "description": "Cuántas comunidades de temas hay en el mapa.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapItemCount": "{count, plural, =1{1 elemento} other{{count} elementos}}",
+  "@mapItemCount": {
+    "description": "Cuántos elementos tiene la bóveda, en el tablero del mapa.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapBoardDensestTitle": "Temas con más material",
+  "@mapBoardDensestTitle": {
+    "description": "Título de la tarjeta del tablero con los temas que más elementos tienen."
+  },
+  "mapBoardConnectedTitle": "Los más conectados entre sí",
+  "@mapBoardConnectedTitle": {
+    "description": "Título de la tarjeta del tablero con los pares de temas más unidos."
+  },
+  "mapBoardIsolatedTitle": "Temas aislados",
+  "@mapBoardIsolatedTitle": {
+    "description": "Título de la tarjeta del tablero con los temas sin ninguna unión."
+  },
+  "mapBoardIsolatedHint": "No comparten elementos ni relaciones con ningún otro tema.",
+  "@mapBoardIsolatedHint": {
+    "description": "Explicación de qué es un tema aislado."
+  },
+  "mapBoardMore": "y {count} más",
+  "@mapBoardMore": {
+    "description": "Cierra una lista recortada del tablero: cuántos quedaron sin mostrar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapBoardContradictionsTitle": "Contradicciones abiertas",
+  "@mapBoardContradictionsTitle": {
+    "description": "Título de la tarjeta del tablero con las contradicciones sin revisar."
+  },
+  "mapBoardContradictionsNone": "No hay contradicciones sin revisar.",
+  "@mapBoardContradictionsNone": {
+    "description": "Mensaje de la tarjeta de contradicciones cuando no hay ninguna abierta."
+  },
+  "mapBoardContradictionsAll": "Ver todas ({count})",
+  "@mapBoardContradictionsAll": {
+    "description": "Botón que abre la pantalla de Tensión con todas las contradicciones abiertas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapBoardGrowthTitle": "Tamaño de la bóveda",
+  "@mapBoardGrowthTitle": {
+    "description": "Título de la tarjeta del tablero con cuánto creció la bóveda."
+  },
+  "mapBoardGrowthRange": "De {from} a {to}",
+  "@mapBoardGrowthRange": {
+    "description": "Rango de meses que cubre el gráfico de crecimiento.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "mapBoardGrowthSemantics": "Crecimiento de la bóveda: {count} elementos en {months} meses",
+  "@mapBoardGrowthSemantics": {
+    "description": "Descripción accesible del gráfico de crecimiento de la bóveda.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "mapBoardMaturityTitle": "Madurez de las notas",
+  "@mapBoardMaturityTitle": {
+    "description": "Título de la tarjeta del tablero con cuántas notas hay en cada grado de madurez."
+  },
+  "mapBoardMaturityNone": "Todavía no hay notas.",
+  "@mapBoardMaturityNone": {
+    "description": "Mensaje de la tarjeta de madurez cuando la bóveda no tiene notas."
+  },
+  "mapBoardPairSemantics": "{first} y {second}, unidos con peso {weight}",
+  "@mapBoardPairSemantics": {
+    "description": "Descripción accesible de un par de temas conectados en el tablero.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      },
+      "weight": {
+        "type": "String"
+      }
+    }
+  },
   "timelineBranchFilterTooltip": "Quitar el filtro por tema",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

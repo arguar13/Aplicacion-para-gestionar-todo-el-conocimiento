@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -337,6 +338,110 @@ void main() {
     );
   });
 
+  group('el tablero', () {
+    Future<void> setMaturity(String noteId, NoteMaturity maturity) =>
+        (db.update(db.knowledgeNotes)..where((n) => n.itemId.equals(noteId)))
+            .write(KnowledgeNotesCompanion(maturity: Value(maturity)));
+
+    test('cuenta los elementos vivos, el crecimiento y la madurez', () async {
+      await insertItemRows(
+        db,
+        id: 's1',
+        title: 'Fuente 1',
+        createdAt: DateTime(2026, 1, 10),
+      );
+      await insertItemRows(
+        db,
+        id: 's2',
+        title: 'Fuente 2',
+        createdAt: DateTime(2026, 2, 10),
+      );
+      await insertItemRows(
+        db,
+        id: 'n1',
+        title: 'Nota 1',
+        kind: SourceKind.manualNote,
+        createdAt: DateTime(2026, 2, 12),
+      );
+      await insertItemRows(
+        db,
+        id: 'n2',
+        title: 'Nota 2',
+        kind: SourceKind.manualNote,
+        createdAt: DateTime(2026, 4),
+      );
+      await setMaturity('n2', NoteMaturity.mature);
+
+      final dashboard = await repository.readDashboard();
+
+      expect(dashboard.itemCount, 4);
+      expect(dashboard.sourceCount, 2);
+      expect(dashboard.noteCount, 2);
+      expect(dashboard.maturity, {
+        NoteMaturity.seed: 1,
+        NoteMaturity.mature: 1,
+      });
+      expect(
+        [for (final p in dashboard.growth) (p.month, p.added, p.total)],
+        [(1, 1, 1), (2, 2, 3), (3, 0, 3), (4, 1, 4)],
+      );
+    });
+
+    test('las contradicciones abiertas traen los títulos; las revisadas no '
+        'están', () async {
+      await source('s1', const []);
+      await source('s2', const []);
+      await source('s3', const []);
+      await relate('s1', 's2', kind: RelationKind.contradicts);
+      await relate('s1', 's3', kind: RelationKind.contradicts, reviewedAt: now);
+      await relate('s2', 's3', kind: RelationKind.cites);
+
+      final dashboard = await repository.readDashboard();
+
+      expect(dashboard.openContradictionCount, 1);
+      final open = dashboard.openContradictions.single;
+      expect((open.fromTitle, open.toTitle), ('Fuente s1', 'Fuente s2'));
+    });
+
+    test(
+      'lo que está en la papelera no cuenta, ni sus contradicciones',
+      () async {
+        await source('s1', const []);
+        await source('s2', const []);
+        await relate('s1', 's2', kind: RelationKind.contradicts);
+        await trashItemRows(db, 's2');
+
+        final dashboard = await repository.readDashboard();
+
+        expect(dashboard.itemCount, 1);
+        expect(dashboard.openContradictionCount, 0);
+      },
+    );
+
+    test('el filtro de la biblioteca también rige acá', () async {
+      await source('s1', const []);
+      await source('s2', const [], kind: SourceKind.document);
+      await source('s3', const [], kind: SourceKind.document);
+      await relate('s2', 's3', kind: RelationKind.contradicts);
+      await relate('s1', 's2', kind: RelationKind.contradicts);
+
+      final dashboard = await repository.readDashboard(
+        filter: const LibraryQuery(sourceKinds: {SourceKind.document}),
+      );
+
+      expect(dashboard.itemCount, 2);
+      // La de s1 a s2 tiene un extremo que el filtro dejó afuera.
+      expect(dashboard.openContradictionCount, 1);
+    });
+
+    test('una bóveda sin nada da un tablero vacío', () async {
+      final dashboard = await repository.readDashboard();
+
+      expect(dashboard.itemCount, 0);
+      expect(dashboard.growth, isEmpty);
+    });
+  });
+
   group('los avisos de cambio', () {
     /// Si dentro de un rato llegó un aviso, mientras se hace [write].
     Future<bool> notifies(
@@ -439,6 +544,33 @@ void main() {
               line.startsWith('SEARCH ipv') && line.contains('(item_id=?)'),
         ),
         hasLength(1),
+        reason: reason,
+      );
+    });
+
+    test('el tablero recorre los elementos una vez, y las contradicciones '
+        'buscan sus extremos por clave', () async {
+      final items = await planOf(mapDashboardItemsSql, const []);
+      expect(
+        items.where((line) => line.startsWith('SCAN item')),
+        hasLength(1),
+        reason: items.join('\n'),
+      );
+
+      final contradictions = await planOf(mapOpenContradictionsSql, [
+        Variable.withString(RelationKind.contradicts.name),
+      ]);
+      final reason = contradictions.join('\n');
+      expect(
+        contradictions.where((line) => line.startsWith('SCAN')),
+        hasLength(1),
+        reason: reason,
+      );
+      expect(
+        contradictions.where(
+          (line) => line.startsWith('SEARCH') && line.contains('(id=?)'),
+        ),
+        hasLength(2),
         reason: reason,
       );
     });

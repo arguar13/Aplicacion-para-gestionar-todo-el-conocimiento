@@ -23,6 +23,7 @@ import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
+import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
@@ -187,6 +188,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.embeddingBackfill,
         name: RouteNames.embeddingBackfill,
         builder: (context, state) => const EmbeddingBackfillScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.map,
+        name: RouteNames.map,
+        builder: (context, state) => const MapScreen(),
       ),
       GoRoute(
         path: RoutePaths.graphTension,
