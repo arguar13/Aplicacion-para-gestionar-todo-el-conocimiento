@@ -112,7 +112,9 @@ _CaptureKind _kindFor(SourceKind kind) => switch (kind) {
   SourceKind.youtube || SourceKind.video => _CaptureKind.video,
   SourceKind.socialPost => _CaptureKind.post,
   SourceKind.webPage => _CaptureKind.webPage,
-  SourceKind.document => _CaptureKind.book,
+  // Una referencia no llega por acá; si se la completa con su archivo, es un
+  // libro o un artículo que se sube.
+  SourceKind.document || SourceKind.reference => _CaptureKind.book,
   SourceKind.image => _CaptureKind.image,
   SourceKind.audio => _CaptureKind.audio,
   SourceKind.manualNote => _CaptureKind.pasteText,

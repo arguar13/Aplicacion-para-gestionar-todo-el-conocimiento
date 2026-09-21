@@ -125,6 +125,7 @@
   "sourceKindAudio": "Audio",
   "sourceKindVideo": "Video",
   "sourceKindNote": "Nota",
+  "sourceKindReference": "Referencia",
   "processingPending": "En espera",
   "processingInProgress": "Procesando",
   "processingFailed": "No se pudo extraer",

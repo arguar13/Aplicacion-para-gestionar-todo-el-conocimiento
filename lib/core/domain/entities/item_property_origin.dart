@@ -17,4 +17,11 @@ enum ItemPropertyOrigin {
   /// modelo nunca la puso por su cuenta: esta es la marca de que alguien
   /// la revisó y aceptó tal cual.
   suggestedAccepted,
+
+  /// El espejo de una persona de la obra (F15): la pone `KnowledgeEntryWriter`
+  /// al guardar la referencia de una fuente, para que los conteos, el
+  /// explorador y «las obras de este autor» no tengan que conocer la tabla de
+  /// personas. Se va sola si la persona deja de figurar en la obra; una
+  /// asignación `manual` de la misma persona nunca se toca.
+  reference,
 }

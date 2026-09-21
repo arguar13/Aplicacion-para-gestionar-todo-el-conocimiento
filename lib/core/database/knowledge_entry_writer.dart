@@ -2,12 +2,18 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
+import 'package:sinapsis/core/database/person_vocabulary.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/services/reference_normalizer.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/core/util/id_generator.dart';
 
 /// El único lugar que escribe los campos de un elemento —`item`, su `note` y su
 /// `source`— (F11).
@@ -27,13 +33,26 @@ import 'package:sinapsis/core/util/clock.dart';
 ///   `base` de la nueva. Es lo que le permite a una fusión decir «esta edición
 ///   partió de la tuya» en vez de marcar un conflicto.
 ///
+/// Escribe también los datos bibliográficos de una fuente y sus personas
+/// —`source_reference`, `source_contributor`— (F15): en la fusión de bóvedas y
+/// en el linaje son UN campo, `reference`, y por eso los escribe quien versiona
+/// los campos.
+///
 /// Un test recorre `lib` y falla si otro archivo escribe estas tablas.
 class KnowledgeEntryWriter {
-  const KnowledgeEntryWriter(this._db, {Clock clock = DateTime.now})
-    : _clock = clock;
+  const KnowledgeEntryWriter(
+    this._db, {
+    Clock clock = DateTime.now,
+    IdGenerator ids = const UuidV7Generator(),
+  }) : _clock = clock,
+       _ids = ids;
 
   final AppDatabase _db;
   final Clock _clock;
+
+  /// De donde salen los ids de las personas que este escritor crea en el
+  /// vocabulario al guardar una referencia.
+  final IdGenerator _ids;
 
   String get _deviceId => _db.deviceId;
 
@@ -68,6 +87,7 @@ class KnowledgeEntryWriter {
       final state = nextMirrorState(
         current: existing?.state,
         processingState: item.processingState,
+        sourceKind: item.source.kind,
       );
 
       // Lo que cambió, por campo. Contra «nada» —un elemento nuevo— cambia todo
@@ -126,6 +146,178 @@ class KnowledgeEntryWriter {
         await _touch(item.id, field, now);
       }
     });
+  }
+
+  /// Guarda los datos bibliográficos y las personas de la fuente [itemId]
+  /// (F15). Devuelve `false`, sin tocar nada, si el elemento no existe o no es
+  /// una fuente: una nota no tiene editorial ni DOI.
+  ///
+  /// [reference] reemplaza a lo que había —para BORRAR un dato hay que
+  /// mandarlo vacío—. Antes se la limpia (`normalizeReference`): los textos
+  /// recortados, los identificadores normalizados y los inválidos fuera. Las
+  /// personas se resuelven contra el vocabulario de autores
+  /// (`PersonVocabulary`): una que no existe se crea, y dos obras de la misma
+  /// persona comparten UN valor.
+  ///
+  /// Es UN campo de linaje, [EntryField.reference]: sube el `rev` y registra la
+  /// versión una vez, y **solo si algo cambió** —guardar lo mismo no ensucia la
+  /// historia—. Lo que sí hace siempre es dejar el espejo de las personas al
+  /// día en `item_property_values`, para que un espejo que alguien tocó a mano
+  /// se cure solo.
+  Future<bool> setReference(String itemId, ReferenceData reference) async {
+    final wanted = normalizeReference(reference);
+    return _db.transaction(() async {
+      final entry = await _entry(itemId);
+      if (entry == null || entry.kind != ItemKind.source) return false;
+
+      final people = PersonVocabulary(_db, ids: _ids, clock: _clock);
+      final contributors = <Contributor>[];
+      final seen = <String>{};
+      for (final contributor in wanted.contributors) {
+        final personId = await people.resolve(contributor);
+        // Sin persona que resolver, o dos formas de escribir la misma con el
+        // mismo rol: una sola vez.
+        if (personId == null) continue;
+        if (!seen.add('${contributor.role.name}|$personId')) continue;
+        contributors.add(contributor.copyWith(personId: personId));
+      }
+      final resolved = wanted.copyWith(contributors: contributors);
+
+      final before = await ReferenceReader(_db).read(itemId);
+      if (!_sameReference(before, resolved)) {
+        await _writeReference(itemId, resolved);
+        await _bumpEntry(itemId);
+        await _touch(itemId, EntryField.reference, _clock());
+      }
+      await _mirrorContributors(itemId, contributors);
+      return true;
+    });
+  }
+
+  /// Si [a] y [b] dicen lo mismo: los mismos datos y las mismas personas, con
+  /// el mismo rol y en el mismo orden. Del nombre de cada persona no importa
+  /// cómo llegó escrito —lo que vale es el valor del vocabulario que la
+  /// representa—.
+  bool _sameReference(ReferenceData a, ReferenceData b) {
+    if (a.copyWith(contributors: const []) !=
+        b.copyWith(contributors: const [])) {
+      return false;
+    }
+    if (a.contributors.length != b.contributors.length) return false;
+    for (var i = 0; i < a.contributors.length; i++) {
+      if (a.contributors[i].personId != b.contributors[i].personId ||
+          a.contributors[i].role != b.contributors[i].role) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Escribe [data] —con las personas ya resueltas— en lugar de lo que había.
+  /// Una referencia sin ningún dato borra su fila en vez de guardar una vacía.
+  Future<void> _writeReference(String itemId, ReferenceData data) async {
+    await (_db.delete(
+      _db.sourceContributors,
+    )..where((c) => c.itemId.equals(itemId))).go();
+    if (data.isEmpty) {
+      await (_db.delete(
+        _db.sourceReferences,
+      )..where((r) => r.itemId.equals(itemId))).go();
+      return;
+    }
+
+    await _db
+        .into(_db.sourceReferences)
+        .insertOnConflictUpdate(
+          SourceReferencesCompanion.insert(
+            itemId: itemId,
+            referenceType: Value(data.type),
+            containerTitle: Value(data.containerTitle),
+            publisher: Value(data.publisher),
+            publisherPlace: Value(data.publisherPlace),
+            edition: Value(data.edition),
+            volume: Value(data.volume),
+            issue: Value(data.issue),
+            pages: Value(data.pages),
+            isbn: Value(data.isbn),
+            issn: Value(data.issn),
+            doi: Value(data.doi),
+            accessedAt: Value(data.accessedAt),
+            citationKey: Value(data.citationKey),
+            publicationPrecision: Value(data.publicationPrecision),
+          ),
+        );
+    for (final (position, contributor) in data.contributors.indexed) {
+      await _db
+          .into(_db.sourceContributors)
+          .insert(
+            SourceContributorsCompanion.insert(
+              itemId: itemId,
+              // Ya resuelta: ver `setReference`.
+              propertyValueId: contributor.personId!,
+              role: contributor.role,
+              position: position,
+            ),
+          );
+    }
+  }
+
+  /// Deja en `item_property_values` a las personas de [contributors] y solo a
+  /// ellas **entre las que puso este espejo** (`ItemPropertyOrigin.reference`).
+  ///
+  /// Se sincroniza por diferencia, como las etiquetas de la Biblioteca: una
+  /// asignación `manual` de la misma persona —alguien la puso desde el editor
+  /// de propiedades, o ya estaba en una categoría «Autor» de antes— no se toca
+  /// ni se degrada, y no se borra cuando la persona sale de la obra.
+  Future<void> _mirrorContributors(
+    String itemId,
+    List<Contributor> contributors,
+  ) async {
+    final wanted = {for (final c in contributors) c.personId!};
+
+    final mirrored =
+        (await (_db.select(_db.itemPropertyValues)..where(
+                  (a) =>
+                      a.itemId.equals(itemId) &
+                      a.origin.equalsValue(ItemPropertyOrigin.reference),
+                ))
+                .get())
+            .map((a) => a.propertyValueId)
+            .toSet();
+
+    final stale = mirrored.difference(wanted);
+    if (stale.isNotEmpty) {
+      await (_db.delete(_db.itemPropertyValues)..where(
+            (a) =>
+                a.itemId.equals(itemId) &
+                a.origin.equalsValue(ItemPropertyOrigin.reference) &
+                a.propertyValueId.isIn(stale),
+          ))
+          .go();
+    }
+
+    final present = wanted.isEmpty
+        ? <String>{}
+        : (await (_db.select(_db.itemPropertyValues)..where(
+                    (a) =>
+                        a.itemId.equals(itemId) &
+                        a.propertyValueId.isIn(wanted),
+                  ))
+                  .get())
+              .map((a) => a.propertyValueId)
+              .toSet();
+    for (final personId in wanted.difference(present)) {
+      await _db
+          .into(_db.itemPropertyValues)
+          .insert(
+            ItemPropertyValuesCompanion.insert(
+              itemId: itemId,
+              propertyValueId: personId,
+              origin: const Value(ItemPropertyOrigin.reference),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    }
   }
 
   /// Cambia el espacio de [itemIds]. Solo los que de verdad lo cambian suben su

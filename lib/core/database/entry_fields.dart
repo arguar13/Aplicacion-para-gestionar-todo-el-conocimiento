@@ -25,6 +25,12 @@ abstract final class EntryField {
   static const publishedAt = 'publishedAt';
   static const originalBlobPath = 'originalBlobPath';
 
+  /// Los datos bibliográficos de una fuente (F15) y sus personas, JUNTOS: es un
+  /// solo campo de linaje aunque vivan en dos tablas. Si dos dispositivos la
+  /// editan, gana la más nueva entera y el conflicto se muestra con la cita
+  /// ya armada; no hay un conflicto por editorial y otro por volumen.
+  static const reference = 'reference';
+
   /// Los campos de `item` que son texto o valores simples, para las pantallas
   /// que muestran un conflicto.
   static const itemFields = [title, subtitle, notes, spaceId, state, deletedAt];

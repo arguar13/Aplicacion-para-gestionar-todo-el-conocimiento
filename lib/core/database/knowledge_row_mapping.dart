@@ -1,4 +1,6 @@
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
@@ -32,3 +34,46 @@ Source sourceFor(KnowledgeEntryRow item, KnowledgeSourceRow? source) {
     originalFilePath: source.originalBlobPath,
   );
 }
+
+/// El nombre de la persona que representa un valor del vocabulario de autores
+/// (F15).
+///
+/// Un valor cuyo nombre nadie partió todavía —uno que ya estaba en una
+/// categoría «Autor» que alguien había creado a mano— se cita ENTERO, tal como
+/// está escrito, como si fuera el apellido de una sola palabra: no se adivina
+/// dónde termina el apellido, y un nombre mal partido en una bibliografía es
+/// peor que uno sin invertir.
+PersonName personNameFor(PropertyValueRow value) {
+  final family = value.nameFamily;
+  if (family == null) return PersonName(family: value.value);
+  return PersonName(
+    family: family,
+    given: value.nameGiven ?? '',
+    suffix: value.nameSuffix ?? '',
+    isInstitution: value.isInstitution ?? false,
+  );
+}
+
+/// Los datos bibliográficos de una fuente a partir de su fila de
+/// `source_reference` —`null` si solo tiene personas— y sus [contributors], ya
+/// leídos y en orden.
+ReferenceData referenceFor(
+  SourceReferenceRow? row,
+  List<Contributor> contributors,
+) => ReferenceData(
+  type: row?.referenceType,
+  contributors: contributors,
+  containerTitle: row?.containerTitle,
+  publisher: row?.publisher,
+  publisherPlace: row?.publisherPlace,
+  edition: row?.edition,
+  volume: row?.volume,
+  issue: row?.issue,
+  pages: row?.pages,
+  isbn: row?.isbn,
+  issn: row?.issn,
+  doi: row?.doi,
+  accessedAt: row?.accessedAt,
+  citationKey: row?.citationKey,
+  publicationPrecision: row?.publicationPrecision,
+);

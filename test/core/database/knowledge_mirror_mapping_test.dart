@@ -77,6 +77,47 @@ void main() {
       );
     });
 
+    test('una referencia sin fila previa nace triada, esté como esté', () {
+      for (final state in ProcessingState.values) {
+        expect(
+          nextMirrorState(
+            current: null,
+            processingState: state,
+            sourceKind: SourceKind.reference,
+          ),
+          ItemState.triaged,
+          reason: state.name,
+        );
+      }
+    });
+
+    test('cualquier otra fuente sigue el camino de siempre', () {
+      for (final kind in SourceKind.values.where(
+        (k) => k != SourceKind.reference,
+      )) {
+        expect(
+          nextMirrorState(
+            current: null,
+            processingState: ProcessingState.ready,
+            sourceKind: kind,
+          ),
+          ItemState.processed,
+          reason: kind.name,
+        );
+      }
+    });
+
+    test('una referencia con fila previa conserva su estado', () {
+      expect(
+        nextMirrorState(
+          current: ItemState.distilled,
+          processingState: ProcessingState.ready,
+          sourceKind: SourceKind.reference,
+        ),
+        ItemState.distilled,
+      );
+    });
+
     test('captured + ready avanza a processed', () {
       expect(
         nextMirrorState(

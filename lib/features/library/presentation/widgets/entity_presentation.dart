@@ -23,6 +23,7 @@ extension SourceKindPresentation on SourceKind {
     SourceKind.audio => Icons.graphic_eq,
     SourceKind.video => Icons.movie_outlined,
     SourceKind.manualNote => Icons.edit_note_outlined,
+    SourceKind.reference => Icons.menu_book_outlined,
   };
 
   String label(AppLocalizations l10n) => switch (this) {
@@ -34,6 +35,7 @@ extension SourceKindPresentation on SourceKind {
     SourceKind.audio => l10n.sourceKindAudio,
     SourceKind.video => l10n.sourceKindVideo,
     SourceKind.manualNote => l10n.sourceKindNote,
+    SourceKind.reference => l10n.sourceKindReference,
   };
 }
 

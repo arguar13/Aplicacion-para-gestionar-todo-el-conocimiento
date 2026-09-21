@@ -209,6 +209,10 @@
   "@sourceKindNote": {
     "description": "Readable name of a source type"
   },
+  "sourceKindReference": "Reference",
+  "@sourceKindReference": {
+    "description": "Readable name of a source type: a work known only by its bibliographic data, without its text"
+  },
   "processingPending": "Waiting",
   "@processingPending": {
     "description": "Badge on an item whose content has not been extracted yet"

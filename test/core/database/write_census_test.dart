@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// El censo de escrituras (F11): ningún archivo de `lib` escribe `item`,
-/// `note` ni `source` salvo `KnowledgeEntryWriter`.
+/// `note` ni `source` salvo `KnowledgeEntryWriter`. Desde F15, tampoco
+/// `source_reference` ni `source_contributor`: los datos bibliográficos y las
+/// personas de una obra son UN campo de linaje, y solo dicen la verdad si los
+/// escribe quien lo versiona.
 ///
 /// `rev`, `deviceId` y `field_version` solo dicen la verdad si TODA
 /// modificación pasa por el mismo lugar: una sola escritura por fuera y la
@@ -84,6 +87,35 @@ void main() {
       ),
       isNotEmpty,
     );
+    // Las referencias bibliográficas y sus personas (F15), en sus tres formas.
+    expect(
+      writesOfKnowledgeRows(
+        'await _db.into(_db.sourceReferences).insertOnConflictUpdate(x);',
+      ),
+      isNotEmpty,
+    );
+    expect(
+      writesOfKnowledgeRows(
+        'await (_db.delete(_db.sourceContributors)..where(w)).go();',
+      ),
+      isNotEmpty,
+    );
+    expect(
+      writesOfKnowledgeRows('const c = SourceContributorsCompanion(role: v);'),
+      isNotEmpty,
+    );
+    for (final sql in [
+      'INSERT INTO source_reference (item_id) VALUES (1)',
+      'UPDATE source_contributor SET position = 2',
+      'DELETE FROM main.source_contributor WHERE 1',
+      'INSERT OR REPLACE INTO main.source_reference (a) VALUES (1)',
+    ]) {
+      expect(
+        writesOfKnowledgeRows("await db.customStatement('$sql');"),
+        isNotEmpty,
+        reason: sql,
+      );
+    }
     // También la que nombra la base: la fusión escribe `main.item` con otra
     // adjuntada, y un detector que solo mirara `item` no la vería.
     for (final sql in [
@@ -107,6 +139,9 @@ void main() {
         final joined = _db.select(_db.knowledgeEntries).join([
           innerJoin(_db.knowledgeNotes, cond),
         ]);
+        final refs = await _db.select(_db.sourceReferences).get();
+        final who = _db.select(_db.sourceContributors).join([j]);
+        await db.customSelect('SELECT * FROM source_reference WHERE 1');
         // await _db.update(_db.knowledgeEntries).write(x);
         /// await _db.delete(_db.knowledgeSources).go();
         '''),
@@ -143,9 +178,9 @@ void main() {
       writers.difference(allowed.keys.toSet()),
       isEmpty,
       reason:
-          'Estos archivos escriben item, note o source sin pasar por '
-          'KnowledgeEntryWriter: cada modificación tiene que quedar en rev, '
-          'deviceId y field_version.',
+          'Estos archivos escriben item, note, source, source_reference o '
+          'source_contributor sin pasar por KnowledgeEntryWriter: cada '
+          'modificación tiene que quedar en rev, deviceId y field_version.',
     );
     expect(
       allowed.keys.toSet().difference(writers),
@@ -174,19 +209,22 @@ List<String> writesOfKnowledgeRows(String source) {
 final _tableWrite = RegExp(
   r'\b(?:update|into|delete|insertAll|insertAllOnConflictUpdate|replaceAll|'
   r'updateAll|deleteWhere|insert|replace)\s*\(\s*(?:[\w$!?]+\s*\.\s*)*'
-  r'(?:knowledgeEntries|knowledgeNotes|knowledgeSources)\b',
+  '(?:knowledgeEntries|knowledgeNotes|knowledgeSources|sourceReferences|'
+  r'sourceContributors)\b',
 );
 
 /// Sin una companion no se escribe una fila tipada.
 final _companion = RegExp(
-  r'\b(?:KnowledgeEntries|KnowledgeNotes|KnowledgeSources)Companion\b',
+  r'\b(?:KnowledgeEntries|KnowledgeNotes|KnowledgeSources|SourceReferences|'
+  r'SourceContributors)Companion\b',
 );
 
-/// SQL crudo que modifica `item`, `note` o `source` —no `item_search`, ni
-/// `item_property_values`—.
+/// SQL crudo que modifica `item`, `note`, `source`, `source_reference` o
+/// `source_contributor` —no `item_search`, ni `item_property_values`—.
 final _rawSql = RegExp(
   r'(?:\bUPDATE|\bINSERT(?:\s+OR\s+\w+)?\s+INTO|\bDELETE\s+FROM|'
-  r'\bREPLACE\s+INTO)\s+"?(?:main\.)?(?:item|note|source)"?(?![\w])',
+  r'\bREPLACE\s+INTO)\s+"?(?:main\.)?'
+  r'(?:item|note|source_reference|source_contributor|source)"?(?![\w])',
   caseSensitive: false,
 );
 

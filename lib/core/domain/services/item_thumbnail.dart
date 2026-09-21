@@ -79,6 +79,7 @@ class ItemThumbnailResolver {
       case SourceKind.audio:
       case SourceKind.video:
       case SourceKind.manualNote:
+      case SourceKind.reference:
         return const ItemThumbnailNone();
     }
   }

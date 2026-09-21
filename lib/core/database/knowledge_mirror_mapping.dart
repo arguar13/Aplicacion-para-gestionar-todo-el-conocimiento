@@ -59,11 +59,19 @@ ProcessingState processingStateFor(SourceProcessingStatus? status) =>
 /// silencio a `processed` en cada `save()` posterior —`ProcessItemUseCase`
 /// llama `save()` más de una vez por elemento, y nada distingue "esto es
 /// una edición" de "esto es el pipeline terminando" salvo esta regla—.
+///
+/// Una referencia ([SourceKind.reference]) nace **triada**: se carga a
+/// propósito —a mano o desde un `.bib`— y no pasa por la Bandeja. Importar una
+/// bibliografía de 300 entradas no la inunda (F15).
 ItemState nextMirrorState({
   required ItemState? current,
   required ProcessingState processingState,
+  SourceKind? sourceKind,
 }) {
-  if (current == null) return initialItemStateFor(processingState);
+  if (current == null) {
+    if (sourceKind == SourceKind.reference) return ItemState.triaged;
+    return initialItemStateFor(processingState);
+  }
   if (current == ItemState.captured &&
       processingState == ProcessingState.ready) {
     return ItemState.processed;

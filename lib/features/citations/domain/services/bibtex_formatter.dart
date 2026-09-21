@@ -78,6 +78,7 @@ String _noteFor(SourceKind kind) => switch (kind) {
   SourceKind.audio => 'Audio',
   SourceKind.video => 'Video',
   SourceKind.manualNote => 'Nota propia',
+  SourceKind.reference => 'Referencia',
 };
 
 String _isoDate(DateTime date) => date.toIso8601String().substring(0, 10);

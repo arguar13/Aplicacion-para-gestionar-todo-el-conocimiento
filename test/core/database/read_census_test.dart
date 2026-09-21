@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// El censo de lecturas (F11): todo archivo de `lib` que lee `item` nombra lo
-/// que hace con lo que está en la papelera.
+/// que hace con lo que está en la papelera. Desde F15 vale también para quien
+/// lee `source_reference` o `source_contributor`: una lista de «las obras de
+/// este autor» que no pasa por `item` mostraría las que están en la papelera.
 ///
 /// Un elemento borrado sigue en la base con `deleted_at`. Si una lectura nueva
 /// se olvida de dejarlo afuera, el borrado deja de cumplirse en esa pantalla,
@@ -20,6 +22,10 @@ void main() {
   const allowed = <String, String>{
     'lib/core/database/app_database.dart':
         'declara las tablas de la base: no lee nada',
+    'lib/core/database/reference_reader.dart':
+        'lee por identificador: quien lo llama ya decidió qué elementos son '
+        'visibles —la Biblioteca y la consulta de la bibliografía dejan '
+        'afuera la papelera— y este lector no lista nada por su cuenta',
     'lib/core/database/reference_triggers.dart':
         'los triggers miran el tipo de UN elemento, por su clave, antes de '
         'colgarle una referencia o una persona: vivo o en la papelera —una '
@@ -76,6 +82,16 @@ void main() {
     expect(readsItem('await _db.select(_db.flashcards).get();'), isFalse);
     expect(readsItem('SELECT * FROM item_search WHERE x'), isFalse);
     expect(readsItem('SELECT * FROM item_property_values'), isFalse);
+    // Las referencias y las personas de una obra (F15) cuelgan de un elemento:
+    // leerlas sin pasar por él también deja la papelera sin decidir.
+    expect(readsItem('await _db.select(_db.sourceReferences).get();'), isTrue);
+    expect(readsItem('_db.select(_db.sourceContributors).join([j])'), isTrue);
+    expect(readsItem('SELECT * FROM source_reference WHERE 1'), isTrue);
+    expect(
+      readsItem('SELECT 1 FROM x JOIN main.source_contributor c ON 1'),
+      isTrue,
+    );
+    expect(readsItem('INSERT INTO source_reference_x VALUES (1)'), isFalse);
     expect(readsItem('// se lee _db.knowledgeEntries acá'), isFalse);
     expect(decisions.hasMatch('..where((e) => e.isActive)'), isTrue);
     expect(decisions.hasMatch('..where((e) => e.id.equals(id))'), isFalse);
@@ -126,17 +142,21 @@ void main() {
   });
 }
 
-/// Si [source] lee `item`: la tabla por su nombre en drift, o SQL crudo
+/// Si [source] lee `item` —o una tabla que cuelga de un elemento, como las
+/// referencias y sus personas—: la tabla por su nombre en drift, o SQL crudo
 /// (`FROM item`, `JOIN item`) —no `item_search` ni `item_property_values`—.
 bool readsItem(String source) {
   final code = _withoutComments(source);
   return _tableGetter.hasMatch(code) || _rawSql.hasMatch(code);
 }
 
-final _tableGetter = RegExp(r'\bknowledgeEntries\b');
+final _tableGetter = RegExp(
+  r'\b(?:knowledgeEntries|sourceReferences|sourceContributors)\b',
+);
 
 final _rawSql = RegExp(
-  r'\b(?:FROM|JOIN)\s+(?:main\.)?item(?![\w])',
+  r'\b(?:FROM|JOIN)\s+(?:main\.)?'
+  r'(?:item|source_reference|source_contributor)(?![\w])',
   caseSensitive: false,
 );
 

@@ -76,6 +76,11 @@ class FileViewerResolver {
         // No trae un archivo original que mostrar aparte del contenido que
         // ya se ve en el propio detalle.
         return const NoResolvedViewer();
+
+      case SourceKind.reference:
+        // Solo tiene datos bibliográficos: si se le adjunta el archivo, deja de
+        // ser una referencia y pasa a ser un documento.
+        return const NoResolvedViewer();
     }
   }
 

@@ -30,4 +30,10 @@ enum SourceKind {
   /// Escrito por el usuario dentro de la app. No tiene enlace de origen
   /// porque el origen es la persona.
   manualNote,
+
+  /// Una obra de la que solo hay datos bibliográficos, no el texto (F15): un
+  /// libro que se cita sin haberlo digitalizado, una entrada de un `.bib`. No
+  /// tiene formas ni chunks. Si después se le adjunta el archivo pasa a ser un
+  /// [document] y sigue el camino de siempre, sin perder lo que se cargó.
+  reference,
 }
