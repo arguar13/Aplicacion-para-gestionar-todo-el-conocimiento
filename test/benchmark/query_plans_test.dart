@@ -231,6 +231,60 @@ void main() {
     },
   );
 
+  test('la ventana de una palabra en casi todo no le encarga el orden a FTS5: '
+      'con un prefijo, eso es leer todas las coincidencias antes de la '
+      'primera', () async {
+    final match = buildSearchQuery(vault.commonTerm);
+
+    // FTS5 dice en el plan qué le piden: `INDEX <número>:<letras>`. Los bits
+    // 0x40 y 0x80 del número son «ordenar por rowid» y «al revés».
+    const rowidDescending = 0x40 | 0x80;
+    Future<int> flagsOf(String sql, List<Object> args) async {
+      final plan = await planOf(sql, args);
+      final found = RegExp(
+        r'SCAN chunk_search VIRTUAL TABLE INDEX (\d+):',
+      ).firstMatch(plan);
+      expect(found, isNotNull, reason: plan);
+      return int.parse(found!.group(1)!);
+    }
+
+    // El control: pedirle el orden al índice SÍ queda marcado. Si SQLite
+    // cambia los números, avisa este y no el de abajo, que pasaría sin decir
+    // nada.
+    final asked = await flagsOf(
+      'SELECT rowid FROM chunk_search WHERE chunk_search MATCH ? '
+      'ORDER BY rowid DESC LIMIT ?',
+      [match, kSearchWindowChunks],
+    );
+    expect(
+      asked & rowidDescending,
+      rowidDescending,
+      reason: 'los números del plan de FTS5 ya no son los que este test supone',
+    );
+
+    final window = await flagsOf(kSearchWindowSql, [
+      match,
+      0,
+      kSearchWindowChunks,
+    ]);
+    expect(
+      window & rowidDescending,
+      0,
+      reason: 'la ventana le pide el orden a FTS5: ver kSearchWindowSql',
+    );
+
+    // Y la consulta de la página usa esa ventana tal cual.
+    final ids = LibraryQuerySql(
+      LibraryQuery(
+        searchText: vault.commonTerm,
+        sortBy: LibrarySort.relevance,
+        limit: 50,
+      ),
+      plan: TextSearchPlan(match: match, windowed: true),
+    ).ids();
+    expect(ids.sql, contains(kSearchWindowSql));
+  });
+
   test('lo que está en la papelera se lee por su índice parcial; lo vivo, '
       'por la clave', () async {
     final trash = await planOf(

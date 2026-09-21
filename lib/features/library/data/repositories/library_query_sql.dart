@@ -19,6 +19,28 @@ const kRankedHitsCap = 30000;
 /// relevancia no dice nada.
 const kSearchWindowChunks = 600;
 
+/// Los `rowid` de la ventana: los [kSearchWindowChunks] chunks vivos más
+/// recientes que coinciden con lo buscado, del más nuevo al más viejo.
+///
+/// Lleva tres parámetros, en este orden: lo buscado, la cota inferior
+/// —[TextSearchPlan.windowFloor]— y cuántos.
+///
+/// El orden se pide sobre `rowid + 0` y no sobre `rowid`, A PROPÓSITO. Con
+/// `ORDER BY rowid DESC` SQLite le encarga el orden a FTS5, y una palabra
+/// buscada como prefijo se resuelve leyendo TODA su lista de coincidencias
+/// antes de dar la primera: 300 ms con una palabra en 122.531 chunks en un
+/// emulador de Android, pidiera lo que se pidiera y desde donde se pidiera
+/// —una ventana de 600 no era una fracción de eso—. Recorrida hacia adelante
+/// desde una cota, la misma búsqueda cuesta lo que cuestan las coincidencias
+/// del tramo (5 ms), y el orden lo pone SQLite sobre lo poco que la cota deja.
+/// A una tabla virtual solo se le pasan columnas: con una expresión no hay
+/// forma de que el orden vuelva a caerle encima.
+const kSearchWindowSql =
+    'SELECT chunk_search.rowid AS rid FROM chunk_search '
+    'WHERE chunk_search MATCH ? AND chunk_search.rowid > ? '
+    'AND $kChunkOutsideTrashSql '
+    'ORDER BY chunk_search.rowid + 0 DESC LIMIT ?';
+
 /// Cuántos chunks se piden, como mínimo, cuando se busca ordenando por
 /// relevancia una página de resultados: ver [topChunksFor].
 const kMinTopChunks = 300;
@@ -44,6 +66,7 @@ class TextSearchPlan {
   const TextSearchPlan({
     required this.match,
     this.windowed = false,
+    this.windowFloor = 0,
     this.termMatches = const [],
   });
 
@@ -53,6 +76,11 @@ class TextSearchPlan {
   /// `true` cuando la palabra está en tantos chunks que ordenar por relevancia
   /// no vale su costo: ver [kRankedHitsCap].
   final bool windowed;
+
+  /// Con [windowed], el `row_key` desde el que se busca —sin incluirlo—: los
+  /// chunks más recientes están todos por encima. Ver `searchWindowFloor` para
+  /// cómo se elige, y [kSearchWindowSql] para por qué hace falta.
+  final int windowFloor;
 
   /// Cada palabra por separado, para encontrar los elementos que las tienen
   /// TODAS aunque estén en fragmentos distintos. Vacío con una sola palabra.
@@ -130,7 +158,11 @@ class LibraryQuerySql {
       _fromArgs
         ..add(Variable.withString(match))
         ..add(Variable.withString(match));
-      if (_windowed) _fromArgs.add(Variable.withInt(kSearchWindowChunks));
+      if (_windowed) {
+        _fromArgs
+          ..add(Variable.withInt(this.plan.windowFloor))
+          ..add(Variable.withInt(kSearchWindowChunks));
+      }
       if (top != null) _fromArgs.add(Variable.withInt(top));
       _fromArgs.addAll(terms.map(Variable.withString));
       _match = match;
@@ -242,11 +274,9 @@ class LibraryQuerySql {
     required bool topChunks,
   }) {
     final chunkHits = windowed
-        ? 'SELECT w.item_id, 0 AS t, NULL AS s FROM ( '
-              'SELECT c.item_id AS item_id FROM chunk_search '
-              'JOIN chunks c ON c.row_key = chunk_search.rowid '
-              'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
-              'ORDER BY chunk_search.rowid DESC LIMIT ?) w'
+        ? 'SELECT c.item_id AS item_id, 0 AS t, NULL AS s '
+              'FROM ($kSearchWindowSql) w '
+              'JOIN chunks c ON c.row_key = w.rid'
         : topChunks
         ? 'SELECT c.item_id, 0 AS t, top.s FROM ( '
               'SELECT chunk_search.rowid AS rid, chunk_search.rank AS s '

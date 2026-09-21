@@ -29,6 +29,7 @@ import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/data/repositories/chunk_hit_estimate.dart';
 import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
+import 'package:sinapsis/features/library/data/repositories/search_window_floor.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
@@ -374,8 +375,11 @@ class LibraryRepositoryImpl implements LibraryRepository {
     if (sql.matchesNothing) return [];
 
     if (!sql.canMerge) {
-      final items = await _list(query);
+      // El plan del texto se decide una vez —cuesta unos milisegundos, con la
+      // ventana— y sirve para los resultados y para sus citas.
+      final items = await _list(query, sql: sql);
       final citations = await _citationsByRanking(
+        sql.plan,
         query.searchText!,
         items.map((i) => i.id),
       );
@@ -449,7 +453,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// Las citas de [itemIds] buscando los mejores chunks: para las consultas que
   /// no se resuelven en una pasada, porque tienen otros filtros o piden otro
   /// orden.
+  ///
+  /// Se resuelve igual que la búsqueda —con su mismo [plan]—: ordenando por
+  /// relevancia, o en una ventana de los chunks más recientes si la palabra
+  /// está en casi todo.
   Future<Map<String, SearchCitation>> _citationsByRanking(
+    TextSearchPlan plan,
     String searchText,
     Iterable<String> itemIds,
   ) async {
@@ -457,11 +466,6 @@ class LibraryRepositoryImpl implements LibraryRepository {
     final terms = searchTerms(searchText);
     if (ids.isEmpty || terms.isEmpty) return const {};
 
-    // Se resuelve igual que la búsqueda: ordenando por relevancia, o en una
-    // ventana de los chunks más recientes si la palabra está en casi todo.
-    final plan = await _sqlFor(
-      LibraryQuery(searchText: searchText),
-    ).then((sql) => sql.plan);
     final match = buildSearchQuery(searchText);
 
     const columns =
@@ -480,14 +484,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
     final rows = plan.windowed
         ? await _db
               .customSelect(
-                'SELECT $columns FROM ( '
-                'SELECT chunk_search.rowid AS rid FROM chunk_search '
-                'WHERE chunk_search MATCH ? AND $kChunkOutsideTrashSql '
-                'ORDER BY chunk_search.rowid DESC LIMIT ?) w '
+                'SELECT $columns FROM ($kSearchWindowSql) w '
                 'JOIN chunks c ON c.row_key = w.rid '
                 'ORDER BY w.rid DESC',
                 variables: [
                   Variable.withString(match),
+                  Variable.withInt(plan.windowFloor),
                   Variable.withInt(kSearchWindowChunks),
                 ],
               )
@@ -1004,8 +1006,10 @@ class LibraryRepositoryImpl implements LibraryRepository {
   // Lectura
   // ---------------------------------------------------------------------
 
-  Future<List<KnowledgeItem>> _list(LibraryQuery query) async =>
-      _itemsInOrder(await _matchingIds(query));
+  Future<List<KnowledgeItem>> _list(
+    LibraryQuery query, {
+    LibraryQuerySql? sql,
+  }) async => _itemsInOrder(await _matchingIds(query, sql: sql));
 
   /// Los elementos de [ids], armados, en ESE orden.
   Future<List<KnowledgeItem>> _itemsInOrder(List<String> ids) async {
@@ -1033,11 +1037,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
   ///
   /// El filtrado, el orden —también el de relevancia— y la página los
   /// resuelve la base en una sola consulta: ver [LibraryQuerySql].
-  Future<List<String>> _matchingIds(LibraryQuery query) async {
-    final sql = await _sqlFor(query);
-    if (sql.matchesNothing) return [];
+  ///
+  /// Con [sql] —el de [query], si quien llama ya lo armó— no se vuelve a
+  /// decidir cómo se busca el texto.
+  Future<List<String>> _matchingIds(
+    LibraryQuery query, {
+    LibraryQuerySql? sql,
+  }) async {
+    final resolved = sql ?? await _sqlFor(query);
+    if (resolved.matchesNothing) return [];
 
-    final ids = sql.ids();
+    final ids = resolved.ids();
     final rows = await _db
         .customSelect(ids.sql, variables: ids.variables)
         .get();
@@ -1063,6 +1073,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
       plan: TextSearchPlan(
         match: match,
         windowed: windowed,
+        windowFloor: windowed ? await searchWindowFloor(_db, match) : 0,
         termMatches: terms.length < 2
             ? const []
             : [
