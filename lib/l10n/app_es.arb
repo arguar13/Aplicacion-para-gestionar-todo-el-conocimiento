@@ -3055,6 +3055,18 @@
       }
     }
   },
+  "mapGraphEdgesCut": "Se dibujan las {shown} uniones más fuertes de {total}: cada tema conserva las suyas más fuertes.",
+  "@mapGraphEdgesCut": {
+    "description": "Aviso del nivel de temas del grafo cuando hay más uniones de las que se dibujan: cada tema conserva las más fuertes.",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "mapGraphItemsCut": "Se muestran los {count} elementos más recientes de este tema.",
   "@mapGraphItemsCut": {
     "description": "Aviso del grafo cuando un tema tiene más elementos de los que se dibujan.",

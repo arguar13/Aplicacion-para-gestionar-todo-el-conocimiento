@@ -18,6 +18,7 @@ import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -27,6 +28,19 @@ const kZoomInThreshold = 2.2;
 
 /// Con menos zoom que esto, se vuelve al nivel de menos detalle.
 const kZoomOutThreshold = 0.42;
+
+/// Acercarse a este múltiplo del encuadre del nivel pasa al siguiente aunque no
+/// se llegue a [kZoomInThreshold]: un nivel grande queda encuadrado tan
+/// alejado que ese umbral pediría un zoom enorme.
+const kZoomInFromFit = 3.0;
+
+/// El zoom más lejano del visor, y hasta donde llega el encuadre: un nivel
+/// con cientos de nodos cabe entero en un celular a un zoom muy chico.
+const _kMinScale = 0.05;
+
+/// Cuánto tiene que cambiar el zoom en un gesto para que cuente como acercar o
+/// alejar. Menos que esto es arrastrar, y arrastrar no cambia de nivel.
+const _kZoomChange = 1.05;
 
 /// Cuánto se agranda la letra de las etiquetas en el lienzo para que, con el
 /// zoom que haya, se siga leyendo en pantalla: a menos zoom, más letra. Va por
@@ -114,6 +128,13 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   Size _viewport = Size.zero;
   bool _needsFit = true;
 
+  /// El zoom con el que quedó encuadrado el nivel de ahora.
+  double _fitScale = 1;
+
+  /// El zoom con el que empezó el gesto de ahora: lo que un gesto cambió es lo
+  /// que decide si es acercar, alejar o solo arrastrar.
+  double _gestureStartScale = 1;
+
   /// El agrandado de las etiquetas para el zoom de ahora: ver [labelScaleFor].
   double _labelScale = 1;
 
@@ -187,17 +208,8 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
       final b = _positions[_scene.nodes[edge.b].key];
       if (a == null || b == null) continue;
       final relation = edge.relation;
-      final color = edge.tension
-          ? scheme.error.withValues(alpha: 0.8)
-          : relation != null
-          ? relation.color(scheme)
-          : scheme.outline.withValues(alpha: 0.4);
-      svg.line(
-        a,
-        b,
-        color: color,
-        strokeWidth: (1 + 0.7 * math.log(1 + edge.weight)).clamp(1.0, 5.0),
-      );
+      final color = mapEdgeColor(edge, scheme);
+      svg.line(a, b, color: color, strokeWidth: mapEdgeWidth(edge.weight));
       if (relation != null && (b - a).distance > 40) {
         final head = arrowHead(a, b, back: 22, length: 8, half: 4);
         if (head != null) {
@@ -372,8 +384,10 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
       positions: _positions,
       viewportSize: _viewport,
       contentMargin: 90,
+      minScale: _kMinScale,
       maxScale: 1.2,
     );
+    _fitScale = _gestureStartScale = _controller.value.getMaxScaleOnAxis();
   }
 
   // --- Navegación entre niveles ---
@@ -413,16 +427,26 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     }
   }
 
-  /// Al soltar un gesto: si el zoom pasó un umbral, cambia de nivel en el nodo
-  /// que quedó en el centro.
+  void _onInteractionStart(ScaleStartDetails details) {
+    _gestureStartScale = _controller.value.getMaxScaleOnAxis();
+  }
+
+  /// Al soltar un gesto: si cambió el zoom y pasó un umbral, cambia de nivel en
+  /// el nodo que quedó en el centro.
+  ///
+  /// Solo cuenta lo que el gesto cambió: con un nivel grande el encuadre queda
+  /// por debajo de [kZoomOutThreshold], y si bastara estar por debajo,
+  /// arrastrar el mapa —que no toca el zoom— lo sacaría del nivel.
   void _onInteractionEnd(ScaleEndDetails details) {
     if (_busy || _viewport.isEmpty) return;
     final scale = _controller.value.getMaxScaleOnAxis();
-    if (scale < kZoomOutThreshold) {
+    final change = scale / _gestureStartScale;
+    if (scale < kZoomOutThreshold && change < 1 / _kZoomChange) {
       setState(_goUp);
       return;
     }
-    if (scale <= kZoomInThreshold) return;
+    final drillAt = math.min(kZoomInThreshold, _fitScale * kZoomInFromFit);
+    if (scale <= drillAt || change < _kZoomChange) return;
 
     final center = _controller.toScene(
       Offset(_viewport.width / 2, _viewport.height / 2),
@@ -593,9 +617,10 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
                   key: const ValueKey('map-graph-canvas'),
                   transformationController: _controller,
                   constrained: false,
-                  minScale: 0.2,
+                  minScale: _kMinScale,
                   maxScale: 4,
                   boundaryMargin: const EdgeInsets.all(800),
+                  onInteractionStart: _onInteractionStart,
                   onInteractionEnd: _onInteractionEnd,
                   child: RepaintBoundary(
                     key: _boundaryKey,
@@ -610,7 +635,10 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
                           children: [
                             Positioned.fill(
                               child: CustomPaint(
-                                painter: _EdgesPainter(
+                                // Miles de líneas que no cambian mientras se
+                                // arrastra: que el motor las guarde dibujadas.
+                                isComplex: true,
+                                painter: MapEdgesPainter(
                                   scene: _scene,
                                   positions: _positions,
                                   colors: theme.colorScheme,
@@ -636,6 +664,14 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
             text: l10n.mapGraphTopicsCut(
               _scene.nodes.length,
               _scene.nodes.length + _scene.hidden,
+            ),
+          ),
+        if (_scene.hiddenEdges > 0 && _level == GraphLevel.topics)
+          _Footnote(
+            key: const ValueKey('map-graph-edges-cut'),
+            text: l10n.mapGraphEdgesCut(
+              _scene.edges.length,
+              _scene.edges.length + _scene.hiddenEdges,
             ),
           ),
         if (_scene.hidden > 0 && _level == GraphLevel.items)
@@ -914,54 +950,4 @@ class _Footnote extends StatelessWidget {
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
     );
   }
-}
-
-/// Las uniones entre nodos: más gruesas cuanto más pesan, en el color del error
-/// si son una tensión y, entre elementos, con el color de su tipo de vínculo.
-class _EdgesPainter extends CustomPainter {
-  const _EdgesPainter({
-    required this.scene,
-    required this.positions,
-    required this.colors,
-  });
-
-  final GraphScene scene;
-  final Map<String, Offset> positions;
-  final ColorScheme colors;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final edge in scene.edges) {
-      final a = positions[scene.nodes[edge.a].key];
-      final b = positions[scene.nodes[edge.b].key];
-      if (a == null || b == null) continue;
-
-      final relation = edge.relation;
-      final color = edge.tension
-          ? colors.error.withValues(alpha: 0.8)
-          : relation != null
-          ? relation.color(colors)
-          : colors.outline.withValues(alpha: 0.4);
-      final width = (1 + 0.7 * math.log(1 + edge.weight)).clamp(1.0, 5.0);
-      canvas.drawLine(
-        a,
-        b,
-        Paint()
-          ..color = color
-          ..strokeWidth = width,
-      );
-
-      // Entre elementos el vínculo tiene sentido: una punta hacia el destino.
-      if (relation != null && (b - a).distance > 40) {
-        final head = arrowHead(a, b, back: 22, length: 8, half: 4);
-        if (head != null) {
-          canvas.drawPath(arrowPath(head), Paint()..color = color);
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_EdgesPainter old) =>
-      old.scene != scene || old.positions != positions || old.colors != colors;
 }

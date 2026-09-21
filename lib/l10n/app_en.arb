@@ -3276,6 +3276,18 @@
       }
     }
   },
+  "mapGraphEdgesCut": "Showing the {shown} strongest links out of {total}: each topic keeps its strongest ones.",
+  "@mapGraphEdgesCut": {
+    "description": "Aviso del nivel de temas del grafo cuando hay más uniones de las que se dibujan: cada tema conserva las más fuertes.",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "mapGraphItemsCut": "Showing the {count} most recent items of this topic.",
   "@mapGraphItemsCut": {
     "description": "Aviso del grafo cuando un tema tiene más elementos de los que se dibujan.",

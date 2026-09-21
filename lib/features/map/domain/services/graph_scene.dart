@@ -86,15 +86,28 @@ class SceneEdge {
 /// Lo que se dibuja en un nivel del grafo de conocimiento: nodos y uniones, más
 /// lo que hace falta para acomodarlos.
 class GraphScene {
-  const GraphScene({required this.nodes, required this.edges, this.hidden = 0});
+  const GraphScene({
+    required this.nodes,
+    required this.edges,
+    this.hidden = 0,
+    this.hiddenEdges = 0,
+  });
 
-  const GraphScene.empty() : nodes = const [], edges = const [], hidden = 0;
+  const GraphScene.empty()
+    : nodes = const [],
+      edges = const [],
+      hidden = 0,
+      hiddenEdges = 0;
 
   final List<SceneNode> nodes;
   final List<SceneEdge> edges;
 
   /// Cuántos nodos quedaron sin dibujar por el tope del nivel.
   final int hidden;
+
+  /// Cuántas uniones quedaron sin dibujar porque no eran de las más fuertes de
+  /// ninguno de sus dos extremos: ver [strongestEdges].
+  final int hiddenEdges;
 
   int? indexOf(String key) {
     for (var i = 0; i < nodes.length; i++) {
@@ -142,6 +155,54 @@ SceneNode _overviewNode(TopicGraph graph, OverviewNode node, int index) {
     group: node.kind == OverviewKind.community ? node.communityIds.first : null,
     count: node.topicCount,
   );
+}
+
+/// Cuántas uniones conserva, como mucho, cada tema en el nivel de temas.
+const kTopicEdgesPerNode = 4;
+
+/// Las uniones que valen la pena dibujar: cada nodo conserva las [perNode] más
+/// fuertes de las suyas, y una unión sobrevive si es de las más fuertes de
+/// alguno de sus dos extremos. Las contradicciones se conservan siempre: son lo
+/// que el mapa tiene que señalar.
+///
+/// Entre trescientos temas hay miles de uniones —los que comparten algún
+/// elemento—, y dibujarlas todas no se lee: es una maraña, y es lo que más
+/// cuesta de dibujar en cada cuadro de un gesto —más que los trescientos nodos
+/// con sus etiquetas juntos—. Con las más fuertes de cada uno queda la
+/// estructura. Es determinista: a igual fuerza, gana la que venía antes.
+///
+/// Devuelve las uniones en su orden original, y a lo sumo `perNode` por nodo
+/// más las contradicciones.
+List<SceneEdge> strongestEdges(
+  List<SceneEdge> edges,
+  int nodeCount, {
+  int perNode = kTopicEdgesPerNode,
+}) {
+  final incident = List.generate(nodeCount, (_) => <int>[]);
+  for (var i = 0; i < edges.length; i++) {
+    incident[edges[i].a].add(i);
+    incident[edges[i].b].add(i);
+  }
+  final keep = [for (final edge in edges) edge.tension];
+  for (final list in incident) {
+    if (list.length <= perNode) {
+      for (final i in list) {
+        keep[i] = true;
+      }
+      continue;
+    }
+    list.sort((x, y) {
+      final byWeight = edges[y].weight.compareTo(edges[x].weight);
+      return byWeight != 0 ? byWeight : x.compareTo(y);
+    });
+    for (final i in list.take(perNode)) {
+      keep[i] = true;
+    }
+  }
+  return [
+    for (var i = 0; i < edges.length; i++)
+      if (keep[i]) edges[i],
+  ];
 }
 
 /// El nivel medio: los temas elegidos, coloreados por su comunidad, unidos por
@@ -197,6 +258,7 @@ GraphScene sceneOfTopics(
     }
   }
 
+  final drawn = strongestEdges(edges, selection.topics.length);
   return GraphScene(
     nodes: [
       for (final topic in selection.topics)
@@ -209,8 +271,9 @@ GraphScene sceneOfTopics(
           ref: graph.nodes[topic].valueId,
         ),
     ],
-    edges: edges,
+    edges: drawn,
     hidden: selection.hidden,
+    hiddenEdges: edges.length - drawn.length,
   );
 }
 

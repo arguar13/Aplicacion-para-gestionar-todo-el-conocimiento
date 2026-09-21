@@ -15,6 +15,7 @@ import 'package:sinapsis/features/map/domain/repositories/knowledge_map_reposito
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -75,14 +76,15 @@ void main() {
   late _FakeRepository repository;
   final opened = <String>[];
 
-  /// Dos comunidades de cuatro temas muy unidos entre sí —Alfa y Beta— con un
-  /// vínculo entre las dos, y un tema aislado.
+  /// Dos comunidades de temas muy unidos entre sí —Alfa, de [alfaSize], y
+  /// Beta, de cuatro— con un vínculo entre las dos, y un tema aislado.
   KnowledgeMapSnapshot snapshot({
     int sequence = 1,
     bool withBeta = true,
     int isolatedTopics = 1,
+    int alfaSize = 4,
   }) {
-    final alfa = ['a1', 'a2', 'a3', 'a4'];
+    final alfa = [for (var i = 1; i <= alfaSize; i++) 'a$i'];
     final beta = withBeta ? ['b1', 'b2', 'b3', 'b4'] : <String>[];
     final items = <TopicItem>[];
     for (final group in [alfa, beta]) {
@@ -160,8 +162,12 @@ void main() {
     ),
   );
 
-  Future<void> pump(WidgetTester tester, [KnowledgeMapSnapshot? map]) async {
-    tester.view.physicalSize = const Size(1000, 900);
+  Future<void> pump(
+    WidgetTester tester, [
+    KnowledgeMapSnapshot? map,
+    Size size = const Size(1000, 900),
+  ]) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(app(map ?? snapshot()));
@@ -315,8 +321,16 @@ void main() {
 
     testWidgets('un zoom moderado no cambia de nivel', (tester) async {
       await pump(tester);
+      final fit = tester
+          .widget<InteractiveViewer>(
+            find.byKey(const ValueKey('map-graph-canvas')),
+          )
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis();
 
-      zoom(tester, 1.5);
+      // Una vez y media el encuadre: lejos de tres veces.
+      zoom(tester, fit * 1.5);
       await tester.pumpAndSettle();
 
       expect(node('overview:0'), findsOneWidget);
@@ -334,6 +348,113 @@ void main() {
       expect(node('overview:0'), findsOneWidget);
       expect(node('topic:a1'), findsNothing);
     });
+
+    group('con el nivel encuadrado muy alejado', () {
+      // Un celular angosto: los temas de una comunidad quedan encuadrados
+      // por debajo del umbral de alejamiento.
+      const narrow = Size(120, 420);
+      final canvas = find.byKey(const ValueKey('map-graph-canvas'));
+
+      InteractiveViewer viewer(WidgetTester tester) =>
+          tester.widget<InteractiveViewer>(canvas);
+
+      double scaleOf(WidgetTester tester) =>
+          viewer(tester).transformationController!.value.getMaxScaleOnAxis();
+
+      /// Un gesto entero: empieza con el zoom de ahora, lo deja en [scale]
+      /// veces el que tenía, más lo que se corrió, y termina.
+      void gesture(
+        WidgetTester tester, {
+        double scale = 1,
+        Offset pan = Offset.zero,
+      }) {
+        final v = viewer(tester);
+        final controller = v.transformationController!;
+        v.onInteractionStart!(ScaleStartDetails());
+        final now = controller.value.getMaxScaleOnAxis();
+        controller.value = Matrix4.diagonal3Values(
+          now * scale,
+          now * scale,
+          now * scale,
+        )..setTranslationRaw(pan.dx, pan.dy, 0);
+        v.onInteractionEnd!(ScaleEndDetails());
+      }
+
+      Future<void> openAlfaTopics(WidgetTester tester) async {
+        // Una sola comunidad, de treinta temas: acercarse en el centro cae
+        // siempre en ella, y sus temas no caben a un zoom grande.
+        await pump(
+          tester,
+          snapshot(withBeta: false, isolatedTopics: 0, alfaSize: 30),
+          narrow,
+        );
+        gesture(tester, scale: 8);
+        await tester.pumpAndSettle();
+        expect(node('topic:a1'), findsOneWidget);
+        // La premisa: el encuadre quedó por debajo del umbral de alejamiento.
+        expect(scaleOf(tester), lessThan(kZoomOutThreshold));
+      }
+
+      testWidgets('arrastrar el mapa no lo saca del nivel', (tester) async {
+        await openAlfaTopics(tester);
+
+        gesture(tester, pan: const Offset(-30, -20));
+        await tester.pumpAndSettle();
+        gesture(tester, scale: 1.02, pan: const Offset(20, 10));
+        await tester.pumpAndSettle();
+
+        expect(node('topic:a1'), findsOneWidget);
+        expect(node('overview:0'), findsNothing);
+      });
+
+      testWidgets('alejarse un poco más sí vuelve al nivel anterior', (
+        tester,
+      ) async {
+        await openAlfaTopics(tester);
+
+        gesture(tester, scale: 0.8);
+        await tester.pumpAndSettle();
+
+        expect(node('overview:0'), findsOneWidget);
+        expect(node('topic:a1'), findsNothing);
+      });
+
+      testWidgets('acercarse a tres veces el encuadre pasa al siguiente nivel '
+          'sin llegar al umbral absoluto', (tester) async {
+        await openAlfaTopics(tester);
+        final fit = scaleOf(tester);
+        expect(fit * kZoomInFromFit, lessThan(kZoomInThreshold));
+
+        gesture(tester, scale: kZoomInFromFit + 0.5);
+        await tester.pumpAndSettle();
+
+        expect(node('topic:a1'), findsNothing);
+        expect(node('item:i1'), findsOneWidget);
+      });
+
+      testWidgets('acercarse menos que eso no cambia de nivel', (tester) async {
+        await openAlfaTopics(tester);
+
+        gesture(tester, scale: 2);
+        await tester.pumpAndSettle();
+
+        expect(node('topic:a1'), findsOneWidget);
+      });
+    });
+  });
+
+  testWidgets('las uniones se dibujan como una capa compleja y estable, para '
+      'que arrastrar no las vuelva a recorrer', (tester) async {
+    await pump(tester);
+
+    final layer = tester.widget<CustomPaint>(
+      find.byWidgetPredicate(
+        (widget) => widget is CustomPaint && widget.painter is MapEdgesPainter,
+      ),
+    );
+
+    expect(layer.isComplex, isTrue);
+    expect(layer.willChange, isFalse);
   });
 
   group('fuente y nota', () {
@@ -553,6 +674,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('map-graph-cut')), findsNothing);
+    expect(find.byKey(const ValueKey('map-graph-edges-cut')), findsNothing);
+  });
+
+  testWidgets('más uniones que las que se dibujan: se quedan las más fuertes '
+      'de cada tema y avisa', (tester) async {
+    // Doce temas todos unidos con todos: 66 uniones y unas pocas más con sus
+    // vecinos, y a lo sumo cuatro por tema.
+    await pump(tester, snapshot(alfaSize: 12));
+    await tester.tap(node('overview:0'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('map-graph-edges-cut')), findsOneWidget);
+    expect(find.textContaining('uniones más fuertes de'), findsOneWidget);
+    // Los doce temas siguen todos a la vista: solo se callan uniones.
+    for (var i = 1; i <= 12; i++) {
+      expect(node('topic:a$i'), findsOneWidget);
+    }
   });
 
   testWidgets('cada nodo se anuncia con lo que es', (tester) async {

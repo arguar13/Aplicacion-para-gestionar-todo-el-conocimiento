@@ -119,6 +119,135 @@ void main() {
     expect(scene.nodes[tension.b].ref, 'c');
   });
 
+  group('el tope de uniones del nivel de temas', () {
+    /// Todos con todos entre [n] nodos, con pesos que se repiten pero no
+    /// siempre.
+    List<SceneEdge> everyPair(int n) => [
+      for (var a = 0; a < n; a++)
+        for (var b = a + 1; b < n; b++)
+          SceneEdge(a: a, b: b, weight: 1.0 + (a * 7 + b * 3) % 11),
+    ];
+
+    test('cada nodo conserva las más fuertes de las suyas', () {
+      final edges = everyPair(8);
+
+      final kept = strongestEdges(edges, 8, perNode: 2);
+
+      expect(kept.length, lessThan(edges.length));
+      for (var node = 0; node < 8; node++) {
+        // Las dos más fuertes de este nodo, con el orden de siempre: por peso
+        // y, a igual peso, la que venía antes.
+        final incident =
+            [
+              for (var i = 0; i < edges.length; i++)
+                if (edges[i].a == node || edges[i].b == node) i,
+            ]..sort((x, y) {
+              final byWeight = edges[y].weight.compareTo(edges[x].weight);
+              return byWeight != 0 ? byWeight : x.compareTo(y);
+            });
+        for (final i in incident.take(2)) {
+          expect(kept, contains(edges[i]), reason: 'nodo $node, unión $i');
+        }
+      }
+    });
+
+    test('no pasa de perNode por nodo', () {
+      final edges = everyPair(40);
+
+      final kept = strongestEdges(edges, 40);
+
+      expect(kept.length, lessThanOrEqualTo(40 * kTopicEdgesPerNode));
+      expect(kept.length, lessThan(edges.length ~/ 4));
+    });
+
+    test('las contradicciones se conservan siempre, aunque sean débiles', () {
+      final edges = [
+        ...everyPair(6),
+        const SceneEdge(a: 0, b: 1, weight: 0.1, tension: true),
+      ];
+
+      final kept = strongestEdges(edges, 6, perNode: 1);
+
+      expect(kept.where((e) => e.tension), hasLength(1));
+    });
+
+    test('es determinista y conserva el orden en que venían', () {
+      final edges = [
+        for (var i = 1; i <= 6; i++) SceneEdge(a: 0, b: i, weight: 2),
+        for (var i = 1; i <= 6; i++) SceneEdge(a: i, b: i % 6 + 1, weight: 2),
+      ];
+
+      final first = strongestEdges(edges, 7, perNode: 2);
+      final second = strongestEdges(edges, 7, perNode: 2);
+
+      expect(first, second);
+      final positions = [for (final e in first) edges.indexOf(e)];
+      expect(positions, [...positions]..sort());
+    });
+
+    test('con pocas uniones por nodo no toca ninguna', () {
+      final edges = [
+        for (var i = 1; i <= 3; i++) SceneEdge(a: 0, b: i, weight: i * 1.0),
+      ];
+
+      expect(strongestEdges(edges, 4), edges);
+    });
+
+    test('la escena de temas dibuja las más fuertes y dice cuántas dejó', () {
+      // Doce temas que aparecen todos juntos: todos con todos.
+      final g = TopicGraph(
+        definitionId: 'tema',
+        definitionName: 'Tema',
+        nodes: [
+          for (var i = 0; i < 12; i++)
+            TopicNode(valueId: 't$i', label: 'T$i', depth: 0, itemCount: 3),
+        ],
+        edges: [
+          for (var a = 0; a < 12; a++)
+            for (var b = a + 1; b < 12; b++)
+              TopicEdge(
+                a: a,
+                b: b,
+                cooccurrence: 1 + (a + b) % 5,
+                relations: 0,
+                contradictions: 0,
+                openContradictions: 0,
+              ),
+        ],
+      );
+      final together = CommunityDetection(
+        communityOf: Int32List(12),
+        communities: const [
+          TopicCommunity(
+            id: 0,
+            members: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+            anchor: 0,
+            isIsolated: false,
+          ),
+        ],
+        memory: const CommunityMemory.none(),
+        passes: 1,
+        converged: true,
+        reassigned: 0,
+      );
+
+      final scene = sceneOfTopics(g, together, selectTopics(g));
+
+      // 66 uniones posibles, y a lo sumo cuatro por tema.
+      expect(scene.edges.length + scene.hiddenEdges, 66);
+      expect(scene.edges.length, lessThanOrEqualTo(12 * kTopicEdgesPerNode));
+      expect(scene.hiddenEdges, greaterThan(0));
+    });
+
+    test('con pocas uniones, la escena no dice que dejó ninguna', () {
+      final g = graph();
+
+      final scene = sceneOfTopics(g, detection(), selectTopics(g));
+
+      expect(scene.hiddenEdges, 0);
+    });
+  });
+
   test('los temas: un subtema se une a su padre con la jerarquía, y suma a lo '
       'que ya los une', () {
     final g = TopicGraph(
