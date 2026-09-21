@@ -14,10 +14,20 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// aunque quien la usa todavía no haya decidido con qué se relaciona.
 ///
 /// Compartido entre `RelationsSection` —vincular desde el detalle de un
-/// elemento— y `GraphScreen` —vincular dos elementos cualquiera desde el
-/// grafo—: las dos necesitan exactamente el mismo paso.
+/// elemento— y el grafo del mapa —vincular dos elementos cualquiera, o elegir
+/// entre los de un tema—: todos necesitan exactamente el mismo paso.
 class PickItemDialog extends ConsumerStatefulWidget {
-  const PickItemDialog({this.excludeItemId, this.title, super.key});
+  const PickItemDialog({
+    this.excludeItemId,
+    this.title,
+    this.scopeIds,
+    super.key,
+  });
+
+  /// Si no es `null`, la lista se limita a estos elementos y a ningún otro, en
+  /// vez de buscar en toda la biblioteca: para quien ya sabe entre cuáles se
+  /// elige, como los elementos de un tema.
+  final Set<String>? scopeIds;
 
   /// Un elemento que no debe aparecer en la lista — normalmente, aquel
   /// desde el que se está armando el vínculo. `null` cuando no hay ninguno
@@ -58,6 +68,7 @@ class _PickItemDialogState extends ConsumerState<PickItemDialog> {
 
     final query = LibraryQuery(
       searchText: searchText.isEmpty ? null : searchText,
+      ids: widget.scopeIds,
     );
     final items =
         (ref.watch(libraryItemsProvider(query)).valueOrNull ??

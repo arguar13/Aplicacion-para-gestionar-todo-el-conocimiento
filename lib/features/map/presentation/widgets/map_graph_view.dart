@@ -4,7 +4,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -15,6 +19,7 @@ import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.d
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Con más zoom que esto, se pasa al nivel de más detalle del nodo del centro.
@@ -489,6 +494,44 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     }
   }
 
+  // --- Vínculos ---
+
+  /// Los elementos del tema que se mira y los vínculos entre ellos, tal cual
+  /// están dibujados: de ahí salen los candidatos de la IA.
+  Future<void> _suggestRelations() async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final ids = {
+      for (final node in _scene.nodes)
+        if (node.ref case final id?) id,
+    };
+    final links = [
+      for (final edge in _scene.edges)
+        if (_scene.nodes[edge.a].ref case final from?)
+          if (_scene.nodes[edge.b].ref case final to?) (from: from, to: to),
+    ];
+
+    // Los títulos y el texto de cada elemento: la escena solo trae el título.
+    final loaded = await ref
+        .read(libraryRepositoryProvider)
+        .list(LibraryQuery(ids: ids));
+    if (!mounted) return;
+
+    final failure = loaded.getLeft().toNullable();
+    if (failure != null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
+      return;
+    }
+    await showAiSuggestRelationsDialog(
+      context,
+      ref,
+      items: loaded.getRight().toNullable() ?? const [],
+      links: links,
+    );
+  }
+
   // --- Dibujo ---
 
   @override
@@ -498,15 +541,36 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
 
     return Column(
       children: [
-        _Breadcrumb(
-          level: _level,
-          focusLabel: _focusLabel,
-          topicLabel: _topicLabel,
-          onOverview: () => setState(() {
-            _focus = {};
-            _goTo(GraphLevel.overview);
-          }),
-          onTopics: () => setState(() => _goTo(GraphLevel.topics)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _Breadcrumb(
+                level: _level,
+                focusLabel: _focusLabel,
+                topicLabel: _topicLabel,
+                onOverview: () => setState(() {
+                  _focus = {};
+                  _goTo(GraphLevel.overview);
+                }),
+                onTopics: () => setState(() => _goTo(GraphLevel.topics)),
+              ),
+            ),
+            // Solo con elementos a la vista hay entre qué sugerir.
+            if (_level == GraphLevel.items && !_busy && _scene.nodes.length > 1)
+              IconButton(
+                key: const ValueKey('map-graph-ai-suggest'),
+                tooltip: l10n.graphAiSuggestTooltip,
+                icon: const Icon(Icons.auto_awesome),
+                onPressed: () => unawaited(_suggestRelations()),
+              ),
+            IconButton(
+              key: const ValueKey('map-graph-add-relation'),
+              tooltip: l10n.graphAddRelationTooltip,
+              icon: const Icon(Icons.add_link),
+              onPressed: () => unawaited(showAddRelationFlow(context, ref)),
+            ),
+          ],
         ),
         if (_level == GraphLevel.overview && !_busy)
           Padding(

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -26,14 +25,18 @@ const _maxCandidates = 30;
 /// empezar a buscar, y por último muestra las sugerencias para revisar y
 /// confirmar.
 ///
-/// Separado en un solo punto de entrada, en vez de que `GraphScreen` arme
-/// cada paso, porque los tres pasos son una sola conversación con quien usa
-/// la app: mostrar solo el paso 3 sin los otros dos no tendría sentido.
+/// Separado en un solo punto de entrada, en vez de que el grafo arme cada
+/// paso, porque los tres pasos son una sola conversación con quien usa la
+/// app: mostrar solo el paso 3 sin los otros dos no tendría sentido.
+///
+/// La búsqueda se acota a [items]: el elemento de partida se elige entre ellos
+/// y los candidatos salen de ellos, sin los que ya están vinculados con él
+/// según [links].
 Future<void> showAiSuggestRelationsDialog(
   BuildContext context,
   WidgetRef ref, {
   required List<KnowledgeItem> items,
-  required List<RelationEdge> edges,
+  required List<({String from, String to})> links,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final ready = await ref.read(chatModelManagerProvider).isReady();
@@ -63,21 +66,21 @@ Future<void> showAiSuggestRelationsDialog(
     return;
   }
 
+  final itemsById = {for (final item in items) item.id: item};
   final seedId = await showDialog<String>(
     context: context,
-    builder: (context) => const PickItemDialog(),
+    builder: (context) => PickItemDialog(scopeIds: itemsById.keys.toSet()),
   );
   if (seedId == null || !context.mounted) return;
 
-  final itemsById = {for (final item in items) item.id: item};
   final seed = itemsById[seedId];
   if (seed == null) return;
 
   final alreadyLinked = <String>{
-    for (final edge in edges)
-      if (edge.fromItemId == seedId) edge.toItemId,
-    for (final edge in edges)
-      if (edge.toItemId == seedId) edge.fromItemId,
+    for (final link in links)
+      if (link.from == seedId) link.to,
+    for (final link in links)
+      if (link.to == seedId) link.from,
   };
 
   final candidates = [

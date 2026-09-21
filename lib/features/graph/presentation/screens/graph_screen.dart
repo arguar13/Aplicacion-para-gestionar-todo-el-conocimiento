@@ -369,7 +369,10 @@ class _GraphBodyState extends ConsumerState<_GraphBody> {
               context,
               ref,
               items: widget.items,
-              edges: widget.edges,
+              links: [
+                for (final edge in widget.edges)
+                  (from: edge.fromItemId, to: edge.toItemId),
+              ],
             ),
             child: const Icon(Icons.auto_awesome),
           ),
