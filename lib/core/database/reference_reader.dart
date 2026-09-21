@@ -23,6 +23,15 @@ class ReferenceReader {
   /// de SQLite.
   static const _idsPerQuery = 400;
 
+  /// Las tablas de las que depende lo que se lee: la referencia, sus personas y
+  /// el nombre de cada persona. Para quien quiere volver a leer cuando alguna
+  /// cambia.
+  List<TableInfo<dynamic, dynamic>> get tables => [
+    _db.sourceReferences,
+    _db.sourceContributors,
+    _db.propertyValues,
+  ];
+
   /// Los datos de [itemId]. Una fuente sin nada guardado devuelve una
   /// referencia vacía, no `null`: quien cita marca lo que falta.
   Future<ReferenceData> read(String itemId) async =>
