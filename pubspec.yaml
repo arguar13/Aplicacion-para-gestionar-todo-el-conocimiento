@@ -41,6 +41,11 @@ dependencies:
   # el mismo widget.
   desktop_drop: ^0.8.4
   dio: ^5.7.0
+  # Cuánto espacio libre queda en el disco de la bóveda: lo que decide si hay
+  # lugar para compactarla (mientras corre, VACUUM pide el doble de lo que la
+  # base tiene de verdad). Existe solo para Android e iOS; en escritorio la
+  # sonda dice «no se sabe» (ver `DiskSpacePlusFreeSpaceProbe`).
+  disk_space_plus: ^0.2.6
   # Base de datos local. `drift_flutter` resuelve por sí solo las librerías
   # nativas de SQLite y la ruta del archivo en cada plataforma; no hace falta
   # agregar `sqlite3_flutter_libs` a mano (de hecho ya está deprecado a favor
