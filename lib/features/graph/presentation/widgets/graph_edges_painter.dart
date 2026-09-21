@@ -19,12 +19,11 @@ typedef GraphEdge = (String from, String to, RelationKind kind, String label);
 /// estilo de la relación con nombre de un diagrama entidad-relación.
 ///
 /// Cada nodo se dibuja como una tarjeta rectangular, al estilo de una
-/// entidad en un diagrama entidad-relación (ver `_GraphNode` en
-/// `graph_screen.dart`) — no como un círculo. La línea tiene que terminar
-/// justo en el borde de esa tarjeta, en el lado que mira hacia la otra, y
-/// no a una distancia fija del centro como alcanzaba con un círculo: un
-/// nodo ancho y bajo tiene un borde mucho más cerca del centro por arriba
-/// que por los costados. [clipToRectBorder] es ese cálculo.
+/// entidad en un diagrama entidad-relación — no como un círculo. La línea
+/// tiene que terminar justo en el borde de esa tarjeta, en el lado que mira
+/// hacia la otra, y no a una distancia fija del centro como alcanzaba con un
+/// círculo: un nodo ancho y bajo tiene un borde mucho más cerca del centro
+/// por arriba que por los costados. [clipToRectBorder] es ese cálculo.
 class GraphEdgesPainter extends CustomPainter {
   GraphEdgesPainter({
     required this.edges,

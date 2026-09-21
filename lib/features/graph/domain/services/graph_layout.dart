@@ -23,8 +23,8 @@ import 'dart:ui';
 /// ese rectángulo en cada iteración; eso hacía que un grafo con muchos nodos
 /// —o con componentes sueltos que se repelen sin nada que los atraiga de
 /// vuelta— chocara contra un borde artificial en vez de separarse lo que la
-/// física del layout pedía. `GraphScreen` es quien decide, con `Clip.none` y
-/// un `boundaryMargin` sin tope, que ese resultado —por más grande que
+/// física del layout pedía. Quien lo dibuja es quien decide, con `Clip.none`
+/// y un `boundaryMargin` sin tope, que ese resultado —por más grande que
 /// termine siendo— siempre se vea entero.
 Map<String, Offset> computeGraphLayout({
   required List<String> nodeIds,

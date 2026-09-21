@@ -224,7 +224,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
             Rect.fromCenter(center: at, width: 150, height: 34),
             fill: role.surface(scheme),
             stroke: role.outline(scheme),
-            radius: node.kind == SceneKind.note ? 17 : 6,
+            radius: role.radius,
           )
           ..text(
             SvgWriter.ellipsize(label, 22),
@@ -764,9 +764,7 @@ class _NodeBody extends StatelessWidget {
         decoration: BoxDecoration(
           color: role.surface(colors),
           border: Border.all(color: role.outline(colors)),
-          borderRadius: BorderRadius.circular(
-            node.kind == SceneKind.note ? 17 : 6,
-          ),
+          borderRadius: BorderRadius.circular(role.radius),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),

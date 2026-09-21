@@ -16,7 +16,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 const kNavRailBreakpoint = 600.0;
 
 /// El shell de navegación principal: biblioteca, bandeja, atlas, explorador,
-/// grafo, chat, repaso y ajustes, cada uno con su propio `Navigator` —vía
+/// mapa, chat, repaso y ajustes, cada uno con su propio `Navigator` —vía
 /// `StatefulShellRoute.indexedStack` en `app_router.dart`— para que cambiar
 /// de pestaña y volver conserve el scroll y los filtros de cada una.
 ///

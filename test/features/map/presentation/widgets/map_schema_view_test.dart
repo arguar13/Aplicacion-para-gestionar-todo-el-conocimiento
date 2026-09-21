@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
@@ -381,6 +382,46 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('map-schema-pick-note-n1')), findsNothing);
+  });
+
+  testWidgets('una fuente y una nota se dibujan distinto, con la forma y el '
+      'color de su rol', (tester) async {
+    repository
+      ..links['topic:roma'] = const [
+        SchemaLink(
+          target: SchemaRef.item('n1'),
+          title: 'Cartas',
+          edge: SchemaEdgeKind.mapNote,
+          isNote: true,
+        ),
+      ]
+      ..links['item:n1'] = const [
+        SchemaLink(
+          target: SchemaRef.item('s1'),
+          title: 'Livio',
+          edge: SchemaEdgeKind.relation,
+          relation: RelationKind.cites,
+        ),
+      ];
+    await pump(tester);
+    await tester.tap(node('item:n1'));
+    await tester.pumpAndSettle();
+    final scheme = Theme.of(tester.element(node('item:n1'))).colorScheme;
+
+    Material cardOf(String key) => tester.widget<Material>(node(key));
+    BorderRadius radiusOf(Material card) =>
+        (card.shape! as RoundedRectangleBorder).borderRadius as BorderRadius;
+
+    expect(
+      radiusOf(cardOf('item:s1')),
+      BorderRadius.circular(EntityRole.source.radius),
+    );
+    expect(
+      radiusOf(cardOf('item:n1')),
+      BorderRadius.circular(EntityRole.note.radius),
+    );
+    expect(cardOf('item:s1').color, EntityRole.source.surface(scheme));
+    expect(cardOf('item:n1').color, EntityRole.note.surface(scheme));
   });
 
   group('la exportación', () {

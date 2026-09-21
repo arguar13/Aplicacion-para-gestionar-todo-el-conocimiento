@@ -17,8 +17,8 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuánto se aleja cada nodo del borde del lienzo y del visor al encuadrar:
-/// la mitad de la diagonal de [compactGraphNodeSize], con el mismo margen
-/// de sobra que `_kNodeMargin` en `GraphScreen`.
+/// la mitad de la diagonal de [compactGraphNodeSize], con un margen de
+/// sobra.
 final _kNodeMargin =
     math.sqrt(
       compactGraphNodeSize.width * compactGraphNodeSize.width / 4 +
@@ -31,9 +31,9 @@ final _kNodeMargin =
 /// una nota mapa desde cualquier vista de grafo (decisión D4 de F6, ver
 /// `docs/arquitectura.md`).
 ///
-/// Sin selector de espacio ni de componente conexo, a diferencia de
-/// `GraphScreen`: acá todo lo que se ve ya está conectado por construcción
-/// a la semilla, así que ninguno de los dos aplicaría.
+/// Sin selector de espacio ni de componente conexo: todo lo que se ve ya
+/// está conectado por construcción a la semilla, así que ninguno de los dos
+/// aplicaría.
 class LocalGraphScreen extends ConsumerStatefulWidget {
   const LocalGraphScreen({required this.itemId, super.key});
 
@@ -44,9 +44,8 @@ class LocalGraphScreen extends ConsumerStatefulWidget {
 }
 
 class _LocalGraphScreenState extends ConsumerState<LocalGraphScreen> {
-  /// A diferencia de `GraphScreen`, que arranca sin techo, acá arranca en
-  /// 1: un panel embebido ya mostró los vecinos directos, así que abrir la
-  /// pantalla completa con lo mismo es el punto de partida menos
+  /// Arranca en 1: un panel embebido ya mostró los vecinos directos, así que
+  /// abrir la pantalla completa con lo mismo es el punto de partida menos
   /// sorprendente.
   ///
   /// Vive acá y no en el cuerpo porque el grado decide QUÉ se le pide a la
@@ -274,8 +273,8 @@ class _LocalGraphBodyState extends ConsumerState<_LocalGraphBody> {
     return InteractiveViewer(
       transformationController: _transformController,
       constrained: false,
-      // Sin tope, mismo criterio que `GraphScreen`: un layout de fuerzas
-      // sin límite necesita un paneo que tampoco lo tenga.
+      // Sin tope: un layout de fuerzas sin límite necesita un paneo que
+      // tampoco lo tenga.
       boundaryMargin: const EdgeInsets.all(double.infinity),
       minScale: 0.1,
       maxScale: 3,

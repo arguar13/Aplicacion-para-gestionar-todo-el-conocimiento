@@ -14,15 +14,16 @@ import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
-import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../support/fake_shared_content_listener.dart';
+import '../../support/map_overrides.dart';
 import '../../support/vault_test_doubles.dart';
 
 /// El shell de navegación (barra abajo en celular, riel al costado en
@@ -69,6 +70,8 @@ void main() {
           ref.onDispose(db.close);
           return db;
         }),
+        // La pestaña del Mapa calcula en un isolate: ver `mapInlineOverrides`.
+        ...mapInlineOverrides,
       ],
     );
     addTearDown(container.dispose);
@@ -108,7 +111,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.hub_outlined));
       await tester.pumpAndSettle();
 
-      expect(find.byType(GraphScreen), findsOneWidget);
+      expect(find.byType(MapScreen), findsOneWidget);
     });
 
     testWidgets('la barra muestra cinco destinos y un «Más» (F13, D1)', (
@@ -129,7 +132,7 @@ void main() {
         es.navLibrary,
         es.navInbox,
         es.navAtlas,
-        es.navGraph,
+        es.navMap,
         es.navReview,
         es.navMore,
       ]);
@@ -269,7 +272,7 @@ void main() {
         es.navInbox,
         es.navAtlas,
         es.navExplorer,
-        es.navGraph,
+        es.navMap,
         es.navChat,
         es.navReview,
         es.navSettings,

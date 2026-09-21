@@ -16,7 +16,6 @@ import 'package:sinapsis/features/duplicates/presentation/screens/possible_dupli
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
-import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
 import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
@@ -190,11 +189,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EmbeddingBackfillScreen(),
       ),
       GoRoute(
-        path: RoutePaths.map,
-        name: RouteNames.map,
-        builder: (context, state) => const MapScreen(),
-      ),
-      GoRoute(
         path: RoutePaths.graphTension,
         name: RouteNames.graphTension,
         builder: (context, state) => const TensionScreen(),
@@ -266,7 +260,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.graph,
                 name: RouteNames.graph,
-                builder: (context, state) => const GraphScreen(),
+                builder: (context, state) => const MapScreen(),
               ),
             ],
           ),

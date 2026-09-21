@@ -2014,17 +2014,9 @@
   "@libraryGraphTooltip": {
     "description": "Tooltip del ícono que lleva al grafo de relaciones."
   },
-  "graphTitle": "Grafo de relaciones",
-  "@graphTitle": {
-    "description": "Título de la pantalla del grafo."
-  },
   "graphEmpty": "Todavía no hay ningún vínculo entre elementos. Creá uno desde el detalle de cualquier elemento para verlo acá.",
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
-  },
-  "graphScopeEmpty": "No hay vínculos para este tema y este grado. Probá otro tema o ampliá el grado.",
-  "@graphScopeEmpty": {
-    "description": "Mensaje cuando el filtro de tema y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
   },
   "localGraphTitle": "Grafo local de {title}",
   "@localGraphTitle": {
@@ -2061,18 +2053,6 @@
       }
     }
   },
-  "graphSpaceFilterAll": "Todos los temas",
-  "@graphSpaceFilterAll": {
-    "description": "Opción del selector de tema del grafo que no filtra por ninguno."
-  },
-  "graphSpaceFilterNone": "Sin tema",
-  "@graphSpaceFilterNone": {
-    "description": "Opción del selector de tema del grafo para los elementos sin tema asignado."
-  },
-  "graphSpaceFilterTooltip": "Filtrar por tema",
-  "@graphSpaceFilterTooltip": {
-    "description": "Tooltip del selector de tema del grafo."
-  },
   "graphDegreeLabel": "Grado",
   "@graphDegreeLabel": {
     "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el tema elegido."
@@ -2080,30 +2060,6 @@
   "graphDegreeAll": "Todos",
   "@graphDegreeAll": {
     "description": "Opción del selector de grado que no pone techo a la expansión."
-  },
-  "graphComponentAllLabel": "Todos juntos",
-  "@graphComponentAllLabel": {
-    "description": "Chip que muestra el grafo entero de una, en vez de un solo tema a la vez."
-  },
-  "graphComponentTagLabel": "{tag} ({count})",
-  "@graphComponentTagLabel": {
-    "description": "Etiqueta de un chip de tema del grafo, cuando sus elementos comparten una etiqueta.",
-    "placeholders": {
-      "tag": {"type": "String"},
-      "count": {"type": "int"}
-    }
-  },
-  "graphComponentFallbackLabel": "{title} y otros ({count})",
-  "@graphComponentFallbackLabel": {
-    "description": "Etiqueta de un chip de tema del grafo cuando sus elementos no comparten ninguna etiqueta: usa el título del elemento más conectado del grupo.",
-    "placeholders": {
-      "title": {"type": "String"},
-      "count": {"type": "int"}
-    }
-  },
-  "graphComponentsHint": "La bóveda tiene varios temas sin vínculos entre sí. Elegí cuál mirar.",
-  "@graphComponentsHint": {
-    "description": "Explica por qué apareció el selector de temas del grafo, la primera vez que hay más de uno."
   },
   "graphZoomInTooltip": "Acercar",
   "@graphZoomInTooltip": {
@@ -2116,18 +2072,6 @@
   "graphFitViewTooltip": "Encuadrar todo",
   "@graphFitViewTooltip": {
     "description": "Tooltip del botón que vuelve a centrar y escalar la vista para que quepan todos los nodos visibles."
-  },
-  "graphLegendTooltip": "Referencias",
-  "@graphLegendTooltip": {
-    "description": "Tooltip del botón que abre las referencias de colores del grafo."
-  },
-  "graphLegendSpacesTitle": "Temas",
-  "@graphLegendSpacesTitle": {
-    "description": "Encabezado de la sección de temas en las referencias del grafo."
-  },
-  "graphLegendRelationsTitle": "Tipos de vínculo",
-  "@graphLegendRelationsTitle": {
-    "description": "Encabezado de la sección de tipos de vínculo en las referencias del grafo."
   },
   "graphAddRelationTooltip": "Agregar vínculo",
   "@graphAddRelationTooltip": {
@@ -2669,9 +2613,9 @@
   "@navExplorer": {
     "description": "Etiqueta corta del destino del Explorador en la navegación principal."
   },
-  "navGraph": "Grafo",
-  "@navGraph": {
-    "description": "Etiqueta corta del destino de grafo en la navegación principal."
+  "navMap": "Mapa",
+  "@navMap": {
+    "description": "Etiqueta corta del destino del mapa de conocimiento en la navegación principal."
   },
   "navChat": "Chat",
   "@navChat": {

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
@@ -332,6 +333,46 @@ void main() {
 
       expect(node('overview:0'), findsOneWidget);
       expect(node('topic:a1'), findsNothing);
+    });
+  });
+
+  group('fuente y nota', () {
+    testWidgets('se dibujan distinto, con la forma y el color de su rol', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.tap(node('overview:0'));
+      await tester.pumpAndSettle();
+      await tester.tap(node('topic:a1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-graph-action-items')));
+      await tester.pumpAndSettle();
+      final scheme = Theme.of(tester.element(find.text('Livio'))).colorScheme;
+
+      BoxDecoration decorationOf(String title) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .ancestor(
+                          of: find.text(title),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+
+      expect(
+        decorationOf('Livio').borderRadius,
+        BorderRadius.circular(EntityRole.source.radius),
+      );
+      expect(
+        decorationOf('Mi nota').borderRadius,
+        BorderRadius.circular(EntityRole.note.radius),
+      );
+      expect(decorationOf('Livio').color, EntityRole.source.surface(scheme));
+      expect(decorationOf('Mi nota').color, EntityRole.note.surface(scheme));
+      expect(decorationOf('Livio').color, isNot(decorationOf('Mi nota').color));
     });
   });
 

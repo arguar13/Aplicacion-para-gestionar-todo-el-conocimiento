@@ -92,7 +92,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(harness.wrapWithAppRouter());
     await tester.pumpAndSettle();
-    harness.goTo(RoutePaths.map);
+    harness.goTo(RoutePaths.graph);
     await tester.pumpAndSettle();
     await tester.tap(find.text(es.mapViewGraph));
     await tester.pumpAndSettle();

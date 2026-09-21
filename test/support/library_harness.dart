@@ -13,7 +13,6 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
-import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
@@ -23,9 +22,6 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
-import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
-import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
-import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -51,6 +47,7 @@ import 'fake_summarization_service.dart';
 import 'fake_text_to_speech_service.dart';
 import 'fake_whisper_model_manager.dart';
 import 'in_memory_file_store.dart';
+import 'map_overrides.dart';
 import 'vault_test_doubles.dart';
 
 /// Lo que necesita cualquier prueba de las pantallas de la biblioteca.
@@ -254,26 +251,9 @@ class LibraryHarness {
         // un test, mismo motivo que el modelo de Whisper o el de Gemma.
         textToSpeechServiceProvider.overrideWithValue(textToSpeechService),
         clockProvider.overrideWithValue(() => fixedNow),
-        // El motor del mapa calcula en un isolate, y un `Isolate.run` no
-        // termina bajo el reloj simulado de las pruebas de widgets: acá
-        // calcula en el propio isolate y sin esperar, que es lo mismo pero
-        // que una prueba puede recorrer.
-        // Lo mismo con el acomodo del grafo de conocimiento: en el propio
-        // isolate.
-        mapLayoutRunnerProvider.overrideWithValue(
-          (job) async => runLayout(job),
-        ),
-        knowledgeMapEngineProvider.overrideWith((ref) {
-          final engine = KnowledgeMapEngine(
-            repository: ref.watch(knowledgeMapRepositoryProvider),
-            telemetry: ref.watch(telemetryServiceProvider),
-            compute: (input, memory) async => computeMap(input, memory),
-            debounce: Duration.zero,
-            maxWait: Duration.zero,
-          );
-          ref.onDispose(engine.dispose);
-          return engine;
-        }),
+        // El mapa calcula en un isolate, que no termina bajo el reloj
+        // simulado: ver `mapInlineOverrides`.
+        ...mapInlineOverrides,
         // La bóveda, para las pruebas que montan el router real: su guard
         // decide qué pantalla se ve.
         vaultLocalDataSourceProvider.overrideWithValue(

@@ -194,7 +194,7 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
           fill: isTopic ? scheme.surfaceContainerHigh : role.surface(scheme),
           stroke: entry.expanded ? accent : accent.withValues(alpha: 0.5),
           strokeWidth: entry.expanded ? 2 : 1,
-          radius: entry.isNote ? 22 : 8,
+          radius: isTopic ? 8 : role.radius,
         )
         ..text(
           SvgWriter.ellipsize(entry.title, 22),
@@ -497,7 +497,7 @@ class _NodeCard extends StatelessWidget {
             color: entry.expanded ? accent : accent.withValues(alpha: 0.5),
             width: entry.expanded ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(entry.isNote ? 22 : 8),
+          borderRadius: BorderRadius.circular(isTopic ? 8 : role.radius),
         ),
         child: InkWell(
           customBorder: const StadiumBorder(),

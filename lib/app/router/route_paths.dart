@@ -31,10 +31,6 @@ abstract final class RoutePaths {
   /// Un destino de navegación principal.
   static const atlas = '/atlas';
 
-  /// El mapa de conocimiento: el tablero, el esquema y el grafo de temas
-  /// (F14).
-  static const map = '/map';
-
   /// La Bandeja de entrada: lo recién procesado, esperando triaje.
   static const inbox = '/inbox';
 
@@ -105,7 +101,10 @@ abstract final class RoutePaths {
       '$timeline?value=${Uri.encodeQueryComponent(valueId)}'
       '&label=${Uri.encodeQueryComponent(label)}';
 
-  /// La bóveda como un grafo de vínculos.
+  /// El Mapa de conocimiento (F14): el tablero, el esquema y el grafo de
+  /// temas. Un destino de navegación principal. Conserva el camino `/graph`
+  /// del grafo completo al que reemplazó porque de él cuelgan [graphTension] y
+  /// [graphLocalPattern].
   static const graph = '/graph';
 
   /// Los pares de elementos que se contradicen entre sí, en toda la
@@ -158,7 +157,6 @@ abstract final class RouteNames {
   static const itemDetail = 'item-detail';
   static const explorer = 'explorer';
   static const atlas = 'atlas';
-  static const map = 'map';
   static const inbox = 'inbox';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';

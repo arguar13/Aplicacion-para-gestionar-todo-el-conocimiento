@@ -18,8 +18,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// El espacio de trabajo del layout de fuerzas: de sobra para los pocos
 /// nodos que entran con `degree: 1` fijo. No es el tamaño real en
 /// pantalla —eso lo decide `LayoutBuilder` en el build— sino solo la
-/// escala de partida del cálculo, igual de "de mentira" que la de
-/// `GraphScreen`.
+/// escala de partida del cálculo.
 const _kCanvasSize = Size(360, 240);
 
 /// El alto fijo del panel embebido.

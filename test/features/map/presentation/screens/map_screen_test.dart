@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
@@ -101,7 +102,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(harness.wrapWithAppRouter());
     await tester.pumpAndSettle();
-    harness.goTo(RoutePaths.map);
+    harness.goTo(RoutePaths.graph);
     await tester.pumpAndSettle();
   }
 
@@ -116,7 +117,14 @@ void main() {
     await seed();
     await pump(tester);
 
-    expect(find.text(es.mapTitle), findsOneWidget);
+    // «Mapa» es también la etiqueta de la pestaña: el título es el de la barra.
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text(es.mapTitle),
+      ),
+      findsOneWidget,
+    );
     expect(find.text(es.mapTopicCount(3)), findsOneWidget);
     expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
     // Roma tiene tres fuentes; Grecia, dos; Egipto, una.
@@ -152,6 +160,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ExplorerScreen), findsOneWidget);
+  });
+
+  testWidgets('en el grafo, tocar un elemento abre su detalle', (tester) async {
+    await seed();
+    await pump(tester);
+    await tester.tap(find.text(es.mapViewGraph));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('map-graph-node-overview:0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('map-graph-node-topic:roma')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('map-graph-action-items')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('map-graph-node-item:s3')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ItemDetailScreen), findsOneWidget);
   });
 
   testWidgets('se actualiza solo: guardar algo nuevo cambia el tablero', (

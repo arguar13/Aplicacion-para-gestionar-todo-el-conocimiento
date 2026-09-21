@@ -36,10 +36,10 @@ class NavDestinationSpec {
 const kAtlasBranchIndex = 7;
 
 /// Arma la lista de destinos principales, en el orden en que se ven:
-/// biblioteca, bandeja de entrada, atlas, explorador, grafo, chat, repaso,
+/// biblioteca, bandeja de entrada, atlas, explorador, mapa, chat, repaso,
 /// ajustes. Cada uno sabe su rama ([NavDestinationSpec.branchIndex]).
 ///
-/// En el celular la barra muestra cinco —biblioteca, bandeja, atlas, grafo y
+/// En el celular la barra muestra cinco —biblioteca, bandeja, atlas, mapa y
 /// repaso— y un «Más» con el resto ([NavDestinationSpec.onPhoneBar]).
 ///
 /// Es una función y no una constante porque necesita `l10n` (idioma activo)
@@ -92,7 +92,7 @@ List<NavDestinationSpec> buildNavDestinations({
       label: l10n.navAtlas,
       onPhoneBar: true,
     ),
-    // Entre bandeja y grafo, tal como pidió el usuario: es el punto medio
+    // Entre bandeja y mapa, tal como pidió el usuario: es el punto medio
     // natural entre "todo lo guardado" y "todo lo vinculado" — la vitrina de
     // resultados ya organizados por carpeta.
     NavDestinationSpec(
@@ -105,7 +105,7 @@ List<NavDestinationSpec> buildNavDestinations({
       branchIndex: 3,
       icon: const Icon(Icons.hub_outlined),
       selectedIcon: const Icon(Icons.hub),
-      label: l10n.navGraph,
+      label: l10n.navMap,
       onPhoneBar: true,
     ),
     // Sin web a propósito: el chat necesita flutter_gemma corriendo en el

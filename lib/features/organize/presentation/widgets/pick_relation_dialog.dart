@@ -5,8 +5,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Elige qué tipo de vínculo es, y opcionalmente por qué.
 ///
-/// Compartido entre `RelationsSection` y `GraphScreen` — ver `PickItemDialog`
-/// para la misma razón.
+/// Compartido entre `RelationsSection` y el grafo del mapa — ver
+/// `PickItemDialog` para la misma razón.
 class PickRelationDialog extends StatefulWidget {
   const PickRelationDialog({super.key});
 

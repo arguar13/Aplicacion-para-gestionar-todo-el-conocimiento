@@ -2271,17 +2271,9 @@
   "@libraryGraphTooltip": {
     "description": "Tooltip del ícono que lleva al grafo de relaciones."
   },
-  "graphTitle": "Relationship graph",
-  "@graphTitle": {
-    "description": "Título de la pantalla del grafo."
-  },
   "graphEmpty": "There are no links between items yet. Create one from any item's detail to see it here.",
   "@graphEmpty": {
     "description": "Mensaje cuando la bóveda no tiene ningún vínculo creado todavía."
-  },
-  "graphScopeEmpty": "There are no links for this topic and degree. Try another topic or a wider degree.",
-  "@graphScopeEmpty": {
-    "description": "Mensaje cuando el filtro de tema y grado no deja ningún vínculo, aunque la bóveda sí tiene otros."
   },
   "localGraphTitle": "Local graph of {title}",
   "@localGraphTitle": {
@@ -2318,18 +2310,6 @@
       }
     }
   },
-  "graphSpaceFilterAll": "All topics",
-  "@graphSpaceFilterAll": {
-    "description": "Opción del selector de tema del grafo que no filtra por ninguno."
-  },
-  "graphSpaceFilterNone": "No topic",
-  "@graphSpaceFilterNone": {
-    "description": "Opción del selector de tema del grafo para los elementos sin tema asignado."
-  },
-  "graphSpaceFilterTooltip": "Filter by topic",
-  "@graphSpaceFilterTooltip": {
-    "description": "Tooltip del selector de tema del grafo."
-  },
   "graphDegreeLabel": "Degree",
   "@graphDegreeLabel": {
     "description": "Encabezado de los chips que eligen cuántos saltos expandir desde el tema elegido."
@@ -2337,30 +2317,6 @@
   "graphDegreeAll": "All",
   "@graphDegreeAll": {
     "description": "Opción del selector de grado que no pone techo a la expansión."
-  },
-  "graphComponentAllLabel": "All together",
-  "@graphComponentAllLabel": {
-    "description": "Chip that shows the whole graph at once, instead of one topic at a time."
-  },
-  "graphComponentTagLabel": "{tag} ({count})",
-  "@graphComponentTagLabel": {
-    "description": "Label for a graph topic chip, when its items share a tag.",
-    "placeholders": {
-      "tag": {"type": "String"},
-      "count": {"type": "int"}
-    }
-  },
-  "graphComponentFallbackLabel": "{title} and others ({count})",
-  "@graphComponentFallbackLabel": {
-    "description": "Label for a graph topic chip when its items share no tag: uses the title of the most-connected item in the group.",
-    "placeholders": {
-      "title": {"type": "String"},
-      "count": {"type": "int"}
-    }
-  },
-  "graphComponentsHint": "The vault has several topics with no links between them. Pick which one to look at.",
-  "@graphComponentsHint": {
-    "description": "Explains why the graph topic selector appeared, the first time there's more than one topic."
   },
   "graphZoomInTooltip": "Zoom in",
   "@graphZoomInTooltip": {
@@ -2373,18 +2329,6 @@
   "graphFitViewTooltip": "Fit to view",
   "@graphFitViewTooltip": {
     "description": "Tooltip for the button that re-centers and rescales the view so every visible node fits."
-  },
-  "graphLegendTooltip": "Legend",
-  "@graphLegendTooltip": {
-    "description": "Tooltip del botón que abre las referencias de colores del grafo."
-  },
-  "graphLegendSpacesTitle": "Topics",
-  "@graphLegendSpacesTitle": {
-    "description": "Encabezado de la sección de temas en las referencias del grafo."
-  },
-  "graphLegendRelationsTitle": "Link types",
-  "@graphLegendRelationsTitle": {
-    "description": "Encabezado de la sección de tipos de vínculo en las referencias del grafo."
   },
   "graphAddRelationTooltip": "Add link",
   "@graphAddRelationTooltip": {
@@ -2890,9 +2834,9 @@
   "@navExplorer": {
     "description": "Etiqueta corta del destino del Explorador en la navegación principal."
   },
-  "navGraph": "Graph",
-  "@navGraph": {
-    "description": "Etiqueta corta del destino de grafo en la navegación principal."
+  "navMap": "Map",
+  "@navMap": {
+    "description": "Etiqueta corta del destino del mapa de conocimiento en la navegación principal."
   },
   "navChat": "Chat",
   "@navChat": {

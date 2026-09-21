@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
-import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
-import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
@@ -17,7 +15,6 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
-import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_event_bar.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_events_painter.dart';
 import 'package:sinapsis/features/timeline/presentation/widgets/timeline_frame.dart';
@@ -269,50 +266,6 @@ void main() {
   });
 
   group('grafo', () {
-    Future<void> linkBoth() async {
-      final (source, note) = await seedBoth();
-      await harness.container
-          .read(organizeRepositoryProvider)
-          .createRelation(
-            fromItemId: note.id,
-            toItemId: source.id,
-            kind: RelationKind.cites,
-          );
-    }
-
-    testWidgets('el grafo completo dibuja distinto una fuente y una nota', (
-      tester,
-    ) async {
-      await linkBoth();
-      await pump(tester, const GraphScreen());
-
-      BoxDecoration decorationOf(String title) =>
-          tester
-                  .widget<AnimatedContainer>(
-                    find
-                        .ancestor(
-                          of: find.text(title),
-                          matching: find.byType(AnimatedContainer),
-                        )
-                        .first,
-                  )
-                  .decoration!
-              as BoxDecoration;
-
-      expect(
-        decorationOf('Una fuente').borderRadius,
-        BorderRadius.circular(EntityRole.source.radius),
-      );
-      expect(
-        decorationOf('Una nota').borderRadius,
-        BorderRadius.circular(EntityRole.note.radius),
-      );
-      expect(
-        decorationOf('Una fuente').color,
-        isNot(decorationOf('Una nota').color),
-      );
-    });
-
     testWidgets('el nodo del grafo local también', (tester) async {
       final (source, note) = await seedBoth();
       await pump(

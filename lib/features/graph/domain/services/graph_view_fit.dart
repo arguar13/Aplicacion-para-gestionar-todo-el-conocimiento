@@ -10,11 +10,9 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4;
 /// layout decide *dónde* va cada nodo dentro del lienzo, esto decide *cómo
 /// mirar* ese lienzo — con qué zoom y centrado en qué punto — para que se
 /// vea entero de entrada, sin que alguien tenga que ir alejando la imagen a
-/// mano hasta encontrar los nodos que quedaron fuera de pantalla. Es el
-/// mismo motivo por el que `GraphScreen` calcula un componente conexo por
-/// vez (ver `computeConnectedComponents`): cuantos más nodos sueltos entre
-/// sí haya en pantalla, más lejos hay que alejarse para verlos todos, y acá
-/// es donde ese alejamiento se calcula.
+/// mano hasta encontrar los nodos que quedaron fuera de pantalla. Cuantos
+/// más nodos sueltos entre sí haya en pantalla, más lejos hay que alejarse
+/// para verlos todos, y acá es donde ese alejamiento se calcula.
 ///
 /// Función pura y determinística a propósito, igual que
 /// `computeGraphLayout`: se prueba con números concretos, sin montar
