@@ -16,6 +16,12 @@ misma fecha tiene dos corridas de fases distintas, como `2026-09-21-f13`—:
                                     migrar v20 a v21, el último salto (F13)
         latest_timeline_report.md   la línea de tiempo: armado y arrastre sostenido
         timeline_drag.json          los cuadros del arrastre, uno por uno
+        latest_map_report.md        F14: el mapa —leer, armar, comunidades, recalcular,
+                                    acomodar cada nivel, el motor entero—
+        latest_map_screens_report.md
+                                    F14: el mapa en pantalla: abrir cada vista y los
+                                    cuadros de los gestos sostenidos
+        map_*.json                  los cuadros de cada gesto, uno por uno
         latest_cold_start_report.md abrir la app con 10.000 elementos
         latest_backup_report.md     armar y abrir la copia
         latest_backup_saf_report.md guardar la copia y elegirla con los selectores
@@ -113,6 +119,51 @@ Tres cosas del arnés que costaron un rato y conviene saber:
   («Permission denied»). El guion les abre los permisos.
 - `--no-dds` hace falta para medir cuadros: sin él, `watchPerformance` intenta
   conectarse a un puerto de la PC que en el dispositivo no existe.
+
+## El mapa de conocimiento (F14)
+
+`test/benchmark/map_benchmark.dart` tiene los escenarios de lo que el mapa lee y
+calcula —armar el grafo de temas, detectar comunidades en frío y tras un cambio,
+acomodar cada nivel, el motor entero con su isolate—. Los corre el escritorio
+(`map_benchmark_test.dart`, con `--dart-define=BENCH=true`) y el dispositivo
+(`integration_test/map_benchmark_test.dart`). Sus tiempos son de referencia: el
+encargo no fija un objetivo para ellos.
+
+La misma prueba de dispositivo abre la PANTALLA y mide cuánto tarda cada vista en
+verse y cuántos cuadros se pierden con un gesto sostenido —arrastre y dos dedos—,
+en el esquema y en cada nivel del grafo, y con el mapa recalculándose de fondo.
+Ese es el criterio de cierre de F14: interacción fluida con 2.000 temas, con el
+percentil 90 de armado y de raster por debajo del presupuesto de un cuadro
+(16,6 ms) y menos del 5 % de cuadros fuera de él.
+
+    tool/bench_android.ps1 -Target map_benchmark_test -Label f14
+
+No hace falta `-PushVaults`: la bóveda se arma en el dispositivo en unos segundos.
+En escritorio, las pantallas se miden con
+
+    flutter drive --profile -d windows --driver=test_driver/integration_test.dart `
+      --target=integration_test/map_benchmark_test.dart
+
+**Dos bóvedas de temas, y no es un descuido.** El generador de la bóveda sintética
+asigna los temas de cada elemento al azar, sin relación entre unos y otros. Sirve
+para las búsquedas y las lecturas, pero su grafo de temas es una maraña sin
+estructura: 2.164 temas y 94.506 uniones en UNA sola comunidad, y un panorama de un
+solo nodo. Eso mide el peor coste de armar el grafo y nada más: no dice cuántas
+comunidades salen, cuánto se mueven tras un cambio ni cómo se ve el panorama. Por eso
+el benchmark mide también con `structuredTopicInput`
+(`test/benchmark/structured_topics.dart`): conserva el árbol de temas de la bóveda y
+reparte los elementos por áreas —una rama de primer nivel, elegida con más
+probabilidad cuanto más grande—, con puentes entre ellas y vínculos que en su mayoría
+unen elementos de la misma área. De ahí salen 49 comunidades y un panorama que se
+puede dibujar. Que las áreas sean las ramas de primer nivel es una decisión del
+generador, y es también lo que la jerarquía favorece al agrupar: estos datos NO dicen
+si el peso que la jerarquía suma a las uniones agrupa mejor o peor con los temas de
+una bóveda real.
+
+En pantalla, los temas son esos, y todo lo demás —el tablero, el esquema, los
+elementos de un tema— sale de la base: `StructuredMapRepository` reemplaza solo la
+lectura del grafo de temas. Cada línea de un informe dice cuál usó: «(base)» es la del
+azar.
 
 ## Cómo se mide en escritorio
 
