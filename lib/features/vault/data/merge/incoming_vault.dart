@@ -26,14 +26,22 @@ const kIncomingSchema = 'incoming';
 /// juntas con una sola consulta adjuntándola a la conexión de esta bóveda
 /// ([attachTo]).
 ///
-/// Es de un solo uso: al terminar, [dispose] borra el temporal.
+/// Es de un solo uso: al terminar, [dispose] borra el temporal y suelta el
+/// `.zip`.
+///
+/// Una copia de una bóveda grande puede pesar cientos de megas: [openFile] la
+/// lee del disco a medida que la necesita —la base pasa a un temporal y cada
+/// archivo original se copia cuando la fusión lo pide— y nunca la carga entera
+/// en memoria.
 class IncomingVault {
   IncomingVault._({
     required this.directory,
     required this.databaseFile,
     required this.schemaVersion,
     required Archive archive,
-  }) : _archive = archive;
+    InputFileStream? source,
+  }) : _archive = archive,
+       _source = source;
 
   /// El temporal donde vive la copia desempaquetada.
   final Directory directory;
@@ -46,7 +54,15 @@ class IncomingVault {
 
   final Archive _archive;
 
-  /// Abre la copia [zipBytes].
+  /// El `.zip` abierto en disco, si la copia se abrió con [openFile]: sus
+  /// entradas lo leen a medida que se las pide, así que tiene que seguir
+  /// abierto hasta [dispose].
+  final InputFileStream? _source;
+
+  /// Abre la copia [zipBytes], ya en memoria.
+  ///
+  /// Para lo que ya vive en memoria —las pruebas, sobre todo—. Una copia real
+  /// se abre con [openFile], que no la carga entera.
   ///
   /// Lanza [InvalidVaultBackupException] si no es un `.zip` con una base de
   /// Sinapsis adentro, [VaultBackupTooNewException] si su esquema es más nuevo
@@ -59,11 +75,52 @@ class IncomingVault {
       // `decodeBytes` lanza sobre cualquier cosa que no sea un zip válido.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
+      throw const InvalidVaultBackupException(_notAZip);
+    }
+    return _fromArchive(archive);
+  }
+
+  /// Abre la copia que es el archivo [zip], leyéndolo del disco: ni el `.zip`
+  /// ni la base de la copia pasan enteros por la memoria.
+  ///
+  /// Se rechaza igual que [open]. Un archivo que no existe también es
+  /// [InvalidVaultBackupException]: para quien lo eligió es «otro archivo».
+  /// Antes de lanzar deja el temporal limpio y el `.zip` suelto.
+  static Future<IncomingVault> openFile(File zip) async {
+    if (!zip.existsSync()) {
       throw const InvalidVaultBackupException(
-        'El archivo no es una copia de Sinapsis: no es un .zip válido.',
+        'No se encuentra el archivo de la copia.',
       );
     }
 
+    final source = InputFileStream(zip.path);
+    try {
+      final Archive archive;
+      try {
+        archive = ZipDecoder().decodeStream(source);
+        // Igual que `decodeBytes`: lanza con cualquier cosa que no sea un zip.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {
+        throw const InvalidVaultBackupException(_notAZip);
+      }
+      return await _fromArchive(archive, source: source);
+      // Cualquier fallo suelta el archivo: quien lo eligió puede seguir con él.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await source.close();
+      rethrow;
+    }
+  }
+
+  static const _notAZip =
+      'El archivo no es una copia de Sinapsis: no es un .zip válido.';
+
+  /// Lo que [open] y [openFile] comparten una vez leído el índice del `.zip`:
+  /// sacar la base a un temporal y dejarla lista para leer.
+  static Future<IncomingVault> _fromArchive(
+    Archive archive, {
+    InputFileStream? source,
+  }) async {
     ArchiveFile? databaseEntry;
     for (final file in archive.files) {
       if (file.name == kBackupDatabaseEntryName) databaseEntry = file;
@@ -77,19 +134,55 @@ class IncomingVault {
     final directory = await Directory.systemTemp.createTemp('sinapsis-merge-');
     try {
       final file = File(p.join(directory.path, 'incoming.sqlite'));
-      await file.writeAsBytes(databaseEntry.content as List<int>, flush: true);
+      try {
+        await _extract(databaseEntry, file);
+        // Disco lleno o sin permiso: es un problema de acá, no de la copia.
+      } on FileSystemException {
+        rethrow;
+        // Una entrada que no se descomprime es una copia dañada.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {
+        throw const InvalidVaultBackupException(
+          'La base de datos de la copia está dañada: no se pudo descomprimir.',
+        );
+      }
 
       return IncomingVault._(
         directory: directory,
         databaseFile: file,
         schemaVersion: await _readyToRead(file),
         archive: archive,
+        source: source,
       );
       // Cualquier fallo deja el temporal limpio: nadie más sabe que existe.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
       await _deleteQuietly(directory);
       rethrow;
+    }
+  }
+
+  /// Descomprime [entry] en [out] a medida que lee, sin armarla en memoria. Con
+  /// [durable] espera a que el sistema la haya bajado al disco: es lo que se
+  /// hace con lo que va a quedar en la carpeta de documentos.
+  static Future<void> _extract(
+    ArchiveFile entry,
+    File out, {
+    bool durable = false,
+  }) async {
+    final stream = OutputFileStream(out.path);
+    try {
+      entry.writeContent(stream);
+    } finally {
+      await stream.close();
+    }
+    if (durable) {
+      final handle = await out.open(mode: FileMode.append);
+      try {
+        await handle.flush();
+      } finally {
+        await handle.close();
+      }
     }
   }
 
@@ -248,14 +341,22 @@ class IncomingVault {
         p.join(root.path, p.joinAll(p.posix.split(relativePath))),
       );
       await out.parent.create(recursive: true);
-      await out.writeAsBytes(file.content as List<int>, flush: true);
+      await _extract(file, out, durable: true);
       return out;
     }
     return null;
   }
 
-  /// Borra el temporal. Se llama al terminar, pase lo que pase.
-  Future<void> dispose() => _deleteQuietly(directory);
+  /// Borra el temporal y suelta el `.zip`. Se llama al terminar, pase lo que
+  /// pase.
+  Future<void> dispose() async {
+    try {
+      await _source?.close();
+      // Un archivo que no se deja cerrar no es motivo para dejar el temporal.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {}
+    await _deleteQuietly(directory);
+  }
 
   static Future<void> _deleteQuietly(Directory directory) async {
     try {
