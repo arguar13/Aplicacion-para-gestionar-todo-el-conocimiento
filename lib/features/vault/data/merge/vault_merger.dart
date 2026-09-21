@@ -198,6 +198,8 @@ class VaultMerger {
       propertyValuesAdded: vocabulary.values,
       propertyAliasesAdded: vocabulary.aliases,
       propertyAssignmentsAdded: vocabulary.assignments,
+      valueParentsAdopted: vocabulary.parentsAdopted,
+      valueParentsIgnored: vocabulary.parentsIgnored,
     );
   }
 }

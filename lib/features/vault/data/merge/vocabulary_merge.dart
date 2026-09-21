@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart' show Variable;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
@@ -11,6 +13,8 @@ class VocabularyResult {
     this.values = 0,
     this.aliases = 0,
     this.assignments = 0,
+    this.parentsAdopted = 0,
+    this.parentsIgnored = 0,
   });
 
   final int definitions;
@@ -19,6 +23,11 @@ class VocabularyResult {
 
   /// Asignaciones de una propiedad a un elemento.
   final int assignments;
+
+  /// De la jerarquía de la copia (F13): a cuántos valores de acá se les puso el
+  /// padre que la copia les daba, y cuántas relaciones de padre no entraron.
+  final int parentsAdopted;
+  final int parentsIgnored;
 }
 
 /// Une el vocabulario de la copia —las propiedades, sus valores, sus alias y
@@ -85,12 +94,82 @@ class VocabularyMerge {
        WHERE EXISTS (SELECT 1 FROM main.item i WHERE i.id = x.item_id)''',
       updates: {_db.itemPropertyValues},
     );
+    final hierarchy = await _adoptHierarchy();
     return VocabularyResult(
       definitions: definitions,
       values: values,
       aliases: aliases,
       assignments: assignments,
+      parentsAdopted: hierarchy.adopted,
+      parentsIgnored: hierarchy.ignored,
     );
+  }
+
+  /// La jerarquía de la copia (F13): a un valor sin padre de acá se le pone el
+  /// padre que le da la copia. Lo demás se ignora y se cuenta:
+  ///
+  /// - un valor que YA tiene padre acá conserva el suyo, sea el mismo o no —el
+  ///   vocabulario se une por conjuntos y el padre no se versiona por campo,
+  ///   así que no hay con qué decidir cuál de los dos es el más nuevo—;
+  /// - una relación que cerraría un ciclo con lo que ya hay —dos dispositivos
+  ///   pueden haber puesto A bajo B y B bajo A—, que pasaría de cinco niveles o
+  ///   que cruzaría categorías, no entra.
+  ///
+  /// Los padres entran del nivel más alto al más bajo, y el nivel de cada rama
+  /// se recalcula al final. Los triggers de la base son la última red: acá se
+  /// decide antes, para que UNA relación que no cabe no deshaga toda la fusión.
+  Future<({int adopted, int ignored})> _adoptHierarchy() async {
+    final pairs = await _db.customSelect('''
+      SELECT cm.local_id AS child, pm.local_id AS parent
+        FROM $_incoming.property_values v
+        JOIN ${MergeWork.valueMap} cm ON cm.incoming_id = v.id
+        JOIN ${MergeWork.valueMap} pm ON pm.incoming_id = v.parent_id
+       WHERE v.parent_id IS NOT NULL
+       ORDER BY v.depth, v.id''').get();
+    if (pairs.isEmpty) return (adopted: 0, ignored: 0);
+
+    final rows = await _db.select(_db.propertyValues).get();
+    final definitionOf = {for (final r in rows) r.id: r.definitionId};
+    final textDefinitions = {
+      for (final d in await _db.select(_db.propertyDefinitions).get())
+        if (d.type.name == 'text') d.id,
+    };
+    final parentOf = {for (final r in rows) r.id: r.parentId};
+
+    VocabularyTree treeNow() => VocabularyTree([
+      for (final e in parentOf.entries) (id: e.key, parentId: e.value),
+    ]);
+
+    var adopted = 0;
+    var ignored = 0;
+    final adoptedChildren = <String>[];
+    for (final pair in pairs) {
+      final child = pair.read<String>('child');
+      final parent = pair.read<String>('parent');
+      final current = parentOf[child];
+      if (current == parent) continue;
+      final fits =
+          current == null &&
+          child != parent &&
+          definitionOf[child] == definitionOf[parent] &&
+          textDefinitions.contains(definitionOf[child]) &&
+          treeNow().problemMoving(child, parent) == null;
+      if (!fits) {
+        ignored++;
+        continue;
+      }
+      await _db.customStatement(
+        'UPDATE main.property_values SET parent_id = ? WHERE id = ?',
+        [parent, child],
+      );
+      parentOf[child] = parent;
+      adoptedChildren.add(child);
+      adopted++;
+    }
+    if (adoptedChildren.isNotEmpty) {
+      await recomputeDepths(_db, adoptedChildren);
+    }
+    return (adopted: adopted, ignored: ignored);
   }
 
   /// Cuántos valores traería la copia que acá no hay, por identificador ni por

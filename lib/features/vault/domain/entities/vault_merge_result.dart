@@ -49,6 +49,12 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     @Default(0) int propertyAliasesAdded,
     @Default(0) int propertyAssignmentsAdded,
 
+    /// La jerarquía del vocabulario (F13): a cuántos valores se les puso el
+    /// padre que traía la copia, y cuántas relaciones de padre no entraron
+    /// porque el valor ya tenía otro, cerraban un ciclo o no cabían.
+    @Default(0) int valueParentsAdopted,
+    @Default(0) int valueParentsIgnored,
+
     /// Lo derivado que se rehízo: fuentes cuyos chunks se hicieron de nuevo, y
     /// las que no se pudieron fragmentar —su texto está entero y se reintenta—.
     @Default(0) int sourcesChunked,
@@ -85,6 +91,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       propertyValuesAdded == 0 &&
       propertyAliasesAdded == 0 &&
       propertyAssignmentsAdded == 0 &&
+      valueParentsAdopted == 0 &&
       sourcesChunked == 0 &&
       filesCopied == 0;
 }
