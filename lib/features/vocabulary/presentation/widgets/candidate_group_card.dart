@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
+import 'package:sinapsis/features/vocabulary/domain/services/hierarchy_suggestions.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/merge_confirm_dialog.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_feedback.dart';
+import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_move_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Un grupo de valores que quizá sean el mismo, para fusionar varios en uno
@@ -14,6 +16,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// igual escrito—. Los que solo comparten palabras con el que se conserva
 /// ("Guerra" y "Guerra fría") quedan sin marcar: pueden ser cosas distintas, y
 /// eso lo decide quien mira.
+///
+/// Esos mismos pares ofrecen una segunda salida (F13): "Guerra fría" quizá no
+/// sea lo mismo que "Guerra" sino un subtema suyo. La tarjeta lo propone —
+/// «Poner bajo "Guerra"»— y, como todo lo que mueve una rama, pide confirmar.
 class CandidateGroupCard extends ConsumerStatefulWidget {
   const CandidateGroupCard({required this.group, super.key});
 
@@ -69,6 +75,14 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
     );
   }
 
+  Future<void> _putUnder(HierarchySuggestion suggestion) =>
+      requestVocabularyMove(
+        context,
+        ref,
+        value: suggestion.child,
+        parent: suggestion.parent,
+      );
+
   String _reasonLabel(AppLocalizations l10n, MergeCandidateReason reason) =>
       switch (reason) {
         MergeCandidateReason.sameText => l10n.vocabularyReasonSameText,
@@ -81,6 +95,7 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final group = widget.group;
+    final suggestions = hierarchySuggestionsFor(group);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -120,6 +135,20 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
                 onKeep: () => _chooseKeep(value.id),
                 onToggle: (merge) => _toggle(value.id, merge: merge),
               ),
+            if (suggestions.isNotEmpty) ...[
+              const Divider(height: 16),
+              Text(
+                l10n.vocabularySubtopicSuggestionsTitle,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              for (final suggestion in suggestions)
+                _SubtopicSuggestionRow(
+                  suggestion: suggestion,
+                  onAccept: () => _putUnder(suggestion),
+                ),
+            ],
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
@@ -131,6 +160,36 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un valor que parece un subtema de otro, con el botón que lo pone debajo.
+///
+/// El botón dice los dos nombres: la fila ya no repite el del valor como un
+/// texto aparte, y quien lo toca sabe qué va bajo qué sin mirar el resto.
+class _SubtopicSuggestionRow extends StatelessWidget {
+  _SubtopicSuggestionRow({required this.suggestion, required this.onAccept})
+    : super(key: ValueKey('subtopic-suggestion-${suggestion.child.id}'));
+
+  final HierarchySuggestion suggestion;
+  final VoidCallback onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: TextButton(
+        onPressed: onAccept,
+        child: Text(
+          l10n.vocabularyPutUnderAction(
+            suggestion.child.label,
+            suggestion.parent.label,
+          ),
         ),
       ),
     );

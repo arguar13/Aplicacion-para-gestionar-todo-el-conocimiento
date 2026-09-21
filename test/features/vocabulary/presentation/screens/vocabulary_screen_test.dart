@@ -248,6 +248,100 @@ void main() {
 
       expect(await temaLabels(), contains('Róma'));
     });
+
+    group('sugerencia de jerarquía', () {
+      final putUnder = es.vocabularyPutUnderAction('Roma antigua', 'Roma');
+
+      Future<(String?, int)> placementOf(String id) async {
+        final row = await (db.select(
+          db.propertyValues,
+        )..where((v) => v.id.equals(id))).getSingle();
+        return (row.parentId, row.depth);
+      }
+
+      testWidgets('«Roma antigua» se propone bajo «Roma», una sola vez aunque '
+          '«Róma» también la contenga', (tester) async {
+        await seedVocabulary();
+
+        await pumpScreen(tester);
+
+        expect(find.text(es.vocabularySubtopicSuggestionsTitle), findsOne);
+        expect(find.text(putUnder), findsOneWidget);
+        expect(
+          find.text(es.vocabularyPutUnderAction('Roma antigua', 'Róma')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('sin valores que se contengan, la tarjeta no propone '
+          'nada', (tester) async {
+        await seedItem('i1');
+        await addValue('roma', 'Roma', items: ['i1']);
+        await addValue('roma-acento', 'Róma', items: ['i1']);
+
+        await pumpScreen(tester);
+
+        expect(find.text(es.vocabularySubtopicSuggestionsTitle), findsNothing);
+      });
+
+      testWidgets('aceptarla pide confirmación, dice cuánto mueve y mueve; '
+          'la propuesta ya no está', (tester) async {
+        await seedVocabulary();
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(putUnder));
+        await tester.pumpAndSettle();
+
+        // La confirmación, y todavía nada cambió.
+        expect(find.text(es.vocabularyMoveConfirmTitle), findsOneWidget);
+        expect(
+          find.text(es.vocabularyMoveConfirmBody(1, 'Roma antigua', 'Roma')),
+          findsOneWidget,
+        );
+        expect(await placementOf('roma-antigua'), (null, 0));
+
+        await tester.tap(find.text(es.vocabularyMoveConfirmAction));
+        await tester.pumpAndSettle();
+
+        expect(await placementOf('roma-antigua'), ('roma', 1));
+        expect(
+          find.text(es.vocabularyOperationMoved(1, 'Roma antigua')),
+          findsOneWidget,
+        );
+        expect(find.text(putUnder), findsNothing);
+        // La fusión sigue disponible: son cosas distintas.
+        expect(find.text(es.vocabularyMergeAction(1, 'Roma')), findsOneWidget);
+      });
+
+      testWidgets('cancelar la confirmación no cambia nada', (tester) async {
+        await seedVocabulary();
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(putUnder));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(es.commonCancel));
+        await tester.pumpAndSettle();
+
+        expect(await placementOf('roma-antigua'), (null, 0));
+        expect(find.text(putUnder), findsOneWidget);
+      });
+
+      testWidgets('«Deshacer» del aviso la devuelve a la raíz y la propuesta '
+          'vuelve', (tester) async {
+        await seedVocabulary();
+        await pumpScreen(tester);
+        await tester.tap(find.text(putUnder));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(es.vocabularyMoveConfirmAction));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(es.vocabularyUndoAction));
+        await tester.pumpAndSettle();
+
+        expect(await placementOf('roma-antigua'), (null, 0));
+        expect(find.text(putUnder), findsOneWidget);
+      });
+    });
   });
 
   group('un solo uso', () {

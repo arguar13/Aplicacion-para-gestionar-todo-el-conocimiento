@@ -3,10 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
-import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
-import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
-import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_feedback.dart';
+import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_move_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Los valores de UNA categoría de texto como árbol de temas y subtemas (F13).
@@ -64,64 +62,22 @@ class _VocabularyTreeViewState extends ConsumerState<VocabularyTreeView> {
   }
 
   Future<void> _requestMove(String valueId, String? parentId) async {
-    // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
-    final feedback = VocabularyFeedback.of(context, ref);
-    final controller = ref.read(vocabularyControllerProvider.notifier);
-    final l10n = AppLocalizations.of(context)!;
-    final messenger = ScaffoldMessenger.of(context);
     final byId = _byId;
     final value = byId[valueId];
-    if (value == null) return;
+    final parent = parentId == null ? null : byId[parentId];
+    // Un padre que no está entre los valores no es «el primer nivel».
+    if (value == null || (parentId != null && parent == null)) return;
 
-    final preview = await ref
-        .read(vocabularyRepositoryProvider)
-        .previewMove(valueId: valueId, parentId: parentId);
-    if (!mounted) return;
-    final plan = preview.fold((failure) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-      return null;
-    }, (plan) => plan);
-    if (plan == null) return;
-
-    final parentLabel = parentId == null ? null : byId[parentId]?.label;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.vocabularyMoveConfirmTitle),
-        content: Text(
-          parentLabel == null
-              ? l10n.vocabularyMoveToRootConfirmBody(
-                  plan.valueCount,
-                  value.label,
-                )
-              : l10n.vocabularyMoveConfirmBody(
-                  plan.valueCount,
-                  value.label,
-                  parentLabel,
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.vocabularyMoveConfirmAction),
-          ),
-        ],
-      ),
+    final moved = await requestVocabularyMove(
+      context,
+      ref,
+      value: value,
+      parent: parent,
     );
-    if (confirmed != true) return;
-
-    final result = await controller.move(valueId: valueId, parentId: parentId);
     // Lo movido queda a la vista: se despliega el padre que lo recibió.
-    if (mounted && parentId != null && result.isRight()) {
+    if (mounted && moved && parentId != null) {
       setState(() => _expanded.add(parentId));
     }
-    feedback.report(result);
   }
 
   Future<void> _chooseParent(VocabularyValueStat value) async {

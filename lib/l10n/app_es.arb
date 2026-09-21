@@ -1242,6 +1242,22 @@
   "@vocabularyValueActionsTooltip": {
     "description": "Tooltip del menú de acciones de un valor del árbol."
   },
+  "vocabularySubtopicSuggestionsTitle": "Quizá sean subtemas",
+  "@vocabularySubtopicSuggestionsTitle": {
+    "description": "Encabezado de la sugerencia de jerarquía en una tarjeta de candidatos: valores que parecen subtemas de otro del grupo."
+  },
+  "vocabularyPutUnderAction": "Poner «{child}» bajo «{parent}»",
+  "@vocabularyPutUnderAction": {
+    "description": "Botón de la sugerencia de jerarquía: pone el valor bajo el que lo contiene, previa confirmación.",
+    "placeholders": {
+      "child": {
+        "type": "String"
+      },
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
   "vaultCompactionOfferTitle": "La bóveda tiene {size} para devolver",
   "@vaultCompactionOfferTitle": {
     "description": "Título de la oferta única de compactar, sobre la Biblioteca.",
