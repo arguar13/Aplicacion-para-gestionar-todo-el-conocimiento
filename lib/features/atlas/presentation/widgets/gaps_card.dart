@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_gap.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_node.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_snapshot.dart';
+import 'package:sinapsis/features/atlas/presentation/widgets/atlas_labels.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuántos vacíos se listan como mucho: con miles de temas, los de «un solo
@@ -91,17 +92,6 @@ class _GapTile extends StatelessWidget {
     AtlasGapKind.stale => Icons.history_toggle_off,
   };
 
-  String _message(AppLocalizations l10n, AtlasNode node) => switch (gap.kind) {
-    AtlasGapKind.manySourcesNoLivingNote => l10n.atlasGapManySources(
-      node.sourceCount,
-    ),
-    AtlasGapKind.singleItem => l10n.atlasGapSingleItem,
-    AtlasGapKind.stale => l10n.atlasGapStale(
-      // Meses de 30 días: es un aviso, no un plazo.
-      now.difference(node.lastTouched ?? now).inDays ~/ 30,
-    ),
-  };
-
   @override
   Widget build(BuildContext context) {
     final node = this.node;
@@ -113,7 +103,7 @@ class _GapTile extends StatelessWidget {
       key: ValueKey('atlas-gap-${gap.kind.name}-${gap.valueId}'),
       leading: Icon(_icon),
       title: Text(node.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(_message(l10n, node)),
+      subtitle: Text(atlasGapMessage(l10n, gap, node, now)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => onOpen(gap.valueId),
     );

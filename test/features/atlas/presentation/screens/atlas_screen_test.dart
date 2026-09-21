@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -533,5 +535,68 @@ void main() {
 
     expect(node('cesar'), findsOneWidget);
     expect(node('roma'), findsNothing);
+  });
+
+  group('exportar', () {
+    testWidgets('el botón guarda el Atlas como Markdown y lo avisa', (
+      tester,
+    ) async {
+      await seed();
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('atlas-export')));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'atlas-tema.md');
+      final markdown = utf8.decode(harness.fileSaver.savedBytes!);
+      // La jerarquía entera, plegada o no en la pantalla.
+      expect(markdown, startsWith('# Atlas — Tema'));
+      expect(markdown, contains('- **Roma** — En construcción · 3 fuentes'));
+      expect(markdown, contains('  - **República** —'));
+      expect(markdown, contains('    - **Gracos** —'));
+      expect(markdown, contains('[[Mapa de Roma]]'));
+      expect(find.text(es.atlasExportSaved), findsOneWidget);
+    });
+
+    testWidgets('si el guardado falla, lo dice', (tester) async {
+      await seed();
+      await pump(tester);
+      harness.fileSaver.error = Exception('sin espacio');
+
+      await tester.tap(find.byKey(const ValueKey('atlas-export')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.atlasExportSaved), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('exporta la categoría que se está viendo', (tester) async {
+      await seed();
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'def-personaje',
+              name: 'Personaje histórico',
+              createdAt: now,
+              type: const Value(PropertyValueType.text),
+            ),
+          );
+      await value('cesar', 'César', definitionId: 'def-personaje');
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('atlas-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Personaje histórico').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('atlas-export')));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'atlas-personaje-historico.md');
+      expect(
+        utf8.decode(harness.fileSaver.savedBytes!),
+        contains('# Atlas — Personaje histórico'),
+      );
+    });
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_node.dart';
+import 'package:sinapsis/features/atlas/presentation/widgets/atlas_labels.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/coverage_meter.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -64,7 +65,7 @@ class BranchTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final axis = _axisText(l10n);
+    final axis = atlasAxisText(l10n, node);
     final canToggle = node.hasChildren && !searching;
 
     return Focus(
@@ -240,25 +241,6 @@ class BranchTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// «44 a.C. – 476», o un solo año si la rama cubre uno; `null` si ningún
-  /// elemento de la rama tiene fecha del hecho.
-  String? _axisText(AppLocalizations l10n) {
-    final first = node.firstYear;
-    final last = node.lastYear;
-    if (first == null) return null;
-    final from = _yearText(l10n, first);
-    if (last == null || last == first) return from;
-    return '$from – ${_yearText(l10n, last)}';
-  }
-
-  /// El año astronómico como se lee: 0 es «1 a.C.», -43 es «44 a.C.». Igual
-  /// que el eje de la línea de tiempo.
-  static String _yearText(AppLocalizations l10n, int astronomicalYear) {
-    return astronomicalYear <= 0
-        ? l10n.timelineYearBce(1 - astronomicalYear)
-        : '$astronomicalYear';
   }
 
   static const _material = 'material';

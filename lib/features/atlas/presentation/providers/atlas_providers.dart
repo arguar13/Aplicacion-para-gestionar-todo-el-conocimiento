@@ -5,6 +5,8 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_repository_impl.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_snapshot.dart';
 import 'package:sinapsis/features/atlas/domain/repositories/atlas_repository.dart';
+import 'package:sinapsis/features/atlas/domain/usecases/export_atlas_usecase.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este
 /// repositorio; nunca de la base de datos directamente.
@@ -20,6 +22,11 @@ final atlasRepositoryProvider = Provider<AtlasRepository>((ref) {
   );
   ref.onDispose(repository.dispose);
   return repository;
+});
+
+/// Guardar el Atlas como Markdown, donde el usuario elija.
+final exportAtlasUseCaseProvider = Provider<ExportAtlasUseCase>((ref) {
+  return ExportAtlasUseCase(saver: ref.watch(fileSaverProvider));
 });
 
 /// El Atlas de una categoría, que se actualiza solo.

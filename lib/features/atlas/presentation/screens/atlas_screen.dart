@@ -5,11 +5,15 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_node.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_snapshot.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_view.dart';
+import 'package:sinapsis/features/atlas/domain/usecases/export_atlas_usecase.dart';
 import 'package:sinapsis/features/atlas/presentation/providers/atlas_providers.dart';
+import 'package:sinapsis/features/atlas/presentation/services/atlas_markdown.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/branch_tile.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/coverage_meter.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/gaps_card.dart';
@@ -59,6 +63,48 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
 
   void _openNote(String noteId) => context.push(RoutePaths.itemDetail(noteId));
 
+  /// Guarda el Atlas de [category] como un documento Markdown: una foto de
+  /// ahora, para tener el índice fuera de la app.
+  Future<void> _export(PropertyDefinition category) async {
+    // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final export = ref.read(exportAtlasUseCaseProvider);
+    final now = ref.read(clockProvider)();
+
+    final snapshot = await ref
+        .read(atlasRepositoryProvider)
+        .snapshot(category.id);
+    final result = await export(
+      ExportAtlasParams(
+        fileName: 'atlas-${_fileSlug(category.name)}.md',
+        markdown: atlasToMarkdown(snapshot, l10n, now: now),
+      ),
+    );
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result.fold(
+              (failure) => failure.localizedMessage(l10n),
+              (_) => l10n.atlasExportSaved,
+            ),
+          ),
+        ),
+      );
+  }
+
+  /// El nombre de la categoría como parte de un nombre de archivo: en
+  /// minúsculas, sin acentos y con guiones.
+  static String _fileSlug(String name) {
+    final dashed = normalizeVocabularyLabel(
+      name,
+    ).replaceAll(RegExp('[^a-z0-9]+'), '-');
+    final slug = dashed.replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty ? 'atlas' : slug;
+  }
+
   /// Las categorías donde el Atlas tiene sentido —las de texto: la jerarquía
   /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
   (List<PropertyDefinition>, PropertyDefinition?) _categories(
@@ -89,6 +135,12 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
       appBar: AppBar(
         title: Text(l10n.atlasTitle),
         actions: [
+          IconButton(
+            key: const ValueKey('atlas-export'),
+            tooltip: l10n.atlasExportAction,
+            icon: const Icon(Icons.ios_share),
+            onPressed: selected == null ? null : () => _export(selected),
+          ),
           if (categories.length > 1)
             PopupMenuButton<String>(
               key: const ValueKey('atlas-category'),

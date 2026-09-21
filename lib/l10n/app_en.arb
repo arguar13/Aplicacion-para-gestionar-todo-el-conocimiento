@@ -3040,6 +3040,39 @@
   "@atlasMapNotesTitle": {
     "description": "Título de la hoja que lista todas las notas mapa de una rama."
   },
+  "atlasExportAction": "Export the index",
+  "@atlasExportAction": {
+    "description": "Tooltip del botón que exporta el Atlas como un archivo Markdown."
+  },
+  "atlasExportGenerated": "Generated on {date} · {count, plural, =1{1 topic} other{{count} topics}}",
+  "@atlasExportGenerated": {
+    "description": "Línea de encabezado del Atlas exportado: fecha y cuántos temas tiene.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasExportTopics": "Topics",
+  "@atlasExportTopics": {
+    "description": "Encabezado de la sección con el árbol de temas del Atlas exportado."
+  },
+  "atlasExportMapNotes": "Map notes: {notes}",
+  "@atlasExportMapNotes": {
+    "description": "Las notas mapa de una rama, en el Atlas exportado; notes ya viene con los enlaces.",
+    "placeholders": {
+      "notes": {
+        "type": "String"
+      }
+    }
+  },
+  "atlasExportSaved": "Index exported.",
+  "@atlasExportSaved": {
+    "description": "Aviso de que el Atlas se guardó como Markdown."
+  },
   "timelineBranchFilterTooltip": "Remove the topic filter",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
