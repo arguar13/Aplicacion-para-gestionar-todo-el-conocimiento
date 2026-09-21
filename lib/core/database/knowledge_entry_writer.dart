@@ -195,6 +195,153 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Pasa las obras de la persona [discardId] a [keepId] (F15), como las
+  /// asignaciones al fusionar dos valores: si una obra ya nombraba a [keepId]
+  /// con el mismo rol, la de [discardId] sobra y se borra; el resto cambia de
+  /// persona conservando su rol y su lugar. Devuelve lo que hace falta para
+  /// deshacerlo con [restoreContributors].
+  ///
+  /// La referencia de cada obra tocada queda anotada como editada
+  /// ([touchReferences]): pasó a nombrar a otra persona, y una fusión de
+  /// bóvedas tiene que verlo como una edición. Es lo que escribe cuando una
+  /// operación del vocabulario cambia las personas de una obra, y por eso vive
+  /// acá y no en el motor de fusión de valores: las escrituras de estas tablas
+  /// pasan todas por este archivo.
+  Future<
+    ({List<SourceContributorRow> moved, List<SourceContributorRow> dropped})
+  >
+  repointContributors({required String keepId, required String discardId}) {
+    return _db.transaction(() async {
+      final rows = await (_db.select(
+        _db.sourceContributors,
+      )..where((c) => c.propertyValueId.equals(discardId))).get();
+      final moved = <SourceContributorRow>[];
+      final dropped = <SourceContributorRow>[];
+      for (final row in rows) {
+        final alreadyHasKeep =
+            await (_db.select(_db.sourceContributors)..where(
+                  (c) =>
+                      c.itemId.equals(row.itemId) &
+                      c.propertyValueId.equals(keepId) &
+                      c.role.equalsValue(row.role),
+                ))
+                .getSingleOrNull();
+        if (alreadyHasKeep != null) {
+          dropped.add(row);
+          await (_db.delete(_db.sourceContributors)..where(
+                (c) =>
+                    c.itemId.equals(row.itemId) &
+                    c.propertyValueId.equals(discardId) &
+                    c.role.equalsValue(row.role),
+              ))
+              .go();
+        } else {
+          moved.add(row);
+        }
+      }
+      await (_db.update(_db.sourceContributors)
+            ..where((c) => c.propertyValueId.equals(discardId)))
+          .write(SourceContributorsCompanion(propertyValueId: Value(keepId)));
+      await touchReferences([
+        for (final row in [...moved, ...dropped]) row.itemId,
+      ]);
+      return (moved: moved, dropped: dropped);
+    });
+  }
+
+  /// Deshace [repointContributors]: las obras [moved] vuelven a nombrar a
+  /// [discardId] y las [dropped] —que sobraban— a estar. Lanza
+  /// [ContributorRestoreConflict], sin dejar nada a medias, si alguien las
+  /// cambió desde entonces: una obra ya no nombra a [keepId] con ese rol, o el
+  /// lugar que dejó una de las que sobraban ya lo ocupa otra persona.
+  ///
+  /// [discardId] tiene que existir otra vez: la clave lo exige.
+  Future<void> restoreContributors({
+    required String keepId,
+    required String discardId,
+    required List<SourceContributorRow> moved,
+    required List<SourceContributorRow> dropped,
+  }) async {
+    if (moved.isEmpty && dropped.isEmpty) return;
+    await _db.transaction(() async {
+      for (final row in moved) {
+        final stillThere =
+            await (_db.select(_db.sourceContributors)..where(
+                  (c) =>
+                      c.itemId.equals(row.itemId) &
+                      c.propertyValueId.equals(keepId) &
+                      c.role.equalsValue(row.role),
+                ))
+                .getSingleOrNull();
+        if (stillThere == null) {
+          throw const ContributorRestoreConflict(
+            'Una obra ya no nombra a la persona en la que se fusionó.',
+          );
+        }
+      }
+      for (final row in dropped) {
+        final placeTaken =
+            await (_db.select(_db.sourceContributors)..where(
+                  (c) =>
+                      c.itemId.equals(row.itemId) &
+                      c.position.equals(row.position),
+                ))
+                .getSingleOrNull();
+        if (placeTaken != null) {
+          throw const ContributorRestoreConflict(
+            'Una obra cambió sus personas: no se puede volver a como estaban.',
+          );
+        }
+      }
+
+      for (final row in moved) {
+        await (_db.update(_db.sourceContributors)..where(
+              (c) =>
+                  c.itemId.equals(row.itemId) &
+                  c.propertyValueId.equals(keepId) &
+                  c.role.equalsValue(row.role),
+            ))
+            .write(
+              SourceContributorsCompanion(propertyValueId: Value(discardId)),
+            );
+      }
+      for (final row in dropped) {
+        await _db.into(_db.sourceContributors).insert(row);
+      }
+      await touchReferences([
+        for (final row in [...moved, ...dropped]) row.itemId,
+      ]);
+    });
+  }
+
+  /// Anota que la referencia de cada una de [itemIds] cambió SIN pasar por
+  /// [setReference]: sube su `rev` y renueva la versión del campo, una vez cada
+  /// una. Los elementos que no existen o no son fuentes se saltean.
+  ///
+  /// Es lo que corresponde cuando una operación del vocabulario cambia las
+  /// personas de una obra —fusionar dos autores, o deshacerlo—: la obra pasa a
+  /// nombrar a otra persona, y una fusión de bóvedas tiene que verlo como una
+  /// edición de la referencia y no como algo que estaba así desde siempre.
+  Future<void> touchReferences(Iterable<String> itemIds) async {
+    final ids = itemIds.toSet().toList();
+    if (ids.isEmpty) return;
+    await _db.transaction(() async {
+      final now = _clock();
+      for (var start = 0; start < ids.length; start += _idsPerQuery) {
+        final slice = ids.skip(start).take(_idsPerQuery).toList();
+        final rows =
+            await (_db.select(_db.knowledgeEntries)..where(
+                  (e) => e.id.isIn(slice) & e.kind.equalsValue(ItemKind.source),
+                ))
+                .get();
+        for (final row in rows) {
+          await _bumpEntry(row.id);
+          await _touch(row.id, EntryField.reference, now);
+        }
+      }
+    });
+  }
+
   /// Si [a] y [b] dicen lo mismo: los mismos datos y las mismas personas, con
   /// el mismo rol y en el mismo orden. Del nombre de cada persona no importa
   /// cómo llegó escrito —lo que vale es el valor del vocabulario que la
@@ -764,4 +911,16 @@ class KnowledgeEntryWriter {
           ),
         );
   }
+}
+
+/// Por qué [KnowledgeEntryWriter.restoreContributors] no pudo devolver las
+/// obras a la persona que las tenía: lo que la fusión dejó ya no está como
+/// estaba.
+class ContributorRestoreConflict implements Exception {
+  const ContributorRestoreConflict(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ContributorRestoreConflict: $message';
 }

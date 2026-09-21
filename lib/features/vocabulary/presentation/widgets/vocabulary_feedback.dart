@@ -34,6 +34,9 @@ String vocabularyOperationMessage(
     operation.valueCount,
     operation.label,
   ),
+  VocabularyOperationKind.add => l10n.vocabularyOperationPersonAdded(
+    operation.label,
+  ),
 };
 
 /// Cómo se le cuenta a quien mira lo que pasó con una operación de

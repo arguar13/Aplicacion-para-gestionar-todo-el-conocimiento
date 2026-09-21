@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
@@ -20,6 +22,8 @@ class PropertyValueMergeUndo {
     required this.movedAliasIds,
     required this.createdAliasId,
     this.placements = const [],
+    this.movedContributors = const [],
+    this.droppedContributors = const [],
   });
 
   final String keepId;
@@ -47,6 +51,14 @@ class PropertyValueMergeUndo {
   /// el propio que se conserva si estaba dentro de la rama del descartado y
   /// sube a su lugar (F13). Vacío si la fusión no movió ninguno.
   final List<ValuePlacement> placements;
+
+  /// Las obras de la persona descartada que pasaron a la que se conserva (F15),
+  /// tal como estaban: la fila de `source_contributor` con su rol y su lugar.
+  final List<SourceContributorRow> movedContributors;
+
+  /// Las que sobraban porque la obra ya tenía a la persona que se conserva con
+  /// el mismo rol: se borraron, y deshacer las vuelve a poner.
+  final List<SourceContributorRow> droppedContributors;
 
   /// Cuántos elementos tocó la fusión: los que tenían el valor descartado.
   int get affectedItems => movedAssignments.length + droppedAssignments.length;
@@ -115,6 +127,17 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
         ..where((t) => t.propertyValueId.equals(discard.id)))
       .write(ItemPropertyValuesCompanion(propertyValueId: Value(keep.id)));
 
+  // 2b. Las obras de la persona (F15): si el valor es de una categoría de
+  // persona, las obras que la nombran como autora, traductora… pasan a nombrar
+  // a la que se conserva. Sin esto la fusión las BORRARÍA: `source_contributor`
+  // cae en cascada con el valor.
+  final contributors = await _repointContributors(
+    db,
+    keep: keep,
+    discard: discard,
+    clock: clock,
+  );
+
   // 3. Los alias que ya apuntaban a discard pasan a keep —ANTES de borrar
   // discard: su FK es ON DELETE CASCADE, y borrarlo primero se los llevaría
   // con él—.
@@ -171,7 +194,38 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
     movedAliasIds: aliasIds,
     createdAliasId: createdAliasId,
     placements: placements,
+    movedContributors: contributors.moved,
+    droppedContributors: contributors.dropped,
   );
+}
+
+/// Pasa las obras de [discard] a [keep] (F15): lo hace `KnowledgeEntryWriter`,
+/// que es quien escribe esas tablas y anota que la referencia de cada obra
+/// cambió.
+///
+/// Solo si el valor es de una categoría de PERSONA: es lo único que puede tener
+/// obras, y lo que deja esta función fuera de las migraciones de esquemas
+/// anteriores a v22, donde la tabla todavía no existe.
+Future<({List<SourceContributorRow> moved, List<SourceContributorRow> dropped})>
+_repointContributors(
+  AppDatabase db, {
+  required PropertyValueRow keep,
+  required PropertyValueRow discard,
+  required Clock clock,
+}) async {
+  final definition = await (db.select(
+    db.propertyDefinitions,
+  )..where((d) => d.id.equals(discard.definitionId))).getSingleOrNull();
+  if (definition?.type != PropertyValueType.person) {
+    return (
+      moved: const <SourceContributorRow>[],
+      dropped: const <SourceContributorRow>[],
+    );
+  }
+  return KnowledgeEntryWriter(
+    db,
+    clock: clock,
+  ).repointContributors(keepId: keep.id, discardId: discard.id);
 }
 
 /// Lo que le pasa a la rama de [discard] cuando se lo fusiona en [keep]: sus
@@ -239,8 +293,9 @@ class MergeUndoConflict implements Exception {
 /// negativa a mitad de camino no deje nada tocado.
 Future<void> undoPropertyValueMerge(
   AppDatabase db,
-  PropertyValueMergeUndo undo,
-) async {
+  PropertyValueMergeUndo undo, {
+  Clock clock = DateTime.now,
+}) async {
   final keep = await (db.select(
     db.propertyValues,
   )..where((v) => v.id.equals(undo.keepId))).getSingleOrNull();
@@ -325,6 +380,20 @@ Future<void> undoPropertyValueMerge(
             origin: Value(dropped.origin),
           ),
         );
+  }
+
+  // Las obras: las que se habían movido vuelven a nombrar a la persona de
+  // antes, y las que sobraban, a estar. Lo hace quien las escribe, y si alguien
+  // las cambió desde entonces se niega sin dejar nada a medias.
+  try {
+    await KnowledgeEntryWriter(db, clock: clock).restoreContributors(
+      keepId: keep.id,
+      discardId: undo.discard.id,
+      moved: undo.movedContributors,
+      dropped: undo.droppedContributors,
+    );
+  } on ContributorRestoreConflict catch (conflict) {
+    throw MergeUndoConflict(conflict.message);
   }
 }
 

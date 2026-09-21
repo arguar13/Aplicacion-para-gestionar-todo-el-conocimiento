@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/migrations/seed_author_category_v22.dart';
+import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -53,18 +54,21 @@ class PersonVocabulary {
   /// El id del valor que representa a [contributor], en este orden:
   ///
   /// 1. el que ya trae [Contributor.personId], si sigue existiendo;
-  /// 2. el valor de la categoría con su misma etiqueta «Apellido, Nombre» —sin
-  ///    distinguir mayúsculas, como el resto del vocabulario—, o el que tenga
-  ///    esa etiqueta por alias;
+  /// 2. el valor de la categoría con su misma etiqueta «Apellido, Nombre», o el
+  ///    que la tenga por alias —sin distinguir mayúsculas ni acentos, que es lo
+  ///    que hace el resto del vocabulario: «Garcia Marquez, Gabriel» es
+  ///    «García Márquez, Gabriel»—;
   /// 3. uno nuevo, con el nombre partido.
   ///
   /// `null` si no hay nada que resolver: una persona sin nombre cuyo valor ya
   /// no existe —alguien lo borró mientras tanto—.
   ///
-  /// Si el que se encontró por su etiqueta no tenía el nombre partido, se lo
-  /// parte con el del contribuyente: no cambia lo que se muestra —la etiqueta
-  /// es la misma— y una cita puede usar el apellido. Uno que ya estaba partido
-  /// no se toca: lo que alguien corrigió no se pisa.
+  /// Si el que se encontró no tenía el nombre partido y se llama EXACTAMENTE
+  /// igual —salvo las mayúsculas—, se lo parte con el del contribuyente: no
+  /// cambia lo que se muestra y una cita puede usar el apellido. Uno que ya
+  /// estaba partido no se toca —lo que alguien corrigió no se pisa—, ni uno que
+  /// se encontró por un alias o por otra grafía: el nombre del contribuyente no
+  /// describe al valor.
   Future<String?> resolve(Contributor contributor) async {
     final category = await categoryId();
 
@@ -82,30 +86,16 @@ class PersonVocabulary {
     final label = name.label;
     if (label.trim().isEmpty) return null;
 
-    final byLabel =
-        await (_db.select(_db.propertyValues)..where(
-              (v) =>
-                  v.definitionId.equals(category) &
-                  v.value.collate(Collate.noCase).equals(label),
-            ))
-            .getSingleOrNull();
-    if (byLabel != null) {
-      if (byLabel.nameFamily == null) {
+    final known = await findValueByLabelOrAlias(_db, category, label);
+    if (known != null) {
+      if (known.nameFamily == null &&
+          known.value.toLowerCase() == label.toLowerCase()) {
         await (_db.update(
           _db.propertyValues,
-        )..where((v) => v.id.equals(byLabel.id))).write(_structure(name));
+        )..where((v) => v.id.equals(known.id))).write(_structure(name));
       }
-      return byLabel.id;
+      return known.id;
     }
-
-    final byAlias =
-        await (_db.select(_db.propertyAliases)..where(
-              (a) =>
-                  a.definitionId.equals(category) &
-                  a.alias.collate(Collate.noCase).equals(label),
-            ))
-            .getSingleOrNull();
-    if (byAlias != null) return byAlias.propertyValueId;
 
     final created = _ids.next();
     await _db

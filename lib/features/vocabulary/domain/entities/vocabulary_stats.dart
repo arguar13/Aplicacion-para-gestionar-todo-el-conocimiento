@@ -1,9 +1,13 @@
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+
 /// Un valor del vocabulario con lo que la pantalla de mantenimiento necesita
 /// saber de él para decidir qué hacer: en cuántos elementos está y cuántos
 /// alias tiene.
 ///
 /// Solo tipos simples a propósito: los candidatos a fusión se calculan en un
 /// isolate (`compute`), y lo que viaja hasta allá tiene que poder enviarse.
+/// Por eso el nombre de una persona es un [PersonName], que es un valor de
+/// texto y un booleano, y no la fila.
 class VocabularyValueStat {
   const VocabularyValueStat({
     required this.id,
@@ -15,6 +19,7 @@ class VocabularyValueStat {
     required this.aliasCount,
     this.parentId,
     this.depth = 0,
+    this.person,
   });
 
   final String id;
@@ -35,6 +40,14 @@ class VocabularyValueStat {
 
   /// Cuántos padres tiene por encima: 0 para una raíz.
   final int depth;
+
+  /// El nombre de la persona, si el valor es de una categoría de personas
+  /// (F15): el apellido y el nombre por separado. Uno que nadie partió todavía
+  /// viene entero como apellido, sin adivinar dónde termina.
+  final PersonName? person;
+
+  /// Si es una persona: se compara por su nombre y no solo por su texto.
+  bool get isPerson => person != null;
 }
 
 /// Un alias de un valor: otro texto que se resuelve al mismo valor.
@@ -76,6 +89,10 @@ enum MergeCandidateReason {
 
   /// Se escriben casi igual: una letra de más, de menos o cambiada.
   similarSpelling,
+
+  /// Dos personas con el mismo apellido cuyo nombre es la forma abreviada o
+  /// completa del otro —«García Márquez, G.» y «García Márquez, Gabriel»—.
+  nameVariant,
 }
 
 /// Dos valores de la misma categoría que quizá sean el mismo.

@@ -1,5 +1,7 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/author_work.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 
@@ -68,6 +70,22 @@ abstract interface class VocabularyRepository {
   /// algo en uso es otra decisión, no un borrado de limpieza. Lo mismo uno que
   /// tiene subtemas que no se borran con él (F13): borrarlo los dejaría sin
   /// lugar.
+  /// Agrega una persona a la categoría «Autor» (F15), con su apellido y su
+  /// nombre. Falla si ya hay un valor o un alias con ese nombre.
+  Future<Either<Failure, VocabularyOperation>> addPerson(PersonName name);
+
+  /// Cambia el nombre de la persona [id] —su apellido, su nombre, su sufijo y
+  /// si es una institución—, y con él su etiqueta. Falla si el valor no es una
+  /// persona o si el nombre ya es de otro valor o alias.
+  Future<Either<Failure, VocabularyOperation>> editPerson({
+    required String id,
+    required PersonName name,
+  });
+
+  /// Las obras en las que figura la persona [valueId], con su rol: las que no
+  /// están en la papelera, por título.
+  Stream<List<AuthorWork>> watchWorksOf(String valueId);
+
   Future<Either<Failure, VocabularyOperation>> deleteUnusedValues(
     List<String> ids,
   );

@@ -5,14 +5,19 @@ import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.da
 /// Los pares de valores de [stats] que quizá sean el mismo, ordenados por
 /// uso combinado: primero los que más elementos limpian.
 ///
-/// Solo compara dentro de una misma categoría de texto. Encuentra tres
-/// cosas, en este orden de prioridad si un par cumple más de una:
+/// Solo compara dentro de una misma categoría de texto o de personas. Encuentra
+/// tres cosas, en este orden de prioridad si un par cumple más de una:
 ///  * el mismo texto sin distinguir mayúsculas ni acentos;
 ///  * uno es el otro con más palabras ("Roma" y "Roma antigua") —por palabras
 ///    enteras: "Arte" no está dentro de "Artesanía"—;
 ///  * se escriben casi igual, en nombres de al menos 5 letras: hasta 1 error
 ///    en uno de hasta 7 letras, 2 en uno más largo, contando un cambio de
 ///    orden de dos letras como uno.
+///
+/// Las personas (F15) suman lo que un texto no tiene: el mismo nombre en otro
+/// orden —«Gabriel García Márquez» y «García Márquez, Gabriel»— y el mismo
+/// apellido con el nombre abreviado —«García Márquez, G.» y «García Márquez,
+/// Gabriel»—, que es la razón `nameVariant`.
 ///
 /// El costo se contiene sin comparar todo contra todo: para la ortografía,
 /// solo se comparan nombres que empiezan con la misma letra y de largo
@@ -37,7 +42,7 @@ List<MergeCandidate> findMergeCandidates(List<VocabularyValueStat> stats) {
   // comparación.
   final sortKey = <String, String>{};
   for (final stat in stats) {
-    if (!stat.isText) continue;
+    if (!stat.isText && !stat.isPerson) continue;
     final normalized = normalizeVocabularyLabel(stat.label);
     if (normalized.isEmpty) continue;
     sortKey[stat.id] = normalized;
@@ -221,6 +226,9 @@ void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
     }
   }
 
+  // 1b. Las personas, por su nombre: en otro orden o abreviado.
+  _findPersonVariants(entries, add);
+
   // 2. Uno es el otro con más palabras. Un índice por palabra: para cada
   // nombre, solo se miran los que contienen SU primera palabra.
   final byToken = <String, List<_Entry>>{};
@@ -287,6 +295,128 @@ void _findInCategory(List<_Entry> entries, List<MergeCandidate> out) {
     }
   }
 }
+
+/// Los pares de personas que quizá sean la misma (F15): las que solo difieren
+/// en el orden en que se escribió el nombre, y las de un mismo apellido cuyo
+/// nombre de pila es la forma abreviada o más corta del otro.
+///
+/// [add] es el de [_findInCategory]: no repite un par que ya se encontró por
+/// otra razón.
+void _findPersonVariants(
+  List<_Entry> entries,
+  bool Function(_Entry, _Entry, MergeCandidateReason) add,
+) {
+  // El mismo nombre en otro orden: las mismas palabras, ordenadas.
+  final byWords = <String, List<_Entry>>{};
+  for (final entry in entries) {
+    if (!entry.stat.isPerson || entry.tokens.length < 2) continue;
+    final key = ([...entry.tokens]..sort()).join(' ');
+    byWords.putIfAbsent(key, () => []).add(entry);
+  }
+  for (final group in byWords.values) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => a.stat.id.compareTo(b.stat.id));
+    // Un grupo enorme se enlaza en estrella: sigue siendo UN grupo.
+    final star = group.length > _maxAllPairsGroup;
+    for (var i = 0; i < group.length; i++) {
+      for (var j = i + 1; j < group.length; j++) {
+        if (star && i > 0) break;
+        add(group[i], group[j], MergeCandidateReason.sameText);
+      }
+    }
+  }
+
+  // El mismo apellido, con el nombre de pila abreviado o ausente en uno.
+  final byFamily = <String, List<_Entry>>{};
+  for (final entry in entries) {
+    final person = entry.stat.person;
+    if (person == null || person.isInstitution) continue;
+    final family = normalizeVocabularyLabel(person.family);
+    if (family.isEmpty) continue;
+    byFamily.putIfAbsent(family, () => []).add(entry);
+  }
+  for (final group in byFamily.values) {
+    if (group.length < 2) continue;
+    group.sort((a, b) => a.stat.id.compareTo(b.stat.id));
+
+    // Un nombre abreviado que encaja con VARIOS del mismo apellido —«García,
+    // J.» con «García, Juan» y con «García, Julia»— es más una pista que una
+    // sospecha: se ofrece, pero como «uno contiene al otro», que quien lo mira
+    // no da por seguro.
+    final partners = <_Entry, int>{};
+    final pairs = <(_Entry, _Entry, _GivenRelation)>[];
+    for (var i = 0; i < group.length; i++) {
+      for (var j = i + 1; j < group.length; j++) {
+        final relation = _givenRelation(
+          group[i].stat.person!.given,
+          group[j].stat.person!.given,
+        );
+        if (relation == _GivenRelation.none) continue;
+        pairs.add((group[i], group[j], relation));
+        if (relation == _GivenRelation.initials) {
+          // El que se abrevia es el más corto; a igual largo, los dos.
+          for (final entry in [group[i], group[j]]) {
+            partners[entry] = (partners[entry] ?? 0) + 1;
+          }
+        }
+      }
+    }
+    for (final (a, b, relation) in pairs) {
+      final reason = switch (relation) {
+        _GivenRelation.initials =>
+          (partners[a]! > 1 || partners[b]! > 1)
+              ? MergeCandidateReason.contained
+              : MergeCandidateReason.nameVariant,
+        _GivenRelation.missing => MergeCandidateReason.contained,
+        _GivenRelation.none => throw StateError('unreachable'),
+      };
+      add(a, b, reason);
+    }
+  }
+}
+
+/// Cómo se relacionan dos nombres de pila del mismo apellido.
+enum _GivenRelation {
+  /// No se relacionan: son personas distintas.
+  none,
+
+  /// Uno es el otro abreviado o más corto: «G.» y «Gabriel».
+  initials,
+
+  /// Uno no tiene nombre de pila: «Borges» y «Borges, Jorge Luis».
+  missing,
+}
+
+_GivenRelation _givenRelation(String a, String b) {
+  final first = _givenTokens(a);
+  final second = _givenTokens(b);
+  if (first.isEmpty && second.isEmpty) return _GivenRelation.none;
+  if (first.isEmpty || second.isEmpty) return _GivenRelation.missing;
+
+  final shorter = first.length <= second.length ? first : second;
+  final longer = identical(shorter, first) ? second : first;
+  var different = first.length != second.length;
+  for (var i = 0; i < shorter.length; i++) {
+    final s = shorter[i];
+    final l = longer[i];
+    if (s == l) continue;
+    // Solo una inicial se abrevia: «Gabriel» no es una forma de «Gabriela».
+    final abbreviates =
+        (s.length == 1 && l.startsWith(s)) ||
+        (l.length == 1 && s.startsWith(l));
+    if (!abbreviates) return _GivenRelation.none;
+    different = true;
+  }
+  return different ? _GivenRelation.initials : _GivenRelation.none;
+}
+
+/// Las palabras de un nombre de pila, sin acentos ni puntos: «J.R.R.» son tres.
+List<String> _givenTokens(String given) => [
+  for (final token in normalizeVocabularyLabel(
+    given,
+  ).split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)))
+    if (token.isNotEmpty) token,
+];
 
 /// Si [needle] aparece dentro de [haystack] como palabras consecutivas.
 bool _containsSequence(List<String> haystack, List<String> needle) {

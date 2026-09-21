@@ -88,6 +88,7 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
         MergeCandidateReason.sameText => l10n.vocabularyReasonSameText,
         MergeCandidateReason.contained => l10n.vocabularyReasonContained,
         MergeCandidateReason.similarSpelling => l10n.vocabularyReasonSimilar,
+        MergeCandidateReason.nameVariant => l10n.vocabularyReasonNameVariant,
       };
 
   @override

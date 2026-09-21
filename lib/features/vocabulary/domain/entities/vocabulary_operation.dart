@@ -9,6 +9,9 @@ enum VocabularyOperationKind {
 
   /// Mover un valor —con su rama— bajo otro padre, o a la raíz (F13).
   move,
+
+  /// Se agregó una persona al vocabulario de autores (F15).
+  add,
 }
 
 /// Una operación de mantenimiento ya aplicada, con lo necesario para

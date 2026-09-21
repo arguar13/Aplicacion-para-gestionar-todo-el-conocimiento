@@ -989,6 +989,170 @@ void main() {
     });
   });
 
+  group('anotar que una referencia cambió sin guardarla', () {
+    test('sube el rev y renueva la versión de cada obra, una vez', () async {
+      await writer.upsert(_source('otro'));
+      final revLibro = (await entry('libro')).rev;
+      final revOtro = (await entry('otro')).rev;
+      tick();
+
+      await writer.touchReferences(['libro', 'otro', 'libro']);
+
+      expect((await entry('libro')).rev, revLibro + 1);
+      expect((await entry('otro')).rev, revOtro + 1);
+      for (final id in ['libro', 'otro']) {
+        final row = await version(id);
+        expect(row!.deviceId, me, reason: id);
+        expect(row.updatedAt, clockNow, reason: id);
+      }
+    });
+
+    test('no toca los datos de la referencia', () async {
+      await writer.setReference(
+        'libro',
+        const ReferenceData(
+          publisher: 'Sudamericana',
+          contributors: [Contributor(name: garcia)],
+        ),
+      );
+      final before = await reader.read('libro');
+      tick();
+
+      await writer.touchReferences(['libro']);
+
+      expect(await reader.read('libro'), before);
+    });
+
+    test('una nota o una obra que no existe se saltean', () async {
+      await writer.upsert(_note('nota'));
+      final revNota = (await entry('nota')).rev;
+
+      await writer.touchReferences(['nota', 'fantasma']);
+
+      expect((await entry('nota')).rev, revNota);
+      expect(await version('nota'), isNull);
+      expect(await version('fantasma'), isNull);
+    });
+
+    test('sin obras no hace nada', () async {
+      final rev = (await entry('libro')).rev;
+
+      await writer.touchReferences(const []);
+
+      expect((await entry('libro')).rev, rev);
+    });
+
+    test(
+      'si la última versión es de otro dispositivo, parte de ella',
+      () async {
+        final theirs = DateTime(2026, 9, 20, 18);
+        await db
+            .into(db.fieldVersions)
+            .insert(
+              FieldVersionsCompanion.insert(
+                itemId: 'libro',
+                fieldName: EntryField.reference,
+                updatedAt: theirs,
+                deviceId: other,
+              ),
+            );
+
+        await writer.touchReferences(['libro']);
+
+        final row = await version('libro');
+        expect(row!.deviceId, me);
+        expect(row.baseDeviceId, other);
+        expect(row.baseUpdatedAt, theirs);
+      },
+    );
+  });
+
+  group('encontrar a una persona que ya está, aunque se escriba distinto', () {
+    test('sin acentos ni mayúsculas es la misma persona', () async {
+      await writer.setReference(
+        'libro',
+        const ReferenceData(contributors: [Contributor(name: garcia)]),
+      );
+      await writer.upsert(_source('otro'));
+
+      await writer.setReference(
+        'otro',
+        const ReferenceData(
+          contributors: [
+            Contributor(
+              name: PersonName(family: 'GARCIA MARQUEZ', given: 'gabriel'),
+            ),
+          ],
+        ),
+      );
+
+      expect(await people(), hasLength(1));
+      final first = (await reader.read('libro')).contributors.single.personId;
+      final second = (await reader.read('otro')).contributors.single;
+      expect(second.personId, first);
+      // Se muestra como está guardada, no como llegó escrita.
+      expect(second.name, garcia);
+    });
+
+    test('no le cambia el nombre partido a una ya partida', () async {
+      await writer.setReference(
+        'libro',
+        const ReferenceData(contributors: [Contributor(name: garcia)]),
+      );
+      await writer.upsert(_source('otro'));
+
+      // La misma etiqueta, entera como apellido: otra forma de partirla.
+      await writer.setReference(
+        'otro',
+        const ReferenceData(
+          contributors: [
+            Contributor(name: PersonName(family: 'García Márquez, Gabriel')),
+          ],
+        ),
+      );
+
+      final value = (await people()).single;
+      expect(
+        (value.nameFamily, value.nameGiven),
+        ('García Márquez', 'Gabriel'),
+      );
+    });
+
+    test('una sin partir no toma el nombre de otra grafía', () async {
+      final category = await (db.select(
+        db.propertyDefinitions,
+      )..where((d) => d.name.equals('Autor'))).getSingle();
+      await db
+          .into(db.propertyValues)
+          .insert(
+            PropertyValuesCompanion.insert(
+              id: 'suelto',
+              definitionId: category.id,
+              value: 'García Márquez, Gabriel',
+              createdAt: clockNow,
+            ),
+          );
+
+      // Sin acentos: se encuentra, pero su nombre no describe al valor.
+      await writer.setReference(
+        'libro',
+        const ReferenceData(
+          contributors: [
+            Contributor(
+              name: PersonName(family: 'Garcia Marquez', given: 'Gabriel'),
+            ),
+          ],
+        ),
+      );
+
+      final value = await (db.select(
+        db.propertyValues,
+      )..where((v) => v.id.equals('suelto'))).getSingle();
+      expect(value.nameFamily, isNull);
+      expect(await db.select(db.propertyValues).get(), hasLength(1));
+    });
+  });
+
   group('la lectura por lotes', () {
     test('trae varias obras a la vez, sin las que no tienen nada', () async {
       await writer.upsert(_source('b'));

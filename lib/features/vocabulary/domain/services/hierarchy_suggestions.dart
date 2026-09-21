@@ -38,6 +38,9 @@ List<HierarchySuggestion> hierarchySuggestionsFor(MergeCandidateGroup group) {
   final containers = <String, List<_Container>>{};
   for (final pair in group.pairs) {
     if (pair.reason != MergeCandidateReason.contained) continue;
+    // Una persona no tiene jerarquía (F15): «Borges» no es el padre de
+    // «Borges, Jorge Luis», es la misma persona escrita más corto.
+    if (!pair.first.isText || !pair.second.isText) continue;
     final firstWords = _wordCount(pair.first.label);
     final secondWords = _wordCount(pair.second.label);
     if (firstWords == secondWords) continue;

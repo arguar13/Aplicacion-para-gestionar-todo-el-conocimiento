@@ -1,10 +1,14 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
+import 'package:sinapsis/core/database/person_vocabulary.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
@@ -12,6 +16,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/author_work.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/domain/repositories/vocabulary_repository.dart';
@@ -74,6 +79,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
                 aliasCount: aliases[value.id] ?? 0,
                 parentId: value.parentId,
                 depth: value.depth,
+                person: definition.type == PropertyValueType.person
+                    ? personNameFor(value)
+                    : null,
               ),
         ];
 
@@ -487,6 +495,16 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           ),
         );
       }
+      // Una persona no se renombra con una etiqueta: su nombre es un apellido
+      // y un nombre, y cambiar solo el texto dejaría la etiqueta y el nombre
+      // partido diciendo cosas distintas (F15).
+      if (await _isPerson(current.definitionId)) {
+        return left(
+          const Failure.validation(
+            message: 'Una persona se edita con su apellido y su nombre.',
+          ),
+        );
+      }
 
       // El propio valor queda afuera de la comparación de labels: cambiarle
       // el acento o las mayúsculas a su nombre es corregir la grafía, no
@@ -521,6 +539,190 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         _unexpected(e, stackTrace, 'VocabularyRepositoryImpl.renameValue'),
       );
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Personas (F15)
+  // ---------------------------------------------------------------------
+
+  /// El nombre con sus partes recortadas.
+  PersonName _trimmed(PersonName name) => name.copyWith(
+    family: name.family.trim(),
+    given: name.given.trim(),
+    suffix: name.suffix.trim(),
+  );
+
+  /// Las columnas del nombre partido de [name], para escribirlas.
+  PropertyValuesCompanion _nameColumns(PersonName name) =>
+      PropertyValuesCompanion(
+        nameFamily: Value(name.family),
+        nameGiven: Value(name.given.isEmpty ? null : name.given),
+        nameSuffix: Value(name.suffix.isEmpty ? null : name.suffix),
+        isInstitution: Value(name.isInstitution),
+      );
+
+  Future<bool> _isPerson(String definitionId) async {
+    final definition = await (_db.select(
+      _db.propertyDefinitions,
+    )..where((d) => d.id.equals(definitionId))).getSingleOrNull();
+    return definition?.type == PropertyValueType.person;
+  }
+
+  @override
+  Future<Either<Failure, VocabularyOperation>> addPerson(
+    PersonName name,
+  ) async {
+    final person = _trimmed(name);
+    if (person.family.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El apellido no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final operation = await _db.transaction(() async {
+        final category = await PersonVocabulary(
+          _db,
+          ids: _ids,
+          clock: _clock,
+        ).categoryId();
+        final label = person.label;
+        final clash = await findValueByLabelOrAlias(_db, category, label);
+        if (clash != null) {
+          throw _Rejected(
+            Failure.validation(message: 'Ya existe un valor "$label".'),
+          );
+        }
+        final id = _ids.next();
+        await _db
+            .into(_db.propertyValues)
+            .insert(
+              PropertyValuesCompanion.insert(
+                id: id,
+                definitionId: category,
+                value: label,
+                createdAt: _clock(),
+                nameFamily: Value(person.family),
+                nameGiven: Value(person.given.isEmpty ? null : person.given),
+                nameSuffix: Value(person.suffix.isEmpty ? null : person.suffix),
+                isInstitution: Value(person.isInstitution),
+              ),
+            );
+        return _AddPersonOperation(valueId: id, label: label);
+      });
+      return right(operation);
+    } on _Rejected catch (rejected) {
+      return left(rejected.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'VocabularyRepositoryImpl.addPerson'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, VocabularyOperation>> editPerson({
+    required String id,
+    required PersonName name,
+  }) async {
+    final person = _trimmed(name);
+    if (person.family.isEmpty) {
+      return left(
+        const Failure.validation(message: 'El apellido no puede quedar vacío.'),
+      );
+    }
+
+    try {
+      final operation = await _db.transaction(() async {
+        final current = await (_db.select(
+          _db.propertyValues,
+        )..where((v) => v.id.equals(id))).getSingleOrNull();
+        if (current == null) {
+          throw const _Rejected(
+            Failure.unexpected(
+              message: 'El valor ya no existe; puede que se haya borrado.',
+            ),
+          );
+        }
+        if (!await _isPerson(current.definitionId)) {
+          throw const _Rejected(
+            Failure.validation(
+              message: 'Solo una persona se edita con su apellido y su nombre.',
+            ),
+          );
+        }
+
+        // El propio valor queda afuera de la comparación: corregirle un
+        // acento a su nombre no es chocar consigo mismo.
+        final label = person.label;
+        final clash = await findValueByLabelOrAlias(
+          _db,
+          current.definitionId,
+          label,
+          excludingValueId: id,
+        );
+        if (clash != null) {
+          throw _Rejected(
+            Failure.validation(message: 'Ya existe un valor "$label".'),
+          );
+        }
+
+        await (_db.update(_db.propertyValues)..where((v) => v.id.equals(id)))
+            .write(_nameColumns(person).copyWith(value: Value(label)));
+        return _EditPersonOperation(
+          before: current,
+          newLabel: label,
+          affectedItems: await _usageOf(id),
+        );
+      });
+      return right(operation);
+    } on _Rejected catch (rejected) {
+      return left(rejected.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'VocabularyRepositoryImpl.editPerson'),
+      );
+    }
+  }
+
+  @override
+  Stream<List<AuthorWork>> watchWorksOf(String valueId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.sourceContributors, _db.knowledgeEntries],
+      read: () async {
+        // Las de la papelera no cuentan: un elemento borrado no es una obra que
+        // mostrar.
+        final rows = await _db
+            .customSelect(
+              '''
+              SELECT c.item_id AS item_id, i.title AS title, c.role AS role
+                FROM source_contributor c JOIN item i ON i.id = c.item_id
+               WHERE c.property_value_id = ? AND i.deleted_at IS NULL
+               ORDER BY i.title COLLATE NOCASE, i.id, c.position''',
+              variables: [Variable<String>(valueId)],
+            )
+            .get();
+        return [
+          for (final row in rows)
+            AuthorWork(
+              itemId: row.read<String>('item_id'),
+              title: row.read<String>('title'),
+              role:
+                  ContributorRole.values.asNameMap()[row.read<String>(
+                    'role',
+                  )] ??
+                  ContributorRole.author,
+            ),
+        ];
+      },
+      telemetry: _telemetry,
+      hint: 'VocabularyRepositoryImpl.watchWorksOf',
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -785,10 +987,14 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           case _MergeOperation():
             // En el orden inverso al que se hicieron.
             for (final undo in operation.undos.reversed) {
-              await undoPropertyValueMerge(_db, undo);
+              await undoPropertyValueMerge(_db, undo, clock: _clock);
             }
           case _RenameOperation():
             await _undoRename(operation);
+          case _AddPersonOperation():
+            await _undoAddPerson(operation);
+          case _EditPersonOperation():
+            await _undoEditPerson(operation);
           case _DeleteOperation():
             await _undoDelete(operation);
           case _DeleteCategoriesOperation():
@@ -846,6 +1052,59 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     await (_db.update(_db.propertyValues)
           ..where((v) => v.id.equals(op.valueId)))
         .write(PropertyValuesCompanion(value: Value(op.oldLabel)));
+  }
+
+  Future<void> _undoAddPerson(_AddPersonOperation op) async {
+    final current = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(op.valueId))).getSingleOrNull();
+    // Ya no está: alguien la borró o la fusionó. No hay nada que deshacer.
+    if (current == null) return;
+    // Si una obra ya la nombra, quitarla se llevaría a la persona de la obra.
+    if (await _usageOf(op.valueId) > 0) {
+      throw const MergeUndoConflict(
+        'La persona ya figura en una obra: no se puede deshacer.',
+      );
+    }
+    await (_db.delete(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(op.valueId))).go();
+  }
+
+  Future<void> _undoEditPerson(_EditPersonOperation op) async {
+    final current = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(op.before.id))).getSingleOrNull();
+    if (current == null || current.value != op.newLabel) {
+      throw const MergeUndoConflict(
+        'La persona cambió de nombre otra vez o ya no existe.',
+      );
+    }
+    // Solo un conflicto de INTEGRIDAD, como en `_undoRename`.
+    final others =
+        await (_db.select(_db.propertyValues)..where(
+              (v) =>
+                  v.definitionId.equals(current.definitionId) &
+                  v.id.equals(op.before.id).not(),
+            ))
+            .get();
+    if (others.any((v) => _sameForIndex(v.value, op.before.value))) {
+      throw MergeUndoConflict(
+        'Ya existe otro valor "${op.before.value}": no se puede volver a ese '
+        'nombre.',
+      );
+    }
+    await (_db.update(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(op.before.id))).write(
+      PropertyValuesCompanion(
+        value: Value(op.before.value),
+        nameFamily: Value(op.before.nameFamily),
+        nameGiven: Value(op.before.nameGiven),
+        nameSuffix: Value(op.before.nameSuffix),
+        isInstitution: Value(op.before.isInstitution),
+      ),
+    );
   }
 
   Future<void> _undoDelete(_DeleteOperation op) async {
@@ -964,15 +1223,23 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     _db.propertyValues,
   )..where((v) => v.id.equals(id))).getSingle();
 
-  /// En cuántos elementos está puesto el valor.
+  /// En cuántos elementos está puesto el valor: los que lo tienen asignado y,
+  /// si es una persona, las obras que la nombran (F15). Normalmente son las
+  /// mismas —el espejo de las personas las asigna—, pero un valor que una obra
+  /// nombra no está «sin uso» aunque el espejo se haya perdido: borrarlo se
+  /// llevaría a la persona de la obra.
   Future<int> _usageOf(String valueId) async {
-    final count = _db.itemPropertyValues.itemId.count();
-    final row =
-        await (_db.selectOnly(_db.itemPropertyValues)
-              ..addColumns([count])
-              ..where(_db.itemPropertyValues.propertyValueId.equals(valueId)))
-            .getSingle();
-    return row.read(count) ?? 0;
+    final row = await _db
+        .customSelect(
+          '''
+          SELECT COUNT(*) AS n FROM (
+            SELECT item_id FROM item_property_values WHERE property_value_id = ?
+            UNION
+            SELECT item_id FROM source_contributor WHERE property_value_id = ?)''',
+          variables: [Variable<String>(valueId), Variable<String>(valueId)],
+        )
+        .getSingle();
+    return row.read<int>('n');
   }
 
   /// Catch-all deliberado, igual que en el resto de la app: un `TypeError`
@@ -1068,6 +1335,49 @@ class _RenameOperation implements VocabularyOperation {
 
   final String valueId;
   final String oldLabel;
+  final String newLabel;
+
+  @override
+  final int affectedItems;
+
+  @override
+  VocabularyOperationKind get kind => VocabularyOperationKind.rename;
+
+  @override
+  int get valueCount => 1;
+
+  @override
+  String get label => newLabel;
+}
+
+class _AddPersonOperation implements VocabularyOperation {
+  _AddPersonOperation({required this.valueId, required this.label});
+
+  final String valueId;
+
+  @override
+  final String label;
+
+  @override
+  VocabularyOperationKind get kind => VocabularyOperationKind.add;
+
+  @override
+  int get valueCount => 1;
+
+  /// Una persona nueva no está en ninguna obra todavía.
+  @override
+  int get affectedItems => 0;
+}
+
+class _EditPersonOperation implements VocabularyOperation {
+  _EditPersonOperation({
+    required this.before,
+    required this.newLabel,
+    required this.affectedItems,
+  });
+
+  /// La fila tal como era, con su etiqueta y su nombre partido.
+  final PropertyValueRow before;
   final String newLabel;
 
   @override

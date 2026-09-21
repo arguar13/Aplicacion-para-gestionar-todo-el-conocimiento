@@ -4238,6 +4238,10 @@
   "@vocabularyReasonSimilar": {
     "description": "Razón por la que dos valores parecen ser el mismo: se escriben casi igual."
   },
+  "vocabularyReasonNameVariant": "An abbreviated or differently written name",
+  "@vocabularyReasonNameVariant": {
+    "description": "Why two authors may be the same person: same surname, and the given name is the abbreviated or full form of the other"
+  },
   "vocabularyKeepTooltip": "Keep this one",
   "@vocabularyKeepTooltip": {
     "description": "Marca del valor que se conserva al fusionar un grupo."
@@ -4431,6 +4435,15 @@
       "count": {
         "type": "int"
       },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyOperationPersonAdded": "Added “{label}”",
+  "@vocabularyOperationPersonAdded": {
+    "description": "Notice that a person was added to the authors vocabulary; label is their name",
+    "placeholders": {
       "label": {
         "type": "String"
       }
