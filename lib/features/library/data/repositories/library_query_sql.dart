@@ -41,6 +41,28 @@ const kSearchWindowSql =
     'AND $kChunkOutsideTrashSql '
     'ORDER BY chunk_search.rowid + 0 DESC LIMIT ?';
 
+/// Los ids de [count] valores del vocabulario —que se pasan como parámetros—
+/// MÁS todo lo que cuelga de ellos: filtrar por «Roma» trae también lo asignado
+/// a «Roma republicana» y a «Reformas de los Gracos» (F13).
+///
+/// Es una consulta recursiva sobre los VALORES, no sobre los elementos: el
+/// árbol tiene, como mucho, unos miles de valores y cinco niveles, y se recorre
+/// por `idx_property_values_parent`; lo que después se une con
+/// `item_property_values` es lo mismo que sin jerarquía. No hay una tabla de
+/// cierre que mantener en cada asignación, fusión y migración. Asignar un
+/// valor hijo NO asigna a su padre: la jerarquía se resuelve acá, al
+/// consultar, sin duplicar filas.
+///
+/// `UNION` y no `UNION ALL`: si un valor y uno de sus descendientes están
+/// entre los pedidos, cada uno cuenta una vez.
+String valuesWithDescendantsSql(int count) =>
+    'WITH RECURSIVE branch(id) AS ( '
+    'SELECT id FROM property_values '
+    'WHERE id IN (${List.filled(count, '?').join(', ')}) '
+    'UNION SELECT child.id FROM property_values child '
+    'JOIN branch ON child.parent_id = branch.id) '
+    'SELECT id FROM branch';
+
 /// Cuántos chunks se piden, como mínimo, cuando se busca ordenando por
 /// relevancia una página de resultados: ver [topChunksFor].
 const kMinTopChunks = 300;
@@ -207,7 +229,8 @@ class LibraryQuerySql {
       if (valueIds.isEmpty) continue;
       _where.add(
         'item.id IN (SELECT item_id FROM item_property_values '
-        'WHERE property_value_id IN (${_marks(valueIds.length)}))',
+        'WHERE property_value_id IN '
+        '(${valuesWithDescendantsSql(valueIds.length)}))',
       );
       _args.addAll(valueIds.map(Variable.withString));
     }

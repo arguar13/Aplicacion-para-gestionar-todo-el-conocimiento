@@ -285,6 +285,25 @@ void main() {
     expect(ids.sql, contains(kSearchWindowSql));
   });
 
+  test('filtrar por un valor con su rama recorre el árbol por su índice y no '
+      'la tabla de valores (F13)', () async {
+    final ids = LibraryQuerySql(
+      const LibraryQuery(propertyValueIds: {'un-valor'}, limit: 50),
+    ).ids();
+
+    final plan = await planOf(ids.sql, [
+      for (final v in ids.variables) v.value!,
+    ]);
+
+    // El paso recursivo busca a los hijos por `parent_id`, no recorre todo.
+    expect(plan, contains('idx_property_values_parent'), reason: plan);
+    expect(scans(plan, 'property_values'), isFalse, reason: plan);
+    expect(scans(plan, 'child'), isFalse, reason: plan);
+    // Y lo que se une después sigue siendo una búsqueda por el índice de la
+    // asignación, no un recorrido de `item_property_values`.
+    expect(scans(plan, 'item_property_values'), isFalse, reason: plan);
+  });
+
   test('lo que está en la papelera se lee por su índice parcial; lo vivo, '
       'por la clave', () async {
     final trash = await planOf(
