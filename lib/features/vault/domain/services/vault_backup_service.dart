@@ -17,14 +17,16 @@ abstract interface class VaultBackupService {
   /// nada del disco: quien llama decide dónde guardarlo.
   Future<Uint8List> buildBackup();
 
-  /// Si [zipBytes] tiene la forma de una copia de Sinapsis —trae la base de
-  /// datos adentro—, sin llegar a restaurar nada todavía. Se usa antes de
-  /// pedirle confirmación al usuario: no tiene sentido advertirle que va a
-  /// reemplazar toda su bóveda por un archivo que ni siquiera es una copia
-  /// válida.
-  Future<bool> isValidBackup(Uint8List zipBytes);
+  /// Si el archivo [zipPath] tiene la forma de una copia de Sinapsis —es un
+  /// `.zip` y trae la base de datos adentro—, sin llegar a fusionar nada
+  /// todavía. Se usa antes de pedirle confirmación al usuario: no tiene sentido
+  /// mostrarle qué traería un archivo que ni siquiera es una copia válida.
+  ///
+  /// Las copias se leen del disco, por su ruta, y no se cargan en memoria: una
+  /// copia de una bóveda grande puede pesar cientos de megas.
+  Future<bool> isValidBackup(String zipPath);
 
-  /// Qué pasaría si se fusionara la copia [zipBytes] con esta bóveda, sin
+  /// Qué pasaría si se fusionara la copia [zipPath] con esta bóveda, sin
   /// escribir nada (F11): cuántos elementos y cuántas otras cosas trae que
   /// esta bóveda no tiene, y cuántos archivos.
   ///
@@ -33,9 +35,9 @@ abstract interface class VaultBackupService {
   /// que esta; y `SchemaTooOldException` si es de una tan vieja que esta no
   /// sabe actualizarla. La copia se abre aparte, en un temporal: si hay que
   /// actualizar su esquema se actualiza ELLA, nunca esta bóveda.
-  Future<VaultMergePreview> previewMerge(Uint8List zipBytes);
+  Future<VaultMergePreview> previewMerge(String zipPath);
 
-  /// Fusiona la copia [zipBytes] con esta bóveda, sin borrar nada de lo que hay
+  /// Fusiona la copia [zipPath] con esta bóveda, sin borrar nada de lo que hay
   /// (F11): lo que la copia trae y acá no está se suma, y lo que las dos tienen
   /// se une campo a campo, quedándose con la versión que sigue a la otra; lo
   /// que no se puede decidir queda guardado como conflicto para que el usuario
@@ -48,7 +50,7 @@ abstract interface class VaultBackupService {
   ///
   /// No reemplaza nada ni pide reiniciar la app: la conexión abierta sigue
   /// siendo la misma.
-  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes);
+  Future<VaultMergeResult> mergeBackup(String zipPath);
 }
 
 /// La copia es de una versión de Sinapsis más nueva que esta: su base tiene un

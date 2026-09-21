@@ -71,7 +71,7 @@ void main() {
           originalContent: 'y' * 12,
         );
 
-        final preview = await tel.backup.previewMerge(await pc.zip());
+        final preview = await tel.previewFrom(pc);
         final result = await tel.mergeFrom(pc);
 
         expect(preview.newFiles, result.filesCopied);
@@ -248,7 +248,7 @@ void main() {
         tel.at(1);
         await tel.saveSource('mio');
 
-        final result = await tel.backup.mergeBackup(await pc.zip());
+        final result = await tel.mergeBackupFrom(pc);
 
         expect(result.itemsAdded, 1);
         expect(result.filesCopied, 1);
@@ -264,7 +264,7 @@ void main() {
       final before = await tel.counts();
 
       await expectLater(
-        tel.backup.mergeBackup(Uint8List.fromList([1, 2, 3])),
+        tel.mergeBackupZip(Uint8List.fromList([1, 2, 3])),
         throwsA(isA<Object>()),
       );
 

@@ -32,20 +32,20 @@ class _Service implements VaultBackupService {
     commonItems: 0,
   );
   VaultMergeResult result = const VaultMergeResult(itemsAdded: 1);
-  Uint8List? previewed;
-  Uint8List? merged;
+  String? previewed;
+  String? merged;
 
   @override
-  Future<VaultMergePreview> previewMerge(Uint8List zipBytes) async {
-    previewed = zipBytes;
+  Future<VaultMergePreview> previewMerge(String zipPath) async {
+    previewed = zipPath;
     final error = previewThrows;
     if (error != null) throw error;
     return preview;
   }
 
   @override
-  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes) async {
-    merged = zipBytes;
+  Future<VaultMergeResult> mergeBackup(String zipPath) async {
+    merged = zipPath;
     final error = mergeThrows;
     if (error != null) throw error;
     return result;
@@ -55,11 +55,11 @@ class _Service implements VaultBackupService {
   Future<Uint8List> buildBackup() => throw UnimplementedError();
 
   @override
-  Future<bool> isValidBackup(Uint8List zipBytes) => throw UnimplementedError();
+  Future<bool> isValidBackup(String zipPath) => throw UnimplementedError();
 }
 
 void main() {
-  final bytes = Uint8List.fromList([1, 2, 3]);
+  const path = '/copias/sinapsis-backup.zip';
   late _Service service;
 
   setUp(() => service = _Service());
@@ -69,11 +69,11 @@ void main() {
         PreviewVaultMergeUseCase(backupService: service);
 
     test('una copia que se puede leer vuelve con lo que traería', () async {
-      final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+      final outcome = (await useCase()(path)).getRight().toNullable()!;
 
       expect(outcome, isA<VaultMergePreviewReady>());
       expect((outcome as VaultMergePreviewReady).preview, service.preview);
-      expect(service.previewed, bytes);
+      expect(service.previewed, path);
     });
 
     test(
@@ -84,7 +84,7 @@ void main() {
           currentVersion: 20,
         );
 
-        final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+        final outcome = (await useCase()(path)).getRight().toNullable()!;
 
         expect(
           outcome,
@@ -104,7 +104,7 @@ void main() {
         minimum: 15,
       );
 
-      final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+      final outcome = (await useCase()(path)).getRight().toNullable()!;
 
       expect(
         outcome,
@@ -120,7 +120,7 @@ void main() {
     test('que no es una copia: rechazada', () async {
       service.previewThrows = const InvalidVaultBackupException('no');
 
-      final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+      final outcome = (await useCase()(path)).getRight().toNullable()!;
 
       expect(
         outcome,
@@ -133,7 +133,7 @@ void main() {
     test('lo inesperado es un fallo, no un rechazo', () async {
       service.previewThrows = _Boom();
 
-      final either = await useCase()(bytes);
+      final either = await useCase()(path);
 
       expect(either.isLeft(), isTrue);
       expect(either.getLeft().toNullable(), isA<UnexpectedFailure>());
@@ -147,7 +147,7 @@ void main() {
     test('fusionada: vuelve con lo que se hizo', () async {
       service.result = const VaultMergeResult(itemsAdded: 4, itemsUpdated: 2);
 
-      final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+      final outcome = (await useCase()(path)).getRight().toNullable()!;
 
       expect(
         outcome,
@@ -155,13 +155,13 @@ void main() {
           result: VaultMergeResult(itemsAdded: 4, itemsUpdated: 2),
         ),
       );
-      expect(service.merged, bytes);
+      expect(service.merged, path);
     });
 
     test('una compuerta que revierte: es un valor, con su nombre', () async {
       service.mergeThrows = const VaultMergeGateException('counts', 'achicó');
 
-      final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+      final outcome = (await useCase()(path)).getRight().toNullable()!;
 
       expect(outcome, const VaultMergeOutcome.reverted(gate: 'counts'));
     });
@@ -188,7 +188,7 @@ void main() {
       for (final entry in cases.entries) {
         service.mergeThrows = entry.key;
 
-        final outcome = (await useCase()(bytes)).getRight().toNullable()!;
+        final outcome = (await useCase()(path)).getRight().toNullable()!;
 
         expect(
           outcome,
@@ -201,7 +201,7 @@ void main() {
     test('lo inesperado es un fallo', () async {
       service.mergeThrows = _Boom();
 
-      final either = await useCase()(bytes);
+      final either = await useCase()(path);
 
       expect(either.isLeft(), isTrue);
       expect(either.getLeft().toNullable(), isA<UnexpectedFailure>());

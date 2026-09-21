@@ -90,21 +90,27 @@ class LocalVaultBackupService implements VaultBackupService {
   }
 
   @override
-  Future<bool> isValidBackup(Uint8List zipBytes) async {
+  Future<bool> isValidBackup(String zipPath) async {
+    InputFileStream? input;
     try {
-      final archive = ZipDecoder().decodeBytes(zipBytes);
+      // Solo se lee el índice del final del archivo: no hace falta abrir la
+      // copia entera para saber si trae la base.
+      input = InputFileStream(zipPath);
+      final archive = ZipDecoder().decodeStream(input);
       return archive.files.any((file) => file.name == _databaseEntryName);
-      // `decodeBytes` lanza sobre cualquier cosa que no sea un zip válido
-      // —un PDF, una foto, un archivo a medio bajar—.
+      // Lanza sobre cualquier cosa que no sea un zip válido —un PDF, una foto,
+      // un archivo a medio bajar— y sobre un archivo que ya no está.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
       return false;
+    } finally {
+      await input?.close();
     }
   }
 
   @override
-  Future<VaultMergePreview> previewMerge(Uint8List zipBytes) async {
-    final incoming = await IncomingVault.open(zipBytes);
+  Future<VaultMergePreview> previewMerge(String zipPath) async {
+    final incoming = await IncomingVault.openFile(File(zipPath));
     try {
       return await VaultMergeReader(
         database: _database,
@@ -116,8 +122,8 @@ class LocalVaultBackupService implements VaultBackupService {
   }
 
   @override
-  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes) async {
-    final incoming = await IncomingVault.open(zipBytes);
+  Future<VaultMergeResult> mergeBackup(String zipPath) async {
+    final incoming = await IncomingVault.openFile(File(zipPath));
     try {
       return await VaultMerger(
         database: _database,

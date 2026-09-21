@@ -32,6 +32,7 @@ import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/vault_merger.dart';
 import 'package:sinapsis/features/vault/data/services/backup_layout.dart';
 import 'package:sinapsis/features/vault/data/services/local_vault_backup_service.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
@@ -603,6 +604,41 @@ class TestVault {
 
   /// Una copia de esta bóveda, como la exportaría la app.
   Future<Uint8List> zip() => backup.buildBackup();
+
+  /// Qué traería la copia de [other] a esta bóveda, sin escribir nada: lo que
+  /// ve quien la elige en la pantalla. La copia se lee del disco, por su ruta,
+  /// como hace la app.
+  Future<VaultMergePreview> previewFrom(TestVault other) async =>
+      previewZip(await other.zip());
+
+  /// Lo mismo con la copia [zipBytes], escrita antes a un archivo.
+  Future<VaultMergePreview> previewZip(Uint8List zipBytes) async {
+    final dir = await Directory.systemTemp.createTemp('sinapsis_preview_');
+    try {
+      final file = File(p.join(dir.path, 'copia.zip'));
+      await file.writeAsBytes(zipBytes);
+      return await backup.previewMerge(file.path);
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Fusiona la copia [zipBytes] con el SERVICIO, como lo hace la app: el
+  /// `.zip` se escribe antes a un archivo y se lee del disco, por su ruta.
+  Future<VaultMergeResult> mergeBackupZip(Uint8List zipBytes) async {
+    final dir = await Directory.systemTemp.createTemp('sinapsis_merge_zip_');
+    try {
+      final file = File(p.join(dir.path, 'copia.zip'));
+      await file.writeAsBytes(zipBytes);
+      return await backup.mergeBackup(file.path);
+    } finally {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Fusiona la copia de [other] con el servicio (ver [mergeBackupZip]).
+  Future<VaultMergeResult> mergeBackupFrom(TestVault other) async =>
+      mergeBackupZip(await other.zip());
 
   /// Fusiona la copia de [other] en esta bóveda, como lo haría la app. Con
   /// [afterWrites] y [afterFiles] se rompe algo a propósito a mitad de la

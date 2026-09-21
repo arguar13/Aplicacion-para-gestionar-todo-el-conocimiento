@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'vault_backup_file_pick.freezed.dart';
@@ -15,6 +13,7 @@ sealed class VaultBackupFilePick with _$VaultBackupFilePick {
 
   const factory VaultBackupFilePick.invalid() = VaultBackupFileInvalid;
 
-  const factory VaultBackupFilePick.selected({required Uint8List bytes}) =
+  /// [path] es la ruta del archivo elegido, ya comprobado.
+  const factory VaultBackupFilePick.selected({required String path}) =
       VaultBackupFileSelected;
 }

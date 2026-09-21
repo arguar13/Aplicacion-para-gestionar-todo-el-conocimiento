@@ -329,7 +329,7 @@ void main() {
       await pc.addDefinition('d-epoca', 'Época');
       await pc.addPropertyValue('v-antigua', 'd-epoca', 'Antigua');
 
-      final preview = await tel.backup.previewMerge(await pc.zip());
+      final preview = await tel.previewFrom(pc);
       final result = await tel.mergeFrom(pc);
 
       expect(preview.newPropertyValues, result.propertyValuesAdded);

@@ -397,7 +397,7 @@ void main() {
       await pc.addMessage('m1', 'c1');
 
       tel.at(9);
-      final preview = await tel.backup.previewMerge(await pc.zip());
+      final preview = await tel.previewFrom(pc);
       final result = await tel.mergeFrom(pc);
 
       expect(preview.newRelations, result.relationsAdded);

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/services/local_vault_backup_service.dart';
+import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// Corre contra SQLite y un sistema de archivos de verdad, en un directorio
 /// temporal — igual que `app_database_test.dart`: lo que se prueba acá es
@@ -30,6 +31,14 @@ void main() {
     await db.close();
     if (docsDir.existsSync()) await docsDir.delete(recursive: true);
   });
+
+  /// Los bytes de una copia escritos a un archivo, que es como se lee: por su
+  /// ruta, del disco.
+  Future<String> asFile(Uint8List bytes, {String name = 'copia.zip'}) async {
+    final file = File(p.join(docsDir.path, name));
+    await file.writeAsBytes(bytes);
+    return file.path;
+  }
 
   Future<void> writeOriginal(String relativePath, String content) async {
     final file = File(p.join(docsDir.path, 'originales', relativePath));
@@ -74,8 +83,11 @@ void main() {
         for (var i = 0; i < 12; i++) service.buildBackup(),
       ]);
 
-      for (final bytes in copies) {
-        expect(await service.isValidBackup(bytes), isTrue);
+      for (final (i, bytes) in copies.indexed) {
+        expect(
+          await service.isValidBackup(await asFile(bytes, name: 'copia$i.zip')),
+          isTrue,
+        );
       }
     });
 
@@ -100,15 +112,51 @@ void main() {
     });
   });
 
+  group('previewMerge y mergeBackup, por ruta', () {
+    test('la copia de esta misma bóveda no trae nada nuevo', () async {
+      final path = await asFile(await service.buildBackup());
+
+      final preview = await service.previewMerge(path);
+
+      expect(preview.hasNothingNew, isTrue);
+    });
+
+    test(
+      'un archivo que no existe es una copia inválida, no un fallo',
+      () async {
+        final missing = p.join(docsDir.path, 'no-esta.zip');
+
+        await expectLater(
+          service.previewMerge(missing),
+          throwsA(isA<InvalidVaultBackupException>()),
+        );
+        await expectLater(
+          service.mergeBackup(missing),
+          throwsA(isA<InvalidVaultBackupException>()),
+        );
+      },
+    );
+
+    test('ni ver qué traería ni fusionar dejan el archivo abierto', () async {
+      final path = await asFile(await service.buildBackup());
+
+      await service.previewMerge(path);
+      await service.mergeBackup(path);
+
+      File(path).deleteSync();
+      expect(File(path).existsSync(), isFalse);
+    });
+  });
+
   group('isValidBackup', () {
     test('true para un backup armado por este mismo servicio', () async {
       final bytes = await service.buildBackup();
-      expect(await service.isValidBackup(bytes), isTrue);
+      expect(await service.isValidBackup(await asFile(bytes)), isTrue);
     });
 
     test('false para bytes que no son un zip', () async {
       final garbage = Uint8List.fromList([1, 2, 3, 4]);
-      expect(await service.isValidBackup(garbage), isFalse);
+      expect(await service.isValidBackup(await asFile(garbage)), isFalse);
     });
 
     test('false para un zip que no trae la base de datos', () async {
@@ -116,7 +164,22 @@ void main() {
         ..addFile(ArchiveFile.bytes('otra-cosa.txt', [1, 2, 3]));
       final bytes = Uint8List.fromList(ZipEncoder().encodeBytes(archive));
 
-      expect(await service.isValidBackup(bytes), isFalse);
+      expect(await service.isValidBackup(await asFile(bytes)), isFalse);
+    });
+
+    test('false para un archivo que no existe', () async {
+      final missing = p.join(docsDir.path, 'no-esta.zip');
+
+      expect(await service.isValidBackup(missing), isFalse);
+    });
+
+    test('no deja el archivo abierto: se puede borrar después', () async {
+      final path = await asFile(await service.buildBackup());
+
+      expect(await service.isValidBackup(path), isTrue);
+
+      File(path).deleteSync();
+      expect(File(path).existsSync(), isFalse);
     });
   });
 }

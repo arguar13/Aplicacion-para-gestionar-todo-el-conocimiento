@@ -21,43 +21,49 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 /// estaba —sin cerrar la base ni reiniciar—, con lo nuevo.
 class _FakeService implements VaultBackupService {
   bool valid = true;
-  Future<VaultMergePreview> Function(Uint8List) onPreview = (_) async =>
+  Future<VaultMergePreview> Function(String) onPreview = (_) async =>
       const VaultMergePreview(
         incomingItems: 3,
         newSources: 2,
         newNotes: 1,
         commonItems: 0,
       );
-  Future<VaultMergeResult> Function(Uint8List) onMerge = (_) async =>
+  Future<VaultMergeResult> Function(String) onMerge = (_) async =>
       const VaultMergeResult(itemsAdded: 3);
 
-  final previews = <Uint8List>[];
-  final merges = <Uint8List>[];
+  final previews = <String>[];
+  final merges = <String>[];
 
   @override
   Future<Uint8List> buildBackup() async => Uint8List(0);
 
   @override
-  Future<bool> isValidBackup(Uint8List zipBytes) async => valid;
+  Future<bool> isValidBackup(String zipPath) async => valid;
 
   @override
-  Future<VaultMergePreview> previewMerge(Uint8List zipBytes) {
-    previews.add(zipBytes);
-    return onPreview(zipBytes);
+  Future<VaultMergePreview> previewMerge(String zipPath) {
+    previews.add(zipPath);
+    return onPreview(zipPath);
   }
 
   @override
-  Future<VaultMergeResult> mergeBackup(Uint8List zipBytes) {
-    merges.add(zipBytes);
-    return onMerge(zipBytes);
+  Future<VaultMergeResult> mergeBackup(String zipPath) {
+    merges.add(zipPath);
+    return onMerge(zipPath);
   }
 }
 
 class _FakeGateway implements VaultBackupFileGateway {
-  Uint8List? picked = Uint8List.fromList([1, 2, 3]);
+  String? picked = '/copias/sinapsis-backup.zip';
+
+  /// Cuántas veces se soltó lo que el selector dejó.
+  int discards = 0;
 
   @override
-  Future<Uint8List?> pickZip() async => picked;
+  Future<String?> pickZip() async => picked;
+
+  @override
+  Future<void> discardPicked() async => discards++;
 
   @override
   Future<String?> saveZip({
@@ -276,6 +282,91 @@ void main() {
       expect(service.previews, hasLength(1));
       expect(service.merges, isEmpty);
       expect(find.text(es.vaultMergeAction), findsOneWidget);
+    });
+  });
+
+  group('suelta la copia que dejó el selector (F12)', () {
+    testWidgets('al fusionar', (tester) async {
+      await pumpScreen(tester);
+      await tapChoose(tester);
+      expect(gateway.discards, 0, reason: 'todavía hay que decidir');
+
+      await tester.tap(find.text(es.vaultMergeConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(service.merges, [gateway.picked]);
+      expect(gateway.discards, 1);
+    });
+
+    testWidgets('al cancelar la confirmación', (tester) async {
+      await pumpScreen(tester);
+      await tapChoose(tester);
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(service.merges, isEmpty);
+      expect(gateway.discards, 1);
+    });
+
+    testWidgets('cuando la copia no trae nada nuevo', (tester) async {
+      service.onPreview = (_) async => const VaultMergePreview(
+        incomingItems: 1,
+        newSources: 0,
+        newNotes: 0,
+        commonItems: 1,
+      );
+      await pumpScreen(tester);
+
+      await tapChoose(tester);
+
+      expect(gateway.discards, 1);
+    });
+
+    testWidgets('cuando la copia se rechaza', (tester) async {
+      service.onPreview = (_) async => throw const VaultBackupTooNewException(
+        backupVersion: 99,
+        currentVersion: 20,
+      );
+      await pumpScreen(tester);
+
+      await tapChoose(tester);
+
+      expect(gateway.discards, 1);
+    });
+
+    testWidgets('cuando la fusión falla', (tester) async {
+      service.onMerge = (_) async => throw StateError('disco lleno');
+      await pumpScreen(tester);
+      await tapChoose(tester);
+
+      await tester.tap(find.text(es.vaultMergeConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(gateway.discards, 1);
+    });
+
+    testWidgets('con un archivo que no es una copia, en el momento', (
+      tester,
+    ) async {
+      service.valid = false;
+      await pumpScreen(tester);
+
+      await tapChoose(tester);
+
+      expect(gateway.discards, 1);
+      expect(service.previews, isEmpty);
+    });
+
+    testWidgets('si se cancela el selector no hay nada que soltar', (
+      tester,
+    ) async {
+      gateway.picked = null;
+      await pumpScreen(tester);
+
+      await tapChoose(tester);
+
+      expect(gateway.discards, 0);
     });
   });
 

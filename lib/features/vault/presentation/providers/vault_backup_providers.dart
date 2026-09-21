@@ -4,6 +4,7 @@ import 'package:sinapsis/features/vault/data/services/local_vault_backup_service
 import 'package:sinapsis/features/vault/data/services/system_vault_backup_file_gateway.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gateway.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
+import 'package:sinapsis/features/vault/domain/usecases/discard_picked_vault_backup_usecase.dart';
 import 'package:sinapsis/features/vault/domain/usecases/export_vault_backup_usecase.dart';
 import 'package:sinapsis/features/vault/domain/usecases/merge_vault_backup_usecase.dart';
 import 'package:sinapsis/features/vault/domain/usecases/pick_vault_backup_file_usecase.dart';
@@ -37,6 +38,13 @@ final pickVaultBackupFileUseCaseProvider =
     Provider.autoDispose<PickVaultBackupFileUseCase>((ref) {
       return PickVaultBackupFileUseCase(
         backupService: ref.watch(vaultBackupServiceProvider),
+        gateway: ref.watch(vaultBackupFileGatewayProvider),
+      );
+    });
+
+final discardPickedVaultBackupUseCaseProvider =
+    Provider.autoDispose<DiscardPickedVaultBackupUseCase>((ref) {
+      return DiscardPickedVaultBackupUseCase(
         gateway: ref.watch(vaultBackupFileGatewayProvider),
       );
     });

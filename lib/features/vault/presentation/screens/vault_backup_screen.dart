@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' show Left, Right;
@@ -140,15 +138,39 @@ class _VaultBackupScreenState extends ConsumerState<VaultBackupScreen> {
       case VaultBackupFileInvalid():
         _showMessage(l10n.vaultMergeInvalidFile);
         return;
-      case VaultBackupFileSelected(:final bytes):
-        await _previewAndMerge(bytes);
+      case VaultBackupFileSelected(:final path):
+        await _previewAndMerge(path);
     }
   }
 
-  /// Lee la copia, dice qué traería y —si el usuario confirma— la fusiona.
-  Future<void> _previewAndMerge(Uint8List bytes) async {
+  /// Lee la copia elegida, dice qué traería y —si el usuario confirma— la
+  /// fusiona. Suelta lo que el selector dejó apenas la copia deja de hacer
+  /// falta —antes de mostrar el resumen, no después de que se lo cierre— y,
+  /// pase lo que pase, al terminar.
+  Future<void> _previewAndMerge(String path) async {
+    // Antes de la primera pausa: si la pantalla se va mientras tanto, `ref` ya
+    // no se puede usar, pero soltar la copia sí hay que hacerlo.
+    final discard = ref.read(discardPickedVaultBackupUseCaseProvider);
+    var released = false;
+    Future<void> release() async {
+      if (released) return;
+      released = true;
+      await discard(const NoParams());
+    }
+
+    try {
+      await _readPreviewAndMerge(path, release);
+    } finally {
+      await release();
+    }
+  }
+
+  Future<void> _readPreviewAndMerge(
+    String path,
+    Future<void> Function() release,
+  ) async {
     setState(() => _stage = _MergeStage.reading);
-    final read = await ref.read(previewVaultMergeUseCaseProvider)(bytes);
+    final read = await ref.read(previewVaultMergeUseCaseProvider)(path);
     if (!mounted) return;
     setState(() => _stage = _MergeStage.idle);
 
@@ -166,6 +188,7 @@ class _VaultBackupScreenState extends ConsumerState<VaultBackupScreen> {
     }
 
     if (preview.hasNothingNew) {
+      await release();
       await _showNothingNew();
       return;
     }
@@ -173,7 +196,8 @@ class _VaultBackupScreenState extends ConsumerState<VaultBackupScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _stage = _MergeStage.merging);
-    final merged = await ref.read(mergeVaultBackupUseCaseProvider)(bytes);
+    final merged = await ref.read(mergeVaultBackupUseCaseProvider)(path);
+    await release();
     if (!mounted) return;
     setState(() => _stage = _MergeStage.idle);
 

@@ -10,7 +10,20 @@ abstract interface class VaultBackupFileGateway {
   /// cancela el selector.
   Future<String?> saveZip({required String fileName, required Uint8List bytes});
 
-  /// Deja elegir un archivo `.zip` para fusionar. Sus bytes, o `null` si se
-  /// cancela el selector.
-  Future<Uint8List?> pickZip();
+  /// Deja elegir un archivo `.zip` para fusionar. Su ruta en el disco, o `null`
+  /// si se cancela el selector.
+  ///
+  /// La ruta y no los bytes: una copia de la bóveda entera puede pesar cientos
+  /// de megas, y quien la lee lo hace del disco, a medida que la necesita. En
+  /// el teléfono, esa ruta es una copia que el selector armó en el
+  /// almacenamiento temporal de la app: [discardPicked] la borra.
+  Future<String?> pickZip();
+
+  /// Suelta lo que el selector dejó en el almacenamiento temporal de la app al
+  /// elegir un archivo —en el teléfono, una copia entera de él—. Se llama al
+  /// terminar con el archivo elegido, sirva o no.
+  ///
+  /// En escritorio no hay nada que soltar: la ruta que devolvió [pickZip] es la
+  /// del archivo REAL del usuario, y no se toca.
+  Future<void> discardPicked();
 }

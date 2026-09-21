@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -8,8 +6,8 @@ import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview_outc
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_rejection.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
-/// Lee una copia ya elegida y dice qué traería a esta bóveda, sin escribir nada
-/// (F11).
+/// Lee una copia ya elegida —por su ruta— y dice qué traería a esta bóveda, sin
+/// escribir nada (F11).
 ///
 /// Es el paso que va entre elegir el archivo y fusionarlo: el usuario ve qué
 /// va a pasar antes de decidir. Una copia que no sirve —de una versión más
@@ -17,16 +15,14 @@ import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dar
 /// [VaultMergePreviewRejected] y no como un fallo: es el archivo equivocado, no
 /// una falla de la app.
 class PreviewVaultMergeUseCase
-    implements UseCase<VaultMergePreviewOutcome, Uint8List> {
+    implements UseCase<VaultMergePreviewOutcome, String> {
   const PreviewVaultMergeUseCase({required VaultBackupService backupService})
     : _backupService = backupService;
 
   final VaultBackupService _backupService;
 
   @override
-  Future<Either<Failure, VaultMergePreviewOutcome>> call(
-    Uint8List params,
-  ) async {
+  Future<Either<Failure, VaultMergePreviewOutcome>> call(String params) async {
     try {
       final preview = await _backupService.previewMerge(params);
       return right(VaultMergePreviewOutcome.ready(preview: preview));

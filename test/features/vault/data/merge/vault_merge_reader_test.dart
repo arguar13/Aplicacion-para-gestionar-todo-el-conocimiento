@@ -34,7 +34,7 @@ void main() {
 
   /// Lo que traería la copia de [from] a la bóveda de acá.
   Future<VaultMergePreview> previewOf(TestVault from) async =>
-      local.backup.previewMerge(await from.zip());
+      local.previewFrom(from);
 
   group('los elementos', () {
     test('dos bóvedas vacías no tienen nada nuevo', () async {
@@ -261,7 +261,7 @@ void main() {
           ]),
         });
 
-        final preview = await local.backup.previewMerge(zip);
+        final preview = await local.previewZip(zip);
 
         expect(preview.newFiles, 0);
       },
@@ -270,7 +270,7 @@ void main() {
 
   group('una copia de otra versión', () {
     test('una de una versión vieja se lee igual, ya puesta al día', () async {
-      final preview = await local.backup.previewMerge(
+      final preview = await local.previewZip(
         await vaultCopyAtV19(sourceId: 'vieja'),
       );
 
@@ -284,14 +284,14 @@ void main() {
       });
 
       await expectLater(
-        local.backup.previewMerge(zip),
+        local.previewZip(zip),
         throwsA(isA<VaultBackupTooNewException>()),
       );
     });
 
     test('lo que no es una copia se rechaza', () async {
       await expectLater(
-        local.backup.previewMerge(Uint8List.fromList([1, 2, 3])),
+        local.previewZip(Uint8List.fromList([1, 2, 3])),
         throwsA(isA<InvalidVaultBackupException>()),
       );
     });
@@ -331,8 +331,8 @@ void main() {
       await other.saveNote('n');
       final zip = await other.zip();
 
-      final first = await local.backup.previewMerge(zip);
-      final second = await local.backup.previewMerge(zip);
+      final first = await local.previewZip(zip);
+      final second = await local.previewZip(zip);
 
       expect(second, first);
       expect(await attachedSchemas(), ['main']);
@@ -354,10 +354,7 @@ void main() {
         addTearDown(() => tempRoot.delete(recursive: true));
 
         await IOOverrides.runZoned(
-          () => expectLater(
-            local.backup.previewMerge(broken),
-            throwsA(isA<Object>()),
-          ),
+          () => expectLater(local.previewZip(broken), throwsA(isA<Object>())),
           getSystemTempDirectory: () => tempRoot,
         );
 
@@ -375,7 +372,7 @@ void main() {
       addTearDown(() => tempRoot.delete(recursive: true));
 
       await IOOverrides.runZoned(
-        () => local.backup.previewMerge(zip),
+        () => local.previewZip(zip),
         getSystemTempDirectory: () => tempRoot,
       );
 

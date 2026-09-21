@@ -389,7 +389,7 @@ void main() {
         expect(again.changedNothing, isTrue);
         expect(await pc.counts(), counts);
         expect(await pc.entry('a'), entry);
-        final preview = await pc.backup.previewMerge(await tel.zip());
+        final preview = await pc.previewFrom(tel);
         expect(preview.hasNothingNew, isTrue);
       },
     );
@@ -604,7 +604,7 @@ void main() {
       await pc.saveSource('nuevo', spaceId: 'sp2');
 
       tel.at(9);
-      final preview = await tel.backup.previewMerge(await pc.zip());
+      final preview = await tel.previewFrom(pc);
       final result = await tel.mergeFrom(pc);
 
       expect(preview.newItems, result.itemsAdded);
@@ -626,7 +626,7 @@ void main() {
       pc.at(5);
       await pc.saveSource('a', title: 'Editado en pc');
 
-      final before = await tel.backup.previewMerge(await pc.zip());
+      final before = await tel.previewFrom(pc);
       expect(before.newItems, 0);
       expect(before.fieldsToUpdate, 1);
       expect(before.itemsToUpdate, 1);
@@ -634,7 +634,7 @@ void main() {
 
       await tel.mergeFrom(pc);
 
-      final after = await tel.backup.previewMerge(await pc.zip());
+      final after = await tel.previewFrom(pc);
       expect(after.hasNothingNew, isTrue);
       expect(after.commonItems, 1);
     });
@@ -648,7 +648,7 @@ void main() {
 
       // Gana lo de acá, así que no cambia ningún campo: solo se guardaría el
       // conflicto.
-      final preview = await tel.backup.previewMerge(await pc.zip());
+      final preview = await tel.previewFrom(pc);
 
       expect(preview.fieldsToUpdate, 0);
       expect(preview.conflicts, 1);
@@ -663,7 +663,7 @@ void main() {
       await pc.saveSource('a', title: 'De pc');
       final before = await tel.counts();
 
-      final preview = await tel.backup.previewMerge(await pc.zip());
+      final preview = await tel.previewFrom(pc);
 
       expect(preview.conflicts, 1);
       expect(await tel.counts(), before);

@@ -18,27 +18,35 @@ class SystemVaultBackupFileGateway implements VaultBackupFileGateway {
   }
 
   @override
-  Future<Uint8List?> pickZip() async {
+  Future<String?> pickZip() async {
+    // Sin `withData`: nunca los bytes. Una copia de la bóveda entera puede
+    // pesar cientos de megas y quien la lee lo hace del disco, por la ruta. Lo
+    // que el selector devuelve es una ruta: la del archivo mismo en escritorio,
+    // y en el teléfono la de una copia que arma en el almacenamiento temporal
+    // de la app —copiada de a tandas, sin pasar entera por la memoria—.
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['zip'],
-      // Los bytes se piden solo en web, donde no hay ruta al disco: en el
-      // resto se lee del path, igual que `SystemFileChooser` — una copia de
-      // la bóveda entera puede pesar cientos de megas, y `file_picker` la
-      // cargaría dos veces en memoria si además se pidiera acá.
-      withData: kIsWeb,
     );
 
-    final picked = result?.files.singleOrNull;
-    if (picked == null) return null;
-    if (picked.bytes != null) return picked.bytes;
-
-    final path = picked.path;
+    final path = result?.files.singleOrNull?.path;
     if (path == null) return null;
+    if (!File(path).existsSync()) return null;
 
-    final file = File(path);
-    if (!file.existsSync()) return null;
+    return path;
+  }
 
-    return file.readAsBytes();
+  @override
+  Future<void> discardPicked() async {
+    // Solo en el teléfono el selector deja una copia: en escritorio la ruta es
+    // la del archivo del usuario, y borrarla sería borrarle su copia de
+    // seguridad.
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    try {
+      await FilePicker.clearTemporaryFiles();
+      // Es limpieza: que no se pueda no es motivo para fallar lo que ya
+      // terminó bien.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {}
   }
 }

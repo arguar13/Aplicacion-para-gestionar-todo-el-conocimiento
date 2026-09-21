@@ -23,16 +23,18 @@ class PickVaultBackupFileUseCase
 
   @override
   Future<Either<Failure, VaultBackupFilePick>> call(NoParams params) async {
-    final bytes = await _gateway.pickZip();
-    if (bytes == null) {
+    final path = await _gateway.pickZip();
+    if (path == null) {
       return right(const VaultBackupFilePick.cancelled());
     }
 
-    final isValid = await _backupService.isValidBackup(bytes);
+    final isValid = await _backupService.isValidBackup(path);
     if (!isValid) {
+      // Un archivo que no sirve no se va a usar: no hay por qué dejarlo.
+      await _gateway.discardPicked();
       return right(const VaultBackupFilePick.invalid());
     }
 
-    return right(VaultBackupFilePick.selected(bytes: bytes));
+    return right(VaultBackupFilePick.selected(path: path));
   }
 }
