@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/app.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
@@ -23,6 +22,7 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 import 'package:sinapsis/features/vault/presentation/providers/vault_session_controller.dart';
 
 import '../test/benchmark/synthetic_vault.dart';
+import 'support/device_benchmark_directory.dart';
 
 const _deviceInfo = String.fromEnvironment(
   'BENCH_DEVICE_INFO',
@@ -74,8 +74,7 @@ void main() {
     }
 
     EnvConfig.initialize(AppFlavor.dev);
-    final temporary = await getTemporaryDirectory();
-    final directory = Directory('${temporary.path}/sinapsis_benchmark');
+    final directory = await deviceBenchmarkDirectory();
     final opened = await openBenchmarkVault(directory: directory);
     final profile = opened.vault.profile;
     await opened.db.close();

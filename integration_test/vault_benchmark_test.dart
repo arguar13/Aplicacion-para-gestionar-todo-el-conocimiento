@@ -1,12 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../test/benchmark/synthetic_vault.dart';
 import '../test/benchmark/vault_benchmark.dart';
+import 'support/device_benchmark_directory.dart';
 
 /// Cómo se llama el equipo donde corre, para el encabezado del informe:
 /// `tool/bench_android.ps1` lo arma con el modelo, el Android y la memoria del
@@ -44,12 +42,8 @@ void main() {
     'benchmark de la bóveda sintética, en el dispositivo',
     () => registerVaultBenchmark(
       BenchmarkEnvironment(
-        open: () async {
-          final temporary = await getTemporaryDirectory();
-          return openBenchmarkVault(
-            directory: Directory('${temporary.path}/sinapsis_benchmark'),
-          );
-        },
+        open: () async =>
+            openBenchmarkVault(directory: await deviceBenchmarkDirectory()),
         log: debugPrint,
         save: (name, content) {
           reports[name] = content;

@@ -7,7 +7,14 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
 import 'package:sinapsis/core/database/pre_migration_backup_io.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
+import 'package:sinapsis/features/vault/data/services/sqlite_compaction_advisor.dart';
+import 'package:sinapsis/features/vault/data/services/sqlite_vault_compactor.dart';
+import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
+import 'package:sinapsis/features/vault/domain/entities/compaction_progress.dart';
+import 'package:sinapsis/features/vault/domain/services/free_space_probe.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
+
+import '../support/rss_sampler.dart';
 
 /// Dónde y cómo corre la migración a escala: de dónde sale la bóveda vieja,
 /// adónde va lo que se imprime y qué techo se exige.
@@ -18,6 +25,7 @@ class MigrationBenchmarkEnvironment {
     required this.save,
     this.description = 'escritorio, sin describir',
     this.ceiling = const Duration(minutes: 10),
+    this.freeSpace = const _UnknownFreeSpace(),
   });
 
   /// La base de la bóveda sintética de 10.000 elementos en un esquema anterior
@@ -35,6 +43,21 @@ class MigrationBenchmarkEnvironment {
   /// archivo. Es un techo contra una regresión de órdenes de magnitud, no la
   /// meta.
   final Duration ceiling;
+
+  /// Cómo se sabe cuánto disco queda para el consejero de compactación. En un
+  /// dispositivo, `DiskSpacePlusFreeSpaceProbe`; por defecto, «no se sabe» —lo
+  /// que ese complemento contesta en escritorio, donde no existe—, porque una
+  /// prueba de `flutter test` no tiene complementos que consultar.
+  final FreeSpaceProbe freeSpace;
+}
+
+/// El disco libre que no se sabe: es lo que el complemento de espacio libre
+/// dice en escritorio.
+class _UnknownFreeSpace implements FreeSpaceProbe {
+  const _UnknownFreeSpace();
+
+  @override
+  Future<int?> freeBytesAt(String path) async => null;
 }
 
 /// La migración de una bóveda de 10.000 elementos y ~300.000 chunks, de una
@@ -169,6 +192,66 @@ void registerVaultMigrationBenchmark(MigrationBenchmarkEnvironment env) {
         '(${invariantWatch.elapsedMilliseconds} ms)',
       );
       expect(invariant.holds, isTrue, reason: invariant.summary());
+
+      // Después de migrar, la bóveda pesa lo mismo que antes pero con las
+      // páginas de lo que la migración reemplazó libres: es lo que la
+      // compactación guiada le ofrece devolver (F12). Se mide sobre esta misma
+      // base, ya migrada: es el caso real.
+      String mb(int bytes) => '${(bytes / 1048576).toStringAsFixed(1)} MB';
+      final advisor = SqliteCompactionAdvisor(
+        database: db,
+        freeSpace: env.freeSpace,
+      );
+      final assessment = await advisor.assess();
+      final freeSpace = assessment.freeSpaceBytes;
+      final free = freeSpace == null ? 'sin dato' : mb(freeSpace);
+      say(
+        '- después de migrar: el archivo ocupa ${mb(assessment.fileBytes)} y '
+        '${mb(assessment.reclaimableBytes)} se pueden recuperar; espacio libre '
+        '$free, '
+        'la compactación necesita ${mb(assessment.requiredBytes)} '
+        '(${assessment.verdict.name})',
+      );
+      if (assessment.verdict == CompactionVerdict.notEnoughSpace ||
+          assessment.verdict == CompactionVerdict.nothingToReclaim) {
+        say('- no se compacta: ${assessment.verdict.name}');
+      } else {
+        final sampler = await RssSampler.start();
+        final compactWatch = Stopwatch()..start();
+        final phaseStarts = <CompactionPhase, int>{};
+        final result =
+            await SqliteVaultCompactor(database: db, advisor: advisor).compact(
+              onProgress: (progress) => phaseStarts.putIfAbsent(
+                progress.phase,
+                () => compactWatch.elapsedMilliseconds,
+              ),
+            );
+        final growth = await sampler.stop();
+        final total = compactWatch.elapsedMilliseconds;
+        final rewriteMs =
+            (phaseStarts[CompactionPhase.verifying] ?? total) -
+            (phaseStarts[CompactionPhase.rewriting] ?? 0);
+        final verifyMs =
+            total - (phaseStarts[CompactionPhase.verifying] ?? total);
+        say(
+          '- **compactación (VACUUM con `temp_store = FILE`, y comprobación): '
+          '$total ms** —reescribir $rewriteMs ms, comprobar $verifyMs ms—; '
+          'el archivo pasó de ${mb(result.bytesBefore)} a '
+          '${mb(result.bytesAfter)} '
+          '(devolvió ${mb(result.freedBytes)}); ${result.sourcesVerified} '
+          'fuentes comprobadas; memoria residente +${mb(growth)} con '
+          '${mb(assessment.usefulBytes)} de contenido útil',
+        );
+        expect(result.freedBytes, greaterThan(0));
+        expect(result.sourcesVerified, greaterThan(0));
+        // Sin `temp_store = FILE`, VACUUM juntaría en memoria todo lo útil.
+        expect(
+          growth,
+          lessThan(assessment.usefulBytes ~/ 2),
+          reason: 'la compactación no debe cargar la bóveda en memoria',
+        );
+      }
+
       say(
         '- memoria residente máxima del proceso: '
         '${ProcessInfo.maxRss ~/ (1024 * 1024)} MB',

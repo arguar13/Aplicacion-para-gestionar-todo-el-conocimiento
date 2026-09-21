@@ -44,6 +44,27 @@ class _FixedTimelineRepository implements TimelineRepository {
 /// índice por ventana, que no depende de la máquina—; esto mide el tiempo y
 /// los cuadros. Se corre en modo profile con
 /// `tool/bench_android.ps1 -Target timeline_benchmark_test`.
+/// Los cuadros del arrastre sostenido en una línea, sin las listas cuadro por
+/// cuadro: esas quedan enteras en `timeline_drag.json`.
+String _dragSummary(Map<dynamic, dynamic> drag) {
+  String ms(String key) =>
+      ((drag[key] as num?) ?? double.nan).toStringAsFixed(1);
+  return '- arrastre sostenido, doce pasadas de 1,5 s, ${drag['frame_count']} '
+      'cuadros. Armado: promedio ${ms('average_frame_build_time_millis')} ms, '
+      'p90 ${ms('90th_percentile_frame_build_time_millis')}, '
+      'p99 ${ms('99th_percentile_frame_build_time_millis')}, '
+      'peor ${ms('worst_frame_build_time_millis')}. '
+      'Raster: promedio ${ms('average_frame_rasterizer_time_millis')} ms, '
+      'p90 ${ms('90th_percentile_frame_rasterizer_time_millis')}, '
+      'p99 ${ms('99th_percentile_frame_rasterizer_time_millis')}, '
+      'peor ${ms('worst_frame_rasterizer_time_millis')}. '
+      'Cuadros fuera del presupuesto: '
+      '${drag['missed_frame_build_budget_count']} de armado y '
+      '${drag['missed_frame_rasterizer_budget_count']} de raster. '
+      'Recolecciones de memoria: ${drag['new_gen_gc_count']} de la generación '
+      'nueva y ${drag['old_gen_gc_count']} de la vieja.';
+}
+
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -150,8 +171,9 @@ void main() {
 
     final drag = binding.reportData?['timeline_drag'] as Map?;
     say(
-      '- arrastre sostenido, doce pasadas de 1,5 s: '
-      '${drag ?? 'sin cifras de cuadros'}',
+      drag == null
+          ? '- arrastre sostenido: sin cifras de cuadros'
+          : _dragSummary(drag),
     );
     say(
       '- memoria residente: $rssStart MB al empezar, ${rssMb()} MB al '
