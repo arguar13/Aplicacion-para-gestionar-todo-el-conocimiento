@@ -449,8 +449,8 @@ void main() {
       await seedVocabulary();
       await pumpScreen(tester);
 
-      // Tema, Fecha del hecho y la vacía: 3.
-      await openTab(tester, es.vocabularyTabCategories(3));
+      // Tema, Fecha del hecho, Autor y la vacía: 4.
+      await openTab(tester, es.vocabularyTabCategories(4));
 
       expect(find.text('Tema'), findsOneWidget);
       expect(find.text(es.vocabularyCategoryValueCount(5)), findsOneWidget);

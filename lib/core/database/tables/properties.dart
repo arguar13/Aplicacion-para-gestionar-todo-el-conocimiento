@@ -108,6 +108,24 @@ class PropertyValues extends Table {
       // ignore: recursive_getters
       .check(depth.isBetweenValues(0, kVocabularyMaxDepth))();
 
+  // El nombre de una persona (F15), solo en las categorías de tipo persona: el
+  // apellido y el nombre por separado, que es lo que hace falta para citarla
+  // —la bibliografía escribe «García Márquez, G.» y la nota «Gabriel García
+  // Márquez»—. [value] sigue siendo lo que se muestra y lo que el vocabulario
+  // compara, «Apellido, Nombre»; estas columnas son su estructura. Un valor de
+  // persona con `nameFamily` nulo es un nombre que nadie estructuró todavía: se
+  // cita entero, tal como está, y no se adivina dónde termina el apellido.
+  // Las tres siguientes solo dicen algo si `nameFamily` está.
+  TextColumn get nameFamily => text().nullable()();
+  TextColumn get nameGiven => text().nullable()();
+
+  /// «Jr.», «III». Casi siempre nulo.
+  TextColumn get nameSuffix => text().nullable()();
+
+  /// Una institución o un nombre que no se parte —«Organización Mundial de la
+  /// Salud»—: no se invierte ni se abrevia.
+  BoolColumn get isInstitution => boolean().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 

@@ -13,6 +13,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v16.dart' as v16;
 import '../../support/item_rows.dart';
+import '../../support/migration_counts.dart';
 import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 16→18 —las claves foráneas pasan de `items` a
@@ -310,7 +311,10 @@ void main() {
       final before = <String, int>{};
       final db = await migrateFrom16(seed: seedVault, countsBefore: before);
 
-      expect((await captureVaultCounts(db)).rows, before);
+      expect(
+        withoutAuthorCategory((await captureVaultCounts(db)).rows),
+        before,
+      );
       // Y no es una comparación de ceros.
       expect(before['renditions'], 4);
       expect(before['relations'], 3);

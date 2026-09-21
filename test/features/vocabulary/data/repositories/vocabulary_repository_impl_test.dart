@@ -611,7 +611,7 @@ void main() {
 
       expect(op.kind, VocabularyOperationKind.deleteCategory);
       expect(op.valueCount, 2);
-      expect(await categoryNames(), ['Fecha del hecho', 'Tema']);
+      expect(await categoryNames(), ['Autor', 'Fecha del hecho', 'Tema']);
 
       final undone = await repository.undo(op);
 

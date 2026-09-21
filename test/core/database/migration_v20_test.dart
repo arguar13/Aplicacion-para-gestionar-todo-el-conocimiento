@@ -8,6 +8,7 @@ import 'package:sinapsis/core/database/vault_counts.dart';
 
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v19.dart' as v19;
+import '../../support/migration_counts.dart';
 import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 19→20 —durabilidad (F11)—: la versión por campo, los
@@ -181,7 +182,7 @@ void main() {
       final before = <String, int>{};
       final db = await migrateFrom19(seed: seedVault, countsBefore: before);
 
-      expect(await countsOf(db), before);
+      expect(withoutAuthorCategory(await countsOf(db)), before);
       // Y no es una comparación de ceros.
       expect(before['item'], 2);
       expect(before['renditions'], 1);

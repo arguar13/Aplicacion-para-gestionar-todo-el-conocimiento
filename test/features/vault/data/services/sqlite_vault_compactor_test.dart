@@ -27,6 +27,7 @@ const _allTables = [
   ...VaultCounts.userDataTables,
   ...VaultCounts.modelTables,
   ...VaultCounts.durabilityTables,
+  ...VaultCounts.referenceTables,
 ];
 
 /// Corre contra una bóveda de verdad en un archivo, con fuentes, chunks y los

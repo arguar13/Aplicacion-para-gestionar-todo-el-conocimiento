@@ -15,6 +15,12 @@ const kTemaCategoryName = 'Tema';
 /// Es la que alimenta la línea de tiempo.
 const kFechaDelHechoCategoryName = 'Fecha del hecho';
 
+/// El nombre de la categoría de sistema donde viven las personas que hicieron
+/// una obra —autores, pero también traductores, editores y directores—: las
+/// obras que se citan (F15). Sus valores son de tipo persona, con el apellido
+/// y el nombre por separado.
+const kAutorCategoryName = 'Autor';
+
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
 /// usuario, no la app —a diferencia de [SourceKind] o [RelationKind], que
 /// son fijos—, porque qué ejes usar para clasificar depende enteramente de

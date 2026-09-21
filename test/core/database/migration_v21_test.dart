@@ -9,6 +9,7 @@ import 'package:sqlite3/sqlite3.dart' show SqliteException;
 
 import '../../generated_migrations/schema.dart';
 import '../../generated_migrations/schema_v20.dart' as v20;
+import '../../support/migration_counts.dart';
 import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 20→21 —la jerarquía del vocabulario (F13)—: un valor
@@ -180,7 +181,7 @@ void main() {
   test('la migración llega a la forma del snapshot de v21', () async {
     await migrateFrom20();
     // `migrateAndValidate` ya comparó el esquema contra el snapshot.
-    expect(latestSchemaSnapshot, 21);
+    expect(latestSchemaSnapshot, greaterThanOrEqualTo(21));
   });
 
   group('lo que había', () {
@@ -188,7 +189,7 @@ void main() {
       final before = <String, int>{};
       final db = await migrateFrom20(countsBefore: before);
 
-      expect(await countsOf(db), before);
+      expect(withoutAuthorCategory(await countsOf(db)), before);
       // Y no es una comparación de ceros.
       expect(before['item'], 2);
       expect(before['property_values'], 4);

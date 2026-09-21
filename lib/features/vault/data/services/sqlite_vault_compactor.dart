@@ -186,15 +186,16 @@ class SqliteVaultCompactor implements VaultCompactor {
     return row.read<int>('freelist_count');
   }
 
-  /// Las filas de cada tabla que el usuario creó, el modelo de conocimiento y
-  /// las tablas de durabilidad: todo lo que una compactación tendría que dejar
-  /// igual.
+  /// Las filas de cada tabla que el usuario creó, el modelo de conocimiento,
+  /// las tablas de durabilidad y las de las referencias bibliográficas: todo lo
+  /// que una compactación tendría que dejar igual.
   Future<VaultCounts> _countRows() => captureVaultCounts(
     _database,
     tables: [
       ...VaultCounts.userDataTables,
       ...VaultCounts.modelTables,
       ...VaultCounts.durabilityTables,
+      ...VaultCounts.referenceTables,
     ],
   );
 }

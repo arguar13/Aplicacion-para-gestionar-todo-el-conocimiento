@@ -5,8 +5,10 @@ import 'package:sinapsis/core/database/device_identity.dart';
 import 'package:sinapsis/core/database/migrations/backfill_chunks_v16.dart';
 import 'package:sinapsis/core/database/migrations/drop_legacy_model_v19.dart';
 import 'package:sinapsis/core/database/migrations/repoint_item_references_v18.dart';
+import 'package:sinapsis/core/database/migrations/seed_author_category_v22.dart';
 import 'package:sinapsis/core/database/migrations/seed_system_property_categories_v9.dart';
 import 'package:sinapsis/core/database/pre_migration_backup.dart';
+import 'package:sinapsis/core/database/reference_triggers.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
@@ -27,6 +29,7 @@ import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
 import 'package:sinapsis/core/database/tables/review_log.dart';
+import 'package:sinapsis/core/database/tables/source_references.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
@@ -37,6 +40,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -44,6 +48,8 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -84,6 +90,8 @@ part 'app_database.g.dart';
     FieldVersions,
     MergeConflicts,
     ReviewLogs,
+    SourceReferences,
+    SourceContributors,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -128,7 +136,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 21;
+  static const currentSchemaVersion = 22;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -144,6 +152,7 @@ class AppDatabase extends _$AppDatabase {
       await _createSearchIndex();
       await _createChunkSearchIndex();
       await _createVocabularyHierarchyTriggers();
+      await _createReferenceTriggers();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
     },
     onUpgrade: (migrator, from, to) async {
@@ -305,6 +314,52 @@ class AppDatabase extends _$AppDatabase {
           await _createVocabularyHierarchyTriggers();
           await _requireSameCounts(before, step: 'v21', tables: tables);
         }
+        // Biblioteca académica (F15): los datos bibliográficos de una fuente y
+        // sus personas, el nombre partido en el vocabulario y la categoría de
+        // sistema «Autor». Todo aditivo —dos tablas, cuatro columnas nulas, dos
+        // índices y cuatro triggers—: ninguna fila existente cambia. La única
+        // que se toca es una categoría «Autor» que alguien hubiera creado a
+        // mano, que se reusa; ver `ensureAuthorCategory`, que anota en
+        // `migration_issues` lo poco que puede perder (una jerarquía). Los
+        // conteos de todo lo anterior son compuerta, y la migración entera
+        // revierte si alguno cambia.
+        if (from < 22) {
+          // `property_definitions` se comprueba aparte: la categoría «Autor»
+          // puede ser nueva, y entonces sube en una.
+          final tables = [
+            ...VaultCounts.userDataTables.where(
+              (t) => t != 'property_definitions',
+            ),
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          final definitionsBefore = await _count('property_definitions');
+          for (final column in [
+            propertyValues.nameFamily,
+            propertyValues.nameGiven,
+            propertyValues.nameSuffix,
+            propertyValues.isInstitution,
+          ]) {
+            await migrator.addColumn(propertyValues, column);
+          }
+          await migrator.createTable(sourceReferences);
+          await migrator.createIndex(idxSourceReferenceDoi);
+          await migrator.createIndex(idxSourceReferenceIsbn);
+          await migrator.createTable(sourceContributors);
+          await migrator.createIndex(idxSourceContributorPerson);
+          await _createReferenceTriggers();
+          await ensureAuthorCategory(this, ids: const UuidV7Generator());
+          final definitionsAfter = await _count('property_definitions');
+          if (definitionsAfter != definitionsBefore &&
+              definitionsAfter != definitionsBefore + 1) {
+            throw StateError(
+              'La migración a v22 cambió la cantidad de categorías: había '
+              '$definitionsBefore y quedaron $definitionsAfter.',
+            );
+          }
+          await _requireSameCounts(before, step: 'v22', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -332,6 +387,14 @@ class AppDatabase extends _$AppDatabase {
   /// `vocabulary_hierarchy.dart`.
   Future<void> _createVocabularyHierarchyTriggers() async {
     for (final trigger in vocabularyHierarchyTriggers) {
+      await customStatement(trigger);
+    }
+  }
+
+  /// Crea los triggers de las referencias bibliográficas: ver
+  /// `reference_triggers.dart`.
+  Future<void> _createReferenceTriggers() async {
+    for (final trigger in referenceTriggers) {
       await customStatement(trigger);
     }
   }

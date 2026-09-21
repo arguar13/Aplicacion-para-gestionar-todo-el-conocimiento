@@ -541,10 +541,12 @@ class _VaultBuilder {
       db.propertyDefinitions,
     )..where((d) => d.name.equals(kFechaDelHechoCategoryName))).getSingle()).id;
 
+    // «Autor» no está: desde F15 es una categoría de sistema, sembrada por la
+    // propia base, y una de usuario con ese nombre chocaría con ella.
     const others = [
       'Región',
       'Época',
-      'Autor',
+      'Colección',
       'Idioma',
       'Disciplina',
       'Proyecto',

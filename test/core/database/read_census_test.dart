@@ -20,6 +20,10 @@ void main() {
   const allowed = <String, String>{
     'lib/core/database/app_database.dart':
         'declara las tablas de la base: no lee nada',
+    'lib/core/database/reference_triggers.dart':
+        'los triggers miran el tipo de UN elemento, por su clave, antes de '
+        'colgarle una referencia o una persona: vivo o en la papelera —una '
+        'fusión escribe también lo de lo borrado—; no listan ni muestran nada',
     'lib/core/database/search_index.dart':
         'el índice de texto contiene TODOS los elementos, borrados o no: lo '
         'que se deja afuera es la consulta que lo usa (library_query_sql)',

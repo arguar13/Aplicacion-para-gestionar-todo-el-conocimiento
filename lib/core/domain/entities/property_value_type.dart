@@ -14,4 +14,10 @@ enum PropertyValueType {
   /// Una fecha histórica, con precisión propia —ver [DatePrecision]— e
   /// incertidumbre ("circa"), separada de cuándo se capturó la fuente.
   date,
+
+  /// Una persona o una institución, con su apellido y su nombre por separado
+  /// (F15): es lo que hace falta para citarla. Solo la categoría de sistema
+  /// «Autor» es de este tipo. El valor sigue siendo el texto que se muestra,
+  /// «Apellido, Nombre», y no tiene jerarquía.
+  person,
 }

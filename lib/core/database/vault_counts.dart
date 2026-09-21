@@ -48,6 +48,14 @@ class VaultCounts {
     'review_log',
   ];
 
+  /// Las tablas de las referencias bibliográficas (F15). Tampoco están en
+  /// [userDataTables]: los pasos de migración anteriores a v22 cuentan esa
+  /// lista, y estas tablas todavía no existían cuando corrían.
+  static const referenceTables = <String>[
+    'source_reference',
+    'source_contributor',
+  ];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

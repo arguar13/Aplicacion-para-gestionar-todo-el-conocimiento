@@ -1518,9 +1518,9 @@ void main() {
       test(
         'listar todas, ordenadas alfabéticamente, actualizándose solo',
         () async {
-          // "Fecha del hecho" y "Tema" son categorías de sistema,
+          // "Autor", "Fecha del hecho" y "Tema" son categorías de sistema,
           // sembradas desde el arranque —ver
-          // `seedSystemPropertyCategories`—: dos inserts separados
+          // `seedSystemPropertyCategories`—: tres inserts separados
           // durante `onCreate`, cada uno con su propia notificación. Se
           // deja que esos emits terminen antes de empezar a contar
           // cambios, para que no se cuelen como si fueran la reacción a
@@ -1531,12 +1531,14 @@ void main() {
           final queue = StreamQueue(stream);
 
           expect((await queue.next).map((d) => d.name), [
+            'Autor',
             'Fecha del hecho',
             'Tema',
           ]);
 
           await repository.getOrCreatePropertyDefinition('Región');
           expect((await queue.next).map((d) => d.name), [
+            'Autor',
             'Fecha del hecho',
             'Región',
             'Tema',
@@ -1544,6 +1546,7 @@ void main() {
 
           await repository.getOrCreatePropertyDefinition('Época');
           expect((await queue.next).map((d) => d.name), [
+            'Autor',
             'Fecha del hecho',
             'Región',
             'Tema',

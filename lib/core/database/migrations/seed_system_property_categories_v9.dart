@@ -1,17 +1,18 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/migrations/seed_author_category_v22.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
-/// Siembra las dos categorías de propiedad que crea la app, no el
-/// usuario: "Tema" (donde caen las etiquetas, desde F8) y "Fecha del hecho"
-/// (separada de cuándo se capturó la fuente).
+/// Siembra las categorías de propiedad que crea la app, no el usuario: "Tema"
+/// (donde caen las etiquetas, desde F8), "Fecha del hecho" (separada de cuándo
+/// se capturó la fuente) y "Autor" (F15, ver `ensureAuthorCategory`).
 ///
-/// Se llama tanto desde `onCreate` como desde `onUpgrade` —ver
-/// `app_database.dart`—: una bóveda nueva pasa por `onCreate` y nunca ve
-/// `onUpgrade`, así que sin esto un usuario recién instalado no tendría
-/// ninguna de las dos categorías.
+/// La llama `onCreate`: una bóveda nueva no pasa por `onUpgrade`, y sin esto
+/// un usuario recién instalado no tendría ninguna. Las bóvedas que ya existían
+/// las recibieron en su migración: "Tema" y "Fecha del hecho" en v9, y "Autor"
+/// en v22.
 ///
 /// No reusa `OrganizeRepository.getOrCreatePropertyDefinition`: ese
 /// método es de propósito general y no debería poder "promover" una fila
@@ -33,6 +34,7 @@ Future<void> seedSystemPropertyCategories(
     name: kFechaDelHechoCategoryName,
     type: PropertyValueType.date,
   );
+  await ensureAuthorCategory(db, ids: ids);
 }
 
 /// Si ya existía una categoría con ese nombre —creada a mano antes de
