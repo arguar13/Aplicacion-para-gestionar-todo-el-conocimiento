@@ -1,14 +1,19 @@
 # Cifras de rendimiento
 
 Aquí quedan versionadas las mediciones de la bóveda sintética de 10.000
-elementos y ~300.000 chunks (ver las decisiones 43 y 45 en
-`../arquitectura.md`), una carpeta por equipo y fecha:
+elementos y ~300.000 chunks (ver las decisiones 43, 45 y 46 en
+`../arquitectura.md`), una carpeta por equipo y fecha —con un sufijo cuando una
+misma fecha tiene dos corridas de fases distintas, como `2026-09-21-f13`—:
 
     docs/benchmarks/<equipo>/<aaaa-mm-dd>/
-        latest_report.md            los 13 escenarios, con el objetivo y lo medido
+        latest_report.md            los escenarios, con el objetivo y lo medido
         latest_footprint.txt        cuánto pesa el texto en disco
+        latest_hierarchy_report.md  F13: la consulta transitiva, CTE contra cierre
+        latest_atlas_report.md      F13: abrir el Atlas con 2.000 temas
         latest_merge_report.md      la fusión de una variante y de una copia entera
-        latest_migration_report.md  migrar v17 a v20 y compactar después
+        latest_migration_report.md  migrar v17 al esquema actual y compactar después
+        latest_migration_v20_report.md
+                                    migrar v20 a v21, el último salto (F13)
         latest_timeline_report.md   la línea de tiempo: armado y arrastre sostenido
         timeline_drag.json          los cuadros del arrastre, uno por uno
         latest_cold_start_report.md abrir la app con 10.000 elementos
@@ -42,6 +47,22 @@ regresión. Las corridas a batería y la primera, anterior al arreglo de la
 búsqueda, están aparte (`<fecha>-a-bateria`, `<fecha>-antes-del-arreglo-…`)
 para que se vea la diferencia.
 
+## La bóveda sintética v5 (F13)
+
+El generador (`test/benchmark/synthetic_vault.dart`) armó hasta F12 un «Tema»
+plano de 600 valores. Desde F13 —versión 5— lo arma jerárquico y de 2.000 valores
+con 10.000 elementos, una quinta parte y no un 6 %: hasta cinco niveles, con unas
+pocas ramas enormes (la mayor tiene 303 valores y el 49 % de los elementos) y una
+hoja para comparar. Las otras diez categorías no cambian. Las figuras de F12 y las
+de F13 no son de la misma bóveda: la búsqueda y el detalle salieron parecidos, pero
+el vocabulario, la línea de tiempo y la salud leen ahora más valores.
+
+"El elemento con más relaciones" y «una nota con enlaces» son dos escenarios
+distintos: con la primera nota que se escribió con enlaces se medía, según el
+sorteo, una de las que más relaciones reciben —salió una con 1.235—. Ahora «una
+nota con enlaces» es la de las relaciones de un elemento típico, y el peor caso
+tiene su propio escenario.
+
 ## Cómo se mide en un dispositivo Android
 
 Se mide en modo **profile**, que es el código de la app de verdad. Con
@@ -57,6 +78,13 @@ veces más lento: las cifras engañarían.
        tool/bench_android.ps1 -Target timeline_benchmark_test
        tool/bench_android.ps1 -Target vault_backup_benchmark_test
        tool/bench_android.ps1 -Target vault_migration_benchmark_test -PushVaults
+       tool/bench_android.ps1 -Target vault_migration_benchmark_test -PushVaults `
+         -OldVault vault_s20_g4_10000.sqlite -Label f13
+
+   `-OldVault` elige de qué esquema se parte —el de v17, de 909 MB, es el
+   predeterminado, y el de v20 mide solo el último salto— y deja el informe con
+   el esquema en el nombre. `-Label` suma un sufijo a la carpeta de las cifras
+   para que dos corridas del mismo día no se pisen.
 
    Cada escenario arma la bóveda sintética en el directorio temporal de la app
    —unos 30 s en un emulador, más en un teléfono—, salvo la migración, que

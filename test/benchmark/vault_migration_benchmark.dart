@@ -23,6 +23,7 @@ class MigrationBenchmarkEnvironment {
     required this.oldVaultFile,
     required this.log,
     required this.save,
+    required this.reportName,
     this.description = 'escritorio, sin describir',
     this.ceiling = const Duration(minutes: 10),
     this.freeSpace = const _UnknownFreeSpace(),
@@ -38,6 +39,10 @@ class MigrationBenchmarkEnvironment {
   final void Function(String message) log;
   final void Function(String name, String content) save;
   final String description;
+
+  /// El nombre del informe: cada bóveda de partida —v17 o v20, por ejemplo—
+  /// deja el suyo, para que las dos cifras convivan.
+  final String reportName;
 
   /// Cuánto puede tardar la migración entera, con el respaldo previo del
   /// archivo. Es un techo contra una regresión de órdenes de magnitud, no la
@@ -257,7 +262,7 @@ void registerVaultMigrationBenchmark(MigrationBenchmarkEnvironment env) {
         '${ProcessInfo.maxRss ~/ (1024 * 1024)} MB',
       );
 
-      env.save('latest_migration_report.md', report.toString());
+      env.save(env.reportName, report.toString());
       expect(migrateMs, lessThan(env.ceiling.inMilliseconds));
     },
     timeout: const Timeout(Duration(minutes: 60)),

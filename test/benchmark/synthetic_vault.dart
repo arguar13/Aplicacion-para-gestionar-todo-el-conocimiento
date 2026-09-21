@@ -20,11 +20,17 @@ import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/services/chunking_service.dart';
 
 /// Cambia cuando cambia lo que el generador escribe: invalida la bóveda que el
 /// benchmark dejó guardada en disco y obliga a armarla de nuevo.
-const kSyntheticVaultVersion = 4;
+///
+/// v5 (F13): «Tema» pasa a ser un vocabulario JERÁRQUICO de 2.000 valores con
+/// 10.000 elementos —una quinta parte, no un 6 %—, hasta cinco niveles y con
+/// unas pocas ramas enormes: lo que piden las mediciones del filtro por un tema
+/// y de sus subtemas y las del Atlas.
+const kSyntheticVaultVersion = 5;
 
 /// Cuánto hay en la bóveda sintética, con las proporciones de una bóveda de
 /// verdad: la mayoría son fuentes largas (artículos, transcripciones,
@@ -57,7 +63,11 @@ class VaultProfile {
   int get inlineLinks => items ~/ 2;
   int get datedItems => items * 35 ~/ 100;
   int get spaces => max(3, items ~/ 800);
-  int get tagValues => max(20, items * 6 ~/ 100);
+  int get tagValues => max(20, items ~/ 5);
+
+  /// Cuántos valores de «Tema» son del primer nivel: el resto cuelga de otro.
+  /// Pocos, para que unas cuantas ramas se lleven casi todo.
+  int get temaRoots => max(4, tagValues ~/ 40);
   int get otherValuesPerCategory => max(8, items ~/ 100);
 
   /// Los chunks que se esperan, sin contar los que salgan de más o de menos
@@ -78,6 +88,9 @@ class SyntheticVault {
     required this.hubItemId,
     required this.typicalItemId,
     required this.noteWithLinksId,
+    required this.temaDefinitionId,
+    required this.bigRootValueId,
+    required this.leafValueId,
     required this.rareTerm,
     required this.mediumTerm,
     required this.commonTerm,
@@ -91,6 +104,9 @@ class SyntheticVault {
     hubItemId: json['hubItemId']! as String,
     typicalItemId: json['typicalItemId']! as String,
     noteWithLinksId: json['noteWithLinksId']! as String,
+    temaDefinitionId: json['temaDefinitionId']! as String,
+    bigRootValueId: json['bigRootValueId']! as String,
+    leafValueId: json['leafValueId']! as String,
     rareTerm: json['rareTerm']! as String,
     mediumTerm: json['mediumTerm']! as String,
     commonTerm: json['commonTerm']! as String,
@@ -112,6 +128,13 @@ class SyntheticVault {
 
   final String noteWithLinksId;
 
+  /// La categoría «Tema» y dos de sus valores: el del primer nivel con más
+  /// subtemas —el peor caso del filtro transitivo y de la cascada del Atlas— y
+  /// una hoja, el mismo filtro sin descendientes.
+  final String temaDefinitionId;
+  final String bigRootValueId;
+  final String leafValueId;
+
   /// Una palabra que casi no aparece, una que aparece en cientos de chunks y
   /// una que aparece en casi todos: los tres extremos de una búsqueda.
   final String rareTerm;
@@ -130,6 +153,9 @@ class SyntheticVault {
     'hubItemId': hubItemId,
     'typicalItemId': typicalItemId,
     'noteWithLinksId': noteWithLinksId,
+    'temaDefinitionId': temaDefinitionId,
+    'bigRootValueId': bigRootValueId,
+    'leafValueId': leafValueId,
     'rareTerm': rareTerm,
     'mediumTerm': mediumTerm,
     'commonTerm': commonTerm,
@@ -363,7 +389,13 @@ class _VaultBuilder {
   final _relationDegree = <String, int>{};
   String _largestSourceId = '';
   int _largestSourceChunks = 0;
-  String _noteWithLinksId = '';
+
+  /// Las notas con enlaces `[[así]]`, en el orden en que se escriben: de ahí
+  /// sale la del benchmark cuando ya se sabe cuántas relaciones tiene cada una.
+  final _linkedNotes = <String>[];
+  String _temaDefinitionId = '';
+  String _bigRootValueId = '';
+  String _leafValueId = '';
 
   static const _batchItems = 200;
 
@@ -419,13 +451,31 @@ class _VaultBuilder {
     final typical = byDegree.isEmpty
         ? _itemIds.first
         : byDegree[byDegree.length ~/ 2].key;
+    final typicalDegree = byDegree.isEmpty
+        ? 0
+        : byDegree[byDegree.length ~/ 2].value;
+
+    // «Una nota con enlaces» de las de todos los días: la que tiene tantas
+    // relaciones como el elemento típico. Con la primera que se escribió
+    // dependía de la suerte del sorteo —los primeros elementos son los que más
+    // relaciones reciben, y salió una con 1.235—.
+    final noteWithLinks = _linkedNotes.isEmpty
+        ? ''
+        : _linkedNotes.reduce((best, id) {
+            int distance(String note) =>
+                ((_relationDegree[note] ?? 0) - typicalDegree).abs();
+            return distance(id) < distance(best) ? id : best;
+          });
 
     return SyntheticVault(
       profile: profile,
       largestSourceId: _largestSourceId,
       hubItemId: hub?.key ?? _itemIds.first,
       typicalItemId: typical,
-      noteWithLinksId: _noteWithLinksId,
+      noteWithLinksId: noteWithLinks,
+      temaDefinitionId: _temaDefinitionId,
+      bigRootValueId: _bigRootValueId,
+      leafValueId: _leafValueId,
       rareTerm: text.word(3000),
       mediumTerm: text.word(250),
       commonTerm: text.word(12),
@@ -518,16 +568,48 @@ class _VaultBuilder {
     await _definitions.flush();
 
     final valueIds = <String>[];
+    // Los valores de «Tema» en el orden en que se escriben, con su lugar en el
+    // árbol: un padre siempre va ANTES que sus hijos.
+    final temaTree = <({String id, String? parentId, int depth})>[];
+
+    /// Dónde cuelga el próximo valor de «Tema»: los primeros son raíces; el
+    /// resto, hijo de otro con lugar para un nivel más, elegido con sesgo hacia
+    /// los primeros —los ricos se hacen más ricos—, así unas pocas ramas
+    /// concentran casi todo y llegan a los cinco niveles.
+    ({String? parentId, int depth}) placeInTema() {
+      if (temaTree.length < profile.temaRoots) {
+        return (parentId: null, depth: 0);
+      }
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final index = (pow(random.nextDouble(), 2) * temaTree.length).floor();
+        final candidate = temaTree[index];
+        if (candidate.depth < kVocabularyMaxDepth) {
+          return (parentId: candidate.id, depth: candidate.depth + 1);
+        }
+      }
+      return (parentId: null, depth: 0);
+    }
+
     var n = 0;
-    void addValue(String definitionId, String label) {
+    void addValue(
+      String definitionId,
+      String label, {
+      String? parentId,
+      int depth = 0,
+    }) {
       final id = _id('valu', n++);
       valueIds.add(id);
+      if (definitionId == temaId) {
+        temaTree.add((id: id, parentId: parentId, depth: depth));
+      }
       _values.add(
         PropertyValuesCompanion.insert(
           id: id,
           definitionId: definitionId,
           value: label,
           createdAt: _kNow.subtract(Duration(days: 700 - n % 600)),
+          parentId: Value(parentId),
+          depth: Value(depth),
         ),
       );
     }
@@ -544,15 +626,24 @@ class _VaultBuilder {
     void addWithVariants(String definitionId, int i) {
       final label = labelAt(i);
       final seen = seenLabels.putIfAbsent(definitionId, () => <String>{});
-      if (seen.add(label.toLowerCase())) addValue(definitionId, label);
+      // Una variante cuelga del mismo padre que su original: son hermanas,
+      // los candidatos a fusionar que el vocabulario de verdad tiene.
+      final place = definitionId == temaId
+          ? placeInTema()
+          : (parentId: null, depth: 0);
+      void add(String text) => addValue(
+        definitionId,
+        text,
+        parentId: place.parentId,
+        depth: place.depth,
+      );
+      if (seen.add(label.toLowerCase())) add(label);
       if (i % 17 == 0) {
         final variant = '${label}s';
-        if (seen.add(variant.toLowerCase())) addValue(definitionId, variant);
+        if (seen.add(variant.toLowerCase())) add(variant);
       } else if (i % 23 == 0 && label.length > 3) {
         final variant = label.replaceFirst('a', 'á');
-        if (variant != label && seen.add(variant.toLowerCase())) {
-          addValue(definitionId, variant);
-        }
+        if (variant != label && seen.add(variant.toLowerCase())) add(variant);
       }
     }
 
@@ -567,6 +658,35 @@ class _VaultBuilder {
     await _values.flush();
     _valueIds = valueIds;
     _valueZipf = _Zipf(valueIds.length, random);
+
+    // Cuántos valores cuelgan de cada uno de «Tema», él incluido. Los padres
+    // van antes que los hijos: recorrer al revés suma cada rama en su padre.
+    final subtree = {for (final node in temaTree) node.id: 1};
+    for (final node in temaTree.reversed) {
+      final parent = node.parentId;
+      if (parent != null) {
+        subtree[parent] = subtree[parent]! + subtree[node.id]!;
+      }
+    }
+    final roots = [
+      for (final node in temaTree)
+        if (node.parentId == null) node,
+    ];
+    final bigRoot = roots.reduce(
+      (best, node) => subtree[node.id]! > subtree[best.id]! ? node : best,
+    );
+    final parents = {
+      for (final node in temaTree)
+        if (node.parentId != null) node.parentId!,
+    };
+    // La primera hoja que no es raíz: de las que más asignaciones recibe.
+    final leaf = temaTree.firstWhere(
+      (node) => node.parentId != null && !parents.contains(node.id),
+      orElse: () => temaTree.first,
+    );
+    _temaDefinitionId = temaId;
+    _bigRootValueId = bigRoot.id;
+    _leafValueId = leaf.id;
 
     // Las fechas del hecho: un año entre el 800 a.C. y hoy, con toda la
     // gama de precisiones y algunas aproximadas.
@@ -663,9 +783,7 @@ class _VaultBuilder {
       linkedTitles = blocks.linkedTitles;
       content = encodeContentBlocks(blocks.blocks);
       _noteIndexes.add(index);
-      if (linkedTitles.isNotEmpty && _noteWithLinksId.isEmpty) {
-        _noteWithLinksId = id;
-      }
+      if (linkedTitles.isNotEmpty) _linkedNotes.add(id);
     } else {
       title = 'Fuente ${text.title(4)} $index';
       renditionKind = RenditionKind.markdown;

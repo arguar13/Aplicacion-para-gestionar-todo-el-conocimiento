@@ -21,6 +21,9 @@ Future<Directory> deviceBenchmarkDirectory() async {
   final directory = Directory('${temporary.path}/sinapsis_benchmark')
     ..createSync(recursive: true);
 
+  // Lo empujado con `adb` solo existe en Android: en escritorio el plugin ni
+  // implementa `getExternalStorageDirectory` y la bóveda se arma acá.
+  if (!Platform.isAndroid) return directory;
   final external = await getExternalStorageDirectory();
   if (external == null) return directory;
   final pushed = '${external.path}/bench';

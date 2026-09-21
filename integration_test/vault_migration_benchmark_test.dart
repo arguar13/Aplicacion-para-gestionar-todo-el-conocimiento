@@ -14,6 +14,17 @@ const _deviceInfo = String.fromEnvironment(
   defaultValue: 'dispositivo sin describir',
 );
 
+/// La bóveda de partida y el informe que deja: `tool/bench_android.ps1
+/// -OldVault` elige otra para medir la migración de v20 a v21, la de F13.
+const _oldVault = String.fromEnvironment(
+  'BENCH_OLD_VAULT',
+  defaultValue: 'vault_s17_g4_10000.sqlite',
+);
+const _reportName = String.fromEnvironment(
+  'BENCH_MIGRATION_REPORT',
+  defaultValue: 'latest_migration_report.md',
+);
+
 /// La migración a escala, EN el dispositivo: la bóveda de 10.000 elementos de
 /// un esquema anterior (v17, ~909 MB) llevada de una vez al esquema actual,
 /// con el respaldo previo del archivo entero —el peor caso de entrada y salida
@@ -39,9 +50,11 @@ void main() {
     () => registerVaultMigrationBenchmark(
       MigrationBenchmarkEnvironment(
         oldVaultFile: () async {
+          // Lo empujado con `adb` solo existe en Android.
+          if (!Platform.isAndroid) return null;
           final external = await getExternalStorageDirectory();
           if (external == null) return null;
-          final file = File('${external.path}/bench/vault_s17_g4_10000.sqlite');
+          final file = File('${external.path}/bench/$_oldVault');
           return file.existsSync() ? file : null;
         },
         log: debugPrint,
@@ -50,6 +63,7 @@ void main() {
           binding.reportData = Map<String, dynamic>.of(reports);
         },
         description: _deviceInfo,
+        reportName: _reportName,
         // En el dispositivo el complemento existe: el consejero mira el disco.
         freeSpace: const DiskSpacePlusFreeSpaceProbe(),
         // Sin cifras de un teléfono todavía: un techo que solo avisa de algo

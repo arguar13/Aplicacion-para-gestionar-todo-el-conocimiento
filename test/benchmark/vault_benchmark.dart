@@ -3,19 +3,28 @@ import 'package:flutter/painting.dart' show Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
+import 'package:sinapsis/features/atlas/data/repositories/atlas_repository_impl.dart';
+import 'package:sinapsis/features/atlas/domain/services/atlas_view.dart';
+import 'package:sinapsis/features/atlas/presentation/services/atlas_markdown.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_layout.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/health/data/repositories/health_repository_impl.dart';
+import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart'
+    show valuesWithDescendantsSql;
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/features/vocabulary/data/repositories/vocabulary_repository_impl.dart';
 import 'package:sinapsis/features/vocabulary/domain/services/merge_candidates.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/in_memory_file_store.dart';
+import '../support/rss_sampler.dart';
 import 'synthetic_vault.dart';
 
 class MockTelemetryService extends Mock implements TelemetryService {}
@@ -295,6 +304,17 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
     );
   });
 
+  test('abrir el detalle del elemento más conectado', () async {
+    // Sin objetivo del encargo: es el peor caso de la lista de relaciones, que
+    // crece con las que tiene el elemento (aquí, más de mil). Referencia.
+    check(
+      await measure('detalle: el elemento más conectado', () async {
+        await library.findById(vault.hubItemId);
+        await organize.watchRelationsForItem(vault.hubItemId).first;
+      }),
+    );
+  });
+
   // -------------------------------------------------------------------
   // Grafo local: objetivo del encargo, 500 ms. Es el camino real de la
   // app: el vecindario desde la base, los elementos de esos vecinos, el
@@ -411,6 +431,301 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       }, target: 600),
     );
   });
+
+  // -------------------------------------------------------------------
+  // F13: la jerarquía del vocabulario. Filtrar por un tema trae también lo de
+  // sus subtemas. El encargo no fija un umbral: el plan aprobado pide el de la
+  // búsqueda, 300 ms.
+  // -------------------------------------------------------------------
+  test(
+    'filtrar por el tema raíz grande: lo suyo y lo de sus subtemas',
+    () async {
+      check(
+        await measure(
+          'filtro: tema raíz grande (con subtemas)',
+          () => library.list(
+            LibraryQuery(propertyValueIds: {vault.bigRootValueId}, limit: 50),
+          ),
+          target: 300,
+          runs: 9,
+        ),
+      );
+    },
+  );
+
+  test('filtrar por una hoja: el mismo filtro sin descendientes', () async {
+    check(
+      await measure(
+        'filtro: una hoja (sin subtemas)',
+        () => library.list(
+          LibraryQuery(propertyValueIds: {vault.leafValueId}, limit: 50),
+        ),
+        target: 300,
+        runs: 9,
+      ),
+    );
+  });
+
+  test(
+    'todos los ids del tema raíz grande (línea de tiempo, Explorador)',
+    () async {
+      check(
+        await measure(
+          'filtro: los ids de todo el tema raíz grande',
+          () => library.matchingIds(
+            LibraryQuery(propertyValueIds: {vault.bigRootValueId}),
+          ),
+          // Sin objetivo del encargo: lo que la línea de tiempo pide para
+          // filtrar sus eventos. Referencia.
+        ),
+      );
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // F13, D3: dos maneras de resolver «el valor y todos sus descendientes».
+  // La que está en la app es la CTE recursiva sobre `property_values`; la otra
+  // es un CIERRE materializado —una fila por cada par (ascendiente,
+  // descendiente)—, que aquí se arma como tabla temporal solo para medir: lo
+  // que cuesta la consulta y lo que cuesta tenerlo. Se elige con estas cifras.
+  // -------------------------------------------------------------------
+  test('D3: CTE recursiva contra cierre materializado', () async {
+    Future<int> count(String sql, List<Variable> args) async =>
+        (await db.customSelect(sql, variables: args).getSingle()).read<int>(
+          'n',
+        );
+
+    final tema = Variable.withString(vault.temaDefinitionId);
+    final root = Variable.withString(vault.bigRootValueId);
+
+    final buildWatch = Stopwatch()..start();
+    await db.customStatement('DROP TABLE IF EXISTS temp.bench_closure');
+    await db.customStatement(
+      'CREATE TEMP TABLE bench_closure ( '
+      'ancestor TEXT NOT NULL, descendant TEXT NOT NULL, '
+      'PRIMARY KEY (ancestor, descendant)) WITHOUT ROWID',
+    );
+    await db.customStatement(
+      'INSERT INTO bench_closure '
+      'WITH RECURSIVE c(ancestor, descendant) AS ('
+      ' SELECT id, id FROM property_values WHERE definition_id = ? '
+      ' UNION SELECT c.ancestor, pv.id FROM property_values pv '
+      '  JOIN c ON pv.parent_id = c.descendant) '
+      'SELECT ancestor, descendant FROM c',
+      [vault.temaDefinitionId],
+    );
+    final buildMs = buildWatch.elapsedMilliseconds;
+    addTearDown(
+      () => db.customStatement('DROP TABLE IF EXISTS temp.bench_closure'),
+    );
+    final closureRows = await count(
+      'SELECT COUNT(*) AS n FROM bench_closure',
+      [],
+    );
+    final temaValues = await count(
+      'SELECT COUNT(*) AS n FROM property_values WHERE definition_id = ?',
+      [tema],
+    );
+    final branchValues = await count(
+      'SELECT COUNT(*) AS n FROM bench_closure WHERE ancestor = ?',
+      [root],
+    );
+
+    // Lo que hace el filtro de la biblioteca, con una u otra fuente de
+    // «el valor y sus descendientes».
+    const items =
+        'SELECT COUNT(*) AS n FROM item WHERE item.deleted_at IS NULL '
+        'AND item.id IN (SELECT item_id FROM item_property_values '
+        'WHERE property_value_id IN (';
+    final cteSql =
+        '$items'
+        '${valuesWithDescendantsSql(1)}))';
+    const closureSql =
+        '$items'
+        'SELECT descendant FROM bench_closure WHERE ancestor = ?))';
+
+    late int viaCte;
+    late int viaClosure;
+    final cte = await measure(
+      'D3: CTE recursiva, elementos del tema raíz grande',
+      () async => viaCte = await count(cteSql, [root]),
+      runs: 9,
+    );
+    final closure = await measure(
+      'D3: cierre materializado, lo mismo',
+      () async => viaClosure = await count(closureSql, [root]),
+      runs: 9,
+    );
+    // Las dos maneras tienen que decir lo mismo: si no, la comparación no vale.
+    expect(viaClosure, viaCte);
+    results
+      ..add(cte)
+      ..add(closure);
+    env.log('$cte');
+    env.log('$closure');
+
+    final vaultLine =
+        'Bóveda: $temaValues valores de «Tema»; el tema raíz grande tiene '
+        '$branchValues valores (él y sus descendientes) y $viaCte elementos.';
+    final closureLine =
+        'El cierre tiene $closureRows filas para $temaValues valores y se '
+        'armó en $buildMs ms (tabla temporal, solo para medir).';
+    final lines = [
+      '# D3: CTE recursiva o cierre materializado',
+      '',
+      vaultLine,
+      '',
+      '```',
+      '$cte',
+      '$closure',
+      '```',
+      '',
+      closureLine,
+    ];
+    env.log(lines.join('\n'));
+    env.save('latest_hierarchy_report.md', lines.join('\n'));
+  });
+
+  // -------------------------------------------------------------------
+  // F13: el Atlas. Abrirlo con 10.000 elementos y 2.000 valores en menos de
+  // 500 ms (criterio de cierre de F13): los agregados de todas las ramas y el
+  // árbol armado. La pantalla después solo dibuja las filas a la vista.
+  // -------------------------------------------------------------------
+  test('Atlas: abrir, con los agregados de todas las ramas', () async {
+    AtlasRepositoryImpl newRepository() => AtlasRepositoryImpl(
+      database: db,
+      telemetry: MockTelemetryService(),
+      clock: () => vault.now,
+    );
+
+    late int nodes;
+    late int gaps;
+    late int mapNotes;
+    final open = await measure(
+      'Atlas: abrir (agregados + armado del árbol)',
+      () async {
+        // Un repositorio nuevo por vez: sin caché, que es lo que pasa la
+        // primera vez que se abre.
+        final repository = newRepository();
+        try {
+          final atlas = await repository.snapshot(vault.temaDefinitionId);
+          nodes = atlas.nodes.length;
+          gaps = atlas.gaps.length;
+          mapNotes = atlas.nodes.fold(0, (sum, n) => sum + n.mapNotes.length);
+        } finally {
+          await repository.dispose();
+        }
+      },
+      target: 500,
+      runs: 7,
+    );
+
+    // Cuánto crece la memoria del proceso mientras se abre: muestreada desde
+    // otro aislado, con el Atlas de más ramas que hay.
+    final repository = newRepository();
+    final sampler = await RssSampler.start();
+    await repository.snapshot(vault.temaDefinitionId);
+    final growth = await sampler.stop();
+    await repository.dispose();
+
+    String mb(int bytes) => '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    final title =
+        '# Atlas: abrirlo con ${vault.profile.items} elementos y '
+        '${vault.profile.tagValues} temas';
+    final shape =
+        '$nodes ramas, $gaps vacíos detectados y $mapNotes marcas de notas '
+        'mapa repartidas entre ellas.';
+    final memory =
+        'Memoria residente del proceso: +${mb(growth)} como máximo durante una '
+        'apertura más. Es una cota: el montón ya viene calentado por las '
+        'siete aperturas y los escenarios anteriores, no es el costo de la '
+        'primera.';
+    final lines = [title, '', shape, '', '```', '$open', '```', '', memory];
+    env.log(lines.join('\n'));
+    env.save('latest_atlas_report.md', lines.join('\n'));
+    check(open);
+    // Que midió trabajo de verdad: casi todos los valores de «Tema» son ramas.
+    expect(nodes, greaterThan(vault.profile.tagValues ~/ 2));
+  });
+
+  test('Atlas: reabrirlo sin haber tocado nada (la caché)', () async {
+    final repository = AtlasRepositoryImpl(
+      database: db,
+      telemetry: MockTelemetryService(),
+      clock: () => vault.now,
+    );
+    addTearDown(repository.dispose);
+    // La primera vez calcula; las demás salen de la caché: la mediana es lo que
+    // cuesta volver.
+    check(
+      await measure(
+        'Atlas: reabrir con la caché',
+        () => repository.snapshot(vault.temaDefinitionId),
+        runs: 7,
+      ),
+    );
+    expect(repository.computations, 1);
+  });
+
+  test('Atlas: solo lo que se lee de la base (SQL)', () async {
+    // Un elemento por fila con sus valores de la categoría, y las notas mapa:
+    // lo demás de abrir el Atlas es sumar por rama y armar el árbol, en Dart.
+    check(
+      await measure(
+        'Atlas: leer los elementos y las notas mapa (SQL)',
+        () async {
+          await db
+              .customSelect(
+                atlasItemsSql,
+                variables: [
+                  Variable.withString(vault.temaDefinitionId),
+                  Variable.withString(kFechaDelHechoCategoryName),
+                ],
+              )
+              .get();
+          await db
+              .customSelect(
+                atlasMapNotesSql,
+                variables: [Variable.withString(vault.temaDefinitionId)],
+              )
+              .get();
+        },
+        runs: 7,
+      ),
+    );
+  });
+
+  test(
+    'Atlas: buscar un tema entre todos y exportarlo como Markdown',
+    () async {
+      final repository = AtlasRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        clock: () => vault.now,
+      );
+      addTearDown(repository.dispose);
+      final atlas = await repository.snapshot(vault.temaDefinitionId);
+
+      check(
+        await measure(
+          'Atlas: buscar un tema (letras sueltas)',
+          () async => visibleAtlasNodes(atlas, expanded: {}, query: 'ar'),
+          runs: 9,
+        ),
+      );
+      late int length;
+      check(
+        await measure('Atlas: exportar a Markdown', () async {
+          length = atlasToMarkdown(
+            atlas,
+            AppLocalizationsEs(),
+            now: vault.now,
+          ).length;
+        }),
+      );
+      env.log('Atlas exportado: ${length ~/ 1024} KB');
+    },
+  );
 
   test('vocabulario: candidatos a fusionar', () async {
     final vocabulary = VocabularyRepositoryImpl(

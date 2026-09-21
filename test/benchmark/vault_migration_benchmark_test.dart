@@ -16,6 +16,17 @@ import 'vault_migration_benchmark.dart';
 ///       --dart-define=BENCH=true --timeout none
 const _runBenchmark = bool.fromEnvironment('BENCH');
 
+/// La bóveda de partida y el informe que deja; con otros valores se mide otra
+/// migración —por ejemplo la de v20 a v21, la de F13—.
+const _oldVault = String.fromEnvironment(
+  'BENCH_OLD_VAULT',
+  defaultValue: 'vault_s17_g4_10000.sqlite',
+);
+const _reportName = String.fromEnvironment(
+  'BENCH_MIGRATION_REPORT',
+  defaultValue: 'latest_migration_report.md',
+);
+
 void main() {
   group(
     'benchmark de la migración a escala',
@@ -23,9 +34,7 @@ void main() {
     () => registerVaultMigrationBenchmark(
       MigrationBenchmarkEnvironment(
         oldVaultFile: () async {
-          final file = File(
-            '.dart_tool/sinapsis_benchmark/vault_s17_g4_10000.sqlite',
-          );
+          final file = File('.dart_tool/sinapsis_benchmark/$_oldVault');
           return file.existsSync() ? file : null;
         },
         log: stdout.writeln,
@@ -37,6 +46,7 @@ void main() {
             '.dart_tool/sinapsis_benchmark/$name',
           ).writeAsStringSync(content);
         },
+        reportName: _reportName,
         description: const String.fromEnvironment(
           'BENCH_DEVICE_INFO',
           defaultValue: 'escritorio',

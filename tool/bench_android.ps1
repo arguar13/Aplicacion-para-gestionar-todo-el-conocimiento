@@ -27,6 +27,7 @@
   tool/bench_android.ps1                       # el benchmark de los 13 escenarios
   tool/bench_android.ps1 -PushVaults           # antes, empuja las bóvedas
   tool/bench_android.ps1 -Target vault_merge_benchmark_test
+  tool/bench_android.ps1 -Target vault_migration_benchmark_test -PushVaults -OldVault vault_s20_g4_10000.sqlite -Label f13
   tool/bench_android.ps1 -Target vault_backup_benchmark_test -SaveToFolder   # + tool/bench_android_pick_folder.ps1
   tool/bench_android.ps1 -DryRun               # solo muestra qué haría
 #>
@@ -38,6 +39,14 @@ param(
   # El archivo de integration_test/ sin la extensión.
   [string] $Target = 'vault_benchmark_test',
   [string] $OutRoot = 'docs/benchmarks',
+  # Para `vault_migration_benchmark_test`: la bóveda de un esquema anterior de
+  # la que se parte, que `-PushVaults` empuja. Por defecto la de v17 (909 MB);
+  # con la de v20 se mide solo el último salto. El informe lleva el esquema en
+  # el nombre.
+  [string] $OldVault = 'vault_s17_g4_10000.sqlite',
+  # Un sufijo para la carpeta de las cifras (`2026-09-21-f13`): dos corridas del
+  # mismo día no se pisan.
+  [string] $Label,
   [int] $MinFreeGB = 4,
   [switch] $PushVaults,
   # Para `vault_backup_benchmark_test`: además de armar la copia, la guarda en
@@ -140,12 +149,22 @@ if (-not $isEmulator -and $temperature -and $temperature -gt 38) {
 # --- Adónde van las cifras ---------------------------------------------------
 $tagPrefix = if ($isEmulator) { 'emulador-' } else { '' }
 $tag = ("$tagPrefix$manufacturer-$model-android$release" -replace '[^A-Za-z0-9._-]', '_')
-$out = Join-Path $OutRoot "$tag/$(Get-Date -Format 'yyyy-MM-dd')"
+$folder = Get-Date -Format 'yyyy-MM-dd'
+if ($Label) { $folder = "$folder-$Label" }
+$out = Join-Path $OutRoot "$tag/$folder"
 $package = "app.sinapsis.$Flavor"
 $bench = "/sdcard/Android/data/$package/files/bench"
 
 $defines = Join-Path ([System.IO.Path]::GetTempPath()) 'sinapsis-bench-defines.json'
-$defineValues = @{ BENCH_DEVICE_INFO = $info }
+$defineValues = @{ BENCH_DEVICE_INFO = $info; BENCH_OLD_VAULT = $OldVault }
+# El informe de una migración lleva el esquema de partida: la de v17 y la de v20
+# conviven en la misma carpeta.
+if ($OldVault -match '_s(\d+)_') {
+  $fromSchema = $Matches[1]
+  if ($fromSchema -ne '17') {
+    $defineValues['BENCH_MIGRATION_REPORT'] = "latest_migration_v${fromSchema}_report.md"
+  }
+}
 if ($SaveToFolder) { $defineValues['BENCH_SAVE_TO_FOLDER'] = 'true' }
 $defineValues | ConvertTo-Json | Set-Content -Path $defines -Encoding utf8
 
@@ -201,10 +220,11 @@ if ($PushVaults) {
   $source = '.dart_tool/sinapsis_benchmark'
   # La marca `.ok` va al final: sin ella la bóveda no cuenta por completa.
   $files = @(
-    'vault_s17_g4_10000.sqlite',     # esquema v17: la migración
-    'vault_s20_g4_10000.sqlite',     # la actual: la fusión y los 13 escenarios...
-    'vault_s20_g4_10000.json',       # ...con su resumen
-    'vault_s20_g4_10000.ok'          # ...y su marca de completa
+    'vault_s17_g4_10000.sqlite',     # esquema v17: la migración entera
+    'vault_s20_g4_10000.sqlite',     # esquema v20: el último salto (F13)
+    'vault_s21_g5_10000.sqlite',     # la actual: la fusión y los escenarios...
+    'vault_s21_g5_10000.json',       # ...con su resumen
+    'vault_s21_g5_10000.ok'          # ...y su marca de completa
   ) | Where-Object { Test-Path (Join-Path $source $_) }
   if ($files.Count -eq 0) {
     Write-Warning "No hay bóvedas en ${source}: corré el benchmark de escritorio una vez para armarlas."
