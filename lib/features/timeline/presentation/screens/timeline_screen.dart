@@ -21,7 +21,18 @@ const _searchDelay = Duration(milliseconds: 300);
 /// sabe con menos precisión —un siglo, un "circa"— se ve distinto de una fecha
 /// exacta, y tocar un hecho abre el elemento.
 class TimelineScreen extends ConsumerStatefulWidget {
-  const TimelineScreen({super.key});
+  const TimelineScreen({
+    this.initialValueId,
+    this.initialValueLabel,
+    super.key,
+  });
+
+  /// Si viene, la línea de tiempo se abre ya filtrada por este valor de una
+  /// propiedad y sus subtemas —desde el eje temporal de una rama del Atlas—.
+  final String? initialValueId;
+
+  /// El nombre de ese valor, para rotular el filtro.
+  final String? initialValueLabel;
 
   @override
   ConsumerState<TimelineScreen> createState() => _TimelineScreenState();
@@ -30,6 +41,25 @@ class TimelineScreen extends ConsumerStatefulWidget {
 class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   final _searchController = TextEditingController();
   Timer? _searchTimer;
+
+  /// Si el filtro inicial ya se aplicó. Sin filtro inicial, siempre.
+  late bool _filterApplied = widget.initialValueId == null;
+
+  @override
+  void initState() {
+    super.initState();
+    final valueId = widget.initialValueId;
+    if (valueId != null) {
+      // Un proveedor no se modifica mientras se arma el árbol: el filtro se
+      // pone apenas termina, y hasta entonces no se lee nada —sin filtro
+      // serían todos los hechos de la bóveda, para descartarlos enseguida—.
+      scheduleMicrotask(() {
+        if (!mounted) return;
+        ref.read(timelineFilterProvider.notifier).filterByValue(valueId);
+        setState(() => _filterApplied = true);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -65,11 +95,26 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Se mira ANTES de esperar el filtro inicial: un proveedor que nadie mira
+    // se descarta, y el filtro recién puesto se perdería.
     final filter = ref.watch(timelineFilterProvider);
+    if (!_filterApplied) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.timelineTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final events = ref.watch(timelineEventsProvider(filter));
-    // Los del panel; la búsqueda ya se ve en su propio campo.
+    // Los del panel; la búsqueda ya se ve en su propio campo, y el filtro por
+    // una rama del Atlas, en su ficha.
     final panelFilters = filter.sourceKinds.length + filter.tagIds.length;
-    final activeFilters = panelFilters + (filter.hasSearchText ? 1 : 0);
+    final branchLabel = filter.propertyValueIds.isEmpty
+        ? null
+        : widget.initialValueLabel;
+    final activeFilters =
+        panelFilters +
+        filter.propertyValueIds.length +
+        (filter.hasSearchText ? 1 : 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -110,6 +155,22 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               ),
             ),
           ),
+          if (branchLabel != null)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: InputChip(
+                  key: const ValueKey('timeline-branch-filter'),
+                  avatar: const Icon(Icons.account_tree_outlined, size: 18),
+                  label: Text(branchLabel),
+                  deleteButtonTooltipMessage: l10n.timelineBranchFilterTooltip,
+                  onDeleted: () => ref
+                      .read(timelineFilterProvider.notifier)
+                      .clearValueFilter(),
+                ),
+              ),
+            ),
           Expanded(
             child: events.when(
               loading: () => const Center(child: CircularProgressIndicator()),

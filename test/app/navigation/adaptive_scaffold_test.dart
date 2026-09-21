@@ -10,12 +10,17 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../support/fake_shared_content_listener.dart';
 import '../../support/vault_test_doubles.dart';
@@ -25,6 +30,7 @@ import '../../support/vault_test_doubles.dart';
 /// `StatefulNavigationShell` lo construye `go_router` en su propio
 /// `builder`, no algo que se pueda instanciar a mano.
 void main() {
+  final es = AppLocalizationsEs();
   late SharedPreferences prefs;
 
   setUp(() async {
@@ -99,10 +105,125 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(LibraryScreen), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.settings_outlined));
+      await tester.tap(find.byIcon(Icons.hub_outlined));
       await tester.pumpAndSettle();
 
+      expect(find.byType(GraphScreen), findsOneWidget);
+    });
+
+    testWidgets('la barra muestra cinco destinos y un «Más» (F13, D1)', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      final labels = [
+        for (final d in tester.widgetList<NavigationDestination>(
+          find.byType(NavigationDestination),
+        ))
+          d.label,
+      ];
+      expect(labels, [
+        es.navLibrary,
+        es.navInbox,
+        es.navAtlas,
+        es.navGraph,
+        es.navReview,
+        es.navMore,
+      ]);
+    });
+
+    testWidgets('el Atlas es un destino de la barra', (tester) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.account_tree_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AtlasScreen), findsOneWidget);
+    });
+
+    testWidgets('«Más» abre una hoja con Explorador, Chat y Ajustes', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+
+      for (final label in [es.navExplorer, es.navChat, es.navSettings]) {
+        expect(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.text(label),
+          ),
+          findsOneWidget,
+        );
+      }
+    });
+
+    testWidgets('elegir un destino de «Más» lo abre, y «Más» queda marcado', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-more-2')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExplorerScreen), findsOneWidget);
+      // La hoja se cerró y la barra marca «Más», el último destino.
+      expect(find.byType(BottomSheet), findsNothing);
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(bar.selectedIndex, bar.destinations.length - 1);
+    });
+
+    testWidgets('Ajustes y Chat también están detrás de «Más»', (tester) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-more-6')));
+      await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-more-4')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatScreen), findsOneWidget);
+    });
+
+    testWidgets('un destino de la barra deja de marcar «Más»', (tester) async {
+      setLogicalWidth(tester, 400);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-more-6')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.account_tree_outlined));
+      await tester.pumpAndSettle();
+
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      // El Atlas es el tercero de la barra.
+      expect(bar.selectedIndex, 2);
     });
 
     testWidgets('la Bandeja de entrada es un destino más', (tester) async {
@@ -129,6 +250,46 @@ void main() {
 
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('el riel muestra los ocho destinos, en su orden', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 1200);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      final labels = [
+        for (final d in rail.destinations) (d.label as Text).data,
+      ];
+      expect(labels, [
+        es.navLibrary,
+        es.navInbox,
+        es.navAtlas,
+        es.navExplorer,
+        es.navGraph,
+        es.navChat,
+        es.navReview,
+        es.navSettings,
+      ]);
+    });
+
+    testWidgets('en el riel, tocar el Atlas lo abre y lo marca', (
+      tester,
+    ) async {
+      setLogicalWidth(tester, 1200);
+
+      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.account_tree_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AtlasScreen), findsOneWidget);
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(rail.selectedIndex, 2);
     });
 
     testWidgets('justo en el punto de quiebre ya es el riel, no la barra', (

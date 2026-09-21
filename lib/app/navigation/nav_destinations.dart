@@ -7,7 +7,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// [branchIndex] es la posición real de la rama en `app_router.dart` —fija,
 /// igual en todas las plataformas—, no la posición dentro de esta lista: en
 /// la web el chat no se muestra (ver [buildNavDestinations]), así que la
-/// lista visible puede tener menos elementos que ramas hay. Confundir las
+/// lista visible puede tener menos elementos que ramas hay, y el Atlas se
+/// sumó al final del árbol de rutas pero se muestra tercero. Confundir las
 /// dos posiciones dejaría a `NavigationBar`/`NavigationRail` marcando un
 /// destino distinto del que en verdad está activo.
 class NavDestinationSpec {
@@ -16,17 +17,30 @@ class NavDestinationSpec {
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    this.onPhoneBar = false,
   });
 
   final int branchIndex;
   final Widget icon;
   final Widget selectedIcon;
   final String label;
+
+  /// Si va en la barra de abajo del celular. Con ocho destinos no caben: los
+  /// que no van ahí quedan detrás de «Más». El riel de escritorio los
+  /// muestra todos.
+  final bool onPhoneBar;
 }
 
-/// Arma la lista de destinos principales, en el mismo orden que las ramas de
-/// `app_router.dart`: biblioteca, bandeja de entrada, explorador, grafo,
-/// chat, repaso, ajustes.
+/// La rama del Atlas en `app_router.dart`: la última, para no correr el
+/// índice de las que ya existían.
+const kAtlasBranchIndex = 7;
+
+/// Arma la lista de destinos principales, en el orden en que se ven:
+/// biblioteca, bandeja de entrada, atlas, explorador, grafo, chat, repaso,
+/// ajustes. Cada uno sabe su rama ([NavDestinationSpec.branchIndex]).
+///
+/// En el celular la barra muestra cinco —biblioteca, bandeja, atlas, grafo y
+/// repaso— y un «Más» con el resto ([NavDestinationSpec.onPhoneBar]).
 ///
 /// Es una función y no una constante porque necesita `l10n` (idioma activo)
 /// y las cuentas de pendientes para las insignias de Bandeja y Repaso — cosas
@@ -44,6 +58,7 @@ List<NavDestinationSpec> buildNavDestinations({
       icon: const Icon(Icons.folder_outlined),
       selectedIcon: const Icon(Icons.folder),
       label: l10n.navLibrary,
+      onPhoneBar: true,
     ),
     // Justo después de biblioteca: es el punto entre "todo lo guardado" y
     // "todo lo organizado" — ver la decisión sobre F3 en docs/arquitectura.md.
@@ -65,6 +80,17 @@ List<NavDestinationSpec> buildNavDestinations({
         child: const Icon(Icons.move_to_inbox),
       ),
       label: l10n.navInbox,
+      onPhoneBar: true,
+    ),
+    // El índice dinámico de lo que se sabe y de lo que falta (F13): después de
+    // lo que entra y antes de lo que se explora. `account_tree` porque es un
+    // árbol de temas; ningún otro destino usa ese ícono.
+    NavDestinationSpec(
+      branchIndex: kAtlasBranchIndex,
+      icon: const Icon(Icons.account_tree_outlined),
+      selectedIcon: const Icon(Icons.account_tree),
+      label: l10n.navAtlas,
+      onPhoneBar: true,
     ),
     // Entre bandeja y grafo, tal como pidió el usuario: es el punto medio
     // natural entre "todo lo guardado" y "todo lo vinculado" — la vitrina de
@@ -80,6 +106,7 @@ List<NavDestinationSpec> buildNavDestinations({
       icon: const Icon(Icons.hub_outlined),
       selectedIcon: const Icon(Icons.hub),
       label: l10n.navGraph,
+      onPhoneBar: true,
     ),
     // Sin web a propósito: el chat necesita flutter_gemma corriendo en el
     // dispositivo, y esta función solo se validó en Android y Windows —
@@ -106,6 +133,7 @@ List<NavDestinationSpec> buildNavDestinations({
         child: const Icon(Icons.style),
       ),
       label: l10n.navReview,
+      onPhoneBar: true,
     ),
     NavDestinationSpec(
       branchIndex: 6,

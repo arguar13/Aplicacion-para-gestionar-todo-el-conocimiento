@@ -7,12 +7,14 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/graph_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
@@ -166,7 +168,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.timeline,
         name: RouteNames.timeline,
-        builder: (context, state) => const TimelineScreen(),
+        builder: (context, state) => TimelineScreen(
+          initialValueId: state.uri.queryParameters['value'],
+          initialValueLabel: state.uri.queryParameters['label'],
+        ),
       ),
       GoRoute(
         path: RoutePaths.chatModel,
@@ -194,7 +199,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             LocalGraphScreen(itemId: state.pathParameters['id']!),
       ),
-      // Los siete destinos principales, cada uno con su propio `Navigator` —
+      // Los ocho destinos principales, cada uno con su propio `Navigator` —
       // así cambiar de pestaña y volver conserva el scroll y los filtros de
       // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
       // celular, un riel al costado en escritorio. Reemplaza al AppBar de
@@ -241,7 +246,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.explorer,
                 name: RouteNames.explorer,
-                builder: (context, state) => const ExplorerScreen(),
+                // Con `?value=` —lo que abre el Atlas— el Explorador se
+                // pone a mirar ese valor y sus subtemas.
+                builder: (context, state) => ExplorerFocus(
+                  valueId: state.uri.queryParameters['value'],
+                  child: const ExplorerScreen(),
+                ),
               ),
             ],
           ),
@@ -278,6 +288,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.settings,
                 name: RouteNames.settings,
                 builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+          // El Atlas, al final: su posición visible es la tercera, pero
+          // sumarlo al final no corre el índice de las ramas de arriba (ver
+          // `kAtlasBranchIndex`).
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.atlas,
+                name: RouteNames.atlas,
+                builder: (context, state) => const AtlasScreen(),
               ),
             ],
           ),

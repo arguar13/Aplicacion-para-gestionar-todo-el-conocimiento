@@ -41,6 +41,17 @@ class TimelineFilterNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(tagIds: tagIds);
   }
 
+  /// Deja SOLO el filtro por el valor [valueId] de una propiedad —una rama
+  /// del Atlas—: los hechos con ese valor o con uno de sus subtemas.
+  void filterByValue(String valueId) {
+    state = LibraryQuery(propertyValueIds: {valueId});
+  }
+
+  /// Quita el filtro por valor de propiedad y deja lo demás.
+  void clearValueFilter() {
+    state = state.copyWith(propertyValueIds: const {});
+  }
+
   void clear() => state = const LibraryQuery();
 }
 

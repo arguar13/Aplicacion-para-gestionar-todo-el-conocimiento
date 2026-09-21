@@ -2902,6 +2902,148 @@
   "@navReview": {
     "description": "Etiqueta corta del destino de repaso en la navegación principal."
   },
+  "navAtlas": "Atlas",
+  "@navAtlas": {
+    "description": "Destino de la navegación principal: el índice dinámico de lo que se sabe y de lo que falta."
+  },
+  "navMore": "More",
+  "@navMore": {
+    "description": "Destino de la barra del celular que abre la hoja con los destinos que no caben en ella."
+  },
+  "atlasTitle": "Atlas",
+  "@atlasTitle": {
+    "description": "Título de la pantalla del Atlas."
+  },
+  "atlasSearchHint": "Search a topic",
+  "@atlasSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda del Atlas."
+  },
+  "atlasCategoryTooltip": "Atlas category",
+  "@atlasCategoryTooltip": {
+    "description": "Tooltip del selector de la categoría que muestra el Atlas."
+  },
+  "atlasCoverageTitle": "Coverage",
+  "@atlasCoverageTitle": {
+    "description": "Encabezado de la leyenda de los estados de cobertura de una rama."
+  },
+  "atlasCoverageEmpty": "No material",
+  "@atlasCoverageEmpty": {
+    "description": "Estado de cobertura: el tema existe y no tiene nada asignado."
+  },
+  "atlasCoverageSourcesOnly": "Sources only",
+  "@atlasCoverageSourcesOnly": {
+    "description": "Estado de cobertura: hay material crudo y ninguna nota."
+  },
+  "atlasCoverageFragments": "Fragments",
+  "@atlasCoverageFragments": {
+    "description": "Estado de cobertura: hay notas pero ninguna nota viva, fragmentos sin consolidar."
+  },
+  "atlasCoverageGrowing": "Growing",
+  "@atlasCoverageGrowing": {
+    "description": "Estado de cobertura: hay una nota viva semilla o en desarrollo."
+  },
+  "atlasCoverageMature": "Mature",
+  "@atlasCoverageMature": {
+    "description": "Estado de cobertura: hay una nota viva madura."
+  },
+  "atlasSourceCount": "{count, plural, =1{1 source} other{{count} sources}}",
+  "@atlasSourceCount": {
+    "description": "Cuántas fuentes hay en una rama del Atlas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasNoteCount": "{count, plural, =1{1 note} other{{count} notes}}",
+  "@atlasNoteCount": {
+    "description": "Cuántas notas hay en una rama del Atlas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasEmptyTitle": "No topics yet",
+  "@atlasEmptyTitle": {
+    "description": "Título del estado vacío del Atlas."
+  },
+  "atlasEmptyMessage": "Once this category has values, the Atlas will show what you have on each one and what is missing.",
+  "@atlasEmptyMessage": {
+    "description": "Explicación del estado vacío del Atlas."
+  },
+  "atlasNoResults": "No topic matches the search.",
+  "@atlasNoResults": {
+    "description": "Aviso cuando la búsqueda dentro del Atlas no encuentra nada."
+  },
+  "atlasLoadError": "The Atlas could not be built.",
+  "@atlasLoadError": {
+    "description": "Aviso cuando falla el cálculo del Atlas."
+  },
+  "atlasRetry": "Retry",
+  "@atlasRetry": {
+    "description": "Botón que vuelve a calcular el Atlas tras un fallo."
+  },
+  "atlasGapsTitle": "{count, plural, =1{1 gap found} other{{count} gaps found}}",
+  "@atlasGapsTitle": {
+    "description": "Encabezado de la lista de vacíos del Atlas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasGapManySources": "{count} sources and no living note",
+  "@atlasGapManySources": {
+    "description": "Un vacío: un tema con muchas fuentes y ninguna nota viva.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasGapSingleItem": "A single item in the whole branch",
+  "@atlasGapSingleItem": {
+    "description": "Un vacío: un tema con un único elemento."
+  },
+  "atlasGapStale": "Untouched for {months, plural, =1{1 month} other{{months} months}}",
+  "@atlasGapStale": {
+    "description": "Un vacío: una rama que nadie tocó hace meses.",
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasGapsMore": "and {count} more",
+  "@atlasGapsMore": {
+    "description": "Cuántos vacíos quedan sin mostrar en la lista recortada.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "atlasOpenMaterial": "See the material",
+  "@atlasOpenMaterial": {
+    "description": "Acción de una rama del Atlas: abre el Explorador filtrado por ese tema."
+  },
+  "atlasOpenTimeline": "See on the timeline",
+  "@atlasOpenTimeline": {
+    "description": "Acción de una rama del Atlas: abre la línea de tiempo filtrada por ese tema."
+  },
+  "atlasMapNoteTooltip": "Map note: entry point",
+  "@atlasMapNoteTooltip": {
+    "description": "Tooltip de la marca de una nota mapa en una rama del Atlas."
+  },
+  "atlasMapNotesTitle": "The branch's map notes",
+  "@atlasMapNotesTitle": {
+    "description": "Título de la hoja que lista todas las notas mapa de una rama."
+  },
+  "timelineBranchFilterTooltip": "Remove the topic filter",
+  "@timelineBranchFilterTooltip": {
+    "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
+  },
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Etiqueta corta del destino de ajustes en la navegación principal."

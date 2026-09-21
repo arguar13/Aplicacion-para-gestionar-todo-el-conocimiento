@@ -22,6 +22,15 @@ abstract final class RoutePaths {
   /// El Explorador: lo ya procesado, organizado en carpetas.
   static const explorer = '/explorer';
 
+  /// El Explorador ya filtrado por el valor [valueId] de una propiedad: lo
+  /// que el Atlas abre desde una rama o un vacío (F13).
+  static String explorerFor(String valueId) =>
+      '$explorer?value=${Uri.encodeQueryComponent(valueId)}';
+
+  /// El Atlas: el índice dinámico de lo que se sabe y de lo que falta (F13).
+  /// Un destino de navegación principal.
+  static const atlas = '/atlas';
+
   /// La Bandeja de entrada: lo recién procesado, esperando triaje.
   static const inbox = '/inbox';
 
@@ -85,6 +94,13 @@ abstract final class RoutePaths {
   /// destino de navegación.
   static const timeline = '/timeline';
 
+  /// La línea de tiempo ya filtrada por el valor [valueId] de una propiedad,
+  /// con su nombre [label] para rotular el filtro (F13): lo que el Atlas abre
+  /// desde el eje temporal de una rama.
+  static String timelineFor({required String valueId, required String label}) =>
+      '$timeline?value=${Uri.encodeQueryComponent(valueId)}'
+      '&label=${Uri.encodeQueryComponent(label)}';
+
   /// La bóveda como un grafo de vínculos.
   static const graph = '/graph';
 
@@ -137,6 +153,7 @@ abstract final class RouteNames {
   static const library = 'library';
   static const itemDetail = 'item-detail';
   static const explorer = 'explorer';
+  static const atlas = 'atlas';
   static const inbox = 'inbox';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';

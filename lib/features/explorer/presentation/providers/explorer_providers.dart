@@ -36,6 +36,17 @@ class ExplorerQueryNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(propertyValueIds: ids);
   }
 
+  /// Deja SOLO el filtro por el valor [valueId] de una propiedad —una rama del
+  /// Atlas—: lo que tiene ese valor o uno de sus subtemas. Lo demás se quita:
+  /// se llega desde otra pantalla a mirar una cosa, no a sumarla a lo que
+  /// hubiera.
+  void focusOnValue(String valueId) {
+    state = LibraryQuery(
+      processingStates: state.processingStates,
+      propertyValueIds: {valueId},
+    );
+  }
+
   void clearFilters() {
     state = state.copyWith(
       sourceKinds: const {},
