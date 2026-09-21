@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
     show AtlasValueRow;
@@ -10,6 +11,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
@@ -97,6 +99,66 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
           ),
       ],
     );
+  }
+
+  @override
+  Future<List<SchemaLink>> schemaLinks(
+    SchemaRef node, {
+    int limit = kSchemaFanOut,
+  }) async {
+    switch (node.kind) {
+      case SchemaNodeKind.topic:
+        final rows = await _db
+            .customSelect(
+              mapTopicNotesSql,
+              variables: [
+                Variable.withString(node.id),
+                Variable.withInt(limit),
+              ],
+              readsFrom: mapTables(_db).toSet(),
+            )
+            .get();
+        final notes = [
+          for (final row in rows)
+            SchemaLink(
+              target: SchemaRef.item(row.data['id'] as String),
+              title: row.data['title'] as String,
+              edge: SchemaEdgeKind.mapNote,
+              isNote: true,
+            ),
+        ];
+        // Por título sin acentos ni mayúsculas, como todo el vocabulario.
+        final keyOf = {
+          for (final note in notes)
+            note.target.id: normalizeVocabularyLabel(note.title),
+        };
+        return notes..sort((a, b) {
+          final byTitle = keyOf[a.target.id]!.compareTo(keyOf[b.target.id]!);
+          return byTitle != 0 ? byTitle : a.target.id.compareTo(b.target.id);
+        });
+      case SchemaNodeKind.item:
+        final rows = await _db
+            .customSelect(
+              mapItemLinksSql,
+              variables: [
+                Variable.withString(node.id),
+                Variable.withInt(limit),
+              ],
+              readsFrom: mapTables(_db).toSet(),
+            )
+            .get();
+        return [
+          for (final row in rows)
+            SchemaLink(
+              target: SchemaRef.item(row.data['id'] as String),
+              title: row.data['title'] as String,
+              edge: SchemaEdgeKind.relation,
+              relation: RelationKind.values.byName(row.data['kind'] as String),
+              outgoing: row.data['outgoing'] == 1,
+              isNote: row.data['item_kind'] == ItemKind.note.name,
+            ),
+        ];
+    }
   }
 
   @override

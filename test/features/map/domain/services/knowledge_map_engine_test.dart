@@ -17,6 +17,7 @@ import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
@@ -54,6 +55,12 @@ class FakeMapRepository implements KnowledgeMapRepository {
   Future<MapDashboard> readDashboard({
     LibraryQuery filter = const LibraryQuery(),
   }) async => const MapDashboard.empty();
+
+  @override
+  Future<List<SchemaLink>> schemaLinks(
+    SchemaRef node, {
+    int limit = kSchemaFanOut,
+  }) async => const [];
 
   @override
   Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) =>

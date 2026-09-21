@@ -4,11 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -162,6 +164,48 @@ void main() {
     expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
     // Egipto ya comparte un elemento con Roma: dejó de estar aislado.
     expect(find.byKey(const ValueKey('map-isolated-egipto')), findsNothing);
+  });
+
+  testWidgets('el selector cambia al esquema, que parte del tema con más '
+      'material y trae de la base sus notas mapa', (tester) async {
+    await seed();
+    await insertItemRows(
+      db,
+      id: 'm1',
+      title: 'Mapa de Roma',
+      createdAt: DateTime(2026, 8, 12),
+      kind: SourceKind.manualNote,
+    );
+    await (db.update(db.knowledgeNotes)..where((n) => n.itemId.equals('m1')))
+        .write(const KnowledgeNotesCompanion(noteKind: Value(NoteKind.map)));
+    await db
+        .into(db.itemPropertyValues)
+        .insert(
+          ItemPropertyValuesCompanion.insert(
+            itemId: 'm1',
+            propertyValueId: 'roma',
+          ),
+        );
+    await pump(tester);
+    expect(find.byType(MapSchemaView), findsNothing);
+
+    await tester.tap(find.text(es.mapViewSchema));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MapSchemaView), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('map-schema-node-topic:roma')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('map-schema-node-item:m1')),
+      findsOneWidget,
+    );
+
+    // Y volver al tablero.
+    await tester.tap(find.text(es.mapViewBoard));
+    await tester.pumpAndSettle();
+    expect(find.byType(MapSchemaView), findsNothing);
   });
 
   testWidgets('la madurez de las notas sale del tablero', (tester) async {

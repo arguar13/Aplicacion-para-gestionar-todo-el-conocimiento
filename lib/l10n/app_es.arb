@@ -3008,6 +3008,73 @@
       }
     }
   },
+  "mapViewSchema": "Esquema",
+  "@mapViewSchema": {
+    "description": "Nombre de la vista de esquema del mapa: un árbol que parte de un tema y se despliega."
+  },
+  "mapSchemaRadial": "Radial",
+  "@mapSchemaRadial": {
+    "description": "Modo del esquema con la raíz al centro y cada nivel en un anillo."
+  },
+  "mapSchemaTree": "Árbol",
+  "@mapSchemaTree": {
+    "description": "Modo del esquema como árbol, con los niveles hacia abajo."
+  },
+  "mapSchemaRootTooltip": "Elegir el tema de partida",
+  "@mapSchemaRootTooltip": {
+    "description": "Tooltip del botón que cambia el tema desde el que parte el esquema."
+  },
+  "mapSchemaOpen": "Abrir",
+  "@mapSchemaOpen": {
+    "description": "Tooltip del botón de cada nodo del esquema que abre el tema o el elemento."
+  },
+  "mapSchemaExpand": "Desplegar {title}",
+  "@mapSchemaExpand": {
+    "description": "Descripción accesible de un nodo del esquema que se puede desplegar.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mapSchemaCollapse": "Plegar {title}",
+  "@mapSchemaCollapse": {
+    "description": "Descripción accesible de un nodo del esquema que está desplegado.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "mapSchemaNodeTopic": "Tema",
+  "@mapSchemaNodeTopic": {
+    "description": "Qué es un nodo del esquema que es un tema, para la descripción accesible."
+  },
+  "mapSchemaNodeNote": "Nota",
+  "@mapSchemaNodeNote": {
+    "description": "Qué es un nodo del esquema que es una nota, para la descripción accesible."
+  },
+  "mapSchemaNodeMapNote": "Nota mapa",
+  "@mapSchemaNodeMapNote": {
+    "description": "Qué es un nodo del esquema que es una nota mapa, para la descripción accesible."
+  },
+  "mapSchemaNodeSource": "Fuente",
+  "@mapSchemaNodeSource": {
+    "description": "Qué es un nodo del esquema que es una fuente, para la descripción accesible."
+  },
+  "mapSchemaEdgeMapNote": "nota mapa",
+  "@mapSchemaEdgeMapNote": {
+    "description": "Etiqueta de la línea que une un tema con una nota mapa asignada a él."
+  },
+  "mapSchemaTruncated": "Se muestran los primeros {count} nodos. Plegá alguna rama para ver otras.",
+  "@mapSchemaTruncated": {
+    "description": "Aviso cuando el esquema tiene más nodos de los que se dibujan.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "timelineBranchFilterTooltip": "Quitar el filtro por tema",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

@@ -13,6 +13,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
+import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 
@@ -442,6 +443,100 @@ void main() {
     });
   });
 
+  group('el esquema', () {
+    Future<void> noteOf(
+      String id,
+      String title,
+      NoteKind kind,
+      List<String> values,
+    ) async {
+      await insertItemRows(
+        db,
+        id: id,
+        title: title,
+        kind: SourceKind.manualNote,
+      );
+      await (db.update(db.knowledgeNotes)..where((n) => n.itemId.equals(id)))
+          .write(KnowledgeNotesCompanion(noteKind: Value(kind)));
+      for (final valueId in values) {
+        await assign(id, valueId);
+      }
+    }
+
+    test('las notas mapa de un tema, por título, y solo esas', () async {
+      await seedTopics();
+      await noteOf('m2', 'Zama', NoteKind.map, ['roma']);
+      await noteOf('m1', 'Ágora', NoteKind.map, ['roma']);
+      await noteOf('v1', 'Viva', NoteKind.living, ['roma']);
+      await noteOf('m3', 'De otro tema', NoteKind.map, ['grecia']);
+      await source('s1', ['roma']);
+
+      final links = await repository.schemaLinks(const SchemaRef.topic('roma'));
+
+      expect([for (final l in links) l.title], ['Ágora', 'Zama']);
+      expect(links.every((l) => l.edge == SchemaEdgeKind.mapNote), isTrue);
+      expect(links.every((l) => l.isNote), isTrue);
+      expect(links.first.target, const SchemaRef.item('m1'));
+    });
+
+    test('una nota mapa en la papelera no sale', () async {
+      await seedTopics();
+      await noteOf('m1', 'Mapa', NoteKind.map, ['roma']);
+      await trashItemRows(db, 'm1');
+
+      expect(
+        await repository.schemaLinks(const SchemaRef.topic('roma')),
+        isEmpty,
+      );
+    });
+
+    test(
+      'los vínculos de un elemento, en los dos sentidos, con su tipo',
+      () async {
+        await noteOf('n1', 'Mapa de Roma', NoteKind.map, const []);
+        await source('s1', const []);
+        await source('s2', const []);
+        await noteOf('n2', 'Nota viva', NoteKind.living, const []);
+        await relate('n1', 's1', kind: RelationKind.indexes);
+        await relate('s2', 'n1', kind: RelationKind.contradicts);
+        await relate('n1', 'n2');
+
+        final links = await repository.schemaLinks(const SchemaRef.item('n1'));
+
+        final byTitle = {for (final l in links) l.title: l};
+        expect(byTitle.keys, {'Fuente s1', 'Fuente s2', 'Nota viva'});
+        final s1 = byTitle['Fuente s1']!;
+        expect(s1.relation, RelationKind.indexes);
+        expect(s1.outgoing, isTrue);
+        expect(s1.isNote, isFalse);
+        final s2 = byTitle['Fuente s2']!;
+        expect(s2.relation, RelationKind.contradicts);
+        expect(s2.outgoing, isFalse);
+        expect(byTitle['Nota viva']!.isNote, isTrue);
+        expect(links.every((l) => l.edge == SchemaEdgeKind.relation), isTrue);
+      },
+    );
+
+    test('lo que está en la papelera no sale, y hay un tope', () async {
+      await source('centro', const []);
+      for (var i = 0; i < 5; i++) {
+        await source('o$i', const []);
+        await relate('centro', 'o$i');
+      }
+      await trashItemRows(db, 'o0');
+
+      final all = await repository.schemaLinks(const SchemaRef.item('centro'));
+      expect(all, hasLength(4));
+      expect(all.map((l) => l.target.id), isNot(contains('o0')));
+
+      final some = await repository.schemaLinks(
+        const SchemaRef.item('centro'),
+        limit: 2,
+      );
+      expect(some, hasLength(2));
+    });
+  });
+
   group('los avisos de cambio', () {
     /// Si dentro de un rato llegó un aviso, mientras se hace [write].
     Future<bool> notifies(
@@ -572,6 +667,55 @@ void main() {
         ),
         hasLength(2),
         reason: reason,
+      );
+    });
+
+    test('el esquema busca por clave: las notas de un tema por el índice de '
+        'sus asignaciones, y los vínculos de un elemento por los dos '
+        'índices de vínculos', () async {
+      final notes = await planOf(mapTopicNotesSql, [
+        Variable.withString('roma'),
+        Variable.withInt(24),
+      ]);
+      final notesReason = notes.join('\n');
+      expect(
+        notes.where((line) => line.startsWith('SCAN')),
+        isEmpty,
+        reason: notesReason,
+      );
+      expect(
+        notes.where(
+          (line) =>
+              line.startsWith('SEARCH ipv') &&
+              line.contains('property_value_id'),
+        ),
+        hasLength(1),
+        reason: notesReason,
+      );
+
+      final links = await planOf(mapItemLinksSql, [
+        Variable.withString('n1'),
+        Variable.withInt(24),
+      ]);
+      final linksReason = links.join('\n');
+      expect(
+        links.where(
+          (line) => line.startsWith('SCAN') && !line.contains('USING INDEX'),
+        ),
+        // La única lectura completa es la de la lista de resultados que se
+        // ordena, que ya está acotada por las dos búsquedas por clave.
+        everyElement(anyOf(contains('SUBQUERY'), contains('COMPOUND'))),
+        reason: linksReason,
+      );
+      expect(
+        links.where((line) => line.contains('idx_relations_from')),
+        hasLength(1),
+        reason: linksReason,
+      );
+      expect(
+        links.where((line) => line.contains('idx_relations_to')),
+        hasLength(1),
+        reason: linksReason,
       );
     });
 

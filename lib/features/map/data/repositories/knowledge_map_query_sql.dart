@@ -96,3 +96,59 @@ WHERE r.kind = ?1
   AND ${activeItemSql('a')}
   AND ${activeItemSql('b')}
 ''';
+
+/// Las notas mapa vivas asignadas a un tema, las tocadas más recientemente
+/// primero. Variables: `?1` el valor; `?2` cuántas como mucho. El orden por
+/// título lo pone quien llama: `COLLATE NOCASE` de SQLite solo entiende ASCII y
+/// pondría «Ágora» después de «Zama».
+///
+/// Se parte de las asignaciones del valor, por su índice, y de cada una se va,
+/// por su clave, al elemento y a su nota: nunca se recorren las notas mapa de
+/// toda la bóveda para quedarse con las de un tema. `'map'` es
+/// `NoteKind.map.name`: un `const` no admite `.name`.
+const mapTopicNotesSql =
+    '''
+SELECT item.id AS id,
+       item.title AS title
+FROM item_property_values ipv
+CROSS JOIN item ON item.id = ipv.item_id
+CROSS JOIN note ON note.item_id = item.id
+WHERE ipv.property_value_id = ?1
+  AND note.note_kind = 'map'
+  AND $kActiveItemSql
+ORDER BY item.updated_at DESC, item.id
+LIMIT ?2
+''';
+
+/// Los elementos vivos vinculados a uno, en los dos sentidos, los vínculos
+/// más recientes primero. Variables: `?1` el elemento; `?2` cuántos como
+/// mucho.
+///
+/// Dos búsquedas por clave —por los vínculos que salen y por los que llegan— y
+/// no un `OR`, que SQLite resolvería recorriendo todos los vínculos.
+const mapItemLinksSql =
+    '''
+SELECT * FROM (
+  SELECT r.kind AS kind,
+         1 AS outgoing,
+         item.id AS id,
+         item.title AS title,
+         item.kind AS item_kind,
+         r.created_at AS at
+  FROM relations r
+  JOIN item ON item.id = r.to_item_id
+  WHERE r.from_item_id = ?1 AND $kActiveItemSql
+  UNION ALL
+  SELECT r.kind AS kind,
+         0 AS outgoing,
+         item.id AS id,
+         item.title AS title,
+         item.kind AS item_kind,
+         r.created_at AS at
+  FROM relations r
+  JOIN item ON item.id = r.from_item_id
+  WHERE r.to_item_id = ?1 AND $kActiveItemSql
+)
+ORDER BY at DESC, id
+LIMIT ?2
+''';

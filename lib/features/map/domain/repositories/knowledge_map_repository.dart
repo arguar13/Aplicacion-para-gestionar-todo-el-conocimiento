@@ -1,5 +1,6 @@
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
+import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 
 /// De dónde sale el mapa de conocimiento (F14).
@@ -30,6 +31,15 @@ abstract interface class KnowledgeMapRepository {
     LibraryQuery filter = const LibraryQuery(),
   });
 
+  /// Lo que se le puede desplegar a un nodo del esquema (F14, D6), sin lo que
+  /// ya sabe el grafo de temas: las notas mapa de un tema, o los elementos
+  /// vinculados a un elemento, con el tipo de vínculo. Lo que está en la
+  /// papelera queda afuera. Trae a lo sumo [limit].
+  Future<List<SchemaLink>> schemaLinks(
+    SchemaRef node, {
+    int limit = kSchemaFanOut,
+  });
+
   /// Avisa cada vez que se escribe algo que puede cambiar lo que devuelve
   /// [readTopicInput] con ese [filter]: las asignaciones, el vocabulario, las
   /// relaciones y los elementos —y, si el filtro restringe algo, lo que el
@@ -40,3 +50,6 @@ abstract interface class KnowledgeMapRepository {
   /// lo recibe vuelve a leer.
   Stream<void> changes({LibraryQuery filter = const LibraryQuery()});
 }
+
+/// Cuántos hijos se piden, como mucho, al desplegar un nodo del esquema.
+const kSchemaFanOut = 24;
