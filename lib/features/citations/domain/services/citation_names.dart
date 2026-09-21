@@ -78,16 +78,21 @@ String initialsSurname(PersonName name) {
 /// Junta [items] con la conjunción de [terms]: «A», «A y B», «A, B y C» —con
 /// coma antes de «&» en inglés—.
 ///
-/// [joiner] es lo que va antes del último: «y», «&» o «and».
+/// [joiner] es lo que va antes del último: «y», «&» o «and». Con [commaForPair]
+/// en falso, dos nombres no llevan la coma del inglés —«A and B»—, como en
+/// IEEE; APA la escribe también con dos.
 String joinList(
   List<String> items,
   CitationTerms terms, {
   required String joiner,
+  bool commaForPair = true,
 }) {
   if (items.isEmpty) return '';
   if (items.length == 1) return items.single;
   final head = items.sublist(0, items.length - 1).join(', ');
-  final comma = terms.serialComma ? ',' : '';
+  final comma = terms.serialComma && (items.length > 2 || commaForPair)
+      ? ','
+      : '';
   final and = conjunctionBefore(joiner, items.last);
   return '$head$comma $and ${items.last}';
 }
@@ -106,6 +111,55 @@ String conjunctionBefore(String joiner, String next) {
   if (word.length < 2) return joiner;
   return RegExp('^h?i(?![aeou])').hasMatch(word) ? 'e' : joiner;
 }
+
+/// Los apellidos como van dentro del texto: uno, dos unidos con [joiner] o,
+/// con tres o más, el primero con «et al.». Una institución va entera.
+String inTextSurnames(
+  List<PersonName> names,
+  CitationTerms terms, {
+  required String joiner,
+}) {
+  if (names.length == 1) return names.single.family;
+  if (names.length == 2) {
+    final and = conjunctionBefore(joiner, names.last.family);
+    return '${names.first.family} $and ${names.last.family}';
+  }
+  return '${names.first.family} ${terms.etAl}';
+}
+
+/// La edición como la escribe una cita: «2.ª ed.», «2nd ed.». Un número solo
+/// se vuelve ordinal; un texto que ya dice «ed.» se deja. `null` si no hay.
+String? editionText(String? raw, CitationTerms terms) {
+  final text = raw?.trim();
+  if (text == null || text.isEmpty) return null;
+  final number = int.tryParse(text);
+  if (number != null) return '${terms.ordinal(number)} ${terms.editionAbbr}';
+  if (RegExp(
+    r'\bed(\.|ición|ition)?(\W|$)',
+    caseSensitive: false,
+  ).hasMatch(text)) {
+    return text;
+  }
+  return '$text ${terms.editionAbbr}';
+}
+
+/// «pp. 345–359» o «p. 12», o `null` si no hay páginas.
+String? pagesWithTerm(String? pages, CitationTerms terms) {
+  if (pages == null) return null;
+  final range = pageRange(pages);
+  return '${isPageSpan(pages) ? terms.pages : terms.page} $range';
+}
+
+/// El pasaje citado: «p. 12», «pp. 12–14» o «0:14:35» —un instante no lleva
+/// abreviatura—.
+String locatorWithTerm(CitationLocator locator, CitationTerms terms) {
+  if (locator.isTime) return locator.text;
+  return pagesWithTerm(locator.text, terms)!;
+}
+
+/// [text] con la primera letra en mayúscula.
+String capitalized(String text) =>
+    text.isEmpty ? text : '${text[0].toUpperCase()}${text.substring(1)}';
 
 /// Las páginas como las escribe una cita: el guion entre dos números pasa a
 /// raya —«45-67» es «45–67»—. Lo que no tiene esa forma —«e1234», «S12-S15

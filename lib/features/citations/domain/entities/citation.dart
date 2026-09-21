@@ -26,6 +26,9 @@ enum CitationGap {
 
   /// Qué clase de obra es: sin eso no se sabe qué forma darle a la cita.
   type,
+
+  /// La fecha en que se consultó una obra en la web, en el estilo que la pide.
+  accessed,
 }
 
 /// Un pedazo de una cita con un solo formato (F15).

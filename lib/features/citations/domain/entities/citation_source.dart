@@ -61,12 +61,21 @@ class CitationLocator {
 /// Cómo se pide una cita: en qué idioma y, si es de un fragmento, dónde.
 @immutable
 class CitationContext {
-  const CitationContext({this.language = CitationLanguage.es, this.locator});
+  const CitationContext({
+    this.language = CitationLanguage.es,
+    this.locator,
+    this.number,
+  });
 
   final CitationLanguage language;
 
   /// Página o minuto del pasaje citado, o `null` para citar la obra entera.
   final CitationLocator? locator;
+
+  /// El lugar de la fuente en una lista numerada, para el estilo que numera
+  /// sus entradas (IEEE). `null` fuera de una lista: una fuente citada sola es
+  /// la primera.
+  final int? number;
 }
 
 /// Lo que un estilo necesita saber de una fuente para citarla (F15): su

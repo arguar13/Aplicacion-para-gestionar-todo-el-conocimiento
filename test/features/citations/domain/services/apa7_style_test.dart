@@ -112,6 +112,17 @@ void main() {
       );
     });
 
+    test('no numera sus entradas', () {
+      expect(style.isNumbered, isFalse);
+    });
+
+    test('el registro los ofrece en orden: APA 7, MLA 9, IEEE', () {
+      expect(
+        [for (final s in kReferenceStyles.styles) s.id],
+        ['apa7', 'mla9', 'ieee'],
+      );
+    });
+
     test('un estilo que no existe cae en el predeterminado', () {
       expect(kReferenceStyles.byId('chicago99'), isNull);
       expect(kReferenceStyles.resolve('chicago99').id, 'apa7');
@@ -773,6 +784,69 @@ void main() {
       expect(
         plain(two, language: CitationLanguage.es),
         'Franco, J. y Paz, O. (Eds.). (2019). Antología. Editorial.',
+      );
+    });
+
+    test('el traductor va entre paréntesis, con «Trans.» o «Trad.»', () {
+      Contributor translator(String family, String given) =>
+          person(family, given, role: ContributorRole.translator);
+
+      final one = source(
+        title: 'Anna Karenina',
+        type: ReferenceType.book,
+        people: [person('Tolstoy', 'Leo'), translator('Pevear', 'Richard')],
+        publisher: 'Penguin',
+        date: PublicationDate.ofYear(2002),
+      );
+      final two = source(
+        title: 'Anna Karenina',
+        type: ReferenceType.book,
+        people: [
+          person('Tolstoy', 'Leo'),
+          translator('Pevear', 'Richard'),
+          translator('Volokhonsky', 'Larissa'),
+        ],
+        publisher: 'Penguin',
+        edition: '2',
+        date: PublicationDate.ofYear(2002),
+      );
+
+      expect(
+        plain(one),
+        'Tolstoy, L. (2002). Anna Karenina (R. Pevear, Trans.). Penguin.',
+      );
+      expect(
+        plain(two),
+        'Tolstoy, L. (2002). Anna Karenina (2nd ed., R. Pevear & L. '
+        'Volokhonsky, Trans.). Penguin.',
+      );
+      expect(
+        plain(two, language: CitationLanguage.es),
+        'Tolstoy, L. (2002). Anna Karenina (2.ª ed., R. Pevear y L. '
+        'Volokhonsky, Trads.). Penguin.',
+      );
+    });
+
+    test('dos editores de un capítulo: sin coma antes de «&»', () {
+      final chapter = source(
+        title: 'La novela hispanoamericana',
+        type: ReferenceType.chapter,
+        people: [
+          person('Fuentes', 'Carlos'),
+          person('Franco', 'Jean', role: ContributorRole.editor),
+          person('Paz', 'Octavio', role: ContributorRole.editor),
+        ],
+        container: 'Historia de la literatura',
+        publisher: 'Editorial',
+      );
+
+      expect(
+        plain(chapter),
+        contains('In J. Franco & O. Paz (Eds.), Historia de la literatura'),
+      );
+      expect(
+        plain(chapter, language: CitationLanguage.es),
+        contains('En J. Franco y O. Paz (Eds.), Historia de la literatura'),
       );
     });
 

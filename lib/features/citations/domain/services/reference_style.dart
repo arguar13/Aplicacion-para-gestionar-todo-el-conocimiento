@@ -22,6 +22,11 @@ abstract interface class ReferenceStyle {
   /// Las formas que tiene el estilo: APA no tiene notas al pie; Chicago sí.
   Set<CitationForm> get forms;
 
+  /// Si las entradas de la bibliografía van numeradas y se citan por su
+  /// número —IEEE—. Quien arma una lista le pasa a cada entrada su
+  /// `CitationContext.number`; el estilo lo escribe a su manera.
+  bool get isNumbered;
+
   /// La cita de [source] en la forma [form]. Para una forma que el estilo no
   /// tiene devuelve la cita vacía: quien la pide mira antes [forms].
   Citation format(

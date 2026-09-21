@@ -32,6 +32,22 @@ class CitationTerms {
     required this.video,
     required this.documentary,
     required this.months,
+    required this.monthsShort,
+    required this.monthsIeee,
+    required this.quoteOpen,
+    required this.quoteClose,
+    required this.quotePunctuationInside,
+    required this.translatedBy,
+    required this.editedBy,
+    required this.editorRole,
+    required this.editorsRole,
+    required this.directorRole,
+    required this.directorsRole,
+    required this.volumeAbbr,
+    required this.numberAbbr,
+    required this.accessed,
+    required this.ieeeAccessed,
+    required this.ieeeOnline,
     required this.gapLabels,
     required this.ordinal,
     required this.longDate,
@@ -79,6 +95,22 @@ class CitationTerms {
       'noviembre',
       'diciembre',
     ],
+    monthsShort: _spanishMonthsShort,
+    monthsIeee: _spanishMonthsShort,
+    quoteOpen: '«',
+    quoteClose: '»',
+    quotePunctuationInside: false,
+    translatedBy: 'traducción de',
+    editedBy: 'edición de',
+    editorRole: 'ed.',
+    editorsRole: 'eds.',
+    directorRole: 'dir.',
+    directorsRole: 'dirs.',
+    volumeAbbr: 'vol.',
+    numberAbbr: 'núm.',
+    accessed: 'Consultado el',
+    ieeeAccessed: 'Consultado:',
+    ieeeOnline: '[En línea]. Disponible en:',
     gapLabels: {
       CitationGap.author: 'autor',
       CitationGap.title: 'título',
@@ -88,6 +120,7 @@ class CitationTerms {
       CitationGap.volume: 'volumen',
       CitationGap.link: 'enlace',
       CitationGap.type: 'tipo de obra',
+      CitationGap.accessed: 'fecha de consulta',
     },
     ordinal: _spanishOrdinal,
     longDate: _spanishLongDate,
@@ -129,6 +162,48 @@ class CitationTerms {
       'November',
       'December',
     ],
+    monthsShort: [
+      'Jan.',
+      'Feb.',
+      'Mar.',
+      'Apr.',
+      'May',
+      'June',
+      'July',
+      'Aug.',
+      'Sept.',
+      'Oct.',
+      'Nov.',
+      'Dec.',
+    ],
+    monthsIeee: [
+      'Jan.',
+      'Feb.',
+      'Mar.',
+      'Apr.',
+      'May',
+      'Jun.',
+      'Jul.',
+      'Aug.',
+      'Sep.',
+      'Oct.',
+      'Nov.',
+      'Dec.',
+    ],
+    quoteOpen: '“',
+    quoteClose: '”',
+    quotePunctuationInside: true,
+    translatedBy: 'translated by',
+    editedBy: 'edited by',
+    editorRole: 'editor',
+    editorsRole: 'editors',
+    directorRole: 'director',
+    directorsRole: 'directors',
+    volumeAbbr: 'vol.',
+    numberAbbr: 'no.',
+    accessed: 'Accessed',
+    ieeeAccessed: 'Accessed:',
+    ieeeOnline: '[Online]. Available:',
     gapLabels: {
       CitationGap.author: 'author',
       CitationGap.title: 'title',
@@ -138,6 +213,7 @@ class CitationTerms {
       CitationGap.volume: 'volume',
       CitationGap.link: 'link',
       CitationGap.type: 'type of work',
+      CitationGap.accessed: 'access date',
     },
     ordinal: _englishOrdinal,
     longDate: _englishLongDate,
@@ -199,6 +275,49 @@ class CitationTerms {
   /// Los doce meses, con su nombre completo.
   final List<String> months;
 
+  /// Los meses abreviados como los escribe MLA: «mar.», «Sept.».
+  final List<String> monthsShort;
+
+  /// Los meses abreviados como los escribe IEEE: «mar.», «Sep.».
+  final List<String> monthsIeee;
+
+  /// Las comillas de un título: «“Title”» en inglés, ««Título»» en español.
+  final String quoteOpen;
+  final String quoteClose;
+
+  /// Si el punto o la coma que siguen a un título entrecomillado van adentro
+  /// de las comillas —«“Title.”», como en inglés— o afuera —«Título».—, como
+  /// en español.
+  final bool quotePunctuationInside;
+
+  /// «traducción de» / «translated by» y «edición de» / «edited by»: cómo MLA
+  /// nombra a quien colaboró en una obra que no es suya. Van en minúscula; el
+  /// estilo las capitaliza cuando empiezan un elemento.
+  final String translatedBy;
+  final String editedBy;
+
+  /// El rol escrito después de un nombre, como lo hace MLA: «Smith, John,
+  /// editor.». En español se abrevia —«ed.», «dir.»— y no hay que elegir
+  /// género.
+  final String editorRole;
+  final String editorsRole;
+  final String directorRole;
+  final String directorsRole;
+
+  /// «vol.» y «núm.» / «no.».
+  final String volumeAbbr;
+  final String numberAbbr;
+
+  /// «Consultado el» / «Accessed»: lo que MLA escribe antes de la fecha en que
+  /// se miró una página web.
+  final String accessed;
+
+  /// «Consultado:» / «Accessed:» y `[En línea]. Disponible en:` /
+  /// `[Online]. Available:`: lo que IEEE escribe antes de la fecha de consulta
+  /// y antes del enlace.
+  final String ieeeAccessed;
+  final String ieeeOnline;
+
   /// Cómo se llama cada dato que puede faltar.
   final Map<CitationGap, String> gapLabels;
 
@@ -220,6 +339,23 @@ class CitationTerms {
   /// El nombre del mes [month] (1 a 12).
   String monthName(int month) => months[month - 1];
 
+  /// La fecha como la escribe MLA: «5 mar. 2020», «mar. 2020», «2020». El día
+  /// va antes que el mes en los dos idiomas.
+  String mlaDate(int year, {int? month, int? day}) {
+    if (month == null) return '$year';
+    final name = monthsShort[month - 1];
+    return day == null ? '$name $year' : '$day $name $year';
+  }
+
+  /// La fecha como la escribe IEEE: «Mar. 5, 2020», «Mar. 2020», «2020» en
+  /// inglés; «5 mar. 2020» en español.
+  String ieeeDate(int year, {int? month, int? day}) {
+    if (month == null) return '$year';
+    final name = monthsIeee[month - 1];
+    if (day == null) return '$name $year';
+    return dayFirst ? '$day $name $year' : '$name $day, $year';
+  }
+
   /// La fecha que APA escribe entre paréntesis después del año: «2019, 15 de
   /// marzo» / «2019, March 15». Solo el año, o el año y el mes, si no se sabe
   /// más.
@@ -230,6 +366,21 @@ class CitationTerms {
     return dayFirst ? '$year, $day de $name' : '$year, $name $day';
   }
 }
+
+const _spanishMonthsShort = [
+  'ene.',
+  'feb.',
+  'mar.',
+  'abr.',
+  'mayo',
+  'jun.',
+  'jul.',
+  'ago.',
+  'sept.',
+  'oct.',
+  'nov.',
+  'dic.',
+];
 
 String _spanishOrdinal(int number) => '$number.ª';
 

@@ -43,6 +43,22 @@ class CitationBuilder {
     plain(text.substring(start + trimmed.length));
   }
 
+  /// Agrega [text] entre comillas, con la [punctuation] que le sigue: adentro
+  /// de las comillas en inglés —«“Title.”»— y afuera en español —«Título».—,
+  /// según los términos del idioma. Si el texto ya termina en «.», «?» o «!» no
+  /// se le suma otro signo.
+  void quoted(String text, {String punctuation = ''}) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    final last = trimmed[trimmed.length - 1];
+    final mark = last == '.' || last == '?' || last == '!' ? '' : punctuation;
+    if (terms.quotePunctuationInside) {
+      plain('${terms.quoteOpen}$trimmed$mark${terms.quoteClose}');
+    } else {
+      plain('${terms.quoteOpen}$trimmed${terms.quoteClose}$mark');
+    }
+  }
+
   /// Agrega el hueco de [gap], en el idioma de la cita.
   void gap(CitationGap gap) {
     _runs.add(terms.gap(gap));

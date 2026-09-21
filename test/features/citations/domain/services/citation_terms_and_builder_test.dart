@@ -40,12 +40,72 @@ void main() {
       }
       expect(es.gap(CitationGap.year).text, '[falta: año]');
       expect(en.gap(CitationGap.year).text, '[missing: year]');
+      expect(es.gap(CitationGap.accessed).text, '[falta: fecha de consulta]');
+      expect(en.gap(CitationGap.accessed).text, '[missing: access date]');
     });
 
     test('el mes tiene su nombre', () {
       expect(es.monthName(1), 'enero');
       expect(es.monthName(9), 'septiembre');
       expect(en.monthName(12), 'December');
+    });
+
+    test('cada estilo abrevia los meses a su manera: doce en cada lista', () {
+      for (final terms in [es, en]) {
+        expect(terms.months, hasLength(12));
+        expect(terms.monthsShort, hasLength(12));
+        expect(terms.monthsIeee, hasLength(12));
+      }
+      // MLA: «Sept.», «June»; IEEE: «Sep.», «Jun.».
+      expect(en.monthsShort[8], 'Sept.');
+      expect(en.monthsShort[5], 'June');
+      expect(en.monthsIeee[8], 'Sep.');
+      expect(en.monthsIeee[5], 'Jun.');
+      expect(es.monthsShort[8], 'sept.');
+      expect(es.monthsShort[4], 'mayo');
+    });
+
+    test('la fecha de MLA: el día antes del mes en los dos idiomas', () {
+      expect(en.mlaDate(2020), '2020');
+      expect(en.mlaDate(2020, month: 3), 'Mar. 2020');
+      expect(en.mlaDate(2020, month: 3, day: 5), '5 Mar. 2020');
+      expect(es.mlaDate(2020, month: 9, day: 5), '5 sept. 2020');
+    });
+
+    test('la fecha de IEEE: mes y día en inglés, día y mes en español', () {
+      expect(en.ieeeDate(2020), '2020');
+      expect(en.ieeeDate(2020, month: 3), 'Mar. 2020');
+      expect(en.ieeeDate(2020, month: 3, day: 5), 'Mar. 5, 2020');
+      expect(es.ieeeDate(2020, month: 3, day: 5), '5 mar. 2020');
+    });
+
+    test(
+      'las comillas: la puntuación adentro en inglés, afuera en español',
+      () {
+        expect(en.quoteOpen + en.quoteClose, '“”');
+        expect(en.quotePunctuationInside, isTrue);
+        expect(es.quoteOpen + es.quoteClose, '«»');
+        expect(es.quotePunctuationInside, isFalse);
+      },
+    );
+
+    test('las palabras de MLA e IEEE', () {
+      expect(en.translatedBy, 'translated by');
+      expect(es.translatedBy, 'traducción de');
+      expect(en.editedBy, 'edited by');
+      expect(es.editedBy, 'edición de');
+      expect(en.editorsRole, 'editors');
+      expect(es.editorsRole, 'eds.');
+      expect(en.directorRole, 'director');
+      expect(es.directorRole, 'dir.');
+      expect(en.numberAbbr, 'no.');
+      expect(es.numberAbbr, 'núm.');
+      expect(en.accessed, 'Accessed');
+      expect(es.accessed, 'Consultado el');
+      expect(en.ieeeOnline, '[Online]. Available:');
+      expect(es.ieeeOnline, '[En línea]. Disponible en:');
+      expect(en.ieeeAccessed, 'Accessed:');
+      expect(es.ieeeAccessed, 'Consultado:');
     });
 
     test('los ordinales', () {
@@ -176,6 +236,49 @@ void main() {
       final b = builder()..italic('   ');
 
       expect(b.isEmpty, isTrue);
+    });
+
+    test('entre comillas, con la puntuación adentro en inglés', () {
+      final period = CitationBuilder(en)
+        ..quoted('Random patterns', punctuation: '.');
+      final comma = CitationBuilder(en)
+        ..quoted('Random patterns', punctuation: ',');
+
+      expect(period.build().toPlainText(), '“Random patterns.”');
+      expect(comma.build().toPlainText(), '“Random patterns,”');
+    });
+
+    test('entre comillas, con la puntuación afuera en español', () {
+      final period = builder()..quoted('Un título', punctuation: '.');
+      final comma = builder()..quoted('Un título', punctuation: ',');
+
+      expect(period.build().toPlainText(), '«Un título».');
+      expect(comma.build().toPlainText(), '«Un título»,');
+    });
+
+    test('un título que ya termina en signo no lleva otro', () {
+      for (final mark in ['.', '?', '!']) {
+        final english = CitationBuilder(en)
+          ..quoted('Why$mark', punctuation: ',');
+        final spanish = builder()..quoted('Por qué$mark', punctuation: '.');
+
+        expect(english.build().toPlainText(), '“Why$mark”');
+        expect(spanish.build().toPlainText(), '«Por qué$mark»');
+      }
+    });
+
+    test('sin puntuación, solo las comillas; sin texto, nada', () {
+      final quoted = builder()..quoted('  Un título  ');
+      final empty = builder()..quoted('   ');
+
+      expect(quoted.build().toPlainText(), '«Un título»');
+      expect(empty.isEmpty, isTrue);
+    });
+
+    test('lo entrecomillado es texto sin formato', () {
+      final quoted = builder()..quoted('Un título', punctuation: '.');
+
+      expect(quoted.build().runs, const [PlainRun('«Un título».')]);
     });
 
     test('agrega otra cita entera', () {
@@ -323,6 +426,22 @@ void main() {
     test('vacía es vacía', () {
       expect(joinList(const [], es, joiner: 'y'), isEmpty);
     });
+
+    test('sin coma para dos —IEEE—, con coma desde tres', () {
+      expect(
+        joinList(
+          names.take(2).toList(),
+          en,
+          joiner: 'and',
+          commaForPair: false,
+        ),
+        'A, A. and B, B.',
+      );
+      expect(
+        joinList(names, en, joiner: 'and', commaForPair: false),
+        'A, A., B, B., and C, C.',
+      );
+    });
   });
 
   group('«y» o «e»', () {
@@ -357,6 +476,87 @@ void main() {
         joinList(['García, G.', 'Iglesias, M.'], es, joiner: 'y'),
         'García, G. e Iglesias, M.',
       );
+    });
+  });
+
+  group('los apellidos dentro del texto', () {
+    const names = [
+      PersonName(family: 'Salas', given: 'Julia'),
+      PersonName(family: 'Iglesias', given: 'María'),
+      PersonName(family: 'Ruiz', given: 'Carlos'),
+    ];
+
+    test('uno, dos con la conjunción, tres o más con «et al.»', () {
+      expect(inTextSurnames([names[0]], en, joiner: '&'), 'Salas');
+      expect(
+        inTextSurnames([names[0], names[2]], en, joiner: '&'),
+        'Salas & Ruiz',
+      );
+      expect(
+        inTextSurnames([names[0], names[2]], es, joiner: 'y'),
+        'Salas y Ruiz',
+      );
+      expect(inTextSurnames(names, en, joiner: '&'), 'Salas et al.');
+    });
+
+    test('«e» delante de un apellido que empieza con «i»', () {
+      expect(
+        inTextSurnames([names[0], names[1]], es, joiner: 'y'),
+        'Salas e Iglesias',
+      );
+    });
+
+    test('una institución va entera', () {
+      expect(
+        inTextSurnames(
+          const [PersonName.institution('Organización Mundial de la Salud')],
+          es,
+          joiner: 'y',
+        ),
+        'Organización Mundial de la Salud',
+      );
+    });
+  });
+
+  group('la edición, las páginas y el pasaje', () {
+    test('un número se vuelve ordinal; un texto que dice «ed.» se deja', () {
+      expect(editionText('2', es), '2.ª ed.');
+      expect(editionText('2', en), '2nd ed.');
+      expect(editionText('Rev. ed.', en), 'Rev. ed.');
+      expect(editionText('2nd edition', en), '2nd edition');
+      expect(editionText('3.ª edición', es), '3.ª edición');
+      expect(editionText('Revised', en), 'Revised ed.');
+    });
+
+    test('sin edición, nada', () {
+      expect(editionText(null, en), isNull);
+      expect(editionText('  ', en), isNull);
+    });
+
+    test('las páginas: «pp.» para un rango, «p.» para una', () {
+      expect(pagesWithTerm('45-67', en), 'pp. 45–67');
+      expect(pagesWithTerm('12', es), 'p. 12');
+      expect(pagesWithTerm('12, 15', en), 'pp. 12, 15');
+      expect(pagesWithTerm(null, en), isNull);
+    });
+
+    test('el pasaje: página, rango o instante sin abreviatura', () {
+      expect(locatorWithTerm(const CitationLocator.page('12'), es), 'p. 12');
+      expect(
+        locatorWithTerm(const CitationLocator.page('12-14'), en),
+        'pp. 12–14',
+      );
+      expect(
+        locatorWithTerm(const CitationLocator.time('0:14:35'), en),
+        '0:14:35',
+      );
+    });
+
+    test('la primera letra en mayúscula, y el resto como está', () {
+      expect(capitalized('translated by X'), 'Translated by X');
+      expect(capitalized('vol. 2'), 'Vol. 2');
+      expect(capitalized('2nd ed.'), '2nd ed.');
+      expect(capitalized(''), isEmpty);
     });
   });
 

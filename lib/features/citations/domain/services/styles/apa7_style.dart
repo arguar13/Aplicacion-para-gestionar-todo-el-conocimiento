@@ -1,5 +1,5 @@
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
-import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation.dart';
@@ -19,8 +19,9 @@ import 'package:sinapsis/features/citations/domain/services/reference_style.dart
 ///
 /// Lo que esta versión no hace, dicho: no pasa los títulos a «sentence case»
 /// —cambiaría un nombre propio a minúscula—, no escribe el año de la
-/// publicación original de una traducción —no se guarda— y una tesis se
-/// describe como «Tesis» a secas, sin decir si es doctoral o de maestría.
+/// publicación original de una traducción —no se guarda—, nombra a quien
+/// tradujo solo en un libro y no en un capítulo, y una tesis se describe como
+/// «Tesis» a secas, sin decir si es doctoral o de maestría.
 class Apa7Style implements ReferenceStyle {
   const Apa7Style();
 
@@ -35,6 +36,9 @@ class Apa7Style implements ReferenceStyle {
     CitationForm.reference,
     CitationForm.inText,
   };
+
+  @override
+  bool get isNumbered => false;
 
   @override
   Citation format(
@@ -129,6 +133,24 @@ class Apa7Style implements ReferenceStyle {
   String _joinNames(List<String> names, CitationTerms terms) =>
       joinList(names, terms, joiner: terms.ampersand);
 
+  /// Los nombres con las iniciales antes del apellido —los de los editores y
+  /// los traductores, que van dentro de la entrada—: «A. Editor & B. Editor»
+  /// sin coma con dos, «A. Editor, B. Editor, & C. Editor» con tres.
+  String _joinInitialsFirst(List<Contributor> people, CitationTerms terms) =>
+      joinList(
+        [for (final person in people) initialsSurname(person.name)],
+        terms,
+        joiner: terms.ampersand,
+        commaForPair: false,
+      );
+
+  /// «R. Pevear & L. Volokhonsky, Trans.» / «R. Pevear y L. Volokhonsky,
+  /// Trads.».
+  String _translatorsText(List<Contributor> people, CitationTerms terms) {
+    final label = people.length > 1 ? terms.translators : terms.translator;
+    return '${_joinInitialsFirst(people, terms)}, $label';
+  }
+
   /// «(2019).», «(2019, 15 de marzo).», «(s. f.).» o el hueco del año.
   void _writeDate(
     CitationBuilder builder,
@@ -158,15 +180,20 @@ class Apa7Style implements ReferenceStyle {
       type == ReferenceType.onlinePublication ||
       type == ReferenceType.documentary;
 
-  // Un libro: *Título* (2.ª ed.). Editorial.
+  // Un libro: *Título* (2.ª ed., R. Pevear, Trad.). Editorial.
   void _book(
     CitationBuilder builder,
     CitationSource source,
     CitationTerms terms,
   ) {
+    final reference = source.reference;
     _writeTitle(builder, source, terms, italic: true);
-    final edition = _edition(source.reference.edition, terms);
-    if (edition != null) builder.plain(' ($edition)');
+    final translators = reference.byRole(ContributorRole.translator);
+    final details = [
+      ?editionText(reference.edition, terms),
+      if (translators.isNotEmpty) _translatorsText(translators, terms),
+    ];
+    if (details.isNotEmpty) builder.plain(' (${details.join(', ')})');
     builder.period();
     _writePublisher(builder, source, required: true);
   }
@@ -186,9 +213,8 @@ class Apa7Style implements ReferenceStyle {
 
     final editors = reference.byRole(ContributorRole.editor);
     if (editors.isNotEmpty) {
-      final names = [for (final e in editors) initialsSurname(e.name)];
       builder.plain(
-        '${_joinNames(names, terms)} '
+        '${_joinInitialsFirst(editors, terms)} '
         '(${editors.length > 1 ? terms.editors : terms.editor}), ',
       );
     }
@@ -201,8 +227,8 @@ class Apa7Style implements ReferenceStyle {
     }
 
     final details = [
-      ?_edition(reference.edition, terms),
-      ?_pagesTerm(reference.pages, terms),
+      ?editionText(reference.edition, terms),
+      ?pagesWithTerm(reference.pages, terms),
     ];
     if (details.isNotEmpty) builder.plain(' (${details.join(', ')})');
     builder.period();
@@ -413,29 +439,6 @@ class Apa7Style implements ReferenceStyle {
     }
   }
 
-  /// La edición como la escribe APA: «2.ª ed.», «2nd ed.». Un número solo se
-  /// vuelve ordinal; un texto que ya dice «ed.» se deja.
-  String? _edition(String? raw, CitationTerms terms) {
-    final text = raw?.trim();
-    if (text == null || text.isEmpty) return null;
-    final number = int.tryParse(text);
-    if (number != null) return '${terms.ordinal(number)} ${terms.editionAbbr}';
-    if (RegExp(
-      r'\bed(\.|ición|ition)?(\W|$)',
-      caseSensitive: false,
-    ).hasMatch(text)) {
-      return text;
-    }
-    return '$text ${terms.editionAbbr}';
-  }
-
-  /// «pp. 345–359» o «p. 12», o `null` si no hay páginas.
-  String? _pagesTerm(String? pages, CitationTerms terms) {
-    if (pages == null) return null;
-    final range = pageRange(pages);
-    return '${isPageSpan(pages) ? terms.pages : terms.page} $range';
-  }
-
   // -------------------------------------------------------------------------
   // La cita en el texto
   // -------------------------------------------------------------------------
@@ -451,7 +454,7 @@ class Apa7Style implements ReferenceStyle {
     if (lead.isEmpty) {
       builder.gap(CitationGap.author);
     } else {
-      builder.plain(_inTextNames(lead.names, terms));
+      builder.plain(inTextSurnames(lead.names, terms, joiner: terms.ampersand));
     }
     builder.plain(', ');
 
@@ -466,27 +469,9 @@ class Apa7Style implements ReferenceStyle {
 
     final locator = context.locator;
     if (locator != null) {
-      builder.plain(', ${_locatorText(locator, terms)}');
+      builder.plain(', ${locatorWithTerm(locator, terms)}');
     }
     builder.plain(')');
     return builder.build();
-  }
-
-  /// Los apellidos como van dentro del texto: uno, dos con la conjunción, tres
-  /// o más con «et al.». Una institución va entera.
-  String _inTextNames(List<PersonName> names, CitationTerms terms) {
-    if (names.length == 1) return names.single.family;
-    if (names.length == 2) {
-      final joiner = conjunctionBefore(terms.ampersand, names.last.family);
-      return '${names.first.family} $joiner ${names.last.family}';
-    }
-    return '${names.first.family} ${terms.etAl}';
-  }
-
-  /// «p. 12», «pp. 12–14» o «0:14:35»: un instante no lleva abreviatura.
-  String _locatorText(CitationLocator locator, CitationTerms terms) {
-    if (locator.isTime) return locator.text;
-    final range = pageRange(locator.text);
-    return '${isPageSpan(locator.text) ? terms.pages : terms.page} $range';
   }
 }
