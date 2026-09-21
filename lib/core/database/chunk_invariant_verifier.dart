@@ -67,6 +67,9 @@ class ChunkInvariantReport {
       '${holds ? 'invariante OK' : '${violations.length} violaciones'}';
 }
 
+/// Cada cuántas fuentes avisa [verifyChunkInvariant] su avance.
+const kChunkInvariantProgressEvery = 25;
+
 /// Verifica, sobre TODA la bóveda —o solo sobre [onlyItemIds]—, que concatenar
 /// los chunks de cada
 /// fuente —en orden de `seq`— reproduce su `fullText` carácter a
@@ -81,9 +84,14 @@ class ChunkInvariantReport {
 /// Con [onlyItemIds] mira solo esas fuentes —los ids que no son de una fuente
 /// se ignoran—: la fusión de bóvedas verifica lo que tocó, no una bóveda de
 /// diez mil fuentes entera después de cada fusión.
+///
+/// Con [onProgress] avisa cuántas fuentes lleva de cuántas —cada
+/// [kChunkInvariantProgressEvery] y al final—: comprobar una bóveda grande
+/// lleva un rato, y quien espera tiene que verlo avanzar.
 Future<ChunkInvariantReport> verifyChunkInvariant(
   AppDatabase db, {
   Iterable<String>? onlyItemIds,
+  void Function(int checked, int total)? onProgress,
 }) async {
   // Primero solo los ids, y el `fullText` de a una fuente: cargar todos
   // los textos de una bóveda grande de una sola vez sería el problema.
@@ -116,7 +124,11 @@ Future<ChunkInvariantReport> verifyChunkInvariant(
   var chunksChecked = 0;
   final violations = <ChunkInvariantViolation>[];
 
-  for (final itemId in itemIds) {
+  for (var index = 0; index < itemIds.length; index++) {
+    final itemId = itemIds[index];
+    if (onProgress != null && index % kChunkInvariantProgressEvery == 0) {
+      onProgress(index, itemIds.length);
+    }
     // El texto íntegro es el de la forma de texto principal: F10 lo guarda una
     // sola vez, y los chunks se comprueban contra él.
     final fullText = (await sourceTextRendition(db, itemId))?.content ?? '';
@@ -136,6 +148,8 @@ Future<ChunkInvariantReport> verifyChunkInvariant(
     chunksChecked += chunks.length;
     violations.addAll(_checkSource(itemId, fullText, chunks));
   }
+
+  onProgress?.call(itemIds.length, itemIds.length);
 
   return ChunkInvariantReport(
     sourcesChecked: sourcesChecked,

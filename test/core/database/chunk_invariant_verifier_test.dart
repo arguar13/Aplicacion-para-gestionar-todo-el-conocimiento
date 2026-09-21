@@ -140,6 +140,43 @@ void main() {
     },
   );
 
+  group('el aviso de avance', () {
+    test('avisa al empezar, cada tanto y al terminar', () async {
+      // Más fuentes que el intervalo: 60 con el intervalo de 25.
+      for (var i = 0; i < 60; i++) {
+        await seedSource(text: 'Texto de la fuente número $i.');
+      }
+      final calls = <(int, int)>[];
+
+      final report = await verifyChunkInvariant(
+        db,
+        onProgress: (checked, total) => calls.add((checked, total)),
+      );
+
+      expect(report.sourcesChecked, 60);
+      expect(calls, [(0, 60), (25, 60), (50, 60), (60, 60)]);
+    });
+
+    test('una bóveda vacía avisa una sola vez, ya terminada', () async {
+      final calls = <(int, int)>[];
+
+      await verifyChunkInvariant(
+        db,
+        onProgress: (checked, total) => calls.add((checked, total)),
+      );
+
+      expect(calls, [(0, 0)]);
+    });
+
+    test('sin aviso pedido, no cambia nada', () async {
+      await seedVault();
+
+      final report = await verifyChunkInvariant(db);
+
+      expect(report.holds, isTrue);
+    });
+  });
+
   test('una bóveda vacía cumple el invariante sin comprobar nada', () async {
     final report = await verifyChunkInvariant(db);
 
