@@ -35,6 +35,25 @@ abstract interface class VocabularyRepository {
     required List<String> discardIds,
   });
 
+  /// Cuántos valores cambiarían de lugar y en qué nivel quedaría [valueId] si
+  /// se lo pusiera bajo [parentId] —`null` es «a la raíz»—. Se NIEGA, sin
+  /// cambiar nada, si no se puede: el padre es de otra categoría o de una que
+  /// no es de texto, es el propio valor o uno de sus descendientes, o la rama
+  /// pasaría de cinco niveles.
+  Future<Either<Failure, MovePreview>> previewMove({
+    required String valueId,
+    required String? parentId,
+  });
+
+  /// Pone [valueId] —con toda su rama— bajo [parentId], o en la raíz si es
+  /// `null`, y recalcula el nivel de cada uno, en una transacción. Asignar un
+  /// valor hijo NO asigna a su padre: la jerarquía se resuelve al consultar.
+  /// Las mismas negativas que [previewMove].
+  Future<Either<Failure, VocabularyOperation>> moveValue({
+    required String valueId,
+    required String? parentId,
+  });
+
   /// Cambia el nombre de un valor. Sin distinguir mayúsculas ni acentos, no
   /// puede chocar con otro valor ni con un alias de la misma categoría;
   /// cambiarle solo el acento o las mayúsculas a su propio nombre sí se
@@ -46,7 +65,9 @@ abstract interface class VocabularyRepository {
 
   /// Borra valores SIN ningún uso, en una transacción. Uno que algún elemento
   /// tiene puesto se rechaza —y no se borra ninguno—: quitar del vocabulario
-  /// algo en uso es otra decisión, no un borrado de limpieza.
+  /// algo en uso es otra decisión, no un borrado de limpieza. Lo mismo uno que
+  /// tiene subtemas que no se borran con él (F13): borrarlo los dejaría sin
+  /// lugar.
   Future<Either<Failure, VocabularyOperation>> deleteUnusedValues(
     List<String> ids,
   );

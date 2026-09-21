@@ -3723,6 +3723,18 @@
       }
     }
   },
+  "vocabularyOperationMoved": "{count, plural, =1{Moved “{label}”} other{Moved “{label}” with its subtopics ({count} values)}}",
+  "@vocabularyOperationMoved": {
+    "description": "Aviso de que un valor del vocabulario se movió bajo otro padre o a la raíz; count es cuántos valores cambiaron de lugar (él y su rama).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "vocabularyMergeConfirmAction": "Merge",
   "@vocabularyMergeConfirmAction": {
     "description": "Botón que confirma la fusión de valores en el diálogo de confirmación."

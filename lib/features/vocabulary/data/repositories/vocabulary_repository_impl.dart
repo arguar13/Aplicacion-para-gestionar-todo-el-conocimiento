@@ -3,9 +3,11 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
+import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -70,6 +72,8 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
                 isText: definition.type == PropertyValueType.text,
                 usage: usage[value.id] ?? 0,
                 aliasCount: aliases[value.id] ?? 0,
+                parentId: value.parentId,
+                depth: value.depth,
               ),
         ];
 
@@ -295,6 +299,168 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   }
 
   // ---------------------------------------------------------------------
+  // Mover (F13)
+  // ---------------------------------------------------------------------
+
+  @override
+  Future<Either<Failure, MovePreview>> previewMove({
+    required String valueId,
+    required String? parentId,
+  }) async {
+    try {
+      final loaded = await _loadMove(valueId, parentId);
+      return loaded.map(
+        (plan) =>
+            MovePreview(valueCount: plan.branchSize, newDepth: plan.depth),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'VocabularyRepositoryImpl.previewMove'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, VocabularyOperation>> moveValue({
+    required String valueId,
+    required String? parentId,
+  }) async {
+    try {
+      final operation = await _db.transaction(() async {
+        // Se valida ADENTRO de la transacción: entre mirar y escribir alguien
+        // pudo mover otra cosa.
+        final loaded = await _loadMove(valueId, parentId);
+        final plan = loaded.fold(
+          (failure) => throw _Rejected(failure),
+          (plan) => plan,
+        );
+        final branch = await subtreeRows(_db, [valueId]);
+        final before = placementsOf(branch);
+        await (_db.update(_db.propertyValues)
+              ..where((v) => v.id.equals(valueId)))
+            .write(PropertyValuesCompanion(parentId: Value(parentId)));
+        await recomputeDepths(_db, [valueId]);
+        return _MoveOperation(
+          valueId: valueId,
+          label: plan.value.value,
+          newParentId: parentId,
+          before: before,
+        );
+      });
+      return right(operation);
+    } on _Rejected catch (rejected) {
+      return left(rejected.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'VocabularyRepositoryImpl.moveValue'),
+      );
+    }
+  }
+
+  /// Lee y valida lo que todo movimiento necesita: que el valor y el padre
+  /// existan, que sean de la misma categoría y que sea de texto, y que el
+  /// árbol resultante no tenga un ciclo ni pase de los cinco niveles.
+  ///
+  /// Las mismas reglas que hacen cumplir los triggers de la base: acá se
+  /// dicen con un motivo que se le puede mostrar a quien mueve.
+  Future<Either<Failure, _MovePlan>> _loadMove(
+    String valueId,
+    String? parentId,
+  ) async {
+    final value = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(valueId))).getSingleOrNull();
+    if (value == null) {
+      return left(
+        const Failure.unexpected(
+          message: 'El valor ya no existe; puede que se haya borrado.',
+        ),
+      );
+    }
+    if (value.parentId == parentId) {
+      return left(
+        const Failure.validation(message: 'El valor ya está en ese lugar.'),
+      );
+    }
+    if (parentId != null) {
+      final parent = await (_db.select(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(parentId))).getSingleOrNull();
+      if (parent == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'El valor de destino ya no existe.',
+          ),
+        );
+      }
+      if (parent.definitionId != value.definitionId) {
+        return left(
+          const Failure.validation(
+            message: 'Un valor solo puede ir bajo otro de su misma categoría.',
+          ),
+        );
+      }
+      final definition = await (_db.select(
+        _db.propertyDefinitions,
+      )..where((d) => d.id.equals(value.definitionId))).getSingle();
+      if (definition.type != PropertyValueType.text) {
+        return left(
+          const Failure.validation(
+            message: 'Solo las categorías de texto tienen jerarquía.',
+          ),
+        );
+      }
+    }
+
+    final rows = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.definitionId.equals(value.definitionId))).get();
+    final tree = VocabularyTree([
+      for (final r in rows) (id: r.id, parentId: r.parentId),
+    ]);
+    final problem = tree.problemMoving(valueId, parentId);
+    if (problem == VocabularyMoveProblem.cycle) {
+      return left(
+        const Failure.validation(
+          message:
+              'Un valor no puede ir bajo sí mismo ni bajo uno de sus subtemas.',
+        ),
+      );
+    }
+    if (problem == VocabularyMoveProblem.tooDeep) {
+      return left(
+        const Failure.validation(
+          message: 'Con esa rama, el árbol pasaría de cinco niveles.',
+        ),
+      );
+    }
+    return right(
+      _MovePlan(
+        value: value,
+        branchSize: tree.sizeOf(valueId),
+        depth: parentId == null ? 0 : tree.depthOf(parentId) + 1,
+      ),
+    );
+  }
+
+  Future<void> _undoMove(_MoveOperation op) async {
+    final current = await (_db.select(
+      _db.propertyValues,
+    )..where((v) => v.id.equals(op.valueId))).getSingleOrNull();
+    if (current == null) {
+      throw const MergeUndoConflict('El valor movido ya no existe.');
+    }
+    if (current.parentId != op.newParentId) {
+      throw const MergeUndoConflict('El valor se movió otra vez.');
+    }
+    await restoreValuePlacements(_db, op.before);
+  }
+
+  // ---------------------------------------------------------------------
   // Renombrar
   // ---------------------------------------------------------------------
 
@@ -393,6 +559,24 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
                 message:
                     '"${value.value}" está en uso en $usage elementos: no se '
                     'borra.',
+              ),
+            );
+          }
+        }
+        // Los subtemas de lo que se borra se borran con él, o no se borra
+        // nada (F13): dejarlos sin padre los subiría a la raíz sin que nadie
+        // lo haya decidido.
+        final children = await (_db.select(
+          _db.propertyValues,
+        )..where((v) => v.parentId.isIn(distinct))).get();
+        for (final child in children) {
+          if (!distinct.contains(child.id)) {
+            final parent = values.firstWhere((v) => v.id == child.parentId);
+            throw _Rejected(
+              Failure.validation(
+                message:
+                    '"${parent.value}" tiene subtemas, como "${child.value}": '
+                    'movelos o borralos primero.',
               ),
             );
           }
@@ -611,6 +795,8 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
             await _undoDeleteCategories(operation);
           case _AliasOperation():
             await _undoAlias(operation);
+          case _MoveOperation():
+            await _undoMove(operation);
           default:
             throw const _Rejected(
               Failure.validation(
@@ -670,6 +856,21 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
     if (back.isNotEmpty) {
       throw const MergeUndoConflict('Un valor borrado ya fue recreado.');
     }
+    // Un subtema vuelve bajo su padre: o el padre vuelve con él, o sigue
+    // estando (F13).
+    final restored = {for (final v in op.values) v.id};
+    for (final value in op.values) {
+      final parentId = value.parentId;
+      if (parentId == null || restored.contains(parentId)) continue;
+      final parent = await (_db.select(
+        _db.propertyValues,
+      )..where((v) => v.id.equals(parentId))).getSingleOrNull();
+      if (parent == null) {
+        throw MergeUndoConflict(
+          'El valor bajo el que estaba "${value.value}" ya no existe.',
+        );
+      }
+    }
     // Solo un conflicto de integridad, ver `_undoRename`.
     for (final value in op.values) {
       final same = await (_db.select(
@@ -681,7 +882,9 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         );
       }
     }
-    for (final value in op.values) {
+    // De arriba hacia abajo: un hijo no puede volver antes que su padre.
+    final topDown = [...op.values]..sort((a, b) => a.depth.compareTo(b.depth));
+    for (final value in topDown) {
       await _db.into(_db.propertyValues).insert(value);
     }
     for (final alias in op.aliases) {
@@ -811,6 +1014,48 @@ class _MergeOperation implements VocabularyOperation {
       for (final a in undo.droppedAssignments) a.itemId,
     ],
   }.length;
+}
+
+/// Lo que una validación de movimiento decidió: el valor, cuántos valores hay
+/// en su rama y el nivel en el que quedaría.
+class _MovePlan {
+  const _MovePlan({
+    required this.value,
+    required this.branchSize,
+    required this.depth,
+  });
+
+  final PropertyValueRow value;
+  final int branchSize;
+  final int depth;
+}
+
+class _MoveOperation implements VocabularyOperation {
+  _MoveOperation({
+    required this.valueId,
+    required this.label,
+    required this.newParentId,
+    required this.before,
+  });
+
+  final String valueId;
+  final String? newParentId;
+
+  /// Dónde estaba, antes, cada valor de la rama.
+  final List<ValuePlacement> before;
+
+  @override
+  final String label;
+
+  @override
+  VocabularyOperationKind get kind => VocabularyOperationKind.move;
+
+  @override
+  int get valueCount => before.length;
+
+  /// Mover no cambia lo asignado a ningún elemento.
+  @override
+  int get affectedItems => 0;
 }
 
 class _RenameOperation implements VocabularyOperation {

@@ -30,6 +30,10 @@ String vocabularyOperationMessage(
   VocabularyOperationKind.removeAlias => l10n.vocabularyOperationAliasRemoved(
     operation.label,
   ),
+  VocabularyOperationKind.move => l10n.vocabularyOperationMoved(
+    operation.valueCount,
+    operation.label,
+  ),
 };
 
 /// Cómo se le cuenta a quien mira lo que pasó con una operación de

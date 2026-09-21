@@ -3213,6 +3213,7 @@
   "vocabularyOperationCategoriesDeleted": "{count, plural, =1{Se borró 1 categoría} other{Se borraron {count} categorías}}",
   "vocabularyOperationAliasAdded": "Alias «{alias}» agregado",
   "vocabularyOperationAliasRemoved": "Alias «{alias}» quitado",
+  "vocabularyOperationMoved": "{count, plural, =1{Se movió «{label}»} other{Se movió «{label}» con sus subtemas ({count} valores)}}",
   "vocabularyMergeConfirmAction": "Fusionar",
   "vocabularyTabCategories": "Categorías ({count})",
   "vocabularyCategoriesEmpty": "Todavía no hay categorías.",

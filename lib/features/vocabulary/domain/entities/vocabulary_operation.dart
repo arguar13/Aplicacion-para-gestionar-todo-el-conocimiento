@@ -6,6 +6,9 @@ enum VocabularyOperationKind {
   deleteCategory,
   addAlias,
   removeAlias,
+
+  /// Mover un valor —con su rama— bajo otro padre, o a la raíz (F13).
+  move,
 }
 
 /// Una operación de mantenimiento ya aplicada, con lo necesario para
@@ -35,6 +38,17 @@ abstract interface class VocabularyOperation {
 
 /// Lo que va a pasar si se confirma una fusión: para mostrar "esto afectará a
 /// N elementos" ANTES de hacerla.
+/// Lo que movería poner un valor bajo un padre nuevo (F13), sin hacerlo.
+class MovePreview {
+  const MovePreview({required this.valueCount, required this.newDepth});
+
+  /// Cuántos valores cambian de lugar: el que se mueve y toda su rama.
+  final int valueCount;
+
+  /// El nivel en el que queda el valor que se mueve: 0 si pasa a la raíz.
+  final int newDepth;
+}
+
 class MergePreview {
   const MergePreview({required this.valueCount, required this.affectedItems});
 

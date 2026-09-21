@@ -13,6 +13,8 @@ class VocabularyValueStat {
     required this.isText,
     required this.usage,
     required this.aliasCount,
+    this.parentId,
+    this.depth = 0,
   });
 
   final String id;
@@ -27,6 +29,12 @@ class VocabularyValueStat {
   /// En cuántos elementos está puesto.
   final int usage;
   final int aliasCount;
+
+  /// El valor bajo el que está este, o `null` si es una raíz (F13).
+  final String? parentId;
+
+  /// Cuántos padres tiene por encima: 0 para una raíz.
+  final int depth;
 }
 
 /// Un alias de un valor: otro texto que se resuelve al mismo valor.

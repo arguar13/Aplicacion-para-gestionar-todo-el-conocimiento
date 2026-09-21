@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -18,6 +19,7 @@ class PropertyValueMergeUndo {
     required this.droppedAssignments,
     required this.movedAliasIds,
     required this.createdAliasId,
+    this.placements = const [],
   });
 
   final String keepId;
@@ -39,6 +41,12 @@ class PropertyValueMergeUndo {
   /// El alias que se creó con el label del descartado; `null` si no se pudo
   /// crear porque ese texto ya era un alias de otra cosa.
   final String? createdAliasId;
+
+  /// Dónde estaba, ANTES de la fusión, cada valor de la jerarquía que la
+  /// fusión movió: los hijos del descartado, que pasan al que se conserva, y
+  /// el propio que se conserva si estaba dentro de la rama del descartado y
+  /// sube a su lugar (F13). Vacío si la fusión no movió ninguno.
+  final List<ValuePlacement> placements;
 
   /// Cuántos elementos tocó la fusión: los que tenían el valor descartado.
   int get affectedItems => movedAssignments.length + droppedAssignments.length;
@@ -147,7 +155,10 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
         );
   }
 
-  // 5. discard ya no tiene nada que solo él tuviera: se borra.
+  // 5. La rama de discard no se pierde con él (F13): sus hijos pasan a keep.
+  final placements = await _adoptBranch(db, keep: keep, discard: discard);
+
+  // 6. discard ya no tiene nada que solo él tuviera: se borra.
   await (db.delete(
     db.propertyValues,
   )..where((v) => v.id.equals(discard.id))).go();
@@ -159,7 +170,49 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
     droppedAssignments: dropped,
     movedAliasIds: aliasIds,
     createdAliasId: createdAliasId,
+    placements: placements,
   );
+}
+
+/// Lo que le pasa a la rama de [discard] cuando se lo fusiona en [keep]: sus
+/// hijos pasan a colgar de [keep], con toda su descendencia.
+///
+/// Si [keep] estaba DENTRO de la rama de [discard] —«Roma antigua» que absorbe
+/// a «Roma», su propio padre—, tomaría a sus hijos y él mismo quedaría bajo su
+/// propio hijo: un ciclo. Entonces [keep] sube primero al lugar de [discard],
+/// y recién después recibe a los hijos que quedan.
+///
+/// Devuelve dónde estaba, antes, cada valor que cambió de lugar o de nivel:
+/// lo que hace falta para deshacerlo.
+Future<List<ValuePlacement>> _adoptBranch(
+  AppDatabase db, {
+  required PropertyValueRow keep,
+  required PropertyValueRow discard,
+}) async {
+  final discardBranch = await subtreeRows(db, [discard.id]);
+  final keepBranch = await subtreeRows(db, [keep.id]);
+  final before = {
+    for (final row in placementsOf([...discardBranch, ...keepBranch]))
+      if (row.id != discard.id) row.id: row,
+  };
+
+  if (discardBranch.any((row) => row.id == keep.id)) {
+    await (db.update(db.propertyValues)..where((v) => v.id.equals(keep.id)))
+        .write(PropertyValuesCompanion(parentId: Value(discard.parentId)));
+  }
+  await (db.update(db.propertyValues)..where(
+        (v) => v.parentId.equals(discard.id) & v.id.equals(keep.id).not(),
+      ))
+      .write(PropertyValuesCompanion(parentId: Value(keep.id)));
+  await recomputeDepths(db, [keep.id]);
+
+  final after = await subtreeRows(db, [keep.id]);
+  return [
+    for (final row in after)
+      if (before[row.id] case final was?
+          when was.parentId != row.parentId || was.depth != row.depth)
+        was,
+  ];
 }
 
 /// Por qué [undoPropertyValueMerge] se negó a deshacer.
@@ -218,7 +271,18 @@ Future<void> undoPropertyValueMerge(
   }
 
   // El descartado vuelve a existir tal cual era.
+  final discardParent = undo.discard.parentId;
+  if (discardParent != null &&
+      await (db.select(
+            db.propertyValues,
+          )..where((v) => v.id.equals(discardParent))).getSingleOrNull() ==
+          null) {
+    throw const MergeUndoConflict(
+      'El valor bajo el que estaba el fusionado ya no existe.',
+    );
+  }
   await db.into(db.propertyValues).insert(undo.discard);
+  await restoreValuePlacements(db, undo.placements);
 
   // Sin el alias que la fusión le puso al que se conservó.
   final createdAliasId = undo.createdAliasId;
@@ -261,5 +325,59 @@ Future<void> undoPropertyValueMerge(
             origin: Value(dropped.origin),
           ),
         );
+  }
+}
+
+/// Devuelve cada valor de [placements] a su padre y su nivel de antes: lo que
+/// necesitan para deshacer tanto una fusión como un movimiento de rama.
+///
+/// Primero los suelta a todos —una raíz nunca cierra un ciclo— y después los
+/// vuelve a colgar de arriba hacia abajo, con el mismo orden que tenían: el
+/// estado de la fusión y el de antes pueden poner a dos valores uno bajo el
+/// otro en sentidos contrarios, y cambiar un padre por vez, sin soltar primero,
+/// pasaría por un ciclo que la base rechaza.
+Future<void> restoreValuePlacements(
+  AppDatabase db,
+  List<ValuePlacement> placements,
+) async {
+  if (placements.isEmpty) return;
+  final ids = placements.map((p) => p.id).toList();
+  final present = {
+    for (final row in await (db.select(
+      db.propertyValues,
+    )..where((v) => v.id.isIn(ids))).get())
+      row.id,
+  };
+  if (present.length != ids.length) {
+    throw const MergeUndoConflict(
+      'Un valor de la rama fusionada ya no existe.',
+    );
+  }
+  for (final placement in placements) {
+    final parentId = placement.parentId;
+    if (parentId == null || present.contains(parentId)) continue;
+    final parent = await (db.select(
+      db.propertyValues,
+    )..where((v) => v.id.equals(parentId))).getSingleOrNull();
+    if (parent == null) {
+      throw const MergeUndoConflict(
+        'El valor bajo el que estaba una rama ya no existe.',
+      );
+    }
+  }
+
+  await (db.update(db.propertyValues)..where((v) => v.id.isIn(ids))).write(
+    const PropertyValuesCompanion(parentId: Value(null)),
+  );
+  final topDown = [...placements]..sort((a, b) => a.depth.compareTo(b.depth));
+  for (final placement in topDown) {
+    await (db.update(
+      db.propertyValues,
+    )..where((v) => v.id.equals(placement.id))).write(
+      PropertyValuesCompanion(
+        parentId: Value(placement.parentId),
+        depth: Value(placement.depth),
+      ),
+    );
   }
 }
