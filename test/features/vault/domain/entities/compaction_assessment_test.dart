@@ -116,6 +116,77 @@ void main() {
     });
   });
 
+  group('cuándo se ofrece por su cuenta', () {
+    const mib = 1024 * 1024;
+
+    /// Un archivo de [pages] páginas de 4 KiB, de las cuales [free] libres.
+    CompactionAssessment vault({
+      required int pages,
+      required int free,
+      int? freeSpaceBytes = 100 * 1024 * mib,
+      AutoVacuumMode autoVacuum = AutoVacuumMode.none,
+    }) => assessment(
+      pageSize: 4096,
+      pageCount: pages,
+      freePages: free,
+      freeSpaceBytes: freeSpaceBytes,
+      autoVacuum: autoVacuum,
+    );
+
+    test('con bastante para devolver y disco de sobra, se ofrece', () {
+      // 1 GiB de archivo, 512 MiB de páginas libres.
+      expect(vault(pages: 262144, free: 131072).worthOffering, isTrue);
+    });
+
+    test('justo el mínimo de bytes se ofrece; una página menos, no', () {
+      const minPages = kCompactionOfferMinBytes ~/ 4096;
+
+      // 200 MiB de archivo: el 15 % no es lo que decide.
+      expect(vault(pages: 51200, free: minPages).worthOffering, isTrue);
+      expect(vault(pages: 51200, free: minPages - 1).worthOffering, isFalse);
+    });
+
+    test('justo el 15 % del archivo se ofrece; una página menos, no', () {
+      // 4 GiB de archivo: el 15 % son 150.000 páginas y pesa más que el mínimo.
+      expect(vault(pages: 1000000, free: 150000).worthOffering, isTrue);
+      expect(vault(pages: 1000000, free: 149999).worthOffering, isFalse);
+    });
+
+    test('con el disco justo, sin lugar, no: sería una queja sin salida', () {
+      final tight = vault(
+        pages: 262144,
+        free: 131072,
+        freeSpaceBytes: 10 * mib,
+      );
+
+      expect(tight.verdict, CompactionVerdict.notEnoughSpace);
+      expect(tight.worthOffering, isFalse);
+    });
+
+    test('sin dato de disco, sí: se puede intentar', () {
+      expect(
+        vault(pages: 262144, free: 131072, freeSpaceBytes: null).worthOffering,
+        isTrue,
+      );
+    });
+
+    test('ya en modo incremental también se ofrece, si hay bastante', () {
+      expect(
+        vault(
+          pages: 262144,
+          free: 131072,
+          autoVacuum: AutoVacuumMode.incremental,
+          freeSpaceBytes: 32 * mib,
+        ).worthOffering,
+        isTrue,
+      );
+    });
+
+    test('sin nada que recuperar, no', () {
+      expect(vault(pages: 262144, free: 0).worthOffering, isFalse);
+    });
+  });
+
   group('AutoVacuumMode.fromPragma', () {
     test('0 es ninguno, 1 completo y 2 incremental', () {
       expect(AutoVacuumMode.fromPragma(0), AutoVacuumMode.none);

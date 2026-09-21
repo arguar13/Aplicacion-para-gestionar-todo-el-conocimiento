@@ -176,6 +176,61 @@ void main() {
     });
   });
 
+  group('la oferta de compactar (F12)', () {
+    final offer = find.byKey(const ValueKey('compaction-offer'));
+
+    /// Lo que un borrado grande deja: unos 90 MB de páginas libres dentro de la
+    /// base, bastante más que el mínimo para ofrecer devolverlos.
+    Future<void> leaveLotsOfFreePages() async {
+      final db = harness.database;
+      await db.customStatement(
+        'CREATE TABLE relleno (id INTEGER PRIMARY KEY, v BLOB NOT NULL)',
+      );
+      await db.customStatement('''
+        WITH RECURSIVE n(x) AS (
+          SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 30000
+        )
+        INSERT INTO relleno (v) SELECT randomblob(3000) FROM n''');
+      await db.customStatement('DELETE FROM relleno');
+    }
+
+    testWidgets('con mucho para devolver, va al tope, sobre el panel de '
+        'salud', (tester) async {
+      await harness.capture('Una nota cualquiera');
+      await leaveLotsOfFreePages();
+      await pumpLibrary(tester);
+
+      expect(offer, findsOneWidget);
+      final offerY = tester.getTopLeft(offer).dy;
+      final panelY = tester.getTopLeft(find.byType(HealthPanel)).dy;
+      final listY = tester.getTopLeft(find.text('Una nota cualquiera')).dy;
+      expect(offerY, lessThan(panelY));
+      expect(panelY, lessThan(listY));
+    });
+
+    testWidgets('«Ahora no» la quita y el resto de la pantalla sigue', (
+      tester,
+    ) async {
+      await harness.capture('Una nota cualquiera');
+      await leaveLotsOfFreePages();
+      await pumpLibrary(tester);
+
+      await tester.tap(find.text(es.vaultCompactionOfferNotNow));
+      await tester.pumpAndSettle();
+
+      expect(offer, findsNothing);
+      expect(find.byType(HealthPanel), findsOneWidget);
+      expect(find.text('Una nota cualquiera'), findsOneWidget);
+    });
+
+    testWidgets('en una bóveda al día no aparece', (tester) async {
+      await harness.capture('Una nota cualquiera');
+      await pumpLibrary(tester);
+
+      expect(offer, findsNothing);
+    });
+  });
+
   group('la lista', () {
     testWidgets('muestra lo guardado con su título', (tester) async {
       await harness.capture('La estructura de las revoluciones');

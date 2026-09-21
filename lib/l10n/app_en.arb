@@ -1460,6 +1460,27 @@
   "@vaultCompactionSettingsTooltip": {
     "description": "Título de la ficha de Ajustes que abre la pantalla de compactación."
   },
+  "vaultCompactionOfferTitle": "The vault has {size} to give back",
+  "@vaultCompactionOfferTitle": {
+    "description": "Título de la oferta única de compactar, sobre la Biblioteca.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionOfferBody": "It is what deletions and updates left behind. You can compact it now, or any time from Settings → Vault.",
+  "@vaultCompactionOfferBody": {
+    "description": "Explicación de la oferta única de compactar."
+  },
+  "vaultCompactionOfferNotNow": "Not now",
+  "@vaultCompactionOfferNotNow": {
+    "description": "Botón que descarta la oferta de compactar para siempre."
+  },
+  "vaultCompactionOfferReview": "Review",
+  "@vaultCompactionOfferReview": {
+    "description": "Botón de la oferta de compactar que abre la pantalla de compactación."
+  },
   "vaultMergeSectionTitle": "Bring in another copy",
   "@vaultMergeSectionTitle": {
     "description": "Encabezado de la sección para unir una copia con esta bóveda."

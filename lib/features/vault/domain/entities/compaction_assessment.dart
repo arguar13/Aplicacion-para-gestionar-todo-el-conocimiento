@@ -61,6 +61,15 @@ const kIncrementalStepPages = 2048;
 /// disco casi justo no se quede a medias.
 const kCompactionSlackPercent = 10;
 
+/// Cuánto tiene que haber para devolver, como mínimo, para que la app lo
+/// ofrezca por su cuenta (ver [CompactionAssessment.worthOffering]): por debajo
+/// de esto, esperar varios minutos por unos pocos MB no vale la pena.
+const kCompactionOfferMinBytes = 64 * 1024 * 1024;
+
+/// Y qué parte del archivo tiene que ser, en porcentaje: unos MB sueltos en una
+/// bóveda de gigas no son una oferta.
+const kCompactionOfferMinPercent = 15;
+
 /// Lo que se le deja siempre libre al resto de la app, en bytes: sin esto, una
 /// compactación que «entra justo» dejaría el teléfono sin poder guardar la
 /// próxima captura.
@@ -136,6 +145,19 @@ class CompactionAssessment {
     if (free == null || free >= requiredBytes) return 0;
     return requiredBytes - free;
   }
+
+  /// Si vale la pena ofrecer compactar sin que nadie lo pida: se puede hacer
+  /// —hay disco, o no se sabe si lo hay—, se devuelve por lo menos
+  /// [kCompactionOfferMinBytes] y eso es por lo menos el
+  /// [kCompactionOfferMinPercent] % del archivo.
+  ///
+  /// Ofrecer algo que el disco no permite sería una queja sin salida: para eso
+  /// están la ficha de Ajustes y su explicación.
+  bool get worthOffering =>
+      (verdict == CompactionVerdict.ready ||
+          verdict == CompactionVerdict.spaceUnknown) &&
+      reclaimableBytes >= kCompactionOfferMinBytes &&
+      reclaimableBytes * 100 >= fileBytes * kCompactionOfferMinPercent;
 
   CompactionVerdict get verdict {
     if (freePages == 0) return CompactionVerdict.nothingToReclaim;

@@ -28,6 +28,7 @@ import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dar
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/vault/presentation/widgets/compaction_offer_card.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La pantalla principal: todo lo guardado, con búsqueda y filtros.
@@ -270,6 +271,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
     return Column(
       children: [
+        // La oferta única de devolver espacio (F12): solo cuando hay bastante
+        // para devolver, y una sola vez. Sin oferta no ocupa nada.
+        const CompactionOfferCard(),
         // El estado de la bóveda de un vistazo, al tope de la pantalla de
         // inicio. Solo con elementos: en una bóveda vacía no hay nada que
         // mantener, y con una búsqueda sin resultados el panel sería ruido.
