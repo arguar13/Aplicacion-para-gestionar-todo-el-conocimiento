@@ -162,19 +162,44 @@ class IncomingVault {
     }
   }
 
-  /// Descomprime [entry] en [out] a medida que lee, sin armarla en memoria. Con
+  /// Descomprime [entry] en [out] por tandas: lo que sale de la entrada va al
+  /// archivo a medida que sale, y nunca hay más que una tanda en memoria. Con
   /// [durable] espera a que el sistema la haya bajado al disco: es lo que se
   /// hace con lo que va a quedar en la carpeta de documentos.
+  ///
+  /// Comprueba además el CRC-32 que el `.zip` declara para la entrada: una
+  /// copia a la que le faltan o le cambiaron bytes se rechaza en lugar de
+  /// escribirse.
+  ///
+  /// No usa `ArchiveFile.writeContent`: para una entrada comprimida, el paquete
+  /// `archive` junta TODO lo descomprimido en memoria y recién al final lo
+  /// escribe —una base de 900 MB pedía 900 MB de RAM—. Acá la descompresión es
+  /// la de zlib nativo, en tandas.
   static Future<void> _extract(
     ArchiveFile entry,
     File out, {
     bool durable = false,
   }) async {
-    final stream = OutputFileStream(out.path);
+    final sink = out.openWrite();
     try {
-      entry.writeContent(stream);
-    } finally {
-      await stream.close();
+      await sink.addStream(_decompressed(entry));
+      await sink.close();
+    } on Object {
+      // El primer fallo es el que importa: uno al cerrar el archivo a medias
+      // no lo tapa.
+      try {
+        await sink.close();
+      } on Object {
+        // Ya se está fallando.
+      }
+      // Un archivo a medias no se deja: el que copia originales creería que
+      // ya está y no lo volvería a traer.
+      try {
+        if (out.existsSync()) out.deleteSync();
+      } on FileSystemException {
+        // Tampoco se puede borrar: se sigue con el fallo de verdad.
+      }
+      rethrow;
     }
     if (durable) {
       final handle = await out.open(mode: FileMode.append);
@@ -185,6 +210,56 @@ class IncomingVault {
       }
     }
   }
+
+  /// Lo que trae [entry], descomprimido, por tandas.
+  static Stream<List<int>> _decompressed(ArchiveFile entry) async* {
+    final content = entry.rawContent;
+    // Una entrada vacía no tiene contenido que leer.
+    if (content == null) return;
+
+    final method = content is ZipFile
+        ? content.compressionMethod
+        : CompressionType.none;
+    final compressed = content.getStream(decompress: false);
+    // El mismo flujo se puede volver a pedir —una fusión que se reintenta—:
+    // se deja donde estaba.
+    final start = compressed.position;
+
+    try {
+      final chunks = _chunksOf(compressed);
+      final plain = switch (method) {
+        CompressionType.deflate => chunks.transform(
+          ZLibCodec(raw: true).decoder,
+        ),
+        CompressionType.none => chunks,
+        _ => throw UnsupportedError('Compresión no soportada: $method'),
+      };
+
+      var crc = 0;
+      await for (final chunk in plain) {
+        crc = getCrc32(chunk, crc);
+        yield chunk;
+      }
+      final expected = entry.crc32;
+      if (expected != null && crc != expected) {
+        throw FormatException(
+          'El contenido de ${entry.name} no coincide con su CRC-32.',
+        );
+      }
+    } finally {
+      compressed.setPosition(start);
+    }
+  }
+
+  /// Los bytes de [stream], en tandas de [_chunkSize].
+  static Stream<List<int>> _chunksOf(InputStream stream) async* {
+    while (!stream.isEOS) {
+      final size = stream.length < _chunkSize ? stream.length : _chunkSize;
+      yield stream.readBytes(size).toUint8List();
+    }
+  }
+
+  static const _chunkSize = 64 * 1024;
 
   /// Abre una copia que ya está descomprimida: el archivo de su base [source].
   ///

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
@@ -14,6 +16,19 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 import '../../../../support/rss_sampler.dart';
 import '../../../../support/test_vault.dart';
+
+/// Arma en otro aislado un `.zip` con [databasePath] adentro como la entrada de
+/// la base, comprimida como lo hace la app.
+///
+/// Es otro aislado a propósito: comprimir un archivo grande con `archive` usa
+/// cientos de MB, y si eso pasara en el aislado de la prueba, la memoria del
+/// proceso quedaría inflada y la medición de después no vería lo que crece.
+Future<void> _zipDatabase(String zipPath, String databasePath) =>
+    Isolate.run(() async {
+      final encoder = ZipFileEncoder()..create(zipPath);
+      await encoder.addFile(File(databasePath), kBackupDatabaseEntryName);
+      await encoder.close();
+    });
 
 /// Abrir la copia DESDE EL DISCO (F12): el `.zip` de una bóveda grande no pasa
 /// entero por la memoria, y se rechaza, se actualiza y se limpia igual que
@@ -240,6 +255,97 @@ void main() {
     });
   });
 
+  group('el contenido de cada entrada', () {
+    test('una entrada guardada sin comprimir sale igual', () async {
+      final text = List.generate(5000, (i) => 'línea $i').join('\n');
+      final encoded = utf8.encode(text);
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile.bytes(
+            kBackupDatabaseEntryName,
+            await sqliteBytesAtVersion(AppDatabase.currentSchemaVersion),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.noCompress(
+            'originales/plano.txt',
+            encoded.length,
+            encoded,
+          ),
+        );
+      final file = File(p.join(tempRoot.path, 'sin-comprimir.zip'));
+      await file.writeAsBytes(ZipEncoder().encodeBytes(archive));
+      final incoming = await IncomingVault.openFile(file);
+      addTearDown(incoming.dispose);
+
+      final out = Directory(p.join(tempRoot.path, 'documentos'))..createSync();
+      final copied = await incoming.copyOriginalTo('originales/plano.txt', out);
+
+      expect(copied!.readAsStringSync(), text);
+    });
+
+    test('se puede copiar dos veces el mismo original', () async {
+      final vault = await TestVault.create(deviceId: 'tel');
+      addTearDown(vault.dispose);
+      await vault.saveSource(
+        'a',
+        originalName: 'a.txt',
+        originalContent: 'hola',
+      );
+      final file = File(p.join(tempRoot.path, 'copia.zip'));
+      await file.writeAsBytes(await vault.zip());
+      final incoming = await IncomingVault.openFile(file);
+      addTearDown(incoming.dispose);
+      final one = Directory(p.join(tempRoot.path, 'uno'))..createSync();
+      final two = Directory(p.join(tempRoot.path, 'dos'))..createSync();
+
+      final first = await incoming.copyOriginalTo('originales/a/a.txt', one);
+      final second = await incoming.copyOriginalTo('originales/a/a.txt', two);
+
+      expect(first!.readAsStringSync(), 'hola');
+      expect(second!.readAsStringSync(), 'hola');
+    });
+
+    test('una copia a la que le cambiaron bytes se rechaza y no deja el '
+        'archivo a medias', () async {
+      final text = 'ABCDEFGHIJ' * 100;
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile.bytes(
+            kBackupDatabaseEntryName,
+            await sqliteBytesAtVersion(AppDatabase.currentSchemaVersion),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.noCompress(
+            'originales/plano.txt',
+            text.length,
+            text.codeUnits,
+          ),
+        );
+      final bytes = Uint8List.fromList(ZipEncoder().encodeBytes(archive));
+      // Sin comprimir, el texto está tal cual en el .zip: se cambia un byte.
+      final at = String.fromCharCodes(bytes).indexOf('ABCDEFGHIJ');
+      expect(at, greaterThan(0));
+      bytes[at + 5] ^= 0xff;
+      final file = File(p.join(tempRoot.path, 'rota.zip'));
+      await file.writeAsBytes(bytes);
+      // La base está bien: la copia se abre. Lo dañado es el original.
+      final incoming = await IncomingVault.openFile(file);
+      addTearDown(incoming.dispose);
+      final out = Directory(p.join(tempRoot.path, 'documentos'))..createSync();
+
+      await expectLater(
+        incoming.copyOriginalTo('originales/plano.txt', out),
+        throwsA(isA<FormatException>()),
+      );
+
+      // Ni un original dañado ni uno a medias en la carpeta de documentos: la
+      // próxima fusión creería que ya está.
+      expect(out.listSync(recursive: true).whereType<File>(), isEmpty);
+    });
+  });
+
   group('al terminar', () {
     test('dispose borra el temporal y suelta el .zip', () async {
       final vault = await TestVault.create(deviceId: 'tel');
@@ -260,8 +366,15 @@ void main() {
 
   group('la memoria', () {
     test('un .zip de decenas de MB no pasa entero por ella', () async {
-      // Una base de Sinapsis con unos 48 MB de contenido incompresible, que
+      // Una base de Sinapsis con unos 126 MB de contenido incompresible, que
       // ni el .zip ni la base extraída deberían pasar enteros por la memoria.
+      //
+      // El tamaño no es capricho: la memoria del proceso se mueve por su
+      // cuenta decenas de MB —recolección de basura, el sistema recortando el
+      // conjunto de trabajo cuando otras pruebas corren a la vez— y una base
+      // chica se perdía en ese ruido (una vez midió 24 MB con 63 de base). Con
+      // 126 MB, lo que se busca detectar (la base y el .zip enteros en memoria:
+      // más de 2 veces su peso) queda lejos del ruido y del umbral.
       final dbFile = File(p.join(tempRoot.path, 'grande.sqlite'));
       final db = AppDatabase(NativeDatabase.createInBackground(dbFile));
       await db.customStatement(
@@ -269,16 +382,14 @@ void main() {
       );
       await db.customStatement('''
         WITH RECURSIVE n(x) AS (
-          SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 16000
+          SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 42000
         )
         INSERT INTO relleno (v) SELECT randomblob(3000) FROM n''');
       await db.close();
       final dbBytes = dbFile.lengthSync();
 
       final zip = File(p.join(tempRoot.path, 'grande.zip'));
-      final encoder = ZipFileEncoder()..create(zip.path);
-      await encoder.addFile(dbFile, kBackupDatabaseEntryName);
-      await encoder.close();
+      await _zipDatabase(zip.path, dbFile.path);
       await dbFile.delete();
 
       final sampler = await RssSampler.start();
@@ -288,10 +399,13 @@ void main() {
 
       // La base salió entera al temporal...
       expect(incoming.databaseFile.lengthSync(), dbBytes);
-      // ...y la memoria creció una fracción de lo que pesa.
+      // ...y la memoria creció una fracción de lo que pesa: 12 MB de 164 con la
+      // descompresión por tandas; 95 MB cuando se usaba `writeContent`, que
+      // junta todo lo descomprimido en memoria antes de escribirlo. El umbral
+      // —un cuarto— queda a tres veces del uno y a más de dos del otro.
       expect(
         growth,
-        lessThan(dbBytes ~/ 3),
+        lessThan(dbBytes ~/ 4),
         reason:
             'creció ${growth ~/ 1048576} MB con una base de '
             '${dbBytes ~/ 1048576} MB',
