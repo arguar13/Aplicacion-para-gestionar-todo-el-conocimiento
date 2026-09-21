@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
+import 'package:sinapsis/features/vault/domain/entities/built_vault_backup.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gateway.dart';
@@ -36,6 +37,15 @@ class _FakeService implements VaultBackupService {
 
   @override
   Future<Uint8List> buildBackup() async => Uint8List(0);
+
+  @override
+  Future<BuiltVaultBackup> buildBackupFile() async => const BuiltVaultBackup(
+    path: '/tmp/sinapsis-backup-x/copia.zip',
+    sizeBytes: 0,
+  );
+
+  @override
+  Future<void> discardBackup(BuiltVaultBackup backup) async {}
 
   @override
   Future<bool> isValidBackup(String zipPath) async => valid;

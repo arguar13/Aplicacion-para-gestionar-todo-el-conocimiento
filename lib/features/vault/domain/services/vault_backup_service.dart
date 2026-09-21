@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:sinapsis/features/vault/domain/entities/built_vault_backup.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 
@@ -13,8 +14,23 @@ import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart'
 /// exportar acá, pasar el archivo como sea —un cable, una nube que el
 /// usuario ya use—, y fusionarlo allá con lo que ya hay.
 abstract interface class VaultBackupService {
-  /// Los bytes del `.zip` con la base y los archivos originales. No toca
-  /// nada del disco: quien llama decide dónde guardarlo.
+  /// Arma la copia completa —la base y todos los archivos originales— en un
+  /// `.zip` temporal y lo devuelve. Se escribe por tandas: ni la base ni cada
+  /// original ni lo comprimido pasan enteros por la memoria, así que una bóveda
+  /// de cientos de MB no hace falta que quepa en ella.
+  ///
+  /// Quien la pide decide dónde guardarla, y al terminar —la haya guardado o
+  /// no— la suelta con [discardBackup].
+  Future<BuiltVaultBackup> buildBackupFile();
+
+  /// Borra lo que armó [buildBackupFile]: el `.zip` y su carpeta de trabajo.
+  Future<void> discardBackup(BuiltVaultBackup backup);
+
+  /// Los bytes del `.zip` con la base y los archivos originales.
+  ///
+  /// Lo arma [buildBackupFile] y lo lee entero: solo sirve para lo que ya
+  /// necesita los bytes en memoria —las pruebas—. La copia real se guarda desde
+  /// el archivo.
   Future<Uint8List> buildBackup();
 
   /// Si el archivo [zipPath] tiene la forma de una copia de Sinapsis —es un

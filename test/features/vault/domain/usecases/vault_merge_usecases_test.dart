@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/vault/domain/entities/built_vault_backup.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_outcome.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview_outcome.dart';
@@ -53,6 +54,13 @@ class _Service implements VaultBackupService {
 
   @override
   Future<Uint8List> buildBackup() => throw UnimplementedError();
+
+  @override
+  Future<BuiltVaultBackup> buildBackupFile() => throw UnimplementedError();
+
+  @override
+  Future<void> discardBackup(BuiltVaultBackup backup) =>
+      throw UnimplementedError();
 
   @override
   Future<bool> isValidBackup(String zipPath) => throw UnimplementedError();

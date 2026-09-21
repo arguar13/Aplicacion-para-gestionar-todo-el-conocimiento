@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/features/vault/data/services/local_vault_backup_service.dart';
+import 'package:sinapsis/features/vault/domain/entities/built_vault_backup.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// Corre contra SQLite y un sistema de archivos de verdad, en un directorio
@@ -100,6 +101,103 @@ void main() {
         // Una base cerrada: `VACUUM INTO` falla a mitad de la copia.
         await db.close();
         await expectLater(service.buildBackup(), throwsA(isA<Object>()));
+      }, getSystemTempDirectory: () => temp);
+
+      expect(temp.listSync(), isEmpty);
+      // Vuelve a abrirse una para que el `tearDown` pueda cerrarla.
+      db = AppDatabase(NativeDatabase.memory());
+      service = LocalVaultBackupService(
+        database: db,
+        documentsDirectory: () async => docsDir,
+      );
+    });
+  });
+
+  group('buildBackupFile', () {
+    test('arma el .zip en un archivo, con la base y los originales', () async {
+      await writeOriginal('doc-1/nota.txt', 'contenido de prueba');
+      await writeOriginal('doc-1/libro.pdf', 'no se comprime');
+
+      final built = await service.buildBackupFile();
+      addTearDown(() => service.discardBackup(built));
+
+      final file = File(built.path);
+      expect(file.existsSync(), isTrue);
+      expect(built.sizeBytes, file.lengthSync());
+      final archive = ZipDecoder().decodeBytes(
+        file.readAsBytesSync(),
+        verify: true,
+      );
+      expect(archive.files.map((f) => f.name).toSet(), {
+        'sinapsis.sqlite',
+        'originales/doc-1/nota.txt',
+        'originales/doc-1/libro.pdf',
+      });
+      // Lo ya comprimido se guarda tal cual; lo demás, comprimido.
+      CompressionType methodOf(String name) =>
+          archive.files.firstWhere((f) => f.name == name).compression!;
+      expect(methodOf('originales/doc-1/libro.pdf'), CompressionType.none);
+      expect(methodOf('sinapsis.sqlite'), CompressionType.deflate);
+    });
+
+    test(
+      'la base de la copia no queda además suelta en la carpeta de trabajo',
+      () async {
+        final built = await service.buildBackupFile();
+        addTearDown(() => service.discardBackup(built));
+
+        final leftovers = File(
+          built.path,
+        ).parent.listSync().map((e) => p.basename(e.path));
+
+        expect(leftovers, ['copia.zip']);
+      },
+    );
+
+    test('soltarla borra el .zip y su carpeta de trabajo', () async {
+      final built = await service.buildBackupFile();
+
+      await service.discardBackup(built);
+
+      expect(File(built.path).existsSync(), isFalse);
+      expect(File(built.path).parent.existsSync(), isFalse);
+    });
+
+    test('soltarla no borra una carpeta que no armó este servicio', () async {
+      final stranger = await Directory.systemTemp.createTemp('otra_cosa_');
+      addTearDown(() => stranger.delete(recursive: true));
+      final file = File(p.join(stranger.path, 'importante.zip'))
+        ..writeAsBytesSync([1, 2, 3]);
+
+      await service.discardBackup(
+        BuiltVaultBackup(path: file.path, sizeBytes: 3),
+      );
+
+      expect(file.existsSync(), isTrue);
+    });
+
+    test(
+      'la copia armada se fusiona: es la misma que arma buildBackup',
+      () async {
+        final built = await service.buildBackupFile();
+        addTearDown(() => service.discardBackup(built));
+
+        final preview = await service.previewMerge(built.path);
+
+        expect(preview.hasNothingNew, isTrue);
+      },
+    );
+
+    test('si falla armándola, no deja la carpeta de trabajo', () async {
+      final temp = await Directory.systemTemp.createTemp('sinapsis_bk_test_');
+      addTearDown(() => temp.delete(recursive: true));
+
+      await IOOverrides.runZoned(() async {
+        // Una copia que sale bien no deja nada tampoco, una vez soltada.
+        await service.discardBackup(await service.buildBackupFile());
+        // Una base cerrada —después de haberla usado—: `VACUUM INTO` falla.
+        await db.close();
+        await expectLater(service.buildBackupFile(), throwsA(isA<Object>()));
       }, getSystemTempDirectory: () => temp);
 
       expect(temp.listSync(), isEmpty);
