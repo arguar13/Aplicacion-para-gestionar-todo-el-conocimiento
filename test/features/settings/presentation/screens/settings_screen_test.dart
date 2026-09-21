@@ -8,6 +8,7 @@ import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/features/vault/presentation/screens/merge_conflicts_screen.dart';
+import 'package:sinapsis/features/vault/presentation/screens/vault_compaction_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -206,6 +207,60 @@ void main() {
 
       expect(find.byType(MergeConflictsScreen), findsOneWidget);
       expect(find.text(es.conflictsEmptyTitle), findsOneWidget);
+    });
+
+    group('el espacio de la bóveda (F12)', () {
+      /// Lo que un borrado deja: páginas libres dentro de la base.
+      Future<void> leaveFreePages() async {
+        final db = harness.database;
+        await db.customStatement(
+          'CREATE TABLE relleno (id INTEGER PRIMARY KEY, v BLOB NOT NULL)',
+        );
+        await db.customStatement('''
+          WITH RECURSIVE n(x) AS (
+            SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 400
+          )
+          INSERT INTO relleno (v) SELECT randomblob(3000) FROM n''');
+        await db.customStatement('DELETE FROM relleno');
+      }
+
+      testWidgets('con la bóveda al día, dice que no hay nada que recuperar', (
+        tester,
+      ) async {
+        await pumpSettings(tester);
+
+        expect(find.text(es.vaultCompactionSettingsTooltip), findsOneWidget);
+        expect(find.text(es.vaultCompactionSettingsNothing), findsOneWidget);
+      });
+
+      testWidgets('con páginas libres, dice cuánto se puede recuperar', (
+        tester,
+      ) async {
+        await leaveFreePages();
+
+        await pumpSettings(tester);
+
+        expect(find.text(es.vaultCompactionSettingsNothing), findsNothing);
+        expect(find.textContaining('Se pueden recuperar'), findsOneWidget);
+      });
+
+      testWidgets('tocarla abre su pantalla, con el router real', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(800, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
+        harness.goTo(RoutePaths.settings);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(es.vaultCompactionSettingsTooltip));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(VaultCompactionScreen), findsOneWidget);
+        expect(find.text(es.vaultCompactionNothingLine), findsOneWidget);
+      });
     });
   });
 }

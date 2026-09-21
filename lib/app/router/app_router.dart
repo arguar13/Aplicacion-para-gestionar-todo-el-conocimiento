@@ -36,6 +36,7 @@ import 'package:sinapsis/features/vault/presentation/screens/create_vault_screen
 import 'package:sinapsis/features/vault/presentation/screens/merge_conflicts_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/unlock_vault_screen.dart';
 import 'package:sinapsis/features/vault/presentation/screens/vault_backup_screen.dart';
+import 'package:sinapsis/features/vault/presentation/screens/vault_compaction_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_category_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 
@@ -101,6 +102,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.vaultBackup,
         name: RouteNames.vaultBackup,
         builder: (context, state) => const VaultBackupScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.vaultCompaction,
+        name: RouteNames.vaultCompaction,
+        builder: (context, state) => const VaultCompactionScreen(),
       ),
       GoRoute(
         path: RoutePaths.duplicates,

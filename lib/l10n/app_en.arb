@@ -1271,6 +1271,195 @@
       }
     }
   },
+  "vaultCompactionTitle": "Vault space",
+  "@vaultCompactionTitle": {
+    "description": "Título de la pantalla que devuelve al dispositivo el espacio que la bóveda ya no usa, y de su ficha en Ajustes."
+  },
+  "vaultCompactionSettingsReclaimable": "{size} can be reclaimed",
+  "@vaultCompactionSettingsReclaimable": {
+    "description": "Subtítulo de la ficha en Ajustes: cuánto espacio ocupado por borrados se puede devolver.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionSettingsNothing": "Nothing to reclaim",
+  "@vaultCompactionSettingsNothing": {
+    "description": "Subtítulo de la ficha en Ajustes cuando la bóveda no tiene espacio para devolver."
+  },
+  "vaultCompactionExplanation": "What you delete from the vault does not always give space back to the device: the file keeps those gaps to reuse them. Compacting returns them without changing anything you saved: when it finishes, it checks that every table has the same rows and that the text of every source is still intact.",
+  "@vaultCompactionExplanation": {
+    "description": "Explicación de la pantalla de compactación de la bóveda."
+  },
+  "vaultCompactionSizeLine": "The vault takes up {size} on this device.",
+  "@vaultCompactionSizeLine": {
+    "description": "Cuánto ocupa el archivo de la bóveda.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionReclaimableLine": "{size} can be reclaimed.",
+  "@vaultCompactionReclaimableLine": {
+    "description": "Cuánto espacio se devolvería al compactar.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionNothingLine": "There is nothing to reclaim: the vault takes only what it holds.",
+  "@vaultCompactionNothingLine": {
+    "description": "La bóveda no tiene páginas libres."
+  },
+  "vaultCompactionFirstTimeNote": "The first time the whole vault is rewritten: it can take several minutes, needs {needed} free while it works and cannot be cancelled once it has started.",
+  "@vaultCompactionFirstTimeNote": {
+    "description": "Aviso antes de la primera compactación.",
+    "placeholders": {
+      "needed": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionStepsNote": "The vault is already prepared: space is returned a little at a time and you can stop whenever you want.",
+  "@vaultCompactionStepsNote": {
+    "description": "Aviso antes de las compactaciones siguientes a la primera."
+  },
+  "vaultCompactionNoSpace": "Not enough space on the device: {needed} free are needed and there are {available}. Free at least {missing} and try again.",
+  "@vaultCompactionNoSpace": {
+    "description": "No hay disco para compactar.",
+    "placeholders": {
+      "needed": {
+        "type": "String"
+      },
+      "available": {
+        "type": "String"
+      },
+      "missing": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionSpaceUnknown": "Could not tell how much free space there is. You can still try: if there is not enough room, the compaction is rolled back without touching anything.",
+  "@vaultCompactionSpaceUnknown": {
+    "description": "El sistema no informó el espacio libre."
+  },
+  "vaultCompactionAction": "Compact",
+  "@vaultCompactionAction": {
+    "description": "Botón que empieza la compactación."
+  },
+  "vaultCompactionActionAnyway": "Compact anyway",
+  "@vaultCompactionActionAnyway": {
+    "description": "Botón que empieza la compactación sin haber podido comprobar el espacio libre."
+  },
+  "vaultCompactionStop": "Stop",
+  "@vaultCompactionStop": {
+    "description": "Botón que pide parar la compactación entre dos tramos."
+  },
+  "vaultCompactionKeepOpen": "Do not close the app or turn the screen off until it finishes.",
+  "@vaultCompactionKeepOpen": {
+    "description": "Aviso mientras se compacta."
+  },
+  "vaultCompactionPhaseChecking": "Measuring…",
+  "@vaultCompactionPhaseChecking": {
+    "description": "Fase de la compactación: midiendo qué se puede recuperar."
+  },
+  "vaultCompactionPhaseRewriting": "Rewriting the vault… This cannot be stopped.",
+  "@vaultCompactionPhaseRewriting": {
+    "description": "Fase de la primera compactación: SQLite reescribe la base entera."
+  },
+  "vaultCompactionPhaseReturning": "Returning space: {done} of {total} pages",
+  "@vaultCompactionPhaseReturning": {
+    "description": "Fase de las compactaciones siguientes: cuántas páginas libres se devolvieron.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultCompactionPhaseVerifying": "Checking that nothing was lost…",
+  "@vaultCompactionPhaseVerifying": {
+    "description": "Fase de comprobación mientras todavía no se sabe cuántas fuentes hay."
+  },
+  "vaultCompactionPhaseVerifyingCount": "Checking that nothing was lost: {done} of {total} sources",
+  "@vaultCompactionPhaseVerifyingCount": {
+    "description": "Fase de comprobación: cuántas fuentes se revisaron.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultCompactionDone": "Done: {freed} were returned (from {before} to {after}).",
+  "@vaultCompactionDone": {
+    "description": "Resultado de una compactación completa.",
+    "placeholders": {
+      "freed": {
+        "type": "String"
+      },
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionVerified": "{count, plural, =0{There were no sources with text to check.} =1{1 source was checked: its text is intact.} other{{count} sources were checked: their text is intact.}}",
+  "@vaultCompactionVerified": {
+    "description": "Cuántas fuentes se comprobaron después de compactar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vaultCompactionStopped": "Stopped. {freed} were returned so far; the rest can be returned later.",
+  "@vaultCompactionStopped": {
+    "description": "Resultado de una compactación que se paró entre dos tramos.",
+    "placeholders": {
+      "freed": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionNothingReturned": "There was nothing to return.",
+  "@vaultCompactionNothingReturned": {
+    "description": "Resultado de una compactación sobre una bóveda sin páginas libres."
+  },
+  "vaultCompactionFailed": "The compaction could not be completed. The vault is still complete: nothing was lost.",
+  "@vaultCompactionFailed": {
+    "description": "SQLite falló compactando."
+  },
+  "vaultCompactionVerificationFailed": "When it finished, the check found a difference: {problem}. Do not delete your backups.",
+  "@vaultCompactionVerificationFailed": {
+    "description": "La bóveda compactada no coincide con la de antes.",
+    "placeholders": {
+      "problem": {
+        "type": "String"
+      }
+    }
+  },
+  "vaultCompactionDoneAction": "Done",
+  "@vaultCompactionDoneAction": {
+    "description": "Botón que cierra la pantalla de compactación al terminar."
+  },
+  "vaultCompactionMeasureFailed": "The vault space could not be measured.",
+  "@vaultCompactionMeasureFailed": {
+    "description": "Falló la medición de cuánto se puede recuperar."
+  },
+  "vaultCompactionSettingsTooltip": "Vault space",
+  "@vaultCompactionSettingsTooltip": {
+    "description": "Título de la ficha de Ajustes que abre la pantalla de compactación."
+  },
   "vaultMergeSectionTitle": "Bring in another copy",
   "@vaultMergeSectionTitle": {
     "description": "Encabezado de la sección para unir una copia con esta bóveda."

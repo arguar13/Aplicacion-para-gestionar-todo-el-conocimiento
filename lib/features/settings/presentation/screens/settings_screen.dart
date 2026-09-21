@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -95,6 +98,23 @@ class SettingsScreen extends ConsumerWidget {
                 title: Text(l10n.libraryVaultBackupTooltip),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.vaultBackup),
+              ),
+              ListTile(
+                leading: const Icon(Icons.storage_outlined),
+                title: Text(l10n.vaultCompactionSettingsTooltip),
+                subtitle: ref
+                    .watch(compactionAssessmentProvider)
+                    .whenOrNull(
+                      data: (assessment) => Text(
+                        assessment.verdict == CompactionVerdict.nothingToReclaim
+                            ? l10n.vaultCompactionSettingsNothing
+                            : l10n.vaultCompactionSettingsReclaimable(
+                                formatFileSize(assessment.reclaimableBytes),
+                              ),
+                      ),
+                    ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.vaultCompaction),
               ),
               ListTile(
                 leading: const Icon(Icons.content_copy_outlined),
