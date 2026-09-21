@@ -34,9 +34,11 @@ class MapLayout {
 ///   además atraído por el centro de su grupo, con la fuerza [groupPull]. Sin
 ///   eso, dos comunidades con unos pocos vínculos entre ellas se mezclan.
 /// - **Arranque en caliente**: con [startX] y [startY] —`NaN` donde no hay
-///   posición previa— los nodos que ya estaban parten de su lugar y solo se
-///   mueve lo que el cambio movió. Un nodo nuevo nace junto a sus vecinos. Así
-///   el mapa no da un salto cada vez que se recalcula.
+///   posición previa— los nodos que ya estaban parten de su lugar y casi no se
+///   mueven: un layout ya calculado no está en equilibrio, solo quedó congelado
+///   por el enfriamiento, y dejarlo moverse libremente lo desplaza cientos de
+///   píxeles. Los nuevos nacen junto a sus vecinos y sí se acomodan. Así el
+///   mapa no da un salto cada vez que se recalcula.
 ///
 /// Determinista, como el del grafo de relaciones: sin azar, con las posiciones
 /// iniciales en un círculo ordenado por grupo y por posición. Las posiciones
@@ -77,6 +79,7 @@ MapLayout layoutForces({
 
   final xs = Float64List(count);
   final ys = Float64List(count);
+  final placed = Uint8List(count);
   final known = _place(
     count,
     links,
@@ -87,6 +90,7 @@ MapLayout layoutForces({
     extent,
     xs,
     ys,
+    placed,
   );
   // En caliente si la mayoría ya tenía lugar: con unos pocos conocidos entre
   // muchos nuevos, es como empezar de cero.
@@ -111,9 +115,13 @@ MapLayout layoutForces({
 
   final moveX = Float64List(count);
   final moveY = Float64List(count);
-  // En caliente se parte de una temperatura más baja: lo que ya tiene lugar
-  // apenas debe moverse.
-  var temperature = extent / (warm ? 40 : 10);
+  // La temperatura limita cuánto puede moverse un nodo por vuelta. En caliente,
+  // los que ya tenían lugar casi no se mueven (y se enfrían rápido: en total,
+  // una fracción de `k`) y los nuevos tienen margen para acomodarse.
+  var hot = warm ? 0.05 * k : extent / 10;
+  var settled = warm ? 0.004 * k : hot;
+  final coolHot = warm ? 0.9 : 0.97;
+  final coolSettled = warm ? 0.94 : 0.97;
 
   for (var iteration = 0; iteration < iterations; iteration++) {
     moveX.fillRange(0, count, 0);
@@ -175,11 +183,12 @@ MapLayout layoutForces({
         math.sqrt(moveX[i] * moveX[i] + moveY[i] * moveY[i]),
         0.01,
       );
-      final limit = math.min(distance, temperature);
+      final limit = math.min(distance, placed[i] == 1 ? settled : hot);
       xs[i] += moveX[i] / distance * limit;
       ys[i] += moveY[i] / distance * limit;
     }
-    temperature *= 0.97;
+    hot *= coolHot;
+    settled *= coolSettled;
   }
 
   return MapLayout(xs, ys);
@@ -187,8 +196,8 @@ MapLayout layoutForces({
 
 /// Las posiciones de partida: las que se dieron, y para el resto un lugar en
 /// el círculo —ordenado por grupo, para que los de un grupo queden juntos— o,
-/// si el nodo tiene vecinos con lugar, junto a ellos. Devuelve cuántas se
-/// dieron.
+/// si el nodo tiene vecinos con lugar, junto a ellos. Marca en [known] las que
+/// se dieron y devuelve cuántas son.
 int _place(
   int count,
   List<MapLayoutLink> links,
@@ -199,6 +208,7 @@ int _place(
   double extent,
   Float64List xs,
   Float64List ys,
+  Uint8List known,
 ) {
   final order = List<int>.generate(count, (i) => i)
     ..sort((x, y) {
@@ -216,7 +226,6 @@ int _place(
   double circleY(int i) =>
       center + radius * math.sin(2 * math.pi * onCircle[i] / count);
 
-  final known = Uint8List(count);
   var knownCount = 0;
   if (startX != null && startY != null) {
     for (var i = 0; i < count; i++) {

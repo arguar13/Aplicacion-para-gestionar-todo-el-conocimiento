@@ -370,6 +370,64 @@ void main() {
     });
   });
 
+  group('el vecindario de un foco', () {
+    test('el foco y lo que se une directamente a él, y nada de más lejos', () {
+      // 0 ─ 1 ─ 2 (el 2 está a dos saltos del 0), 3 ─ 4 aparte.
+      final graph = graphOf(5, unions: [(0, 1, 5), (1, 2, 5), (3, 4, 5)]);
+
+      final selection = selectNeighborhood(graph, focus: {0});
+
+      expect(selection.topics, [0, 1]);
+      expect(selection.edges, [0]);
+      expect(selection.hidden, 0);
+    });
+
+    test('con un foco de varios temas, todos los suyos y sus vecinos', () {
+      final graph = graphOf(
+        6,
+        unions: [(0, 1, 5), (1, 2, 5), (2, 3, 5), (4, 5, 5)],
+      );
+
+      final selection = selectNeighborhood(graph, focus: {1, 2});
+
+      expect(selection.topics, [0, 1, 2, 3]);
+      expect(selection.edges, [0, 1, 2]);
+    });
+
+    test('si no caben los vecinos, entran los que más unen al foco', () {
+      final graph = graphOf(4, unions: [(0, 1, 5), (0, 2, 1), (0, 3, 3)]);
+
+      final selection = selectNeighborhood(graph, focus: {0}, limit: 3);
+
+      expect(selection.topics, [0, 1, 3]);
+      expect(selection.hidden, 1);
+    });
+
+    test(
+      'si el foco solo ya pasa el tope, entran los más importantes de él',
+      () {
+        // Cinco temas en el foco, los del final con más elementos.
+        final graph = graphOf(5, items: [1, 1, 1, 9, 8]);
+
+        final selection = selectNeighborhood(
+          graph,
+          focus: {0, 1, 2, 3, 4},
+          limit: 3,
+        );
+
+        expect(selection.topics, [0, 3, 4]);
+        expect(selection.hidden, 2);
+      },
+    );
+
+    test('un foco fuera de rango o vacío no elige nada', () {
+      final graph = graphOf(3, unions: [(0, 1, 1)]);
+
+      expect(selectNeighborhood(graph, focus: {}).topics, isEmpty);
+      expect(selectNeighborhood(graph, focus: {-1, 99}).topics, isEmpty);
+    });
+  });
+
   test('la fuerza de un tema es la suma de los pesos de sus uniones', () {
     final graph = graphOf(
       3,

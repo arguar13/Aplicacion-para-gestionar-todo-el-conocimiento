@@ -355,3 +355,70 @@ List<int> _grow(
   }
   return chosen;
 }
+
+/// El vecindario de [focus] para el nivel de temas del grafo (F14, D5): los
+/// temas del foco y los que se unen directamente a alguno, hasta [limit].
+///
+/// A diferencia de [selectTopics], no crece por más saltos ni se completa con
+/// lo más importante del resto: al acercarse a una comunidad se ve ella y lo
+/// que la toca, no toda la bóveda. Si el foco solo ya pasa el tope, entran los
+/// más importantes de él; si sobra lugar, los vecinos que más los unen.
+/// `hidden` cuenta lo que el foco y sus vecinos tenían de más.
+TopicSelection selectNeighborhood(
+  TopicGraph graph, {
+  required Set<int> focus,
+  TopicGraphWeights weights = const TopicGraphWeights(),
+  int limit = kMaxVisibleTopics,
+}) {
+  final n = graph.nodes.length;
+  final valid = focus.where((t) => t >= 0 && t < n).toList()..sort();
+  final inFocus = Uint8List(n);
+  for (final topic in valid) {
+    inFocus[topic] = 1;
+  }
+
+  final strength = topicStrength(graph, weights);
+  final byImportance = [...valid]
+    ..sort((x, y) {
+      final byScore = (strength[y] + graph.nodes[y].itemCount).compareTo(
+        strength[x] + graph.nodes[x].itemCount,
+      );
+      return byScore != 0 ? byScore : x.compareTo(y);
+    });
+  final chosen = <int>[...byImportance.take(limit)];
+
+  // Los vecinos, por cuánto los une con el foco.
+  final affinity = Float64List(n);
+  for (final edge in graph.edges) {
+    final weight = weights.of(edge);
+    if (inFocus[edge.a] == 1 && inFocus[edge.b] == 0) {
+      affinity[edge.b] += weight;
+    } else if (inFocus[edge.b] == 1 && inFocus[edge.a] == 0) {
+      affinity[edge.a] += weight;
+    }
+  }
+  final neighbors =
+      [
+        for (var i = 0; i < n; i++)
+          if (affinity[i] > 0) i,
+      ]..sort((x, y) {
+        final byAffinity = affinity[y].compareTo(affinity[x]);
+        return byAffinity != 0 ? byAffinity : x.compareTo(y);
+      });
+  final room = limit - chosen.length;
+  if (room > 0) chosen.addAll(neighbors.take(room));
+
+  chosen.sort();
+  final inside = Uint8List(n);
+  for (final topic in chosen) {
+    inside[topic] = 1;
+  }
+  return TopicSelection(
+    topics: chosen,
+    edges: [
+      for (var e = 0; e < graph.edges.length; e++)
+        if (inside[graph.edges[e].a] == 1 && inside[graph.edges[e].b] == 1) e,
+    ],
+    hidden: valid.length + neighbors.length - chosen.length,
+  );
+}

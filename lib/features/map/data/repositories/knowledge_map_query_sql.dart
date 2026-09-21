@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/library/data/repositories/library_query_sql.dart';
 
 /// Lo que el mapa lee: cualquier escritura en estas tablas puede cambiarlo.
 /// `item` también —un elemento que va a la papelera deja de contar— y por eso
@@ -152,3 +153,32 @@ SELECT * FROM (
 ORDER BY at DESC, id
 LIMIT ?2
 ''';
+
+/// Los elementos vivos de un tema y de sus subtemas, los tocados más
+/// recientemente primero. Variables, en este orden: el valor; cuántos como
+/// mucho.
+///
+/// La jerarquía se resuelve con la misma consulta recursiva sobre los VALORES
+/// que usa el filtro de la biblioteca (F13): asignar un subtema no asigna a su
+/// padre, y acá se cuenta como suyo. Lo asignado se busca por el índice del
+/// valor y cada elemento por su clave.
+final mapTopicItemsSql =
+    '''
+SELECT item.id AS id,
+       item.title AS title,
+       item.kind AS kind
+FROM item
+WHERE $kActiveItemSql
+  AND item.id IN (
+    SELECT item_id FROM item_property_values
+    WHERE property_value_id IN (${valuesWithDescendantsSql(1)}))
+ORDER BY item.updated_at DESC, item.id
+LIMIT ?
+''';
+
+/// Los vínculos que salen de un grupo de elementos: se buscan por el índice del
+/// origen, y quien llama se queda con los que llegan a otro del grupo.
+String mapItemsRelationsSql(int count) =>
+    'SELECT from_item_id AS from_id, to_item_id AS to_id, kind AS kind '
+    'FROM relations '
+    'WHERE from_item_id IN (${List.filled(count, '?').join(', ')})';

@@ -2,6 +2,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 
 /// De dónde sale el mapa de conocimiento (F14).
 ///
@@ -38,6 +39,14 @@ abstract interface class KnowledgeMapRepository {
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
     int limit = kSchemaFanOut,
+  });
+
+  /// Los elementos de un tema y de sus subtemas con los vínculos entre ellos:
+  /// lo que se dibuja al acercarse a un tema (F14, D5). A lo sumo [limit], los
+  /// tocados más recientemente; lo que está en la papelera queda afuera.
+  Future<TopicItemsGraph> readTopicItems(
+    String valueId, {
+    int limit = kMaxGraphItems,
   });
 
   /// Avisa cada vez que se escribe algo que puede cambiar lo que devuelve

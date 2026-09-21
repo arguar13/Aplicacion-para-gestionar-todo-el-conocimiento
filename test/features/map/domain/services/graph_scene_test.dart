@@ -1,0 +1,170 @@
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
+import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
+
+/// Lo que se dibuja en cada nivel del grafo de conocimiento (F14), sin
+/// posiciones: qué nodos, con qué tamaño y color, unidos por qué.
+void main() {
+  /// a, b (comunidad 5); c, d (comunidad 6); e aislado (comunidad 7).
+  TopicGraph graph() => TopicGraph(
+    definitionId: 'tema',
+    definitionName: 'Tema',
+    nodes: [
+      for (final (id, items) in [
+        ('a', 4),
+        ('b', 2),
+        ('c', 3),
+        ('d', 1),
+        ('e', 5),
+      ])
+        TopicNode(valueId: id, label: 'Tema $id', depth: 0, itemCount: items),
+    ],
+    edges: [
+      const TopicEdge(
+        a: 0,
+        b: 1,
+        cooccurrence: 3,
+        relations: 0,
+        contradictions: 0,
+        openContradictions: 0,
+      ),
+      const TopicEdge(
+        a: 2,
+        b: 3,
+        cooccurrence: 2,
+        relations: 0,
+        contradictions: 0,
+        openContradictions: 0,
+      ),
+      const TopicEdge(
+        a: 1,
+        b: 2,
+        cooccurrence: 0,
+        relations: 0,
+        contradictions: 1,
+        openContradictions: 1,
+      ),
+    ],
+  );
+
+  CommunityDetection detection() => CommunityDetection(
+    communityOf: Int32List.fromList([5, 5, 6, 6, 7]),
+    communities: const [
+      TopicCommunity(id: 5, members: [0, 1], anchor: 0, isIsolated: false),
+      TopicCommunity(id: 6, members: [2, 3], anchor: 2, isIsolated: false),
+      TopicCommunity(id: 7, members: [4], anchor: 4, isIsolated: true),
+    ],
+    memory: const CommunityMemory.none(),
+    passes: 1,
+    converged: true,
+    reassigned: 0,
+  );
+
+  test('el panorama: un nodo por comunidad, con su nombre, su tamaño y su '
+      'color', () {
+    final g = graph();
+    final scene = sceneOfOverview(g, aggregateCommunities(g, detection()));
+
+    expect(scene.nodes.map((n) => n.kind), [
+      SceneKind.community,
+      SceneKind.community,
+      SceneKind.isolated,
+    ]);
+    final first = scene.nodes.first;
+    expect(first.label, 'Tema a');
+    expect(first.size, 6);
+    expect(first.count, 2);
+    expect(first.group, 5);
+    // Los aislados no tienen comunidad a la que colorear, ni nombre propio.
+    expect(scene.nodes.last.group, isNull);
+    expect(scene.nodes.last.label, '');
+    expect(scene.nodes.map((n) => n.key).toSet(), hasLength(3));
+  });
+
+  test('el panorama: la unión entre dos comunidades es una tensión si alguna '
+      'de sus uniones lo es', () {
+    final g = graph();
+    final scene = sceneOfOverview(g, aggregateCommunities(g, detection()));
+
+    final edge = scene.edges.single;
+    expect((edge.a, edge.b), (0, 1));
+    expect(edge.tension, isTrue);
+    expect(edge.weight, 3);
+  });
+
+  test('los temas: coloreados por su comunidad, con las uniones dentro de la '
+      'selección', () {
+    final g = graph();
+    final selection = selectTopics(g, focus: {0}, limit: 3);
+
+    final scene = sceneOfTopics(g, detection(), selection);
+
+    // El foco, su vecino más unido y el vecino del vecino.
+    expect(scene.nodes.map((n) => n.ref), ['a', 'b', 'c']);
+    expect(scene.nodes.map((n) => n.group), [5, 5, 6]);
+    expect(scene.nodes.first.kind, SceneKind.topic);
+    expect(scene.nodes.first.key, 'topic:a');
+    expect(scene.edges.length, 2);
+    expect(scene.hidden, 2);
+    // La unión b–c es la contradicción.
+    final tension = scene.edges.singleWhere((e) => e.tension);
+    expect(scene.nodes[tension.a].ref, 'b');
+    expect(scene.nodes[tension.b].ref, 'c');
+  });
+
+  test('los elementos: notas y fuentes, y cada vínculo con su tipo', () {
+    const items = TopicItemsGraph(
+      valueId: 'a',
+      items: [
+        TopicItemNode(id: 'n1', title: 'Nota', isNote: true),
+        TopicItemNode(id: 's1', title: 'Fuente', isNote: false),
+        TopicItemNode(id: 's2', title: 'Otra', isNote: false),
+      ],
+      edges: [
+        TopicItemEdge(a: 0, b: 1, kind: RelationKind.cites),
+        TopicItemEdge(a: 1, b: 2, kind: RelationKind.contradicts),
+      ],
+      truncated: true,
+    );
+
+    final scene = sceneOfItems(items);
+
+    expect(scene.nodes.map((n) => n.kind), [
+      SceneKind.note,
+      SceneKind.source,
+      SceneKind.source,
+    ]);
+    expect(scene.nodes.first.key, 'item:n1');
+    expect(scene.nodes.first.ref, 'n1');
+    expect(scene.edges.first.relation, RelationKind.cites);
+    expect(scene.edges.first.tension, isFalse);
+    expect(scene.edges.last.tension, isTrue);
+    expect(scene.edges.last.weight, greaterThan(scene.edges.first.weight));
+    expect(scene.hidden, 1);
+  });
+
+  test('las uniones se dan al layout con su peso', () {
+    final g = graph();
+    final scene = sceneOfOverview(g, aggregateCommunities(g, detection()));
+
+    final links = scene.links;
+
+    expect(links, hasLength(1));
+    expect(links.single.weight, 3);
+  });
+
+  test('una escena vacía no tiene nada, y busca un nodo por su clave', () {
+    expect(const GraphScene.empty().nodes, isEmpty);
+    final g = graph();
+    final scene = sceneOfTopics(g, detection(), selectTopics(g, limit: 10));
+
+    expect(scene.indexOf('topic:c'), 2);
+    expect(scene.indexOf('topic:zzz'), isNull);
+  });
+}

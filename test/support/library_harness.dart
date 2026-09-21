@@ -24,6 +24,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
@@ -257,6 +258,11 @@ class LibraryHarness {
         // termina bajo el reloj simulado de las pruebas de widgets: acá
         // calcula en el propio isolate y sin esperar, que es lo mismo pero
         // que una prueba puede recorrer.
+        // Lo mismo con el acomodo del grafo de conocimiento: en el propio
+        // isolate.
+        mapLayoutRunnerProvider.overrideWithValue(
+          (job) async => runLayout(job),
+        ),
         knowledgeMapEngineProvider.overrideWith((ref) {
           final engine = KnowledgeMapEngine(
             repository: ref.watch(knowledgeMapRepositoryProvider),

@@ -537,6 +537,124 @@ void main() {
     });
   });
 
+  group('los elementos de un tema', () {
+    Future<void> at(
+      String id,
+      DateTime when,
+      List<String> values, {
+      SourceKind kind = SourceKind.webPage,
+    }) async {
+      await insertItemRows(
+        db,
+        id: id,
+        title: 'Fuente $id',
+        createdAt: when,
+        kind: kind,
+      );
+      for (final valueId in values) {
+        await assign(id, valueId);
+      }
+    }
+
+    test(
+      'los del tema y los de sus subtemas, los más recientes primero',
+      () async {
+        await seedTopics();
+        await at('viejo', DateTime(2026), ['roma']);
+        await at('medio', DateTime(2026, 2), ['republica']);
+        await at('nuevo', DateTime(2026, 3), ['roma', 'republica']);
+        await at('de-grecia', DateTime(2026, 4), ['grecia']);
+        await at('sin-tema', DateTime(2026, 5), const []);
+
+        final graph = await repository.readTopicItems('roma');
+
+        expect(
+          [for (final i in graph.items) i.id],
+          ['nuevo', 'medio', 'viejo'],
+        );
+        expect(graph.truncated, isFalse);
+        expect(graph.valueId, 'roma');
+      },
+    );
+
+    test('un subtema solo trae lo suyo', () async {
+      await seedTopics();
+      await at('de-roma', DateTime(2026), ['roma']);
+      await at('de-republica', DateTime(2026, 2), ['republica']);
+
+      final graph = await repository.readTopicItems('republica');
+
+      expect([for (final i in graph.items) i.id], ['de-republica']);
+    });
+
+    test('las notas se distinguen de las fuentes', () async {
+      await seedTopics();
+      await at('s', DateTime(2026), ['roma']);
+      await at('n', DateTime(2026, 2), ['roma'], kind: SourceKind.manualNote);
+
+      final graph = await repository.readTopicItems('roma');
+
+      final byId = {for (final i in graph.items) i.id: i};
+      expect(byId['s']!.isNote, isFalse);
+      expect(byId['n']!.isNote, isTrue);
+    });
+
+    test('los vínculos son solo los que unen dos de sus elementos', () async {
+      await seedTopics();
+      await at('a', DateTime(2026), ['roma']);
+      await at('b', DateTime(2026, 2), ['roma']);
+      await at('afuera', DateTime(2026, 3), ['grecia']);
+      await relate('a', 'b', kind: RelationKind.cites);
+      await relate('a', 'afuera');
+
+      final graph = await repository.readTopicItems('roma');
+
+      expect(graph.edges, hasLength(1));
+      final edge = graph.edges.single;
+      expect(graph.items[edge.a].id, 'a');
+      expect(graph.items[edge.b].id, 'b');
+      expect(edge.kind, RelationKind.cites);
+    });
+
+    test('lo que está en la papelera no sale, ni sus vínculos', () async {
+      await seedTopics();
+      await at('a', DateTime(2026), ['roma']);
+      await at('b', DateTime(2026, 2), ['roma']);
+      await relate('a', 'b');
+      await trashItemRows(db, 'b');
+
+      final graph = await repository.readTopicItems('roma');
+
+      expect([for (final i in graph.items) i.id], ['a']);
+      expect(graph.edges, isEmpty);
+    });
+
+    test(
+      'con más elementos que el tope, trae los más recientes y avisa',
+      () async {
+        await seedTopics();
+        for (var i = 0; i < 6; i++) {
+          await at('i$i', DateTime(2026, 1, 1 + i), ['roma']);
+        }
+
+        final graph = await repository.readTopicItems('roma', limit: 4);
+
+        expect([for (final i in graph.items) i.id], ['i5', 'i4', 'i3', 'i2']);
+        expect(graph.truncated, isTrue);
+      },
+    );
+
+    test('un tema sin elementos da un grafo vacío', () async {
+      await seedTopics();
+
+      final graph = await repository.readTopicItems('egipto');
+
+      expect(graph.items, isEmpty);
+      expect(graph.edges, isEmpty);
+      expect(graph.truncated, isFalse);
+    });
+  });
+
   group('los avisos de cambio', () {
     /// Si dentro de un rato llegó un aviso, mientras se hace [write].
     Future<bool> notifies(
@@ -716,6 +834,53 @@ void main() {
         links.where((line) => line.contains('idx_relations_to')),
         hasLength(1),
         reason: linksReason,
+      );
+    });
+
+    test('los elementos de un tema: las asignaciones del valor por su índice '
+        'y los vínculos por el índice del origen', () async {
+      final items = await planOf(mapTopicItemsSql, [
+        Variable.withString('roma'),
+        Variable.withInt(201),
+      ]);
+      final itemsReason = items.join('\n');
+      expect(
+        items.where(
+          (line) => RegExp(
+            r'\bSCAN (item_property_values|property_values)\b',
+          ).hasMatch(line),
+        ),
+        isEmpty,
+        reason: itemsReason,
+      );
+      expect(
+        items.where(
+          (line) =>
+              line.startsWith('SEARCH item_property_values') &&
+              line.contains('property_value_id'),
+        ),
+        hasLength(1),
+        reason: itemsReason,
+      );
+
+      final relations = await planOf(mapItemsRelationsSql(3), [
+        Variable.withString('a'),
+        Variable.withString('b'),
+        Variable.withString('c'),
+      ]);
+      expect(
+        relations.where(
+          (line) =>
+              line.startsWith('SEARCH relations') &&
+              line.contains('(from_item_id=?)'),
+        ),
+        hasLength(1),
+        reason: relations.join('\n'),
+      );
+      expect(
+        relations.where((line) => line.startsWith('SCAN')),
+        isEmpty,
+        reason: relations.join('\n'),
       );
     });
 

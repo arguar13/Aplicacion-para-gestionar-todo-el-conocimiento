@@ -9,6 +9,7 @@ import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/schema_tree_builder.dart';
@@ -41,6 +42,12 @@ class _FakeRepository implements KnowledgeMapRepository {
   @override
   Future<MapDashboard> readDashboard({
     LibraryQuery filter = const LibraryQuery(),
+  }) => throw UnimplementedError();
+
+  @override
+  Future<TopicItemsGraph> readTopicItems(
+    String valueId, {
+    int limit = kMaxGraphItems,
   }) => throw UnimplementedError();
 
   @override

@@ -3296,6 +3296,59 @@
       }
     }
   },
+  "mapViewGraph": "Graph",
+  "@mapViewGraph": {
+    "description": "Nombre de la vista del grafo de conocimiento: comunidades de temas, temas y elementos según el zoom."
+  },
+  "mapGraphCrumbOverview": "Communities",
+  "@mapGraphCrumbOverview": {
+    "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."
+  },
+  "mapGraphOverflow": "Other communities",
+  "@mapGraphOverflow": {
+    "description": "Nombre del nodo que junta varias comunidades chicas que no entran en el panorama."
+  },
+  "mapGraphCommunitySemantics": "Community of {name}: {count, plural, =1{1 topic} other{{count} topics}}",
+  "@mapGraphCommunitySemantics": {
+    "description": "Descripción accesible de un nodo de comunidad en el grafo.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphTopicsCut": "Showing {shown} of {total} topics. Tap a community to see its own.",
+  "@mapGraphTopicsCut": {
+    "description": "Aviso del grafo cuando hay más temas de los que se dibujan a la vez.",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphItemsCut": "Showing the {count} most recent items of this topic.",
+  "@mapGraphItemsCut": {
+    "description": "Aviso del grafo cuando un tema tiene más elementos de los que se dibujan.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphActionItems": "See its items",
+  "@mapGraphActionItems": {
+    "description": "Acción de un tema en el grafo: acercarse a los elementos que tiene."
+  },
+  "mapGraphHint": "Tap a community or zoom in to see its topics.",
+  "@mapGraphHint": {
+    "description": "Ayuda de una línea bajo el camino del grafo, en el panorama de comunidades."
+  },
   "timelineBranchFilterTooltip": "Remove the topic filter",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

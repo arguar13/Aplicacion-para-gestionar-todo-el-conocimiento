@@ -13,6 +13,7 @@ import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
 
@@ -159,6 +160,62 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
             ),
         ];
     }
+  }
+
+  @override
+  Future<TopicItemsGraph> readTopicItems(
+    String valueId, {
+    int limit = kMaxGraphItems,
+  }) async {
+    // Uno de más, para saber si hay más de los que se dibujan.
+    final rows = await _db
+        .customSelect(
+          mapTopicItemsSql,
+          variables: [
+            Variable.withString(valueId),
+            Variable.withInt(limit + 1),
+          ],
+          readsFrom: mapTables(_db).toSet(),
+        )
+        .get();
+    final truncated = rows.length > limit;
+    final items = [
+      for (final row in rows.take(limit))
+        TopicItemNode(
+          id: row.data['id'] as String,
+          title: row.data['title'] as String,
+          isNote: row.data['kind'] == ItemKind.note.name,
+        ),
+    ];
+    if (items.isEmpty) return TopicItemsGraph.empty(valueId);
+
+    final positionOf = {for (var i = 0; i < items.length; i++) items[i].id: i};
+    final relationRows = await _db
+        .customSelect(
+          mapItemsRelationsSql(items.length),
+          variables: [for (final item in items) Variable.withString(item.id)],
+          readsFrom: mapTables(_db).toSet(),
+        )
+        .get();
+    final edges = <TopicItemEdge>[];
+    for (final row in relationRows) {
+      final from = positionOf[row.data['from_id'] as String];
+      final to = positionOf[row.data['to_id'] as String];
+      if (from == null || to == null) continue;
+      edges.add(
+        TopicItemEdge(
+          a: from,
+          b: to,
+          kind: RelationKind.values.byName(row.data['kind'] as String),
+        ),
+      );
+    }
+    return TopicItemsGraph(
+      valueId: valueId,
+      items: items,
+      edges: edges,
+      truncated: truncated,
+    );
   }
 
   @override

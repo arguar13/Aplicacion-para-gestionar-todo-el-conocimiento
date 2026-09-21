@@ -9,6 +9,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -21,6 +22,9 @@ enum MapView {
 
   /// Un árbol que parte de un tema y se despliega.
   schema,
+
+  /// La red de comunidades, temas y elementos, según el zoom.
+  graph,
 }
 
 /// El mapa de conocimiento (F14): la bóveda vista por temas, en una categoría
@@ -135,6 +139,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               icon: const Icon(Icons.account_tree_outlined),
               label: Text(l10n.mapViewSchema),
             ),
+            ButtonSegment(
+              value: MapView.graph,
+              icon: const Icon(Icons.hub_outlined),
+              label: Text(l10n.mapViewGraph),
+            ),
           ],
           selected: {_view},
           onSelectionChanged: (views) => setState(() => _view = views.single),
@@ -198,6 +207,12 @@ class _MapBody extends ConsumerWidget {
       ),
       MapView.schema => MapSchemaView(
         key: const ValueKey('map-schema'),
+        snapshot: snapshot,
+        onOpenTopic: onOpenTopic,
+        onOpenItem: onOpenItem,
+      ),
+      MapView.graph => MapGraphView(
+        key: const ValueKey('map-graph'),
         snapshot: snapshot,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,

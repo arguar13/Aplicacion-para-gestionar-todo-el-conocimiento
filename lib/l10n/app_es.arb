@@ -3075,6 +3075,59 @@
       }
     }
   },
+  "mapViewGraph": "Grafo",
+  "@mapViewGraph": {
+    "description": "Nombre de la vista del grafo de conocimiento: comunidades de temas, temas y elementos según el zoom."
+  },
+  "mapGraphCrumbOverview": "Comunidades",
+  "@mapGraphCrumbOverview": {
+    "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."
+  },
+  "mapGraphOverflow": "Otras comunidades",
+  "@mapGraphOverflow": {
+    "description": "Nombre del nodo que junta varias comunidades chicas que no entran en el panorama."
+  },
+  "mapGraphCommunitySemantics": "Comunidad de {name}: {count, plural, =1{1 tema} other{{count} temas}}",
+  "@mapGraphCommunitySemantics": {
+    "description": "Descripción accesible de un nodo de comunidad en el grafo.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphTopicsCut": "Se muestran {shown} de {total} temas. Tocá una comunidad para ver los suyos.",
+  "@mapGraphTopicsCut": {
+    "description": "Aviso del grafo cuando hay más temas de los que se dibujan a la vez.",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphItemsCut": "Se muestran los {count} elementos más recientes de este tema.",
+  "@mapGraphItemsCut": {
+    "description": "Aviso del grafo cuando un tema tiene más elementos de los que se dibujan.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapGraphActionItems": "Ver sus elementos",
+  "@mapGraphActionItems": {
+    "description": "Acción de un tema en el grafo: acercarse a los elementos que tiene."
+  },
+  "mapGraphHint": "Tocá una comunidad o acercate para ver sus temas.",
+  "@mapGraphHint": {
+    "description": "Ayuda de una línea bajo el camino del grafo, en el panorama de comunidades."
+  },
   "timelineBranchFilterTooltip": "Quitar el filtro por tema",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

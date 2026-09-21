@@ -24,6 +24,21 @@ void main() {
     return total / n;
   }
 
+  /// Lo que más se movió algún nodo entre dos layouts.
+  double maxMove(MapLayout before, MapLayout after) {
+    var most = 0.0;
+    for (var i = 0; i < before.count; i++) {
+      most = math.max(
+        most,
+        math.sqrt(
+          math.pow(after.xs[i] - before.xs[i], 2) +
+              math.pow(after.ys[i] - before.ys[i], 2),
+        ),
+      );
+    }
+    return most;
+  }
+
   Iterable<(int, int)> pairsWithin(List<int> nodes) => [
     for (var i = 0; i < nodes.length; i++)
       for (var j = i + 1; j < nodes.length; j++) (nodes[i], nodes[j]),
@@ -175,14 +190,40 @@ void main() {
       );
 
       final k = math.sqrt(900 * 900 / 30);
-      var moved = 0.0;
-      for (var i = 0; i < 30; i++) {
-        moved += math.sqrt(
-          math.pow(warm.xs[i] - cold.xs[i], 2) +
-              math.pow(warm.ys[i] - cold.ys[i], 2),
+      expect(maxMove(cold, warm), lessThan(k * 0.1));
+    });
+
+    test('un layout con comunidades, ya calculado, tampoco salta: es un '
+        'layout congelado por el enfriamiento y no un equilibrio', () {
+      // Dos grupos de cuatro muy unidos, con uniones débiles entre ellos: de
+      // este caso salió el defecto de dejar moverse a lo ya acomodado.
+      final links = <MapLayoutLink>[
+        for (final base in [0, 4])
+          for (var i = 0; i < 4; i++)
+            for (var j = i + 1; j < 4; j++)
+              MapLayoutLink(base + i, base + j, 4),
+        const MapLayoutLink(0, 4, 2),
+        const MapLayoutLink(1, 5, 2),
+      ];
+      final groups = Int32List.fromList([0, 0, 0, 0, 1, 1, 1, 1]);
+      final cold = layoutForces(count: 8, links: links, groups: groups);
+
+      for (final iterations in [10, 30, 60]) {
+        final warm = layoutForces(
+          count: 8,
+          links: links,
+          groups: groups,
+          startX: cold.xs,
+          startY: cold.ys,
+          iterations: iterations,
+        );
+        final k = math.sqrt(900 * 900 / 8);
+        expect(
+          maxMove(cold, warm),
+          lessThan(k * 0.1),
+          reason: '$iterations iteraciones',
         );
       }
-      expect(moved / 30, lessThan(k * 0.2));
     });
 
     test('un nodo nuevo nace junto a su vecino, y no encima', () {

@@ -19,6 +19,7 @@ import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
+import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
@@ -61,6 +62,12 @@ class FakeMapRepository implements KnowledgeMapRepository {
     SchemaRef node, {
     int limit = kSchemaFanOut,
   }) async => const [];
+
+  @override
+  Future<TopicItemsGraph> readTopicItems(
+    String valueId, {
+    int limit = kMaxGraphItems,
+  }) async => TopicItemsGraph.empty(valueId);
 
   @override
   Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) =>
