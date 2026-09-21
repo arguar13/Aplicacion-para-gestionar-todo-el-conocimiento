@@ -3505,6 +3505,180 @@ una distribución de Zipf: una bóveda real tiene otra, y por eso
 `searchWindowFloor` no supone cuántos chunks hay entre coincidencias, los
 cuenta.
 
+### 46. F13 de jerarquía temática y Atlas: un vocabulario que se ordena en árbol, un índice que se genera solo y una consulta que se midió antes de creerla
+
+Segunda fase del encargo F12–F17. Cambia el esquema (v21): un valor del
+vocabulario puede colgar de otro, hasta cinco niveles, y sobre eso hay tres
+cosas nuevas. Filtrar por un tema trae también lo de sus subtemas. El
+vocabulario se ve y se reordena como un árbol. Y el Atlas —un destino de primer
+nivel— muestra, para cada tema, cuántas fuentes y cuántas notas hay debajo,
+hasta dónde llegó el trabajo, qué años cubre y qué le falta, generado solo desde
+las propiedades y las notas. Son doce commits: los once del plan y uno que
+apareció al medir.
+
+**Dónde el encargo chocó con el código.** Se dijo antes de resolver, y el
+usuario aprobó el plan con esas decisiones. Los nombres del vocabulario son
+únicos POR CATEGORÍA (`UNIQUE (definition_id, value COLLATE NOCASE)`), no por
+padre, y los alias, la resolución de etiquetas, la fusión de valores y la fusión
+de bóvedas buscan por esa etiqueta: «Economía» bajo «Roma» y «Economía» bajo
+«Grecia» no pueden convivir y se llaman «Economía romana» y «Economía griega».
+Cambiar la unicidad tocaba cinco caminos; se mantuvo y se dijo. El vocabulario
+tiene tres lectores además de su pantalla: el filtro de `LibraryQuerySql` —un
+único lugar, así que la transitividad la heredan la Biblioteca, el Explorador,
+la línea de tiempo y la salud—, las operaciones de F8 con deshacer, y la fusión
+de bóvedas de F11, que escribe con SQL crudo y una lista de columnas explícita:
+dos dispositivos pueden haber puesto A bajo B y B bajo A. Ocho destinos no caben
+en una barra de celular. No hay un vínculo tema–nota aparte de las propiedades:
+«notas mapa de una rama» son las que tienen un valor de esa rama o de sus
+descendientes, y el eje temporal sale de «Fecha del hecho». Y la jerarquía solo
+tiene sentido en categorías de texto.
+
+**El esquema, y los ciclos en la base.** `property_values` gana `parent_id`
+—clave a sí misma, `ON DELETE SET NULL`— y `depth` con un `CHECK` de 0 a 4
+(cinco niveles). Cuatro triggers, y no solo la validación amable del
+repositorio, porque la fusión de bóvedas escribe por debajo de él: dos rechazan
+un ciclo, al insertar y al actualizar, y dos un padre de otra categoría o de una
+que no es de texto. Un trigger de SQLite no admite `WITH`, así que el ciclo se
+detecta con una cadena de `LEFT JOIN` de la profundidad máxima. La migración a
+v21 lleva su respaldo previo y sus conteos como compuerta, y deja todo en la
+raíz con `depth = 0`. `depth` se guarda y se recalcula en la misma transacción
+que mueve una rama.
+
+**Las operaciones de F8 respetan los subtemas.** Mover una rama tiene vista
+previa —cuántos valores cambian de lugar— y deshacer, como fusionar y borrar.
+Fusionar pasa los hijos del valor que desaparece al que queda; «borrar sin uso»
+no borra un padre con hijos; deshacer un borrado reinserta de arriba abajo y
+deshacer un movimiento suelta la rama entera antes de volver a colgarla —de a un
+valor habría ciclos transitorios—. La fusión de bóvedas adopta el padre que trae
+la otra copia solo si el valor local no tiene uno y no cierra un ciclo, no pasa
+de cinco niveles, no cruza categorías y es de texto; si el valor ya tiene padre
+acá, gana el local, porque el padre no se versiona por campo y no hay con qué
+decidir cuál es más nuevo. Lo que no entra se cuenta en el resultado de la
+fusión.
+
+**El filtro transitivo y D3.** El filtro por un valor es una CTE recursiva sobre
+`property_values` —los miles de valores, no los elementos—, dentro de
+`LibraryQuerySql`. El plan pedía medirla contra un cierre materializado, una
+fila por cada par (ascendiente, descendiente). Con la bóveda de 10.000 elementos
+y 2.164 valores de «Tema» —la mayor rama, 303 valores y 4.934 elementos— las dos
+tardan lo mismo: 16 y 15 ms en escritorio, 8 y 7 en el emulador. El cierre son
+6.873 filas que se arman en 19 ms, y sería una tabla más que mantener en cada
+movimiento, fusión, borrado, migración y fusión de bóvedas. Se quedó la CTE y el
+cierre no se implementó. Asignar un hijo no asigna el padre: el padre lo ve
+porque la consulta cuenta hacia abajo.
+
+**El vocabulario, como árbol.** La pantalla de una categoría de texto tiene una
+vista de árbol, plegada al arrancar, y se reordena de tres maneras para que
+ninguna sea la única: el menú de la fila («Mover bajo…» con un buscador de SOLO
+los destinos posibles, «Llevar al primer nivel»), arrastrar una fila sobre la
+que va a ser su padre —o sobre una franja de arriba, al primer nivel— y el
+teclado. Mover siempre pide confirmación y dice cuánto mueve, y el aviso trae
+«Deshacer». Las tarjetas de candidatos a fusionar ganan una segunda salida:
+«Roma» y «Roma republicana» pueden ser lo mismo o lo segundo un caso del
+primero, y la tarjeta propone poner uno bajo el otro por palabras enteras
+—«Arte» no es el padre de «Artesanía»—, el más específico si lo contienen
+varios, sin ofrecer mover lo que alguien ya puso en otro lugar. El camino de
+mover —vista previa, confirmación, aviso— es uno solo para el árbol y para la
+tarjeta.
+
+**El Atlas.** Un repositorio que cuenta, en cascada por la jerarquía, las
+fuentes y las notas de cada rama —un elemento asignado a varios valores de la
+misma rama cuenta una vez—, su estado de cobertura, el rango de años de «Fecha
+del hecho», la última vez que se tocó algo de la rama, sus notas mapa —los
+puntos de entrada— y los vacíos. La cobertura es el nivel más avanzado de la
+rama entera: sin material, solo fuentes, fragmentos (notas sin ninguna viva), en
+construcción, madura; se muestra como cuatro barras que se llenan, para que no
+dependa del color, y con los conteos al lado, porque un estado alto puede
+esconder un hueco. Los vacíos —un tema con cinco fuentes o más y ninguna nota
+viva, una rama con un solo elemento, una rama que nadie tocó hace 183 días— se
+avisan en la rama MÁS ALTA donde se cumplen, para no contar el mismo vacío en
+cada descendiente. El resultado se guarda en memoria y se descarta con cualquier
+escritura en las tablas que lee. La pantalla muestra una categoría a la vez, con
+búsqueda, teclado y actualización sola, y cada rama, cada rango de años y cada
+vacío llevan adonde se resuelve: el Explorador o la línea de tiempo, ya
+filtrados por la rama, o la nota mapa. Se puede exportar como Markdown, con la
+jerarquía, los conteos y las notas mapa como `[[enlaces]]`. La navegación
+cambia: con ocho destinos, la barra del celular muestra cinco —Biblioteca,
+Bandeja, Atlas, Grafo y Repaso— y un «Más» con el resto, y el riel de escritorio
+los muestra todos.
+
+**Medir encontró lo que ninguna prueba mostraba.** El Atlas del paso siete
+pasaba sus pruebas y NO cumplía: con la bóveda de 10.000 elementos abría en 3,9
+s, y el criterio es 500 ms. La consulta contaba parejas (rama, elemento) con un
+`DISTINCT` sobre 60.000 pares de textos —210 ms— y una búsqueda por cada par
+—300 ms—; ya con el conteo en Dart, cada fila que fabrica drift cuesta
+(`QueryRow.read` unos 1,4 µs por columna), las notas mapa tardaban 205 ms porque
+el plan empezaba por las 32.000 asignaciones de la categoría, y armar el árbol
+tardaba 370 ms porque normalizaba el texto DENTRO del comparador de un `sort`.
+Se corrigió de raíz, no se relajó el umbral: la cascada es una función pura que
+sube desde cada valor de un elemento marcando lo visitado (13 ms), la base
+entrega una fila por elemento con sus valores juntos, las notas mapa fijan el
+orden con `CROSS JOIN` (196 a 10 ms) y las claves de orden se calculan una vez.
+Con los 23 tests del repositorio escritos antes como red de seguridad: 191 ms en
+escritorio, 124 en el emulador. La misma lección estaba en el primer plan de la
+consulta, que recorría las asignaciones de todas las categorías hasta que el
+`CROSS JOIN` fijó el orden: SQLite no sabe cuántas filas tiene una CTE. Y otra,
+sobre la caché: el aviso de una escritura llega un instante DESPUÉS de que la
+escritura termina, de modo que quien escribe y en seguida pide el Atlas veía el
+de antes; `snapshot` cede un turno del bucle de eventos antes de mirar la caché.
+
+Otras dos cosas salieron de medir. «Abrir el detalle de una nota con enlaces»
+pasó de 16 a 101 ms sin que cambiara el código: el generador elegía la primera
+nota que se escribía con enlaces y, con el sorteo nuevo, salió una de las que
+más relaciones reciben —1.235—. Ahora es la de un elemento típico, y el peor
+caso tiene su escenario (171 ms en escritorio, 77 en el emulador, sin objetivo).
+Y `flutter drive -d windows` no corría: el arnés pedía
+`getExternalStorageDirectory`, que solo existe en Android.
+
+**Las cifras.** Modo profile, con 10.000 elementos, ~300.000 chunks y 2.164
+valores de «Tema» (la bóveda sintética v5: la de F12 tenía 600 y sin jerarquía,
+así que las de los escenarios que ya existían no son de la misma bóveda). El
+emulador comparte la CPU y el disco de la PC, sus tiempos son optimistas y no
+valen como los de un teléfono; la memoria sí vale. PC enchufada.
+
+```
+                                             escritorio   emulador   objetivo
+filtrar por el tema raíz grande (4.934)         27 ms       15 ms     300 ms
+filtrar por una hoja                             5 ms        3 ms     300 ms
+los ids de todo el tema raíz grande             23 ms       16 ms
+D3: CTE recursiva / cierre materializado    16 / 15 ms    8 / 7 ms
+abrir el Atlas (2.164 ramas, 873 vacíos)       192 ms      124 ms     500 ms
+  de ellos, leer de la base                    100 ms       73 ms
+reabrirlo con la caché                           0 ms        0 ms
+buscar un tema entre los 2.164                   4 ms        4 ms
+exportar el Atlas (424 KB de Markdown)          31 ms       30 ms
+búsqueda de texto, la más lenta                 59 ms       45 ms     300 ms
+```
+
+Migrar la bóveda de 683 MB de v20 a v21 en el emulador, con el respaldo previo
+de 670 MB: 1,7 s (2,1 s la primera vez), con los 19 conteos iguales, ninguna
+clave rota y el invariante de los chunks intacto sobre la bóveda entera;
+después, la compactación de F12 —11 s, 273 MB de memoria residente máxima—. De
+v17 a v21, los 909 MB del criterio, salió a 23,5 s, pero esa corrida fue a
+BATERÍA: el cable se soltó entre una corrida y la siguiente sin que se notara, y
+con la PC a batería los tiempos salen de 2 a 5 veces peores —la búsqueda de una
+palabra rara pasó de 23 a 89 ms en la repetición de escritorio—. Las corridas
+desenchufadas están aparte (`2026-09-21-f13-a-bateria`), con su explicación, y
+no valen como referencia. Falta repetir esa migración enchufada; contra los 22,8
+s de v17 a v20 enchufada en F12 no muestra un salto. Y el emulador, con 3,8 GB,
+mató la aplicación una vez al empezar la compactación después de varias corridas
+seguidas y 2,4 GB empujados por `adb`: memoria llena de caché de archivos y no
+de la aplicación; reiniciado, la corrida terminó.
+
+**Lo que F13 no hace, dicho sin adornos.** No hay cifras de un teléfono real:
+las del emulador dependen de la PC que lo aloja, y la referencia de escritorio
+se recuperó del registro de la corrida enchufada porque la carpeta que el guion
+había llenado se sobrescribió con una repetición a batería. No versiona el padre
+por campo ni resuelve conflictos de jerarquía entre copias: gana el local. No
+permite el mismo nombre bajo dos padres de una categoría. El Atlas muestra una
+categoría a la vez, y su caché se descarta con escrituras, no con el paso del
+tiempo: un vacío «sin tocar hace 183 días» se reevalúa cuando algo cambia o al
+reabrir la app, no a medianoche. Los umbrales de los vacíos son constantes, no
+ajustes. La exportación es una foto. El grafo completo, que carga todos los
+elementos, sigue igual: es de F14. Y la memoria que se mide al abrir el Atlas es
+una cota —el montón ya viene calentado por los escenarios anteriores—, no el
+costo de una primera apertura en frío.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -3767,6 +3941,19 @@ cuenta.
   (`tool/verify_commit.ps1`). Sin cambios de esquema. Primera fase del encargo
   F12–F17 —ver la decisión 45—.
 
+- **F13 de jerarquía temática y Atlas: un vocabulario en árbol y un índice de
+  lo que se sabe.** Los valores del vocabulario cuelgan unos de otros, hasta
+  cinco niveles, con los ciclos impedidos en la propia base; filtrar por un tema
+  trae lo de sus subtemas; el vocabulario se ve y se reordena como árbol, con la
+  sugerencia de poner «Roma republicana» bajo «Roma»; y la fusión de bóvedas
+  trae la jerarquía. El Atlas —destino de primer nivel, con la barra del celular
+  reducida a cinco más un «Más»— muestra por tema cuántas fuentes y notas hay
+  debajo, cuánto está trabajado, qué años cubre, sus notas mapa y los vacíos, y
+  se exporta como Markdown. Medirlo mostró que abría en 3,9 s: se rehízo y abre
+  en 124 ms en el emulador. La consulta transitiva se resolvió con una CTE, no
+  con un cierre materializado: tardan lo mismo. Un cambio de esquema aditivo
+  (v21). Segunda fase del encargo F12–F17 —ver la decisión 46—.
+
 ### Por construir
 
 Las ocho fases originales están construidas, probadas y documentadas.
@@ -3781,11 +3968,11 @@ durabilidad: papelera, versión por campo y fusión no destructiva, ver la
 decisión 44—.
 
 Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras de
-un Android, compactación y copia por tandas, ver la decisión 45— está
-construida.
+un Android, compactación y copia por tandas, ver la decisión 45— y F13 —la
+jerarquía temática y el Atlas, ver la decisión 46— están construidas.
 
-Lo que queda son las cosas que las decisiones 44 y 45 dicen, sin adornos, que no
-hacen: una sincronización que no dependa de traer una copia a mano, lápidas
-para lo que se une por conjuntos y la medición en un teléfono real —F12 midió en
-un emulador—. Ninguna está planeada; se planean —plan breve, aprobado, después
+Lo que queda son las cosas que las decisiones 44, 45 y 46 dicen, sin adornos, que
+no hacen: una sincronización que no dependa de traer una copia a mano, lápidas
+para lo que se une por conjuntos y la medición en un teléfono real —F12 y F13
+midieron en un emulador—. Ninguna está planeada; se planean —plan breve, aprobado, después
 código— cuando le toquen.

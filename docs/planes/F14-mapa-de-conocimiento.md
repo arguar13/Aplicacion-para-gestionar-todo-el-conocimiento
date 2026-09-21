@@ -1,6 +1,6 @@
 # F14 — Mapa de conocimiento (esquema, grafo de conocimiento y tablero)
 
-> **Estado: propuesto, pendiente de aprobación** (2026-09-21). Se aprueba contestando «aprobado» en el chat —con mis recomendaciones—, o diciendo qué decisiones cambiar.
+> **Estado: aprobado** (2026-09-21), en el chat, junto con el de F13. Se construye después de F13; lo que salga distinto de lo planeado se dice en su decisión de `../arquitectura.md`.
 
 Tercera fase del encargo F12–F17. Depende de F13 (la jerarquía de temas es lo que da el
 «esquema»). **No cambia el esquema de la base**: todo lo nuevo es derivado, se reconstruye

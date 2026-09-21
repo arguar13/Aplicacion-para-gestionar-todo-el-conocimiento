@@ -1,6 +1,6 @@
 # F13 — Jerarquía temática y Atlas
 
-> **Estado: propuesto, pendiente de aprobación** (2026-09-21). Se aprueba contestando «aprobado» en el chat —con mis recomendaciones—, o diciendo qué decisiones cambiar.
+> **Estado: aprobado y construido** (2026-09-21). Aprobado en el chat con las recomendaciones que se leen abajo. Lo construido, lo que se midió y lo que no hace, en la Decisión 46 de `../arquitectura.md`. Un cambio respecto de lo planeado: los agregados del Atlas NO corren enteros en SQL —la medición mostró que abrir tardaba 3,9 s— sino que la base entrega una fila por elemento y la cascada se suma en Dart; y hubo un commit más, `perf(atlas)`.
 
 Segunda fase del encargo F12–F17. Depende de F12 cerrada. Cambia el esquema (v20 → v21).
 Restricción inalienable intacta: ningún paso toca el texto de una fuente ni un chunk; al
