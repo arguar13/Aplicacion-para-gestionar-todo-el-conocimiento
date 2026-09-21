@@ -47,6 +47,13 @@ class IeeeStyle implements ReferenceStyle {
   bool get isNumbered => true;
 
   @override
+  bool get isAuthorDate => false;
+
+  @override
+  String listTitle(CitationLanguage language) =>
+      CitationTerms.of(language).referencesTitle;
+
+  @override
   Citation format(
     CitationForm form,
     CitationSource source,

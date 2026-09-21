@@ -27,6 +27,16 @@ abstract interface class ReferenceStyle {
   /// `CitationContext.number`; el estilo lo escribe a su manera.
   bool get isNumbered;
 
+  /// Si la entrada lleva el año detrás del autor —APA, Chicago autor-fecha—.
+  /// En esos estilos las obras de un mismo autor se ordenan por año, y las del
+  /// mismo año se distinguen con una letra: quien arma la lista le pasa a cada
+  /// una su `CitationContext.yearSuffix`.
+  bool get isAuthorDate;
+
+  /// Cómo se titula la lista en este estilo y en este idioma: «Referencias»,
+  /// «Obras citadas», «Bibliografía»; «References», «Works Cited».
+  String listTitle(CitationLanguage language);
+
   /// La cita de [source] en la forma [form]. Para una forma que el estilo no
   /// tiene devuelve la cita vacía: quien la pide mira antes [forms].
   Citation format(

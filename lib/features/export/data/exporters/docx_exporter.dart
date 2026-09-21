@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/export/data/exporters/docx_package.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 import 'package:xml/xml.dart';
@@ -36,126 +35,11 @@ class DocxExporter implements Exporter {
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async {
-    final archive = Archive()
-      ..addFile(_entry('[Content_Types].xml', _contentTypesXml()))
-      ..addFile(_entry('_rels/.rels', _rootRelsXml()))
-      ..addFile(_entry('docProps/core.xml', _coreXml(item)))
-      ..addFile(_entry('word/document.xml', _documentXml(item)));
-
-    final bytes = ZipEncoder().encode(archive);
-    return Uint8List.fromList(bytes);
-  }
-
-  ArchiveFile _entry(String name, String xml) {
-    final bytes = Uint8List.fromList(utf8.encode(xml));
-    return ArchiveFile(name, bytes.length, bytes);
-  }
-
-  String _contentTypesXml() {
-    final builder = XmlBuilder();
-    builder
-      ..processing('xml', 'version="1.0" encoding="UTF-8" standalone="yes"')
-      ..element(
-        'Types',
-        namespace: _ct,
-        namespaces: {_ct: ''},
-        nest: () {
-          builder
-            ..element(
-              'Default',
-              attributes: {
-                'Extension': 'rels',
-                'ContentType':
-                    'application/vnd.openxmlformats-package.relationships'
-                    '+xml',
-              },
-            )
-            ..element(
-              'Default',
-              attributes: {
-                'Extension': 'xml',
-                'ContentType': 'application/xml',
-              },
-            )
-            ..element(
-              'Override',
-              attributes: {
-                'PartName': '/word/document.xml',
-                'ContentType':
-                    'application/vnd.openxmlformats-officedocument'
-                    '.wordprocessingml.document.main+xml',
-              },
-            )
-            ..element(
-              'Override',
-              attributes: {
-                'PartName': '/docProps/core.xml',
-                'ContentType':
-                    'application/vnd.openxmlformats-package'
-                    '.core-properties+xml',
-              },
-            );
-        },
-      );
-    return builder.buildDocument().toXmlString();
-  }
-
-  String _rootRelsXml() {
-    final builder = XmlBuilder();
-    builder
-      ..processing('xml', 'version="1.0" encoding="UTF-8" standalone="yes"')
-      ..element(
-        'Relationships',
-        namespace: _rel,
-        namespaces: {_rel: ''},
-        nest: () {
-          builder
-            ..element(
-              'Relationship',
-              attributes: {
-                'Id': 'rId1',
-                'Type':
-                    'http://schemas.openxmlformats.org/officeDocument/2006'
-                    '/relationships/officeDocument',
-                'Target': 'word/document.xml',
-              },
-            )
-            ..element(
-              'Relationship',
-              attributes: {
-                'Id': 'rId2',
-                'Type':
-                    'http://schemas.openxmlformats.org/package/2006'
-                    '/relationships/metadata/core-properties',
-                'Target': 'docProps/core.xml',
-              },
-            );
-        },
-      );
-    return builder.buildDocument().toXmlString();
-  }
-
-  String _coreXml(KnowledgeItem item) {
-    final builder = XmlBuilder();
-    builder
-      ..processing('xml', 'version="1.0" encoding="UTF-8" standalone="yes"')
-      ..element(
-        'coreProperties',
-        namespace: _cp,
-        namespaces: {_cp: 'cp', _dc: 'dc'},
-        nest: () {
-          builder
-            ..element('title', namespace: _dc, nest: item.title)
-            ..element(
-              'creator',
-              namespace: _dc,
-              nest: item.source.authorName ?? 'Sinapsis',
-            );
-        },
-      );
-    return builder.buildDocument().toXmlString();
-  }
+  Future<Uint8List> export(KnowledgeItem item) async => buildDocxPackage(
+    documentXml: _documentXml(item),
+    title: item.title,
+    creator: item.source.authorName ?? 'Sinapsis',
+  );
 
   String _documentXml(KnowledgeItem item) {
     final builder = XmlBuilder();
@@ -324,17 +208,5 @@ class DocxExporter implements Exporter {
   }
 }
 
-/// El espacio de nombres del formato de Word. Igual que en `DocxParser`: se
-/// declara el prefijo `w:` a mano en vez de dejar que `XmlBuilder` elija uno,
-/// porque es el prefijo que todo lector de `.docx` espera encontrar.
-const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-
-const _cp =
-    'http://schemas.openxmlformats.org/package/2006/metadata'
-    '/core-properties';
-
-const _dc = 'http://purl.org/dc/elements/1.1/';
-
-const _ct = 'http://schemas.openxmlformats.org/package/2006/content-types';
-
-const _rel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+/// El espacio de nombres del formato de Word: ver `kWordNamespace`.
+const _w = kWordNamespace;

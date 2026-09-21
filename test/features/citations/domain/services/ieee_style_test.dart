@@ -101,6 +101,9 @@ void main() {
       expect(style.id, 'ieee');
       expect(style.name, 'IEEE');
       expect(style.isNumbered, isTrue);
+      expect(style.isAuthorDate, isFalse);
+      expect(style.listTitle(CitationLanguage.es), 'Referencias');
+      expect(style.listTitle(CitationLanguage.en), 'References');
       expect(kReferenceStyles.byId('ieee'), isA<IeeeStyle>());
     });
 

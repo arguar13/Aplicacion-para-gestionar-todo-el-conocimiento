@@ -117,8 +117,30 @@ void main() {
       );
     });
 
-    test('no numera sus entradas', () {
+    test('no numera sus entradas ni lleva el año detrás del autor', () {
       expect(style.isNumbered, isFalse);
+      expect(style.isAuthorDate, isFalse);
+    });
+
+    test('titula su lista «Obras citadas» o «Works Cited»', () {
+      expect(style.listTitle(CitationLanguage.es), 'Obras citadas');
+      expect(style.listTitle(CitationLanguage.en), 'Works Cited');
+    });
+
+    test('la letra del año no le importa', () {
+      final book = source(
+        type: ReferenceType.book,
+        people: [person('García', 'Ana')],
+        publisher: 'Editorial',
+      );
+      const suffixed = CitationContext(yearSuffix: 'a');
+
+      expect(
+        style.format(CitationForm.reference, book, suffixed).toPlainText(),
+        style
+            .format(CitationForm.reference, book, const CitationContext())
+            .toPlainText(),
+      );
     });
   });
 

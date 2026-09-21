@@ -653,6 +653,39 @@ void main() {
     });
   });
 
+  group('la letra del año', () {
+    const suffixed = CitationContext(
+      language: CitationLanguage.en,
+      yearSuffix: 'b',
+    );
+
+    test('autor-fecha: pegada al año, en la entrada y en el texto', () {
+      expect(
+        authorDate
+            .format(CitationForm.reference, swingTime, suffixed)
+            .toPlainText(),
+        'Smith, Zadie. 2016b. Swing Time. New York: Penguin Press.',
+      );
+      expect(
+        authorDate
+            .format(CitationForm.inText, swingTime, suffixed)
+            .toPlainText(),
+        '(Smith 2016b)',
+      );
+    });
+
+    test('notas y bibliografía no la llevan', () {
+      expect(
+        notes.format(CitationForm.reference, swingTime, suffixed).toPlainText(),
+        'Smith, Zadie. Swing Time. New York: Penguin Press, 2016.',
+      );
+      expect(
+        notes.format(CitationForm.note, swingTime, suffixed).toPlainText(),
+        'Zadie Smith, Swing Time (New York: Penguin Press, 2016).',
+      );
+    });
+  });
+
   group('las notas', () {
     test('sin pasaje, la nota cita la obra entera', () {
       expect(

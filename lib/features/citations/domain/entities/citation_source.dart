@@ -65,6 +65,7 @@ class CitationContext {
     this.language = CitationLanguage.es,
     this.locator,
     this.number,
+    this.yearSuffix,
   });
 
   final CitationLanguage language;
@@ -76,6 +77,12 @@ class CitationContext {
   /// sus entradas (IEEE). `null` fuera de una lista: una fuente citada sola es
   /// la primera.
   final int? number;
+
+  /// La letra que distingue dos obras del mismo autor y del mismo año en un
+  /// estilo autor-fecha —«a» en «2019a»—, para quien arma la lista: una obra
+  /// suelta no la lleva. La escriben los estilos con
+  /// `ReferenceStyle.isAuthorDate`, en la entrada y en la cita en el texto.
+  final String? yearSuffix;
 }
 
 /// Lo que un estilo necesita saber de una fuente para citarla (F15): su

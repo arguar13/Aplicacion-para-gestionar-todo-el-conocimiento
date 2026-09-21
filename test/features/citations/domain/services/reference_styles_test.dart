@@ -52,6 +52,34 @@ void main() {
       expect({for (final s in styles) s.name}, hasLength(styles.length));
     });
 
+    test('solo APA y Chicago autor-fecha llevan el año detrás del autor', () {
+      expect(
+        [
+          for (final s in styles)
+            if (s.isAuthorDate) s.id,
+        ],
+        ['apa7', 'chicago17ad'],
+      );
+    });
+
+    test('cada estilo titula su lista, en los dos idiomas', () {
+      final titles = {
+        for (final s in styles)
+          s.id: [
+            for (final language in CitationLanguage.values)
+              s.listTitle(language),
+          ],
+      };
+
+      expect(titles, {
+        'apa7': ['Referencias', 'References'],
+        'mla9': ['Obras citadas', 'Works Cited'],
+        'chicago17nb': ['Bibliografía', 'Bibliography'],
+        'chicago17ad': ['Referencias', 'References'],
+        'ieee': ['Referencias', 'References'],
+      });
+    });
+
     test('solo IEEE numera sus entradas', () {
       expect(
         [

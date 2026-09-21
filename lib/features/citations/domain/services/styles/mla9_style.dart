@@ -55,6 +55,13 @@ class Mla9Style implements ReferenceStyle {
   bool get isNumbered => false;
 
   @override
+  bool get isAuthorDate => false;
+
+  @override
+  String listTitle(CitationLanguage language) =>
+      CitationTerms.of(language).worksCitedTitle;
+
+  @override
   Citation format(
     CitationForm form,
     CitationSource source,

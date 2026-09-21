@@ -90,6 +90,15 @@ class ChicagoStyle implements ReferenceStyle {
   bool get isNumbered => false;
 
   @override
+  bool get isAuthorDate => _authorDate;
+
+  @override
+  String listTitle(CitationLanguage language) {
+    final terms = CitationTerms.of(language);
+    return _authorDate ? terms.referencesTitle : terms.bibliographyTitle;
+  }
+
+  @override
   Citation format(
     CitationForm form,
     CitationSource source,
@@ -115,7 +124,7 @@ class ChicagoStyle implements ReferenceStyle {
     _writeAuthors(builder, source, terms);
     if (_authorDate) {
       builder.space();
-      _writeYear(builder, source, terms);
+      _writeYear(builder, source, terms, suffix: context.yearSuffix ?? '');
       builder.period();
     }
     builder.space();
@@ -208,12 +217,13 @@ class ChicagoStyle implements ReferenceStyle {
     };
   }
 
-  /// El año: «2019», «n.d.» o el hueco.
+  /// El año: «2019», «2019a», «n.d.» o el hueco.
   void _writeYear(
     CitationBuilder builder,
     CitationSource source,
-    CitationTerms terms,
-  ) {
+    CitationTerms terms, {
+    String suffix = '',
+  }) {
     final date = source.date;
     final year = date.year;
     if (date.isUndated) {
@@ -221,7 +231,7 @@ class ChicagoStyle implements ReferenceStyle {
     } else if (date.isUnknown || year == null) {
       builder.gap(CitationGap.year);
     } else {
-      builder.plain('$year');
+      builder.plain('$year$suffix');
     }
   }
 
@@ -961,7 +971,7 @@ class ChicagoStyle implements ReferenceStyle {
       builder.plain(_surnames(lead.names, terms));
     }
     builder.plain(' ');
-    _writeYear(builder, source, terms);
+    _writeYear(builder, source, terms, suffix: context.yearSuffix ?? '');
 
     final locator = _locatorText(context.locator);
     if (locator != null) builder.plain(', $locator');

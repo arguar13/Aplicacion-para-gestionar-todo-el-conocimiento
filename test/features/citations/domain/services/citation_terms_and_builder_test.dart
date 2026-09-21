@@ -156,6 +156,28 @@ void main() {
       },
     );
 
+    test('la fecha de APA con la letra del año', () {
+      expect(en.apaDate(2019, suffix: 'a'), '2019a');
+      expect(es.apaDate(2019, month: 3, suffix: 'b'), '2019b, marzo');
+      expect(
+        en.apaDate(2019, month: 3, day: 15, suffix: 'a'),
+        '2019a, March 15',
+      );
+      expect(
+        es.apaDate(2019, month: 3, day: 15, suffix: 'c'),
+        '2019c, 15 de marzo',
+      );
+    });
+
+    test('cómo se titula la lista de obras', () {
+      expect(es.referencesTitle, 'Referencias');
+      expect(es.worksCitedTitle, 'Obras citadas');
+      expect(es.bibliographyTitle, 'Bibliografía');
+      expect(en.referencesTitle, 'References');
+      expect(en.worksCitedTitle, 'Works Cited');
+      expect(en.bibliographyTitle, 'Bibliography');
+    });
+
     test('la fecha larga y la de consulta', () {
       final date = DateTime(2026, 9, 5);
 

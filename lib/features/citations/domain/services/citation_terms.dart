@@ -57,6 +57,9 @@ class CitationTerms {
     required this.longDate,
     required this.retrieved,
     required this.videoOn,
+    required this.referencesTitle,
+    required this.worksCitedTitle,
+    required this.bibliographyTitle,
   });
 
   /// El idioma pedido.
@@ -135,6 +138,9 @@ class CitationTerms {
     longDate: _spanishLongDate,
     retrieved: _spanishRetrieved,
     videoOn: _spanishVideoOn,
+    referencesTitle: 'Referencias',
+    worksCitedTitle: 'Obras citadas',
+    bibliographyTitle: 'Bibliografía',
   );
 
   static const en = CitationTerms(
@@ -233,6 +239,9 @@ class CitationTerms {
     longDate: _englishLongDate,
     retrieved: _englishRetrieved,
     videoOn: _englishVideoOn,
+    referencesTitle: 'References',
+    worksCitedTitle: 'Works Cited',
+    bibliographyTitle: 'Bibliography',
   );
 
   /// «y» / «and»: la conjunción de una lista de nombres.
@@ -355,6 +364,12 @@ class CitationTerms {
   final String Function(CitationTerms terms, DateTime date, String url)
   retrieved;
 
+  /// Cómo se titula la lista de obras: «Referencias» —APA, IEEE, Chicago
+  /// autor-fecha—, «Obras citadas» —MLA— y «Bibliografía» —Chicago notas—.
+  final String referencesTitle;
+  final String worksCitedTitle;
+  final String bibliographyTitle;
+
   /// Cómo se describe un video de una plataforma: «YouTube video» en inglés,
   /// «Video de YouTube» en español.
   final String Function(String platform) videoOn;
@@ -398,11 +413,13 @@ class CitationTerms {
   /// La fecha que APA escribe entre paréntesis después del año: «2019, 15 de
   /// marzo» / «2019, March 15». Solo el año, o el año y el mes, si no se sabe
   /// más.
-  String apaDate(int year, {int? month, int? day}) {
-    if (month == null) return '$year';
+  String apaDate(int year, {int? month, int? day, String suffix = ''}) {
+    if (month == null) return '$year$suffix';
     final name = monthName(month);
-    if (day == null) return '$year, $name';
-    return dayFirst ? '$year, $day de $name' : '$year, $name $day';
+    if (day == null) return '$year$suffix, $name';
+    return dayFirst
+        ? '$year$suffix, $day de $name'
+        : '$year$suffix, $name $day';
   }
 }
 

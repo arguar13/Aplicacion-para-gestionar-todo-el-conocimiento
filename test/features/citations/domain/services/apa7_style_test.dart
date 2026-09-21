@@ -892,6 +892,68 @@ void main() {
     });
   });
 
+  group('la letra del año', () {
+    Citation withSuffix(CitationSource source, CitationForm form) =>
+        style.format(
+          form,
+          source,
+          const CitationContext(language: CitationLanguage.en, yearSuffix: 'a'),
+        );
+
+    test('va pegada al año, en la entrada y en la cita en el texto', () {
+      final book = source(
+        type: ReferenceType.book,
+        people: [person('García', 'Ana')],
+        publisher: 'Editorial',
+      );
+
+      expect(
+        withSuffix(book, CitationForm.reference).toPlainText(),
+        'García, A. (2019a). Un título. Editorial.',
+      );
+      expect(
+        withSuffix(book, CitationForm.inText).toPlainText(),
+        '(García, 2019a)',
+      );
+    });
+
+    test('también con la fecha entera de una página web', () {
+      final page = source(
+        type: ReferenceType.website,
+        people: [institution('OMS')],
+        date: PublicationDate.ofDay(2019, 3, 15),
+        url: 'https://x.org',
+      );
+
+      expect(
+        withSuffix(page, CitationForm.reference).toPlainText(),
+        startsWith('OMS. (2019a, March 15). '),
+      );
+    });
+
+    test('«s. f.» y un año desconocido no la llevan', () {
+      final undated = source(
+        type: ReferenceType.book,
+        people: [person('García', 'Ana')],
+        date: const PublicationDate.undated(),
+      );
+      final unknown = source(
+        type: ReferenceType.book,
+        people: [person('García', 'Ana')],
+        date: const PublicationDate.unknown(),
+      );
+
+      expect(
+        withSuffix(undated, CitationForm.reference).toPlainText(),
+        contains('(n.d.)'),
+      );
+      expect(
+        withSuffix(unknown, CitationForm.reference).toPlainText(),
+        contains('([missing: year])'),
+      );
+    });
+  });
+
   group('la edición', () {
     String edition(String? raw) => plain(
       source(

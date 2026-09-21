@@ -41,6 +41,13 @@ class Apa7Style implements ReferenceStyle {
   bool get isNumbered => false;
 
   @override
+  bool get isAuthorDate => true;
+
+  @override
+  String listTitle(CitationLanguage language) =>
+      CitationTerms.of(language).referencesTitle;
+
+  @override
   Citation format(
     CitationForm form,
     CitationSource source,
@@ -62,7 +69,13 @@ class Apa7Style implements ReferenceStyle {
 
     _writeAuthors(builder, source, terms);
     builder.space();
-    _writeDate(builder, source, terms, fullDate: _usesFullDate(type));
+    _writeDate(
+      builder,
+      source,
+      terms,
+      fullDate: _usesFullDate(type),
+      suffix: context.yearSuffix ?? '',
+    );
     builder.space();
 
     switch (type) {
@@ -151,12 +164,14 @@ class Apa7Style implements ReferenceStyle {
     return '${_joinInitialsFirst(people, terms)}, $label';
   }
 
-  /// «(2019).», «(2019, 15 de marzo).», «(s. f.).» o el hueco del año.
+  /// «(2019).», «(2019a).», «(2019, 15 de marzo).», «(s. f.).» o el hueco del
+  /// año.
   void _writeDate(
     CitationBuilder builder,
     CitationSource source,
     CitationTerms terms, {
     required bool fullDate,
+    required String suffix,
   }) {
     final date = source.date;
     builder.plain('(');
@@ -166,9 +181,11 @@ class Apa7Style implements ReferenceStyle {
     } else if (date.isUnknown || year == null) {
       builder.gap(CitationGap.year);
     } else if (fullDate) {
-      builder.plain(terms.apaDate(year, month: date.month, day: date.day));
+      builder.plain(
+        terms.apaDate(year, month: date.month, day: date.day, suffix: suffix),
+      );
     } else {
-      builder.plain('$year');
+      builder.plain('$year$suffix');
     }
     builder.plain(').');
   }
@@ -464,7 +481,7 @@ class Apa7Style implements ReferenceStyle {
     } else if (date.isUnknown || date.year == null) {
       builder.gap(CitationGap.year);
     } else {
-      builder.plain('${date.year}');
+      builder.plain('${date.year}${context.yearSuffix ?? ''}');
     }
 
     final locator = context.locator;
