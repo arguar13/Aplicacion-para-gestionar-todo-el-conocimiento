@@ -4479,6 +4479,67 @@
   "@vocabularyCategoryEmpty": {
     "description": "Estado vacío del explorador de una categoría."
   },
+  "vocabularyAddPersonTitle": "Add author",
+  "@vocabularyAddPersonTitle": {
+    "description": "Title of the dialog, and tooltip of the button, to add a person to the authors vocabulary"
+  },
+  "vocabularyEditPersonTitle": "Edit author",
+  "@vocabularyEditPersonTitle": {
+    "description": "Title of the dialog to edit the name of a person in the authors vocabulary"
+  },
+  "personFamilyLabel": "Surname",
+  "@personFamilyLabel": {
+    "description": "Label of the surname field of a person"
+  },
+  "personGivenLabel": "Given name",
+  "@personGivenLabel": {
+    "description": "Label of the given name field of a person"
+  },
+  "personSuffixLabel": "Suffix (Jr., III…)",
+  "@personSuffixLabel": {
+    "description": "Label of the optional suffix field of a person, such as Jr. or III"
+  },
+  "personIsInstitutionLabel": "It is an institution or organization",
+  "@personIsInstitutionLabel": {
+    "description": "Switch that says the name is an institution, so it is neither split nor abbreviated"
+  },
+  "personLabelPreview": "Saved as: {label}",
+  "@personLabelPreview": {
+    "description": "Preview of how a person will be stored, in the form Surname, Given name; label is that text",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "personDialogSave": "Save",
+  "@personDialogSave": {
+    "description": "Confirm button of the dialog that asks for the name of a person"
+  },
+  "vocabularyWorksTitle": "Works",
+  "@vocabularyWorksTitle": {
+    "description": "Title of the list of works in which a person appears"
+  },
+  "vocabularyWorksEmpty": "No work names this person yet.",
+  "@vocabularyWorksEmpty": {
+    "description": "Shown when a person is not the author, translator, editor or director of any work"
+  },
+  "contributorRoleAuthor": "Author",
+  "@contributorRoleAuthor": {
+    "description": "Role of a person in a work"
+  },
+  "contributorRoleTranslator": "Translator",
+  "@contributorRoleTranslator": {
+    "description": "Role of a person in a work"
+  },
+  "contributorRoleEditor": "Editor",
+  "@contributorRoleEditor": {
+    "description": "Role of a person in a work"
+  },
+  "contributorRoleDirector": "Director",
+  "@contributorRoleDirector": {
+    "description": "Role of a person in a work"
+  },
   "vocabularySearchHint": "Search a value",
   "@vocabularySearchHint": {
     "description": "Texto del campo de búsqueda del explorador de una categoría."

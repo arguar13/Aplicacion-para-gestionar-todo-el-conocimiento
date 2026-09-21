@@ -127,6 +127,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
               name: d.name,
               isSystem: d.isSystem,
               valueCount: counts[d.id] ?? 0,
+              isPerson: d.type == PropertyValueType.person,
             ),
         ];
         final nameKey = {

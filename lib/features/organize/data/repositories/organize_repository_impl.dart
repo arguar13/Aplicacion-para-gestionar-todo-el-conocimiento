@@ -947,6 +947,23 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
 
     try {
+      // Las personas de una obra (F15) no son una propiedad que se asigna a
+      // mano: son autores, traductores… de una fuente, y se cargan en sus
+      // datos bibliográficos. Asignarlas acá dejaría una persona sin nombre
+      // partido y sin rol, y sin que la obra la nombre.
+      final definition = await (_db.select(
+        _db.propertyDefinitions,
+      )..where((d) => d.id.equals(definitionId))).getSingleOrNull();
+      if (definition?.type == PropertyValueType.person) {
+        return left(
+          const Failure.validation(
+            message:
+                'Los autores se cargan en los datos bibliográficos de la '
+                'fuente, no como una propiedad.',
+          ),
+        );
+      }
+
       // Por label o por alias, sin distinguir acentos: escribir
       // "Constantinopla" —alias de "Bizancio"— asigna "Bizancio" en vez de
       // crear un valor duplicado.

@@ -1646,6 +1646,28 @@ void main() {
     });
 
     group('asignar valores', () {
+      test('una persona no se asigna como una propiedad: se carga en los datos '
+          'bibliográficos de la fuente', () async {
+        final autor = (await repository.getOrCreatePropertyDefinition(
+          'Autor',
+        )).getRight().toNullable()!;
+        expect(autor.type, PropertyValueType.person);
+        final item = await seedItem();
+
+        final result = await repository.assignProperty(
+          itemId: item.id,
+          definitionId: autor.id,
+          value: 'García Márquez, Gabriel',
+        );
+
+        expect(result.getLeft().toNullable(), isA<ValidationFailure>());
+        // Y no dejó nada: ni el valor ni la asignación.
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.properties, isEmpty);
+      });
+
       test('un valor nuevo se crea y queda en el elemento', () async {
         final definition = (await repository.getOrCreatePropertyDefinition(
           'Región',

@@ -263,6 +263,40 @@ void main() {
       expect(find.text(es.globalErrorUnexpected), findsOneWidget);
     });
 
+    testWidgets(
+      'no ofrece la categoría de las personas: se cargan en los datos '
+      'bibliográficos de la fuente',
+      (tester) async {
+        final autor = PropertyDefinition(
+          id: 'def-autor',
+          name: 'Autor',
+          createdAt: now,
+          type: PropertyValueType.person,
+          isSystem: true,
+        );
+        when(
+          organize.watchAllPropertyDefinitions,
+        ).thenAnswer((_) => Stream.value([autor, fecha, region]));
+        await pumpEditor(tester);
+        await tester.tap(find.text(es.detailAddProperty));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+          'Au',
+        );
+        await tester.pumpAndSettle();
+        // Y con un texto que sí encuentra una, la ofrece: el control.
+        expect(find.text('Autor'), findsNothing);
+        await tester.enterText(
+          find.widgetWithText(TextField, es.detailPropertyCategoryHint),
+          'Reg',
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Región'), findsWidgets);
+      },
+    );
+
     testWidgets('si sale bien, no hay ningún aviso', (tester) async {
       when(() => organize.getOrCreatePropertyDefinition(any())).thenAnswer(
         (_) async => right(

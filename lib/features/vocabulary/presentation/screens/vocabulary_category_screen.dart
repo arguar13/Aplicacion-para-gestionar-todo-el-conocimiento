@@ -5,6 +5,7 @@ import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.da
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_value_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/merge_confirm_dialog.dart';
+import 'package:sinapsis/features/vocabulary/presentation/widgets/person_name_dialog.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_feedback.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_tree_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -78,22 +79,40 @@ class _VocabularyCategoryScreenState
     feedback.report(result);
   }
 
+  /// Agrega una persona a la categoría de autores (F15).
+  Future<void> _addPerson() async {
+    final feedback = VocabularyFeedback.of(context, ref);
+    final controller = ref.read(vocabularyControllerProvider.notifier);
+    final title = AppLocalizations.of(context)!.vocabularyAddPersonTitle;
+
+    final name = await askPersonName(context, title: title);
+    if (name == null) return;
+
+    feedback.report(await controller.addPerson(name));
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final canUndo = ref.watch(vocabularyControllerProvider) != null;
     final values = ref.watch(categoryValuesProvider(widget.definitionId));
-    final categoryName = ref
+    final category = ref
         .watch(vocabularyCategoryStatsProvider)
         .valueOrNull
         ?.where((c) => c.id == widget.definitionId)
-        .firstOrNull
-        ?.name;
+        .firstOrNull;
+    final categoryName = category?.name;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(categoryName ?? l10n.vocabularyTitle),
         actions: [
+          if (category?.isPerson ?? false)
+            IconButton(
+              tooltip: l10n.vocabularyAddPersonTitle,
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              onPressed: _addPerson,
+            ),
           IconButton(
             tooltip: l10n.vocabularyUndoTooltip,
             icon: const Icon(Icons.undo),

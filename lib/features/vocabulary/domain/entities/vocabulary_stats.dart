@@ -66,12 +66,17 @@ class VocabularyCategoryStat {
     required this.name,
     required this.isSystem,
     required this.valueCount,
+    this.isPerson = false,
   });
 
   final String id;
   final String name;
   final bool isSystem;
   final int valueCount;
+
+  /// Si es la categoría de las personas de una obra (F15): sus valores se
+  /// agregan y se editan con un apellido y un nombre.
+  final bool isPerson;
 
   /// Una categoría sin ningún valor que el usuario creó y se puede borrar. Las
   /// de sistema no cuentan: que "Tema" esté vacía es normal, y no se puede

@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/vocabulary/data/repositories/vocabulary_repository_impl.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/author_work.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/domain/repositories/vocabulary_repository.dart';
@@ -57,6 +59,12 @@ final categoryValuesProvider = Provider.autoDispose
     });
 
 /// Los alias de un valor.
+/// Las obras en las que figura una persona (F15), por el id de su valor.
+final personWorksProvider = StreamProvider.autoDispose
+    .family<List<AuthorWork>, String>((ref, valueId) {
+      return ref.watch(vocabularyRepositoryProvider).watchWorksOf(valueId);
+    });
+
 final valueAliasesProvider = StreamProvider.autoDispose
     .family<List<VocabularyAlias>, String>((ref, valueId) {
       return ref.watch(vocabularyRepositoryProvider).watchAliases(valueId);
@@ -131,6 +139,14 @@ class VocabularyController extends Notifier<VocabularyOperation?> {
     required String id,
     required String label,
   }) => _record(_repository.renameValue(id: id, label: label));
+
+  Future<Either<Failure, VocabularyOperation>> addPerson(PersonName name) =>
+      _record(_repository.addPerson(name));
+
+  Future<Either<Failure, VocabularyOperation>> editPerson({
+    required String id,
+    required PersonName name,
+  }) => _record(_repository.editPerson(id: id, name: name));
 
   Future<Either<Failure, VocabularyOperation>> deleteUnused(List<String> ids) =>
       _record(_repository.deleteUnusedValues(ids));

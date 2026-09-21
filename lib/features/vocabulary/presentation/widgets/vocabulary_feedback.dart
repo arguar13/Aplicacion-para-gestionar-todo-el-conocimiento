@@ -4,7 +4,9 @@ import 'package:fpdart/fpdart.dart' show Either;
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_operation.dart';
+import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
+import 'package:sinapsis/features/vocabulary/presentation/widgets/person_name_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El texto que cuenta qué hizo [operation], localizado.
@@ -128,6 +130,38 @@ Future<bool> confirmVocabularyAction(
     ),
   );
   return confirmed ?? false;
+}
+
+/// Renombra [value] pidiendo lo que ese valor necesita y avisa cómo salió: el
+/// texto nuevo, o —si es una persona (F15)— su apellido y su nombre.
+///
+/// Es un solo camino para todas las pantallas que renombran: elegir el diálogo
+/// según el valor no se puede repetir en cada una y que ninguna lo olvide.
+Future<void> renameVocabularyValue(
+  BuildContext context,
+  WidgetRef ref,
+  VocabularyValueStat value,
+) async {
+  // Antes de esperar nada: ver [VocabularyFeedback].
+  final feedback = VocabularyFeedback.of(context, ref);
+  final controller = ref.read(vocabularyControllerProvider.notifier);
+  final l10n = AppLocalizations.of(context)!;
+
+  final person = value.person;
+  if (person != null) {
+    final name = await askPersonName(
+      context,
+      title: l10n.vocabularyEditPersonTitle,
+      initial: person,
+    );
+    if (name == null) return;
+    feedback.report(await controller.editPerson(id: value.id, name: name));
+    return;
+  }
+
+  final label = await askNewValueName(context, value.label);
+  if (label == null) return;
+  feedback.report(await controller.rename(id: value.id, label: label));
 }
 
 /// Pide el nombre nuevo de un valor; `null` si se canceló.

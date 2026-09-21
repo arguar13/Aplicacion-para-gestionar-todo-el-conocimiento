@@ -264,10 +264,19 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
     return definitions.where((d) => d.name.toLowerCase() == typed).firstOrNull;
   }
 
+  /// Las categorías que se pueden elegir acá: las de las personas de una obra
+  /// (F15) no, porque se cargan en los datos bibliográficos de la fuente.
+  List<PropertyDefinition> _selectable(List<PropertyDefinition> definitions) =>
+      [
+        for (final d in definitions)
+          if (d.type != PropertyValueType.person) d,
+      ];
+
   void _confirm() {
-    final definitions =
-        ref.read(allPropertyDefinitionsProvider).valueOrNull ??
-        const <PropertyDefinition>[];
+    final definitions = _selectable(
+      ref.read(allPropertyDefinitionsProvider).valueOrNull ??
+          const <PropertyDefinition>[],
+    );
     final matching = _matchingDefinition(definitions);
 
     if (matching != null && matching.type == PropertyValueType.date) {
@@ -299,9 +308,10 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final definitions =
-        ref.watch(allPropertyDefinitionsProvider).valueOrNull ??
-        const <PropertyDefinition>[];
+    final definitions = _selectable(
+      ref.watch(allPropertyDefinitionsProvider).valueOrNull ??
+          const <PropertyDefinition>[],
+    );
 
     final typedCategory = _categoryController.text.trim().toLowerCase();
     final categorySuggestions = definitions

@@ -32,6 +32,14 @@ extension PublicationPrecisionPresentation on PublicationPrecision {
 }
 
 extension ContributorRolePresentation on ContributorRole {
+  /// El rol de UNA persona: «Autor», «Traductor».
+  String label(AppLocalizations l10n) => switch (this) {
+    ContributorRole.author => l10n.contributorRoleAuthor,
+    ContributorRole.translator => l10n.contributorRoleTranslator,
+    ContributorRole.editor => l10n.contributorRoleEditor,
+    ContributorRole.director => l10n.contributorRoleDirector,
+  };
+
   /// El nombre de la lista de personas con este rol: «Autores», «Traductores».
   String listLabel(AppLocalizations l10n) => switch (this) {
     ContributorRole.author => l10n.referenceFieldAuthors,

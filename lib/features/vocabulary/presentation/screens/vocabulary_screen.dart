@@ -150,14 +150,7 @@ class _SingleUseTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     VocabularyValueStat value,
-  ) async {
-    final feedback = VocabularyFeedback.of(context, ref);
-    final controller = ref.read(vocabularyControllerProvider.notifier);
-    final label = await askNewValueName(context, value.label);
-    if (label == null) return;
-
-    feedback.report(await controller.rename(id: value.id, label: label));
-  }
+  ) => renameVocabularyValue(context, ref, value);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
