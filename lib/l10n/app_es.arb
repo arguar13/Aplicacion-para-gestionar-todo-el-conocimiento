@@ -1153,6 +1153,95 @@
   "@vaultCompactionSettingsTooltip": {
     "description": "Título de la ficha de Ajustes que abre la pantalla de compactación."
   },
+  "vocabularyViewList": "Lista",
+  "@vocabularyViewList": {
+    "description": "Botón que muestra los valores de una categoría como lista plana."
+  },
+  "vocabularyViewTree": "Árbol",
+  "@vocabularyViewTree": {
+    "description": "Botón que muestra los valores de una categoría como árbol de temas y subtemas."
+  },
+  "vocabularyMoveUnder": "Mover bajo…",
+  "@vocabularyMoveUnder": {
+    "description": "Acción de un valor del árbol: elegir bajo qué otro valor ponerlo."
+  },
+  "vocabularyMakeRoot": "Llevar al primer nivel",
+  "@vocabularyMakeRoot": {
+    "description": "Acción de un valor del árbol: dejarlo sin padre."
+  },
+  "vocabularyMoveChooseTitle": "Mover «{label}» bajo…",
+  "@vocabularyMoveChooseTitle": {
+    "description": "Título del diálogo donde se elige el valor de destino.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveNoTargets": "No hay otro valor bajo el que se pueda poner.",
+  "@vocabularyMoveNoTargets": {
+    "description": "Aviso del diálogo de destino cuando ningún valor sirve de padre."
+  },
+  "vocabularyMoveConfirmTitle": "¿Mover este valor?",
+  "@vocabularyMoveConfirmTitle": {
+    "description": "Título de la confirmación de mover un valor con su rama."
+  },
+  "vocabularyMoveConfirmBody": "{count, plural, =1{«{label}» pasa a estar bajo «{parent}».} other{«{label}», con sus subtemas ({count} valores), pasa a estar bajo «{parent}».}}",
+  "@vocabularyMoveConfirmBody": {
+    "description": "Qué pasa al mover un valor bajo otro; count es cuántos valores cambian de lugar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      },
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveToRootConfirmBody": "{count, plural, =1{«{label}» pasa a ser un valor del primer nivel.} other{«{label}», con sus subtemas ({count} valores), pasa a ser del primer nivel.}}",
+  "@vocabularyMoveToRootConfirmBody": {
+    "description": "Qué pasa al llevar un valor al primer nivel; count es cuántos valores cambian de lugar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveConfirmAction": "Mover",
+  "@vocabularyMoveConfirmAction": {
+    "description": "Botón que confirma mover un valor."
+  },
+  "vocabularyDropToRoot": "Soltalo acá para llevarlo al primer nivel",
+  "@vocabularyDropToRoot": {
+    "description": "Zona de destino que aparece al arrastrar un valor del árbol."
+  },
+  "vocabularySubtopics": "{count, plural, =1{1 subtema} other{{count} subtemas}}",
+  "@vocabularySubtopics": {
+    "description": "Cuántos hijos directos tiene un valor del árbol.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyExpandTooltip": "Desplegar",
+  "@vocabularyExpandTooltip": {
+    "description": "Tooltip del botón que muestra los subtemas de un valor."
+  },
+  "vocabularyCollapseTooltip": "Plegar",
+  "@vocabularyCollapseTooltip": {
+    "description": "Tooltip del botón que oculta los subtemas de un valor."
+  },
+  "vocabularyValueActionsTooltip": "Acciones del valor",
+  "@vocabularyValueActionsTooltip": {
+    "description": "Tooltip del menú de acciones de un valor del árbol."
+  },
   "vaultCompactionOfferTitle": "La bóveda tiene {size} para devolver",
   "@vaultCompactionOfferTitle": {
     "description": "Título de la oferta única de compactar, sobre la Biblioteca.",

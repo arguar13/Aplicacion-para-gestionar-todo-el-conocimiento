@@ -121,6 +121,12 @@ class VocabularyController extends Notifier<VocabularyOperation?> {
   }) =>
       _record(_repository.mergeValues(keepId: keepId, discardIds: discardIds));
 
+  /// Pone [valueId] —con su rama— bajo [parentId], o en la raíz si es `null`.
+  Future<Either<Failure, VocabularyOperation>> move({
+    required String valueId,
+    required String? parentId,
+  }) => _record(_repository.moveValue(valueId: valueId, parentId: parentId));
+
   Future<Either<Failure, VocabularyOperation>> rename({
     required String id,
     required String label,

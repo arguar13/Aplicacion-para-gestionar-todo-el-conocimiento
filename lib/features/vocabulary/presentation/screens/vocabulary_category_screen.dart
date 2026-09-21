@@ -6,6 +6,7 @@ import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_p
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_value_screen.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/merge_confirm_dialog.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_feedback.dart';
+import 'package:sinapsis/features/vocabulary/presentation/widgets/vocabulary_tree_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Los valores de UNA categoría del vocabulario, con cuántos elementos tiene
@@ -32,6 +33,10 @@ class _VocabularyCategoryScreenState
   /// "cancion" tiene que encontrar "Canción".
   String _query = '';
   final Set<String> _selected = {};
+
+  /// Cómo se ven los valores: como lista plana o, en una categoría de texto,
+  /// como árbol de temas y subtemas (F13).
+  bool _asTree = false;
 
   @override
   void dispose() {
@@ -135,6 +140,30 @@ class _VocabularyCategoryScreenState
                   return Center(child: Text(l10n.vocabularySearchNoResults));
                 }
 
+                // Solo las categorías de texto tienen jerarquía; y buscando, la
+                // lista plana encuentra a un valor esté donde esté.
+                final canBeTree = all.first.isText;
+                if (canBeTree && _asTree && _query.isEmpty) {
+                  return Column(
+                    children: [
+                      _ViewToggle(
+                        asTree: true,
+                        onChanged: (asTree) => setState(() => _asTree = asTree),
+                      ),
+                      Expanded(
+                        child: VocabularyTreeView(
+                          values: all,
+                          onOpen: (valueId) => openVocabularyValue(
+                            context,
+                            definitionId: widget.definitionId,
+                            valueId: valueId,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
                 // Lo marcado que ya no existe —se fusionó, se borró— se
                 // olvida solo.
                 final present = all.map((v) => v.id).toSet();
@@ -146,6 +175,11 @@ class _VocabularyCategoryScreenState
 
                 return Column(
                   children: [
+                    if (canBeTree)
+                      _ViewToggle(
+                        asTree: false,
+                        onChanged: (asTree) => setState(() => _asTree = asTree),
+                      ),
                     Expanded(
                       child: ListView.builder(
                         itemCount: shown.length,
@@ -203,6 +237,39 @@ class _VocabularyCategoryScreenState
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// El selector entre la lista plana y el árbol.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.asTree, required this.onChanged});
+
+  final bool asTree;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: SegmentedButton<bool>(
+        showSelectedIcon: false,
+        segments: [
+          ButtonSegment(
+            value: false,
+            icon: const Icon(Icons.view_list),
+            label: Text(l10n.vocabularyViewList),
+          ),
+          ButtonSegment(
+            value: true,
+            icon: const Icon(Icons.account_tree),
+            label: Text(l10n.vocabularyViewTree),
+          ),
+        ],
+        selected: {asTree},
+        onSelectionChanged: (selection) => onChanged(selection.first),
       ),
     );
   }

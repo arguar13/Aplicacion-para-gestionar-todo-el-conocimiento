@@ -1460,6 +1460,95 @@
   "@vaultCompactionSettingsTooltip": {
     "description": "Título de la ficha de Ajustes que abre la pantalla de compactación."
   },
+  "vocabularyViewList": "List",
+  "@vocabularyViewList": {
+    "description": "Botón que muestra los valores de una categoría como lista plana."
+  },
+  "vocabularyViewTree": "Tree",
+  "@vocabularyViewTree": {
+    "description": "Botón que muestra los valores de una categoría como árbol de temas y subtemas."
+  },
+  "vocabularyMoveUnder": "Move under…",
+  "@vocabularyMoveUnder": {
+    "description": "Acción de un valor del árbol: elegir bajo qué otro valor ponerlo."
+  },
+  "vocabularyMakeRoot": "Move to the top level",
+  "@vocabularyMakeRoot": {
+    "description": "Acción de un valor del árbol: dejarlo sin padre."
+  },
+  "vocabularyMoveChooseTitle": "Move “{label}” under…",
+  "@vocabularyMoveChooseTitle": {
+    "description": "Título del diálogo donde se elige el valor de destino.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveNoTargets": "There is no other value it can go under.",
+  "@vocabularyMoveNoTargets": {
+    "description": "Aviso del diálogo de destino cuando ningún valor sirve de padre."
+  },
+  "vocabularyMoveConfirmTitle": "Move this value?",
+  "@vocabularyMoveConfirmTitle": {
+    "description": "Título de la confirmación de mover un valor con su rama."
+  },
+  "vocabularyMoveConfirmBody": "{count, plural, =1{“{label}” goes under “{parent}”.} other{“{label}”, with its subtopics ({count} values), goes under “{parent}”.}}",
+  "@vocabularyMoveConfirmBody": {
+    "description": "Qué pasa al mover un valor bajo otro; count es cuántos valores cambian de lugar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      },
+      "parent": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveToRootConfirmBody": "{count, plural, =1{“{label}” becomes a top-level value.} other{“{label}”, with its subtopics ({count} values), becomes top-level.}}",
+  "@vocabularyMoveToRootConfirmBody": {
+    "description": "Qué pasa al llevar un valor al primer nivel; count es cuántos valores cambian de lugar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "vocabularyMoveConfirmAction": "Move",
+  "@vocabularyMoveConfirmAction": {
+    "description": "Botón que confirma mover un valor."
+  },
+  "vocabularyDropToRoot": "Drop here to move it to the top level",
+  "@vocabularyDropToRoot": {
+    "description": "Zona de destino que aparece al arrastrar un valor del árbol."
+  },
+  "vocabularySubtopics": "{count, plural, =1{1 subtopic} other{{count} subtopics}}",
+  "@vocabularySubtopics": {
+    "description": "Cuántos hijos directos tiene un valor del árbol.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vocabularyExpandTooltip": "Expand",
+  "@vocabularyExpandTooltip": {
+    "description": "Tooltip del botón que muestra los subtemas de un valor."
+  },
+  "vocabularyCollapseTooltip": "Collapse",
+  "@vocabularyCollapseTooltip": {
+    "description": "Tooltip del botón que oculta los subtemas de un valor."
+  },
+  "vocabularyValueActionsTooltip": "Value actions",
+  "@vocabularyValueActionsTooltip": {
+    "description": "Tooltip del menú de acciones de un valor del árbol."
+  },
   "vaultCompactionOfferTitle": "The vault has {size} to give back",
   "@vaultCompactionOfferTitle": {
     "description": "Título de la oferta única de compactar, sobre la Biblioteca.",
