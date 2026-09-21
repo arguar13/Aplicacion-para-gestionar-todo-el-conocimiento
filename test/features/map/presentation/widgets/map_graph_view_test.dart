@@ -52,6 +52,10 @@ class _FakeRepository implements KnowledgeMapRepository {
   }) => throw UnimplementedError();
 
   @override
+  Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes}) =>
+      throw UnimplementedError();
+
+  @override
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
     int limit = kSchemaFanOut,
@@ -323,6 +327,66 @@ void main() {
 
       expect(node('overview:0'), findsOneWidget);
       expect(node('topic:a1'), findsNothing);
+    });
+  });
+
+  group('las etiquetas se leen a cualquier zoom', () {
+    void zoom(WidgetTester tester, double scale) {
+      final viewer = tester.widget<InteractiveViewer>(
+        find.byKey(const ValueKey('map-graph-canvas')),
+      );
+      viewer.transformationController!.value = Matrix4.diagonal3Values(
+        scale,
+        scale,
+        scale,
+      );
+    }
+
+    double fontOf(WidgetTester tester, String key, String text) => tester
+        .widget<Text>(find.descendant(of: node(key), matching: find.text(text)))
+        .style!
+        .fontSize!;
+
+    test('a menos zoom, más letra, por escalones', () {
+      expect(labelScaleFor(1.2), 1);
+      expect(labelScaleFor(0.9), 1);
+      expect(labelScaleFor(0.7), 1.5);
+      expect(labelScaleFor(0.5), 2.2);
+      expect(labelScaleFor(0.35), 3.3);
+      expect(labelScaleFor(0.2), 4.5);
+    });
+
+    testWidgets('al alejarse, la etiqueta crece; al volver, vuelve', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.tap(node('overview:0'));
+      await tester.pumpAndSettle();
+      final normal = fontOf(tester, 'topic:a1', 'Alfa 1');
+
+      zoom(tester, 0.4);
+      await tester.pump();
+      final far = fontOf(tester, 'topic:a1', 'Alfa 1');
+      expect(far, greaterThan(normal * 2));
+
+      zoom(tester, 1);
+      await tester.pump();
+      expect(fontOf(tester, 'topic:a1', 'Alfa 1'), normal);
+    });
+
+    testWidgets('muy alejado, la etiqueta de un tema chico se calla y la de '
+        'los grandes no', (tester) async {
+      // Tres temas aislados sin elementos —círculos chicos— y dos comunidades
+      // de temas grandes.
+      await pump(tester, snapshot(isolatedTopics: 3));
+      await tester.tap(node('overview:2'));
+      await tester.pumpAndSettle();
+      expect(find.text('Solo 000'), findsOneWidget);
+
+      zoom(tester, 0.25);
+      await tester.pump();
+
+      expect(find.text('Solo 000'), findsNothing);
     });
   });
 

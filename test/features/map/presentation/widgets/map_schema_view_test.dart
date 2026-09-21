@@ -23,6 +23,11 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 class _FakeRepository implements KnowledgeMapRepository {
   final links = <String, List<SchemaLink>>{};
   final requested = <String>[];
+  final mapNotes = <SchemaLink>[];
+
+  @override
+  Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes}) async =>
+      mapNotes;
 
   @override
   Future<List<SchemaLink>> schemaLinks(
@@ -299,6 +304,76 @@ void main() {
 
     expect(node('topic:grecia'), findsOneWidget);
     expect(node('topic:roma'), findsNothing);
+  });
+
+  testWidgets('el selector ofrece también las notas mapa, y se puede partir '
+      'de una', (tester) async {
+    repository
+      ..mapNotes.add(
+        const SchemaLink(
+          target: SchemaRef.item('n1'),
+          title: 'Mapa de Roma',
+          edge: SchemaEdgeKind.mapNote,
+          isNote: true,
+        ),
+      )
+      ..links['item:n1'] = const [
+        SchemaLink(
+          target: SchemaRef.item('s1'),
+          title: 'Livio',
+          edge: SchemaEdgeKind.relation,
+          relation: RelationKind.indexes,
+        ),
+      ];
+    await pump(tester);
+
+    await tester.tap(find.byKey(const ValueKey('map-schema-root')));
+    await tester.pumpAndSettle();
+    expect(find.text(es.mapSchemaPickerMapNotes), findsOneWidget);
+    expect(find.text(es.mapSchemaPickerTopics), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('map-schema-pick-note-n1')));
+    await tester.pumpAndSettle();
+
+    // La raíz es la nota, con su nombre, y trae sus vínculos.
+    expect(node('item:n1'), findsOneWidget);
+    expect(node('topic:roma'), findsNothing);
+    expect(find.text('Mapa de Roma'), findsWidgets);
+    expect(repository.requested, contains('item:n1'));
+    expect(node('item:s1'), findsOneWidget);
+  });
+
+  testWidgets('buscar en el selector filtra también las notas mapa', (
+    tester,
+  ) async {
+    repository.mapNotes.addAll(const [
+      SchemaLink(
+        target: SchemaRef.item('n1'),
+        title: 'Mapa de Roma',
+        edge: SchemaEdgeKind.mapNote,
+        isNote: true,
+      ),
+      SchemaLink(
+        target: SchemaRef.item('n2'),
+        title: 'Mapa de Egipto',
+        edge: SchemaEdgeKind.mapNote,
+        isNote: true,
+      ),
+    ]);
+    await pump(tester);
+
+    await tester.tap(find.byKey(const ValueKey('map-schema-root')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('map-schema-search')),
+      'egip',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('map-schema-pick-note-n2')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('map-schema-pick-note-n1')), findsNothing);
   });
 
   testWidgets('un esquema con demasiados nodos avisa de los que no dibuja', (

@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/community_detector.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 
@@ -116,6 +117,56 @@ void main() {
     final tension = scene.edges.singleWhere((e) => e.tension);
     expect(scene.nodes[tension.a].ref, 'b');
     expect(scene.nodes[tension.b].ref, 'c');
+  });
+
+  test('los temas: un subtema se une a su padre con la jerarquía, y suma a lo '
+      'que ya los une', () {
+    final g = TopicGraph(
+      definitionId: 'tema',
+      definitionName: 'Tema',
+      nodes: const [
+        TopicNode(valueId: 'padre', label: 'Padre', depth: 0, itemCount: 3),
+        TopicNode(
+          valueId: 'hijo',
+          label: 'Hijo',
+          parentId: 'padre',
+          depth: 1,
+          itemCount: 1,
+        ),
+        TopicNode(
+          valueId: 'nieto',
+          label: 'Nieto',
+          parentId: 'hijo',
+          depth: 2,
+          itemCount: 1,
+        ),
+        TopicNode(valueId: 'otro', label: 'Otro', depth: 0, itemCount: 1),
+      ],
+      edges: const [
+        // Padre e hijo ya comparten un elemento.
+        TopicEdge(
+          a: 0,
+          b: 1,
+          cooccurrence: 2,
+          relations: 0,
+          contradictions: 0,
+          openContradictions: 0,
+        ),
+      ],
+    );
+    final selection = selectTopics(g, limit: 10);
+
+    final scene = sceneOfTopics(g, detectCommunities(g), selection);
+
+    // Padre–hijo: 2 de coocurrencia + 1 de jerarquía, en una sola unión.
+    // Hijo–nieto: solo la jerarquía. Otro no tiene ninguna.
+    expect(scene.edges, hasLength(2));
+    final byPair = {
+      for (final e in scene.edges)
+        (scene.nodes[e.a].ref, scene.nodes[e.b].ref): e.weight,
+    };
+    expect(byPair[('padre', 'hijo')], 3);
+    expect(byPair[('hijo', 'nieto')], 1);
   });
 
   test('los elementos: notas y fuentes, y cada vínculo con su tipo', () {

@@ -96,6 +96,50 @@ void main() {
     expect(distance(layout, 0, 1), lessThan(distance(layout, 0, 2)));
   });
 
+  group('sin ninguna unión', () {
+    test('van en una espiral compacta, no desparramados', () {
+      final layout = layoutForces(count: 300, links: const []);
+
+      // Compacta: con 300 nodos, dentro de un radio de unos 1.600 píxeles, y no
+      // de las decenas de miles que da la repulsión sola.
+      var farthest = 0.0;
+      for (var i = 0; i < 300; i++) {
+        farthest = math.max(
+          farthest,
+          math.sqrt(
+            math.pow(layout.xs[i] - 450, 2) + math.pow(layout.ys[i] - 450, 2),
+          ),
+        );
+      }
+      expect(farthest, lessThan(1800));
+      // Y con lugar para cada uno: ningún par más cerca que una etiqueta.
+      var closest = double.infinity;
+      for (var i = 0; i < 300; i++) {
+        for (var j = i + 1; j < 300; j++) {
+          closest = math.min(closest, distance(layout, i, j));
+        }
+      }
+      expect(closest, greaterThan(40));
+    });
+
+    test('son deterministas y respetan el orden por grupo', () {
+      final groups = Int32List.fromList([1, 0, 1, 0, 2]);
+
+      final a = layoutForces(count: 5, links: const [], groups: groups);
+      final b = layoutForces(count: 5, links: const [], groups: groups);
+
+      expect(b.xs, a.xs);
+      // Los del grupo 0 (nodos 1 y 3) quedan en los dos primeros lugares de la
+      // espiral, los más cercanos al centro.
+      final fromCenter = [
+        for (var i = 0; i < 5; i++)
+          math.sqrt(math.pow(a.xs[i] - 450, 2) + math.pow(a.ys[i] - 450, 2)),
+      ];
+      expect(fromCenter[1], lessThan(fromCenter[0]));
+      expect(fromCenter[3], lessThan(fromCenter[4]));
+    });
+  });
+
   test('sin uniones con peso, los nodos igual se reparten, sin caerse en el '
       'mismo punto', () {
     final layout = layoutForces(

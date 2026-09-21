@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -206,6 +207,134 @@ void main() {
     await tester.tap(find.text(es.mapViewBoard));
     await tester.pumpAndSettle();
     expect(find.byType(MapSchemaView), findsNothing);
+  });
+
+  group('la transición entre vistas', () {
+    testWidgets('es un fundido corto: un instante después de tocar, las dos '
+        'vistas conviven, y al terminar queda solo la nueva', (tester) async {
+      await seed();
+      await pump(tester);
+
+      await tester.tap(find.text(es.mapViewSchema));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+
+      expect(find.byType(MapBoardView), findsOneWidget);
+      expect(find.byType(MapSchemaView), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapBoardView), findsNothing);
+      expect(find.byType(MapSchemaView), findsOneWidget);
+    });
+
+    testWidgets('si el sistema pide menos movimiento, es inmediata', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await seed();
+      await pump(tester);
+
+      await tester.tap(find.text(es.mapViewSchema));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(MapBoardView), findsNothing);
+      expect(find.byType(MapSchemaView), findsOneWidget);
+    });
+  });
+
+  group('los filtros', () {
+    Future<void> openFilters(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('map-filters')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> closeSheet(WidgetTester tester) async {
+      // Un toque en la barrera, fuera del panel.
+      await tester.tapAt(const Offset(500, 20));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('filtrar por tipo cambia lo que cuenta el mapa, y el aviso lo '
+        'dice', (tester) async {
+      await seed();
+      await item('d1', ['roma'], kind: SourceKind.document);
+      await pump(tester);
+      expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
+
+      await openFilters(tester);
+      await tester.tap(find.byKey(const ValueKey('map-filter-kind-document')));
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(find.widgetWithText(Chip, es.mapItemCount(1)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-filter-active')),
+          matching: find.text(es.mapFilterActive(1)),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('quitar el filtro desde el aviso devuelve todo', (
+      tester,
+    ) async {
+      await seed();
+      await item('d1', ['roma'], kind: SourceKind.document);
+      await pump(tester);
+      await openFilters(tester);
+      await tester.tap(find.byKey(const ValueKey('map-filter-kind-document')));
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      await tester.tap(find.byTooltip(es.mapFilterClear));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
+      expect(find.widgetWithText(Chip, es.mapItemCount(5)), findsOneWidget);
+    });
+
+    testWidgets('el filtro rige a las tres vistas: sigue puesto al cambiar de '
+        'una a otra', (tester) async {
+      await seed();
+      await item('d1', ['roma'], kind: SourceKind.document);
+      await pump(tester);
+      await openFilters(tester);
+      await tester.tap(find.byKey(const ValueKey('map-filter-kind-document')));
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      await tester.tap(find.text(es.mapViewSchema));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('map-filter-active')), findsOneWidget);
+
+      await tester.tap(find.text(es.mapViewGraph));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('map-filter-active')), findsOneWidget);
+    });
+
+    testWidgets('el panel: «quitar filtros» aparece con algún filtro y los '
+        'saca', (tester) async {
+      await seed();
+      await pump(tester);
+      await openFilters(tester);
+      expect(find.byKey(const ValueKey('map-filter-clear')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('map-filter-kind-webPage')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('map-filter-clear')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('map-filter-clear')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('map-filter-clear')), findsNothing);
+    });
   });
 
   testWidgets('la madurez de las notas sale del tablero', (tester) async {

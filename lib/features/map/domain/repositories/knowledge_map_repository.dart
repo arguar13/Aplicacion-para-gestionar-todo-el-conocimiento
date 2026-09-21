@@ -41,6 +41,10 @@ abstract interface class KnowledgeMapRepository {
     int limit = kSchemaFanOut,
   });
 
+  /// Las notas mapa vivas de la bóveda, por título: los puntos de entrada del
+  /// esquema (F14, D6). A lo sumo [limit], las tocadas más recientemente.
+  Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes});
+
   /// Los elementos de un tema y de sus subtemas con los vínculos entre ellos:
   /// lo que se dibuja al acercarse a un tema (F14, D5). A lo sumo [limit], los
   /// tocados más recientemente; lo que está en la papelera queda afuera.
@@ -62,3 +66,6 @@ abstract interface class KnowledgeMapRepository {
 
 /// Cuántos hijos se piden, como mucho, al desplegar un nodo del esquema.
 const kSchemaFanOut = 24;
+
+/// Cuántas notas mapa se ofrecen, como mucho, como punto de partida.
+const kMaxMapNotes = 100;

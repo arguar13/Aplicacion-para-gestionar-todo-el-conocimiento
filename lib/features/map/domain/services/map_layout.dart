@@ -45,6 +45,10 @@ class MapLayout {
 /// finales no están acotadas a [extent]: solo lo usa para saber cuánto espacio
 /// hay y qué tan separados quedan los nodos en promedio.
 ///
+/// Sin ninguna unión y sin posiciones previas, no hay nada que atraiga: la
+/// repulsión sola los desparramaría por miles de píxeles. Se acomodan en una
+/// espiral compacta, ordenados por grupo, con lugar para una etiqueta cada uno.
+///
 /// Cuesta O(nodos²) por iteración, así que se usa con unos pocos cientos de
 /// nodos —el mapa dibuja como máximo 300 a la vez—.
 MapLayout layoutForces({
@@ -67,6 +71,10 @@ MapLayout layoutForces({
 
   final k = math.sqrt(extent * extent / count);
   final kSquared = k * k;
+
+  if (links.isEmpty && startX == null) {
+    return _spiral(count, groups, extent);
+  }
 
   var maxWeight = 0.0;
   for (final link in links) {
@@ -270,4 +278,26 @@ int _place(
     }
   }
   return knownCount;
+}
+
+/// Los nodos en una espiral de girasol —cada uno a la misma distancia de sus
+/// vecinos, sin huecos—, de a uno por posición en el orden por grupo.
+MapLayout _spiral(int count, Int32List? groups, double extent) {
+  final order = List<int>.generate(count, (i) => i)
+    ..sort((x, y) {
+      final byGroup = (groups?[x] ?? 0).compareTo(groups?[y] ?? 0);
+      return byGroup != 0 ? byGroup : x.compareTo(y);
+    });
+  // La separación entre nodos: la distancia ideal, con aire para una etiqueta.
+  final gap = (1.8 * math.sqrt(extent * extent / count)).clamp(60.0, 110.0);
+  const goldenAngle = 2.399963229728653;
+  final xs = Float64List(count);
+  final ys = Float64List(count);
+  for (var rank = 0; rank < count; rank++) {
+    final node = order[rank];
+    final radius = gap * math.sqrt(rank + 0.5);
+    xs[node] = extent / 2 + radius * math.cos(rank * goldenAngle);
+    ys[node] = extent / 2 + radius * math.sin(rank * goldenAngle);
+  }
+  return MapLayout(xs, ys);
 }

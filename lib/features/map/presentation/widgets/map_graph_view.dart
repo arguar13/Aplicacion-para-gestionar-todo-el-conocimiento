@@ -20,6 +20,18 @@ const kZoomInThreshold = 2.2;
 /// Con menos zoom que esto, se vuelve al nivel de menos detalle.
 const kZoomOutThreshold = 0.42;
 
+/// Cuánto se agranda la letra de las etiquetas en el lienzo para que, con el
+/// zoom que haya, se siga leyendo en pantalla: a menos zoom, más letra. Va por
+/// escalones, no de a poco, para que un gesto de zoom no reconstruya cada nodo
+/// en cada cuadro.
+double labelScaleFor(double zoom) {
+  if (zoom >= 0.9) return 1;
+  if (zoom >= 0.65) return 1.5;
+  if (zoom >= 0.45) return 2.2;
+  if (zoom >= 0.3) return 3.3;
+  return 4.5;
+}
+
 /// Iteraciones del layout desde cero, y en caliente: con lo ya acomodado
 /// alcanzan unas pocas.
 const _kColdIterations = 260;
@@ -89,11 +101,15 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   Size _viewport = Size.zero;
   bool _needsFit = true;
 
+  /// El agrandado de las etiquetas para el zoom de ahora: ver [labelScaleFor].
+  double _labelScale = 1;
+
   TopicGraph get _graph => widget.snapshot.graph;
 
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onZoom);
     unawaited(_show(warm: false));
   }
 
@@ -117,8 +133,16 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller
+      ..removeListener(_onZoom)
+      ..dispose();
     super.dispose();
+  }
+
+  /// Solo cuando el zoom cruza un escalón se rehacen las etiquetas.
+  void _onZoom() {
+    final labelScale = labelScaleFor(_controller.value.getMaxScaleOnAxis());
+    if (labelScale != _labelScale) setState(() => _labelScale = labelScale);
   }
 
   /// Arma la escena del nivel actual, la acomoda y la muestra.
@@ -462,7 +486,12 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
           key: ValueKey('map-graph-node-${node.key}'),
           behavior: HitTestBehavior.opaque,
           onTap: () => unawaited(_onTap(node)),
-          child: _NodeBody(node: node, label: label, color: color),
+          child: _NodeBody(
+            node: node,
+            label: label,
+            color: color,
+            labelScale: _labelScale,
+          ),
         ),
       ),
     );
@@ -517,11 +546,15 @@ class _NodeBody extends StatelessWidget {
     required this.node,
     required this.label,
     required this.color,
+    required this.labelScale,
   });
 
   final SceneNode node;
   final String label;
   final Color color;
+
+  /// El agrandado de la etiqueta: ver [labelScaleFor].
+  final double labelScale;
 
   @override
   Widget build(BuildContext context) {
@@ -570,35 +603,59 @@ class _NodeBody extends StatelessWidget {
         node.kind == SceneKind.community ||
         node.kind == SceneKind.overflow ||
         node.kind == SceneKind.isolated;
-    return Column(
-      children: [
-        Container(
-          width: disc,
-          height: disc,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: isCommunity ? 0.85 : 0.9),
-            border: Border.all(color: theme.colorScheme.surface, width: 2),
+    // Blanco o negro, el que mejor se lea sobre el color de la comunidad: con
+    // los tonos claros del modo oscuro, blanco no alcanza.
+    final onColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
+    final baseSize = theme.textTheme.labelSmall?.fontSize ?? 11;
+
+    // Cuando la etiqueta crece con el alejamiento se sale de la caja del nodo:
+    // que se salga, sin aviso de desborde.
+    return OverflowBox(
+      alignment: Alignment.topCenter,
+      minWidth: 0,
+      maxWidth: double.infinity,
+      minHeight: 0,
+      maxHeight: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: disc,
+            height: disc,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: isCommunity ? 0.85 : 0.9),
+              border: Border.all(color: theme.colorScheme.surface, width: 2),
+            ),
+            child: isCommunity
+                ? Text(
+                    '${node.count}',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: onColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : null,
           ),
-          child: isCommunity
-              ? Text(
-                  '${node.count}',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                )
-              : null,
-        ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.labelSmall,
-        ),
-      ],
+          // Con mucho alejamiento, la etiqueta de un tema chico se calla: las
+          // de los grandes se leen y no se pisan.
+          if (labelScale < 2.2 || isCommunity || disc >= 26)
+            Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: baseSize * labelScale,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

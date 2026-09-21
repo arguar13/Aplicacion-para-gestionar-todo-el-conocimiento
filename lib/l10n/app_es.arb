@@ -3128,6 +3128,43 @@
   "@mapGraphHint": {
     "description": "Ayuda de una línea bajo el camino del grafo, en el panorama de comunidades."
   },
+  "mapFiltersTooltip": "Filtros",
+  "@mapFiltersTooltip": {
+    "description": "Tooltip y título del panel de filtros del mapa."
+  },
+  "mapFilterTypes": "Tipo",
+  "@mapFilterTypes": {
+    "description": "Encabezado del grupo de filtros por tipo de elemento en el panel de filtros del mapa."
+  },
+  "mapFilterTags": "Etiquetas",
+  "@mapFilterTags": {
+    "description": "Encabezado del grupo de filtros por etiqueta en el panel de filtros del mapa."
+  },
+  "mapFilterClear": "Quitar filtros",
+  "@mapFilterClear": {
+    "description": "Botón que quita todos los filtros del mapa."
+  },
+  "mapFilterSearchHint": "Buscar en el contenido",
+  "@mapFilterSearchHint": {
+    "description": "Texto de ayuda del campo de búsqueda del panel de filtros del mapa."
+  },
+  "mapFilterActive": "{count, plural, =1{1 filtro} other{{count} filtros}}",
+  "@mapFilterActive": {
+    "description": "Cuántos filtros tiene puestos el mapa, en la marca que lo avisa.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapSchemaPickerTopics": "Temas",
+  "@mapSchemaPickerTopics": {
+    "description": "Encabezado de la lista de temas en el selector del punto de partida del esquema."
+  },
+  "mapSchemaPickerMapNotes": "Notas mapa",
+  "@mapSchemaPickerMapNotes": {
+    "description": "Encabezado de la lista de notas mapa en el selector del punto de partida del esquema."
+  },
   "timelineBranchFilterTooltip": "Quitar el filtro por tema",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

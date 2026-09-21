@@ -5,10 +5,11 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -46,10 +47,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   MapView _view = MapView.board;
 
-  /// El filtro de la biblioteca sobre el que se calcula el mapa: sin
-  /// restricciones, abarca todo.
-  final LibraryQuery _filter = const LibraryQuery();
-
   /// Las categorías donde el mapa tiene sentido —las de texto: la jerarquía
   /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
   (List<PropertyDefinition>, PropertyDefinition?) _categories(
@@ -82,11 +79,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final definitions =
         ref.watch(allPropertyDefinitionsProvider).valueOrNull ?? const [];
     final (categories, selected) = _categories(definitions);
+    // El filtro de la biblioteca sobre el que se calcula el mapa: sin
+    // restricciones, abarca todo.
+    final filter = ref.watch(mapFilterProvider);
+    final activeFilters = activeMapFilters(filter);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.mapTitle),
         actions: [
+          IconButton(
+            key: const ValueKey('map-filters'),
+            tooltip: l10n.mapFiltersTooltip,
+            icon: Badge(
+              isLabelVisible: activeFilters > 0,
+              label: Text('$activeFilters'),
+              child: const Icon(Icons.filter_list),
+            ),
+            onPressed: () => showMapFilters(context),
+          ),
           if (categories.length > 1)
             PopupMenuButton<String>(
               key: const ValueKey('map-category'),
@@ -106,9 +117,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           : Column(
               children: [
                 if (MapView.values.length > 1) _viewSelector(l10n),
+                if (activeFilters > 0)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                      child: InputChip(
+                        key: const ValueKey('map-filter-active'),
+                        avatar: const Icon(Icons.filter_list, size: 18),
+                        label: Text(l10n.mapFilterActive(activeFilters)),
+                        deleteButtonTooltipMessage: l10n.mapFilterClear,
+                        onDeleted: ref.read(mapFilterProvider.notifier).clear,
+                        onPressed: () => showMapFilters(context),
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: _MapBody(
-                    request: MapRequest(selected.id, filter: _filter),
+                    request: MapRequest(selected.id, filter: filter),
                     view: _view,
                     onOpenTopic: _openTopic,
                     onOpenItem: _openItem,
@@ -219,7 +245,16 @@ class _MapBody extends ConsumerWidget {
       ),
     };
 
-    if (!stale) return body;
+    // Un fundido corto entre vistas, salvo que el sistema pida menos
+    // movimiento.
+    final animated = AnimatedSwitcher(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 180),
+      child: KeyedSubtree(key: ValueKey(view), child: body),
+    );
+
+    if (!stale) return animated;
     return Column(
       children: [
         MaterialBanner(
@@ -232,7 +267,7 @@ class _MapBody extends ConsumerWidget {
             ),
           ],
         ),
-        Expanded(child: body),
+        Expanded(child: animated),
       ],
     );
   }

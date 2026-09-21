@@ -119,7 +119,7 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
               readsFrom: mapTables(_db).toSet(),
             )
             .get();
-        final notes = [
+        return _byTitle([
           for (final row in rows)
             SchemaLink(
               target: SchemaRef.item(row.data['id'] as String),
@@ -127,16 +127,7 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
               edge: SchemaEdgeKind.mapNote,
               isNote: true,
             ),
-        ];
-        // Por título sin acentos ni mayúsculas, como todo el vocabulario.
-        final keyOf = {
-          for (final note in notes)
-            note.target.id: normalizeVocabularyLabel(note.title),
-        };
-        return notes..sort((a, b) {
-          final byTitle = keyOf[a.target.id]!.compareTo(keyOf[b.target.id]!);
-          return byTitle != 0 ? byTitle : a.target.id.compareTo(b.target.id);
-        });
+        ]);
       case SchemaNodeKind.item:
         final rows = await _db
             .customSelect(
@@ -160,6 +151,38 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
             ),
         ];
     }
+  }
+
+  @override
+  Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes}) async {
+    final rows = await _db
+        .customSelect(
+          mapNotesSql,
+          variables: [Variable.withInt(limit)],
+          readsFrom: mapTables(_db).toSet(),
+        )
+        .get();
+    return _byTitle([
+      for (final row in rows)
+        SchemaLink(
+          target: SchemaRef.item(row.data['id'] as String),
+          title: row.data['title'] as String,
+          edge: SchemaEdgeKind.mapNote,
+          isNote: true,
+        ),
+    ]);
+  }
+
+  /// Por título sin acentos ni mayúsculas, como todo el vocabulario.
+  List<SchemaLink> _byTitle(List<SchemaLink> notes) {
+    final keyOf = {
+      for (final note in notes)
+        note.target.id: normalizeVocabularyLabel(note.title),
+    };
+    return notes..sort((a, b) {
+      final byTitle = keyOf[a.target.id]!.compareTo(keyOf[b.target.id]!);
+      return byTitle != 0 ? byTitle : a.target.id.compareTo(b.target.id);
+    });
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
+import 'package:sinapsis/features/map/domain/services/community_detector.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 import 'package:sinapsis/features/map/domain/services/map_layout.dart';
 
@@ -143,7 +144,9 @@ SceneNode _overviewNode(TopicGraph graph, OverviewNode node, int index) {
   );
 }
 
-/// El nivel medio: los temas elegidos, coloreados por su comunidad.
+/// El nivel medio: los temas elegidos, coloreados por su comunidad, unidos por
+/// lo que los une y por la jerarquía: un subtema se pega a su padre con el peso
+/// de un elemento compartido (`kHierarchyWeight`), como en las comunidades.
 GraphScene sceneOfTopics(
   TopicGraph graph,
   CommunityDetection detection,
@@ -153,6 +156,47 @@ GraphScene sceneOfTopics(
   final position = {
     for (var i = 0; i < selection.topics.length; i++) selection.topics[i]: i,
   };
+
+  // Las uniones, una por par: si un subtema ya está unido a su padre por algo,
+  // la jerarquía suma a esa unión.
+  final at = <int, int>{};
+  final edges = <SceneEdge>[];
+  void join(int a, int b, double weight, {required bool tension}) {
+    final low = a < b ? a : b;
+    final high = a < b ? b : a;
+    final key = low * selection.topics.length + high;
+    final existing = at[key];
+    if (existing == null) {
+      at[key] = edges.length;
+      edges.add(SceneEdge(a: low, b: high, weight: weight, tension: tension));
+    } else {
+      final before = edges[existing];
+      edges[existing] = SceneEdge(
+        a: before.a,
+        b: before.b,
+        weight: before.weight + weight,
+        tension: before.tension || tension,
+      );
+    }
+  }
+
+  for (final e in selection.edges) {
+    join(
+      position[graph.edges[e].a]!,
+      position[graph.edges[e].b]!,
+      weights.of(graph.edges[e]),
+      tension: graph.edges[e].isTension,
+    );
+  }
+  for (final topic in selection.topics) {
+    final parentId = graph.nodes[topic].parentId;
+    final parent = parentId == null ? null : graph.indexOf(parentId);
+    final parentAt = parent == null ? null : position[parent];
+    if (parentAt != null) {
+      join(position[topic]!, parentAt, kHierarchyWeight, tension: false);
+    }
+  }
+
   return GraphScene(
     nodes: [
       for (final topic in selection.topics)
@@ -165,15 +209,7 @@ GraphScene sceneOfTopics(
           ref: graph.nodes[topic].valueId,
         ),
     ],
-    edges: [
-      for (final e in selection.edges)
-        SceneEdge(
-          a: position[graph.edges[e].a]!,
-          b: position[graph.edges[e].b]!,
-          weight: weights.of(graph.edges[e]),
-          tension: graph.edges[e].isTension,
-        ),
-    ],
+    edges: edges,
     hidden: selection.hidden,
   );
 }

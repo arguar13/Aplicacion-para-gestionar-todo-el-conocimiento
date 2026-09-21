@@ -47,6 +47,10 @@ class MapSchemaView extends ConsumerStatefulWidget {
 
 class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   late SchemaRef _root;
+
+  /// El nombre de la raíz cuando es un elemento: una nota mapa. Un tema se
+  /// llama como en el grafo.
+  String? _rootTitle;
   bool _radial = true;
 
   /// Los nodos desplegados, por clave.
@@ -107,8 +111,9 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   }
 
   /// Parte de [ref]: lo despliega y pide lo que le cuelga.
-  void _open(SchemaRef node) {
+  void _open(SchemaRef node, {String? title}) {
     _root = node;
+    _rootTitle = title;
     _expanded
       ..clear()
       ..[node.key] = node;
@@ -152,6 +157,7 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   void _rebuild() {
     _tree = buildSchemaTree(
       root: _root,
+      rootTitle: _rootTitle,
       graph: _graph,
       expanded: _expanded.keys.toSet(),
       links: _links,
@@ -184,14 +190,15 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   }
 
   Future<void> _pickRoot() async {
-    final chosen = await showModalBottomSheet<String>(
+    final notes = ref.read(knowledgeMapRepositoryProvider).readMapNotes();
+    final chosen = await showModalBottomSheet<_RootChoice>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => _TopicPicker(graph: _graph),
+      builder: (context) => _RootPicker(graph: _graph, notes: notes),
     );
     if (chosen == null || !mounted) return;
-    setState(() => _open(SchemaRef.topic(chosen)));
+    setState(() => _open(chosen.ref, title: chosen.title));
   }
 
   @override
@@ -209,7 +216,11 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
                 child: OutlinedButton.icon(
                   key: const ValueKey('map-schema-root'),
                   onPressed: _pickRoot,
-                  icon: const Icon(Icons.label_outline),
+                  icon: Icon(
+                    _root.kind == SchemaNodeKind.topic
+                        ? Icons.label_outline
+                        : Icons.account_tree_outlined,
+                  ),
                   label: Text(
                     rootEntry?.title ?? '',
                     overflow: TextOverflow.ellipsis,
@@ -511,29 +522,39 @@ class _EdgesPainter extends CustomPainter {
       old.colors != colors;
 }
 
-/// El selector del tema de partida: una lista con búsqueda, los de más
-/// elementos primero.
-class _TopicPicker extends StatefulWidget {
-  const _TopicPicker({required this.graph});
+/// Lo que se eligió como punto de partida: un tema o una nota mapa.
+class _RootChoice {
+  const _RootChoice(this.ref, this.title);
 
-  final TopicGraph graph;
-
-  @override
-  State<_TopicPicker> createState() => _TopicPickerState();
+  final SchemaRef ref;
+  final String title;
 }
 
-class _TopicPickerState extends State<_TopicPicker> {
+/// El selector del punto de partida: una lista con búsqueda de las notas mapa,
+/// que ya traen ordenada una parte del conocimiento, y de los temas —los de
+/// más elementos primero—.
+class _RootPicker extends StatefulWidget {
+  const _RootPicker({required this.graph, required this.notes});
+
+  final TopicGraph graph;
+  final Future<List<SchemaLink>> notes;
+
+  @override
+  State<_RootPicker> createState() => _RootPickerState();
+}
+
+class _RootPickerState extends State<_RootPicker> {
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final query = normalizeVocabularyLabel(_query.trim());
+    bool matches(String text) =>
+        query.isEmpty || normalizeVocabularyLabel(text).contains(query);
     final topics = [
       for (final node in widget.graph.nodes)
-        if (query.isEmpty ||
-            normalizeVocabularyLabel(node.label).contains(query))
-          node,
+        if (matches(node.label)) node,
     ]..sort((a, b) => b.itemCount.compareTo(a.itemCount));
 
     return SafeArea(
@@ -558,21 +579,76 @@ class _TopicPickerState extends State<_TopicPicker> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: math.min(topics.length, 100),
-                itemBuilder: (context, index) {
-                  final node = topics[index];
-                  return ListTile(
-                    key: ValueKey('map-schema-pick-${node.valueId}'),
-                    dense: true,
-                    title: Text(node.label),
-                    trailing: Text('${node.itemCount}'),
-                    onTap: () => Navigator.of(context).pop(node.valueId),
+              child: FutureBuilder<List<SchemaLink>>(
+                future: widget.notes,
+                builder: (context, snapshot) {
+                  final notes = [
+                    for (final note in snapshot.data ?? const <SchemaLink>[])
+                      if (matches(note.title)) note,
+                  ];
+                  final shownTopics = topics.take(100).toList();
+                  return ListView(
+                    children: [
+                      if (notes.isNotEmpty) ...[
+                        _PickerHeading(l10n.mapSchemaPickerMapNotes),
+                        for (final note in notes)
+                          ListTile(
+                            key: ValueKey(
+                              'map-schema-pick-note-${note.target.id}',
+                            ),
+                            dense: true,
+                            leading: const Icon(
+                              Icons.account_tree_outlined,
+                              size: 20,
+                            ),
+                            title: Text(note.title),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pop(_RootChoice(note.target, note.title)),
+                          ),
+                      ],
+                      if (shownTopics.isNotEmpty) ...[
+                        _PickerHeading(l10n.mapSchemaPickerTopics),
+                        for (final node in shownTopics)
+                          ListTile(
+                            key: ValueKey('map-schema-pick-${node.valueId}'),
+                            dense: true,
+                            title: Text(node.label),
+                            trailing: Text('${node.itemCount}'),
+                            onTap: () => Navigator.of(context).pop(
+                              _RootChoice(
+                                SchemaRef.topic(node.valueId),
+                                node.label,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
                   );
                 },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PickerHeading extends StatelessWidget {
+  const _PickerHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );

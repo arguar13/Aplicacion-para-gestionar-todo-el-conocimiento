@@ -64,6 +64,10 @@ class FakeMapRepository implements KnowledgeMapRepository {
   }) async => const [];
 
   @override
+  Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes}) async =>
+      const [];
+
+  @override
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
     int limit = kMaxGraphItems,

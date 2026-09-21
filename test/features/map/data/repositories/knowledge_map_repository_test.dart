@@ -479,6 +479,44 @@ void main() {
       expect(links.first.target, const SchemaRef.item('m1'));
     });
 
+    test('las notas mapa de la bóveda, por título sin acentos, y solo las '
+        'vivas', () async {
+      await seedTopics();
+      await noteOf('m2', 'Zama', NoteKind.map, ['roma']);
+      await noteOf('m1', 'Ágora', NoteKind.map, const []);
+      await noteOf('m3', 'Borrada', NoteKind.map, const []);
+      await noteOf('v1', 'Viva', NoteKind.living, const []);
+      await source('s1', ['roma']);
+      await trashItemRows(db, 'm3');
+
+      final notes = await repository.readMapNotes();
+
+      expect([for (final n in notes) n.title], ['Ágora', 'Zama']);
+      expect(notes.every((n) => n.isNote), isTrue);
+      expect(notes.first.target, const SchemaRef.item('m1'));
+    });
+
+    test('con más notas mapa que el tope, trae las más recientes', () async {
+      for (var i = 0; i < 5; i++) {
+        await insertItemRows(
+          db,
+          id: 'm$i',
+          title: 'Mapa $i',
+          kind: SourceKind.manualNote,
+          createdAt: DateTime(2026, 1, 1 + i),
+        );
+        await (db.update(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals('m$i'))).write(
+          const KnowledgeNotesCompanion(noteKind: Value(NoteKind.map)),
+        );
+      }
+
+      final notes = await repository.readMapNotes(limit: 2);
+
+      expect([for (final n in notes) n.title], ['Mapa 3', 'Mapa 4']);
+    });
+
     test('una nota mapa en la papelera no sale', () async {
       await seedTopics();
       await noteOf('m1', 'Mapa', NoteKind.map, ['roma']);
@@ -881,6 +919,23 @@ void main() {
         relations.where((line) => line.startsWith('SCAN')),
         isEmpty,
         reason: relations.join('\n'),
+      );
+    });
+
+    test('las notas mapa: se recorren las notas y cada elemento se busca por '
+        'clave', () async {
+      final plan = await planOf(mapNotesSql, [Variable.withInt(100)]);
+      final reason = plan.join('\n');
+
+      expect(
+        plan.where((line) => line.startsWith('SCAN note')),
+        hasLength(lessThanOrEqualTo(1)),
+        reason: reason,
+      );
+      expect(
+        plan.where((line) => line.startsWith('SCAN item')),
+        isEmpty,
+        reason: reason,
       );
     });
 

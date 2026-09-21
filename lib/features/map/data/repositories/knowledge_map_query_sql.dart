@@ -182,3 +182,21 @@ String mapItemsRelationsSql(int count) =>
     'SELECT from_item_id AS from_id, to_item_id AS to_id, kind AS kind '
     'FROM relations '
     'WHERE from_item_id IN (${List.filled(count, '?').join(', ')})';
+
+/// Las notas mapa vivas de toda la bóveda, las tocadas más recientemente
+/// primero. Variable: `?1` cuántas como mucho. Es el punto de entrada del
+/// esquema: una nota mapa reúne lo que otra persona ya ordenó.
+///
+/// Se parte de las notas y se va a cada elemento por su clave. `'map'` es
+/// `NoteKind.map.name`: un `const` no admite `.name`.
+const mapNotesSql =
+    '''
+SELECT item.id AS id,
+       item.title AS title
+FROM note
+CROSS JOIN item ON item.id = note.item_id
+WHERE note.note_kind = 'map'
+  AND $kActiveItemSql
+ORDER BY item.updated_at DESC, item.id
+LIMIT ?
+''';
