@@ -3679,6 +3679,215 @@ elementos, sigue igual: es de F14. Y la memoria que se mide al abrir el Atlas es
 una cota —el montón ya viene calentado por los escenarios anteriores—, no el
 costo de una primera apertura en frío.
 
+### 47. F14 del mapa de conocimiento: un grafo de temas que se calcula aparte, tres vistas sobre él y lo que la medición encontró
+
+Tercera fase del encargo F12–F17. No cambia el esquema de la base: todo lo nuevo
+es derivado, se reconstruye y no es fuente de verdad. Reemplaza el «grafo
+completo» por el Mapa, una pestaña con tres vistas —Tablero, Esquema y Grafo—
+sobre los TEMAS: los valores de una categoría de texto, con la jerarquía de F13.
+El mapa se calcula en otro isolate, se actualiza solo cuando algo cambia y
+comparte motor, datos y filtros entre las tres vistas. Son quince commits: los
+doce del plan —que ya cuenta el paso 5 en tres— y tres más: el paso 8 salió en
+tres commits, y la medición del paso 9 pidió uno de arreglos antes de escribirse.
+Cada commit compila y analiza por sí solo (`tool/verify_commit.ps1`); el analizador
+quedó en 31 y la suite en 3.647 pruebas.
+
+**Dónde el plan chocó con el código.** Se dijo antes de resolver, y el usuario
+aprobó el plan con esas decisiones. El grafo completo de entonces pedía TODOS los
+elementos y TODOS los vínculos y los acomodaba con un Fruchterman–Reingold
+cuadrático en Dart: con 10.000 elementos no era una vista, era una espera; F14 lo
+sustituye por vistas sobre temas con niveles de detalle, y el grafo de elementos
+queda como el nivel de más zoom. «Incremental» no podía significar que el motor
+supiera qué cambió: drift avisa por TABLA, no por fila. Lo que sí se puede
+cumplir, y se cumplió, es recalcular por lotes, con arranque en caliente, con
+identidades de comunidad estables y con la invalidación acotada a lo que el mapa
+lee. Las notas mapa ya existían (`NoteKind.map`): son la entrada del esquema, no
+un concepto nuevo. Y el tablero pide lo que ya existía en pedazos.
+
+**El grafo de temas.** `buildTopicGraph` es puro: un nodo por valor de la
+categoría —con su nombre sin acentos, su padre, su nivel y sus elementos
+directos— y una unión entre dos temas si aparecen juntos en un elemento
+(coocurrencia, peso 1) o si una relación une un elemento de uno con uno del otro
+(peso 2); las contradicciones se cuentan aparte, pesan 3 y marcan la unión como
+tensión, con las abiertas —las que nadie revisó— contadas aparte. Una relación
+cuenta una vez por par de temas, y un elemento con más de 40 temas usa los
+primeros 40 por orden alfabético para que el costo no crezca con el cuadrado. Se
+cuenta en Dart sobre una fila por elemento y no con un agregado SQL como decía el
+plan, porque en F13 el Atlas pasó de 3,9 s a 192 ms al hacer justo ese cambio;
+con 10.000 elementos y 2.164 temas armar el grafo tarda 148 ms en el emulador. El
+filtro es la `LibraryQuery` de la biblioteca —no hay un segundo motor de
+filtros— y hereda la consulta transitiva de F13; respeta la papelera.
+
+**Las comunidades.** Propagación de etiquetas ponderada, no Louvain: cada tema
+adopta la etiqueta que más pesa entre sus vecinos. Es determinista, sin azar: los
+temas se visitan en el orden de un hash de su valor con semilla fija —no de su
+posición, que cambia cuando aparece un tema— y un empate lo gana la etiqueta que
+el tema ya tiene. En caliente: con la memoria del cálculo anterior, indexada por
+el valor, cada tema parte de su comunidad y solo se mueve lo que el cambio movió,
+y las identidades de las comunidades que siguen existiendo se conservan —es lo que
+hace que un color no salte al recalcular—; una comunidad que la propagación deja
+partida se separa en sus componentes y la más grande conserva la identidad. Con
+los temas con estructura del benchmark, una captura reasigna 0 temas de 2.164 y
+una importación de 200 elementos también 0, y agrupar tarda 19 ms. **Una decisión
+mía que no estaba en el plan:** un tema se pega a su padre de la jerarquía con
+peso 1, lo mismo que un elemento compartido; sin eso una rama del vocabulario se
+partiría en colores solo porque nadie asignó a la vez el padre y el hijo. No se
+pudo verificar con datos reales que agrupe mejor —ver más abajo—.
+
+**El motor.** `KnowledgeMapEngine` mantiene el mapa al día sin bloquear la
+interfaz: espera 400 ms a que otro cambio reinicie la cuenta y, pasados 3 s desde
+el primero, calcula igual; escucha solo lo que el mapa lee, así que repasar una
+tarjeta no lo mueve; arma y agrupa en `Isolate.run`, y el isolate principal solo
+lee de la base y entrega; guarda en caché los últimos cuatro mapas sin filtro,
+validados por una cuenta de cambios, y descarta los filtrados al dejar de
+mirarlos; y aísla el fallo —si algo falla, es un estado del mapa que conserva el
+último bueno, sin bucle de reintentos—. Dos carreras que las pruebas encontraron
+y se corrigieron en el motor: dos oyentes del mismo pedido pedían dos cálculos, y
+volver a mirar un mapa fallado no lo reintentaba porque el motor lo daba por «al
+día». Medido en el emulador: el primer mapa llega a los 247 ms de pedirlo y tras
+una escritura a los 341, con 100 ms de espera —en la app la espera es de 400—.
+
+**Los niveles de detalle.** El grafo nunca dibuja miles de nodos. Alejado, cada
+comunidad es un nodo —hasta 60: los aislados van juntos en uno y las más chicas en
+otro, sin perder ningún peso—; a distancia media, hasta 300 temas: la comunidad y
+lo que la toca, no más saltos; de cerca, los 200 elementos más recientes de un
+tema y de sus subtemas, con los vínculos entre ellos. El esquema dibuja a lo sumo
+120 nodos y pide sus hijos a la base cuando el nodo se despliega, hasta 24 por
+vez. Y desde la medición, en el nivel de temas cada tema conserva las cuatro
+uniones más fuertes de las suyas, más todas las contradicciones, y el nivel avisa
+cuántas dejó: entre trescientos temas hay miles de uniones —5.896 en el
+benchmark— y dibujarlas no se lee ni se aguanta.
+
+**Un defecto de fondo que las pruebas encontraron en el layout.** El «arranque en
+caliente» no lo era: un layout de fuerzas ya calculado no está en equilibrio,
+está congelado por el enfriamiento, y arrancar de él con una temperatura que le
+permite moverse mandaba a los nodos entre 130 y 155 píxeles —casi la mitad de la
+distancia ideal— en cada recálculo. Ahora cada nodo lleva su propia temperatura:
+los que ya tenían lugar se mueven como mucho una décima de esa distancia, y los
+nuevos nacen junto a sus vecinos. Y un conjunto de temas sin ninguna unión se
+desparramaba por miles de píxeles porque la repulsión sin nada que atraiga no
+tiene dónde parar: sin uniones y sin posiciones previas se acomoda en una
+espiral compacta.
+
+**Las tres vistas.** El Tablero tiene siete tarjetas: los temas con más
+elementos, los pares más unidos —con un rayo en los que tienen una
+contradicción—, los aislados, las contradicciones abiertas con sus títulos y un
+botón a la pantalla de Tensión, el tamaño de la bóveda mes a mes y la madurez de
+las notas. El Esquema parte del tema con más elementos, o de una nota mapa, y se
+despliega nodo a nodo, en radial o en árbol, con cada vínculo rotulado con su
+tipo y una punta hacia donde apunta. El Grafo tiene los tres niveles, un camino
+de migas que lleva a cualquiera de los anteriores, y cambia de nivel al tocar o
+al acercarse y alejarse. Los filtros —tipo de elemento, tema de la biblioteca,
+etiqueta y texto— editan una `LibraryQuery` propia del mapa, así que filtrar el
+mapa no cambia la lista de la biblioteca ni al revés, y rigen a las tres vistas.
+Las etiquetas crecen por escalones al alejarse para seguir midiendo unos 11 px en
+pantalla, y con mucho alejamiento se callan las de los temas chicos; las fuentes
+y las notas se dibujan con la forma y el color de su rol (`EntityRole`) en
+cualquier pantalla; entre vistas hay un fundido de 180 ms. El esquema y el grafo
+se exportan como PNG o SVG sin dependencias nuevas: el SVG lo arma un escritor
+mínimo con los mismos nodos, colores y uniones que se ven, y el PNG captura el
+lienzo a doble resolución sin pasar de 4.096 píxeles por lado.
+
+**El Mapa reemplaza al Grafo.** La pestaña «Grafo» de la barra pasa a llamarse
+«Mapa» y abre esta pantalla; conserva el camino `/graph` porque de él cuelgan
+Tensión y el grafo local de un elemento. El grafo completo se retira con lo que
+solo él usaba. Antes de borrarlo, sus dos acciones se mudaron al Grafo del mapa:
+agregar un vínculo entre dos elementos —el mismo flujo de tres pasos, en los tres
+niveles— y pedirle a la IA que sugiera vínculos, acotado a los elementos del tema
+que se mira, con el punto de partida elegido solo entre ellos. También el filtro
+por tema de la biblioteca —lo que en la interfaz se llama «Tema» y en el código es
+el espacio; los temas del mapa son las etiquetas de la categoría «Tema»—, que el
+grafo viejo tenía y el mapa no. Lo que NO pasó al mapa: arrastrar los nodos a
+mano; el selector de grado y los chips de «temas del grafo», que reemplazan los
+niveles y las comunidades; colorear por tema de la biblioteca —ahora, por
+comunidad, y las fuentes y notas por su rol—; las miniaturas dentro de los nodos;
+los botones de acercar, alejar y encuadrar; el «Sin tema» del filtro, que
+`LibraryQuery` no puede expresar; y —por construcción— los elementos sin tema: el
+mapa se arma sobre temas, el grafo viejo mostraba cualquier elemento con algún
+vínculo.
+
+**Lo que la medición encontró.** Se midió en el emulador de Android, en modo
+profile, con la PC enchufada, con 10.000 elementos y 2.000 temas
+(`docs/benchmarks/`), y salieron tres cosas. La primera es del generador: la
+bóveda sintética asigna los temas al azar, y su grafo es una maraña de 94.506
+uniones entre 2.164 temas en UNA sola comunidad, con un panorama de un solo nodo.
+Sirve como peor caso del coste de armarlo, pero medir comunidades y panorama con
+eso no significaba nada: el benchmark del mapa usa además temas con estructura
+—las mismas ramas, los elementos repartidos por áreas con puentes entre ellas—,
+que dan 49 comunidades. La segunda es de dibujo: el nivel de temas costaba 47 a
+54 ms de raster por cuadro en el escritorio. Se apagó cada parte para no
+suponer: las uniones eran unos 32 ms; las etiquetas y los círculos, unos 7 cada
+uno. Agrupar las uniones para dibujarlas con pocas llamadas ayudó poco (de 53,7 a
+48,1 ms); lo que las bajó fue dibujar menos, y con el tope de cuatro por tema
+quedó en 20,9 ms. La tercera es un defecto de gestos que ningún widget test había
+visto: al soltar un gesto el grafo comparaba el zoom con el umbral de
+alejamiento sin mirar si el gesto lo había tocado, y con 300 temas el encuadre
+queda por debajo de ese umbral, así que arrastrar el mapa subía de nivel. Ahora un
+gesto solo cambia de nivel si cambió el zoom, y acercarse a tres veces el
+encuadre alcanza para bajar.
+
+**Cifras del emulador** (`emulador-…/2026-09-21-f14/`). Lo que calcula, con 2.164
+temas: armar el grafo 148 ms, comunidades en frío 19 ms, recalcular tras una
+captura 158 ms, acomodar los 300 temas 69 ms en frío y 16 en caliente, y los 200
+elementos 31 ms. Lo que tarda en verse: el tablero 1.019 ms, el esquema 784 ms, el
+panorama 671 ms, los 300 temas 329 ms y los elementos de un tema 810 ms con la
+lectura de la base. Cuadros de un gesto sostenido:
+
+| gesto | armado p90 | raster p90 | fuera de presupuesto de raster |
+|---|---|---|---|
+| esquema, arrastre | 1,3 ms | 18,0 ms | 13,0 % |
+| panorama, arrastre | 1,9 ms | 19,5 ms | 16,7 % |
+| panorama, dos dedos | 0,9 ms | 24,1 ms | 42,9 % |
+| temas (300 nodos), arrastre | 3,5 ms | 38,9 ms | 61,3 % |
+| elementos, arrastre | 1,9 ms | 9,0 ms | 4,7 % |
+| panorama, arrastre + recálculo de fondo | 2,1 ms | 18,5 ms | 15,4 % |
+
+Memoria residente: 191 MB al empezar y 418 MB como máximo.
+
+**El criterio de cierre, con lo que se cumple y lo que no.** Se cumple que las tres
+vistas comparten motor, datos y filtros, que el agrupamiento es incremental y no
+bloquea la interfaz —con diez recálculos en 18 s durante un arrastre, el raster no
+empeora (p90 de 18,5 ms contra 19,5 sin recalcular)—, que se actualiza solo y que
+el invariante de chunking sigue verde. **No se cumple «interacción fluida con 2.000
+temas» en el emulador**: el armado no es nunca el problema —su p90 no pasa de 3,5
+ms—, pero el raster pasa el presupuesto de un cuadro (16,6 ms) en todas las
+vistas salvo en el nivel de elementos. El esquema y el panorama quedan cerca —18 y
+19,5 ms—, algo por debajo de la línea de tiempo de F12 en el mismo emulador (23,1 ms
+y 23 % de cuadros fuera); el zoom con dos dedos y el nivel de temas, peor. El nivel de
+temas es el que más queda lejos: 300 nodos con sus etiquetas cuestan en cada
+cuadro más de lo que un cuadro permite. F14 se cierra con esa excepción dicha,
+porque arreglarla pide una decisión de quien aprobó el plan: dibujar menos temas a
+la vez —el tope de 300 es una cifra aprobada; el costo crece con los nodos, así que
+bajarlo a unos 120 lo llevaría cerca del presupuesto, como extrapolación y no como
+medida— o guardar el nivel ya dibujado como imagen mientras dura un gesto, que es
+rediseñar cómo se dibuja el grafo.
+
+**Lo que F14 no hace, dicho sin adornos.** No hay cifras de un teléfono real: las
+del emulador dependen de la PC que lo aloja, y sus tiempos son optimistas. La
+referencia de escritorio tampoco es una cota de un teléfono: en esa máquina pintar
+es caro. Las comunidades y el panorama se midieron con temas
+estructurados por un generador cuyas áreas son las ramas de primer nivel —justo lo
+que el peso que la jerarquía suma a las uniones favorece—: con esos datos no se
+puede saber si ese peso agrupa mejor o peor con los temas de una bóveda real, y
+sigue sin verificarse. Las sugerencias de vínculos con IA se probaron con el doble
+del servicio, no con un modelo real en el dispositivo, y su tope de 30 candidatos
+por pedido sigue como estaba. La exportación guarda el nivel que se mira, no los
+tres juntos; el PNG toma los colores del tema en uso, y el SVG se comprobó por su
+estructura y no se abrió en un visor externo. No se midió en pantallas de otro
+tamaño ni con el tema oscuro. Y falta repetir enchufada la migración de v17 a v21,
+que quedó de F13.
+
+**Hallazgos que conviene tener a mano.** SQLite compara con `COLLATE NOCASE` solo
+en ASCII —«Ágora» quedaba después de «Zama»—: los nombres se ordenan en Dart, por
+su forma sin acentos, como todo el vocabulario. Un `Isolate.run` no termina bajo
+el reloj simulado de las pruebas de widgets, y toda prueba que llegue a la
+pestaña del Mapa necesita reemplazar el motor y el acomodo por versiones que
+calculan en el mismo isolate (`mapInlineOverrides`). Una prueba de widgets que
+llama a `onInteractionEnd` a mano no ve lo que hace un gesto de verdad: el defecto
+del arrastre solo apareció con un nivel de 300 nodos en una pantalla real. Y medir
+apagando cada parte antes de arreglar evitó optimizar lo que no era: agrupar
+las uniones, que parecía lo obvio, casi no movió el costo.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -3954,6 +4163,20 @@ costo de una primera apertura en frío.
   con un cierre materializado: tardan lo mismo. Un cambio de esquema aditivo
   (v21). Segunda fase del encargo F12–F17 —ver la decisión 46—.
 
+- **F14 del mapa de conocimiento: una pestaña «Mapa» con un tablero, un esquema
+  y un grafo de temas.** El mapa se calcula en otro isolate, por lotes y en
+  caliente, y se actualiza solo: las comunidades de temas conservan su identidad
+  y su color al recalcular, y el grafo nunca dibuja miles de nodos —comunidades,
+  temas y elementos según el zoom—. Comparte filtros con la biblioteca, parte de
+  un tema o de una nota mapa y se exporta como PNG o SVG. Reemplaza al grafo
+  completo, que cargaba todos los elementos; agregar un vínculo, las sugerencias
+  con IA y el filtro por tema se mudaron a él. Se midió en un emulador con 10.000
+  elementos y 2.000 temas, y la medición encontró tres cosas —un generador sin
+  estructura, un nivel de temas demasiado caro de dibujar y un arrastre que
+  subía de nivel—; el criterio de fluidez NO se cumple en el emulador salvo en
+  el nivel de elementos y queda dicho. Sin cambios de esquema. Tercera fase del
+  encargo F12–F17 —ver la decisión 47—.
+
 ### Por construir
 
 Las ocho fases originales están construidas, probadas y documentadas.
@@ -3968,11 +4191,17 @@ durabilidad: papelera, versión por campo y fusión no destructiva, ver la
 decisión 44—.
 
 Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras de
-un Android, compactación y copia por tandas, ver la decisión 45— y F13 —la
-jerarquía temática y el Atlas, ver la decisión 46— están construidas.
+un Android, compactación y copia por tandas, ver la decisión 45—, F13 —la
+jerarquía temática y el Atlas, ver la decisión 46— y F14 —el mapa de
+conocimiento, ver la decisión 47— están construidas. F14 se cerró con una
+excepción dicha: en el emulador el dibujo del mapa no cumple el presupuesto de un
+cuadro salvo en el nivel de elementos, y arreglarlo pide decidir entre dibujar
+menos temas a la vez o rediseñar cómo se dibuja el grafo. Siguen F15 —la
+biblioteca académica—, F16 —cuadernos, derivados marcados y vistas— y F17 —Anki y
+hábito—, que se planean cuando les toque.
 
-Lo que queda son las cosas que las decisiones 44, 45 y 46 dicen, sin adornos, que
-no hacen: una sincronización que no dependa de traer una copia a mano, lápidas
-para lo que se une por conjuntos y la medición en un teléfono real —F12 y F13
-midieron en un emulador—. Ninguna está planeada; se planean —plan breve, aprobado, después
-código— cuando le toquen.
+Lo que queda son las cosas que las decisiones 44, 45, 46 y 47 dicen, sin adornos,
+que no hacen: una sincronización que no dependa de traer una copia a mano, lápidas
+para lo que se une por conjuntos y la medición en un teléfono real —F12, F13 y F14
+midieron en un emulador—. Ninguna está planeada; se planean —plan breve, aprobado,
+después código— cuando le toquen.

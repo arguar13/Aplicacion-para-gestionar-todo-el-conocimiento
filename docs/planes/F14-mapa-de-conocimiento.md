@@ -1,6 +1,6 @@
 # F14 — Mapa de conocimiento (esquema, grafo de conocimiento y tablero)
 
-> **Estado: aprobado** (2026-09-21), en el chat, junto con el de F13. Se construye después de F13; lo que salga distinto de lo planeado se dice en su decisión de `../arquitectura.md`.
+> **Estado: aprobado y construido** (2026-09-21). Aprobado en el chat, junto con el de F13. Lo construido, lo que se midió y lo que no hace, en la Decisión 47 de `../arquitectura.md`. Lo que salió distinto de lo planeado: el paso 8 salió en tres commits —agregar vínculo y sugerir con IA, el filtro por tema que el grafo viejo tenía y el retiro del grafo completo—; la medición del paso 9 pidió un commit de arreglos (`perf(map)`): un tope de uniones en el nivel de temas y un arrastre que subía de nivel; el benchmark mide con temas estructurados además de los de la bóveda sintética, que se asignan al azar y dan una sola comunidad; y **el criterio de interacción fluida NO se cumple en el emulador** salvo en el nivel de elementos: el armado sí, el raster no.
 
 Tercera fase del encargo F12–F17. Depende de F13 (la jerarquía de temas es lo que da el
 «esquema»). **No cambia el esquema de la base**: todo lo nuevo es derivado, se reconstruye
