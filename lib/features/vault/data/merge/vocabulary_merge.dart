@@ -78,12 +78,21 @@ class VocabularyMerge {
     'date_to_day',
     'date_precision',
     'date_is_circa',
+    // El nombre partido de una persona (F15).
+    'name_family',
+    'name_given',
+    'name_suffix',
+    'is_institution',
   ];
 
   Future<VocabularyResult> apply() async {
     final definitions = await _mapDefinitions();
     final values = await _mapValues();
     final aliases = await _addAliases();
+    await _adoptNames();
+    // El espejo de las personas de una obra (origen `reference`) no se copia:
+    // es derivado, y la fusión lo rehace con las personas que ganaron
+    // (`EntryMergeApplier.updateReferences`).
     final assignments = await _db.customUpdate(
       '''
       INSERT OR IGNORE INTO main.item_property_values
@@ -91,7 +100,8 @@ class VocabularyMerge {
       SELECT x.item_id, vm.local_id, x.origin
         FROM $_incoming.item_property_values x
         JOIN ${MergeWork.valueMap} vm ON vm.incoming_id = x.property_value_id
-       WHERE EXISTS (SELECT 1 FROM main.item i WHERE i.id = x.item_id)''',
+       WHERE x.origin <> 'reference'
+         AND EXISTS (SELECT 1 FROM main.item i WHERE i.id = x.item_id)''',
       updates: {_db.itemPropertyValues},
     );
     final hierarchy = await _adoptHierarchy();
@@ -104,6 +114,49 @@ class VocabularyMerge {
       parentsIgnored: hierarchy.ignored,
     );
   }
+
+  /// El nombre partido de una persona (F15): un valor de acá que nadie había
+  /// partido toma el que le da la copia, si es el MISMO nombre —la misma
+  /// etiqueta— y la copia sí lo partió. Lo que ya estaba partido acá no se
+  /// toca: lo que alguien corrigió no se pisa, y no hay con qué decidir cuál
+  /// de los dos es el más nuevo.
+  Future<void> _adoptNames() => _db.customStatement('''
+    UPDATE main.property_values
+       SET name_family = (SELECT x.name_family FROM $_incoming.property_values x
+                            JOIN ${MergeWork.valueMap} vm
+                              ON vm.incoming_id = x.id
+                           WHERE vm.local_id = property_values.id
+                             AND x.name_family IS NOT NULL
+                             AND x.value = property_values.value COLLATE NOCASE
+                           LIMIT 1),
+           name_given = (SELECT x.name_given FROM $_incoming.property_values x
+                           JOIN ${MergeWork.valueMap} vm
+                             ON vm.incoming_id = x.id
+                          WHERE vm.local_id = property_values.id
+                            AND x.name_family IS NOT NULL
+                            AND x.value = property_values.value COLLATE NOCASE
+                          LIMIT 1),
+           name_suffix = (SELECT x.name_suffix FROM $_incoming.property_values x
+                            JOIN ${MergeWork.valueMap} vm
+                              ON vm.incoming_id = x.id
+                           WHERE vm.local_id = property_values.id
+                             AND x.name_family IS NOT NULL
+                             AND x.value = property_values.value COLLATE NOCASE
+                           LIMIT 1),
+           is_institution = (SELECT x.is_institution
+                               FROM $_incoming.property_values x
+                               JOIN ${MergeWork.valueMap} vm
+                                 ON vm.incoming_id = x.id
+                              WHERE vm.local_id = property_values.id
+                                AND x.name_family IS NOT NULL
+                                AND x.value = property_values.value COLLATE NOCASE
+                              LIMIT 1)
+     WHERE name_family IS NULL
+       AND EXISTS (SELECT 1 FROM $_incoming.property_values x
+                     JOIN ${MergeWork.valueMap} vm ON vm.incoming_id = x.id
+                    WHERE vm.local_id = property_values.id
+                      AND x.name_family IS NOT NULL
+                      AND x.value = property_values.value COLLATE NOCASE)''');
 
   /// La jerarquía de la copia (F13): a un valor sin padre de acá se le pone el
   /// padre que le da la copia. Lo demás se ignora y se cuenta:

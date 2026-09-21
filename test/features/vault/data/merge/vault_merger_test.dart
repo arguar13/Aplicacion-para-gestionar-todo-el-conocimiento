@@ -712,6 +712,12 @@ void main() {
       expect(kNoteColumns.toSet(), await columnsOf('note'));
       expect(kSourceColumns.toSet(), await columnsOf('source'));
       expect(kFieldVersionColumns.toSet(), await columnsOf('field_version'));
+      // Y las de los datos bibliográficos y sus personas (F15).
+      expect(kReferenceColumns.toSet(), await columnsOf('source_reference'));
+      expect(
+        kContributorColumns.toSet(),
+        await columnsOf('source_contributor'),
+      );
     });
 
     test('cada campo que se fusiona existe donde dice', () async {
@@ -743,9 +749,15 @@ void main() {
         EntryField.authorUrl,
         EntryField.publishedAt,
         EntryField.originalBlobPath,
+        EntryField.reference,
       });
       expect(mergeFieldNamed(EntryField.rendition('x')), isNull);
       expect(mergeFieldNamed(EntryField.title)!.table, 'item');
+      // Los datos bibliográficos son UN solo campo, aunque vivan en dos tablas.
+      expect(mergeFieldNamed(EntryField.reference)!.isComposite, isTrue);
+      expect(kMergeFields.where((f) => f.isComposite).map((f) => f.name), [
+        EntryField.reference,
+      ]);
     });
   });
 }

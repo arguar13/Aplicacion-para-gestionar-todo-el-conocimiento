@@ -46,6 +46,10 @@ void main() {
     'lib/features/vault/data/merge/merge_gates.dart':
         'las guardas miran `item` solo para saber si una forma de texto es de '
         'una fuente; no leen ningún elemento para mostrarlo',
+    'lib/features/vault/data/merge/reference_merge.dart':
+        'decide sobre la referencia de TODAS las fuentes que las dos bóvedas '
+        'tienen, también las de la papelera: un elemento borrado conserva '
+        'sus datos bibliográficos y lo que le llega de la copia',
     'lib/features/vault/data/merge/rendition_merge.dart':
         'la fusión decide sobre las formas de TODOS los elementos, también los '
         'de la papelera: un elemento borrado conserva su texto y lo que le '

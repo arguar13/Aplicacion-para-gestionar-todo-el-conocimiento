@@ -1,4 +1,5 @@
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
@@ -55,11 +56,38 @@ const kFieldVersionColumns = [
   'base_device_id',
 ];
 
+/// Las de los datos bibliográficos de una fuente (F15) y las de sus personas,
+/// que se copian aparte porque la persona se traduce al identificador de acá.
+const kReferenceColumns = [
+  'item_id',
+  'reference_type',
+  'container_title',
+  'publisher',
+  'publisher_place',
+  'edition',
+  'volume',
+  'issue',
+  'pages',
+  'isbn',
+  'issn',
+  'doi',
+  'accessed_at',
+  'citation_key',
+  'publication_precision',
+];
+const kContributorColumns = [
+  'item_id',
+  'property_value_id',
+  'role',
+  'position',
+];
+
 /// Escribe en esta bóveda lo que la fusión decidió sobre los elementos, los
 /// campos y los espacios (F11).
 ///
 /// Es, junto a `KnowledgeEntryWriter`, el único lugar que escribe `item`,
-/// `note` y `source` —el test de censo lo lista con su motivo—, y escribe
+/// `note`, `source` y —desde F15— `source_reference` y `source_contributor`
+/// —el test de censo lo lista con su motivo—, y escribe
 /// distinto a propósito: `KnowledgeEntryWriter` registra una modificación
 /// NUESTRA (pone el dispositivo de acá y una versión nueva); esto aplica
 /// versiones que YA traen su linaje, y pasarlas por el escritor les cambiaría
@@ -158,6 +186,9 @@ class EntryMergeApplier {
     }
 
     for (final MapEntry(key: field, value: changes) in byField.entries) {
+      // Los datos bibliográficos se escriben después del vocabulario: ver
+      // [updateReferences].
+      if (field.isComposite) continue;
       if (field.isSpace) {
         // Ya traducido a los identificadores de acá: se escribe por valor.
         final byValue = <String?, List<String>>{};
@@ -203,6 +234,107 @@ class EntryMergeApplier {
         );
       });
     }
+  }
+
+  /// Pone en las fuentes de acá la referencia de la copia en cada una donde
+  /// ganó (F15): sus datos, sus personas y su versión. Reemplaza lo que había.
+  ///
+  /// Va DESPUÉS del vocabulario y no con [updateFields]: las personas de la
+  /// copia se escriben con el identificador que tienen acá, que recién se sabe
+  /// cuando el vocabulario ya se fusionó ([MergeWork.valueMap]).
+  Future<void> updateReferences(EntryMergePlan plan) async {
+    final ids = [
+      for (final change in plan.updates)
+        if (change.field.isComposite) change.itemId,
+    ];
+    if (ids.isEmpty) return;
+
+    await _forChunks(ids, (marks, chunk) async {
+      await _db.customStatement(
+        'DELETE FROM main.source_contributor WHERE item_id IN ($marks)',
+        chunk,
+      );
+      await _db.customStatement(
+        'DELETE FROM main.source_reference WHERE item_id IN ($marks)',
+        chunk,
+      );
+      await _db.customStatement(
+        '''
+        INSERT INTO main.source_reference (${kReferenceColumns.join(', ')})
+        SELECT ${kReferenceColumns.map((c) => 'x.$c').join(', ')}
+          FROM $_incoming.source_reference x WHERE x.item_id IN ($marks)''',
+        chunk,
+      );
+      await _copyContributors('x.item_id IN ($marks)', chunk);
+      await _db.customStatement(
+        'DELETE FROM main.field_version '
+        'WHERE field_name = ? AND item_id IN ($marks)',
+        [EntryField.reference, ...chunk],
+      );
+      await _db.customStatement(
+        '''
+        INSERT INTO main.field_version (${kFieldVersionColumns.join(', ')})
+        SELECT ${kFieldVersionColumns.map((c) => 'x.$c').join(', ')}
+          FROM $_incoming.field_version x
+         WHERE x.field_name = ? AND x.item_id IN ($marks)''',
+        [EntryField.reference, ...chunk],
+      );
+      await _repairMirror('item_id IN ($marks)', chunk);
+    });
+  }
+
+  /// Trae la referencia y las personas de los elementos NUEVOS (F15), después
+  /// del vocabulario. Su versión por campo ya vino con el elemento.
+  Future<void> addReferences() async {
+    await _db.customStatement(
+      '''
+      INSERT INTO main.source_reference (${kReferenceColumns.join(', ')})
+      SELECT ${kReferenceColumns.map((c) => 'x.$c').join(', ')}
+        FROM $_incoming.source_reference x JOIN $_newItems n ON n.id = x.item_id''',
+    );
+    await _copyContributors(
+      'x.item_id IN (SELECT id FROM $_newItems)',
+      const [],
+    );
+    await _repairMirror('item_id IN (SELECT id FROM $_newItems)', const []);
+  }
+
+  /// Las personas de la copia de las obras que [condition] elige, con el
+  /// identificador de acá. Si dos de la copia son la misma persona con el mismo
+  /// rol, entra una: el lugar que deja la otra queda vacío, y el orden se
+  /// conserva.
+  Future<void> _copyContributors(String condition, List<Object?> args) =>
+      _db.customStatement('''
+        INSERT OR IGNORE INTO main.source_contributor
+          (${kContributorColumns.join(', ')})
+        SELECT x.item_id, vm.local_id, x.role, x.position
+          FROM $_incoming.source_contributor x
+          JOIN ${MergeWork.valueMap} vm ON vm.incoming_id = x.property_value_id
+         WHERE $condition''', args);
+
+  /// Deja el espejo de las personas de las obras que [condition] elige igual
+  /// a lo que ahora dicen (F15).
+  ///
+  /// El espejo (`item_property_values` con origen `reference`) es DERIVADO: lo
+  /// escribe `KnowledgeEntryWriter` a partir de las personas de la obra. Por
+  /// eso la fusión no lo copia de la copia —lo de la copia iría con las
+  /// personas de SU versión, que puede no ser la que ganó— sino que lo rehace
+  /// acá: quita lo de una persona que ya no figura y agrega lo que falta. Una
+  /// asignación `manual` no se toca.
+  Future<void> _repairMirror(String condition, List<Object?> args) async {
+    await _db.customStatement('''
+      DELETE FROM main.item_property_values
+       WHERE origin = 'reference' AND $condition
+         AND NOT EXISTS (
+               SELECT 1 FROM main.source_contributor c
+                WHERE c.item_id = item_property_values.item_id
+                  AND c.property_value_id
+                      = item_property_values.property_value_id)''', args);
+    await _db.customStatement('''
+      INSERT OR IGNORE INTO main.item_property_values
+        (item_id, property_value_id, origin)
+      SELECT c.item_id, c.property_value_id, 'reference'
+        FROM main.source_contributor c WHERE c.$condition''', args);
   }
 
   /// Anota que los elementos [itemIds] cambiaron en esta bóveda, UNA vez cada

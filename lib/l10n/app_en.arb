@@ -213,6 +213,130 @@
   "@sourceKindReference": {
     "description": "Readable name of a source type: a work known only by its bibliographic data, without its text"
   },
+  "referenceFieldType": "Type of work",
+  "@referenceFieldType": {
+    "description": "Label of the field that says what kind of work a reference is"
+  },
+  "referenceFieldAuthors": "Authors",
+  "@referenceFieldAuthors": {
+    "description": "Label of the list of authors of a work"
+  },
+  "referenceFieldTranslators": "Translators",
+  "@referenceFieldTranslators": {
+    "description": "Label of the list of translators of a work"
+  },
+  "referenceFieldEditors": "Editors",
+  "@referenceFieldEditors": {
+    "description": "Label of the list of editors of a work"
+  },
+  "referenceFieldDirectors": "Directors",
+  "@referenceFieldDirectors": {
+    "description": "Label of the list of directors of a work, such as a documentary"
+  },
+  "referenceFieldContainer": "Published in",
+  "@referenceFieldContainer": {
+    "description": "Label of the book, journal or site that contains the work"
+  },
+  "referenceFieldPublisher": "Publisher",
+  "@referenceFieldPublisher": {
+    "description": "Label of the publisher of a work"
+  },
+  "referenceFieldPlace": "Place of publication",
+  "@referenceFieldPlace": {
+    "description": "Label of the city of the publisher"
+  },
+  "referenceFieldEdition": "Edition",
+  "@referenceFieldEdition": {
+    "description": "Label of the edition of a work"
+  },
+  "referenceFieldVolume": "Volume",
+  "@referenceFieldVolume": {
+    "description": "Label of the volume of a work"
+  },
+  "referenceFieldIssue": "Issue",
+  "@referenceFieldIssue": {
+    "description": "Label of the issue number of a journal"
+  },
+  "referenceFieldPages": "Pages",
+  "@referenceFieldPages": {
+    "description": "Label of the page range of a work"
+  },
+  "referenceFieldIsbn": "ISBN",
+  "@referenceFieldIsbn": {
+    "description": "Label of the ISBN of a book"
+  },
+  "referenceFieldIssn": "ISSN",
+  "@referenceFieldIssn": {
+    "description": "Label of the ISSN of a journal"
+  },
+  "referenceFieldDoi": "DOI",
+  "@referenceFieldDoi": {
+    "description": "Label of the DOI of a work"
+  },
+  "referenceFieldAccessed": "Accessed on",
+  "@referenceFieldAccessed": {
+    "description": "Label of the date a web source was consulted"
+  },
+  "referenceFieldCitationKey": "Citation key",
+  "@referenceFieldCitationKey": {
+    "description": "Label of the key a BibTeX file uses for a work"
+  },
+  "referenceFieldDateExactness": "Date precision",
+  "@referenceFieldDateExactness": {
+    "description": "Label of how precisely the publication date is known"
+  },
+  "referenceTypeBook": "Book",
+  "@referenceTypeBook": {
+    "description": "Type of work"
+  },
+  "referenceTypeChapter": "Chapter",
+  "@referenceTypeChapter": {
+    "description": "Type of work"
+  },
+  "referenceTypeArticle": "Article",
+  "@referenceTypeArticle": {
+    "description": "Type of work"
+  },
+  "referenceTypeThesis": "Thesis",
+  "@referenceTypeThesis": {
+    "description": "Type of work"
+  },
+  "referenceTypePrimarySource": "Primary source",
+  "@referenceTypePrimarySource": {
+    "description": "Type of work"
+  },
+  "referenceTypeDocumentary": "Documentary",
+  "@referenceTypeDocumentary": {
+    "description": "Type of work"
+  },
+  "referenceTypeWebsite": "Website",
+  "@referenceTypeWebsite": {
+    "description": "Type of work"
+  },
+  "referenceTypeOnlinePublication": "Online publication",
+  "@referenceTypeOnlinePublication": {
+    "description": "Type of work"
+  },
+  "referenceTypeOther": "Other",
+  "@referenceTypeOther": {
+    "description": "Type of work"
+  },
+  "referencePrecisionYear": "Year only",
+  "@referencePrecisionYear": {
+    "description": "How precisely a publication date is known"
+  },
+  "referencePrecisionMonth": "Year and month",
+  "@referencePrecisionMonth": {
+    "description": "How precisely a publication date is known"
+  },
+  "referencePrecisionDay": "Full date",
+  "@referencePrecisionDay": {
+    "description": "How precisely a publication date is known"
+  },
+  "referencePrecisionUndated": "Undated",
+  "@referencePrecisionUndated": {
+    "description": "The work has no publication date"
+  },
   "processingPending": "Waiting",
   "@processingPending": {
     "description": "Badge on an item whose content has not been extracted yet"
@@ -1902,6 +2026,10 @@
   "conflictsFieldOriginalFile": "Original file",
   "@conflictsFieldOriginalFile": {
     "description": "Nombre del campo archivo original en un conflicto."
+  },
+  "conflictsFieldReference": "Bibliographic data",
+  "@conflictsFieldReference": {
+    "description": "Name of the field of a merge conflict that holds the bibliographic data and the people of a source"
   },
   "conflictsFieldText": "Text",
   "@conflictsFieldText": {

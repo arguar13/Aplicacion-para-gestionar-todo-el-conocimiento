@@ -4,16 +4,30 @@ import 'package:sinapsis/core/database/entry_fields.dart';
 /// columna, para que la fusión lo lea y lo escriba en SQL, de una bóveda a la
 /// otra, sin traerlo a Dart.
 class MergeField {
-  const MergeField._(this.name, this.table, this.column);
+  const MergeField._(
+    this.name,
+    this.table,
+    this.column, {
+    this.isComposite = false,
+  });
 
   /// El nombre con el que `field_version` lo registra (`EntryField`).
   final String name;
 
-  /// `item`, `note` o `source`.
+  /// `item`, `note` o `source`. En un campo [isComposite], la tabla principal.
   final String table;
 
-  /// La columna de esa tabla, tal como está en SQLite.
+  /// La columna de esa tabla, tal como está en SQLite. En un campo
+  /// [isComposite] es solo la que une la tabla con el elemento.
   final String column;
+
+  /// Si el campo no es una columna sino un CONJUNTO de filas de varias tablas
+  /// que se versiona junto (F15): los datos bibliográficos y sus personas. La
+  /// regla de linaje lo decide igual que a los demás; lo que cambia es cómo se
+  /// compara y cómo se copia (`ReferenceMergePlanner`, y el paso de las
+  /// referencias de `EntryMergeApplier`, que va DESPUÉS del vocabulario porque
+  /// las personas se traducen a los identificadores de acá).
+  final bool isComposite;
 
   /// La columna que une la tabla con el elemento: `item` es el elemento.
   String get keyColumn => table == 'item' ? 'id' : 'item_id';
@@ -28,6 +42,10 @@ class MergeField {
 
 /// Los campos de un elemento que se fusionan uno a uno, con la regla de
 /// linaje.
+///
+/// Los datos bibliográficos de una fuente y sus personas son UNO solo
+/// ([EntryField.reference]): si dos dispositivos los editan, gana la referencia
+/// más nueva entera y no hay un conflicto por editorial y otro por volumen.
 ///
 /// Son los mismos nombres que registra `KnowledgeEntryWriter` en
 /// `field_version`, menos el texto de las formas (`rendition:<id>`), que se
@@ -46,6 +64,12 @@ final kMergeFields = List<MergeField>.unmodifiable(const [
   MergeField._(EntryField.authorUrl, 'source', 'author_url'),
   MergeField._(EntryField.publishedAt, 'source', 'published_at'),
   MergeField._(EntryField.originalBlobPath, 'source', 'original_blob_path'),
+  MergeField._(
+    EntryField.reference,
+    'source_reference',
+    'item_id',
+    isComposite: true,
+  ),
 ]);
 
 /// El campo llamado [name], o `null` si no es uno de los que se fusionan así.

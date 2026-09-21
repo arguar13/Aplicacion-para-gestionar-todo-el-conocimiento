@@ -125,6 +125,8 @@ class VaultMerger {
         _db.knowledgeNotes,
         _db.knowledgeSources,
         _db.renditions,
+        _db.sourceReferences,
+        _db.sourceContributors,
         _db.fieldVersions,
         _db.mergeConflicts,
       ]);
@@ -176,6 +178,9 @@ class VaultMerger {
     await entries.bumpItems(changedItems);
     await entries.recordConflicts(fields);
     final vocabulary = await VocabularyMerge(database: _db, ids: _ids).apply();
+    // Los datos bibliográficos llevan a las personas, que ya están fusionadas.
+    await entries.updateReferences(fields);
+    await entries.addReferences();
     final unions = await SetUnionMerge(_db).apply();
 
     return VaultMergeResult(

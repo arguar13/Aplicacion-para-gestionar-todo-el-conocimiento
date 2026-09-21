@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/services/reference_codec.dart';
 import 'package:sinapsis/core/domain/services/reference_normalizer.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -533,6 +534,12 @@ class KnowledgeEntryWriter {
       case EntryField.maturity:
         final to = NoteMaturity.values.asNameMap()[value];
         return to == null ? false : setMaturity(itemId, to);
+      case EntryField.reference:
+        // La referencia entera, como la guarda un conflicto de fusión
+        // (`encodeReference`); sin texto, es «esta versión no tenía ninguna».
+        if (value == null) return setReference(itemId, const ReferenceData());
+        final reference = decodeReference(value);
+        return reference == null ? false : setReference(itemId, reference);
       case EntryField.originUrl:
       case EntryField.authorName:
       case EntryField.authorUrl:

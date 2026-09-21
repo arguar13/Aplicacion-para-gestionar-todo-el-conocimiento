@@ -6,8 +6,10 @@ import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/services/reference_codec.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/reference/presentation/reference_presentation.dart';
 import 'package:sinapsis/features/vault/domain/entities/merge_conflict.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -305,6 +307,7 @@ String conflictFieldLabel(AppLocalizations l10n, MergeConflict conflict) {
     EntryField.authorUrl => l10n.conflictsFieldAuthorUrl,
     EntryField.publishedAt => l10n.conflictsFieldPublishedAt,
     EntryField.originalBlobPath => l10n.conflictsFieldOriginalFile,
+    EntryField.reference => l10n.conflictsFieldReference,
     _ => conflict.fieldName,
   };
 }
@@ -353,6 +356,12 @@ String conflictVersionText(
       return NoteMaturity.values.asNameMap()[raw]?.label(l10n) ??
           raw ??
           l10n.conflictsEmptyValue;
+    case EntryField.reference:
+      // Los datos bibliográficos se guardan como un texto (`encodeReference`):
+      // se muestran uno por línea, no el JSON.
+      final reference = raw == null ? null : decodeReference(raw);
+      final lines = reference == null ? '' : describeReference(l10n, reference);
+      return lines.isEmpty ? l10n.conflictsEmptyValue : lines;
   }
   return raw == null || raw.isEmpty ? l10n.conflictsEmptyValue : raw;
 }

@@ -4,6 +4,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
+import 'package:sinapsis/core/domain/services/reference_codec.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -59,6 +61,8 @@ class MergeConflictRepositoryImpl implements MergeConflictRepository {
         _db.knowledgeEntries,
         _db.knowledgeNotes,
         _db.knowledgeSources,
+        _db.sourceReferences,
+        _db.sourceContributors,
         _db.renditions,
         _db.spaces,
       },
@@ -179,6 +183,12 @@ class MergeConflictRepositoryImpl implements MergeConflictRepository {
   Future<String?> _liveValue(String itemId, String field) async {
     final mapped = mergeFieldNamed(field);
     if (mapped == null) return null;
+    // Los datos bibliográficos no son una columna: se comparan como el texto
+    // con que se guardó la versión.
+    if (mapped.isComposite) {
+      final reference = await ReferenceReader(_db).read(itemId);
+      return reference.isEmpty ? null : encodeReference(reference);
+    }
     final rows = await _db
         .customSelect(
           'SELECT CAST(t.${mapped.column} AS TEXT) AS value '

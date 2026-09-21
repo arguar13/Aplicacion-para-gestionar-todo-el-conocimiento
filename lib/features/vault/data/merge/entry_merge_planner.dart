@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_fields.dart';
+import 'package:sinapsis/features/vault/data/merge/reference_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/space_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/stamp_rows.dart';
 import 'package:sinapsis/features/vault/domain/merge/field_merge_rule.dart';
@@ -94,7 +95,13 @@ class EntryMergePlanner {
   }) async {
     final byItem = <String, List<FieldChange>>{};
     for (final field in kMergeFields) {
-      for (final change in await _differing(field, spaces)) {
+      // Un campo compuesto —los datos bibliográficos— no es una columna: se
+      // compara y se lee de otra manera, pero entra en la misma decisión, y por
+      // eso cuenta para lo que un borrado no debe esconder.
+      final changes = field.isComposite
+          ? await ReferenceMergePlanner(_db).differing(field)
+          : await _differing(field, spaces);
+      for (final change in changes) {
         (byItem[change.itemId] ??= []).add(change);
       }
     }

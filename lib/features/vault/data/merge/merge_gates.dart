@@ -77,13 +77,28 @@ class MergeGates {
     'merge_conflict',
     'chunks',
     'inline_link',
+    // Los datos bibliográficos de una fuente y sus personas (F15).
+    'source_reference',
+    'source_contributor',
   ];
+
+  /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las
+  /// personas de una obra (`item_property_values` con origen `reference`) es
+  /// derivado —lo rehace la fusión con las personas que ganaron— y puede
+  /// achicarse cuando la referencia de la copia reemplaza a la de acá. Lo que
+  /// el usuario asignó, no.
+  ///
+  /// `source_reference` y `source_contributor` no están entre las que no pueden
+  /// achicarse por lo mismo que las versiones por campo: son el valor de un
+  /// campo, y uno que gana puede tener menos personas que el que reemplaza.
+  static const _countOnly = {'item_property_values': "origin <> 'reference'"};
 
   /// Toma cómo está la bóveda antes de escribir nada.
   Future<MergeSnapshot> snapshot() async {
     final counts = await captureVaultCounts(
       _db,
       tables: {..._neverShrink, 'chunks', 'embeddings', 'inline_link'},
+      where: _countOnly,
     );
     return MergeSnapshot(
       items: counts.rows['item'] ?? 0,
@@ -156,6 +171,7 @@ class MergeGates {
     final after = await captureVaultCounts(
       _db,
       tables: {..._neverShrink, 'chunks', 'embeddings', 'inline_link'},
+      where: _countOnly,
     );
 
     final expected = before.items + itemsAdded;

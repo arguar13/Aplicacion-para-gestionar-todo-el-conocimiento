@@ -43,14 +43,29 @@ Source sourceFor(KnowledgeEntryRow item, KnowledgeSourceRow? source) {
 /// está escrito, como si fuera el apellido de una sola palabra: no se adivina
 /// dónde termina el apellido, y un nombre mal partido en una bibliografía es
 /// peor que uno sin invertir.
-PersonName personNameFor(PropertyValueRow value) {
-  final family = value.nameFamily;
-  if (family == null) return PersonName(family: value.value);
+PersonName personNameFor(PropertyValueRow value) => personNameFromColumns(
+  label: value.value,
+  family: value.nameFamily,
+  given: value.nameGiven,
+  suffix: value.nameSuffix,
+  isInstitution: value.isInstitution,
+);
+
+/// Lo mismo que [personNameFor] desde las columnas sueltas: es lo que usa la
+/// fusión de bóvedas, que lee la copia con SQL y no con filas tipadas.
+PersonName personNameFromColumns({
+  required String label,
+  required String? family,
+  required String? given,
+  required String? suffix,
+  required bool? isInstitution,
+}) {
+  if (family == null) return PersonName(family: label);
   return PersonName(
     family: family,
-    given: value.nameGiven ?? '',
-    suffix: value.nameSuffix ?? '',
-    isInstitution: value.isInstitution ?? false,
+    given: given ?? '',
+    suffix: suffix ?? '',
+    isInstitution: isInstitution ?? false,
   );
 }
 

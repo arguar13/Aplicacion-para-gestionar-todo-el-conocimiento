@@ -77,16 +77,24 @@ class VaultCounts {
 
 /// Cuenta las filas de cada tabla de [tables].
 ///
-/// Los nombres salen de una lista fija del código, nunca de un dato: se
+/// [where] restringe lo que se cuenta de una tabla —por su nombre— a las filas
+/// que cumplen esa condición: la fusión de bóvedas no cuenta el espejo de las
+/// personas de una obra, que es derivado y se rehace (F15). Los nombres y las
+/// condiciones salen de una lista fija del código, nunca de un dato: se
 /// interpolan en el SQL porque una tabla no se puede pasar como parámetro.
 Future<VaultCounts> captureVaultCounts(
   AppDatabase db, {
   Iterable<String> tables = VaultCounts.userDataTables,
+  Map<String, String> where = const {},
 }) async {
   final rows = <String, int>{};
   for (final table in tables) {
+    final condition = where[table];
     final row = await db
-        .customSelect('SELECT COUNT(*) AS n FROM $table')
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM $table'
+          '${condition == null ? '' : ' WHERE $condition'}',
+        )
         .getSingle();
     rows[table] = row.read<int>('n');
   }
