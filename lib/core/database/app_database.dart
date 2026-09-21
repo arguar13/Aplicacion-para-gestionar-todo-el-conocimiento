@@ -30,6 +30,7 @@ import 'package:sinapsis/core/database/tables/review_log.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
+import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
 // generado es un `part` de este archivo y hereda sus imports, no los de las
 // tablas donde cada enum se declara. Sin esto, `app_database.g.dart` no
@@ -49,6 +50,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sqlite3/common.dart' show CommonDatabase;
@@ -126,7 +128,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 20;
+  static const currentSchemaVersion = 21;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -141,6 +143,7 @@ class AppDatabase extends _$AppDatabase {
       await migrator.createAll();
       await _createSearchIndex();
       await _createChunkSearchIndex();
+      await _createVocabularyHierarchyTriggers();
       await seedSystemPropertyCategories(this, ids: const UuidV7Generator());
     },
     onUpgrade: (migrator, from, to) async {
@@ -285,6 +288,23 @@ class AppDatabase extends _$AppDatabase {
           }
           await _requireSameCounts(before, step: 'v20', tables: tables);
         }
+        // Jerarquía del vocabulario (F13): un valor puede tener padre dentro
+        // de su categoría. Todo aditivo —dos columnas, un índice y cuatro
+        // triggers—: todos los valores que ya había quedan en la raíz, con
+        // profundidad 0, y nadie pierde nada. Los conteos de todo lo anterior
+        // son compuerta.
+        if (from < 21) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.addColumn(propertyValues, propertyValues.parentId);
+          await migrator.addColumn(propertyValues, propertyValues.depth);
+          await migrator.createIndex(idxPropertyValuesParent);
+          await _createVocabularyHierarchyTriggers();
+          await _requireSameCounts(before, step: 'v21', tables: tables);
+        }
       });
     },
     beforeOpen: (details) async {
@@ -307,6 +327,14 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(createTrashIndex);
     },
   );
+
+  /// Crea los triggers que hacen cumplir la jerarquía del vocabulario: ver
+  /// `vocabulary_hierarchy.dart`.
+  Future<void> _createVocabularyHierarchyTriggers() async {
+    for (final trigger in vocabularyHierarchyTriggers) {
+      await customStatement(trigger);
+    }
+  }
 
   /// Crea la tabla de búsqueda y sus triggers.
   ///

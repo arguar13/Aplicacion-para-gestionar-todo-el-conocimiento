@@ -1290,6 +1290,8 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     createdAt: row.createdAt,
     numberValue: row.numberValue,
     historicalDate: _toHistoricalDate(row),
+    parentId: row.parentId,
+    depth: row.depth,
   );
 
   /// `null` salvo que la fila venga de una categoría de tipo fecha —ahí

@@ -173,7 +173,7 @@ void main() {
   test('la migración llega a la forma del snapshot de v20', () async {
     await migrateFrom19(seed: seedVault);
     // `migrateAndValidate` ya comparó el esquema contra el snapshot.
-    expect(latestSchemaSnapshot, 20);
+    expect(latestSchemaSnapshot, greaterThanOrEqualTo(20));
   });
 
   group('lo que había', () {

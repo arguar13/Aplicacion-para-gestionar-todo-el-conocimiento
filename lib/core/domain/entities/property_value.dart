@@ -26,5 +26,11 @@ sealed class PropertyValue with _$PropertyValue {
     /// el texto que se muestra; esta es la representación estructurada
     /// que hace posible ordenar por fecha de verdad.
     HistoricalDate? historicalDate,
+
+    /// El valor bajo el que está este, o `null` si es una raíz (F13).
+    String? parentId,
+
+    /// Cuántos padres tiene por encima: 0 para una raíz.
+    @Default(0) int depth,
   }) = _PropertyValue;
 }

@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 
 /// Una categoría de propiedad: "Época", "Región", "Tema". La define el
 /// usuario, no la app —salvo "Tema" y "Fecha del hecho", categorías de
@@ -44,6 +45,7 @@ class PropertyDefinitions extends Table {
 /// texto.
 @DataClassName('PropertyValueRow')
 @TableIndex(name: 'idx_property_values_definition', columns: {#definitionId})
+@TableIndex(name: 'idx_property_values_parent', columns: {#parentId})
 class PropertyValues extends Table {
   TextColumn get id => text()();
 
@@ -81,6 +83,30 @@ class PropertyValues extends Table {
   /// precisión nominal ("circa siglo III a.C."). Metadato de
   /// presentación — no afecta el rango.
   BoolColumn get dateIsCirca => boolean().nullable()();
+
+  /// El valor bajo el que está este —«Roma» para «Roma republicana»—, o `null`
+  /// si es una raíz (F13). Solo dentro de su misma categoría y solo en las de
+  /// texto, sin ciclos: lo hacen cumplir los triggers de
+  /// `vocabulary_hierarchy.dart`, no solo el repositorio.
+  ///
+  /// Si el padre se borra, el hijo pasa a ser raíz; quien borra un padre
+  /// —`mergeValues`, `deleteUnusedValues`— sube antes a sus hijos un nivel.
+  TextColumn get parentId => text().nullable().references(
+    PropertyValues,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+
+  /// Cuántos padres tiene por encima: 0 para una raíz. Está guardado, y no se
+  /// calcula al leer, para poder ordenar y filtrar por nivel sin recorrer el
+  /// árbol; lo recalcula quien mueve una rama, en la misma transacción, y la
+  /// base rechaza pasar de `kVocabularyMaxDepth`.
+  IntColumn get depth => integer()
+      .withDefault(const Constant(0))
+      // La restricción se refiere a la propia columna: es el modo de drift de
+      // escribir un `CHECK`, y el analizador lo toma por una recursión.
+      // ignore: recursive_getters
+      .check(depth.isBetweenValues(0, kVocabularyMaxDepth))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
