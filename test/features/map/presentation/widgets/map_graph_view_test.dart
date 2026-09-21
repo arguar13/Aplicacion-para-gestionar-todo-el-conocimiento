@@ -14,6 +14,7 @@ import 'package:sinapsis/features/map/domain/repositories/knowledge_map_reposito
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -136,6 +137,8 @@ void main() {
     );
   }
 
+  MapExportHandle? handle;
+
   Widget app(KnowledgeMapSnapshot map) => ProviderScope(
     overrides: [
       knowledgeMapRepositoryProvider.overrideWithValue(repository),
@@ -148,6 +151,7 @@ void main() {
       home: Scaffold(
         body: MapGraphView(
           snapshot: map,
+          exportHandle: handle,
           onOpenTopic: (id) => opened.add('topic:$id'),
           onOpenItem: (id) => opened.add('item:$id'),
         ),
@@ -169,6 +173,7 @@ void main() {
   setUp(() {
     repository = _FakeRepository();
     opened.clear();
+    handle = null;
   });
 
   test('los datos de las pruebas dan dos comunidades y un aislado', () {
@@ -327,6 +332,64 @@ void main() {
 
       expect(node('overview:0'), findsOneWidget);
       expect(node('topic:a1'), findsNothing);
+    });
+  });
+
+  group('la exportación', () {
+    testWidgets('el SVG del panorama: un círculo por comunidad, con su cuenta '
+        'y su nombre', (tester) async {
+      handle = MapExportHandle();
+      await pump(tester);
+
+      final svg = handle!.svg!();
+
+      expect(svg, startsWith('<?xml'));
+      // Dos comunidades y los aislados, más la unión débil entre las dos.
+      expect('<circle'.allMatches(svg), hasLength(3));
+      expect(svg, contains('>Alfa 1</text>'));
+      expect(svg, contains('>Beta 1</text>'));
+      expect(svg, contains('>${es.mapBoardIsolatedTitle}</text>'));
+      expect('<line'.allMatches(svg), hasLength(1));
+    });
+
+    testWidgets('el SVG de los elementos: notas y fuentes con su título, y los '
+        'vínculos con su punta', (tester) async {
+      handle = MapExportHandle();
+      await pump(tester);
+      await tester.tap(node('overview:0'));
+      await tester.pumpAndSettle();
+      await tester.tap(node('topic:a1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-graph-action-items')));
+      await tester.pumpAndSettle();
+
+      final svg = handle!.svg!();
+
+      expect(svg, contains('>Livio</text>'));
+      expect(svg, contains('>Mi nota</text>'));
+      // Dos tarjetas más el fondo; una unión con su punta.
+      expect('<rect'.allMatches(svg), hasLength(2 + 1));
+      expect(svg, contains('<polygon'));
+    });
+
+    testWidgets('el PNG es una imagen de verdad', (tester) async {
+      handle = MapExportHandle();
+      await pump(tester);
+
+      final bytes = await tester.runAsync(() => handle!.png!());
+
+      expect(bytes, isNotNull);
+      expect(bytes!.sublist(0, 8), [137, 80, 78, 71, 13, 10, 26, 10]);
+    });
+
+    testWidgets('sin vista que exportar, no hay nada que ofrecer', (
+      tester,
+    ) async {
+      handle = MapExportHandle();
+      await pump(tester);
+      await tester.pumpWidget(const SizedBox());
+
+      expect(handle!.available, isFalse);
     });
   });
 

@@ -248,6 +248,82 @@ void main() {
     });
   });
 
+  group('la exportación', () {
+    Future<void> pickExport(WidgetTester tester, String key) async {
+      await tester.tap(find.byKey(const ValueKey('map-export')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey(key)));
+      // El PNG se pinta de verdad, y eso no avanza con el reloj simulado.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 400)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('en el tablero no hay nada que exportar: el botón está '
+        'apagado y dice por qué', (tester) async {
+      await seed();
+      await pump(tester);
+
+      final button = tester.widget<PopupMenuButton<String>>(
+        find.byKey(const ValueKey('map-export')),
+      );
+
+      expect(button.enabled, isFalse);
+      expect(button.tooltip, es.mapExportUnavailable);
+    });
+
+    testWidgets('en el esquema guarda un SVG con el nombre de la vista y la '
+        'categoría', (tester) async {
+      await seed();
+      await pump(tester);
+      await tester.tap(find.text(es.mapViewSchema));
+      await tester.pumpAndSettle();
+
+      await pickExport(tester, 'map-export-svg');
+
+      expect(harness.fileSaver.savedFileName, 'mapa-esquema-tema.svg');
+      final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
+      expect(text, startsWith('<?xml'));
+      expect(text, contains('Roma'));
+      expect(find.text(es.mapExportSaved), findsOneWidget);
+    });
+
+    testWidgets('en el grafo guarda un PNG', (tester) async {
+      await seed();
+      await pump(tester);
+      await tester.tap(find.text(es.mapViewGraph));
+      await tester.pumpAndSettle();
+
+      await pickExport(tester, 'map-export-png');
+
+      expect(harness.fileSaver.savedFileName, 'mapa-grafo-tema.png');
+      expect(harness.fileSaver.savedBytes!.sublist(0, 8), [
+        137,
+        80,
+        78,
+        71,
+        13,
+        10,
+        26,
+        10,
+      ]);
+    });
+
+    testWidgets('si guardar falla, lo dice', (tester) async {
+      await seed();
+      await pump(tester);
+      await tester.tap(find.text(es.mapViewSchema));
+      await tester.pumpAndSettle();
+      harness.fileSaver.error = StateError('disco lleno');
+
+      await pickExport(tester, 'map-export-svg');
+
+      expect(find.text(es.mapExportSaved), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+  });
+
   group('los filtros', () {
     Future<void> openFilters(WidgetTester tester) async {
       await tester.tap(find.byKey(const ValueKey('map-filters')));

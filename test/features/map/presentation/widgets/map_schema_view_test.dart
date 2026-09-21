@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/features/map/domain/repositories/knowledge_map_reposito
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
 import 'package:sinapsis/features/map/domain/services/schema_tree_builder.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -117,6 +120,8 @@ void main() {
 
   final opened = <String>[];
 
+  MapExportHandle? handle;
+
   Widget app(KnowledgeMapSnapshot map) => ProviderScope(
     overrides: [knowledgeMapRepositoryProvider.overrideWithValue(repository)],
     child: MaterialApp(
@@ -126,6 +131,7 @@ void main() {
       home: Scaffold(
         body: MapSchemaView(
           snapshot: map,
+          exportHandle: handle,
           onOpenTopic: (id) => opened.add('topic:$id'),
           onOpenItem: (id) => opened.add('item:$id'),
         ),
@@ -146,6 +152,7 @@ void main() {
   setUp(() {
     repository = _FakeRepository();
     opened.clear();
+    handle = null;
   });
 
   testWidgets('parte del tema de primer nivel con más elementos, ya '
@@ -374,6 +381,78 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('map-schema-pick-note-n1')), findsNothing);
+  });
+
+  group('la exportación', () {
+    testWidgets('el SVG trae lo que está dibujado: los nodos, los títulos '
+        'escapados y los vínculos con su tipo', (tester) async {
+      handle = MapExportHandle();
+      repository
+        ..links['topic:roma'] = const [
+          SchemaLink(
+            target: SchemaRef.item('n1'),
+            title: 'Cartas <A & B>',
+            edge: SchemaEdgeKind.mapNote,
+            isNote: true,
+          ),
+        ]
+        ..links['item:n1'] = const [
+          SchemaLink(
+            target: SchemaRef.item('s1'),
+            title: 'Livio',
+            edge: SchemaEdgeKind.relation,
+            relation: RelationKind.contradicts,
+          ),
+        ];
+      await pump(tester);
+      await tester.tap(node('item:n1'));
+      await tester.pumpAndSettle();
+
+      expect(handle!.available, isTrue);
+      final svg = handle!.svg!();
+
+      expect(svg, startsWith('<?xml'));
+      expect(svg, contains('<svg xmlns="http://www.w3.org/2000/svg"'));
+      for (final title in ['Roma', 'Imperio', 'República', 'Livio']) {
+        expect(svg, contains('>$title</text>'));
+      }
+      // Escapado: nada de un `<` suelto que rompa el XML.
+      expect(svg, contains('Cartas &lt;A &amp; B&gt;'));
+      expect(svg, isNot(contains('<A')));
+      // Una tarjeta por nodo (cinco) más el fondo.
+      expect('<rect'.allMatches(svg), hasLength(5 + 1));
+      // El vínculo, con su tipo y su punta.
+      expect(svg, contains('>${es.relationKindLabelContradicts}</text>'));
+      expect(svg, contains('<polygon'));
+      // Y la unión de la nota con el tema lleva su nombre.
+      expect(svg, contains('>${es.mapSchemaEdgeMapNote}</text>'));
+    });
+
+    testWidgets('el PNG es una imagen de verdad, del tamaño del esquema', (
+      tester,
+    ) async {
+      handle = MapExportHandle();
+      await pump(tester);
+
+      final bytes = await tester.runAsync(() => handle!.png!());
+
+      expect(bytes, isNotNull);
+      // La firma de un PNG, y un tamaño que no es cero.
+      expect(bytes!.sublist(0, 8), [137, 80, 78, 71, 13, 10, 26, 10]);
+      final header = ByteData.sublistView(bytes, 16, 24);
+      expect(header.getUint32(0), greaterThan(0));
+      expect(header.getUint32(4), greaterThan(0));
+    });
+
+    testWidgets('al irse la vista, deja de ofrecerse', (tester) async {
+      handle = MapExportHandle();
+      await pump(tester);
+      expect(handle!.available, isTrue);
+
+      await tester.pumpWidget(const SizedBox());
+
+      expect(handle!.available, isFalse);
+    });
   });
 
   testWidgets('un esquema con demasiados nodos avisa de los que no dibuja', (

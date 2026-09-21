@@ -3386,6 +3386,26 @@
   "@mapSchemaPickerMapNotes": {
     "description": "Encabezado de la lista de notas mapa en el selector del punto de partida del esquema."
   },
+  "mapExportAction": "Export the map",
+  "@mapExportAction": {
+    "description": "Tooltip del botón que exporta el esquema o el grafo del mapa como imagen o dibujo vectorial."
+  },
+  "mapExportPng": "Image (PNG)",
+  "@mapExportPng": {
+    "description": "Opción de exportación del mapa como imagen PNG."
+  },
+  "mapExportSvg": "Vector drawing (SVG)",
+  "@mapExportSvg": {
+    "description": "Opción de exportación del mapa como dibujo vectorial SVG."
+  },
+  "mapExportSaved": "Map exported.",
+  "@mapExportSaved": {
+    "description": "Aviso de que el mapa se guardó."
+  },
+  "mapExportUnavailable": "You can export from the outline and from the graph.",
+  "@mapExportUnavailable": {
+    "description": "Tooltip del botón de exportar cuando la vista del mapa no se puede exportar, como el tablero."
+  },
   "timelineBranchFilterTooltip": "Remove the topic filter",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."

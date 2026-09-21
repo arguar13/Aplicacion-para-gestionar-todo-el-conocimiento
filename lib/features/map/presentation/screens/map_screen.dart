@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +9,14 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
@@ -47,6 +55,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   MapView _view = MapView.board;
 
+  /// Lo que la vista de ahora ofrece para exportarse.
+  final _exportHandle = MapExportHandle();
+
   /// Las categorías donde el mapa tiene sentido —las de texto: la jerarquía
   /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
   (List<PropertyDefinition>, PropertyDefinition?) _categories(
@@ -73,6 +84,60 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   void _openTension() => context.push(RoutePaths.graphTension);
 
+  /// Guarda el dibujo de la vista de ahora como [format] —`png` o `svg`—,
+  /// donde el usuario elija.
+  Future<void> _export(String format, PropertyDefinition category) async {
+    // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final export = ref.read(exportMapUseCaseProvider);
+
+    final Uint8List? bytes;
+    if (format == 'svg') {
+      final svg = _exportHandle.svg?.call();
+      bytes = svg == null ? null : Uint8List.fromList(utf8.encode(svg));
+    } else {
+      bytes = await _exportHandle.png?.call();
+    }
+    if (bytes == null) return;
+
+    final result = await export(
+      ExportMapParams(
+        fileName:
+            'mapa-${_viewSlug(_view)}-${_fileSlug(category.name)}.$format',
+        bytes: bytes,
+      ),
+    );
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result.fold(
+              (failure) => failure.localizedMessage(l10n),
+              (_) => l10n.mapExportSaved,
+            ),
+          ),
+        ),
+      );
+  }
+
+  static String _viewSlug(MapView view) => switch (view) {
+    MapView.board => 'tablero',
+    MapView.schema => 'esquema',
+    MapView.graph => 'grafo',
+  };
+
+  /// El nombre de la categoría como parte de un nombre de archivo: en
+  /// minúsculas, sin acentos y con guiones.
+  static String _fileSlug(String name) {
+    final dashed = normalizeVocabularyLabel(
+      name,
+    ).replaceAll(RegExp('[^a-z0-9]+'), '-');
+    final slug = dashed.replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty ? 'mapa' : slug;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -97,6 +162,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               child: const Icon(Icons.filter_list),
             ),
             onPressed: () => showMapFilters(context),
+          ),
+          // Solo el esquema y el grafo son un dibujo que se pueda guardar.
+          PopupMenuButton<String>(
+            key: const ValueKey('map-export'),
+            enabled: selected != null && _view != MapView.board,
+            tooltip: _view == MapView.board
+                ? l10n.mapExportUnavailable
+                : l10n.mapExportAction,
+            icon: const Icon(Icons.ios_share),
+            onSelected: (format) => unawaited(_export(format, selected!)),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                key: const ValueKey('map-export-png'),
+                value: 'png',
+                child: Text(l10n.mapExportPng),
+              ),
+              PopupMenuItem(
+                key: const ValueKey('map-export-svg'),
+                value: 'svg',
+                child: Text(l10n.mapExportSvg),
+              ),
+            ],
           ),
           if (categories.length > 1)
             PopupMenuButton<String>(
@@ -136,6 +223,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: _MapBody(
                     request: MapRequest(selected.id, filter: filter),
                     view: _view,
+                    exportHandle: _exportHandle,
                     onOpenTopic: _openTopic,
                     onOpenItem: _openItem,
                     onOpenTension: _openTension,
@@ -184,6 +272,7 @@ class _MapBody extends ConsumerWidget {
   const _MapBody({
     required this.request,
     required this.view,
+    required this.exportHandle,
     required this.onOpenTopic,
     required this.onOpenItem,
     required this.onOpenTension,
@@ -191,6 +280,7 @@ class _MapBody extends ConsumerWidget {
 
   final MapRequest request;
   final MapView view;
+  final MapExportHandle exportHandle;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
@@ -234,12 +324,14 @@ class _MapBody extends ConsumerWidget {
       MapView.schema => MapSchemaView(
         key: const ValueKey('map-schema'),
         snapshot: snapshot,
+        exportHandle: exportHandle,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,
       ),
       MapView.graph => MapGraphView(
         key: const ValueKey('map-graph'),
         snapshot: snapshot,
+        exportHandle: exportHandle,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,
       ),

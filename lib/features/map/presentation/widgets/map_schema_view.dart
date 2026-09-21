@@ -12,7 +12,10 @@ import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/schema_layout.dart';
 import 'package:sinapsis/features/map/domain/services/schema_tree_builder.dart';
+import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El tamaño de la tarjeta de cada nodo del esquema.
@@ -34,12 +37,16 @@ class MapSchemaView extends ConsumerStatefulWidget {
     required this.snapshot,
     required this.onOpenTopic,
     required this.onOpenItem,
+    this.exportHandle,
     super.key,
   });
 
   final KnowledgeMapSnapshot snapshot;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
+
+  /// Donde la vista ofrece su dibujo para exportarlo, si alguien lo quiere.
+  final MapExportHandle? exportHandle;
 
   @override
   ConsumerState<MapSchemaView> createState() => _MapSchemaViewState();
@@ -60,6 +67,7 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   final Map<String, List<SchemaLink>> _links = {};
 
   final _controller = TransformationController();
+  final _boundaryKey = GlobalKey();
   Size _viewport = Size.zero;
   bool _needsFit = true;
 
@@ -74,11 +82,28 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
     super.initState();
     _root = _defaultRoot(_graph);
     _open(_root);
+    _offerExport(widget.exportHandle);
+  }
+
+  void _offerExport(MapExportHandle? handle) {
+    handle
+      ?..png = (() => capturePng(_boundaryKey))
+      ..svg = _exportSvg;
+  }
+
+  void _withdrawExport(MapExportHandle? handle) {
+    handle
+      ?..png = null
+      ..svg = null;
   }
 
   @override
   void didUpdateWidget(MapSchemaView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.exportHandle != widget.exportHandle) {
+      _withdrawExport(oldWidget.exportHandle);
+      _offerExport(widget.exportHandle);
+    }
     if (oldWidget.snapshot.sequence == widget.snapshot.sequence) return;
     // El mapa se recalculó: lo que la base trajo puede haber cambiado, y el
     // tema de partida puede haber dejado de existir.
@@ -96,8 +121,89 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
 
   @override
   void dispose() {
+    _withdrawExport(widget.exportHandle);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// El esquema como un documento SVG: las mismas uniones, con su tipo y su
+  /// punta, y las mismas tarjetas que en pantalla.
+  String _exportSvg() {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final svg = SvgWriter(
+      width: _canvas.width,
+      height: _canvas.height,
+      background: scheme.surface,
+    );
+
+    for (final entry in _tree.entries.values) {
+      final parent = entry.parentKey == null
+          ? null
+          : _positions[entry.parentKey];
+      final child = _positions[entry.key];
+      if (parent == null || child == null) continue;
+      final relation = entry.relation;
+      final color = relation == null
+          ? scheme.outline.withValues(alpha: 0.6)
+          : relation.color(scheme);
+      svg.line(
+        parent,
+        child,
+        color: color,
+        strokeWidth: relation == RelationKind.contradicts ? 2.5 : 1.5,
+      );
+      if (relation != null) {
+        final from = entry.outgoing ? parent : child;
+        final to = entry.outgoing ? child : parent;
+        final head = arrowHead(
+          from,
+          to,
+          back: math.min((to - from).distance * 0.3, 40),
+          length: 9,
+          half: 5,
+        );
+        if (head != null) {
+          svg.triangle(head.tip, head.left, head.right, fill: color);
+        }
+      }
+      final label = switch (entry.edge) {
+        SchemaEdgeKind.relation => relation?.shortLabel(l10n),
+        SchemaEdgeKind.mapNote => l10n.mapSchemaEdgeMapNote,
+        _ => null,
+      };
+      if (label != null) {
+        final middle = (parent + child) / 2;
+        svg.text(
+          label,
+          middle + const Offset(0, 4),
+          color: scheme.onSurfaceVariant,
+          size: 11,
+        );
+      }
+    }
+
+    for (final entry in _tree.entries.values) {
+      final at = _positions[entry.key]!;
+      final isTopic = entry.ref.kind == SchemaNodeKind.topic;
+      final role = entry.isNote ? EntityRole.note : EntityRole.source;
+      final accent = isTopic ? scheme.primary : role.accent(scheme);
+      svg
+        ..rect(
+          Rect.fromCenter(center: at, width: _kNodeWidth, height: _kNodeHeight),
+          fill: isTopic ? scheme.surfaceContainerHigh : role.surface(scheme),
+          stroke: entry.expanded ? accent : accent.withValues(alpha: 0.5),
+          strokeWidth: entry.expanded ? 2 : 1,
+          radius: entry.isNote ? 22 : 8,
+        )
+        ..text(
+          SvgWriter.ellipsize(entry.title, 22),
+          Offset(at.dx - _kNodeWidth / 2 + 12, at.dy + 4),
+          color: scheme.onSurface,
+          anchor: 'start',
+        );
+    }
+    return svg.build();
   }
 
   /// El tema de partida por defecto: el de primer nivel con más elementos.
@@ -268,41 +374,53 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
                   constrained: false,
                   minScale: 0.2,
                   boundaryMargin: const EdgeInsets.all(600),
-                  child: SizedBox(
-                    width: _canvas.width,
-                    height: _canvas.height,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _EdgesPainter(
-                              entries: _tree.entries.values.toList(),
-                              positions: _positions,
-                              colors: Theme.of(context).colorScheme,
-                              mapNoteLabel: l10n.mapSchemaEdgeMapNote,
-                              relationLabel: (kind) => kind.shortLabel(l10n),
-                              textColor: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                  child: RepaintBoundary(
+                    key: _boundaryKey,
+                    // Con fondo propio: el PNG sale opaco, del color de la
+                    // pantalla.
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surface,
+                      child: SizedBox(
+                        width: _canvas.width,
+                        height: _canvas.height,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _EdgesPainter(
+                                  entries: _tree.entries.values.toList(),
+                                  positions: _positions,
+                                  colors: Theme.of(context).colorScheme,
+                                  mapNoteLabel: l10n.mapSchemaEdgeMapNote,
+                                  relationLabel: (kind) =>
+                                      kind.shortLabel(l10n),
+                                  textColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                             ),
-                          ),
+                            for (final entry in _tree.entries.values)
+                              Positioned(
+                                left:
+                                    _positions[entry.key]!.dx - _kNodeWidth / 2,
+                                top:
+                                    _positions[entry.key]!.dy -
+                                    _kNodeHeight / 2,
+                                width: _kNodeWidth,
+                                height: _kNodeHeight,
+                                child: _NodeCard(
+                                  entry: entry,
+                                  onToggle: () => _toggle(entry),
+                                  onOpen: () =>
+                                      entry.ref.kind == SchemaNodeKind.topic
+                                      ? widget.onOpenTopic(entry.ref.id)
+                                      : widget.onOpenItem(entry.ref.id),
+                                ),
+                              ),
+                          ],
                         ),
-                        for (final entry in _tree.entries.values)
-                          Positioned(
-                            left: _positions[entry.key]!.dx - _kNodeWidth / 2,
-                            top: _positions[entry.key]!.dy - _kNodeHeight / 2,
-                            width: _kNodeWidth,
-                            height: _kNodeHeight,
-                            child: _NodeCard(
-                              entry: entry,
-                              onToggle: () => _toggle(entry),
-                              onOpen: () =>
-                                  entry.ref.kind == SchemaNodeKind.topic
-                                  ? widget.onOpenTopic(entry.ref.id)
-                                  : widget.onOpenItem(entry.ref.id),
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -459,28 +577,17 @@ class _EdgesPainter extends CustomPainter {
 
       // La punta, cerca del extremo al que apunta, fuera de la tarjeta.
       if (relation != null) {
-        final toChild = entry.outgoing;
-        final from = toChild ? parent : child;
-        final to = toChild ? child : parent;
-        final direction = to - from;
-        if (direction.distance > 1) {
-          final unit = direction / direction.distance;
-          final tip = to - unit * math.min(direction.distance * 0.3, 40);
-          final side = Offset(-unit.dy, unit.dx) * 5;
-          canvas.drawPath(
-            Path()
-              ..moveTo(tip.dx, tip.dy)
-              ..lineTo(
-                tip.dx - unit.dx * 9 + side.dx,
-                tip.dy - unit.dy * 9 + side.dy,
-              )
-              ..lineTo(
-                tip.dx - unit.dx * 9 - side.dx,
-                tip.dy - unit.dy * 9 - side.dy,
-              )
-              ..close(),
-            Paint()..color = color,
-          );
+        final from = entry.outgoing ? parent : child;
+        final to = entry.outgoing ? child : parent;
+        final head = arrowHead(
+          from,
+          to,
+          back: math.min((to - from).distance * 0.3, 40),
+          length: 9,
+          half: 5,
+        );
+        if (head != null) {
+          canvas.drawPath(arrowPath(head), Paint()..color = color);
         }
       }
 

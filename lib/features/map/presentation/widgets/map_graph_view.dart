@@ -10,8 +10,11 @@ import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/services/graph_scene.dart';
 import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
+import 'package:sinapsis/features/map/domain/services/svg_writer.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Con más zoom que esto, se pasa al nivel de más detalle del nodo del centro.
@@ -64,12 +67,16 @@ class MapGraphView extends ConsumerStatefulWidget {
     required this.snapshot,
     required this.onOpenTopic,
     required this.onOpenItem,
+    this.exportHandle,
     super.key,
   });
 
   final KnowledgeMapSnapshot snapshot;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
+
+  /// Donde la vista ofrece su dibujo para exportarlo, si alguien lo quiere.
+  final MapExportHandle? exportHandle;
 
   @override
   ConsumerState<MapGraphView> createState() => _MapGraphViewState();
@@ -98,6 +105,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   bool _busy = true;
 
   final _controller = TransformationController();
+  final _boundaryKey = GlobalKey();
   Size _viewport = Size.zero;
   bool _needsFit = true;
 
@@ -110,12 +118,29 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   void initState() {
     super.initState();
     _controller.addListener(_onZoom);
+    _offerExport(widget.exportHandle);
     unawaited(_show(warm: false));
+  }
+
+  void _offerExport(MapExportHandle? handle) {
+    handle
+      ?..png = (() => capturePng(_boundaryKey))
+      ..svg = _exportSvg;
+  }
+
+  void _withdrawExport(MapExportHandle? handle) {
+    handle
+      ?..png = null
+      ..svg = null;
   }
 
   @override
   void didUpdateWidget(MapGraphView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.exportHandle != widget.exportHandle) {
+      _withdrawExport(oldWidget.exportHandle);
+      _offerExport(widget.exportHandle);
+    }
     if (oldWidget.snapshot.sequence == widget.snapshot.sequence) return;
     // El mapa se recalculó: se rehace el nivel en el que se está, en caliente.
     // Si lo que se miraba ya no existe, se vuelve al panorama.
@@ -133,10 +158,109 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
 
   @override
   void dispose() {
+    _withdrawExport(widget.exportHandle);
     _controller
       ..removeListener(_onZoom)
       ..dispose();
     super.dispose();
+  }
+
+  /// El nivel de ahora como un documento SVG: los mismos nodos, colores y
+  /// uniones que en pantalla, con todas las etiquetas y a su tamaño natural.
+  String _exportSvg() {
+    final scheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+    final l10n = AppLocalizations.of(context)!;
+    final svg = SvgWriter(
+      width: math.max(_canvas.width, 1),
+      height: math.max(_canvas.height, 1),
+      background: scheme.surface,
+    );
+
+    for (final edge in _scene.edges) {
+      final a = _positions[_scene.nodes[edge.a].key];
+      final b = _positions[_scene.nodes[edge.b].key];
+      if (a == null || b == null) continue;
+      final relation = edge.relation;
+      final color = edge.tension
+          ? scheme.error.withValues(alpha: 0.8)
+          : relation != null
+          ? relation.color(scheme)
+          : scheme.outline.withValues(alpha: 0.4);
+      svg.line(
+        a,
+        b,
+        color: color,
+        strokeWidth: (1 + 0.7 * math.log(1 + edge.weight)).clamp(1.0, 5.0),
+      );
+      if (relation != null && (b - a).distance > 40) {
+        final head = arrowHead(a, b, back: 22, length: 8, half: 4);
+        if (head != null) {
+          svg.triangle(head.tip, head.left, head.right, fill: color);
+        }
+      }
+    }
+
+    for (final node in _scene.nodes) {
+      final at = _positions[node.key];
+      if (at == null) continue;
+      final color = _colorOf(node, scheme, brightness);
+      final label = switch (node.kind) {
+        SceneKind.overflow => l10n.mapGraphOverflow,
+        SceneKind.isolated => l10n.mapBoardIsolatedTitle,
+        _ => node.label,
+      };
+      if (node.kind == SceneKind.note || node.kind == SceneKind.source) {
+        final role = node.kind == SceneKind.note
+            ? EntityRole.note
+            : EntityRole.source;
+        svg
+          ..rect(
+            Rect.fromCenter(center: at, width: 150, height: 34),
+            fill: role.surface(scheme),
+            stroke: role.outline(scheme),
+            radius: node.kind == SceneKind.note ? 17 : 6,
+          )
+          ..text(
+            SvgWriter.ellipsize(label, 22),
+            Offset(at.dx - 75 + 10, at.dy + 4),
+            color: scheme.onSurface,
+            size: 11,
+            anchor: 'start',
+          );
+        continue;
+      }
+      final disc = _disc(node);
+      final isCommunity =
+          node.kind == SceneKind.community ||
+          node.kind == SceneKind.overflow ||
+          node.kind == SceneKind.isolated;
+      svg.circle(
+        at,
+        disc / 2,
+        fill: color.withValues(alpha: isCommunity ? 0.85 : 0.9),
+        stroke: scheme.surface,
+        strokeWidth: 2,
+      );
+      if (isCommunity) {
+        svg.text(
+          '${node.count}',
+          at + const Offset(0, 5),
+          color: ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+              ? const Color(0xFFFFFFFF)
+              : const Color(0xDD000000),
+          size: 14,
+          bold: true,
+        );
+      }
+      svg.text(
+        SvgWriter.ellipsize(label, 26),
+        at + Offset(0, disc / 2 + 14),
+        color: scheme.onSurface,
+        size: 11,
+      );
+    }
+    return svg.build();
   }
 
   /// Solo cuando el zoom cruza un escalón se rehacen las etiquetas.
@@ -409,24 +533,32 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
                   maxScale: 4,
                   boundaryMargin: const EdgeInsets.all(800),
                   onInteractionEnd: _onInteractionEnd,
-                  child: SizedBox(
-                    width: math.max(_canvas.width, 1),
-                    height: math.max(_canvas.height, 1),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _EdgesPainter(
-                              scene: _scene,
-                              positions: _positions,
-                              colors: theme.colorScheme,
+                  child: RepaintBoundary(
+                    key: _boundaryKey,
+                    // Con fondo propio: el PNG sale opaco, del color de la
+                    // pantalla.
+                    child: ColoredBox(
+                      color: theme.colorScheme.surface,
+                      child: SizedBox(
+                        width: math.max(_canvas.width, 1),
+                        height: math.max(_canvas.height, 1),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _EdgesPainter(
+                                  scene: _scene,
+                                  positions: _positions,
+                                  colors: theme.colorScheme,
+                                ),
+                              ),
                             ),
-                          ),
+                            for (final node in _scene.nodes)
+                              if (_positions[node.key] case final at?)
+                                _placed(context, node, at),
+                          ],
                         ),
-                        for (final node in _scene.nodes)
-                          if (_positions[node.key] case final at?)
-                            _placed(context, node, at),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -758,26 +890,10 @@ class _EdgesPainter extends CustomPainter {
       );
 
       // Entre elementos el vínculo tiene sentido: una punta hacia el destino.
-      if (relation != null) {
-        final direction = b - a;
-        if (direction.distance > 40) {
-          final unit = direction / direction.distance;
-          final tip = b - unit * 22;
-          final side = Offset(-unit.dy, unit.dx) * 4;
-          canvas.drawPath(
-            Path()
-              ..moveTo(tip.dx, tip.dy)
-              ..lineTo(
-                tip.dx - unit.dx * 8 + side.dx,
-                tip.dy - unit.dy * 8 + side.dy,
-              )
-              ..lineTo(
-                tip.dx - unit.dx * 8 - side.dx,
-                tip.dy - unit.dy * 8 - side.dy,
-              )
-              ..close(),
-            Paint()..color = color,
-          );
+      if (relation != null && (b - a).distance > 40) {
+        final head = arrowHead(a, b, back: 22, length: 8, half: 4);
+        if (head != null) {
+          canvas.drawPath(arrowPath(head), Paint()..color = color);
         }
       }
     }
