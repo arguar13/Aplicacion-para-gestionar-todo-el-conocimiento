@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Abre el panel de filtros del mapa (F14, D8): tipo de elemento, etiqueta y
-/// texto. Lo que se elija rige a las tres vistas.
+/// Abre el panel de filtros del mapa (F14, D8): tipo de elemento, tema de la
+/// biblioteca, etiqueta y texto. Lo que se elija rige a las tres vistas.
 Future<void> showMapFilters(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -43,6 +44,7 @@ class _MapFilterSheetState extends ConsumerState<_MapFilterSheet> {
     final filter = ref.watch(mapFilterProvider);
     final notifier = ref.read(mapFilterProvider.notifier);
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
+    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
     final active = activeMapFilters(filter);
 
     return SafeArea(
@@ -107,6 +109,24 @@ class _MapFilterSheetState extends ConsumerState<_MapFilterSheet> {
                   ),
               ],
             ),
+            if (spaces.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _Heading(l10n.detailSpaceLabel),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final space in spaces)
+                    FilterChip(
+                      key: ValueKey('map-filter-space-${space.id}'),
+                      avatar: const Icon(Icons.folder_outlined, size: 18),
+                      label: Text(space.name),
+                      selected: filter.spaceId == space.id,
+                      onSelected: (_) => notifier.toggleSpace(space.id),
+                    ),
+                ],
+              ),
+            ],
             if (tags.isNotEmpty) ...[
               const SizedBox(height: 16),
               _Heading(l10n.mapFilterTags),

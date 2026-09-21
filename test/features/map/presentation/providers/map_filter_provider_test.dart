@@ -45,6 +45,18 @@ void main() {
     expect(current().tagIds, {'t2'});
   });
 
+  test('un tema se mira a la vez, y tocar el que está puesto lo quita', () {
+    notifier.toggleSpace('s1');
+    expect(current().spaceId, 's1');
+
+    notifier.toggleSpace('s2');
+    expect(current().spaceId, 's2');
+
+    notifier.toggleSpace('s2');
+    expect(current().spaceId, isNull);
+    expect(current().isFiltered, isFalse);
+  });
+
   test('la búsqueda se recorta, y un texto vacío la quita', () {
     notifier.search('  roma  ');
     expect(current().searchText, 'roma');
@@ -54,14 +66,15 @@ void main() {
     expect(current().hasSearchText, isFalse);
   });
 
-  test('cuenta cada tipo, cada etiqueta y la búsqueda', () {
+  test('cuenta cada tipo, cada etiqueta, el tema y la búsqueda', () {
     notifier
       ..toggleSourceKind(SourceKind.document)
       ..toggleSourceKind(SourceKind.webPage)
       ..toggleTagId('t1')
+      ..toggleSpace('s1')
       ..search('roma');
 
-    expect(activeMapFilters(current()), 4);
+    expect(activeMapFilters(current()), 5);
   });
 
   test('quitar todo lo deja como al principio', () {

@@ -29,6 +29,13 @@ class MapFilterNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(tagIds: tagIds);
   }
 
+  /// Entra o sale de un tema de la biblioteca, como una carpeta: un elemento
+  /// está en uno solo, así que se mira uno a la vez y elegir el que ya está
+  /// puesto vuelve a "todos". Es lo mismo que hace la biblioteca.
+  void toggleSpace(String spaceId) {
+    state = state.copyWith(spaceId: state.spaceId == spaceId ? null : spaceId);
+  }
+
   void clear() => state = const LibraryQuery();
 }
 
@@ -37,6 +44,7 @@ class MapFilterNotifier extends StateNotifier<LibraryQuery> {
 int activeMapFilters(LibraryQuery query) =>
     query.sourceKinds.length +
     query.tagIds.length +
+    (query.spaceId == null ? 0 : 1) +
     (query.hasSearchText ? 1 : 0);
 
 final mapFilterProvider =

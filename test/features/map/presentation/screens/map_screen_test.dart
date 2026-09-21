@@ -9,9 +9,11 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -357,6 +359,45 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('filtrar por un tema de la biblioteca deja solo sus '
+        'elementos, y tocarlo otra vez lo quita', (tester) async {
+      await seed();
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace('Antigüedad'))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpaceMany(itemIds: ['s1', 's4'], spaceId: space.id);
+      await pump(tester);
+      expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
+      final chip = find.byKey(ValueKey('map-filter-space-${space.id}'));
+
+      await openFilters(tester);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(find.widgetWithText(Chip, es.mapItemCount(2)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-filter-active')),
+          matching: find.text(es.mapFilterActive(1)),
+        ),
+        findsOneWidget,
+      );
+
+      await openFilters(tester);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      await closeSheet(tester);
+
+      expect(find.byKey(const ValueKey('map-filter-active')), findsNothing);
+      expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
     });
 
     testWidgets('quitar el filtro desde el aviso devuelve todo', (
