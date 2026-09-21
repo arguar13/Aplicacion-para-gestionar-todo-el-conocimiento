@@ -1,16 +1,18 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
 import 'package:sinapsis/features/atlas/domain/entities/atlas_snapshot.dart';
 import 'package:sinapsis/features/atlas/domain/repositories/atlas_repository.dart';
+import 'package:sinapsis/features/atlas/domain/services/atlas_aggregator.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 
 class AtlasRepositoryImpl implements AtlasRepository {
@@ -48,15 +50,7 @@ class AtlasRepositoryImpl implements AtlasRepository {
   /// «no se recalculó».
   int computations = 0;
 
-  /// Lo que el Atlas lee: cualquier escritura en ellas puede cambiarlo. `item`
-  /// también: un elemento que va a la papelera deja de contar.
-  List<TableInfo<dynamic, dynamic>> get _tables => [
-    _db.propertyValues,
-    _db.propertyDefinitions,
-    _db.itemPropertyValues,
-    _db.knowledgeEntries,
-    _db.knowledgeNotes,
-  ];
+  late final List<TableInfo<dynamic, dynamic>> _tables = atlasTables(_db);
 
   /// Deja de escuchar las escrituras. Lo llama quien creó el repositorio al
   /// terminar.
@@ -105,7 +99,10 @@ class AtlasRepositoryImpl implements AtlasRepository {
     if (definition == null) return AtlasSnapshot.empty(definitionId);
 
     final values = await _readValues(definitionId);
-    final counts = await _readCounts(definitionId);
+    final counts = aggregateBranches(
+      values: values,
+      items: await _readItems(definitionId),
+    );
     final mapNotes = await _readMapNotes(definitionId);
 
     return buildAtlas(
@@ -135,12 +132,12 @@ class AtlasRepositoryImpl implements AtlasRepository {
     ];
   }
 
-  Future<Map<String, AtlasBranchCounts>> _readCounts(
-    String definitionId,
-  ) async {
+  /// Cada elemento vivo con lo que el Atlas necesita de él: una fila por
+  /// elemento.
+  Future<List<AtlasItemFacts>> _readItems(String definitionId) async {
     final rows = await _db
         .customSelect(
-          atlasAggregatesSql,
+          atlasItemsSql,
           variables: [
             Variable.withString(definitionId),
             Variable.withString(kFechaDelHechoCategoryName),
@@ -148,49 +145,51 @@ class AtlasRepositoryImpl implements AtlasRepository {
           readsFrom: _tables.toSet(),
         )
         .get();
-    return {
-      for (final row in rows)
-        row.read<String>('value_id'): AtlasBranchCounts(
-          sources: row.read<int>('sources'),
-          atomic: row.read<int>('atomic'),
-          growingLiving: row.read<int>('growing_living'),
-          matureLiving: row.read<int>('mature_living'),
-          maps: row.read<int>('maps'),
-          lastTouched: row.readNullable<DateTime>('last_touched'),
-          firstYear: row.readNullable<int>('first_year'),
-          lastYear: row.readNullable<int>('last_year'),
+    // Las columnas se toman de `data` y no con `read`: con 10.000 filas, la
+    // conversión tipada de cada columna era una parte grande del tiempo.
+    final items = <AtlasItemFacts>[];
+    for (final row in rows) {
+      final data = row.data;
+      // Sin ningún valor de la categoría, no cuenta en ninguna rama.
+      final valueIds = data['value_ids'] as String?;
+      if (valueIds == null) continue;
+      items.add(
+        AtlasItemFacts(
+          isSource: data['kind'] == ItemKind.source.name,
+          noteKind: _named(NoteKind.values, data['note_kind'] as String?),
+          maturity: _named(NoteMaturity.values, data['maturity'] as String?),
+          // La fecha sí por `read`: cómo se guarda un instante lo sabe drift.
+          updatedAt: row.read<DateTime>('updated_at'),
+          firstYear: data['year_from'] as int?,
+          lastYear: data['year_to'] as int?,
+          valueIds: valueIds.split(atlasValueIdSeparator),
         ),
-    };
+      );
+    }
+    return items;
   }
 
   /// Las notas mapa vivas, con el valor de la categoría al que están
   /// asignadas: una fila por cada asignación.
   Future<List<AtlasMapNoteRow>> _readMapNotes(String definitionId) async {
-    final notes = _db.knowledgeNotes;
-    final items = _db.knowledgeEntries;
-    final placed = _db.itemPropertyValues;
-    final values = _db.propertyValues;
-
-    final rows =
-        await (_db.selectOnly(notes).join([
-                innerJoin(items, items.id.equalsExp(notes.itemId)),
-                innerJoin(placed, placed.itemId.equalsExp(items.id)),
-                innerJoin(values, values.id.equalsExp(placed.propertyValueId)),
-              ])
-              ..addColumns([items.id, items.title, values.id])
-              ..where(
-                notes.noteKind.equalsValue(NoteKind.map) &
-                    values.definitionId.equals(definitionId) &
-                    items.isActive,
-              ))
-            .get();
+    final rows = await _db
+        .customSelect(
+          atlasMapNotesSql,
+          variables: [Variable.withString(definitionId)],
+          readsFrom: _tables.toSet(),
+        )
+        .get();
     return [
       for (final row in rows)
         AtlasMapNoteRow(
-          noteId: row.read(items.id)!,
-          title: row.read(items.title)!,
-          valueId: row.read(values.id)!,
+          noteId: row.data['note_id'] as String,
+          title: row.data['title'] as String,
+          valueId: row.data['value_id'] as String,
         ),
     ];
   }
 }
+
+/// El valor de [values] que se llama [name], o `null` si [name] es `null`.
+T? _named<T extends Enum>(List<T> values, String? name) =>
+    name == null ? null : values.byName(name);

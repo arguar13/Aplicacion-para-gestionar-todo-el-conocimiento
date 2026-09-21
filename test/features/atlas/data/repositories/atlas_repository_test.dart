@@ -540,38 +540,75 @@ void main() {
     );
   });
 
-  test('el plan de la consulta llega a las asignaciones por el índice del '
-      'valor y a cada elemento por su clave: ningún recorrido de tablas '
-      'grandes', () async {
-    await seedTree();
+  group('el plan de las consultas', () {
+    Future<List<String>> planOf(String sql, List<Variable> args) async {
+      final rows = await db
+          .customSelect('EXPLAIN QUERY PLAN $sql', variables: args)
+          .get();
+      return [for (final r in rows) r.read<String>('detail')];
+    }
 
-    final rows = await db
-        .customSelect(
-          'EXPLAIN QUERY PLAN $atlasAggregatesSql',
-          variables: [
-            Variable.withString(tema),
-            Variable.withString(kFechaDelHechoCategoryName),
-          ],
-        )
-        .get();
-    final plan = [for (final r in rows) r.read<String>('detail')];
-    final reason = plan.join('\n');
+    test('los elementos se recorren UNA vez, y sus valores y sus notas se '
+        'buscan por clave: nada se recorre por cada rama', () async {
+      await seedTree();
 
-    // Recorrer las asignaciones o los elementos enteros es lo que hacía la
-    // consulta antes de fijar el orden de las uniones.
-    expect(
-      plan.where((line) => RegExp(r'\bSCAN (item|ipv)\b').hasMatch(line)),
-      isEmpty,
-      reason: reason,
-    );
-    // Las asignaciones se buscan por valor dos veces: para contar la rama y
-    // para sacar las fechas.
-    final byValue = plan.where(
-      (line) =>
-          line.startsWith('SEARCH ipv') &&
-          line.contains('idx_item_property_values_value'),
-    );
-    expect(byValue, hasLength(2), reason: reason);
+      final plan = await planOf(atlasItemsSql, [
+        Variable.withString(tema),
+        Variable.withString(kFechaDelHechoCategoryName),
+      ]);
+      final reason = plan.join('\n');
+
+      // Cada elemento una vez —no una por cada rama en que está—.
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN item\b').hasMatch(line)),
+        hasLength(1),
+        reason: reason,
+      );
+      // Las asignaciones nunca se recorren enteras: las de un elemento por su
+      // clave, las de las fechas por el índice del valor.
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN ipv\b').hasMatch(line)),
+        isEmpty,
+        reason: reason,
+      );
+      expect(
+        plan.where(
+          (line) =>
+              line.startsWith('SEARCH ipv') && line.contains('(item_id=?)'),
+        ),
+        hasLength(1),
+        reason: reason,
+      );
+      expect(
+        plan.where(
+          (line) =>
+              line.startsWith('SEARCH note') && line.contains('(item_id=?)'),
+        ),
+        hasLength(1),
+        reason: reason,
+      );
+    });
+
+    test('las notas mapa empiezan por las notas mapa: no por las '
+        'asignaciones de toda la categoría', () async {
+      await seedTree();
+
+      final plan = await planOf(atlasMapNotesSql, [Variable.withString(tema)]);
+      final reason = plan.join('\n');
+
+      // Se recorren las notas —unas pocas— y de cada una, por su clave, el
+      // elemento, sus asignaciones y el valor.
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN note\b').hasMatch(line)),
+        hasLength(1),
+        reason: reason,
+      );
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN (item|ipv|pv)\b').hasMatch(line)),
+        isEmpty,
+        reason: reason,
+      );
+    });
   });
 }
 

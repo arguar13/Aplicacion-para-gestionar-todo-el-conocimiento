@@ -70,9 +70,15 @@ AtlasSnapshot buildAtlas({
     return AtlasSnapshot.empty(definitionId, name: definitionName);
   }
 
-  // Hermanos por nombre, sin distinguir mayúsculas ni acentos: el árbol se
-  // arma en el orden en que llegan los valores.
-  final ordered = _sortedByLabel(values);
+  // El nombre de cada valor sin mayúsculas ni acentos, UNA vez: normalizar
+  // dentro de un comparador lo repite en cada comparación, y con miles de
+  // temas era la mayor parte del tiempo de abrir el Atlas.
+  final keyOf = {
+    for (final value in values) value.id: normalizeVocabularyLabel(value.label),
+  };
+  // Hermanos por nombre: el árbol se arma en el orden en que llegan los
+  // valores.
+  final ordered = _sortedByLabel(values, keyOf);
   final byId = {for (final value in ordered) value.id: value};
   final tree = VocabularyTree([
     for (final value in ordered) (id: value.id, parentId: value.parentId),
@@ -116,16 +122,16 @@ AtlasSnapshot buildAtlas({
     definitionId: definitionId,
     definitionName: definitionName,
     nodes: nodes,
-    gaps: _gapsOf(nodes, now),
+    gaps: _gapsOf(nodes, now, keyOf),
   );
 }
 
-List<AtlasValueRow> _sortedByLabel(List<AtlasValueRow> values) {
-  final keys = {
-    for (final value in values) value.id: normalizeVocabularyLabel(value.label),
-  };
+List<AtlasValueRow> _sortedByLabel(
+  List<AtlasValueRow> values,
+  Map<String, String> keyOf,
+) {
   return [...values]..sort((a, b) {
-    final byLabel = keys[a.id]!.compareTo(keys[b.id]!);
+    final byLabel = keyOf[a.id]!.compareTo(keyOf[b.id]!);
     return byLabel != 0 ? byLabel : a.id.compareTo(b.id);
   });
 }
@@ -137,9 +143,18 @@ Map<String, List<AtlasMapNote>> _mapNotesByBranch(
   VocabularyTree tree,
 ) {
   final byBranch = <String, Map<String, AtlasMapNote>>{};
+  // Cada nota mapa se normaliza UNA vez, y cada camino hacia la raíz se arma
+  // una vez por valor: son miles de filas y muchas comparten valor.
+  final titleKey = <String, String>{};
+  final chains = <String, List<String>>{};
   for (final row in rows) {
     final note = AtlasMapNote(id: row.noteId, title: row.title);
-    for (final branch in [row.valueId, ...tree.ancestorsOf(row.valueId)]) {
+    titleKey[row.noteId] ??= normalizeVocabularyLabel(row.title);
+    final chain = chains.putIfAbsent(
+      row.valueId,
+      () => [row.valueId, ...tree.ancestorsOf(row.valueId)],
+    );
+    for (final branch in chain) {
       (byBranch[branch] ??= {})[row.noteId] = note;
     }
   }
@@ -147,9 +162,7 @@ Map<String, List<AtlasMapNote>> _mapNotesByBranch(
     for (final entry in byBranch.entries)
       entry.key: [...entry.value.values]
         ..sort((a, b) {
-          final byTitle = normalizeVocabularyLabel(
-            a.title,
-          ).compareTo(normalizeVocabularyLabel(b.title));
+          final byTitle = titleKey[a.id]!.compareTo(titleKey[b.id]!);
           return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
         }),
   };
@@ -160,7 +173,11 @@ Map<String, List<AtlasMapNote>> _mapNotesByBranch(
 /// Cada uno se avisa en la rama MÁS ALTA donde se cumple: si el padre lo
 /// cumple, sus descendientes también, y repetirlos sería contar el mismo
 /// vacío varias veces.
-List<AtlasGap> _gapsOf(List<AtlasNode> nodes, DateTime now) {
+List<AtlasGap> _gapsOf(
+  List<AtlasNode> nodes,
+  DateTime now,
+  Map<String, String> keyOf,
+) {
   final byId = {for (final node in nodes) node.valueId: node};
 
   bool manySources(AtlasNode node) =>
@@ -178,9 +195,8 @@ List<AtlasGap> _gapsOf(List<AtlasNode> nodes, DateTime now) {
         node,
   ];
 
-  int byLabel(AtlasNode a, AtlasNode b) => normalizeVocabularyLabel(
-    a.label,
-  ).compareTo(normalizeVocabularyLabel(b.label));
+  int byLabel(AtlasNode a, AtlasNode b) =>
+      keyOf[a.valueId]!.compareTo(keyOf[b.valueId]!);
 
   final many = topmost(manySources)
     ..sort((a, b) {

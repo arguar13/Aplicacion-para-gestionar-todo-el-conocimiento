@@ -1,47 +1,43 @@
+import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 
-/// Los agregados en cascada de TODAS las ramas de una categoría, en una sola
-/// consulta (F13). Variables: `?1` la categoría; `?2` el nombre de la categoría
-/// de fechas del hecho (la de sistema).
+/// Lo que el Atlas lee: cualquier escritura en estas tablas puede cambiarlo.
+/// `item` también —un elemento que va a la papelera deja de contar— y por eso
+/// va junto a las consultas, que son las que dicen qué hacen con lo borrado.
+List<TableInfo<dynamic, dynamic>> atlasTables(AppDatabase db) => [
+  db.propertyValues,
+  db.propertyDefinitions,
+  db.itemPropertyValues,
+  db.knowledgeEntries,
+  db.knowledgeNotes,
+];
+
+/// El separador de los valores dentro de `value_ids`: el «separador de
+/// unidades» (U+001F), el mismo `char(31)` de la consulta.
+const atlasValueIdSeparator = '\u001f';
+
+/// Lo que el Atlas necesita de cada elemento vivo, en UNA fila por elemento:
+/// qué es, cuándo se tocó, qué años cubre y qué valores de la categoría tiene.
+/// Variables: `?1` la categoría; `?2` el nombre de la categoría de fechas del
+/// hecho (la de sistema).
 ///
-/// Cómo se cuenta:
-/// 1. `closure`: para cada valor de la categoría, todos sus descendientes —él
-///    mismo incluido—, con una CTE recursiva sobre los valores, que son
-///    miles, no sobre los elementos. `UNION` y no `UNION ALL`: una jerarquía
-///    dañada con un ciclo terminaría igual en vez de dar vueltas para siempre.
-/// 2. `pairs`: cada par (rama, elemento vivo) UNA vez. Un elemento asignado a
-///    dos valores de la misma rama cuenta una sola vez en ella: por eso el
-///    `DISTINCT` va ANTES de contar y no dentro de cada conteo.
-/// 3. `dated`: el rango de años de «Fecha del hecho» de cada elemento, una fila
-///    por elemento. Va aparte y no unida a las asignaciones de la rama: un
-///    elemento con tres temas y dos fechas daría seis filas por rama.
+/// Una fila por elemento —10.000, y no las 42.000 que salían de traer aparte
+/// cada asignación y cada dato—: lo que cuesta es fabricar cada fila del lado
+/// de Dart, no leerla en SQLite. Los valores de la categoría vienen juntos en
+/// `value_ids`, separados por [atlasValueIdSeparator] —un carácter de control
+/// que ningún identificador lleva—; la cascada por la jerarquía y el no contar
+/// dos veces un elemento dentro de una rama las hace `aggregateBranches`, en
+/// Dart. Un elemento sin ningún valor de la categoría trae `value_ids` nulo.
 ///
-/// Se llega a las asignaciones por el índice del valor y a cada elemento y
-/// nota por su clave: nunca un recorrido de `item` ni de las asignaciones de
-/// otras categorías. El `CROSS JOIN` de `pairs` fija ese orden —la rama, sus
-/// asignaciones, el elemento—: sin él SQLite, que no sabe cuántas filas tiene
-/// una CTE, recorría TODAS las asignaciones de la base y buscaba cada
-/// elemento y cada rama en el camino. Lo que está en la papelera queda afuera
-/// desde `pairs`.
+/// `dated` es el rango de años de «Fecha del hecho» de cada elemento, una fila
+/// por elemento: va aparte para no multiplicar las filas por temas × fechas.
 ///
-/// Una rama sin ningún elemento no devuelve fila.
-const atlasAggregatesSql =
+/// Lo que está en la papelera queda afuera (`kActiveItemSql`): sin fila, el
+/// elemento no cuenta en ninguna rama.
+const atlasItemsSql =
     '''
-WITH RECURSIVE closure(descendant, branch) AS (
-  SELECT id, id FROM property_values WHERE definition_id = ?1
-  UNION
-  SELECT pv.id, closure.branch
-  FROM property_values pv JOIN closure ON pv.parent_id = closure.descendant
-),
-pairs AS (
-  SELECT DISTINCT closure.branch AS branch, ipv.item_id AS item_id
-  FROM closure
-  CROSS JOIN item_property_values ipv
-    ON ipv.property_value_id = closure.descendant
-  CROSS JOIN item ON item.id = ipv.item_id
-  WHERE $kActiveItemSql
-),
-dated AS (
+WITH dated AS (
   SELECT ipv.item_id AS item_id,
          MIN(dv.date_from_year) AS year_from,
          MAX(dv.date_to_year) AS year_to
@@ -53,20 +49,43 @@ dated AS (
     AND dv.date_from_year IS NOT NULL
   GROUP BY ipv.item_id
 )
-SELECT pairs.branch AS value_id,
-       COALESCE(SUM(item.kind = 'source'), 0) AS sources,
-       COALESCE(SUM(note.note_kind = 'atomic'), 0) AS atomic,
-       COALESCE(SUM(note.note_kind = 'living'
-                    AND note.maturity <> 'mature'), 0) AS growing_living,
-       COALESCE(SUM(note.note_kind = 'living'
-                    AND note.maturity = 'mature'), 0) AS mature_living,
-       COALESCE(SUM(note.note_kind = 'map'), 0) AS maps,
-       MAX(item.updated_at) AS last_touched,
-       MIN(dated.year_from) AS first_year,
-       MAX(dated.year_to) AS last_year
-FROM pairs
-JOIN item ON item.id = pairs.item_id
+SELECT item.kind AS kind,
+       item.updated_at AS updated_at,
+       note.note_kind AS note_kind,
+       note.maturity AS maturity,
+       dated.year_from AS year_from,
+       dated.year_to AS year_to,
+       (SELECT group_concat(ipv.property_value_id, char(31))
+          FROM item_property_values ipv
+          JOIN property_values pv ON pv.id = ipv.property_value_id
+         WHERE ipv.item_id = item.id AND pv.definition_id = ?1) AS value_ids
+FROM item
 LEFT JOIN note ON note.item_id = item.id
 LEFT JOIN dated ON dated.item_id = item.id
-GROUP BY pairs.branch
+WHERE $kActiveItemSql
+''';
+
+/// Las notas mapa vivas asignadas a un valor de la categoría: una fila por
+/// cada asignación, con el título de la nota. Variable: `?1` la categoría.
+///
+/// Como la anterior, se lee en crudo: con 10.000 elementos son unas 3.000
+/// filas, y leerlas por la API tipada de drift costaba 200 ms —más que la
+/// consulta—. `'map'` es `NoteKind.map.name`: un `const` no admite `.name`.
+///
+/// Los `CROSS JOIN` fijan el orden: las notas mapa (un millar), su elemento,
+/// sus asignaciones por la clave del elemento y el valor por la suya. Sin
+/// ellos SQLite empezaba por las asignaciones de la categoría —32.000— y
+/// descartaba casi todas al mirar el subtipo de la nota: 200 ms contra 15.
+const atlasMapNotesSql =
+    '''
+SELECT item.id AS note_id,
+       item.title AS title,
+       ipv.property_value_id AS value_id
+FROM note
+CROSS JOIN item ON item.id = note.item_id
+CROSS JOIN item_property_values ipv ON ipv.item_id = item.id
+CROSS JOIN property_values pv ON pv.id = ipv.property_value_id
+WHERE note.note_kind = 'map'
+  AND pv.definition_id = ?1
+  AND $kActiveItemSql
 ''';
