@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -51,9 +49,6 @@ class _Service implements VaultBackupService {
     if (error != null) throw error;
     return result;
   }
-
-  @override
-  Future<Uint8List> buildBackup() => throw UnimplementedError();
 
   @override
   Future<BuiltVaultBackup> buildBackupFile() => throw UnimplementedError();

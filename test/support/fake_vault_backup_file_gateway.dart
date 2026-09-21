@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:sinapsis/features/vault/domain/entities/vault_backup_target.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gateway.dart';
 
 /// El selector de archivos de la copia, sin selector: devuelve la ruta que la
@@ -17,8 +16,12 @@ class FakeVaultBackupFileGateway implements VaultBackupFileGateway {
   Future<void> discardPicked() async => discards++;
 
   @override
-  Future<String?> saveZip({
-    required String fileName,
-    required Uint8List bytes,
-  }) async => null;
+  Future<VaultBackupTarget?> chooseTarget({required String fileName}) async =>
+      null;
+
+  @override
+  Future<String> save({
+    required VaultBackupTarget target,
+    required String sourcePath,
+  }) async => target.location;
 }

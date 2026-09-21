@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart' show InputFileStream, ZipDecoder;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart'
     show getApplicationDocumentsDirectory;
@@ -43,7 +44,11 @@ class LocalVaultBackupService implements VaultBackupService {
   /// borra una carpeta que empiece así.
   static const _workDirectoryPrefix = 'sinapsis-backup-';
 
-  @override
+  /// Los bytes del `.zip`: lo arma [buildBackupFile] y lo lee ENTERO.
+  ///
+  /// Solo para las pruebas, que necesitan la copia en memoria. La app guarda
+  /// desde el archivo y nunca pasa por acá.
+  @visibleForTesting
   Future<Uint8List> buildBackup() async {
     final built = await buildBackupFile();
     try {

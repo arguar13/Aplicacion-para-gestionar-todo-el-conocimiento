@@ -1,14 +1,25 @@
-import 'dart:typed_data';
-
+import 'package:sinapsis/features/vault/domain/entities/vault_backup_target.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_service.dart';
 
 /// El selector del sistema operativo para guardar y elegir el archivo de
 /// copia de la bóveda —aparte de [VaultBackupService], que no sabe nada de
 /// diálogos, para poder probar cada uno por separado—.
 abstract interface class VaultBackupFileGateway {
-  /// Deja elegir dónde guardar [bytes]. La ruta elegida, o `null` si se
-  /// cancela el selector.
-  Future<String?> saveZip({required String fileName, required Uint8List bytes});
+  /// Deja elegir dónde guardar la copia, que se va a llamar [fileName]: una
+  /// carpeta en el teléfono, un archivo en escritorio. Lo elegido, o `null` si
+  /// se cancela el selector.
+  ///
+  /// Es un paso aparte de [save] porque armar la copia de una bóveda grande
+  /// lleva minutos, y hay que saber dónde va antes de empezar.
+  Future<VaultBackupTarget?> chooseTarget({required String fileName});
+
+  /// Copia el archivo [sourcePath] —la copia ya armada— al [target] elegido,
+  /// por tandas: nunca entera en memoria. Devuelve dónde quedó, en la forma en
+  /// que se le muestra al usuario.
+  Future<String> save({
+    required VaultBackupTarget target,
+    required String sourcePath,
+  });
 
   /// Deja elegir un archivo `.zip` para fusionar. Su ruta en el disco, o `null`
   /// si se cancela el selector.

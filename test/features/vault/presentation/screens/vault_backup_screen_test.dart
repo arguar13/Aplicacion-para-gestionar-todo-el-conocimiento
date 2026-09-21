@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/features/vault/domain/entities/built_vault_backup.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_backup_target.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_preview.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 import 'package:sinapsis/features/vault/domain/services/vault_backup_file_gateway.dart';
@@ -35,17 +36,27 @@ class _FakeService implements VaultBackupService {
   final previews = <String>[];
   final merges = <String>[];
 
-  @override
-  Future<Uint8List> buildBackup() async => Uint8List(0);
+  Exception? buildThrows;
+
+  /// Si la prueba lo pone, armar la copia espera a que se complete.
+  Completer<void>? buildHold;
+  final discarded = <String>[];
 
   @override
-  Future<BuiltVaultBackup> buildBackupFile() async => const BuiltVaultBackup(
-    path: '/tmp/sinapsis-backup-x/copia.zip',
-    sizeBytes: 0,
-  );
+  Future<BuiltVaultBackup> buildBackupFile() async {
+    await buildHold?.future;
+    final error = buildThrows;
+    if (error != null) throw error;
+    return const BuiltVaultBackup(
+      path: '/tmp/sinapsis-backup-x/copia.zip',
+      sizeBytes: 913 * 1024 * 1024,
+    );
+  }
 
   @override
-  Future<void> discardBackup(BuiltVaultBackup backup) async {}
+  Future<void> discardBackup(BuiltVaultBackup backup) async {
+    discarded.add(backup.path);
+  }
 
   @override
   Future<bool> isValidBackup(String zipPath) async => valid;
@@ -75,11 +86,28 @@ class _FakeGateway implements VaultBackupFileGateway {
   @override
   Future<void> discardPicked() async => discards++;
 
+  /// Lo que el usuario elige al guardar; `null` es cancelar el selector.
+  VaultBackupTarget? target = const VaultBackupTarget(
+    location: '/elegido/copia.zip',
+    fileName: 'copia.zip',
+  );
+  Exception? saveThrows;
+  final saved = <String>[];
+
   @override
-  Future<String?> saveZip({
-    required String fileName,
-    required Uint8List bytes,
-  }) async => null;
+  Future<VaultBackupTarget?> chooseTarget({required String fileName}) async =>
+      target;
+
+  @override
+  Future<String> save({
+    required VaultBackupTarget target,
+    required String sourcePath,
+  }) async {
+    final error = saveThrows;
+    if (error != null) throw error;
+    saved.add(sourcePath);
+    return target.location;
+  }
 }
 
 void main() {
@@ -292,6 +320,89 @@ void main() {
       expect(service.previews, hasLength(1));
       expect(service.merges, isEmpty);
       expect(find.text(es.vaultMergeAction), findsOneWidget);
+    });
+  });
+
+  group('exportar (F12)', () {
+    Future<void> tapExport(WidgetTester tester) async {
+      await tester.tap(find.text(es.vaultBackupExportAction));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'guarda desde el archivo que armó, y dice dónde y cuánto pesa',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tapExport(tester);
+
+        expect(gateway.saved, ['/tmp/sinapsis-backup-x/copia.zip']);
+        expect(
+          find.text(
+            es.vaultBackupExportSuccess('/elegido/copia.zip', '913.0 MB'),
+          ),
+          findsOneWidget,
+        );
+        // Y el archivo temporal se suelta.
+        expect(service.discarded, ['/tmp/sinapsis-backup-x/copia.zip']);
+      },
+    );
+
+    testWidgets('si se cancela el selector, no arma nada ni avisa', (
+      tester,
+    ) async {
+      gateway.target = null;
+      await pumpScreen(tester);
+
+      await tapExport(tester);
+
+      expect(gateway.saved, isEmpty);
+      expect(service.discarded, isEmpty);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text(es.vaultBackupExportAction), findsOneWidget);
+    });
+
+    testWidgets('mientras arma, lo dice y no deja empezar otra', (
+      tester,
+    ) async {
+      service.buildHold = Completer<void>();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(es.vaultBackupExportAction));
+      await tester.pump();
+
+      expect(find.text(es.vaultBackupExportInProgress), findsOneWidget);
+      expect(find.text(es.vaultBackupExportAction), findsNothing);
+
+      service.buildHold!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.vaultBackupExportInProgress), findsNothing);
+      expect(gateway.saved, hasLength(1));
+    });
+
+    testWidgets('si armarla falla, lo dice y no guarda nada', (tester) async {
+      service.buildThrows = const FileSystemException('sin espacio');
+      await pumpScreen(tester);
+
+      await tapExport(tester);
+
+      expect(gateway.saved, isEmpty);
+      expect(find.byType(SnackBar), findsOneWidget);
+      // Y se puede volver a intentar.
+      expect(find.text(es.vaultBackupExportAction), findsOneWidget);
+    });
+
+    testWidgets('si guardarla falla, lo dice y suelta la copia igual', (
+      tester,
+    ) async {
+      gateway.saveThrows = const FileSystemException('carpeta sin permiso');
+      await pumpScreen(tester);
+
+      await tapExport(tester);
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(service.discarded, ['/tmp/sinapsis-backup-x/copia.zip']);
     });
   });
 
