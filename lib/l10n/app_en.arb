@@ -466,6 +466,14 @@
   "@referenceSaveFailed": {
     "description": "Notice when saving the reference fails"
   },
+  "citedFragmentCiteTooltip": "Copy the citation of this fragment",
+  "@citedFragmentCiteTooltip": {
+    "description": "Tooltip of the button that copies the citation of a fragment extracted from a source, with its page or minute"
+  },
+  "detailHighlightCiteTooltip": "Copy the citation of this highlight",
+  "@detailHighlightCiteTooltip": {
+    "description": "Tooltip of the button that copies the citation of a highlight, with its page or minute"
+  },
   "citationStyleLabel": "Style",
   "@citationStyleLabel": {
     "description": "Label of the citation style selector in the citation section"

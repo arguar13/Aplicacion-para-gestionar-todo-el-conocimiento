@@ -8,11 +8,14 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
+import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -427,6 +430,12 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     final validHighlights = highlights.where(
       (h) => h.endOffset <= widget.content.length,
     );
+    final kind = ref
+        .watch(libraryItemProvider(widget.itemId))
+        .valueOrNull
+        ?.source
+        .kind;
+    final isSource = kind != null && kind != SourceKind.manualNote;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,16 +469,48 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
               ),
               subtitle: highlight.note == null ? null : Text(highlight.note!),
               onTap: () => _editNote(ref, highlight),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: l10n.detailRemoveHighlight,
-                onPressed: () => ref
-                    .read(organizeRepositoryProvider)
-                    .deleteHighlight(highlight.id),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Una nota no se cita: solo lo que viene de una fuente.
+                  if (isSource)
+                    IconButton(
+                      key: Key('cite-highlight-${highlight.id}'),
+                      icon: const Icon(Icons.format_quote),
+                      tooltip: l10n.detailHighlightCiteTooltip,
+                      onPressed: () => _citeHighlight(highlight),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: l10n.detailRemoveHighlight,
+                    onPressed: () => ref
+                        .read(organizeRepositoryProvider)
+                        .deleteHighlight(highlight.id),
+                  ),
+                ],
               ),
             ),
         ],
       ],
+    );
+  }
+
+  /// Copia la cita del resaltado: la de su fuente, con la página o el minuto
+  /// donde empieza.
+  Future<void> _citeHighlight(Highlight highlight) async {
+    final locator = await ref
+        .read(fragmentLocatorResolverProvider)
+        .locate(
+          itemId: widget.itemId,
+          renditionId: widget.renditionId,
+          charOffset: highlight.startOffset,
+        );
+    if (!mounted) return;
+    await copyFragmentCitation(
+      context,
+      ref,
+      sourceId: widget.itemId,
+      locator: locator,
     );
   }
 

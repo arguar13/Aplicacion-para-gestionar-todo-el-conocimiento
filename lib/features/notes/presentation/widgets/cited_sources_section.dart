@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/util/format_clock.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/notes/domain/entities/cited_source.dart';
 import 'package:sinapsis/features/notes/presentation/providers/note_sources_providers.dart';
@@ -103,21 +106,31 @@ class _CitedSourceTile extends StatelessWidget {
   }
 }
 
-class _FragmentTile extends StatelessWidget {
+class _FragmentTile extends ConsumerWidget {
   const _FragmentTile({required this.sourceId, required this.fragment});
 
   final String sourceId;
   final CitedFragment fragment;
 
+  /// Dónde de la fuente está el fragmento, para citarlo: la página o, si no
+  /// hay, el minuto.
+  CitationLocator? get _locator {
+    final page = fragment.pageNumber;
+    if (page != null) return CitationLocator.page('$page');
+    final startMs = fragment.startMs;
+    if (startMs != null) return CitationLocator.time(formatClock(startMs));
+    return null;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final start = fragment.start;
     final end = fragment.end;
 
     final place = [
       if (fragment.startMs != null)
-        l10n.citedFragmentTime(_clock(fragment.startMs!)),
+        l10n.citedFragmentTime(formatClock(fragment.startMs!)),
       if (fragment.pageNumber != null)
         l10n.citedFragmentPage(fragment.pageNumber!),
     ].join(' · ');
@@ -128,27 +141,31 @@ class _FragmentTile extends StatelessWidget {
       leading: const Icon(Icons.content_cut, size: 18),
       title: Text(fragment.noteTitle),
       subtitle: place.isEmpty ? null : Text(place),
-      trailing: start == null || end == null
-          ? null
-          : IconButton(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            key: const Key('cite-fragment'),
+            icon: const Icon(Icons.format_quote),
+            tooltip: l10n.citedFragmentCiteTooltip,
+            onPressed: () => copyFragmentCitation(
+              context,
+              ref,
+              sourceId: sourceId,
+              locator: _locator,
+            ),
+          ),
+          if (start != null && end != null)
+            IconButton(
               icon: const Icon(Icons.my_location),
               tooltip: l10n.relationViewInSource,
               onPressed: () => context.push(
                 RoutePaths.reading(sourceId, start: start, end: end),
               ),
             ),
+        ],
+      ),
       onTap: () => context.push(RoutePaths.itemDetail(fragment.noteId)),
     );
   }
-}
-
-/// "12:30", o "1:02:30" pasada la hora.
-String _clock(int milliseconds) {
-  final total = milliseconds ~/ 1000;
-  final hours = total ~/ 3600;
-  final minutes = (total % 3600) ~/ 60;
-  final seconds = total % 60;
-  final ss = seconds.toString().padLeft(2, '0');
-  if (hours == 0) return '$minutes:$ss';
-  return '$hours:${minutes.toString().padLeft(2, '0')}:$ss';
 }

@@ -188,6 +188,8 @@
   "referencePublisherArchive": "Archivo",
   "referencePublisherProducer": "Productora",
   "referenceSaveFailed": "No se pudo guardar la referencia",
+  "citedFragmentCiteTooltip": "Copiar la cita de este fragmento",
+  "detailHighlightCiteTooltip": "Copiar la cita de este resaltado",
   "citationStyleLabel": "Estilo",
   "citationStyleChicagoNotes": "Chicago 17 · notas y bibliografía",
   "citationStyleChicagoAuthorDate": "Chicago 17 · autor-fecha",
