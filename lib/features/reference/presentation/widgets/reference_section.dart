@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
@@ -5,10 +7,13 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/citations/domain/services/citation_source_of.dart';
 import 'package:sinapsis/features/reference/domain/services/reference_draft.dart';
 import 'package:sinapsis/features/reference/presentation/providers/reference_providers.dart';
 import 'package:sinapsis/features/reference/presentation/reference_presentation.dart';
+import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Los datos bibliográficos de una fuente (F15): lo que hace falta para citarla
@@ -32,6 +37,21 @@ class _ReferenceSectionState extends ConsumerState<ReferenceSection> {
   var _editing = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Otra oportunidad de proponer lo que se pueda leer del original (F15,
+    // D12): para una fuente capturada antes de que este generador
+    // existiera, o cuando la primera vez —al capturar— no encontró nada
+    // todavía (la página no se había terminado de archivar). Una vez por
+    // apertura, no en cada reconstrucción: por eso vive en `initState` y no
+    // en `build`. `createMetadataSuggestion` reemplaza lo que hubiera
+    // pendiente, así que no importa si ya había una.
+    unawaited(
+      ref.read(metadataSuggestionGeneratorProvider).generate(widget.item),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final reference = ref.watch(referenceProvider(widget.item.id)).valueOrNull;
     // Mientras se lee, no se dibuja nada: un formulario vacío que después se
@@ -40,6 +60,11 @@ class _ReferenceSectionState extends ConsumerState<ReferenceSection> {
 
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final suggestion =
+        (ref.watch(pendingSuggestionsProvider(widget.item.id)).valueOrNull ??
+                const [])
+            .whereType<MetadataSuggestion>()
+            .firstOrNull;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,6 +76,10 @@ class _ReferenceSectionState extends ConsumerState<ReferenceSection> {
           ),
         ),
         const SizedBox(height: 8),
+        if (suggestion != null) ...[
+          MetadataSuggestionBanner(suggestion: suggestion),
+          const SizedBox(height: 8),
+        ],
         if (_editing)
           _ReferenceForm(
             item: widget.item,

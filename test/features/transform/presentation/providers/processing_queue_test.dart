@@ -19,6 +19,7 @@ import 'package:sinapsis/features/transform/presentation/providers/processing_qu
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
+import '../../../../support/fake_metadata_suggestion_generator.dart';
 import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -119,6 +120,7 @@ void main() {
         suggestionGenerator: FakePropertySuggestionGenerator(),
         relationSuggestionGenerator: FakeRelationSuggestionGenerator(),
         duplicateSuggestionGenerator: FakeDuplicateSuggestionGenerator(),
+        metadataSuggestionGenerator: FakeMetadataSuggestionGenerator(),
       ),
       repository: repository,
       logger: const SilentLogger(),

@@ -236,4 +236,52 @@ void main() {
       );
     });
   });
+
+  group('cuando la referencia ya esta confirmada (F15)', () {
+    DocumentTransformer withGuard(Future<bool> Function(String) guard) =>
+        DocumentTransformer(
+          parsers: const [DocxParser(), EpubParser(), PlainTextParser()],
+          files: files,
+          ids: FakeIdGenerator(),
+          clock: () => now,
+          hasConfirmedReference: guard,
+        );
+
+    test('no pisa el titulo ni el autor que el documento trae', () async {
+      final item = await seed(
+        buildDocx(title: 'La tesis de Ana', author: 'Ana Martinez'),
+      );
+
+      final result = await withGuard((_) async => true).transform(item);
+
+      expect(result.title, 'Apunte');
+      expect(result.source.authorName, isNull);
+      // El texto se sigue leyendo igual: solo el titulo y el autor se
+      // protegen.
+      expect(result.renditions, hasLength(1));
+    });
+
+    test('sin nada confirmado, se comporta como siempre', () async {
+      final item = await seed(
+        buildDocx(title: 'La tesis de Ana', author: 'Ana Martinez'),
+      );
+
+      final result = await withGuard((_) async => false).transform(item);
+
+      expect(result.title, 'La tesis de Ana');
+      expect(result.source.authorName, 'Ana Martinez');
+    });
+
+    test('se pregunta por el id del elemento que se transforma', () async {
+      String? asked;
+      final item = await seed(buildDocx());
+
+      await withGuard((itemId) async {
+        asked = itemId;
+        return false;
+      }).transform(item);
+
+      expect(asked, item.id);
+    });
+  });
 }

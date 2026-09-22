@@ -14,6 +14,7 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer_regi
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
+import '../../../../support/fake_metadata_suggestion_generator.dart';
 import '../../../../support/fake_property_suggestion_generator.dart';
 import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -46,6 +47,7 @@ void main() {
     FakePropertySuggestionGenerator? suggestionGenerator,
     FakeRelationSuggestionGenerator? relationSuggestionGenerator,
     FakeDuplicateSuggestionGenerator? duplicateSuggestionGenerator,
+    FakeMetadataSuggestionGenerator? metadataSuggestionGenerator,
   }) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
@@ -58,6 +60,8 @@ void main() {
         relationSuggestionGenerator ?? FakeRelationSuggestionGenerator(),
     duplicateSuggestionGenerator:
         duplicateSuggestionGenerator ?? FakeDuplicateSuggestionGenerator(),
+    metadataSuggestionGenerator:
+        metadataSuggestionGenerator ?? FakeMetadataSuggestionGenerator(),
   );
 
   Future<KnowledgeItem> seedPending() async {
@@ -360,6 +364,67 @@ void main() {
 
       expect(result.isRight(), isTrue);
       expect(duplicateGenerator.calls, [item.id]);
+    });
+  });
+
+  group('genera la sugerencia de referencia al terminar (F15)', () {
+    test('con transformador, llama al generador con el elemento ya '
+        'transformado', () async {
+      final item = await seedPending();
+      final generator = FakeMetadataSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer()]),
+        metadataSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, [item.id]);
+    });
+
+    test('al terminar en failed, no llama al generador', () async {
+      final item = await seedPending();
+      final generator = FakeMetadataSuggestionGenerator();
+
+      await build(
+        TransformerRegistry([FakeTransformer(error: Exception('sin red'))]),
+        metadataSuggestionGenerator: generator,
+      )(item.id);
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test(
+      'un generador que lanza no le cuesta el resultado a _process()',
+      () async {
+        final item = await seedPending();
+        final generator = FakeMetadataSuggestionGenerator(
+          error: Exception('no se pudo leer el archivo'),
+        );
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          metadataSuggestionGenerator: generator,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+      },
+    );
+
+    test('corre en paralelo con los otros tres: ninguno espera a los '
+        'demás', () async {
+      final item = await seedPending();
+      final propertyGenerator = FakePropertySuggestionGenerator()
+        ..hang = Completer<void>();
+      final metadataGenerator = FakeMetadataSuggestionGenerator();
+
+      final result = await build(
+        TransformerRegistry([FakeTransformer()]),
+        suggestionGenerator: propertyGenerator,
+        metadataSuggestionGenerator: metadataGenerator,
+      )(item.id);
+
+      expect(result.isRight(), isTrue);
+      expect(metadataGenerator.calls, [item.id]);
     });
   });
 }

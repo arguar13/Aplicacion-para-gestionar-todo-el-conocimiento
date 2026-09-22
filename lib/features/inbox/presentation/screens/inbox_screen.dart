@@ -20,6 +20,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/review_suggestions_action.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/suggestion_review_dialog.dart';
@@ -300,17 +301,21 @@ class _PendingItemCard extends ConsumerWidget {
         : rendition.content.length > 280
         ? '${rendition.content.substring(0, 280)}…'
         : rendition.content;
+    final pending =
+        ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
     // fusionar borra un elemento, y eso pide su propia confirmación
     // explícita en la pantalla de "Posibles duplicados", no un casillero
     // más entre sugerencias reversibles con un toque. Una sugerencia de
     // referencia (F15) también: tiene su propia tarjeta, más abajo.
-    final suggestions =
-        (ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [])
-            .where(
-              (s) => s is! DuplicateSuggestionEntry && s is! MetadataSuggestion,
-            )
-            .toList();
+    final suggestions = pending
+        .where(
+          (s) => s is! DuplicateSuggestionEntry && s is! MetadataSuggestion,
+        )
+        .toList();
+    final metadataSuggestion = pending
+        .whereType<MetadataSuggestion>()
+        .firstOrNull;
 
     return Center(
       child: ConstrainedBox(
@@ -396,6 +401,10 @@ class _PendingItemCard extends ConsumerWidget {
                       ),
                     ),
                     SuggestedPropertyChips(itemId: item.id),
+                    if (metadataSuggestion != null) ...[
+                      const SizedBox(height: 12),
+                      MetadataSuggestionBanner(suggestion: metadataSuggestion),
+                    ],
                     const Divider(height: 32),
                     Wrap(
                       spacing: 8,

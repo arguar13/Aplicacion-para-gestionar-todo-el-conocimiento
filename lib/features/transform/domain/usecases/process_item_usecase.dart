@@ -10,6 +10,7 @@ import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
+import 'package:sinapsis/features/reference/domain/services/metadata_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
@@ -40,6 +41,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required PropertySuggestionGenerator suggestionGenerator,
     required RelationSuggestionGenerator relationSuggestionGenerator,
     required DuplicateSuggestionGenerator duplicateSuggestionGenerator,
+    required MetadataSuggestionGenerator metadataSuggestionGenerator,
   }) : _registry = registry,
        _repository = repository,
        _logger = logger,
@@ -47,7 +49,8 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
        _clock = clock,
        _suggestionGenerator = suggestionGenerator,
        _relationSuggestionGenerator = relationSuggestionGenerator,
-       _duplicateSuggestionGenerator = duplicateSuggestionGenerator;
+       _duplicateSuggestionGenerator = duplicateSuggestionGenerator,
+       _metadataSuggestionGenerator = metadataSuggestionGenerator;
 
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
@@ -57,6 +60,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   final PropertySuggestionGenerator _suggestionGenerator;
   final RelationSuggestionGenerator _relationSuggestionGenerator;
   final DuplicateSuggestionGenerator _duplicateSuggestionGenerator;
+  final MetadataSuggestionGenerator _metadataSuggestionGenerator;
 
   @override
   Future<Either<Failure, KnowledgeItem>> call(String itemId) async {
@@ -141,17 +145,19 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     }
   }
 
-  /// Fire-and-forget, tres veces: no bloquea `_process()` ni propaga un
+  /// Fire-and-forget, cuatro veces: no bloquea `_process()` ni propaga un
   /// error de ningún generador — un fallo acá no puede tumbar el
   /// resultado de haber procesado el elemento con éxito. `.catchError` es
   /// una red de seguridad adicional a la que ya tiene cada `generate()`
   /// por su cuenta.
   ///
-  /// Los tres generadores corren en paralelo entre sí, sin ningún orden
+  /// Los cuatro generadores corren en paralelo entre sí, sin ningún orden
   /// que respetar: cada uno ya resuelve su propia dependencia interna de
   /// orden por su cuenta (ver F5, D8) — solo el motor de relaciones tiene
   /// pasos que dependen entre sí, y esos viven todos dentro de su propio
-  /// `generate()`.
+  /// `generate()`. El de referencia (F15, D12) es el único de los cuatro
+  /// que puede no encontrar nada que leer —una nota, una imagen— y no
+  /// generar ninguna sugerencia; eso no es un fallo.
   void _generateSuggestions(Either<Failure, KnowledgeItem> result) {
     result.match((_) {}, (saved) {
       unawaited(_suggestionGenerator.generate(saved).catchError((_, __) {}));
@@ -160,6 +166,9 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       );
       unawaited(
         _duplicateSuggestionGenerator.generate(saved).catchError((_, __) {}),
+      );
+      unawaited(
+        _metadataSuggestionGenerator.generate(saved).catchError((_, __) {}),
       );
     });
   }

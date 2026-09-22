@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
@@ -7,6 +9,7 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/reference/presentation/providers/reference_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/transform/data/archive/html_page_archiver.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_resource_fetcher.dart';
@@ -91,6 +94,7 @@ final audioTranscriberProvider = Provider<AudioTranscriber>((ref) {
 final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
   final ids = ref.watch(idGeneratorProvider);
   final clock = ref.watch(clockProvider);
+  final db = ref.watch(appDatabaseProvider);
 
   return TransformerRegistry([
     YouTubeTranscriptTransformer(
@@ -122,6 +126,8 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
+      hasConfirmedReference: (itemId) async =>
+          !(await ReferenceReader(db).read(itemId)).isEmpty,
     ),
     ImageTransformer(
       extractor: ref.watch(imageTextExtractorProvider),
@@ -167,5 +173,6 @@ final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
     duplicateSuggestionGenerator: ref.watch(
       duplicateSuggestionGeneratorProvider,
     ),
+    metadataSuggestionGenerator: ref.watch(metadataSuggestionGeneratorProvider),
   );
 });

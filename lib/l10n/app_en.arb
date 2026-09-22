@@ -466,6 +466,18 @@
   "@referenceSaveFailed": {
     "description": "Notice when saving the reference fails"
   },
+  "referenceSuggestionBanner": "Reference data found",
+  "@referenceSuggestionBanner": {
+    "description": "Title of the banner offering a metadata suggestion read from the PDF, the page or YouTube"
+  },
+  "referenceSuggestionUse": "Use",
+  "@referenceSuggestionUse": {
+    "description": "Button that accepts a metadata suggestion, filling in whatever the reference still lacks"
+  },
+  "referenceSuggestionDiscard": "Discard",
+  "@referenceSuggestionDiscard": {
+    "description": "Button that discards a metadata suggestion without writing anything"
+  },
   "citedFragmentCiteTooltip": "Copy the citation of this fragment",
   "@citedFragmentCiteTooltip": {
     "description": "Tooltip of the button that copies the citation of a fragment extracted from a source, with its page or minute"

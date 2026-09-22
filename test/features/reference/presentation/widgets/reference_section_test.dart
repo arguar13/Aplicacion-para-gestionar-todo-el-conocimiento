@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -546,6 +548,80 @@ void main() {
 
       expect(find.byKey(const Key('reference-type')), findsNothing);
       expect(await publishedAt('a'), DateTime(1967));
+    });
+  });
+
+  group('sugerencia de referencia (F15)', () {
+    Future<void> seedSuggestion(String itemId, {String doi = '10.1000/xyz'}) =>
+        harness.container
+            .read(suggestionRepositoryProvider)
+            .createMetadataSuggestion(
+              targetItemId: itemId,
+              extracted: ExtractedMetadata(
+                reference: ReferenceData(
+                  contributors: const [
+                    Contributor(
+                      name: PersonName(family: 'García', given: 'Ana'),
+                    ),
+                  ],
+                  doi: doi,
+                ),
+              ),
+            );
+
+    testWidgets('con una pendiente, se ve el aviso con lo que trae', (
+      tester,
+    ) async {
+      final item = await source('a');
+      await seedSuggestion(item.id);
+
+      await pumpSection(tester, item);
+
+      expect(find.text(es.referenceSuggestionBanner), findsOneWidget);
+      expect(find.byKey(const Key('metadata-suggestion-use')), findsOneWidget);
+      expect(
+        find.byKey(const Key('metadata-suggestion-discard')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('usarla completa lo que la referencia no tenía', (
+      tester,
+    ) async {
+      final item = await source('a');
+      await seedSuggestion(item.id);
+      await pumpSection(tester, item);
+
+      await tester.tap(find.byKey(const Key('metadata-suggestion-use')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('metadata-suggestion-use')), findsNothing);
+      final reference = await stored('a');
+      expect(reference.doi, '10.1000/xyz');
+      expect(reference.contributors.single.name.family, 'García');
+    });
+
+    testWidgets('descartarla no escribe nada y la saca de la vista', (
+      tester,
+    ) async {
+      final item = await source('a');
+      await seedSuggestion(item.id);
+      await pumpSection(tester, item);
+
+      await tester.tap(find.byKey(const Key('metadata-suggestion-discard')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('metadata-suggestion-discard')),
+        findsNothing,
+      );
+      expect((await stored('a')).isEmpty, isTrue);
+    });
+
+    testWidgets('sin ninguna pendiente, no se ve nada', (tester) async {
+      await pumpSection(tester, await source('a'));
+
+      expect(find.text(es.referenceSuggestionBanner), findsNothing);
     });
   });
 }

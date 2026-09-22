@@ -24,15 +24,26 @@ class DocumentTransformer implements Transformer {
     required FileStore files,
     required IdGenerator ids,
     required Clock clock,
+    Future<bool> Function(String itemId)? hasConfirmedReference,
   }) : _parsers = parsers,
        _files = files,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _hasConfirmedReference = hasConfirmedReference;
 
   final List<DocumentParser> _parsers;
   final FileStore _files;
   final IdGenerator _ids;
   final Clock _clock;
+
+  /// Si el elemento ya tiene datos de referencia confirmados (F15): cuando
+  /// los hay, el título y el autor que trae el documento ya no se escriben
+  /// solos, aunque el análisis los encuentre — alguien ya completó la
+  /// tarjeta «Referencia» a mano, y esa carga tiene la última palabra, no un
+  /// análisis que puede llegar después de ella. `null` en las pruebas que no
+  /// lo necesitan y en cualquier llamador que no pueda mirar la base: se
+  /// comporta como siempre, sin este resguardo.
+  final Future<bool> Function(String itemId)? _hasConfirmedReference;
 
   @override
   bool canTransform(KnowledgeItem item) {
@@ -70,13 +81,18 @@ class DocumentTransformer implements Transformer {
     if (parsed.isEmpty) return item;
 
     final now = _clock();
+    final confirmed = await _hasConfirmedReference?.call(item.id) ?? false;
 
     return item.copyWith(
       // Lo que diga el documento gana sobre el nombre del archivo: un PDF
       // llamado `descarga (3).pdf` puede tener un título de verdad adentro.
-      title: parsed.title ?? item.title,
+      // Salvo que alguien ya haya confirmado la referencia a mano: eso no se
+      // pisa (F15).
+      title: confirmed ? item.title : (parsed.title ?? item.title),
       source: item.source.copyWith(
-        authorName: parsed.author ?? item.source.authorName,
+        authorName: confirmed
+            ? item.source.authorName
+            : (parsed.author ?? item.source.authorName),
       ),
       renditions: [
         Rendition.text(

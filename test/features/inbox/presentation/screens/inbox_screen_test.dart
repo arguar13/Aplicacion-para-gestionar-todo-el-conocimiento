@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
@@ -178,6 +182,62 @@ void main() {
       await pumpInbox(tester);
 
       expect(find.byTooltip(es.suggestionReviewOpenTooltip(3)), findsOneWidget);
+    });
+  });
+
+  group('sugerencia de referencia (F15)', () {
+    Future<void> seedMetadataSuggestion(String itemId) => harness.container
+        .read(suggestionRepositoryProvider)
+        .createMetadataSuggestion(
+          targetItemId: itemId,
+          extracted: const ExtractedMetadata(
+            reference: ReferenceData(
+              contributors: [
+                Contributor(
+                  name: PersonName(family: 'García', given: 'Ana'),
+                ),
+              ],
+              doi: '10.1000/xyz',
+            ),
+          ),
+        );
+
+    testWidgets('con una pendiente, la tarjeta muestra el aviso', (
+      tester,
+    ) async {
+      final itemId = await seedProcessedSource();
+      await seedMetadataSuggestion(itemId);
+
+      await pumpInbox(tester);
+
+      expect(find.text(es.referenceSuggestionBanner), findsOneWidget);
+    });
+
+    testWidgets('usarla completa la referencia sin salir de la Bandeja', (
+      tester,
+    ) async {
+      final itemId = await seedProcessedSource();
+      await seedMetadataSuggestion(itemId);
+      await pumpInbox(tester);
+
+      await tester.tap(find.byKey(const Key('metadata-suggestion-use')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.referenceSuggestionBanner), findsNothing);
+      final reference = await ReferenceReader(harness.database).read(itemId);
+      expect(reference.doi, '10.1000/xyz');
+    });
+
+    testWidgets('no entra en el diálogo de revisión genérico', (tester) async {
+      final itemId = await seedProcessedSource();
+      await seedMetadataSuggestion(itemId);
+      await seedSuggestion(itemId);
+
+      await pumpInbox(tester);
+
+      // El botón de revisión genérica cuenta 1 —la de propiedad—, no 2: la
+      // de referencia tiene su propia tarjeta, no un casillero acá.
+      expect(find.byTooltip(es.suggestionReviewOpenTooltip(1)), findsOneWidget);
     });
   });
 }
