@@ -80,15 +80,20 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
                 suggestion.kind.icon,
                 suggestion.kind.color(Theme.of(context).colorScheme),
               ),
-              // Nunca debería llegar hasta acá: fusionar borra un elemento,
-              // así que un duplicado pide su propia confirmación explícita
-              // —la pantalla "Posibles duplicados" (D4, F7)—, no un
-              // casillero más entre sugerencias reversibles con un toque.
-              // Quien arma la lista que llega a este diálogo es quien debe
-              // dejarlo afuera (ver `InboxScreen`).
+              // Nunca deberían llegar hasta acá: un duplicado pide su propia
+              // confirmación explícita —la pantalla "Posibles duplicados"
+              // (D4, F7)— porque fusionar borra un elemento, y una sugerencia
+              // de referencia (F15) tiene su propia tarjeta, con el
+              // formulario ya precargado, en vez de un casillero con un
+              // título y un subtítulo. Quien arma la lista que llega a este
+              // diálogo es quien debe dejarlas afuera (ver `InboxScreen`).
               DuplicateSuggestionEntry() => throw StateError(
                 'Un duplicado no debería llegar al diálogo de revisión '
                 'genérico.',
+              ),
+              MetadataSuggestion() => throw StateError(
+                'Una sugerencia de referencia no debería llegar al diálogo '
+                'de revisión genérico.',
               ),
             };
 

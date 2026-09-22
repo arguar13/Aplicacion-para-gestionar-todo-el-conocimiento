@@ -303,10 +303,13 @@ class _PendingItemCard extends ConsumerWidget {
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
     // fusionar borra un elemento, y eso pide su propia confirmación
     // explícita en la pantalla de "Posibles duplicados", no un casillero
-    // más entre sugerencias reversibles con un toque.
+    // más entre sugerencias reversibles con un toque. Una sugerencia de
+    // referencia (F15) también: tiene su propia tarjeta, más abajo.
     final suggestions =
         (ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [])
-            .where((s) => s is! DuplicateSuggestionEntry)
+            .where(
+              (s) => s is! DuplicateSuggestionEntry && s is! MetadataSuggestion,
+            )
             .toList();
 
     return Center(

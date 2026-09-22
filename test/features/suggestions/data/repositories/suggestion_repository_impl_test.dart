@@ -4,12 +4,19 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -184,6 +191,75 @@ void main() {
     });
   });
 
+  group('createMetadataSuggestion (F15)', () {
+    test('inserta en pending con todo lo encontrado', () async {
+      final item = await seedItem();
+
+      final result = await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: ExtractedMetadata(
+          title: 'Un título hallado',
+          publishedAt: DateTime(2021, 3, 14),
+          publicationPrecision: PublicationPrecision.day,
+          reference: const ReferenceData(
+            contributors: [
+              Contributor(
+                name: PersonName(family: 'García', given: 'Ana'),
+              ),
+              Contributor(name: PersonName.institution('Una editorial')),
+            ],
+            containerTitle: 'Una revista',
+            doi: '10.1000/xyz123',
+          ),
+        ),
+      );
+
+      expect(result.isRight(), isTrue);
+      final created = result.getRight().toNullable()! as MetadataSuggestion;
+      expect(created.status, SuggestionStatus.pending);
+
+      final pending = await repository.watchPendingSuggestions(item.id).first;
+      final onlyPending = pending.single as MetadataSuggestion;
+      expect(onlyPending.extracted.title, 'Un título hallado');
+      expect(onlyPending.extracted.publishedAt, DateTime(2021, 3, 14));
+      expect(
+        onlyPending.extracted.publicationPrecision,
+        PublicationPrecision.day,
+      );
+      expect(onlyPending.extracted.reference.containerTitle, 'Una revista');
+      expect(onlyPending.extracted.reference.doi, '10.1000/xyz123');
+      final contributors = onlyPending.extracted.reference.contributors;
+      expect(contributors, hasLength(2));
+      expect(contributors[0].name.label, 'García, Ana');
+      expect(contributors[1].name.isInstitution, isTrue);
+      expect(contributors[1].name.label, 'Una editorial');
+    });
+
+    test('reemplaza la que ya estaba pendiente, no la duplica', () async {
+      final item = await seedItem();
+      await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: const ExtractedMetadata(
+          reference: ReferenceData(doi: '10.1000/primera'),
+        ),
+      );
+
+      await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: const ExtractedMetadata(
+          reference: ReferenceData(doi: '10.1000/segunda'),
+        ),
+      );
+
+      final pending = await repository.watchPendingSuggestions(item.id).first;
+      expect(pending, hasLength(1));
+      expect(
+        (pending.single as MetadataSuggestion).extracted.reference.doi,
+        '10.1000/segunda',
+      );
+    });
+  });
+
   group('watchPendingSuggestions', () {
     test('solo trae pending del itemId pedido, no de otro', () async {
       final itemA = await seedItem();
@@ -325,6 +401,99 @@ void main() {
 
       expect(result.isLeft(), isTrue);
     });
+
+    test(
+      'metadata: completa la referencia vacía y marca accepted (F15)',
+      () async {
+        final item = await seedItem();
+        final suggestion = (await repository.createMetadataSuggestion(
+          targetItemId: item.id,
+          extracted: ExtractedMetadata(
+            // El título de la sugerencia no se escribe en ningún lado: solo
+            // se completa la referencia, nunca el nombre del elemento.
+            title: 'Título que no se usa',
+            publishedAt: DateTime(2020, 5, 5),
+            publicationPrecision: PublicationPrecision.day,
+            reference: const ReferenceData(
+              contributors: [
+                Contributor(
+                  name: PersonName(family: 'García', given: 'Ana'),
+                ),
+              ],
+              containerTitle: 'Una revista',
+              doi: '10.1000/xyz123',
+            ),
+          ),
+        )).getRight().toNullable()!;
+
+        final result = await repository.accept(suggestion.id);
+
+        expect(result.isRight(), isTrue);
+        final reference = await ReferenceReader(db).read(item.id);
+        expect(reference.containerTitle, 'Una revista');
+        expect(reference.doi, '10.1000/xyz123');
+        expect(reference.contributors.single.name.label, 'García, Ana');
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.title, item.title);
+        expect(reloaded.source.publishedAt, DateTime(2020, 5, 5));
+
+        final pending = await repository.watchPendingSuggestions(item.id).first;
+        expect(pending, isEmpty);
+      },
+    );
+
+    test('metadata: no pisa lo que la referencia ya tenía (F15)', () async {
+      final item = await seedItem();
+      await KnowledgeEntryWriter(
+        db,
+        clock: () => now,
+      ).setReference(item.id, const ReferenceData(doi: '10.1000/ya-cargado'));
+      final suggestion = (await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: const ExtractedMetadata(
+          reference: ReferenceData(
+            doi: '10.1000/otro',
+            containerTitle: 'Revista nueva',
+          ),
+        ),
+      )).getRight().toNullable()!;
+
+      await repository.accept(suggestion.id);
+
+      final reference = await ReferenceReader(db).read(item.id);
+      // El DOI ya cargado gana; el contenedor, que estaba vacío, se llena.
+      expect(reference.doi, '10.1000/ya-cargado');
+      expect(reference.containerTitle, 'Revista nueva');
+    });
+
+    test(
+      'metadata: no pisa una fecha de publicación ya cargada (F15)',
+      () async {
+        final item = await seedItem();
+        await KnowledgeEntryWriter(db, clock: () => now).setFieldFromText(
+          item.id,
+          EntryField.publishedAt,
+          '${DateTime(1999).millisecondsSinceEpoch ~/ 1000}',
+        );
+        final suggestion = (await repository.createMetadataSuggestion(
+          targetItemId: item.id,
+          extracted: ExtractedMetadata(
+            publishedAt: DateTime(2020, 5, 5),
+            publicationPrecision: PublicationPrecision.day,
+          ),
+        )).getRight().toNullable()!;
+
+        await repository.accept(suggestion.id);
+
+        final reloaded = (await libraryRepository.findById(
+          item.id,
+        )).getRight().toNullable()!;
+        expect(reloaded.source.publishedAt, DateTime(1999));
+      },
+    );
   });
 
   group('reject', () {
@@ -358,6 +527,23 @@ void main() {
       final result = await repository.reject('no-existe');
 
       expect(result.isLeft(), isTrue);
+    });
+
+    test('metadata: no escribe nada en la referencia (F15)', () async {
+      final item = await seedItem();
+      final suggestion = (await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: const ExtractedMetadata(
+          reference: ReferenceData(doi: '10.1000/xyz'),
+        ),
+      )).getRight().toNullable()!;
+
+      await repository.reject(suggestion.id);
+
+      final reference = await ReferenceReader(db).read(item.id);
+      expect(reference.isEmpty, isTrue);
+      final pending = await repository.watchPendingSuggestions(item.id).first;
+      expect(pending, isEmpty);
     });
   });
 

@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 
@@ -76,4 +77,20 @@ sealed class Suggestion with _$Suggestion {
     required DateTime createdAt,
     double? confidence,
   }) = DuplicateSuggestionEntry;
+
+  /// Los datos bibliográficos que se pudieron leer del PDF, de la página o
+  /// de YouTube de una fuente — F15, D12. No es del modelo de lenguaje como
+  /// las otras tres, pero comparte con ellas lo que importa: nunca se
+  /// escribe sin que alguien la mire primero, y por eso vive en la misma
+  /// unión. Una sola por fuente, con todo lo que encontró junto —no una por
+  /// dato—: aceptarla de a poco dejaría una referencia a medio completar sin
+  /// que quien la revisó lo supiera.
+  const factory Suggestion.metadata({
+    required String id,
+    required String targetItemId,
+    required ExtractedMetadata extracted,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    double? confidence,
+  }) = MetadataSuggestion;
 }

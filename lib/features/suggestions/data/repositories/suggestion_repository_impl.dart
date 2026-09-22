@@ -4,10 +4,19 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
@@ -53,6 +62,8 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   final MergeDuplicateItemsUseCase? _merge;
   final IdGenerator _ids;
   final Clock _clock;
+
+  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
   @override
   Stream<List<Suggestion>> watchPendingSuggestions(String itemId) {
@@ -267,6 +278,65 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, Suggestion>> createMetadataSuggestion({
+    required String targetItemId,
+    required ExtractedMetadata extracted,
+  }) async {
+    try {
+      // Una sola por fuente: la que hubiera pendiente se reemplaza, no se
+      // suma. `reject` alcanza porque nadie más lee una sugerencia por su
+      // estado además de `pending`.
+      await (_db.update(_db.suggestions)..where(
+            (s) =>
+                s.targetItemId.equals(targetItemId) &
+                s.kind.equalsValue(SuggestionKind.metadata) &
+                s.status.equalsValue(SuggestionStatus.pending),
+          ))
+          .write(
+            const SuggestionsCompanion(
+              status: Value(SuggestionStatus.rejected),
+            ),
+          );
+
+      final id = _ids.next();
+      final createdAt = _clock();
+      final payload = jsonEncode(_metadataPayloadOf(extracted));
+
+      await _db
+          .into(_db.suggestions)
+          .insert(
+            SuggestionsCompanion.insert(
+              id: id,
+              kind: SuggestionKind.metadata,
+              targetItemId: targetItemId,
+              payloadJson: payload,
+              createdAt: createdAt,
+            ),
+          );
+
+      return right(
+        Suggestion.metadata(
+          id: id,
+          targetItemId: targetItemId,
+          extracted: extracted,
+          status: SuggestionStatus.pending,
+          createdAt: createdAt,
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.createMetadataSuggestion',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> accept(String id) async {
     try {
       final row = await (_db.select(
@@ -284,6 +354,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         SuggestionKind.property => await _applyProperty(row),
         SuggestionKind.relation => await _applyRelation(row),
         SuggestionKind.duplicate => await _applyDuplicate(row),
+        SuggestionKind.metadata => await _applyMetadata(row),
         SuggestionKind.flashcard => throw StateError(
           'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
           'debería existir ninguna fila con este kind.',
@@ -522,6 +593,51 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       keepItemId: row.targetItemId,
       discardItemId: payload['duplicateItemId'] as String,
     );
+  }
+
+  /// Completa la referencia de `row.targetItemId` con lo que la sugerencia
+  /// encontró, dato por dato: lo que la referencia YA tiene manda, y lo que
+  /// trae la sugerencia solo llena lo que sigue vacío —igual que reimportar
+  /// un `.bib` (D9): nunca pisa lo que el usuario tocó, ni antes ni después
+  /// de generarse la sugerencia—. Las personas no se mezclan: si ya había
+  /// alguna cargada, las que trae la sugerencia se descartan enteras.
+  Future<Either<Failure, Unit>> _applyMetadata(SuggestionRow row) async {
+    final extracted = _extractedMetadataOf(
+      jsonDecode(row.payloadJson) as Map<String, dynamic>,
+    );
+
+    final current = await ReferenceReader(_db).read(row.targetItemId);
+    final source = await (_db.select(
+      _db.knowledgeSources,
+    )..where((s) => s.itemId.equals(row.targetItemId))).getSingleOrNull();
+    if (source == null) {
+      return left(
+        const Failure.unexpected(
+          message: 'El elemento ya no existe, o ya no es una fuente.',
+        ),
+      );
+    }
+
+    final merged = mergeExtractedMetadata([
+      ExtractedMetadata(
+        publishedAt: source.publishedAt,
+        publicationPrecision: current.publicationPrecision,
+        reference: current,
+      ),
+      extracted,
+    ]);
+
+    await _writer.setReference(row.targetItemId, merged.reference);
+    if (merged.publishedAt != source.publishedAt) {
+      await _writer.setFieldFromText(
+        row.targetItemId,
+        EntryField.publishedAt,
+        merged.publishedAt == null
+            ? null
+            : '${merged.publishedAt!.millisecondsSinceEpoch ~/ 1000}',
+      );
+    }
+    return right(unit);
   }
 
   @override
@@ -779,6 +895,14 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         status: row.status,
         createdAt: row.createdAt,
       ),
+      SuggestionKind.metadata => Suggestion.metadata(
+        id: row.id,
+        targetItemId: row.targetItemId,
+        extracted: _extractedMetadataOf(payload),
+        confidence: row.confidence,
+        status: row.status,
+        createdAt: row.createdAt,
+      ),
       SuggestionKind.flashcard => throw StateError(
         'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
         'debería existir ninguna fila con este kind.',
@@ -804,3 +928,91 @@ class _BatchAborted implements Exception {
 
   final Failure failure;
 }
+
+// ---------------------------------------------------------------------------
+// El payload de una sugerencia de referencia (F15): `ExtractedMetadata` no
+// sabe de JSON —es una entidad de dominio, no de persistencia—, así que el
+// ida y vuelta vive acá, junto al resto de los `jsonEncode`/`jsonDecode` de
+// los otros tres tipos de sugerencia.
+// ---------------------------------------------------------------------------
+
+Map<String, dynamic> _metadataPayloadOf(ExtractedMetadata extracted) => {
+  'title': extracted.title,
+  'publishedAt': extracted.publishedAt == null
+      ? null
+      : extracted.publishedAt!.millisecondsSinceEpoch ~/ 1000,
+  'publicationPrecision': extracted.publicationPrecision?.name,
+  'reference': _referenceDataPayloadOf(extracted.reference),
+};
+
+Map<String, dynamic> _referenceDataPayloadOf(ReferenceData reference) => {
+  'type': reference.type?.name,
+  'contributors': [
+    for (final contributor in reference.contributors)
+      {
+        'role': contributor.role.name,
+        'family': contributor.name.family,
+        'given': contributor.name.given,
+        'suffix': contributor.name.suffix,
+        'isInstitution': contributor.name.isInstitution,
+      },
+  ],
+  'containerTitle': reference.containerTitle,
+  'publisher': reference.publisher,
+  'publisherPlace': reference.publisherPlace,
+  'edition': reference.edition,
+  'volume': reference.volume,
+  'issue': reference.issue,
+  'pages': reference.pages,
+  'isbn': reference.isbn,
+  'issn': reference.issn,
+  'doi': reference.doi,
+};
+
+ExtractedMetadata _extractedMetadataOf(Map<String, dynamic> payload) {
+  final publishedAtSeconds = payload['publishedAt'] as int?;
+  final precisionName = payload['publicationPrecision'] as String?;
+  return ExtractedMetadata(
+    title: payload['title'] as String?,
+    publishedAt: publishedAtSeconds == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(publishedAtSeconds * 1000),
+    publicationPrecision: precisionName == null
+        ? null
+        : PublicationPrecision.values.byName(precisionName),
+    reference: _referenceDataOf(
+      payload['reference'] as Map<String, dynamic>? ?? const {},
+    ),
+  );
+}
+
+ReferenceData _referenceDataOf(Map<String, dynamic> payload) {
+  final typeName = payload['type'] as String?;
+  return ReferenceData(
+    type: typeName == null ? null : ReferenceType.values.byName(typeName),
+    contributors: [
+      for (final raw in payload['contributors'] as List<dynamic>? ?? const [])
+        _contributorOf(raw as Map<String, dynamic>),
+    ],
+    containerTitle: payload['containerTitle'] as String?,
+    publisher: payload['publisher'] as String?,
+    publisherPlace: payload['publisherPlace'] as String?,
+    edition: payload['edition'] as String?,
+    volume: payload['volume'] as String?,
+    issue: payload['issue'] as String?,
+    pages: payload['pages'] as String?,
+    isbn: payload['isbn'] as String?,
+    issn: payload['issn'] as String?,
+    doi: payload['doi'] as String?,
+  );
+}
+
+Contributor _contributorOf(Map<String, dynamic> payload) => Contributor(
+  name: PersonName(
+    family: payload['family'] as String? ?? '',
+    given: payload['given'] as String? ?? '',
+    suffix: payload['suffix'] as String? ?? '',
+    isInstitution: payload['isInstitution'] as bool? ?? false,
+  ),
+  role: ContributorRole.values.byName(payload['role'] as String),
+);

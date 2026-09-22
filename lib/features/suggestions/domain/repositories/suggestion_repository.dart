@@ -1,5 +1,6 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -58,12 +59,27 @@ abstract interface class SuggestionRepository {
     double? confidence,
   });
 
+  /// Crea la sugerencia de referencia de [targetItemId] con lo que
+  /// [extracted] encontró —F15, D12—, en `status: pending`.
+  ///
+  /// Una sola por fuente: si ya había una pendiente, la reemplaza —es lo
+  /// que pasa al volver a generarla al abrir el formulario—, en vez de
+  /// acumular una por cada vez que alguien la mira. Quien llama comprueba
+  /// antes que [extracted] no esté vacío —`ExtractedMetadata.isEmpty`—: no
+  /// hay sugerencia que ofrecer sin nada encontrado.
+  Future<Either<Failure, Suggestion>> createMetadataSuggestion({
+    required String targetItemId,
+    required ExtractedMetadata extracted,
+  });
+
   /// Aplica el payload de verdad —vía
   /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`
   /// para una sugerencia de propiedad, `OrganizeRepository.createRelation`
-  /// para una de vínculo, o `MergeDuplicateItemsUseCase` para una de
-  /// duplicado— y marca `status: accepted`. Si la aplicación falla, la
-  /// sugerencia queda `pending`, reintentable.
+  /// para una de vínculo, `MergeDuplicateItemsUseCase` para una de
+  /// duplicado, o `KnowledgeEntryWriter.setReference` para una de
+  /// referencia, completando solo lo que la referencia todavía no tenía—
+  /// y marca `status: accepted`. Si la aplicación falla, la sugerencia
+  /// queda `pending`, reintentable.
   Future<Either<Failure, Unit>> accept(String id);
 
   /// Marca `status: rejected` sin aplicar nada.

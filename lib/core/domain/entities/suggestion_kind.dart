@@ -18,4 +18,7 @@ enum SuggestionKind {
   /// como `FlashcardDraft` efímero; modelado acá para una futura cola
   /// persistente, sin generador todavía.
   flashcard,
+
+  /// Los datos bibliográficos leídos del PDF, la página o YouTube — F15.
+  metadata,
 }
