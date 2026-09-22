@@ -1,33 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/features/citations/domain/entities/citation_style.dart';
-import 'package:sinapsis/features/citations/domain/services/citation_formatter.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/citation_source_of.dart';
+import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
+import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
+import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/reference/presentation/providers/reference_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// La cita bibliográfica de un elemento, en el estilo que se elija, con un
-/// botón para copiarla.
+/// La cita de una fuente (F15), en el estilo, el idioma y la forma que se
+/// elijan: la entrada de la lista, la cita en el texto y —en Chicago— la nota
+/// completa y la nota corta.
 ///
-/// Estado local nada más —qué estilo está elegido—: no hace falta
-/// recordarlo entre sesiones ni compartirlo con otra pantalla, así que no
-/// amerita un provider.
-class CitationSection extends StatefulWidget {
+/// Sale de los datos de la referencia con lo que cada estilo pide. Lo que falta
+/// se ve resaltado, con el nombre de cada dato, en lugar de inventarse o de
+/// callarse. Se copia como texto plano o con las cursivas —Markdown—: el
+/// portapapeles de Flutter solo lleva texto plano.
+///
+/// El estilo y el idioma parten de lo que Ajustes recuerda; elegir otro acá
+/// vale para esta vista y no cambia lo predeterminado. La página o el minuto
+/// que se escriba se agrega a las formas que citan un pasaje.
+class CitationSection extends ConsumerStatefulWidget {
   const CitationSection({required this.item, super.key});
 
   final KnowledgeItem item;
 
   @override
-  State<CitationSection> createState() => _CitationSectionState();
+  ConsumerState<CitationSection> createState() => _CitationSectionState();
 }
 
-class _CitationSectionState extends State<CitationSection> {
-  var _style = CitationStyle.apa;
+class _CitationSectionState extends ConsumerState<CitationSection> {
+  String? _styleId;
+  CitationLanguage? _language;
+  var _form = CitationForm.reference;
+  final _locator = TextEditingController();
+
+  @override
+  void dispose() {
+    _locator.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final reference = ref.watch(referenceProvider(widget.item.id)).valueOrNull;
+    // Mientras se lee, no se dibuja: una cita con todo por completar que
+    // después se llena sola es un parpadeo de datos falsos.
+    if (reference == null) return const SizedBox.shrink();
+
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final citation = formatCitation(widget.item, _style);
+    final style = _styleId == null
+        ? ref.watch(defaultCitationStyleProvider)
+        : kReferenceStyles.resolve(_styleId);
+    final defaultLanguage = ref.watch(defaultCitationLanguageProvider);
+    final language = _language ?? defaultLanguage;
+    // Una forma que el estilo no tiene —«nota» en APA— cae en la entrada.
+    final form = style.forms.contains(_form) ? _form : CitationForm.reference;
+    final citation = style.format(
+      form,
+      citationSourceOf(widget.item, reference),
+      CitationContext(
+        language: language,
+        locator: form.takesLocator ? parseLocator(_locator.text) : null,
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,19 +78,63 @@ class _CitationSectionState extends State<CitationSection> {
           ),
         ),
         const SizedBox(height: 8),
-        SegmentedButton<CitationStyle>(
-          segments: const [
-            ButtonSegment(value: CitationStyle.apa, label: Text('APA')),
-            ButtonSegment(value: CitationStyle.mla, label: Text('MLA')),
-            ButtonSegment(
-              value: CitationStyle.chicago,
-              label: Text('Chicago'),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            DropdownButton<String>(
+              key: const Key('citation-style'),
+              value: style.id,
+              onChanged: (id) => setState(() => _styleId = id),
+              items: [
+                for (final option in kReferenceStyles.styles)
+                  DropdownMenuItem(
+                    value: option.id,
+                    child: Text(option.label(l10n)),
+                  ),
+              ],
+            ),
+            SegmentedButton<CitationLanguage>(
+              key: const Key('citation-language'),
+              showSelectedIcon: false,
+              segments: [
+                for (final option in CitationLanguage.values)
+                  ButtonSegment(value: option, label: Text(option.label(l10n))),
+              ],
+              selected: {language},
+              onSelectionChanged: (selection) =>
+                  setState(() => _language = selection.first),
             ),
           ],
-          selected: {_style},
-          onSelectionChanged: (selection) =>
-              setState(() => _style = selection.first),
         ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final option in CitationForm.values)
+              if (style.forms.contains(option))
+                ChoiceChip(
+                  key: Key('citation-form-${option.name}'),
+                  label: Text(option.label(l10n)),
+                  selected: form == option,
+                  onSelected: (_) => setState(() => _form = option),
+                ),
+          ],
+        ),
+        if (form.takesLocator) ...[
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('citation-locator'),
+            controller: _locator,
+            decoration: InputDecoration(
+              labelText: l10n.citationLocatorLabel,
+              hintText: l10n.citationLocatorHint,
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -60,21 +143,48 @@ class _CitationSectionState extends State<CitationSection> {
             color: theme.colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: SelectableText(citation, style: theme.textTheme.bodyMedium),
+          child: SelectableText.rich(
+            key: const Key('citation-text'),
+            citationTextSpan(citation, theme),
+          ),
         ),
+        if (citation.hasGaps) ...[
+          const SizedBox(height: 8),
+          Text(
+            key: const Key('citation-gaps'),
+            l10n.citationMissingData(
+              {for (final gap in citation.gaps) gap.label(l10n)}.join(', '),
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: () => _copy(context, citation),
-          icon: const Icon(Icons.copy, size: 18),
-          label: Text(l10n.citationCopyAction),
+        Wrap(
+          spacing: 8,
+          children: [
+            TextButton.icon(
+              key: const Key('citation-copy'),
+              onPressed: () => _copy(context, citation.toPlainText()),
+              icon: const Icon(Icons.copy, size: 18),
+              label: Text(l10n.citationCopyAction),
+            ),
+            TextButton.icon(
+              key: const Key('citation-copy-markdown'),
+              onPressed: () => _copy(context, citation.toMarkdown()),
+              icon: const Icon(Icons.format_italic, size: 18),
+              label: Text(l10n.citationCopyMarkdownAction),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Future<void> _copy(BuildContext context, String citation) async {
+  Future<void> _copy(BuildContext context, String text) async {
     final l10n = AppLocalizations.of(context)!;
-    await Clipboard.setData(ClipboardData(text: citation));
+    await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context)

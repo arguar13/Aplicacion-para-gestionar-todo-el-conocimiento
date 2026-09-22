@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
+import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
@@ -23,12 +26,12 @@ void main() {
   });
 
   Future<void> pumpSettings(WidgetTester tester) async {
-    // Con la fila nueva de "Posibles duplicados" (F7), la lista entera
-    // ya no entra en el tamaño de ventana por defecto de las pruebas de
-    // widget (800x600) — agrandar la ventana es más simple y menos
-    // frágil que un `scrollUntilVisible` en cada prueba que toca algo
+    // Con la fila nueva de "Posibles duplicados" (F7) y el grupo de citas
+    // (F15), la lista entera ya no entra en el tamaño de ventana por defecto
+    // de las pruebas de widget (800x600) — agrandar la ventana es más simple
+    // y menos frágil que un `scrollUntilVisible` en cada prueba que toca algo
     // del final de la lista.
-    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.physicalSize = const Size(800, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -36,12 +39,98 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('muestra las tres secciones', (tester) async {
+  testWidgets('muestra las cuatro secciones', (tester) async {
     await pumpSettings(tester);
 
     expect(find.text(es.settingsAppearanceSection), findsOneWidget);
+    expect(find.text(es.settingsCitationsSection), findsOneWidget);
     expect(find.text(es.settingsAiSection), findsOneWidget);
     expect(find.text(es.settingsVaultSection), findsOneWidget);
+  });
+
+  group('citas (F15)', () {
+    testWidgets('arrancan en APA 7 y el idioma de la app', (tester) async {
+      await pumpSettings(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-citation-style')),
+          matching: find.text('APA 7'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-citation-language')),
+          matching: find.text(es.settingsCitationLanguageApp),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tocar el estilo pasa al siguiente y se recuerda', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+
+      await tester.tap(find.byKey(const Key('settings-citation-style')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-citation-style')),
+          matching: find.text('MLA 9'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        harness.container.read(citationPreferencesProvider).styleId,
+        'mla9',
+      );
+    });
+
+    testWidgets('los estilos dan la vuelta y vuelven al primero', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+
+      for (var i = 0; i < kReferenceStyles.styles.length; i++) {
+        await tester.tap(find.byKey(const Key('settings-citation-style')));
+        await tester.pumpAndSettle();
+      }
+
+      expect(
+        harness.container.read(citationPreferencesProvider).styleId,
+        'apa7',
+      );
+    });
+
+    testWidgets('tocar el idioma pasa por español, inglés y el de la app', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+      Future<void> tapLanguage() async {
+        await tester.tap(find.byKey(const Key('settings-citation-language')));
+        await tester.pumpAndSettle();
+      }
+
+      await tapLanguage();
+      expect(
+        harness.container.read(citationPreferencesProvider).language,
+        CitationLanguage.es,
+      );
+      await tapLanguage();
+      expect(
+        harness.container.read(citationPreferencesProvider).language,
+        CitationLanguage.en,
+      );
+      expect(find.text(es.citationLanguageEn), findsOneWidget);
+      await tapLanguage();
+      expect(
+        harness.container.read(citationPreferencesProvider).language,
+        isNull,
+      );
+    });
   });
 
   group('idioma', () {
@@ -112,7 +201,7 @@ void main() {
     testWidgets('tocar el vocabulario abre su pantalla, con el router real', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -140,7 +229,7 @@ void main() {
 
     testWidgets('tocar los enlaces rotos abre su pantalla, con el router '
         'real', (tester) async {
-      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -165,7 +254,7 @@ void main() {
     testWidgets('tocar la papelera abre su pantalla, con el router real', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -194,7 +283,7 @@ void main() {
     testWidgets('tocarlos abre su pantalla, con el router real', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.physicalSize = const Size(800, 1400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -247,7 +336,7 @@ void main() {
       testWidgets('tocarla abre su pantalla, con el router real', (
         tester,
       ) async {
-        tester.view.physicalSize = const Size(800, 1000);
+        tester.view.physicalSize = const Size(800, 1400);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await tester.pumpWidget(harness.wrapWithAppRouter());

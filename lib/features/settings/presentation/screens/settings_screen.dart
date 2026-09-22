@@ -5,6 +5,10 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
+import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
+import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
@@ -29,12 +33,21 @@ class SettingsScreen extends ConsumerWidget {
     ThemeMode.dark,
   ];
 
+  /// «El de la app», español, inglés, y otra vez el de la app.
+  static const _citationLanguageCycle = <CitationLanguage?>[
+    null,
+    CitationLanguage.es,
+    CitationLanguage.en,
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final localePreference = ref.watch(localeNotifierProvider);
     final effectiveLocale = ref.watch(effectiveLocaleProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
+    final citationStyle = ref.watch(defaultCitationStyleProvider);
+    final citationLanguage = ref.watch(citationPreferencesProvider).language;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -67,6 +80,50 @@ class SettingsScreen extends ConsumerWidget {
                   ref
                       .read(themeModeNotifierProvider.notifier)
                       .setThemeMode(next);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: l10n.settingsCitationsSection,
+            children: [
+              ListTile(
+                key: const Key('settings-citation-style'),
+                leading: const Icon(Icons.format_quote_outlined),
+                title: Text(l10n.settingsCitationStyle),
+                subtitle: Text(citationStyle.label(l10n)),
+                onTap: () {
+                  final styles = kReferenceStyles.styles;
+                  final next =
+                      styles[(styles.indexWhere(
+                                (s) => s.id == citationStyle.id,
+                              ) +
+                              1) %
+                          styles.length];
+                  ref
+                      .read(citationPreferencesProvider.notifier)
+                      .setStyle(next.id);
+                },
+              ),
+              ListTile(
+                key: const Key('settings-citation-language'),
+                leading: const Icon(Icons.spellcheck_outlined),
+                title: Text(l10n.settingsCitationLanguage),
+                subtitle: Text(
+                  citationLanguage?.label(l10n) ??
+                      l10n.settingsCitationLanguageApp,
+                ),
+                onTap: () {
+                  final next =
+                      _citationLanguageCycle[(_citationLanguageCycle.indexOf(
+                                citationLanguage,
+                              ) +
+                              1) %
+                          _citationLanguageCycle.length];
+                  ref
+                      .read(citationPreferencesProvider.notifier)
+                      .setLanguage(next);
                 },
               ),
             ],

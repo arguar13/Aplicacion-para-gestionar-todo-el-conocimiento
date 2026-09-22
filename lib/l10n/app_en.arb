@@ -466,6 +466,91 @@
   "@referenceSaveFailed": {
     "description": "Notice when saving the reference fails"
   },
+  "citationStyleLabel": "Style",
+  "@citationStyleLabel": {
+    "description": "Label of the citation style selector in the citation section"
+  },
+  "citationStyleChicagoNotes": "Chicago 17 · notes and bibliography",
+  "@citationStyleChicagoNotes": {
+    "description": "Name of the Chicago notes-bibliography citation style"
+  },
+  "citationStyleChicagoAuthorDate": "Chicago 17 · author-date",
+  "@citationStyleChicagoAuthorDate": {
+    "description": "Name of the Chicago author-date citation style"
+  },
+  "citationLanguageLabel": "Citation language",
+  "@citationLanguageLabel": {
+    "description": "Label of the citation language selector"
+  },
+  "citationLanguageEs": "Español",
+  "@citationLanguageEs": {
+    "description": "Name of the Spanish option of the citation language selector, in its own language"
+  },
+  "citationLanguageEn": "English",
+  "@citationLanguageEn": {
+    "description": "Name of the English option of the citation language selector, in its own language"
+  },
+  "citationFormReference": "List entry",
+  "@citationFormReference": {
+    "description": "Form of the citation: the entry of the reference list or bibliography"
+  },
+  "citationFormInText": "In text",
+  "@citationFormInText": {
+    "description": "Form of the citation: the parenthetical or numbered citation inside the text"
+  },
+  "citationFormNote": "Footnote",
+  "@citationFormNote": {
+    "description": "Form of the citation: the full footnote, the first time a work is cited"
+  },
+  "citationFormShortNote": "Short note",
+  "@citationFormShortNote": {
+    "description": "Form of the citation: the short footnote, the times after the first"
+  },
+  "citationLocatorLabel": "Page or minute (optional)",
+  "@citationLocatorLabel": {
+    "description": "Label of the field where the page or minute being cited is written"
+  },
+  "citationLocatorHint": "12, 12-14 or 0:14:35",
+  "@citationLocatorHint": {
+    "description": "Hint of the page or minute field"
+  },
+  "citationMissingData": "Missing data: {fields}",
+  "@citationMissingData": {
+    "description": "Line under a citation that has gaps; fields lists what is missing",
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
+  "citationGapTitle": "Title",
+  "@citationGapTitle": {
+    "description": "Name of the missing title, in the missing-data line of a citation"
+  },
+  "citationGapLink": "Link",
+  "@citationGapLink": {
+    "description": "Name of the missing link, in the missing-data line of a citation"
+  },
+  "citationCopyMarkdownAction": "Copy with formatting",
+  "@citationCopyMarkdownAction": {
+    "description": "Button that copies the citation as Markdown, keeping the italics"
+  },
+  "settingsCitationsSection": "Citations",
+  "@settingsCitationsSection": {
+    "description": "Title of the citations group in Settings"
+  },
+  "settingsCitationStyle": "Citation style",
+  "@settingsCitationStyle": {
+    "description": "Settings row: the citation style used by default"
+  },
+  "settingsCitationLanguage": "Citation language",
+  "@settingsCitationLanguage": {
+    "description": "Settings row: the language of the citations by default"
+  },
+  "settingsCitationLanguageApp": "The app language",
+  "@settingsCitationLanguageApp": {
+    "description": "Value of the citation language setting when it follows the language of the app"
+  },
   "processingPending": "Waiting",
   "@processingPending": {
     "description": "Badge on an item whose content has not been extracted yet"
