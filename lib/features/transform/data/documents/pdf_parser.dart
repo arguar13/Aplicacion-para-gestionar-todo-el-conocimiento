@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image/image.dart' as img;
 import 'package:pdfrx/pdfrx.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/reference/domain/services/extraction/pdf_metadata_reader.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 
@@ -97,12 +99,20 @@ class PdfParser implements DocumentParser {
         pages = await _ocrPages(document);
       }
 
+      // El título y el autor, si el PDF los trae en su diccionario `Info` o
+      // en su paquete XMP —ver `readPdfMetadata`—. El resto de lo que esa
+      // lectura encuentra —DOI, revista, volumen— no cabe acá: sale como
+      // sugerencia de referencia (F15), no como algo que se escribe solo.
+      final metadata = readPdfMetadata(bytes);
+
       // Un documento sin una sola letra sale vacío, no como una fila de
       // separadores.
       return ParsedDocument(
         markdown: pages.every((page) => page.isEmpty)
             ? ''
             : pages.join('\n\n---\n\n'),
+        title: metadata.title,
+        author: _authorLine(metadata.reference.contributors),
         pageCount: document.pages.length,
       );
     } finally {
@@ -258,6 +268,14 @@ String cleanPdfPageText(String raw) {
       .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
       .join('\n')
       .trim();
+}
+
+/// Los autores que `readPdfMetadata` encontró, como un único texto —«Gabriel
+/// García Márquez; Jane Doe»—: lo que trae `ParsedDocument.author`, igual que
+/// ya lo devuelven el EPUB y el DOCX. Vacío si no encontró a nadie.
+String? _authorLine(List<Contributor> contributors) {
+  if (contributors.isEmpty) return null;
+  return contributors.map((c) => c.name.displayName).join('; ');
 }
 
 /// Prepara el motor nativo de PDF. Se inyecta para poder probarlo.

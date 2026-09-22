@@ -233,7 +233,14 @@ Uint8List withSignature(List<int> signature, {int padding = 64}) =>
 ///
 /// Una página con [pageTexts] vacío no lleva texto: es el caso del PDF
 /// escaneado, que es un álbum de fotos de páginas y no contiene ni una letra.
-Uint8List buildPdf({List<String> pageTexts = const ['Hola mundo']}) {
+///
+/// Con [info] agrega un diccionario `Info` —`/Title (...)`, `/Author (...)`—
+/// referenciado desde el `trailer`, como el que escribe cualquier programa
+/// que guarda esos datos: es lo que `readPdfMetadata` (F15) sabe leer.
+Uint8List buildPdf({
+  List<String> pageTexts = const ['Hola mundo'],
+  Map<String, String>? info,
+}) {
   final objects = <String>[
     '<< /Type /Catalog /Pages 2 0 R >>',
     '', // el de las páginas se completa abajo, cuando se sabe cuántas hay
@@ -263,6 +270,16 @@ Uint8List buildPdf({List<String> pageTexts = const ['Hola mundo']}) {
       '<< /Type /Pages /Kids [${pageRefs.join(' ')}] '
       '/Count ${pageTexts.length} >>';
 
+  String? infoRef;
+  if (info != null && info.isNotEmpty) {
+    infoRef = '${objects.length + 1} 0 R';
+    final fields = [
+      for (final entry in info.entries)
+        '/${entry.key} (${_escapePdfString(entry.value)})',
+    ].join(' ');
+    objects.add('<< $fields >>');
+  }
+
   // El cuerpo, anotando dónde empieza cada objeto: la tabla de referencias
   // cruzadas son esas posiciones, y un byte de diferencia deja el archivo
   // ilegible.
@@ -283,7 +300,8 @@ Uint8List buildPdf({List<String> pageTexts = const ['Hola mundo']}) {
   }
 
   body.write(
-    'trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n'
+    'trailer\n<< /Size ${objects.length + 1} /Root 1 0 R'
+    '${infoRef == null ? '' : ' /Info $infoRef'} >>\n'
     'startxref\n$xrefOffset\n%%EOF\n',
   );
 

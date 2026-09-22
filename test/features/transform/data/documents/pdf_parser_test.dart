@@ -171,6 +171,32 @@ void main() {
       expect(result.markdown, contains('Pagina 59'));
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
+    test(
+      'el titulo y el autor salen del diccionario Info, si lo trae',
+      () async {
+        final result = await parser.parse(
+          buildPdf(
+            pageTexts: ['Hola mundo'],
+            info: {
+              'Title': 'Cien anos de soledad',
+              'Author': 'Marquez, Gabriel',
+            },
+          ),
+        );
+
+        expect(result.title, 'Cien anos de soledad');
+        expect(result.author, 'Gabriel Marquez');
+      },
+      skip: _pdfiumPath == null ? _missingPdfium : null,
+    );
+
+    test('sin diccionario Info, el titulo y el autor quedan vacios', () async {
+      final result = await parser.parse(buildPdf(pageTexts: ['Hola mundo']));
+
+      expect(result.title, isNull);
+      expect(result.author, isNull);
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
     test('algo que no es un PDF lanza en vez de reventar', () async {
       final basura = Uint8List.fromList(utf8.encode('esto no es un pdf'));
 
