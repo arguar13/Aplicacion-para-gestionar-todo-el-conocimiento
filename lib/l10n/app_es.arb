@@ -747,6 +747,30 @@
   "@importReferencesCloseAction": {
     "description": "Cierra el informe de una importación."
   },
+  "libraryExportReferencesAction": "Exportar referencias",
+  "@libraryExportReferencesAction": {
+    "description": "Acción de la selección de la Biblioteca para exportar un .bib o un .ris con lo elegido (F15, D15)."
+  },
+  "exportReferencesChooseFormat": "Elegir el formato de las referencias",
+  "@exportReferencesChooseFormat": {
+    "description": "Encabezado de la hoja donde se elige si el archivo sale en BibTeX o en RIS."
+  },
+  "exportReferencesEmpty": "No hay referencias que exportar.",
+  "@exportReferencesEmpty": {
+    "description": "Aviso al pedir exportar una selección sin ninguna fuente adentro."
+  },
+  "exportReferencesFailed": "No se pudieron exportar las referencias.",
+  "@exportReferencesFailed": {
+    "description": "Aviso cuando armar o guardar un .bib/.ris falla."
+  },
+  "exportReferencesFileName": "Referencias",
+  "@exportReferencesFileName": {
+    "description": "Nombre sugerido para el archivo de una exportación de referencias, que no tiene un único título propio como un espacio o una nota."
+  },
+  "referenceFileFormatRis": "RIS",
+  "@referenceFileFormatRis": {
+    "description": "Nombre del formato de archivo RIS, para gestores de citas."
+  },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {
     "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."

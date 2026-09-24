@@ -1160,6 +1160,30 @@
   "@importReferencesCloseAction": {
     "description": "Closes an import report."
   },
+  "libraryExportReferencesAction": "Export references",
+  "@libraryExportReferencesAction": {
+    "description": "Library selection action to export a .bib or .ris with what's selected (F15, D15)."
+  },
+  "exportReferencesChooseFormat": "Choose the references' format",
+  "@exportReferencesChooseFormat": {
+    "description": "Heading of the sheet where BibTeX or RIS is chosen."
+  },
+  "exportReferencesEmpty": "There are no references to export.",
+  "@exportReferencesEmpty": {
+    "description": "Warning when exporting a selection with no source in it."
+  },
+  "exportReferencesFailed": "Couldn't export the references.",
+  "@exportReferencesFailed": {
+    "description": "Warning when building or saving a .bib/.ris fails."
+  },
+  "exportReferencesFileName": "References",
+  "@exportReferencesFileName": {
+    "description": "Suggested file name for a references export, which has no single title of its own like a space or a note."
+  },
+  "referenceFileFormatRis": "RIS",
+  "@referenceFileFormatRis": {
+    "description": "Name of the RIS file format, for citation managers."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

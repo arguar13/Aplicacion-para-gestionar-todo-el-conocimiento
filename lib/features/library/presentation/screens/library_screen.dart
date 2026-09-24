@@ -28,6 +28,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_table_vie
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
 import 'package:sinapsis/features/reference/presentation/import_references_action.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/vault/presentation/widgets/compaction_offer_card.dart';
@@ -182,6 +183,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onCancel: _exitSelectionMode,
               onExport: () => _exportSelection(context, loadedItems),
               onExportBibliography: _exportBibliographySelection,
+              onExportReferences: _exportReferencesSelection,
               onMove: () => _moveSelection(context, spaces),
               onDelete: () => _deleteSelection(context),
             )
@@ -375,6 +377,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// El `.bib`/`.ris` de lo seleccionado (F15, D15).
+  Future<void> _exportReferencesSelection() async {
+    await exportReferences(context, ref, itemIds: _selectedIds.toList());
+  }
+
   Future<void> _moveSelection(BuildContext context, List<Space> spaces) async {
     final l10n = AppLocalizations.of(context)!;
     final count = _selectedIds.length;
@@ -437,6 +444,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onCancel,
     required this.onExport,
     required this.onExportBibliography,
+    required this.onExportReferences,
     required this.onMove,
     required this.onDelete,
   });
@@ -447,6 +455,9 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   /// La bibliografía de lo seleccionado —F15, D13—.
   final VoidCallback onExportBibliography;
+
+  /// El `.bib`/`.ris` de lo seleccionado —F15, D15—.
+  final VoidCallback onExportReferences;
   final VoidCallback onMove;
   final VoidCallback onDelete;
 
@@ -488,6 +499,11 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.format_quote_outlined),
           tooltip: l10n.bibliographyExportAction,
           onPressed: hasSelection ? onExportBibliography : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.file_upload_outlined),
+          tooltip: l10n.libraryExportReferencesAction,
+          onPressed: hasSelection ? onExportReferences : null,
         ),
       ],
     );

@@ -1356,4 +1356,75 @@ void main() {
       expect(harness.queue.enqueued, hasLength(1));
     });
   });
+
+  group('exportar referencias (F15, D15)', () {
+    testWidgets('sin nada elegido, exportar referencias está deshabilitado', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.file_upload_outlined),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('exporta lo elegido como .bib', (tester) async {
+      await harness.capture('https://ejemplo.org/uno', title: 'Uno');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.file_upload_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatBibtex));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.fileSaver.savedFileName,
+        '${es.exportReferencesFileName}.bib',
+      );
+      expect(
+        String.fromCharCodes(harness.fileSaver.savedBytes!),
+        contains('Uno'),
+      );
+    });
+
+    testWidgets('exporta lo elegido como .ris', (tester) async {
+      await harness.capture('https://ejemplo.org/uno', title: 'Uno');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.file_upload_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.referenceFileFormatRis));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.fileSaver.savedFileName,
+        '${es.exportReferencesFileName}.ris',
+      );
+    });
+
+    testWidgets('una selección sin fuentes avisa que no hay nada que '
+        'exportar', (tester) async {
+      await harness.capture('una nota suelta');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('una nota suelta'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.file_upload_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatBibtex));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.exportReferencesEmpty), findsOneWidget);
+      expect(harness.fileSaver.savedFileName, isNull);
+    });
+  });
 }

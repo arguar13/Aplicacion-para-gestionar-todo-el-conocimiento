@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reference/data/repositories/reference_fuzzy_match_repository_impl.dart';
 import 'package:sinapsis/features/reference/data/repositories/reference_identity_repository_impl.dart';
@@ -14,6 +15,7 @@ import 'package:sinapsis/features/reference/domain/repositories/reference_identi
 import 'package:sinapsis/features/reference/domain/repositories/reference_repository.dart';
 import 'package:sinapsis/features/reference/domain/services/metadata_suggestion_generator.dart';
 import 'package:sinapsis/features/reference/domain/usecases/attach_reference_file_usecase.dart';
+import 'package:sinapsis/features/reference/domain/usecases/export_references_usecase.dart';
 import 'package:sinapsis/features/reference/domain/usecases/import_reference_entry_usecase.dart';
 import 'package:sinapsis/features/reference/domain/usecases/import_references_file_usecase.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
@@ -97,3 +99,8 @@ final importReferencesFileUseCaseProvider =
         attachFile: ref.watch(attachReferenceFileUseCaseProvider),
       ),
     );
+
+/// Arma un `.bib`/`.ris` entero con una tanda de fuentes (F15, D15).
+final exportReferencesUseCaseProvider = Provider<ExportReferencesUseCase>(
+  (ref) => ExportReferencesUseCase(ref.watch(bibliographyRepositoryProvider)),
+);
