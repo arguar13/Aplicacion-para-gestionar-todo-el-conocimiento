@@ -119,6 +119,16 @@ abstract final class RoutePaths {
 
   static String graphLocal(String itemId) => '$graph/local/$itemId';
 
+  /// Los cuadernos (F16): un subconjunto con nombre de la bóveda, manual o
+  /// por consulta guardada. Un destino de navegación principal.
+  static const notebooks = '/notebooks';
+
+  /// El detalle de un cuaderno. Se arma con [notebookDetail], mismo criterio
+  /// que [itemDetail].
+  static const notebookDetailPattern = '$notebooks/:id';
+
+  static String notebookDetail(String id) => '$notebooks/$id';
+
   /// Preguntarle algo a la bóveda.
   static const chat = '/chat';
 
@@ -157,6 +167,8 @@ abstract final class RouteNames {
   static const itemDetail = 'item-detail';
   static const explorer = 'explorer';
   static const atlas = 'atlas';
+  static const notebooks = 'notebooks';
+  static const notebookDetail = 'notebook-detail';
   static const inbox = 'inbox';
   static const capture = 'capture';
   static const transcriptionModel = 'transcription-model';

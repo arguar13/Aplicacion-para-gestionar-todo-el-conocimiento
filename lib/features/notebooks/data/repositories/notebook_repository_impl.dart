@@ -45,6 +45,38 @@ class NotebookRepositoryImpl implements NotebookRepository {
   }
 
   @override
+  Stream<Notebook?> watchById(String id) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.notebooks],
+      read: () async {
+        final row = await (_db.select(
+          _db.notebooks,
+        )..where((n) => n.id.equals(id))).getSingleOrNull();
+        return row == null ? null : _toEntity(row);
+      },
+      telemetry: _telemetry,
+      hint: 'NotebookRepositoryImpl.watchById',
+    );
+  }
+
+  @override
+  Stream<Set<String>> watchItemIds(String notebookId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.notebookItems],
+      read: () async {
+        final items = await (_db.select(
+          _db.notebookItems,
+        )..where((n) => n.notebookId.equals(notebookId))).get();
+        return {for (final i in items) i.itemId};
+      },
+      telemetry: _telemetry,
+      hint: 'NotebookRepositoryImpl.watchItemIds',
+    );
+  }
+
+  @override
   Future<Notebook> create({
     required String name,
     required NotebookMode mode,

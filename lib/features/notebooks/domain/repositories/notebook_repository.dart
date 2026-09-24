@@ -8,6 +8,15 @@ abstract interface class NotebookRepository {
   /// Todos, emitiendo de nuevo cada vez que algo cambia.
   Stream<List<Notebook>> watchAll();
 
+  /// Uno solo, o `null` si no existe o se borró —para que la pantalla de
+  /// detalle sepa volver en vez de quedarse mostrando un cuaderno fantasma—.
+  Stream<Notebook?> watchById(String id);
+
+  /// Los ids de un cuaderno [NotebookMode.manual], emitiendo de nuevo cada
+  /// vez que [addItem]/[removeItem] cambian algo. Vacío en modo `query`: la
+  /// pertenencia ahí no vive en `notebook_item`.
+  Stream<Set<String>> watchItemIds(String notebookId);
+
   /// Crea un cuaderno nuevo. [query] es obligatorio en
   /// [NotebookMode.query] e ignorado en [NotebookMode.manual] —empieza sin
   /// elementos, se agregan con [addItem]—.

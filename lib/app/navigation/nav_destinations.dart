@@ -35,6 +35,10 @@ class NavDestinationSpec {
 /// índice de las que ya existían.
 const kAtlasBranchIndex = 7;
 
+/// La rama de los cuadernos (F16), sumada después del Atlas por el mismo
+/// motivo.
+const kNotebooksBranchIndex = 8;
+
 /// Arma la lista de destinos principales, en el orden en que se ven:
 /// biblioteca, bandeja de entrada, atlas, explorador, mapa, chat, repaso,
 /// ajustes. Cada uno sabe su rama ([NavDestinationSpec.branchIndex]).
@@ -120,6 +124,14 @@ List<NavDestinationSpec> buildNavDestinations({
         selectedIcon: const Icon(Icons.forum),
         label: l10n.navChat,
       ),
+    // Justo después del chat (F16): un cuaderno acota el chat a un
+    // subconjunto, así que va al lado de lo que acota.
+    NavDestinationSpec(
+      branchIndex: kNotebooksBranchIndex,
+      icon: const Icon(Icons.auto_stories_outlined),
+      selectedIcon: const Icon(Icons.auto_stories),
+      label: l10n.navNotebooks,
+    ),
     NavDestinationSpec(
       branchIndex: 5,
       icon: Badge(

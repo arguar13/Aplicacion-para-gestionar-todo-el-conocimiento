@@ -141,6 +141,52 @@ void main() {
     });
   });
 
+  group('watchById', () {
+    test('emite el cuaderno, y `null` si se borra', () async {
+      final notebook = await repository.create(
+        name: 'Tesis',
+        mode: NotebookMode.manual,
+      );
+
+      expect((await repository.watchById(notebook.id).first)?.name, 'Tesis');
+
+      await repository.delete(notebook.id);
+      expect(await repository.watchById(notebook.id).first, isNull);
+    });
+
+    test('un id que nunca existió emite `null`', () async {
+      expect(await repository.watchById('no-existe').first, isNull);
+    });
+  });
+
+  group('watchItemIds', () {
+    test('se actualiza solo con addItem/removeItem', () async {
+      await insertItemRows(db, id: 'a', title: 'Uno');
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+
+      expect(await repository.watchItemIds(notebook.id).first, isEmpty);
+
+      await repository.addItem(notebookId: notebook.id, itemId: 'a');
+      expect(await repository.watchItemIds(notebook.id).first, {'a'});
+
+      await repository.removeItem(notebookId: notebook.id, itemId: 'a');
+      expect(await repository.watchItemIds(notebook.id).first, isEmpty);
+    });
+
+    test('un cuaderno por consulta no tiene ids propios', () async {
+      final notebook = await repository.create(
+        name: 'Por consulta',
+        mode: NotebookMode.query,
+        query: const LibraryQuery(),
+      );
+
+      expect(await repository.watchItemIds(notebook.id).first, isEmpty);
+    });
+  });
+
   test('borrar un elemento lo saca de sus cuadernos manuales', () async {
     await insertItemRows(db, id: 'a', title: 'Uno');
     final notebook = await repository.create(

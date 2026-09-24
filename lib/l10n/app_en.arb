@@ -2633,6 +2633,71 @@
   "@libraryCalendarAxisCapturedAt": {
     "description": "Opción del calendario para ubicar cada elemento por cuándo se guardó."
   },
+  "notebooksCreateDialogTitle": "New notebook",
+  "@notebooksCreateDialogTitle": {
+    "description": "Título del diálogo para crear un cuaderno (F16)."
+  },
+  "notebooksNameHint": "Notebook name",
+  "@notebooksNameHint": {
+    "description": "Pista del campo de nombre al crear un cuaderno."
+  },
+  "notebooksModeManual": "Manual",
+  "@notebooksModeManual": {
+    "description": "Modo de cuaderno: se agregan y sacan elementos uno por uno."
+  },
+  "notebooksModeQuery": "By query",
+  "@notebooksModeQuery": {
+    "description": "Modo de cuaderno: los elementos son los que una vista guardada trae."
+  },
+  "notebooksModeQueryEmpty": "Save a view in the Library first to use it here.",
+  "@notebooksModeQueryEmpty": {
+    "description": "Aviso cuando no hay ninguna vista guardada para elegir como consulta de un cuaderno nuevo."
+  },
+  "notebooksSourceViewHint": "Choose a saved view",
+  "@notebooksSourceViewHint": {
+    "description": "Pista del selector de vista guardada al crear un cuaderno por consulta."
+  },
+  "notebooksCreateAction": "Create",
+  "@notebooksCreateAction": {
+    "description": "Botón para confirmar la creación de un cuaderno nuevo."
+  },
+  "notebooksEmptyTitle": "No notebooks yet",
+  "@notebooksEmptyTitle": {
+    "description": "Título del estado vacío de la pantalla de cuadernos."
+  },
+  "notebooksEmptyMessage": "A notebook groups a subset of what you saved, manually or from a saved view, to scope the chat to just that.",
+  "@notebooksEmptyMessage": {
+    "description": "Mensaje del estado vacío de la pantalla de cuadernos."
+  },
+  "notebooksDeleteTooltip": "Delete notebook",
+  "@notebooksDeleteTooltip": {
+    "description": "Tooltip y acción del botón para borrar un cuaderno."
+  },
+  "notebooksDeleteConfirmTitle": "Delete the notebook \"{name}\"?",
+  "@notebooksDeleteConfirmTitle": {
+    "description": "Título del diálogo de confirmación al borrar un cuaderno. No borra los elementos: solo el cuaderno.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "notebooksRenameTooltip": "Rename notebook",
+  "@notebooksRenameTooltip": {
+    "description": "Tooltip, título de diálogo y acción para renombrar un cuaderno."
+  },
+  "notebookDetailAddItem": "Add item",
+  "@notebookDetailAddItem": {
+    "description": "Tooltip y título del selector para agregar un elemento a un cuaderno manual."
+  },
+  "notebookDetailRemoveItem": "Remove from notebook",
+  "@notebookDetailRemoveItem": {
+    "description": "Tooltip del botón para sacar un elemento de un cuaderno manual, sin borrarlo de la bóveda."
+  },
+  "notebookDetailEmpty": "This notebook has no items yet.",
+  "@notebookDetailEmpty": {
+    "description": "Estado vacío del panel de un cuaderno."
+  },
   "libraryColumnTitle": "Title",
   "libraryColumnType": "Type",
   "libraryColumnSpace": "Topic",
@@ -3431,6 +3496,10 @@
   "navAtlas": "Atlas",
   "@navAtlas": {
     "description": "Destino de la navegación principal: el índice dinámico de lo que se sabe y de lo que falta."
+  },
+  "navNotebooks": "Notebooks",
+  "@navNotebooks": {
+    "description": "Destino de la navegación principal: los cuadernos, un subconjunto con nombre de la bóveda (F16)."
   },
   "navMore": "More",
   "@navMore": {

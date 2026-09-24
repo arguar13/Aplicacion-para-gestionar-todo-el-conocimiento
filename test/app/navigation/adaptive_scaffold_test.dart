@@ -17,6 +17,7 @@ import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -150,27 +151,33 @@ void main() {
       expect(find.byType(AtlasScreen), findsOneWidget);
     });
 
-    testWidgets('«Más» abre una hoja con Explorador, Chat y Ajustes', (
-      tester,
-    ) async {
-      setLogicalWidth(tester, 400);
+    testWidgets(
+      '«Más» abre una hoja con Explorador, Chat, Cuadernos y Ajustes',
+      (tester) async {
+        setLogicalWidth(tester, 400);
 
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.more_horiz));
+        await tester.pumpAndSettle();
 
-      for (final label in [es.navExplorer, es.navChat, es.navSettings]) {
-        expect(
-          find.descendant(
-            of: find.byType(BottomSheet),
-            matching: find.text(label),
-          ),
-          findsOneWidget,
-        );
-      }
-    });
+        for (final label in [
+          es.navExplorer,
+          es.navChat,
+          es.navNotebooks,
+          es.navSettings,
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.text(label),
+            ),
+            findsOneWidget,
+          );
+        }
+      },
+    );
 
     testWidgets('elegir un destino de «Más» lo abre, y «Más» queda marcado', (
       tester,
@@ -192,7 +199,9 @@ void main() {
       expect(bar.selectedIndex, bar.destinations.length - 1);
     });
 
-    testWidgets('Ajustes y Chat también están detrás de «Más»', (tester) async {
+    testWidgets('Ajustes, Chat y Cuadernos también están detrás de «Más»', (
+      tester,
+    ) async {
       setLogicalWidth(tester, 400);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
@@ -209,6 +218,12 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more-4')));
       await tester.pumpAndSettle();
       expect(find.byType(ChatScreen), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-more-8')));
+      await tester.pumpAndSettle();
+      expect(find.byType(NotebooksScreen), findsOneWidget);
     });
 
     testWidgets('un destino de la barra deja de marcar «Más»', (tester) async {
@@ -255,7 +270,7 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
-    testWidgets('el riel muestra los ocho destinos, en su orden', (
+    testWidgets('el riel muestra los nueve destinos, en su orden', (
       tester,
     ) async {
       setLogicalWidth(tester, 1200);
@@ -274,6 +289,7 @@ void main() {
         es.navExplorer,
         es.navMap,
         es.navChat,
+        es.navNotebooks,
         es.navReview,
         es.navSettings,
       ]);

@@ -23,6 +23,8 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
+import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
+import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_backfill_screen.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
@@ -300,6 +302,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.atlas,
                 name: RouteNames.atlas,
                 builder: (context, state) => const AtlasScreen(),
+              ),
+            ],
+          ),
+          // Los cuadernos (F16), mismo criterio que el Atlas: al final del
+          // árbol para no correr el índice de las ramas de arriba (ver
+          // `kNotebooksBranchIndex`).
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.notebooks,
+                name: RouteNames.notebooks,
+                builder: (context, state) => const NotebooksScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    name: RouteNames.notebookDetail,
+                    builder: (context, state) => NotebookDetailScreen(
+                      notebookId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

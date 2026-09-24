@@ -20,3 +20,15 @@ final notebookRepositoryProvider = Provider<NotebookRepository>((ref) {
 final notebooksProvider = StreamProvider.autoDispose<List<Notebook>>((ref) {
   return ref.watch(notebookRepositoryProvider).watchAll();
 });
+
+/// Uno solo, para la pantalla de detalle.
+final notebookByIdProvider = StreamProvider.autoDispose
+    .family<Notebook?, String>((ref, id) {
+      return ref.watch(notebookRepositoryProvider).watchById(id);
+    });
+
+/// Los ids de un cuaderno manual —ver `NotebookRepository.watchItemIds`—.
+final notebookItemIdsProvider = StreamProvider.autoDispose
+    .family<Set<String>, String>((ref, notebookId) {
+      return ref.watch(notebookRepositoryProvider).watchItemIds(notebookId);
+    });

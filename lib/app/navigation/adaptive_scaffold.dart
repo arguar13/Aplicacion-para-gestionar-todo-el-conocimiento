@@ -16,18 +16,19 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 const kNavRailBreakpoint = 600.0;
 
 /// El shell de navegación principal: biblioteca, bandeja, atlas, explorador,
-/// mapa, chat, repaso y ajustes, cada uno con su propio `Navigator` —vía
-/// `StatefulShellRoute.indexedStack` en `app_router.dart`— para que cambiar
-/// de pestaña y volver conserve el scroll y los filtros de cada una.
+/// mapa, chat, cuadernos, repaso y ajustes, cada uno con su propio
+/// `Navigator` —vía `StatefulShellRoute.indexedStack` en `app_router.dart`—
+/// para que cambiar de pestaña y volver conserve el scroll y los filtros de
+/// cada una.
 ///
 /// Reemplaza al AppBar de nueve íconos que tenía antes la biblioteca (ver la
 /// decisión 22 en docs/arquitectura.md): cada función pasa a tener su propio
 /// lugar, en vez de competir por espacio en una sola fila que en un celular
 /// real desbordaba.
 ///
-/// Con el Atlas son ocho destinos, y ocho no caben en una barra de celular: la
-/// barra muestra cinco y un «Más» que abre una hoja con el resto (F13, D1). El
-/// riel de escritorio los muestra todos.
+/// Con el Atlas y los cuadernos son nueve destinos, y nueve no caben en una
+/// barra de celular: la barra muestra cinco y un «Más» que abre una hoja con
+/// el resto (F13, D1). El riel de escritorio los muestra todos.
 class AdaptiveScaffold extends ConsumerWidget {
   const AdaptiveScaffold({required this.navigationShell, super.key});
 
