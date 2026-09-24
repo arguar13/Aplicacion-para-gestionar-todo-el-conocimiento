@@ -6,10 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
+import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
@@ -879,6 +881,83 @@ void main() {
       await tester.pump();
 
       expect(borderOf()!.top.color, Colors.transparent);
+    });
+  });
+
+  group('elegir plantilla al crear una nota (F16)', () {
+    /// Crea una plantilla y monta la captura.
+    Future<void> pumpCaptureWithTemplate(
+      WidgetTester tester, {
+      required String name,
+      List<ContentBlock> blocks = const [],
+    }) async {
+      await harness.container
+          .read(noteTemplateRepositoryProvider)
+          .create(name: name, blocks: blocks, properties: const []);
+      await pumpCapture(tester);
+    }
+
+    /// El botón de plantillas, al final de una lista larga, no está montado
+    /// hasta que se desplaza hasta él —`ListView` es perezoso incluso con
+    /// una lista fija de hijos—: `scrollUntilVisible`, no `ensureVisible`,
+    /// que exige que el elemento ya exista.
+    Future<void> tapChooseTemplate(WidgetTester tester) async {
+      final finder = find.text(es.blocksChooseTemplate);
+      await tester.scrollUntilVisible(
+        finder,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sin ninguna plantilla guardada, el botón no aparece', (
+      tester,
+    ) async {
+      await pumpCapture(tester);
+
+      expect(find.text(es.blocksChooseTemplate), findsNothing);
+    });
+
+    testWidgets('elegir una plantilla precarga sus bloques en el editor', (
+      tester,
+    ) async {
+      await pumpCaptureWithTemplate(
+        tester,
+        name: 'Plantilla de reunión',
+        blocks: const [ContentBlock.heading(text: 'Temario')],
+      );
+      await tapChooseTemplate(tester);
+      await tester.tap(find.text('Plantilla de reunión'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Temario'), findsOneWidget);
+    });
+
+    testWidgets('elegir «nota en blanco» abre el editor vacío', (tester) async {
+      await pumpCaptureWithTemplate(tester, name: 'Plantilla');
+      await tapChooseTemplate(tester);
+      await tester.tap(find.text(es.blocksNewBlank));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(TextField, es.blocksTitleHint),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('cerrar la hoja sin elegir no abre ningún editor', (
+      tester,
+    ) async {
+      await pumpCaptureWithTemplate(tester, name: 'Plantilla');
+      await tapChooseTemplate(tester);
+      // Cierra la hoja tocando afuera, sin elegir nada.
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextField, es.blocksTitleHint), findsNothing);
     });
   });
 }

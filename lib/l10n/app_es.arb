@@ -2138,6 +2138,31 @@
   "@blocksEmptyError": {
     "description": "Mensaje cuando se intenta guardar una nota de bloques totalmente vacía."
   },
+  "blocksSaveAsTemplate": "Guardar como plantilla",
+  "@blocksSaveAsTemplate": {
+    "description": "Botón del editor de bloques, en una nota existente, para guardar su estructura como una plantilla nueva (F16)."
+  },
+  "blocksTemplateNameDialogTitle": "Nombre de la plantilla",
+  "@blocksTemplateNameDialogTitle": {
+    "description": "Título del diálogo para ponerle nombre a una plantilla antes de guardarla."
+  },
+  "blocksTemplateSaved": "Plantilla «{name}» guardada",
+  "@blocksTemplateSaved": {
+    "description": "Aviso al guardar una plantilla nueva.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blocksChooseTemplate": "Desde una plantilla",
+  "@blocksChooseTemplate": {
+    "description": "Botón en la pantalla de captura, junto al de nota en blanco, que abre la hoja para elegir una plantilla."
+  },
+  "blocksNewBlank": "Nota en blanco",
+  "@blocksNewBlank": {
+    "description": "Primera opción de la hoja de plantillas: empezar sin ninguna."
+  },
   "blocksChangeType": "Cambiar tipo de bloque",
   "@blocksChangeType": {
     "description": "Tooltip del ícono que abre el selector de tipo de un bloque."

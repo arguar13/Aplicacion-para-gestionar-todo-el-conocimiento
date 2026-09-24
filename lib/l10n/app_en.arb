@@ -2672,6 +2672,31 @@
   "@blocksEmptyError": {
     "description": "Mensaje cuando se intenta guardar una nota de bloques totalmente vacía."
   },
+  "blocksSaveAsTemplate": "Save as template",
+  "@blocksSaveAsTemplate": {
+    "description": "Block editor button, on an existing note, to save its structure as a new template (F16)."
+  },
+  "blocksTemplateNameDialogTitle": "Template name",
+  "@blocksTemplateNameDialogTitle": {
+    "description": "Title of the dialog to name a template before saving it."
+  },
+  "blocksTemplateSaved": "Template \"{name}\" saved",
+  "@blocksTemplateSaved": {
+    "description": "Notice when a new template is saved.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "blocksChooseTemplate": "From a template",
+  "@blocksChooseTemplate": {
+    "description": "Button in the capture screen, next to the blank note one, that opens the template picker sheet."
+  },
+  "blocksNewBlank": "Blank note",
+  "@blocksNewBlank": {
+    "description": "First option in the templates sheet: start with none."
+  },
   "blocksChangeType": "Change block type",
   "@blocksChangeType": {
     "description": "Tooltip del ícono que abre el selector de tipo de un bloque."

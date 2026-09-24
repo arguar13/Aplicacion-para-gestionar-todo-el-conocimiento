@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_template.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -14,11 +15,13 @@ import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -31,10 +34,16 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// espacio, vínculos) queda tal cual, porque `save()` sincroniza renditions y
 /// etiquetas por separado (ver `_syncRenditions` en
 /// `LibraryRepositoryImpl`)—.
+///
+/// [template] precarga los bloques y, tras el primer guardado, las
+/// propiedades (F16): solo tiene sentido para una nota nueva —una que ya
+/// existe tiene sus propios bloques y sus propias propiedades, que una
+/// plantilla no debe pisar—.
 class BlockEditorScreen extends ConsumerStatefulWidget {
-  const BlockEditorScreen({this.existingItem, super.key});
+  const BlockEditorScreen({this.existingItem, this.template, super.key});
 
   final KnowledgeItem? existingItem;
+  final NoteTemplate? template;
 
   @override
   ConsumerState<BlockEditorScreen> createState() => _BlockEditorScreenState();
@@ -128,9 +137,11 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         .where((r) => r.kind == RenditionKind.blocks)
         .firstOrNull;
 
-    final blocks = existing == null
-        ? const <ContentBlock>[]
-        : decodeContentBlocks(existing.content);
+    // La plantilla solo se usa al crear: una nota que ya existe trae sus
+    // propios bloques, y una plantilla no los pisa.
+    final blocks = existing != null
+        ? decodeContentBlocks(existing.content)
+        : widget.template?.blocks ?? const <ContentBlock>[];
 
     return (blocks.isEmpty
           ? [_BlockEntry(_newBlock())]
@@ -409,6 +420,22 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       return;
     }
 
+    // Las propiedades de la plantilla (F16) recién ahora, con el elemento ya
+    // creado: `assignProperty` las pone una por una, por el mismo camino que
+    // escribirlas a mano —crea el valor si hace falta, y no falla si de
+    // algún modo ya estaba puesta—. Solo al crear: una nota que ya existía
+    // no llega con `template` puesto.
+    if (existing == null && widget.template != null) {
+      final organize = ref.read(organizeRepositoryProvider);
+      for (final property in widget.template!.properties) {
+        await organize.assignProperty(
+          itemId: itemId,
+          definitionId: property.definitionId,
+          value: property.value,
+        );
+      }
+    }
+
     // Los `[[Título]]` del texto guardado ya son vínculos de verdad: `save`
     // los registra y crea la relación de los que tienen destino, dentro de
     // la misma transacción que guarda la nota. Se lee el texto guardado, no
@@ -434,6 +461,65 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
+  /// Guarda los bloques y las propiedades de la nota como una plantilla
+  /// nueva (F16): las propiedades son las que la nota YA tenía al abrir esta
+  /// pantalla —el editor de bloques no las cambia—, no las de este borrador.
+  Future<void> _saveAsTemplate() async {
+    final l10n = AppLocalizations.of(context)!;
+    final name = await _askTemplateName(context, l10n);
+    if (name == null || name.trim().isEmpty || !mounted) return;
+
+    final blocks = _blocks.map((e) => e.toBlock()).toList();
+    final properties = [
+      for (final property in widget.existingItem!.properties)
+        TemplateProperty(
+          definitionId: property.definitionId,
+          definitionName: property.definitionName,
+          value: property.value,
+        ),
+    ];
+
+    await ref
+        .read(noteTemplateRepositoryProvider)
+        .create(name: name.trim(), blocks: blocks, properties: properties);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(l10n.blocksTemplateSaved(name.trim()))),
+      );
+  }
+
+  Future<String?> _askTemplateName(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.blocksTemplateNameDialogTitle),
+        content: TextField(
+          key: const Key('template-name-field'),
+          controller: controller,
+          autofocus: true,
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            key: const Key('template-confirm-save'),
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text(l10n.libraryViewsSaveAction),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -450,6 +536,12 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
               : l10n.blocksEditTitle,
         ),
         actions: [
+          if (widget.existingItem != null)
+            IconButton(
+              icon: const Icon(Icons.bookmark_add_outlined),
+              tooltip: l10n.blocksSaveAsTemplate,
+              onPressed: _saveAsTemplate,
+            ),
           IconButton(
             icon: _saving
                 ? const SizedBox(

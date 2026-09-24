@@ -13,7 +13,9 @@ import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
+import 'package:sinapsis/features/blocks/presentation/widgets/template_picker_sheet.dart';
 import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
@@ -561,15 +563,17 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 /// Una grilla de tarjetas y no un menú desplegable: son solo ocho opciones,
 /// todas caben en pantalla a la vez, y tocar directamente la que corresponde
 /// es un gesto más corto que abrir un selector para después elegir adentro.
-class _TypeSelector extends StatelessWidget {
+class _TypeSelector extends ConsumerWidget {
   const _TypeSelector({required this.onSelected, super.key});
 
   final ValueChanged<_CaptureKind> onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final hasTemplates =
+        (ref.watch(noteTemplatesProvider).valueOrNull ?? []).isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -602,6 +606,23 @@ class _TypeSelector extends StatelessWidget {
           icon: Icon(SourceKind.manualNote.icon),
           label: Text(l10n.captureTypeNote),
         ),
+        // Solo si hay alguna: sin plantillas guardadas, este botón no
+        // llevaría a ningún lado más que a lo mismo que el de arriba (F16).
+        if (hasTemplates)
+          TextButton.icon(
+            onPressed: () async {
+              final chosen = await showTemplatePickerSheet(context, ref);
+              if (chosen == null || !context.mounted) return;
+              final (template,) = chosen;
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (context) => BlockEditorScreen(template: template),
+                ),
+              );
+            },
+            icon: const Icon(Icons.bookmark_outline),
+            label: Text(l10n.blocksChooseTemplate),
+          ),
       ],
     );
   }

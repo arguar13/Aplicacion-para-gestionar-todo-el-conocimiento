@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/note_template.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -13,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
+import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -780,5 +782,168 @@ void main() {
         ('item-nuevo', 'colonialismo británico', target.id),
       ]);
     });
+  });
+
+  group('plantillas de nota (F16)', () {
+    testWidgets('guardar como plantilla no aparece al crear, sí al editar', (
+      tester,
+    ) async {
+      await pumpEditor(tester);
+      expect(find.byTooltip(es.blocksSaveAsTemplate), findsNothing);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksParagraphHint),
+        'texto',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+      final saved =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+
+      await tester.pumpWidget(
+        harness.wrap(BlockEditorScreen(key: UniqueKey(), existingItem: saved)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip(es.blocksSaveAsTemplate), findsOneWidget);
+    });
+
+    testWidgets(
+      'guardar como plantilla guarda los bloques y las propiedades de la '
+      'nota',
+      (tester) async {
+        await pumpEditor(tester);
+        await tester.enterText(
+          find.widgetWithText(TextField, es.blocksTitleHint),
+          'Reunión semanal',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, es.blocksParagraphHint),
+          'Temario',
+        );
+        await tester.tap(find.byTooltip(es.detailSave));
+        await tester.pumpAndSettle();
+        final saved =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .list(const LibraryQuery()))
+                .getRight()
+                .toNullable()!
+                .single;
+
+        final definition =
+            (await harness.container
+                    .read(organizeRepositoryProvider)
+                    .getOrCreatePropertyDefinition('Tipo'))
+                .getRight()
+                .toNullable()!;
+        await harness.container
+            .read(organizeRepositoryProvider)
+            .assignProperty(
+              itemId: saved.id,
+              definitionId: definition.id,
+              value: 'Reunión',
+            );
+        final withProperty =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .findById(saved.id))
+                .getRight()
+                .toNullable()!;
+
+        await tester.pumpWidget(
+          harness.wrap(
+            BlockEditorScreen(key: UniqueKey(), existingItem: withProperty),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip(es.blocksSaveAsTemplate));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.enterText(
+          find.byKey(const Key('template-name-field')),
+          'Plantilla de reunión',
+        );
+        await tester.tap(find.byKey(const Key('template-confirm-save')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(
+          find.text(es.blocksTemplateSaved('Plantilla de reunión')),
+          findsOneWidget,
+        );
+
+        // Sin pasar por `watchAll()`: una lectura reactiva pedida DESPUÉS de
+        // interactuar con un diálogo colgó una vez en esta misma suite —una
+        // consulta directa alcanza para lo que esta prueba afirma.
+        final rows = await harness.database
+            .select(harness.database.noteTemplates)
+            .get();
+        expect(rows, hasLength(1));
+        expect(rows.single.name, 'Plantilla de reunión');
+        // El título no es un bloque: la plantilla guarda los bloques —el
+        // párrafo—, no el título de la nota de la que salió.
+        expect(decodeContentBlocks(rows.single.blocksJson).map((b) => b.text), [
+          'Temario',
+        ]);
+        expect(rows.single.propertiesJson, contains('Reunión'));
+      },
+      timeout: const Timeout(Duration(seconds: 30)),
+    );
+
+    testWidgets(
+      'crear una nota desde una plantilla precarga sus bloques y aplica '
+      'sus propiedades al guardar',
+      (tester) async {
+        final definition =
+            (await harness.container
+                    .read(organizeRepositoryProvider)
+                    .getOrCreatePropertyDefinition('Tipo'))
+                .getRight()
+                .toNullable()!;
+        final template = await harness.container
+            .read(noteTemplateRepositoryProvider)
+            .create(
+              name: 'Plantilla de reunión',
+              blocks: const [ContentBlock.heading(text: 'Temario')],
+              properties: [
+                TemplateProperty(
+                  definitionId: definition.id,
+                  definitionName: definition.name,
+                  value: 'Reunión',
+                ),
+              ],
+            );
+
+        await tester.pumpWidget(
+          harness.wrap(BlockEditorScreen(template: template)),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Temario'), findsOneWidget);
+
+        await tester.enterText(
+          find.widgetWithText(TextField, es.blocksTitleHint),
+          'Reunión del lunes',
+        );
+        await tester.tap(find.byTooltip(es.detailSave));
+        await tester.pumpAndSettle();
+
+        final saved =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .list(const LibraryQuery()))
+                .getRight()
+                .toNullable()!
+                .single;
+        expect(saved.properties.single.value, 'Reunión');
+      },
+    );
   });
 }
