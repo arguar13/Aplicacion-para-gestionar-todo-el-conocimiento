@@ -258,6 +258,28 @@ Y esto también.
     });
   });
 
+  group('parseBibtex — el adjunto (F15, D14)', () {
+    test('un nombre de archivo pelado', () {
+      final result = parseBibtex('@misc{x, file = {articulo.pdf}}');
+
+      expect(result.entries.single.attachmentFileName, 'articulo.pdf');
+    });
+
+    test('la forma de JabRef, con la ruta completa', () {
+      final result = parseBibtex(
+        r'@misc{x, file = {:C:\Users\ana\articulo.pdf:PDF}}',
+      );
+
+      expect(result.entries.single.attachmentFileName, 'articulo.pdf');
+    });
+
+    test('sin campo file: sin adjunto, sin romper', () {
+      final result = parseBibtex('@misc{x, title = {T}}');
+
+      expect(result.entries.single.attachmentFileName, isNull);
+    });
+  });
+
   group('parseBibtex — fecha', () {
     test('solo el año: precisión de año', () {
       final result = parseBibtex('@misc{x, year = {2020}}');

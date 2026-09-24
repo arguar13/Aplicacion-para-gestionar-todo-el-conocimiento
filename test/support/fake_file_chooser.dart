@@ -12,15 +12,18 @@ import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 /// doble, lo que sí se puede probar —que el archivo llegue entero, que
 /// cancelar no rompa nada, que la falta de permiso se avise— se prueba.
 class FakeFileChooser implements FileChooser {
-  FakeFileChooser({this.file, this.error});
+  FakeFileChooser({this.file, this.files = const [], this.error});
 
-  /// Lo que devuelve. `null` simula que el usuario canceló.
+  /// Lo que devuelve [pickOne]. `null` simula que el usuario canceló.
   final CapturedFile? file;
 
-  /// Si está, se lanza en vez de devolver.
+  /// Lo que devuelve [pickMany]. Vacía simula que el usuario canceló.
+  final List<CapturedFile> files;
+
+  /// Si está, se lanza en vez de devolver, en cualquiera de los dos.
   final Object? error;
 
-  /// Cuántas veces se abrió.
+  /// Cuántas veces se abrió, sumando [pickOne] y [pickMany].
   int timesOpened = 0;
 
   @override
@@ -29,5 +32,13 @@ class FakeFileChooser implements FileChooser {
     if (error != null) throw error!;
 
     return file;
+  }
+
+  @override
+  Future<List<CapturedFile>> pickMany() async {
+    timesOpened++;
+    if (error != null) throw error!;
+
+    return files;
   }
 }

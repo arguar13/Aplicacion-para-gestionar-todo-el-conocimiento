@@ -75,6 +75,7 @@ String _writeEntry(ImportedReference entry, String key) {
   put('issn', entry.reference.issn);
   put('doi', entry.reference.doi);
   put('url', entry.url);
+  put('file', entry.attachmentFileName);
   if (entry.reference.accessedAt != null) {
     put('urldate', _isoDate(entry.reference.accessedAt!));
   }

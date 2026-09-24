@@ -206,6 +206,28 @@ ER  -
     });
   });
 
+  group('parseRis — el adjunto (F15, D14)', () {
+    test('L1 con un nombre de archivo pelado', () {
+      final result = parseRis('TY  - GEN\nL1  - articulo.pdf\nER  - \n');
+
+      expect(result.entries.single.attachmentFileName, 'articulo.pdf');
+    });
+
+    test('L1 con una ruta completa', () {
+      final result = parseRis(
+        'TY  - GEN\nL1  - /storage/descargas/articulo.pdf\nER  - \n',
+      );
+
+      expect(result.entries.single.attachmentFileName, 'articulo.pdf');
+    });
+
+    test('sin L1: sin adjunto, sin romper', () {
+      final result = parseRis('TY  - GEN\nTI  - T\nER  - \n');
+
+      expect(result.entries.single.attachmentFileName, isNull);
+    });
+  });
+
   group('parseRis — fecha de publicación (PY)', () {
     test('solo el año', () {
       final result = parseRis('TY  - BOOK\nPY  - 2020///\nER  - \n');

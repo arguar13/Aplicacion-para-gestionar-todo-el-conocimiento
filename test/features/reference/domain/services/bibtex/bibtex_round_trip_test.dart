@@ -76,6 +76,18 @@ void main() {
       expect(reparsed, original);
     });
 
+    test('el nombre del archivo adjunto vuelve igual (F15, D14)', () {
+      const original = ImportedReference(
+        title: 'Con un PDF adjunto',
+        attachmentFileName: 'articulo.pdf',
+        reference: ReferenceData(citationKey: 'conadjunto'),
+      );
+
+      final reparsed = parseBibtex(writeBibtex([original])).entries.single;
+
+      expect(reparsed, original);
+    });
+
     test('una institución como autor vuelve como institución', () {
       const original = ImportedReference(
         title: 'Un informe',

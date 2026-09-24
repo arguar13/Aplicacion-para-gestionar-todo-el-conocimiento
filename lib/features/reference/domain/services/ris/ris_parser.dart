@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/services/bibliographic_identifiers.dart';
+import 'package:sinapsis/features/reference/domain/services/attachment_file_name.dart';
 
 /// Una entrada de un `.ris` que el analizador no supo convertir: un tipo
 /// (`TY`) que no está entre los nueve de la app. Se informa y se salta, en
@@ -141,9 +142,12 @@ ImportedReference? _toEntry({
   final (publishedAt, precision) = _dateFrom(one('PY'), one('G2'));
   final sn = one('SN');
 
+  final l1 = one('L1');
+
   return ImportedReference(
     title: one('TI') ?? one('T1'),
     url: one('UR'),
+    attachmentFileName: l1 == null ? null : extractAttachmentFileName(l1),
     publishedAt: publishedAt,
     publicationPrecision: precision,
     reference: ReferenceData(

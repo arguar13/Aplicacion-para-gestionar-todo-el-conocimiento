@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/services/bibliographic_identifiers.dart';
 import 'package:sinapsis/core/domain/services/person_name_parser.dart';
+import 'package:sinapsis/features/reference/domain/services/attachment_file_name.dart';
 import 'package:sinapsis/features/reference/domain/services/bibtex/latex_accents.dart';
 
 /// Una entrada de un `.bib` que el analizador no supo convertir: un tipo que
@@ -191,9 +192,16 @@ ImportedReference? _toEntry({
   final doi = decoded('doi');
   final url = decoded('url') ?? _urlLike(decoded('howpublished'));
 
+  // Sin decodeLatexAccents: una ruta no es texto natural, y decodificarla
+  // convertiría un `~` de una ruta de Unix («~/Documentos/…») en un espacio.
+  final fileField = resolvedRaw['file'];
+
   return ImportedReference(
     title: decoded('title'),
     url: url,
+    attachmentFileName: fileField == null
+        ? null
+        : extractAttachmentFileName(fileField),
     publishedAt: publishedAt,
     publicationPrecision: precision,
     reference: ReferenceData(

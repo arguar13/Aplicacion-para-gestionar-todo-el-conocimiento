@@ -12,15 +12,35 @@ class SystemFileChooser implements FileChooser {
 
   @override
   Future<CapturedFile?> pickOne() async {
-    final FilePickerResult? result;
+    final result = await _pick(allowMultiple: false);
+    final picked = result?.files.singleOrNull;
+    if (picked == null) return null;
+    return _fileFrom(picked);
+  }
+
+  @override
+  Future<List<CapturedFile>> pickMany() async {
+    final result = await _pick(allowMultiple: true);
+    final picked = result?.files ?? const <PlatformFile>[];
+
+    final files = <CapturedFile>[];
+    for (final file in picked) {
+      final captured = await _fileFrom(file);
+      if (captured != null) files.add(captured);
+    }
+    return files;
+  }
+
+  Future<FilePickerResult?> _pick({required bool allowMultiple}) async {
     try {
-      result = await FilePicker.pickFiles(
+      return await FilePicker.pickFiles(
         // Los bytes se piden solo en web, donde no hay rutas y son lo único
         // que llega. En el resto se lee del disco: dejar que el selector
         // cargue de una un archivo de cien megas, y quedarse encima con dos
         // copias en memoria, es justo lo que hace que una app muera sin
         // explicación en un teléfono modesto.
         withData: kIsWeb,
+        allowMultiple: allowMultiple,
         // No se filtra por extensión, que además es lo que hace el selector
         // por defecto: reconocer de qué se trata cada archivo es trabajo del
         // detector de formato, que mira los bytes. Filtrar acá dejaría afuera
@@ -34,10 +54,9 @@ class SystemFileChooser implements FileChooser {
       }
       rethrow;
     }
+  }
 
-    final picked = result?.files.singleOrNull;
-    if (picked == null) return null;
-
+  Future<CapturedFile?> _fileFrom(PlatformFile picked) async {
     // El selector ya informa el tamaño sin haber leído el contenido: se
     // rechaza acá, antes de `_readFrom`, para no cargar en memoria un
     // archivo de cientos de megas que se va a descartar de todos modos.

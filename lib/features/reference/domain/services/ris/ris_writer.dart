@@ -77,6 +77,7 @@ String _writeEntry(ImportedReference entry, String id) {
   put('SN', entry.reference.isbn ?? entry.reference.issn);
   put('DO', entry.reference.doi);
   put('UR', entry.url);
+  put('L1', entry.attachmentFileName);
   if (entry.reference.accessedAt != null) {
     put('DA', _slashDate(entry.reference.accessedAt!));
   }

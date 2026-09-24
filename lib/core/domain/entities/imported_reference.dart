@@ -21,6 +21,7 @@ class ImportedReference {
   const ImportedReference({
     this.title,
     this.url,
+    this.attachmentFileName,
     this.publishedAt,
     this.publicationPrecision,
     this.reference = const ReferenceData(),
@@ -31,6 +32,14 @@ class ImportedReference {
 
   /// El enlace, si lo trae.
   final String? url;
+
+  /// El nombre del archivo que el `file` de BibTeX o el `L1` de RIS dicen
+  /// que acompaña a esta obra —solo el nombre, nunca la ruta: la ruta era
+  /// del dispositivo que exportó el archivo, no tiene por qué existir acá
+  /// (F15, D14)—. Vincularlo con uno de los archivos elegidos junto con el
+  /// `.bib`/`.ris` es del comando 15c, no de esto: esto solo lee y escribe
+  /// el formato.
+  final String? attachmentFileName;
 
   /// Cuándo se publicó, con [publicationPrecision]. Igual que en
   /// `ExtractedMetadata`: es `Source.publishedAt`, no un dato de
@@ -47,13 +56,20 @@ class ImportedReference {
       other is ImportedReference &&
       other.title == title &&
       other.url == url &&
+      other.attachmentFileName == attachmentFileName &&
       other.publishedAt == publishedAt &&
       other.publicationPrecision == publicationPrecision &&
       other.reference == reference;
 
   @override
-  int get hashCode =>
-      Object.hash(title, url, publishedAt, publicationPrecision, reference);
+  int get hashCode => Object.hash(
+    title,
+    url,
+    attachmentFileName,
+    publishedAt,
+    publicationPrecision,
+    reference,
+  );
 
   @override
   String toString() =>
