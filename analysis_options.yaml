@@ -4,6 +4,11 @@ analyzer:
   exclude:
     - "**/*.freezed.dart"
     - "**/*.g.dart"
+    # Los snapshots de esquema de `drift_dev schema generate`: se llaman
+    # `schema_vN.dart`, sin sufijo `.g.dart`, así que el patrón de arriba no
+    # los alcanza. Cambian de estilo según la versión de drift_dev que los
+    # generó —no algo que valga la pena mantener a mano—.
+    - "test/generated_migrations/**"
     - "build/**"
     - android/**
     - ios/**

@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';

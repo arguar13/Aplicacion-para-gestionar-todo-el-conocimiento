@@ -25,10 +25,12 @@ import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
 import 'package:sinapsis/core/database/tables/merge_conflicts.dart';
 import 'package:sinapsis/core/database/tables/merged_provenances.dart';
 import 'package:sinapsis/core/database/tables/migration_issues.dart';
+import 'package:sinapsis/core/database/tables/note_templates.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
 import 'package:sinapsis/core/database/tables/review_log.dart';
+import 'package:sinapsis/core/database/tables/saved_views.dart';
 import 'package:sinapsis/core/database/tables/source_references.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
@@ -45,6 +47,7 @@ import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
@@ -92,6 +95,8 @@ part 'app_database.g.dart';
     ReviewLogs,
     SourceReferences,
     SourceContributors,
+    SavedViews,
+    NoteTemplates,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -136,7 +141,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 22;
+  static const currentSchemaVersion = 23;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -359,6 +364,22 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           await _requireSameCounts(before, step: 'v22', tables: tables);
+        }
+        // Cuadernos y vistas (F16): vistas guardadas de la Biblioteca —filtro,
+        // orden y modo, con nombre— y plantillas de nota. Dos tablas nuevas,
+        // ninguna columna tocada: nada existente cambia. Los conteos de todo
+        // lo anterior son compuerta.
+        if (from < 23) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(savedViews);
+          await migrator.createTable(noteTemplates);
+          await _requireSameCounts(before, step: 'v23', tables: tables);
         }
       });
     },

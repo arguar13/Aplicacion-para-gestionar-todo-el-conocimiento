@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
@@ -47,15 +48,6 @@ class LibraryScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
-
-/// En qué forma se ve la biblioteca: la lista de siempre, una tabla al
-/// estilo de una base de datos de Notion, o un tablero que agrupa por
-/// tema.
-///
-/// Vive fuera de cualquier provider a propósito: es una preferencia de la
-/// sesión, no un dato que otra pantalla necesite conocer, así que no
-/// amerita más que el estado local de este widget.
-enum LibraryViewMode { list, table, kanban }
 
 extension _LibraryViewModePresentation on LibraryViewMode {
   IconData get icon => switch (this) {
