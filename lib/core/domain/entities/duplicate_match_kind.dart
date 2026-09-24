@@ -12,4 +12,10 @@ enum DuplicateMatchKind {
   /// Distancia de Hamming del `simhash` dentro del umbral, pero
   /// `dedupHash` distinto — casi-duplicado, no exacto.
   near,
+
+  /// Mismo título (sin distinguir mayúsculas ni acentos), mismo año y mismo
+  /// primer autor —F15, D9—: la coincidencia que propone una importación de
+  /// referencias sin texto que comparar, así que ni `dedupHash` ni `simhash`
+  /// sirven acá.
+  bibliographic,
 }
