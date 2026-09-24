@@ -3888,6 +3888,144 @@ del arrastre solo apareció con un nivel de 300 nodos en una pantalla real. Y me
 apagando cada parte antes de arreglar evitó optimizar lo que no era: agrupar
 las uniones, que parecía lo obvio, casi no movió el costo.
 
+### 48. F15 de biblioteca académica: metadatos completos, cinco estilos de cita, y BibTeX/RIS en los dos sentidos
+
+Cuarta fase del encargo F12–F17. Cambia el esquema de forma aditiva (v21 → v22): `source_reference`
+y `source_contributor`, tres columnas de persona en `property_values`, la categoría de sistema
+«Autor» y `PropertyValueType.person`. F15 no toca el texto de ninguna fuente ni un chunk, no usa
+modelos de lenguaje —todo es determinista— y no agrega dependencias. Son 29 commits: los 17 del plan
+original, con el 5, el 10, el 11, el 12 y el 15 partidos en más de uno según hacía falta —el mismo
+criterio que F9 a F14—. Cada commit compila y analiza por sí solo (`tool/verify_commit.ps1`); el
+analizador quedó en 31 y la suite en 4.809 pruebas.
+
+**Dónde el plan chocó con el código.** Se dijo antes de resolver, y el usuario aprobó el plan con esas
+decisiones (D1 a D14). Extender `source` con quince columnas hubiera sido quince campos de linaje con
+su regla de conflicto propia: `source_reference` y `source_contributor` cuentan como UN campo
+(`reference`) en la fusión de F11, con su conflicto mostrado como la cita ya armada y no como un JSON
+—D1, D3—. El nombre de una persona se guarda partido (`name_family`/`name_given`/`is_institution`),
+pero terminó en CUATRO columnas y no en las tres que decía D2: se agregó `name_suffix` («Jr.», «III»)
+porque BibTeX y RIS lo traen y perderlo hubiera sido un dato menos de lo que el archivo original tenía.
+Una referencia sin texto necesitaba un `SourceKind` nuevo —D5—: nace «triada» (importar una
+bibliografía es una decisión deliberada, no inunda la Bandeja) y, si se le adjunta el archivo, pasa a
+`document` y sigue el camino de siempre. El motor de duplicados de F7 compara hash y simhash del
+TEXTO, que una referencia no tiene: D9 es un motor de identidad nuevo (DOI/ISBN/URL, con índices) que
+solo reusa de F7 la pantalla de duplicados y su fusión, para las coincidencias difusas.
+
+**El escritor único y el modelo.** `KnowledgeEntryWriter.setReference` es el único camino para guardar
+una referencia; `ReferenceReader` la lee por lotes, nunca por fuente. `PersonVocabulary.resolve` busca
+al autor por su id, por su etiqueta «Apellido, Nombre» o por alias —sin distinguir mayúsculas ni
+acentos, el mismo criterio que el resto del vocabulario— y si no existe lo crea con el nombre partido;
+la asignación en `item_property_values` queda espejada con `ItemPropertyOrigin.reference` para que los
+conteos, el Explorador y la línea de tiempo no tengan que conocer `source_contributor`. `PersonName`
+sigue el algoritmo de nombres de BibTeX (apellido con su partícula, «von»/«de la», y sufijos «Jr.»);
+DOI, ISBN (con dígito de control) e ISSN se normalizan y no son `UNIQUE` a propósito —dos dispositivos
+pueden cargar la misma obra por separado sin que una fusión falle—.
+
+**Los autores, como vocabulario.** Un valor de la categoría «Autor» se renombra, se fusiona con
+deshacer y tiene candidatos por variantes de escritura, igual que cualquier otro valor; lo que un valor
+no tenía —orden y rol (autor, traductor, editor, director)— lo agrega `source_contributor`. Fusionar
+dos personas re-apunta las obras (`KnowledgeEntryWriter.repointContributors`/`restoreContributors`,
+con su deshacer): nada fuera del escritor único toca esa tabla.
+
+**El motor de citas.** Cinco estilos —APA 7, MLA 9, Chicago notas-bibliografía, Chicago autor-fecha e
+IEEE— sobre una interfaz (`ReferenceStyle`) que devuelve CORRIDAS (texto plano, cursiva, hueco) y no un
+`String`: el mismo resultado sale como texto, Markdown y `.docx` con cursivas y sangría francesa, y un
+dato que falta se marca en pantalla en vez de inventarse. Los términos («y», «Ed.», «pp.», «s. f.»,
+«En») son datos en español e inglés, no ARB: el dominio no conoce el idioma de la interfaz. La
+bibliografía de un conjunto ordena alfabético por apellido sin acentos, con sufijos a/b/c para el mismo
+autor y año en los estilos autor-fecha, e IEEE numera por el orden en que se muestra. `citeFragment`
+cita un fragmento —de una nota atómica o de un resaltado— con su página o su minuto, resolviendo el
+chunk por el offset.
+
+**La extracción, como sugerencia.** PDF (Info y XMP propios, sin `pdfrx`), `<meta>` de una página
+(`citation_*`, JSON-LD, Dublin Core, `og:`) y YouTube alimentan una sugerencia `metadata` por fuente,
+que solo completa lo que la referencia no tenía —mismo criterio que reimportar un `.bib`—: nunca pisa
+lo que alguien ya confirmó, incluido el título. El transformador de documentos deja de pisar el título
+y el autor de una referencia que ya tiene algo confirmado.
+
+**Importar y exportar, en los dos sentidos.** `parseBibtex`/`writeBibtex` y `parseRis`/`writeRis` se
+probaron con ida y vuelta antes de cablearlos a la app —tres bugs reales atrapados así: el mes/día de
+la fecha, la diéresis (un patrón que no podía llevar `'` y `"` juntas en la misma cadena cruda de
+Dart) y `\'\i`—. La identidad al importar es DOI → ISBN → URL canónica → recién entonces una
+coincidencia difusa (título + año + primer autor) que SIEMPRE propone, nunca fusiona sola: crea la
+fuente primero y la propone como posible duplicado del existente, el mismo camino que cualquier otro
+duplicado de la app, porque `createDuplicateSuggestion` exige dos elementos que ya existen. Los índices
+de identidad y de coincidencia difusa se arman UNA vez por corrida, nunca una consulta por entrada. Un
+PDF se vincula por el nombre que trae `file`/`L1`, entre los archivos elegidos junto con el `.bib`; la
+promoción `reference` → `document` es un `save()` normal —`source_type` no es un campo versionado, no
+hace falta un método nuevo del escritor—. Un `.bib`/`.ris` de más de 30 MB no se analiza: el árbol de
+entradas en memoria pesa varias veces el texto. La pantalla «Importar referencias» y el botón de
+exportar en lote —BibTeX o RIS, con la referencia ENTERA de cada fuente, no formateada en un estilo—
+viven en el menú de la Biblioteca.
+
+**Lo que la medición encontró.** El benchmark de referencias (capa aparte sobre una bóveda de 15.000
+elementos, con su propia semilla) mostró un problema de fondo, no un ajuste de cifra: importar 5.000
+entradas de un `.bib` tardaba 22 s en escritorio —más que el objetivo de 20 s para un TELÉFONO— porque
+cada entrada abría al menos dos transacciones SQLite propias. Se agregó `LibraryRepository.
+runInTransaction<T>` —mismo criterio que `deleteMany`/`restoreMany`/`assignSpaceMany`, «todos juntos o
+ninguno», pero como primitiva para quien tiene lógica propia entre cada guardado— e
+`ImportReferencesFileUseCase` corre el archivo entero en una sola transacción: bajó a ~20 s, una mejora
+real, pero **no alcanza el objetivo propuesto ni de cerca**, porque el costo dominante no es el número
+de transacciones sino el trabajo por entrada del escritor único —índice de texto completo, versionado,
+tablas espejo—, el mismo que paga cualquier guardado normal de la app. Bajarlo de verdad exigiría
+suspender esos triggers durante una importación masiva y rearmar el índice al final, como hace el
+generador sintético con datos propios; sobre datos reales de un usuario es un rediseño del escritor
+único, con más riesgo de dejar el índice inconsistente si algo falla a mitad de camino. **Se consultó
+antes de decidir** (como en F12-F14 con lo que la medición pide): queda como límite conocido para una
+fase futura, y el objetivo sube a la cifra real medida, con margen —90 s crear, 30 s reimportar—, no al
+mínimo que alcanza.
+
+**Cifras del emulador** (`Sinapsis_Bench`, 16 GB de disco —`Pixel_9_Pro` con 6 GB no alcanza para esta
+bóveda—; `docs/benchmarks/emulador-…/2026-09-24-f15/`). Los diez escenarios pasan, todos con margen:
+
+| escenario | medido | objetivo |
+|---|---|---|
+| detalle con referencia y cita | 0-2 ms | 200 ms |
+| buscar por DOI / por ISBN | 0 ms | 10 ms |
+| bibliografía APA de la rama mayor (~4.900 fuentes) | 432 ms | 3.000 ms |
+| esa bibliografía a `.docx` | 187 ms | 4.000 ms |
+| candidatos a fusionar entre 2.000 autores | 204 ms | 1.000 ms |
+| exportar 10.000 a BibTeX / a RIS | 649 / 633 ms | 5.000 ms |
+| importar 5.000 entradas (crear) | 4,9 s | 90 s |
+| reimportar 5.000 (sin cambios) | 2,2 s | 30 s |
+
+El emulador comparte la CPU de la PC que lo aloja y sale más rápido que el propio escritorio en el
+import —cifras optimistas, rotuladas como tales—. Memoria residente de importar: 41-81 MB en
+escritorio, 78 MB en el emulador. Que buscar por DOI/ISBN entre por su índice —`SEARCH source_reference`,
+nunca un recorrido— se comprueba siempre, sin `--dart-define=BENCH=true`, en `query_plans_test.dart`.
+
+**El criterio de cierre, con lo que se cumple y lo que no.** Se cumple: metadatos bibliográficos
+completos y editables por fuente, con autores que se fusionan y renombran; cita en los cuatro estilos
+—las dos variantes de Chicago—, copiable en un toque, con huecos marcados y no inventados; bibliografía
+de un espacio, de una rama del Atlas, de una nota y de una selección, ordenada por estilo; BibTeX y RIS
+entran y salen, reimportar no duplica, una entrada que no se entiende se reporta y se salta sin
+guardarse a medias, y exportar y reimportar el mismo `.bib`/`.ris` devuelve lo mismo (prueba de ida y
+vuelta, commits 13 y 14); invariante de chunking verde sobre la bóveda entera y los dos censos
+cubriendo las tablas nuevas. **No se cumple sin reserva** el objetivo propuesto de importar 5.000
+entradas en 20 s: la cifra real, con margen, quedó en 90 s —ver arriba—.
+
+**Lo que F15 no hace, dicho sin adornos.** No es un motor CSL: son cinco variantes escritas a mano y
+probadas contra los ejemplos de cada guía, no todos los tipos de obra ni todas las particularidades
+—patentes, leyes, colecciones de una fuente primaria—; lo que no entra en los ocho tipos sale con la
+plantilla genérica y sus huecos, y un `@patent`/`@software` de un `.bib` se reporta y se salta. No mide
+en un teléfono real: solo hay emulador, y sus tiempos son optimistas. No convierte de golpe las fuentes
+que ya existen: su `authorName` sigue siendo texto hasta que alguien completa la referencia. Importar
+miles de entradas de un `.bib` paga el mismo costo por entrada que cualquier guardado normal de la
+app —ver arriba—: no hay un camino rápido para un lote grande. Un `.bib`/`.ris` de más de 30 MB no se
+analiza en absoluto, ni siquiera parcialmente.
+
+**Hallazgos que conviene tener a mano.** `mergeExtractedMetadata` (de F11c) no sirve para fusionar al
+reimportar: su `ReferenceData` de salida omite `edition`/`accessedAt`/`citationKey`/
+`publicationPrecision` —campos que `ExtractedMetadata` nunca tiene pero un `.bib`/`.ris` sí—, y
+reusarlo hubiera borrado esos cuatro campos en cada reimportación; se escribió `mergeReferenceOnImport`
+aparte. Encolar el procesamiento tras adjuntar un PDF es de la capa de presentación, no del caso de
+uso de dominio —mismo precedente que `CaptureNotifier`—. El campo `file` de BibTeX puede traer una
+unidad de Windows (`C:\...`) dentro de un valor que ya usa `:` como separador: se resuelve buscando la
+porción que TERMINA en una extensión de documento conocida, no parseando la convención de JabRef a
+mano. Un benchmark que ESCRIBE no puede compartir la base cacheada de los que solo leen: dejaba miles
+de fuentes de más para la corrida siguiente —corre sobre una copia (`VACUUM INTO`), mismo criterio que
+`vault_merge_benchmark.dart`—.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4176,6 +4314,19 @@ las uniones, que parecía lo obvio, casi no movió el costo.
   subía de nivel—; el criterio de fluidez NO se cumple en el emulador salvo en
   el nivel de elementos y queda dicho. Sin cambios de esquema. Tercera fase del
   encargo F12–F17 —ver la decisión 47—.
+- **F15 de biblioteca académica: metadatos completos, cinco estilos de cita, y
+  BibTeX/RIS en los dos sentidos.** Autores como vocabulario —se fusionan y
+  renombran como cualquier valor—, con orden y rol propios
+  (`source_contributor`). Cita copiable en APA 7, MLA 9, Chicago (notas y
+  autor-fecha) e IEEE, con los huecos marcados en vez de inventados;
+  bibliografía de un espacio, una rama del Atlas, una nota o una selección.
+  BibTeX y RIS entran y salen: identidad por DOI/ISBN/URL, reimportar no
+  duplica, los duplicados difusos se proponen y nunca se fusionan solos, un
+  PDF se vincula por su nombre. Un cambio de esquema aditivo (v22). Cuarta
+  fase del encargo F12–F17 —ver la decisión 48—. Medir encontró que importar
+  miles de entradas de golpe paga el mismo costo por entrada que cualquier
+  guardado normal de la app: queda como límite conocido, sin camino rápido
+  para un lote grande.
 
 ### Por construir
 
@@ -4192,16 +4343,22 @@ decisión 44—.
 
 Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras de
 un Android, compactación y copia por tandas, ver la decisión 45—, F13 —la
-jerarquía temática y el Atlas, ver la decisión 46— y F14 —el mapa de
-conocimiento, ver la decisión 47— están construidas. F14 se cerró con una
-excepción dicha: en el emulador el dibujo del mapa no cumple el presupuesto de un
-cuadro salvo en el nivel de elementos, y arreglarlo pide decidir entre dibujar
-menos temas a la vez o rediseñar cómo se dibuja el grafo. Siguen F15 —la
-biblioteca académica—, F16 —cuadernos, derivados marcados y vistas— y F17 —Anki y
-hábito—, que se planean cuando les toque.
+jerarquía temática y el Atlas, ver la decisión 46—, F14 —el mapa de
+conocimiento, ver la decisión 47— y F15 —la biblioteca académica, ver la
+decisión 48— están construidas. F14 se cerró con una excepción dicha: en el
+emulador el dibujo del mapa no cumple el presupuesto de un cuadro salvo en el
+nivel de elementos, y arreglarlo pide decidir entre dibujar menos temas a la
+vez o rediseñar cómo se dibuja el grafo. F15 se cerró con otra: importar
+miles de entradas de golpe paga el mismo costo por entrada que cualquier
+guardado normal de la app, y bajarlo de verdad pide suspender el índice de
+texto durante el lote y rearmarlo al final, un rediseño del escritor único
+sobre datos reales que queda para una fase futura. Siguen F16 —cuadernos,
+derivados marcados y vistas— y F17 —Anki y hábito—, ya aprobados
+(planes en `docs/planes/`), que se construyen a continuación.
 
-Lo que queda son las cosas que las decisiones 44, 45, 46 y 47 dicen, sin adornos,
-que no hacen: una sincronización que no dependa de traer una copia a mano, lápidas
-para lo que se une por conjuntos y la medición en un teléfono real —F12, F13 y F14
-midieron en un emulador—. Ninguna está planeada; se planean —plan breve, aprobado,
+Lo que queda son las cosas que las decisiones 44, 45, 46, 47 y 48 dicen, sin
+adornos, que no hacen: una sincronización que no dependa de traer una copia a
+mano, lápidas para lo que se une por conjuntos, la medición en un teléfono real
+—F12 a F15 midieron en un emulador— y un camino rápido para importar un lote
+grande de referencias. Ninguna está planeada; se planean —plan breve, aprobado,
 después código— cuando le toquen.

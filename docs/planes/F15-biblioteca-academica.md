@@ -1,6 +1,6 @@
 # F15 — Biblioteca académica (metadatos, citas, bibliografía, BibTeX y RIS)
 
-> **Estado: aprobado** (2026-09-21), en el chat, tal como está escrito, con las catorce decisiones D1 a D14 y los objetivos de medición propuestos. Lo que salga distinto de lo planeado se dice en su decisión de `../arquitectura.md`.
+> **Estado: aprobado y construido** (2026-09-21 / 2026-09-24). Aprobado en el chat, tal como está escrito, con las catorce decisiones D1 a D14 y los objetivos de medición propuestos. Lo construido, lo que se midió y lo que no hace, en la Decisión 48 de `../arquitectura.md`. Lo que salió distinto de lo planeado: el nombre de una persona terminó en cuatro columnas y no en las tres de D2 (se sumó `name_suffix`); los commits 5, 10, 11, 12 y 15 salieron partidos en más de uno; y **el objetivo propuesto de importar 5.000 entradas en 20 s NO se cumple**: medir mostró que el costo real es el del escritor único por entrada, no el de las transacciones, y el objetivo subió a la cifra real con margen (90 s).
 
 Cuarta fase del encargo F12–F17. Cambia el esquema (v21 → v22), **de forma aditiva**: nada se
 borra ni se reescribe. Restricción inalienable intacta: F15 no toca el texto de ninguna fuente ni
