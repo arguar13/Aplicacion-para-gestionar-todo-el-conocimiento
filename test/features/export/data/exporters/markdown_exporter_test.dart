@@ -2,7 +2,15 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/bibliography_builder.dart';
+import 'package:sinapsis/features/citations/domain/services/styles/apa7_style.dart';
 import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 
@@ -188,5 +196,66 @@ void main() {
         expect(text, isNot(contains('Autor: Ada Lovelace')));
       },
     );
+  });
+
+  group('bibliografía al pie (F15, D13)', () {
+    Bibliography bibliography() => buildBibliography([
+      BibliographySource(
+        itemId: 'f1',
+        source: CitationSource(
+          title: 'Un libro citado',
+          reference: const ReferenceData(
+            type: ReferenceType.book,
+            contributors: [Contributor(name: PersonName(family: 'García'))],
+            publisher: 'Editorial',
+          ),
+          date: PublicationDate.ofYear(2020),
+        ),
+      ),
+    ], style: const Apa7Style());
+
+    test('va después de la procedencia, con su título', () async {
+      final text = utf8.decode(
+        await const MarkdownExporter().export(
+          sampleKnowledgeItem(),
+          bibliography: bibliography(),
+        ),
+      );
+
+      expect(text, contains('## Referencias'));
+      expect(text, contains('García'));
+      expect(
+        text.indexOf('Guardado el'),
+        lessThan(text.indexOf('## Referencias')),
+      );
+    });
+
+    test('las cursivas del estilo llegan como Markdown', () async {
+      final text = utf8.decode(
+        await const MarkdownExporter().export(
+          sampleKnowledgeItem(),
+          bibliography: bibliography(),
+        ),
+      );
+
+      expect(text, contains('*Un libro citado*'));
+    });
+
+    test('sin bibliografía, no agrega la sección', () async {
+      final text = await exportToString(sampleKnowledgeItem());
+
+      expect(text, isNot(contains('## Referencias')));
+    });
+
+    test('una bibliografía vacía tampoco agrega la sección', () async {
+      final text = utf8.decode(
+        await const MarkdownExporter().export(
+          sampleKnowledgeItem(),
+          bibliography: buildBibliography(const [], style: const Apa7Style()),
+        ),
+      );
+
+      expect(text, isNot(contains('## Referencias')));
+    });
   });
 }

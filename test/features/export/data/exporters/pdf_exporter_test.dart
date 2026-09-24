@@ -3,6 +3,14 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx_engine/pdfrx_engine.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/bibliography_builder.dart';
+import 'package:sinapsis/features/citations/domain/services/styles/apa7_style.dart';
 import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 
@@ -172,6 +180,43 @@ void main() {
       } finally {
         await document.dispose();
       }
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('con una bibliografía, la agrega al pie', () async {
+      final bibliography = buildBibliography([
+        BibliographySource(
+          itemId: 'f1',
+          source: CitationSource(
+            title: 'Un libro citado',
+            reference: const ReferenceData(
+              type: ReferenceType.book,
+              contributors: [Contributor(name: PersonName(family: 'García'))],
+              publisher: 'Editorial',
+            ),
+            date: PublicationDate.ofYear(2020),
+          ),
+        ),
+      ], style: const Apa7Style());
+
+      final bytes = await exporter.export(
+        sampleKnowledgeItem(),
+        bibliography: bibliography,
+      );
+      final text = await _extractText(bytes);
+
+      expect(text, contains('Referencias'));
+      expect(text, contains('García'));
+      expect(
+        text.indexOf('Guardado el'),
+        lessThan(text.indexOf('Referencias')),
+      );
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('sin bibliografía, no agrega la sección', () async {
+      final bytes = await exporter.export(sampleKnowledgeItem());
+
+      final text = await _extractText(bytes);
+      expect(text, isNot(contains('Referencias')));
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
   });
 }

@@ -5,6 +5,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
+import 'package:sinapsis/features/export/data/exporters/bibliography_pdf.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 
@@ -34,7 +36,10 @@ class PdfExporter implements Exporter {
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async {
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async {
     final document = pw.Document()
       ..addPage(
         pw.MultiPage(
@@ -96,6 +101,10 @@ class PdfExporter implements Exporter {
                   color: PdfColors.grey700,
                 ),
               ),
+            if (bibliography != null && !bibliography.isEmpty) ...[
+              pw.SizedBox(height: 16),
+              ...bibliographyPdfWidgets(bibliography),
+            ],
           ],
         ),
       );

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 
@@ -27,8 +28,14 @@ class PlainTextExporter implements Exporter {
   String suggestedFileName(KnowledgeItem item) =>
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
+  // El texto plano no lleva bibliografía (F15, D13): no tiene con qué
+  // separar una sección de otra —sin encabezados ni cursivas, se leería
+  // como una continuación confusa del propio contenido—.
   @override
-  Future<Uint8List> export(KnowledgeItem item) async {
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async {
     final buffer = StringBuffer()
       ..writeln(item.title)
       ..writeln('=' * item.title.length);

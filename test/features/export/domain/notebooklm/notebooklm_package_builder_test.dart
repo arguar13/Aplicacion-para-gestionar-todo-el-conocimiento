@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 import 'package:sinapsis/features/export/domain/notebooklm/notebooklm_package_builder.dart';
@@ -22,8 +23,10 @@ class _FakeExporter implements Exporter {
   String suggestedFileName(KnowledgeItem item) => '${item.title}.md';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async =>
-      Uint8List.fromList(utf8.encode('contenido de ${item.title}'));
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async => Uint8List.fromList(utf8.encode('contenido de ${item.title}'));
 }
 
 void main() {

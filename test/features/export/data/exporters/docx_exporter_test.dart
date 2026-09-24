@@ -1,5 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
+import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
+import 'package:sinapsis/features/citations/domain/services/bibliography_builder.dart';
+import 'package:sinapsis/features/citations/domain/services/styles/apa7_style.dart';
 import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
@@ -75,6 +83,42 @@ void main() {
       expect(markdown, contains('Guardado el 2026-09-11'));
       expect(markdown, contains('https://ejemplo.org/kuhn'));
       expect(markdown, contains('Thomas Kuhn'));
+    });
+
+    test('con una bibliografía, la agrega al pie', () async {
+      final bibliography = buildBibliography([
+        BibliographySource(
+          itemId: 'f1',
+          source: CitationSource(
+            title: 'Un libro citado',
+            reference: const ReferenceData(
+              type: ReferenceType.book,
+              contributors: [Contributor(name: PersonName(family: 'García'))],
+              publisher: 'Editorial',
+            ),
+            date: PublicationDate.ofYear(2020),
+          ),
+        ),
+      ], style: const Apa7Style());
+
+      final bytes = await exporter.export(
+        sampleKnowledgeItem(),
+        bibliography: bibliography,
+      );
+      final markdown = (await const DocxParser().parse(bytes)).markdown;
+
+      expect(markdown, contains('Referencias'));
+      expect(markdown, contains('García'));
+      expect(
+        markdown.indexOf('Guardado el'),
+        lessThan(markdown.indexOf('Referencias')),
+      );
+    });
+
+    test('sin bibliografía, no agrega la sección', () async {
+      final markdown = await exportAndReadBack(sampleKnowledgeItem());
+
+      expect(markdown, isNot(contains('Referencias')));
     });
   });
 }

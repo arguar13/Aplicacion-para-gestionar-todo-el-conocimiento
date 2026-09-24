@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter_registry.dart';
@@ -16,7 +17,10 @@ class _FakeExporter implements Exporter {
   String suggestedFileName(KnowledgeItem item) => 'archivo.${format.name}';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async => Uint8List(0);
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async => Uint8List(0);
 }
 
 void main() {

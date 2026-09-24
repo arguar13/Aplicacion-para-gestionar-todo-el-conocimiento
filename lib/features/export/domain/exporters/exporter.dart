@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 
 /// Convierte un elemento en un archivo, en un formato concreto.
@@ -19,5 +20,13 @@ abstract interface class Exporter {
   /// pide guardar, no quien exporta.
   String suggestedFileName(KnowledgeItem item);
 
-  Future<Uint8List> export(KnowledgeItem item);
+  /// Convierte [item] al formato de este exportador.
+  ///
+  /// Con [bibliography], la agrega al pie del documento —F15, D13—: quien
+  /// llama ya decidió qué cita la nota y en qué estilo. `null`, o una
+  /// bibliografía vacía, no agrega nada. No todos los exportadores saben
+  /// mostrarla —un `.bib` exporta una referencia, no un documento con
+  /// secciones; un texto plano no tiene con qué separar una sección de
+  /// otra—: cada uno decide si la usa o la ignora en silencio.
+  Future<Uint8List> export(KnowledgeItem item, {Bibliography? bibliography});
 }

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
 
@@ -30,7 +31,10 @@ class MarkdownExporter implements Exporter {
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async {
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async {
     final buffer = StringBuffer()
       ..write(_frontMatter(item))
       ..writeln()
@@ -66,6 +70,14 @@ class MarkdownExporter implements Exporter {
       ..writeln('---')
       ..writeln()
       ..writeln(_provenanceFooter(item));
+
+    if (bibliography != null && !bibliography.isEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## ${bibliography.title}')
+        ..writeln()
+        ..writeln(bibliography.toMarkdown());
+    }
 
     return Uint8List.fromList(utf8.encode(buffer.toString()));
   }

@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/citations/data/repositories/bibliography_repository_impl.dart';
+import 'package:sinapsis/features/citations/domain/repositories/bibliography_repository.dart';
+import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/export/data/exporters/bibtex_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
@@ -72,10 +76,19 @@ final fileSaverProvider = Provider<FileSaver>((ref) {
   return const SystemFileSaver();
 });
 
+/// De dónde sale una bibliografía (F15): un espacio, una rama del Atlas, lo
+/// que cita una nota, o una selección — ver `BibliographyRepository`.
+final bibliographyRepositoryProvider = Provider<BibliographyRepository>((ref) {
+  return BibliographyRepositoryImpl(ref.watch(appDatabaseProvider));
+});
+
 final exportItemUseCaseProvider = Provider<ExportItemUseCase>((ref) {
   return ExportItemUseCase(
     registry: ref.watch(exporterRegistryProvider),
     saver: ref.watch(fileSaverProvider),
+    bibliography: ref.watch(bibliographyRepositoryProvider),
+    citationStyle: ref.watch(defaultCitationStyleProvider),
+    citationLanguage: ref.watch(defaultCitationLanguageProvider),
   );
 });
 

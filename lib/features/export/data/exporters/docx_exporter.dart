@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
+import 'package:sinapsis/features/export/data/exporters/bibliography_docx.dart';
 import 'package:sinapsis/features/export/data/exporters/docx_package.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
@@ -35,13 +37,16 @@ class DocxExporter implements Exporter {
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
   @override
-  Future<Uint8List> export(KnowledgeItem item) async => buildDocxPackage(
-    documentXml: _documentXml(item),
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async => buildDocxPackage(
+    documentXml: _documentXml(item, bibliography),
     title: item.title,
     creator: item.source.authorName ?? 'Sinapsis',
   );
 
-  String _documentXml(KnowledgeItem item) {
+  String _documentXml(KnowledgeItem item, Bibliography? bibliography) {
     final builder = XmlBuilder();
     builder
       ..processing('xml', 'version="1.0" encoding="UTF-8" standalone="yes"')
@@ -80,6 +85,10 @@ class DocxExporter implements Exporter {
 
               for (final line in _provenance(item)) {
                 _paragraph(builder, line, size: 18, gray: true);
+              }
+
+              if (bibliography != null && !bibliography.isEmpty) {
+                writeBibliographyBody(builder, bibliography);
               }
 
               builder.element('sectPr', namespace: _w);

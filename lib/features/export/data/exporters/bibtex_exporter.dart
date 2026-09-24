@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
+import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/citations/domain/services/bibtex_formatter.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter.dart';
@@ -25,8 +26,14 @@ class BibtexExporter implements Exporter {
   String suggestedFileName(KnowledgeItem item) =>
       '${sanitizeFileName(item.title)}.${format.fileExtension}';
 
+  // Una entrada `.bib` YA ES una referencia (F15, D13): agregarle la
+  // bibliografía de lo que el elemento cita no tendría sentido en su propio
+  // formato.
   @override
-  Future<Uint8List> export(KnowledgeItem item) async {
+  Future<Uint8List> export(
+    KnowledgeItem item, {
+    Bibliography? bibliography,
+  }) async {
     return Uint8List.fromList(utf8.encode(formatBibtex(item)));
   }
 }

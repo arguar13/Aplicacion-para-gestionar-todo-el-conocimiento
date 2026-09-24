@@ -39,16 +39,27 @@ String bibliographyDocumentXml(Bibliography bibliography) {
           'body',
           namespace: _w,
           nest: () {
-            _heading(builder, bibliography.title);
-            for (final entry in bibliography.entries) {
-              _entry(builder, entry.citation);
-            }
+            writeBibliographyBody(builder, bibliography);
             builder.element('sectPr', namespace: _w);
           },
         );
       },
     );
   return builder.buildDocument().toXmlString();
+}
+
+/// El título de la lista y una entrada por párrafo de [bibliography], dentro
+/// del `<w:body>` que [builder] ya tiene abierto —sin abrirlo ni cerrarlo, y
+/// sin el `sectPr` final—.
+///
+/// Aparte de [bibliographyDocumentXml] para que `DocxExporter` pueda
+/// agregarla al pie de una nota exportada (F15, D13), después de su propio
+/// contenido y en el mismo `<w:body>`, en vez de en un documento aparte.
+void writeBibliographyBody(XmlBuilder builder, Bibliography bibliography) {
+  _heading(builder, bibliography.title);
+  for (final entry in bibliography.entries) {
+    _entry(builder, entry.citation);
+  }
 }
 
 /// El título de la lista: un encabezado de primer nivel, en negrita.
