@@ -1303,4 +1303,57 @@ void main() {
       expect(harness.queue.pendingSweeps, 1);
     });
   });
+
+  group('importar referencias (F15, D9/D13/D14)', () {
+    CapturedFile bibFile(String content) => CapturedFile(
+      name: 'bib.bib',
+      bytes: Uint8List.fromList(content.codeUnits),
+    );
+
+    testWidgets('cancelar el selector no hace nada', (tester) async {
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byTooltip(es.libraryImportReferencesAction));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileChooser.timesOpened, 1);
+      expect(find.text(es.importReferencesReportTitle), findsNothing);
+    });
+
+    testWidgets('importa un .bib válido y muestra el informe', (tester) async {
+      harness = await LibraryHarness.create(
+        chosenFiles: [
+          bibFile('@book{x, title = {Un libro}, author = {García, Ana}}'),
+        ],
+      );
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byTooltip(es.libraryImportReferencesAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.importReferencesReportTitle), findsOneWidget);
+      expect(find.text(es.importReferencesCreatedCount(1)), findsOneWidget);
+    });
+
+    testWidgets('un adjunto que coincide se encola para procesar', (
+      tester,
+    ) async {
+      final pdf = CapturedFile(
+        name: 'articulo.pdf',
+        bytes: Uint8List.fromList('%PDF-1.7 contenido'.codeUnits),
+      );
+      harness = await LibraryHarness.create(
+        chosenFiles: [
+          bibFile('@book{x, title = {Un libro}, file = {articulo.pdf}}'),
+          pdf,
+        ],
+      );
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byTooltip(es.libraryImportReferencesAction));
+      await tester.pumpAndSettle();
+
+      expect(harness.queue.enqueued, hasLength(1));
+    });
+  });
 }

@@ -665,6 +665,88 @@
   "@bibliographyExportSelectionName": {
     "description": "Nombre sugerido para el archivo de la bibliografía de una selección de la Biblioteca, que no tiene un único título propio como un espacio o una nota."
   },
+  "libraryImportReferencesAction": "Importar referencias",
+  "@libraryImportReferencesAction": {
+    "description": "Acción del menú de la Biblioteca para importar un .bib o un .ris (F15, D13)."
+  },
+  "importReferencesFailed": "No se pudieron importar las referencias.",
+  "@importReferencesFailed": {
+    "description": "Aviso cuando importar un .bib/.ris falla de verdad, sin distinguir el motivo."
+  },
+  "importReferencesReportTitle": "Referencias importadas",
+  "@importReferencesReportTitle": {
+    "description": "Título del informe que se muestra al terminar de importar un .bib/.ris."
+  },
+  "importReferencesCreatedCount": "{count, plural, =0{Ninguna creada} =1{1 creada} other{{count} creadas}}",
+  "@importReferencesCreatedCount": {
+    "description": "Cuántas referencias se crearon de cero al importar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesUpdatedCount": "{count, plural, =0{Ninguna completada} =1{1 completada} other{{count} completadas}}",
+  "@importReferencesUpdatedCount": {
+    "description": "Cuántas referencias ya existentes se completaron con lo que traía el archivo.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesUnchangedCount": "{count, plural, =0{Ninguna sin cambios} =1{1 sin cambios} other{{count} sin cambios}}",
+  "@importReferencesUnchangedCount": {
+    "description": "Cuántas referencias ya tenían todo lo que traía el archivo: reimportar no las tocó.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesAttachedCount": "{count, plural, =0{Ninguna con archivo adjunto} =1{1 con su archivo adjunto} other{{count} con su archivo adjunto}}",
+  "@importReferencesAttachedCount": {
+    "description": "Cuántas ganaron el PDF que traía su propio campo file/L1 (F15, D14).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesDuplicatesCount": "{count, plural, =0{} =1{1 posible duplicado propuesto, revisalo en Duplicados} other{{count} posibles duplicados propuestos, revisalos en Duplicados}}",
+  "@importReferencesDuplicatesCount": {
+    "description": "Cuántas propuestas de posible duplicado se mandaron a la pantalla de F7 (F15, D9). Vacío con 0: no vale la pena una línea del informe cuando no pasó nada.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesSkippedCount": "{count, plural, =0{} =1{1 saltada} other{{count} saltadas}}",
+  "@importReferencesSkippedCount": {
+    "description": "Cuántas entradas del archivo no se pudieron importar. Vacío con 0: no vale la pena una línea cuando no pasó nada.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesSkippedReason": "«{key}»: {reason}",
+  "@importReferencesSkippedReason": {
+    "description": "Una línea del detalle de entradas saltadas, con su clave y el motivo.",
+    "placeholders": {
+      "key": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "importReferencesCloseAction": "Cerrar",
+  "@importReferencesCloseAction": {
+    "description": "Cierra el informe de una importación."
+  },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {
     "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."

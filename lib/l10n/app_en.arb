@@ -1078,6 +1078,88 @@
   "@bibliographyExportSelectionName": {
     "description": "Suggested file name for the bibliography of a Library selection, which has no single title of its own like a space or a note."
   },
+  "libraryImportReferencesAction": "Import references",
+  "@libraryImportReferencesAction": {
+    "description": "Library menu action to import a .bib or a .ris (F15, D13)."
+  },
+  "importReferencesFailed": "The references couldn't be imported.",
+  "@importReferencesFailed": {
+    "description": "Warning when importing a .bib/.ris genuinely fails, without distinguishing why."
+  },
+  "importReferencesReportTitle": "References imported",
+  "@importReferencesReportTitle": {
+    "description": "Title of the report shown after importing a .bib/.ris."
+  },
+  "importReferencesCreatedCount": "{count, plural, =0{None created} =1{1 created} other{{count} created}}",
+  "@importReferencesCreatedCount": {
+    "description": "How many references were created from scratch when importing.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesUpdatedCount": "{count, plural, =0{None completed} =1{1 completed} other{{count} completed}}",
+  "@importReferencesUpdatedCount": {
+    "description": "How many existing references were completed with what the file brought.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesUnchangedCount": "{count, plural, =0{None unchanged} =1{1 unchanged} other{{count} unchanged}}",
+  "@importReferencesUnchangedCount": {
+    "description": "How many references already had everything the file brought: reimporting didn't touch them.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesAttachedCount": "{count, plural, =0{None with an attached file} =1{1 with its attached file} other{{count} with their attached file}}",
+  "@importReferencesAttachedCount": {
+    "description": "How many gained the PDF from their own file/L1 field (F15, D14).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesDuplicatesCount": "{count, plural, =0{} =1{1 possible duplicate proposed, check it in Duplicates} other{{count} possible duplicates proposed, check them in Duplicates}}",
+  "@importReferencesDuplicatesCount": {
+    "description": "How many possible-duplicate proposals were sent to the F7 screen (F15, D9). Empty at 0: not worth a report line when nothing happened.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesSkippedCount": "{count, plural, =0{} =1{1 skipped} other{{count} skipped}}",
+  "@importReferencesSkippedCount": {
+    "description": "How many entries in the file couldn't be imported. Empty at 0: not worth a line when nothing happened.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importReferencesSkippedReason": "“{key}”: {reason}",
+  "@importReferencesSkippedReason": {
+    "description": "One line of the skipped-entries detail, with its key and the reason.",
+    "placeholders": {
+      "key": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "importReferencesCloseAction": "Close",
+  "@importReferencesCloseAction": {
+    "description": "Closes an import report."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

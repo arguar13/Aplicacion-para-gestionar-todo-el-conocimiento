@@ -28,6 +28,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_table_vie
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/reference/presentation/import_references_action.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/vault/presentation/widgets/compaction_offer_card.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -209,6 +210,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   icon: const Icon(Icons.timeline),
                   tooltip: l10n.libraryTimelineTooltip,
                   onPressed: () => context.push(RoutePaths.timeline),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.file_download_outlined),
+                  tooltip: l10n.libraryImportReferencesAction,
+                  onPressed: () => importReferences(context, ref),
                 ),
                 // Seleccionar de a varios solo tiene sentido en la lista: en
                 // la tabla no hay casillas que ofrecer, y en el tablero

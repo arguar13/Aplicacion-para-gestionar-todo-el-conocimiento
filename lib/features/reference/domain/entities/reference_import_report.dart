@@ -23,7 +23,7 @@ class ReferenceImportReport {
     this.created = 0,
     this.updated = 0,
     this.unchanged = 0,
-    this.attached = 0,
+    this.attachedItemIds = const [],
     this.possibleDuplicates = 0,
     this.skipped = const [],
   });
@@ -32,13 +32,19 @@ class ReferenceImportReport {
   final int updated;
   final int unchanged;
 
-  /// Cuántas ganaron el PDF que traía su propio `file`/`L1` (D14).
-  final int attached;
+  /// El id de cada elemento que ganó el PDF que traía su propio `file`/`L1`
+  /// (D14) —no solo cuántos: quien llama todavía tiene que encolar su
+  /// procesamiento (`ProcessingQueueNotifier`, capa de presentación, ver
+  /// `AttachReferenceFileUseCase`), y para eso hace falta el id de cada uno—.
+  final List<String> attachedItemIds;
 
   /// Cuántas propuestas de posible duplicado se mandaron a F7 (D9).
   final int possibleDuplicates;
 
   final List<ReferenceImportSkip> skipped;
+
+  /// Cuántas ganaron un adjunto.
+  int get attached => attachedItemIds.length;
 
   /// Cuántas entradas traía el archivo en total, entendidas o no.
   int get total => created + updated + unchanged + skipped.length;
@@ -48,7 +54,7 @@ class ReferenceImportReport {
         created: created + other.created,
         updated: updated + other.updated,
         unchanged: unchanged + other.unchanged,
-        attached: attached + other.attached,
+        attachedItemIds: [...attachedItemIds, ...other.attachedItemIds],
         possibleDuplicates: possibleDuplicates + other.possibleDuplicates,
         skipped: [...skipped, ...other.skipped],
       );

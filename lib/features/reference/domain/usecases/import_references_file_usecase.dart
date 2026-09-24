@@ -105,18 +105,18 @@ class ImportReferencesFileUseCase {
     }
     final result = imported.getRight().toNullable()!;
 
-    var attached = 0;
+    final attachedItemIds = <String>[];
     final match = matchAttachmentFile(entry.attachmentFileName, attachments);
     if (match != null) {
       final linked = await _attachFile(result.itemId, match);
-      if (linked.isRight()) attached = 1;
+      if (linked.isRight()) attachedItemIds.add(result.itemId);
     }
 
     return ReferenceImportReport(
       created: result.outcome == ImportedReferenceOutcome.created ? 1 : 0,
       updated: result.outcome == ImportedReferenceOutcome.updated ? 1 : 0,
       unchanged: result.outcome == ImportedReferenceOutcome.unchanged ? 1 : 0,
-      attached: attached,
+      attachedItemIds: attachedItemIds,
       possibleDuplicates: result.possibleDuplicates,
     );
   }

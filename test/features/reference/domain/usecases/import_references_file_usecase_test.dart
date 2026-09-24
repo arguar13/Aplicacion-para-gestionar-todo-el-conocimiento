@@ -183,6 +183,7 @@ ER  -
 
     final report = result.getRight().toNullable()!;
     expect(report.attached, 1);
+    expect(report.attachedItemIds, hasLength(1));
   });
 
   test(

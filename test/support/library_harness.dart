@@ -92,6 +92,10 @@ class LibraryHarness {
     /// defecto— simula que el usuario lo abre y cancela.
     CapturedFile? chosenFile,
 
+    /// Lo que devuelve el selector de VARIOS archivos a la vez (F15, D14).
+    /// Vacía —el valor por defecto— simula que el usuario lo abre y cancela.
+    List<CapturedFile> chosenFiles = const [],
+
     /// Si está, el selector lanza esto en vez de devolver.
     Object? fileChooserError,
 
@@ -152,7 +156,11 @@ class LibraryHarness {
 
     final database = AppDatabase(NativeDatabase.memory());
     final ids = FakeIdGenerator();
-    final chooser = FakeFileChooser(file: chosenFile, error: fileChooserError);
+    final chooser = FakeFileChooser(
+      file: chosenFile,
+      files: chosenFiles,
+      error: fileChooserError,
+    );
     final camera = FakeCameraChooser(
       photo: chosenPhoto,
       error: cameraChooserError,
