@@ -1,10 +1,10 @@
-import 'package:sinapsis/core/domain/entities/bibtex_entry.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/imported_reference.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 
-/// Escribe una lista de [BibtexEntry] como un archivo `.bib` (F15, commit
+/// Escribe una lista de [ImportedReference] como un archivo `.bib` (F15, commit
 /// 13), con una clave única por entrada: la que ya traía —para no romper el
 /// `\cite{...}` de nadie— o, si no tenía, apellido (o la primera palabra del
 /// título) más el año, con una letra de más si dos entradas coinciden.
@@ -21,7 +21,7 @@ import 'package:sinapsis/core/domain/entities/reference_type.dart';
 /// problema: sin ellos, un documental, una fuente primaria o una
 /// publicación en red se leerían de vuelta como «otro» —`@misc` no los
 /// distingue—, y una obra sin fecha se leería como una fecha desconocida.
-String writeBibtex(List<BibtexEntry> entries) {
+String writeBibtex(List<ImportedReference> entries) {
   final used = <String>{};
   final buffer = StringBuffer();
   for (final entry in entries) {
@@ -46,7 +46,7 @@ const _bibtexType = {
   ReferenceType.other: 'misc',
 };
 
-String _writeEntry(BibtexEntry entry, String key) {
+String _writeEntry(ImportedReference entry, String key) {
   final type = _bibtexType[entry.reference.type] ?? 'misc';
   final fields = <String, String>{};
 
@@ -135,7 +135,7 @@ String _isoDate(DateTime date, {bool month = false}) {
 /// y un `{`/`}` balanceado dentro de un campo es BibTeX válido tal cual.
 String _escapeForWrite(String value) => value.replaceAll(r'\', r'\\');
 
-String _uniqueKey(BibtexEntry entry, Set<String> used) {
+String _uniqueKey(ImportedReference entry, Set<String> used) {
   final base = _baseKey(entry);
   if (!used.contains(base)) return base;
 
@@ -150,7 +150,7 @@ String _uniqueKey(BibtexEntry entry, Set<String> used) {
   return '$base$n';
 }
 
-String _baseKey(BibtexEntry entry) {
+String _baseKey(ImportedReference entry) {
   final existing = entry.reference.citationKey?.trim();
   if (existing != null && existing.isNotEmpty) {
     return _asciiSlugKeepCase(existing);

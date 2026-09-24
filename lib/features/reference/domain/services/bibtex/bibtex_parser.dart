@@ -1,5 +1,5 @@
-import 'package:sinapsis/core/domain/entities/bibtex_entry.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/imported_reference.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
@@ -28,7 +28,7 @@ class BibtexSkippedEntry {
 class BibtexParseResult {
   const BibtexParseResult({required this.entries, required this.skipped});
 
-  final List<BibtexEntry> entries;
+  final List<ImportedReference> entries;
   final List<BibtexSkippedEntry> skipped;
 }
 
@@ -47,7 +47,7 @@ class BibtexParseResult {
 /// como en BibTeX de verdad. `@comment` y `@preamble` también se ignoran.
 BibtexParseResult parseBibtex(String source) {
   final macros = <String, String>{};
-  final entries = <BibtexEntry>[];
+  final entries = <ImportedReference>[];
   final skipped = <BibtexSkippedEntry>[];
 
   var pos = 0;
@@ -110,7 +110,7 @@ BibtexParseResult parseBibtex(String source) {
 }
 
 // ---------------------------------------------------------------------------
-// De campos resueltos a BibtexEntry.
+// De campos resueltos a ImportedReference.
 // ---------------------------------------------------------------------------
 
 /// Los tipos estándar de BibTeX que la app entiende, y a cuál de los nueve
@@ -136,7 +136,7 @@ const _typeFromBibtex = {
   'electronic': ReferenceType.website,
 };
 
-BibtexEntry? _toEntry({
+ImportedReference? _toEntry({
   required String type,
   required String key,
   required Map<String, String> resolvedRaw,
@@ -191,7 +191,7 @@ BibtexEntry? _toEntry({
   final doi = decoded('doi');
   final url = decoded('url') ?? _urlLike(decoded('howpublished'));
 
-  return BibtexEntry(
+  return ImportedReference(
     title: decoded('title'),
     url: url,
     publishedAt: publishedAt,

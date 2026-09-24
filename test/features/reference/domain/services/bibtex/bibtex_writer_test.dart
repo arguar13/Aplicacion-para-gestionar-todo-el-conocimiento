@@ -1,18 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sinapsis/core/domain/entities/bibtex_entry.dart';
+import 'package:sinapsis/core/domain/entities/imported_reference.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/features/reference/domain/services/bibtex/bibtex_writer.dart';
 
-BibtexEntry _entry({
+ImportedReference _entry({
   String? title,
   ReferenceType? type,
   String? citationKey,
   List<Contributor> contributors = const [],
   int? year,
-}) => BibtexEntry(
+}) => ImportedReference(
   title: title,
   publishedAt: year == null ? null : DateTime(year),
   publicationPrecision: year == null ? null : PublicationPrecision.year,
