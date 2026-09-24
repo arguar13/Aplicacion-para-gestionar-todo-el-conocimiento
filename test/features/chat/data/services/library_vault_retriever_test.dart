@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -159,6 +160,120 @@ void main() {
     final sources = await retriever.retrieve('religión filosofía');
 
     expect(sources.first.itemTitle, 'Habla de las dos cosas');
+  });
+
+  group('el offset del fragmento citado (F16, D2)', () {
+    test(
+      'cae dentro de un chunk real: es la misma coordenada que `Chunks`',
+      () async {
+        await seed(
+          'Un artículo',
+          content: 'Acá se explica por qué las enzimas catalizan reacciones.',
+        );
+
+        final source = (await retriever.retrieve('enzimas')).single;
+
+        expect(source.sourceCharStart, isNotNull);
+        expect(source.sourceCharEnd, isNotNull);
+        final chunk =
+            await (db.select(db.chunks)
+                  ..where((c) => c.itemId.equals(source.itemId))
+                  ..where(
+                    (c) =>
+                        c.charStart.isSmallerOrEqualValue(
+                          source.sourceCharStart!,
+                        ) &
+                        c.charEnd.isBiggerThanValue(source.sourceCharStart!),
+                  ))
+                .getSingle();
+        expect(chunk.content, contains('enzimas'));
+      },
+    );
+
+    test('una nota manual no tiene offset: nunca se fragmenta', () async {
+      await libraryRepository.save(
+        KnowledgeItem(
+          id: 'note-0',
+          title: 'Mi nota sobre paradigmas',
+          source: Source(
+            id: 'src-note-0',
+            kind: SourceKind.manualNote,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+          renditions: [
+            Rendition.text(
+              id: 'rend-note-0',
+              itemId: 'note-0',
+              kind: RenditionKind.plainText,
+              content: 'Algo sobre paradigmas, escrito a mano.',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+
+      final source = (await retriever.retrieve('paradigmas')).single;
+
+      expect(source.excerpt, contains('paradigmas'));
+      expect(source.sourceCharStart, isNull);
+      expect(source.sourceCharEnd, isNull);
+    });
+
+    test('con más de una forma de texto, el offset sale de la principal, no '
+        'de las dos juntas', () async {
+      await libraryRepository.save(
+        KnowledgeItem(
+          id: 'item-multi',
+          title: 'Con dos formas',
+          source: Source(
+            id: 'src-multi',
+            kind: SourceKind.webPage,
+            capturedAt: now,
+            url: 'https://ejemplo.org/multi',
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+          renditions: [
+            Rendition.text(
+              id: 'rend-old',
+              itemId: 'item-multi',
+              kind: RenditionKind.plainText,
+              content: 'La forma vieja habla de paradigmas también.',
+              isPrimary: false,
+              createdAt: now.subtract(const Duration(days: 1)),
+            ),
+            Rendition.text(
+              id: 'rend-primary',
+              itemId: 'item-multi',
+              kind: RenditionKind.plainText,
+              content: 'La forma principal, con paradigmas de verdad.',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+
+      final source = (await retriever.retrieve('paradigmas')).single;
+
+      expect(source.excerpt, 'La forma principal, con paradigmas de verdad.');
+      expect(source.sourceCharStart, 0);
+    });
+
+    test('un contenido con espacio al principio reporta el offset real, no '
+        'cero', () async {
+      await seed('Con espacio', content: '   Empieza con paradigmas acá.');
+
+      final source = (await retriever.retrieve('paradigmas')).single;
+
+      expect(source.sourceCharStart, 3);
+      expect(source.excerpt, startsWith('Empieza con paradigmas'));
+    });
   });
 
   group('scopeIds (F16, D1: acotar a un cuaderno)', () {

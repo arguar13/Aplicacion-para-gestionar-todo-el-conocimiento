@@ -17,6 +17,15 @@ sealed class ChatSource with _$ChatSource {
     required String itemId,
     required String itemTitle,
     required String excerpt,
+
+    /// Dónde empieza y termina [excerpt] dentro del texto principal de la
+    /// fuente —las mismas coordenadas que `Relations.sourceCharStart/End`
+    /// y `Chunks` (F16, D2)—. Los dos, o ninguno: `null` cuando la fuente
+    /// no tiene chunks —una nota manual, que nunca se fragmenta, o algo
+    /// que todavía no terminó de procesarse—, y ahí [excerpt] es solo para
+    /// mostrar, sin nada a lo que anclar una cita.
+    int? sourceCharStart,
+    int? sourceCharEnd,
   }) = _ChatSource;
 }
 
@@ -41,6 +50,8 @@ Map<String, dynamic> _sourceToJson(ChatSource source) => {
   'itemId': source.itemId,
   'itemTitle': source.itemTitle,
   'excerpt': source.excerpt,
+  if (source.sourceCharStart != null) 'sourceCharStart': source.sourceCharStart,
+  if (source.sourceCharEnd != null) 'sourceCharEnd': source.sourceCharEnd,
 };
 
 ChatSource? _sourceFromJson(Map<String, dynamic> json) {
@@ -49,5 +60,14 @@ ChatSource? _sourceFromJson(Map<String, dynamic> json) {
   final excerpt = json['excerpt'] as String?;
   if (itemId == null || itemTitle == null || excerpt == null) return null;
 
-  return ChatSource(itemId: itemId, itemTitle: itemTitle, excerpt: excerpt);
+  return ChatSource(
+    itemId: itemId,
+    itemTitle: itemTitle,
+    excerpt: excerpt,
+    // Un mensaje guardado antes de F16 no trae estas dos claves: `null` es
+    // el mismo "sin chunk al que anclar" que ya vale para una fuente sin
+    // fragmentar, no un dato corrupto.
+    sourceCharStart: json['sourceCharStart'] as int?,
+    sourceCharEnd: json['sourceCharEnd'] as int?,
+  );
 }

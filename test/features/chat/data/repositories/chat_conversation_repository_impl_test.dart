@@ -183,6 +183,10 @@ void main() {
             itemId: 'item-1',
             itemTitle: 'Un elemento',
             excerpt: 'El fragmento citado.',
+            // F16, D2: el offset tiene que sobrevivir la vuelta por JSON
+            // igual que el resto de la fuente.
+            sourceCharStart: 12,
+            sourceCharEnd: 34,
           ),
         ],
       );
@@ -194,6 +198,8 @@ void main() {
       expect(messages.single.text, message.text);
       expect(messages.single.isUser, isFalse);
       expect(messages.single.sources, message.sources);
+      expect(messages.single.sources.single.sourceCharStart, 12);
+      expect(messages.single.sources.single.sourceCharEnd, 34);
     });
 
     test('guarda los adjuntos de un mensaje del usuario', () async {
