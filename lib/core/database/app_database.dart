@@ -26,6 +26,8 @@ import 'package:sinapsis/core/database/tables/merge_conflicts.dart';
 import 'package:sinapsis/core/database/tables/merged_provenances.dart';
 import 'package:sinapsis/core/database/tables/migration_issues.dart';
 import 'package:sinapsis/core/database/tables/note_templates.dart';
+import 'package:sinapsis/core/database/tables/notebook_items.dart';
+import 'package:sinapsis/core/database/tables/notebooks.dart';
 import 'package:sinapsis/core/database/tables/properties.dart';
 import 'package:sinapsis/core/database/tables/relations.dart';
 import 'package:sinapsis/core/database/tables/renditions.dart';
@@ -50,6 +52,7 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
@@ -97,6 +100,8 @@ part 'app_database.g.dart';
     SourceContributors,
     SavedViews,
     NoteTemplates,
+    Notebooks,
+    NotebookItems,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -141,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 23;
+  static const currentSchemaVersion = 24;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -380,6 +385,24 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(savedViews);
           await migrator.createTable(noteTemplates);
           await _requireSameCounts(before, step: 'v23', tables: tables);
+        }
+        // Cuadernos (F16): un subconjunto con nombre de la bóveda, manual o
+        // por consulta guardada (D1). Dos tablas nuevas, ninguna columna
+        // tocada: nada existente cambia. Los conteos de todo lo anterior,
+        // vistas guardadas y plantillas incluidas —ya existen desde v23—,
+        // son compuerta.
+        if (from < 24) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(notebooks);
+          await migrator.createTable(notebookItems);
+          await _requireSameCounts(before, step: 'v24', tables: tables);
         }
       });
     },

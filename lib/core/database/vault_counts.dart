@@ -56,6 +56,19 @@ class VaultCounts {
     'source_contributor',
   ];
 
+  /// Vistas guardadas y plantillas de nota (F16). Tampoco están en
+  /// [userDataTables]: los pasos de migración anteriores a v23 cuentan esa
+  /// lista, y estas tablas todavía no existían cuando corrían.
+  static const viewsAndTemplatesTables = <String>[
+    'saved_view',
+    'note_template',
+  ];
+
+  /// Cuadernos y su pertenencia manual (F16). Tampoco están en
+  /// [userDataTables]: los pasos de migración anteriores a v24 cuentan esa
+  /// lista, y estas tablas todavía no existían cuando corrían.
+  static const notebookTables = <String>['notebook', 'notebook_item'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 
