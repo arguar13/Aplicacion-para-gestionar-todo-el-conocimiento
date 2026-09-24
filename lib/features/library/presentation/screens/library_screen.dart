@@ -23,6 +23,7 @@ import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_calendar_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
@@ -55,12 +56,14 @@ extension _LibraryViewModePresentation on LibraryViewMode {
     LibraryViewMode.list => Icons.view_list_outlined,
     LibraryViewMode.table => Icons.table_chart_outlined,
     LibraryViewMode.kanban => Icons.view_kanban_outlined,
+    LibraryViewMode.calendar => Icons.calendar_month_outlined,
   };
 
   String label(AppLocalizations l10n) => switch (this) {
     LibraryViewMode.list => l10n.libraryViewList,
     LibraryViewMode.table => l10n.libraryViewTable,
     LibraryViewMode.kanban => l10n.libraryViewKanban,
+    LibraryViewMode.calendar => l10n.libraryViewCalendar,
   };
 }
 
@@ -219,8 +222,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ref,
                     currentQuery: query,
                     currentViewMode: _viewMode,
-                    onApplyViewMode: (mode) =>
-                        setState(() => _viewMode = mode),
+                    onApplyViewMode: (mode) => setState(() => _viewMode = mode),
                   ),
                 ),
                 // Seleccionar de a varios solo tiene sentido en la lista: en
@@ -305,6 +307,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
             LibraryViewMode.table => LibraryTableView(items: list),
             LibraryViewMode.kanban => LibraryKanbanView(items: list),
+            LibraryViewMode.calendar => LibraryCalendarView(items: list),
           },
         ),
         if (canLoadMore)

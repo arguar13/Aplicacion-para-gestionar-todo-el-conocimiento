@@ -2038,6 +2038,26 @@
   "@libraryViewKanban": {
     "description": "Nombre de la vista de biblioteca en tablero (kanban), para el selector de vistas."
   },
+  "libraryViewCalendar": "Calendario",
+  "@libraryViewCalendar": {
+    "description": "Nombre de la vista de biblioteca en calendario, para el selector de vistas (F16, D7)."
+  },
+  "libraryCalendarPreviousMonth": "Mes anterior",
+  "@libraryCalendarPreviousMonth": {
+    "description": "Botón que retrocede un mes en la vista de calendario."
+  },
+  "libraryCalendarNextMonth": "Mes siguiente",
+  "@libraryCalendarNextMonth": {
+    "description": "Botón que avanza un mes en la vista de calendario."
+  },
+  "libraryCalendarAxisEventDate": "Fecha del hecho",
+  "@libraryCalendarAxisEventDate": {
+    "description": "Opción del calendario para ubicar cada elemento por cuándo ocurrió lo que cuenta, no por cuándo se guardó."
+  },
+  "libraryCalendarAxisCapturedAt": "Fecha de captura",
+  "@libraryCalendarAxisCapturedAt": {
+    "description": "Opción del calendario para ubicar cada elemento por cuándo se guardó."
+  },
   "libraryColumnTitle": "Título",
   "@libraryColumnTitle": {
     "description": "Encabezado de columna en la vista de tabla de la biblioteca."

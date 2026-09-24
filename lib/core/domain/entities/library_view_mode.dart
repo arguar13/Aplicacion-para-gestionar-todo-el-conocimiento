@@ -6,4 +6,4 @@
 /// su filtro y su orden: dejó de ser solo una preferencia de la sesión —ver
 /// `SavedView`—. La pantalla sigue siendo la única que sabe de íconos y
 /// etiquetas para cada valor.
-enum LibraryViewMode { list, table, kanban }
+enum LibraryViewMode { list, table, kanban, calendar }

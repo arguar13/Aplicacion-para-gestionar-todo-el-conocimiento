@@ -1,19 +1,21 @@
-import 'dart:typed_data';
-
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -25,6 +27,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_calendar_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -1544,5 +1547,166 @@ void main() {
       final rows = await db.customSelect('SELECT * FROM saved_view').get();
       expect(rows, isEmpty);
     }, timeout: const Timeout(Duration(seconds: 30)));
+  });
+
+  group('vista de calendario (F16, D7)', () {
+    late String fechaId;
+
+    setUp(() async {
+      fechaId =
+          (await (harness.database.select(harness.database.propertyDefinitions)
+                    ..where(
+                      (d) =>
+                          d.isSystem.equals(true) &
+                          d.name.equals(kFechaDelHechoCategoryName),
+                    ))
+                  .getSingle())
+              .id;
+    });
+
+    Future<void> switchToCalendar(WidgetTester tester) async {
+      await tester.tap(find.byType(PopupMenuButton<LibraryViewMode>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryViewCalendar));
+      await tester.pumpAndSettle();
+    }
+
+    /// Toca el día [day] de la grilla. El `GridView.builder` de
+    /// `_MonthGrid` —como cualquier sliver— solo MONTA de entrada los días
+    /// que entran en el cache extent inicial; uno de fin de mes puede no
+    /// estar montado todavía aunque ya esté construido, y ahí
+    /// `tester.tap` no lo encuentra. `scrollUntilVisible` lo desplaza hasta
+    /// que aparece.
+    Future<void> tapDay(WidgetTester tester, int day) async {
+      final finder = find.byKey(Key('calendar-day-$day'));
+      await tester.scrollUntilVisible(
+        finder,
+        100,
+        scrollable: find.descendant(
+          of: find.byType(GridView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    /// Le pone a [itemId] "Fecha del hecho" = hoy, día 15, con la precisión
+    /// que se pida —"hoy" según el reloj fijo de las pruebas, el mismo que
+    /// usa `LibraryCalendarView` para elegir el mes que muestra por
+    /// defecto—.
+    Future<void> setEventDate(
+      String itemId, {
+      required DatePrecision precision,
+    }) async {
+      final now = harness.container.read(clockProvider)();
+      final organize = harness.container.read(organizeRepositoryProvider);
+      final value = (await organize.getOrCreateHistoricalPropertyValue(
+        definitionId: fechaId,
+        date: HistoricalDate(
+          year: now.year,
+          month: now.month,
+          day: 15,
+          precision: precision,
+        ),
+      )).getRight().toNullable()!;
+      await organize.assignProperty(
+        itemId: itemId,
+        definitionId: fechaId,
+        value: value.value,
+      );
+    }
+
+    testWidgets('el eje de fecha del hecho agrupa por día y lo abre al tocar', (
+      tester,
+    ) async {
+      await harness.capture('Un hecho con fecha exacta');
+      final item =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+      await setEventDate(item.id, precision: DatePrecision.day);
+
+      await pumpLibrary(tester);
+      await switchToCalendar(tester);
+
+      expect(find.byType(LibraryCalendarView), findsOneWidget);
+      await tapDay(tester, 15);
+
+      expect(find.text('Un hecho con fecha exacta'), findsOneWidget);
+    });
+
+    testWidgets('un hecho sin precisión de día no aparece en el calendario', (
+      tester,
+    ) async {
+      await harness.capture('Hecho impreciso');
+      final item =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+      await setEventDate(item.id, precision: DatePrecision.month);
+
+      await pumpLibrary(tester);
+      await switchToCalendar(tester);
+      await tapDay(tester, 15);
+
+      expect(find.text('Hecho impreciso'), findsNothing);
+    });
+
+    testWidgets(
+      'el eje de fecha de captura agrupa por cuándo se guardó, no por el '
+      'hecho',
+      (tester) async {
+        await harness.capture('Guardado hoy');
+        await pumpLibrary(tester);
+        await switchToCalendar(tester);
+
+        await tester.tap(find.text(es.libraryCalendarAxisCapturedAt));
+        await tester.pumpAndSettle();
+
+        // `harness.capture` guarda con el reloj fijo de las pruebas, no con
+        // el de verdad: el día que hay que tocar es el de esa captura, no
+        // el de hoy.
+        final item =
+            (await harness.container
+                    .read(libraryRepositoryProvider)
+                    .list(const LibraryQuery()))
+                .getRight()
+                .toNullable()!
+                .single;
+        await tapDay(tester, item.source.capturedAt.day);
+
+        expect(find.text('Guardado hoy'), findsOneWidget);
+      },
+    );
+
+    testWidgets('cambiar de mes deja el día tocado sin elementos', (
+      tester,
+    ) async {
+      await harness.capture('Un hecho con fecha exacta');
+      final item =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+      await setEventDate(item.id, precision: DatePrecision.day);
+
+      await pumpLibrary(tester);
+      await switchToCalendar(tester);
+      await tester.tap(find.byTooltip(es.libraryCalendarNextMonth));
+      await tester.pumpAndSettle();
+
+      await tapDay(tester, 15);
+
+      expect(find.text('Un hecho con fecha exacta'), findsNothing);
+    });
   });
 }
