@@ -771,6 +771,51 @@
   "@referenceFileFormatRis": {
     "description": "Nombre del formato de archivo RIS, para gestores de citas."
   },
+  "libraryViewsAction": "Vistas guardadas",
+  "@libraryViewsAction": {
+    "description": "Botón de la Biblioteca que abre la hoja de vistas guardadas (F16)."
+  },
+  "libraryViewsSaveCurrent": "Guardar la vista actual",
+  "@libraryViewsSaveCurrent": {
+    "description": "Acción, dentro de la hoja de vistas guardadas, para guardar el filtro y el orden que la Biblioteca está mostrando ahora."
+  },
+  "libraryViewsEmpty": "Todavía no guardaste ninguna vista.",
+  "@libraryViewsEmpty": {
+    "description": "Aviso en la hoja de vistas guardadas cuando no hay ninguna."
+  },
+  "libraryViewsSaveDialogTitle": "Nombre de la vista",
+  "@libraryViewsSaveDialogTitle": {
+    "description": "Título del diálogo para ponerle nombre a una vista antes de guardarla."
+  },
+  "libraryViewsSaveDialogHint": "p. ej. «Sin leer, más nuevo primero»",
+  "@libraryViewsSaveDialogHint": {
+    "description": "Texto de ejemplo en el campo de nombre de una vista nueva."
+  },
+  "libraryViewsSaveAction": "Guardar",
+  "@libraryViewsSaveAction": {
+    "description": "Confirma guardar la vista con el nombre escrito."
+  },
+  "libraryViewsSavedConfirmation": "Vista «{name}» guardada",
+  "@libraryViewsSavedConfirmation": {
+    "description": "Aviso al guardar una vista nueva.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryViewsPinTooltip": "Fijar entre los accesos rápidos",
+  "@libraryViewsPinTooltip": {
+    "description": "Botón para fijar una vista guardada, en la hoja de vistas."
+  },
+  "libraryViewsUnpinTooltip": "Ya no fijar",
+  "@libraryViewsUnpinTooltip": {
+    "description": "Botón para dejar de fijar una vista guardada, en la hoja de vistas."
+  },
+  "libraryViewsDeleteTooltip": "Eliminar esta vista",
+  "@libraryViewsDeleteTooltip": {
+    "description": "Botón para borrar una vista guardada, en la hoja de vistas."
+  },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {
     "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."

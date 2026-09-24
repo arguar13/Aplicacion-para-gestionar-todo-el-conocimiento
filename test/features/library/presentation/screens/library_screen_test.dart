@@ -26,6 +26,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_query_n
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
@@ -1427,5 +1428,121 @@ void main() {
       expect(find.text(es.exportReferencesEmpty), findsOneWidget);
       expect(harness.fileSaver.savedFileName, isNull);
     });
+  });
+
+  group('vistas guardadas (F16, D4)', () {
+    testWidgets('sin ninguna guardada, la hoja lo avisa', (tester) async {
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byTooltip(es.libraryViewsAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.libraryViewsEmpty), findsOneWidget);
+    });
+
+    testWidgets('guardar la vista actual la deja en la lista', (tester) async {
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byTooltip(es.libraryViewsAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryViewsSaveCurrent));
+      // Sin `pumpAndSettle`: el cursor del campo autoenfocado parpadea con
+      // un temporizador propio, y unos cuadros bastan para que el diálogo
+      // termine de entrar.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.enterText(
+        find.byKey(const Key('saved-view-name-field')),
+        'Mi vista',
+      );
+      await tester.tap(find.byKey(const Key('saved-view-confirm-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.text(es.libraryViewsSavedConfirmation('Mi vista')),
+        findsOneWidget,
+      );
+      // La hoja sigue abierta —guardar no la cierra— y ya muestra la vista
+      // recién creada, sin tener que volver a abrirla.
+      expect(find.text('Mi vista'), findsOneWidget);
+    });
+
+    testWidgets('tocar una vista guardada la aplica y cierra la hoja', (
+      tester,
+    ) async {
+      await harness.capture('https://ejemplo.org/uno', title: 'Uno');
+      await pumpLibrary(tester);
+
+      await harness.container
+          .read(savedViewRepositoryProvider)
+          .create(
+            name: 'Por título',
+            query: const LibraryQuery(sortBy: LibrarySort.title),
+            viewMode: LibraryViewMode.table,
+          );
+
+      await tester.tap(find.byTooltip(es.libraryViewsAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Por título'));
+      await tester.pumpAndSettle();
+
+      // Se cerró la hoja, y el modo de vista cambió a tabla: no queda
+      // rastro de la lista de siempre.
+      expect(find.text(es.libraryViewsAction), findsNothing);
+      expect(find.byType(LibraryTableView), findsOneWidget);
+    });
+
+    testWidgets('fijar una vista la muestra primero en la hoja', (
+      tester,
+    ) async {
+      await pumpLibrary(tester);
+      final repository = harness.container.read(savedViewRepositoryProvider);
+      await repository.create(
+        name: 'Primera',
+        query: const LibraryQuery(),
+        viewMode: LibraryViewMode.list,
+      );
+      final second = await repository.create(
+        name: 'Segunda',
+        query: const LibraryQuery(),
+        viewMode: LibraryViewMode.list,
+      );
+      await repository.setPinned(second.id, pinned: true);
+
+      await tester.tap(find.byTooltip(es.libraryViewsAction));
+      await tester.pumpAndSettle();
+
+      final tiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
+      final names = [
+        for (final tile in tiles)
+          if (tile.title case Text(:final data?)) data,
+      ];
+      expect(names.indexOf('Segunda'), lessThan(names.indexOf('Primera')));
+    });
+
+    testWidgets('eliminar una vista la saca de la lista', (tester) async {
+      await pumpLibrary(tester);
+      final repository = harness.container.read(savedViewRepositoryProvider);
+      await repository.create(
+        name: 'Para borrar',
+        query: const LibraryQuery(),
+        viewMode: LibraryViewMode.list,
+      );
+
+      await tester.tap(find.byTooltip(es.libraryViewsAction));
+      await tester.pumpAndSettle();
+      expect(find.text('Para borrar'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      // Sin `pumpAndSettle`: alcanza con que la base haya quedado sin la
+      // fila, que es lo que esta prueba afirma —no hace falta esperar a que
+      // la hoja termine de acomodarse a la lista vacía.
+      await tester.pump();
+
+      final db = harness.container.read(appDatabaseProvider);
+      final rows = await db.customSelect('SELECT * FROM saved_view').get();
+      expect(rows, isEmpty);
+    }, timeout: const Timeout(Duration(seconds: 30)));
   });
 }

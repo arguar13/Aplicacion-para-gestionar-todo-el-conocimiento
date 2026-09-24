@@ -6,9 +6,12 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/library/data/repositories/saved_view_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/domain/entities/saved_view.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
+import 'package:sinapsis/features/library/domain/repositories/saved_view_repository.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de este
 /// repositorio; nunca de la base de datos directamente.
@@ -59,3 +62,18 @@ final libraryItemProvider = StreamProvider.autoDispose
     .family<KnowledgeItem?, String>((ref, id) {
       return ref.watch(libraryRepositoryProvider).watchById(id);
     });
+
+/// Cascada de inyección de las vistas guardadas (F16).
+final savedViewRepositoryProvider = Provider<SavedViewRepository>((ref) {
+  return SavedViewRepositoryImpl(
+    database: ref.watch(appDatabaseProvider),
+    telemetry: ref.watch(telemetryServiceProvider),
+    ids: ref.watch(idGeneratorProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
+
+/// Las vistas guardadas, actualizándose solas.
+final savedViewsProvider = StreamProvider.autoDispose<List<SavedView>>((ref) {
+  return ref.watch(savedViewRepositoryProvider).watchAll();
+});

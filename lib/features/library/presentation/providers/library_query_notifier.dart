@@ -98,6 +98,13 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
       state.sourceKinds.isNotEmpty ||
       state.tagIds.isNotEmpty ||
       state.processingStates.isNotEmpty;
+
+  /// Reemplaza el filtro y el orden enteros por los de una vista guardada
+  /// (F16): misma consulta que se guardó, con `limit`/`offset` propios de
+  /// esta sesión y no de la vista.
+  void apply(LibraryQuery query) {
+    state = query.copyWith(limit: pageSize, offset: 0);
+  }
 }
 
 final libraryQueryNotifierProvider =

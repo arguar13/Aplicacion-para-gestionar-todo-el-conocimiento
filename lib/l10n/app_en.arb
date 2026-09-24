@@ -1184,6 +1184,51 @@
   "@referenceFileFormatRis": {
     "description": "Name of the RIS file format, for citation managers."
   },
+  "libraryViewsAction": "Saved views",
+  "@libraryViewsAction": {
+    "description": "Library button that opens the saved views sheet (F16)."
+  },
+  "libraryViewsSaveCurrent": "Save current view",
+  "@libraryViewsSaveCurrent": {
+    "description": "Action, inside the saved views sheet, to save the filter and sort the Library is currently showing."
+  },
+  "libraryViewsEmpty": "You haven't saved any view yet.",
+  "@libraryViewsEmpty": {
+    "description": "Notice in the saved views sheet when there are none."
+  },
+  "libraryViewsSaveDialogTitle": "View name",
+  "@libraryViewsSaveDialogTitle": {
+    "description": "Title of the dialog to name a view before saving it."
+  },
+  "libraryViewsSaveDialogHint": "e.g. \"Unread, newest first\"",
+  "@libraryViewsSaveDialogHint": {
+    "description": "Example text in a new view's name field."
+  },
+  "libraryViewsSaveAction": "Save",
+  "@libraryViewsSaveAction": {
+    "description": "Confirms saving the view with the typed name."
+  },
+  "libraryViewsSavedConfirmation": "View \"{name}\" saved",
+  "@libraryViewsSavedConfirmation": {
+    "description": "Notice when a new view is saved.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "libraryViewsPinTooltip": "Pin to quick access",
+  "@libraryViewsPinTooltip": {
+    "description": "Button to pin a saved view, in the views sheet."
+  },
+  "libraryViewsUnpinTooltip": "Unpin",
+  "@libraryViewsUnpinTooltip": {
+    "description": "Button to unpin a saved view, in the views sheet."
+  },
+  "libraryViewsDeleteTooltip": "Delete this view",
+  "@libraryViewsDeleteTooltip": {
+    "description": "Button to delete a saved view, in the views sheet."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

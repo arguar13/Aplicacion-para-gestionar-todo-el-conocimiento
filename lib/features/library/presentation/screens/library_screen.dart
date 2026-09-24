@@ -27,6 +27,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_item_card
 import 'package:sinapsis/features/library/presentation/widgets/library_kanban_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
+import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
@@ -209,6 +210,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   icon: const Icon(Icons.file_download_outlined),
                   tooltip: l10n.libraryImportReferencesAction,
                   onPressed: () => importReferences(context, ref),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.bookmark_border_outlined),
+                  tooltip: l10n.libraryViewsAction,
+                  onPressed: () => showSavedViewsSheet(
+                    context,
+                    ref,
+                    currentQuery: query,
+                    currentViewMode: _viewMode,
+                    onApplyViewMode: (mode) =>
+                        setState(() => _viewMode = mode),
+                  ),
                 ),
                 // Seleccionar de a varios solo tiene sentido en la lista: en
                 // la tabla no hay casillas que ofrecer, y en el tablero
