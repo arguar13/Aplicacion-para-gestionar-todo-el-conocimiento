@@ -2120,4 +2120,41 @@ void main() {
       );
     });
   });
+
+  group('runInTransaction (F15, comando 16)', () {
+    test('lo de adentro queda guardado, todo junto', () async {
+      final a = buildItem(title: 'Uno');
+      final b = buildItem(title: 'Dos');
+
+      final result = await repository.runInTransaction(() async {
+        await repository.save(a);
+        await repository.save(b);
+        return 'listo';
+      });
+
+      expect(result, 'listo');
+      expect(
+        (await repository.findById(a.id)).getRight().toNullable()?.title,
+        'Uno',
+      );
+      expect(
+        (await repository.findById(b.id)).getRight().toNullable()?.title,
+        'Dos',
+      );
+    });
+
+    test('un fallo de adentro deshace TODO, no solo lo que faltaba', () async {
+      final a = buildItem(title: 'Se pierde con el resto');
+
+      await expectLater(
+        repository.runInTransaction(() async {
+          await repository.save(a);
+          throw StateError('algo salió mal a mitad de camino');
+        }),
+        throwsStateError,
+      );
+
+      expect((await repository.findById(a.id)).getRight().toNullable(), isNull);
+    });
+  });
 }

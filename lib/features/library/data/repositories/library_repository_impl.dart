@@ -736,6 +736,10 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }
   }
 
+  @override
+  Future<T> runInTransaction<T>(Future<T> Function() body) =>
+      _db.transaction(body);
+
   /// Borra el archivo sin dejar que un fallo del disco frustre el borrado.
   ///
   /// El usuario pidió eliminar algo y la fila ya no está: devolver un error

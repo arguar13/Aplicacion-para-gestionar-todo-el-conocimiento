@@ -128,6 +128,19 @@ void main() {
     );
   });
 
+  test('la referencia de una fuente, por DOI y por ISBN', () async {
+    await expectSearched(
+      'source_reference',
+      'SELECT item_id FROM source_reference WHERE doi = ?',
+      id,
+    );
+    await expectSearched(
+      'source_reference',
+      'SELECT item_id FROM source_reference WHERE isbn = ?',
+      id,
+    );
+  });
+
   test('los elementos por estado y tipo, y por espacio', () async {
     await expectSearched(
       'item',

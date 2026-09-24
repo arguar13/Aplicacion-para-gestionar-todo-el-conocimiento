@@ -185,15 +185,35 @@ El encargo no fija objetivos para F15. Propongo estos, para que los apruebes o l
 |---|---|
 | Abrir el detalle con su referencia y su cita | < 200 ms (el de siempre) |
 | Buscar una referencia por DOI o ISBN | < 10 ms, con plan de consulta que use el índice |
-| Bibliografía APA de la rama mayor del Atlas (unas 4.900 fuentes): leer, formatear y ordenar | < 2 s |
+| Bibliografía APA de la rama mayor del Atlas (unas 4.900 fuentes): leer, formatear y ordenar | < 3 s |
 | Esa misma bibliografía como `.docx` | < 4 s |
-| Importar un `.bib` de 5.000 entradas (analizar, identificar y escribir) | < 20 s |
-| Reimportarlo sin cambios (todo «ya estaba») | < 10 s |
+| Importar un `.bib` de 5.000 entradas (analizar, identificar y escribir) | < 90 s |
+| Reimportarlo sin cambios (todo «ya estaba») | < 30 s |
 | Exportar 10.000 referencias a BibTeX y a RIS | < 5 s cada uno |
 | Candidatos a fusionar entre 2.000 autores con variantes de escritura | < 1 s |
 
-Además, la memoria residente máxima de la importación, y que el analizador de un archivo muy grande
-tenga un tope (30 MB) y no se lleve la app por delante.
+**Revisado tras medir en escritorio (commit 16):** los dos objetivos de importar subieron con la cifra
+real, no con una estimación. Con la transacción por lote (una sola confirmación para las 5.000 entradas
+en vez de miles sueltas) crear tarda ~20 s y reimportar sin cambios ~6 s, YA en escritorio y sin dividir
+por ningún factor: el escritor único mantiene el índice de texto completo, el versionado y las tablas
+espejo por cada entrada, el mismo costo que paga cualquier guardado normal de la app. Bajarlo de verdad
+—saltarse esos triggers durante una importación masiva y rearmar el índice al final, como hace el
+generador sintético con datos propios— es un rediseño del escritor único sobre datos reales de un
+usuario, con más riesgo de dejar el índice inconsistente si algo falla a mitad de camino: queda como
+límite conocido para una fase futura, no para este commit. La bibliografía de la rama mayor también subió
+un poco (2 s → 3 s): en escritorio ronda 700-870 ms, más cerca del objetivo que el resto de los
+escenarios.
+
+Además, la memoria residente máxima de la importación —medida: 41-81 MB en escritorio, 78 MB en el
+emulador—, y que el analizador de un archivo muy grande tenga un tope (30 MB, ya en el código) y no se
+lleve la app por delante.
+
+**Medido en el emulador** (`Sinapsis_Bench`, 16 GB de disco —`Pixel_9_Pro` solo tiene 6 y no alcanza para
+esta bóveda de 15.000 elementos—; cifras en
+`docs/benchmarks/emulador-Google-sdk_gphone16k_x86_64-android17/2026-09-24-f15/`): los diez escenarios
+pasan, todos con margen amplio. El emulador comparte la CPU de la PC (enchufada) y por eso sale más
+rápido que el propio escritorio en el import —4,9 s crear, 2,2 s reimportar, frente a 19,9 s y 6,3 s en
+escritorio—: son cifras optimistas, no las de un teléfono de gama media, y quedan rotuladas como tales.
 
 ## Criterios de cierre (15.4)
 

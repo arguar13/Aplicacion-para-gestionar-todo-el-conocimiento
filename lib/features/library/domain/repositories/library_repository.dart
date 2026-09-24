@@ -128,4 +128,15 @@ abstract interface class LibraryRepository {
     required List<String> itemIds,
     required String? spaceId,
   });
+
+  /// Corre [body] entero dentro de UNA sola transacción.
+  ///
+  /// Para quien guarda muchos elementos con lógica propia entre cada uno
+  /// —a diferencia de [deleteMany]/[restoreMany]/[assignSpaceMany], que ya
+  /// saben qué hacer con cada uno—, como importar miles de referencias de un
+  /// `.bib` (F15): sin esto, cada [save] de adentro abre y cierra su propia
+  /// transacción, y miles de confirmaciones sueltas pesan mucho más que la
+  /// escritura en sí. Todo o nada, igual que [save]: si algo de adentro
+  /// falla, no queda nada a medias.
+  Future<T> runInTransaction<T>(Future<T> Function() body);
 }

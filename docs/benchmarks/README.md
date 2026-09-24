@@ -26,6 +26,9 @@ misma fecha tiene dos corridas de fases distintas, como `2026-09-21-f13`—:
         latest_backup_report.md     armar y abrir la copia
         latest_backup_saf_report.md guardar la copia y elegirla con los selectores
                                     del sistema (solo con -SaveToFolder)
+        latest_reference_report.md  F15: la bóveda con referencias —detalle, búsqueda
+                                    por DOI/ISBN, bibliografía de una rama, importar y
+                                    exportar en lote, candidatos entre autores—
         dispositivo.md              el equipo exacto y cómo estaba al empezar
 
 `<equipo>` es `<fabricante>-<modelo>-android<versión>` para un teléfono,
@@ -164,6 +167,34 @@ En pantalla, los temas son esos, y todo lo demás —el tablero, el esquema, los
 elementos de un tema— sale de la base: `StructuredMapRepository` reemplaza solo la
 lectura del grafo de temas. Cada línea de un informe dice cuál usó: «(base)» es la del
 azar.
+
+## La bóveda con referencias (F15)
+
+`test/benchmark/reference_benchmark.dart` mide lo que agrega la biblioteca
+académica: abrir el detalle de una fuente con su referencia y su cita, buscar
+por DOI o por ISBN, la bibliografía APA de una rama grande del Atlas —como
+texto y como `.docx`—, los candidatos a fusionar entre los autores del
+vocabulario, importar un `.bib` de 5.000 entradas y reimportarlo sin cambios,
+y exportar 10.000 referencias a BibTeX y a RIS. También deja constancia de la
+memoria residente durante la importación.
+
+Es una **capa aparte, con su propia semilla** (`_seedReferenceLayer`), no la
+misma bóveda de 10.000 elementos de los demás escenarios: para tener 10.000
+FUENTES con referencia hacen falta bastantes más de 10.000 elementos en
+total —las fuentes son el 72 % de la bóveda sintética—, así que arma la suya
+propia de 15.000. Se cachea igual que la de siempre
+(`vault_s<esquema>_g<generador>_15000.sqlite`, más un archivo `.ok` propio
+para la capa) y no toca nada de lo que el benchmark de siempre mide.
+
+    flutter test test/benchmark/reference_benchmark_test.dart \
+      --dart-define=BENCH=true --timeout none
+
+    tool/bench_android.ps1 -Target reference_benchmark_test -Label f15
+
+Que una consulta por DOI o por ISBN entre por su índice, y no por un
+recorrido de la tabla, es un caso más de `query_plans_test.dart` —corre
+siempre, no hace falta el `--dart-define`—: eso no necesita 10.000 filas para
+comprobarse, solo el esquema.
 
 ## Cómo se mide en escritorio
 

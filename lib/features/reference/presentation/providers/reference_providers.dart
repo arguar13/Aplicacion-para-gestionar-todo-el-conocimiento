@@ -93,6 +93,7 @@ final attachReferenceFileUseCaseProvider = Provider<AttachReferenceFileUseCase>(
 final importReferencesFileUseCaseProvider =
     Provider<ImportReferencesFileUseCase>(
       (ref) => ImportReferencesFileUseCase(
+        library: ref.watch(libraryRepositoryProvider),
         identity: ref.watch(referenceIdentityRepositoryProvider),
         fuzzyMatch: ref.watch(referenceFuzzyMatchRepositoryProvider),
         importEntry: ref.watch(importReferenceEntryUseCaseProvider),

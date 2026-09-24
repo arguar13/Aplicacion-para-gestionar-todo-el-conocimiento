@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/imported_reference.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/reference/domain/entities/reference_fuzzy_index.dart';
 import 'package:sinapsis/features/reference/domain/entities/reference_identity_index.dart';
 import 'package:sinapsis/features/reference/domain/entities/reference_import_report.dart';
@@ -27,21 +28,40 @@ import 'package:sinapsis/features/reference/domain/usecases/import_reference_ent
 /// entenderse, eso ya lo filtró el analizador— se cuenta como saltada y NO
 /// aborta el resto: miles de referencias no pueden depender de que la
 /// primera mala tire abajo todo el archivo.
+///
+/// El archivo entero entra en UNA sola transacción
+/// (`LibraryRepository.runInTransaction`, F15, comando 16): guardar cada
+/// entrada por separado —cada una con su propio `save`, su propia
+/// confirmación— es lo que hacía que importar 5.000 entradas tardara más de
+/// 20 s incluso en escritorio. Un fallo de verdad inesperado —no una entrada
+/// saltada, que ya se maneja arriba y nunca llega a lanzar— deshace el
+/// archivo entero: mejor eso que una importación a medias sin que nadie lo
+/// haya pedido.
 class ImportReferencesFileUseCase {
   ImportReferencesFileUseCase({
+    required LibraryRepository library,
     required ReferenceIdentityRepository identity,
     required ReferenceFuzzyMatchRepository fuzzyMatch,
     required ImportReferenceEntryUseCase importEntry,
     required AttachReferenceFileUseCase attachFile,
-  }) : _identity = identity,
+  }) : _library = library,
+       _identity = identity,
        _fuzzyMatch = fuzzyMatch,
        _importEntry = importEntry,
        _attachFile = attachFile;
 
+  final LibraryRepository _library;
   final ReferenceIdentityRepository _identity;
   final ReferenceFuzzyMatchRepository _fuzzyMatch;
   final ImportReferenceEntryUseCase _importEntry;
   final AttachReferenceFileUseCase _attachFile;
+
+  /// Un `.bib`/`.ris` más grande que esto no se analiza (F15, criterio de
+  /// cierre): el analizador arma un árbol de entradas en memoria varias veces
+  /// más grande que el texto, y un archivo de cientos de MB —el tope general
+  /// de `CapturedFile.maxBytes`— se llevaría la app por delante antes de
+  /// terminar de leerlo entero.
+  static const maxBytes = 30 * 1024 * 1024;
 
   Future<Either<Failure, ReferenceImportReport>> call(
     List<CapturedFile> files, {
@@ -55,27 +75,40 @@ class ImportReferencesFileUseCase {
         ),
       );
     }
+    if (bibliographyFile.bytes.length > maxBytes) {
+      return left(
+        const Failure.validation(
+          message:
+              'El archivo pesa más de $maxBytes bytes: es demasiado '
+              'grande para analizarlo entero.',
+        ),
+      );
+    }
     final attachments = [
       for (final file in files)
         if (file != bibliographyFile) file,
     ];
 
     final (entries, skipped) = _parse(bibliographyFile);
-    final index = await _identity.buildIndex();
-    final fuzzyIndex = await _fuzzyMatch.buildIndex();
 
-    var report = ReferenceImportReport(skipped: skipped);
-    for (final entry in entries) {
-      report =
-          report +
-          await _importOne(
-            entry,
-            index,
-            fuzzyIndex,
-            attachments,
-            prioritizeIncoming: prioritizeIncoming,
-          );
-    }
+    final report = await _library.runInTransaction(() async {
+      final index = await _identity.buildIndex();
+      final fuzzyIndex = await _fuzzyMatch.buildIndex();
+
+      var report = ReferenceImportReport(skipped: skipped);
+      for (final entry in entries) {
+        report =
+            report +
+            await _importOne(
+              entry,
+              index,
+              fuzzyIndex,
+              attachments,
+              prioritizeIncoming: prioritizeIncoming,
+            );
+      }
+      return report;
+    });
     return right(report);
   }
 

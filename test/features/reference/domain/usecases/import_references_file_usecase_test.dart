@@ -74,6 +74,7 @@ void main() {
       clock: () => now,
     );
     useCase = ImportReferencesFileUseCase(
+      library: library,
       identity: ReferenceIdentityRepositoryImpl(db),
       fuzzyMatch: ReferenceFuzzyMatchRepositoryImpl(db),
       importEntry: ImportReferenceEntryUseCase(
@@ -163,6 +164,17 @@ ER  -
 
   test('ninguno de los archivos elegidos es .bib ni .ris: falla', () async {
     final result = await useCase([_textFile('imagen.png', 'no es esto')]);
+
+    expect(result.isLeft(), isTrue);
+  });
+
+  test('un .bib más grande que el tope no se analiza', () async {
+    final huge = _textFile(
+      'enorme.bib',
+      'x' * (ImportReferencesFileUseCase.maxBytes + 1),
+    );
+
+    final result = await useCase([huge]);
 
     expect(result.isLeft(), isTrue);
   });
