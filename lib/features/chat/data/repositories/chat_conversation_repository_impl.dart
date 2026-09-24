@@ -32,9 +32,7 @@ class ChatConversationRepositoryImpl implements ChatConversationRepository {
   final Clock _clock;
 
   @override
-  Stream<List<ChatConversation>> watchConversations(
-    ChatConversationMode mode,
-  ) {
+  Stream<List<ChatConversation>> watchConversations(ChatConversationMode mode) {
     return watchQuery(
       db: _db,
       tables: [_db.conversations],
@@ -76,14 +74,16 @@ class ChatConversationRepositoryImpl implements ChatConversationRepository {
 
   @override
   Future<ChatConversation> createConversation(
-    ChatConversationMode mode,
-  ) async {
+    ChatConversationMode mode, {
+    String? notebookId,
+  }) async {
     final now = _clock();
     final conversation = ChatConversation(
       id: _ids.next(),
       mode: mode,
       createdAt: now,
       updatedAt: now,
+      notebookId: mode == ChatConversationMode.vault ? notebookId : null,
     );
 
     await _db
@@ -94,6 +94,7 @@ class ChatConversationRepositoryImpl implements ChatConversationRepository {
             mode: conversation.mode,
             createdAt: conversation.createdAt,
             updatedAt: conversation.updatedAt,
+            notebookId: Value(conversation.notebookId),
           ),
         );
 
@@ -167,6 +168,7 @@ class ChatConversationRepositoryImpl implements ChatConversationRepository {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         title: row.title,
+        notebookId: row.notebookId,
       );
 
   PersistedChatMessage _messageToEntity(ChatMessageRow row) =>

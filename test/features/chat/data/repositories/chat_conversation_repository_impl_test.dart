@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
@@ -37,6 +38,24 @@ void main() {
 
   tearDown(() => db.close());
 
+  /// Un cuaderno mínimo, para las pruebas que necesitan una fila de verdad
+  /// —la clave foránea de `notebookId` la exige—.
+  Future<String> seedNotebook() async {
+    const id = 'nb-1';
+    await db
+        .into(db.notebooks)
+        .insert(
+          NotebooksCompanion.insert(
+            id: id,
+            name: 'Cuaderno de prueba',
+            mode: NotebookMode.manual,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return id;
+  }
+
   group('createConversation', () {
     test('crea una conversación vacía del modo pedido', () async {
       final conversation = await repository.createConversation(
@@ -48,7 +67,38 @@ void main() {
       expect(conversation.title, isNull);
       expect(conversation.createdAt, now);
       expect(conversation.updatedAt, now);
+      expect(conversation.notebookId, isNull);
     });
+
+    test('con un cuaderno, lo recuerda y lo devuelve al leerla de nuevo '
+        '(F16, D1)', () async {
+      final notebookId = await seedNotebook();
+
+      final conversation = await repository.createConversation(
+        ChatConversationMode.vault,
+        notebookId: notebookId,
+      );
+
+      expect(conversation.notebookId, notebookId);
+      final reloaded = await repository
+          .watchConversations(ChatConversationMode.vault)
+          .first;
+      expect(reloaded.single.notebookId, notebookId);
+    });
+
+    test(
+      'en modo libre, el cuaderno se ignora: el concepto no aplica',
+      () async {
+        final notebookId = await seedNotebook();
+
+        final conversation = await repository.createConversation(
+          ChatConversationMode.free,
+          notebookId: notebookId,
+        );
+
+        expect(conversation.notebookId, isNull);
+      },
+    );
   });
 
   group('watchConversations', () {

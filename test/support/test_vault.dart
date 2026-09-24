@@ -20,6 +20,7 @@ import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -511,13 +512,31 @@ class TestVault {
       );
 
   /// Una conversación con la hora de esta bóveda.
-  Future<void> addConversation(String id, {String? title}) => db
+  Future<void> addConversation(
+    String id, {
+    String? title,
+    String? notebookId,
+  }) => db
       .into(db.conversations)
       .insert(
         ConversationsCompanion.insert(
           id: id,
           mode: ChatConversationMode.vault,
           title: Value(title),
+          notebookId: Value(notebookId),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+  /// Un cuaderno manual con la hora de esta bóveda (F16).
+  Future<void> addNotebook(String id, {String name = 'Cuaderno'}) => db
+      .into(db.notebooks)
+      .insert(
+        NotebooksCompanion.insert(
+          id: id,
+          name: name,
+          mode: NotebookMode.manual,
           createdAt: now,
           updatedAt: now,
         ),

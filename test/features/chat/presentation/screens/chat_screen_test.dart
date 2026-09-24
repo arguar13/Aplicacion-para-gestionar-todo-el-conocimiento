@@ -3,8 +3,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -430,6 +434,108 @@ void main() {
 
       expect(find.text(es.chatHistoryEmpty), findsOneWidget);
       expect(find.text(es.chatEmptyExplanation), findsOneWidget);
+    });
+  });
+
+  group('acotar a un cuaderno (F16, D1)', () {
+    Future<void> selectScope(WidgetTester tester, String label) async {
+      await tester.tap(find.byKey(const Key('chat-notebook-scope')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    /// Dos elementos que la búsqueda de texto encuentra a los dos —los
+    /// títulos comparten la palabra "cuaderno"—, y un cuaderno manual que
+    /// solo tiene el primero: lo que distingue "encontrado por texto" de
+    /// "adentro del alcance".
+    Future<String> seedScopedNotebook(WidgetTester tester) async {
+      await harness.capture('Adentro del cuaderno');
+      await harness.capture('Afuera del cuaderno');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final inside = items.firstWhere((i) => i.title == 'Adentro del cuaderno');
+
+      final notebook = await harness.container
+          .read(notebookRepositoryProvider)
+          .create(name: 'Mi cuaderno', mode: NotebookMode.manual);
+      await harness.container
+          .read(notebookRepositoryProvider)
+          .addItem(notebookId: notebook.id, itemId: inside.id);
+      await tester.pumpAndSettle();
+      return notebook.id;
+    }
+
+    testWidgets('en modo libre no hay selector de cuaderno', (tester) async {
+      await pumpChat(tester);
+      await tester.tap(find.text(es.chatModeFree));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('chat-notebook-scope')), findsNothing);
+    });
+
+    testWidgets('elegir un cuaderno acota qué fuentes llegan al modelo', (
+      tester,
+    ) async {
+      await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
+      await seedScopedNotebook(tester);
+
+      await selectScope(tester, 'Mi cuaderno');
+      await send(tester, 'cuaderno');
+
+      final sent =
+          harness.chatModel.vaultConversations.single.sentSources.single;
+      expect(sent.map((s) => s.itemTitle), ['Adentro del cuaderno']);
+    });
+
+    testWidgets(
+      'cambiar de cuaderno con la conversación en curso arranca una nueva',
+      (tester) async {
+        await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
+        await seedScopedNotebook(tester);
+
+        await selectScope(tester, 'Mi cuaderno');
+        await send(tester, 'cuaderno');
+        await selectScope(tester, es.chatNotebookScopeAll);
+        await send(tester, 'cuaderno');
+
+        expect(harness.chatModel.vaultConversations, hasLength(2));
+        expect(harness.chatModel.vaultConversations.first.closed, isTrue);
+        // Sin acotar, la segunda alcanza a las dos fuentes.
+        expect(
+          harness.chatModel.vaultConversations.last.sentSources.single.map(
+            (s) => s.itemTitle,
+          ),
+          containsAll(['Adentro del cuaderno', 'Afuera del cuaderno']),
+        );
+      },
+    );
+
+    testWidgets('reabrir una conversación restablece su cuaderno', (
+      tester,
+    ) async {
+      await pumpChat(tester, chatModelReady: true, chatModelResponse: 'ok');
+      await seedScopedNotebook(tester);
+
+      await selectScope(tester, 'Mi cuaderno');
+      await send(tester, 'primera conversación con cuaderno');
+
+      await selectScope(tester, es.chatNotebookScopeAll);
+      await send(tester, 'segunda conversación sin acotar');
+
+      await tester.tap(find.byIcon(Icons.history));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('primera conversación con cuaderno'));
+      await tester.pumpAndSettle();
+
+      await send(tester, 'cuaderno de nuevo');
+
+      final lastSent = harness.chatModel.vaultConversations.last.sentSources;
+      expect(lastSent.last.map((s) => s.itemTitle), ['Adentro del cuaderno']);
     });
   });
 }

@@ -18,7 +18,13 @@ abstract interface class ChatConversationRepository {
   Stream<List<PersistedChatMessage>> watchMessages(String conversationId);
 
   /// Arranca una conversación nueva y vacía, del modo que corresponda.
-  Future<ChatConversation> createConversation(ChatConversationMode mode);
+  ///
+  /// [notebookId] la acota a ese cuaderno (F16, D1) — solo tiene sentido en
+  /// [ChatConversationMode.vault]; en [ChatConversationMode.free] se ignora.
+  Future<ChatConversation> createConversation(
+    ChatConversationMode mode, {
+    String? notebookId,
+  });
 
   /// Agrega un mensaje al final de su conversación.
   ///

@@ -25,7 +25,11 @@ class LibraryVaultRetriever implements VaultRetriever {
   static const _excerptLength = 400;
 
   @override
-  Future<List<ChatSource>> retrieve(String question, {int limit = 4}) async {
+  Future<List<ChatSource>> retrieve(
+    String question, {
+    int limit = 4,
+    Set<String>? scopeIds,
+  }) async {
     final terms = question
         .trim()
         .split(RegExp(r'\s+'))
@@ -59,6 +63,7 @@ class LibraryVaultRetriever implements VaultRetriever {
           searchText: term,
           sortBy: LibrarySort.relevance,
           limit: limit,
+          ids: scopeIds,
         ),
       );
       result.match((_) {}, (items) {

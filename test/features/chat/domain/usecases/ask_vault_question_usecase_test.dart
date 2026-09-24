@@ -11,10 +11,16 @@ class _FakeVaultRetriever implements VaultRetriever {
 
   final List<ChatSource> sources;
   String? lastQuestion;
+  Set<String>? lastScopeIds;
 
   @override
-  Future<List<ChatSource>> retrieve(String question, {int limit = 4}) async {
+  Future<List<ChatSource>> retrieve(
+    String question, {
+    int limit = 4,
+    Set<String>? scopeIds,
+  }) async {
     lastQuestion = question;
+    lastScopeIds = scopeIds;
     return sources;
   }
 }
@@ -81,7 +87,9 @@ void main() {
         modelManager: _FakeChatModelManager(ready: true),
       );
 
-      final result = await usecase('cualquier pregunta');
+      final result = await usecase(
+        const AskVaultQuestionParams(question: 'cualquier pregunta'),
+      );
 
       final answer = result.getRight().toNullable()!;
       expect(answer.text, isNull);
@@ -100,7 +108,9 @@ void main() {
         modelManager: _FakeChatModelManager(ready: false),
       );
 
-      final result = await usecase('una pregunta');
+      final result = await usecase(
+        const AskVaultQuestionParams(question: 'una pregunta'),
+      );
 
       final answer = result.getRight().toNullable()!;
       expect(answer.text, isNull);
@@ -118,7 +128,9 @@ void main() {
         modelManager: _FakeChatModelManager(ready: true),
       );
 
-      final result = await usecase('una pregunta');
+      final result = await usecase(
+        const AskVaultQuestionParams(question: 'una pregunta'),
+      );
 
       final answer = result.getRight().toNullable()!;
       expect(answer.text, 'La respuesta redactada [1].');
@@ -134,9 +146,29 @@ void main() {
       modelManager: _FakeChatModelManager(ready: true),
     );
 
-    await usecase('¿qué dice sobre esto?');
+    await usecase(
+      const AskVaultQuestionParams(question: '¿qué dice sobre esto?'),
+    );
 
     expect(retriever.lastQuestion, '¿qué dice sobre esto?');
+  });
+
+  test('el alcance de un cuaderno llega tal cual al buscador', () async {
+    final retriever = _FakeVaultRetriever([source]);
+    final usecase = AskVaultQuestionUseCase(
+      retriever: retriever,
+      model: _FakeChatModel(response: 'x'),
+      modelManager: _FakeChatModelManager(ready: true),
+    );
+
+    await usecase(
+      const AskVaultQuestionParams(
+        question: 'una pregunta',
+        scopeIds: {'a', 'b'},
+      ),
+    );
+
+    expect(retriever.lastScopeIds, {'a', 'b'});
   });
 
   test('un fallo del motor de inferencia se traduce a un Failure', () async {
@@ -146,7 +178,9 @@ void main() {
       modelManager: _FakeChatModelManager(ready: true),
     );
 
-    final result = await usecase('una pregunta');
+    final result = await usecase(
+      const AskVaultQuestionParams(question: 'una pregunta'),
+    );
 
     expect(result.getLeft().toNullable(), isA<UnexpectedFailure>());
   });

@@ -27,5 +27,9 @@ sealed class ChatConversation with _$ChatConversation {
     /// primera línea de la charla. Antes de eso, la pantalla muestra algo
     /// como "Nueva conversación" sin necesidad de guardar ese texto.
     String? title,
+
+    /// A qué cuaderno queda acotada (F16, D1). `null` es «toda la bóveda» —
+    /// el único valor posible en modo `free`, donde el concepto no aplica.
+    String? notebookId,
   }) = _ChatConversation;
 }

@@ -12,5 +12,12 @@ import 'package:sinapsis/core/domain/entities/chat_source.dart';
 abstract interface class VaultRetriever {
   /// Los fragmentos más relevantes para [question], como mucho [limit].
   /// Lista vacía si nada de la bóveda se relaciona con lo preguntado.
-  Future<List<ChatSource>> retrieve(String question, {int limit = 4});
+  ///
+  /// [scopeIds] acota la búsqueda a esos elementos y a ningún otro (F16,
+  /// D1) — lo que un cuaderno resuelve—; `null` es "toda la bóveda".
+  Future<List<ChatSource>> retrieve(
+    String question, {
+    int limit = 4,
+    Set<String>? scopeIds,
+  });
 }

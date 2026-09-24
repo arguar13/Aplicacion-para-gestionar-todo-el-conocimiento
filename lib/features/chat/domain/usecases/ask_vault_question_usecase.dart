@@ -12,7 +12,8 @@ import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 /// Las dos mitades de RAG están separadas a propósito —`VaultRetriever` y
 /// `ChatModel`, ver la decisión 20 en docs/arquitectura.md— y este caso de
 /// uso es lo único que las conoce a las dos a la vez.
-class AskVaultQuestionUseCase implements UseCase<ChatAnswer, String> {
+class AskVaultQuestionUseCase
+    implements UseCase<ChatAnswer, AskVaultQuestionParams> {
   const AskVaultQuestionUseCase({
     required VaultRetriever retriever,
     required ChatModel model,
@@ -26,8 +27,14 @@ class AskVaultQuestionUseCase implements UseCase<ChatAnswer, String> {
   final ChatModelManager _modelManager;
 
   @override
-  Future<Either<Failure, ChatAnswer>> call(String question) async {
-    final sources = await _retriever.retrieve(question);
+  Future<Either<Failure, ChatAnswer>> call(
+    AskVaultQuestionParams params,
+  ) async {
+    final question = params.question;
+    final sources = await _retriever.retrieve(
+      question,
+      scopeIds: params.scopeIds,
+    );
 
     // Sin ninguna fuente, no hay nada que contestar — ni el modelo de
     // lenguaje más grande inventa un dato que no está en la bóveda sin que
@@ -55,4 +62,14 @@ class AskVaultQuestionUseCase implements UseCase<ChatAnswer, String> {
       return left(Failure.unexpected(message: e.toString()));
     }
   }
+}
+
+class AskVaultQuestionParams {
+  const AskVaultQuestionParams({required this.question, this.scopeIds});
+
+  final String question;
+
+  /// Acota la búsqueda a estos elementos (F16, D1) — lo que un cuaderno
+  /// resuelve—; `null` es "toda la bóveda".
+  final Set<String>? scopeIds;
 }

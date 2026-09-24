@@ -93,6 +93,7 @@ const kConversationColumns = [
   'id',
   'mode',
   'title',
+  'notebook_id',
   'created_at',
   'updated_at',
 ];
@@ -218,6 +219,11 @@ class SetUnionMerge {
          SELECT 1 FROM main.merged_provenances m WHERE m.id = x.id)''',
     );
 
+    // Los cuadernos son de un dispositivo (F16): no viajan en la fusión, así
+    // que casi ningún `notebook_id` de la copia va a existir acá. Igual que
+    // `source_chunk_id` más arriba, se conserva solo si por coincidencia ya
+    // existe localmente; si no, la conversación entra sin acotar en vez de
+    // dejar una clave rota.
     final conversations = await _union(
       _db.conversations,
       'conversations',
@@ -225,6 +231,11 @@ class SetUnionMerge {
       '''
       FROM $_incoming.conversations x
      WHERE NOT EXISTS (SELECT 1 FROM main.conversations m WHERE m.id = x.id)''',
+      select: {
+        'notebook_id':
+            'CASE WHEN EXISTS (SELECT 1 FROM main.notebook n '
+            'WHERE n.id = x.notebook_id) THEN x.notebook_id END',
+      },
     );
     // Una conversación que las dos tienen: queda la fecha más reciente.
     await _db.customUpdate(

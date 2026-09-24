@@ -2521,6 +2521,10 @@
   "@chatModeFree": {
     "description": "Nombre del modo de chat que conversa libremente con el modelo, sin buscar en la bóveda."
   },
+  "chatNotebookScopeAll": "Toda la bóveda",
+  "@chatNotebookScopeAll": {
+    "description": "Opción del selector de cuaderno del chat que no acota a ninguno (F16, D1)."
+  },
   "chatNewConversationTooltip": "Nueva conversación",
   "@chatNewConversationTooltip": {
     "description": "Tooltip del botón que reinicia el historial de la conversación libre."

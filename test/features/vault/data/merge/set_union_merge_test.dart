@@ -300,6 +300,38 @@ void main() {
       );
     });
 
+    test('una conversación acotada a un cuaderno que no existe acá entra sin '
+        'acotar, no con una clave rota (F16)', () async {
+      pc.at(5);
+      await pc.addNotebook('nb-1');
+      await pc.addConversation('c1', notebookId: 'nb-1');
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.conversationsAdded, 1);
+      expect(
+        (await tel.db.select(tel.db.conversations).getSingle()).notebookId,
+        isNull,
+      );
+    });
+
+    test('una conversación acotada a un cuaderno que también existe acá lo '
+        'conserva (F16)', () async {
+      pc.at(5);
+      await pc.addNotebook('nb-1');
+      await pc.addConversation('c1', notebookId: 'nb-1');
+
+      tel.at(9);
+      await tel.addNotebook('nb-1');
+      await tel.mergeFrom(pc);
+
+      expect(
+        (await tel.db.select(tel.db.conversations).getSingle()).notebookId,
+        'nb-1',
+      );
+    });
+
     test('una conversación de las dos junta los mensajes y queda la fecha más '
         'reciente', () async {
       tel.at(1);

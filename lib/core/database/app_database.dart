@@ -146,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 24;
+  static const currentSchemaVersion = 25;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -403,6 +403,25 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(notebooks);
           await migrator.createTable(notebookItems);
           await _requireSameCounts(before, step: 'v24', tables: tables);
+        }
+        // El chat se acota a un cuaderno (F16): una conversación recuerda a
+        // cuál. Una columna nueva y nula en `Conversations`, ninguna fila
+        // existente cambia —`null` sigue significando «toda la bóveda», lo
+        // que ya valía antes de que la columna existiera—. Los conteos de
+        // lo anterior, cuadernos incluidos —ya existen desde v24—, son la
+        // compuerta.
+        if (from < 25) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.addColumn(conversations, conversations.notebookId);
+          await _requireSameCounts(before, step: 'v25', tables: tables);
         }
       });
     },

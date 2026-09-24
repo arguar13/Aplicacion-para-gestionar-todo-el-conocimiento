@@ -128,42 +128,68 @@ void main() {
     expect(sources.single.excerpt, endsWith('…'));
   });
 
-  test(
-    'una pregunta larga en lenguaje natural encuentra igual lo que '
-    'menciona una sola de sus palabras',
-    () async {
-      // Es el caso real que falla si la pregunta se busca como una sola
-      // consulta con AND implícito entre sus palabras (ver `buildSearchQuery`):
-      // ninguna nota real contiene las quince palabras exactas de la
-      // pregunta, pero sí menciona "religión".
-      await seed(
-        'Sobre la fe',
-        content: 'Un texto que habla de religión y de historia.',
-      );
-      await seed('Receta de cocina', content: 'Ingredientes y pasos.');
+  test('una pregunta larga en lenguaje natural encuentra igual lo que '
+      'menciona una sola de sus palabras', () async {
+    // Es el caso real que falla si la pregunta se busca como una sola
+    // consulta con AND implícito entre sus palabras (ver `buildSearchQuery`):
+    // ninguna nota real contiene las quince palabras exactas de la
+    // pregunta, pero sí menciona "religión".
+    await seed(
+      'Sobre la fe',
+      content: 'Un texto que habla de religión y de historia.',
+    );
+    await seed('Receta de cocina', content: 'Ingredientes y pasos.');
+
+    final sources = await retriever.retrieve(
+      'Contame qué dice mi bóveda sobre religión, por favor',
+    );
+
+    expect(sources, hasLength(1));
+    expect(sources.single.itemTitle, 'Sobre la fe');
+  });
+
+  test('un elemento que menciona varias palabras de la pregunta queda antes '
+      'que uno que solo menciona una', () async {
+    await seed(
+      'Habla de las dos cosas',
+      content: 'Se explican la religión y la filosofía juntas.',
+    );
+    await seed('Solo una de las dos', content: 'Se explica la religión.');
+
+    final sources = await retriever.retrieve('religión filosofía');
+
+    expect(sources.first.itemTitle, 'Habla de las dos cosas');
+  });
+
+  group('scopeIds (F16, D1: acotar a un cuaderno)', () {
+    test('sin alcance, busca en toda la bóveda', () async {
+      await seed('Charla sobre paradigmas científicos');
+      await seed('Otro paradigma distinto');
+
+      final sources = await retriever.retrieve('paradigma');
+
+      expect(sources, hasLength(2));
+    });
+
+    test('con alcance, ignora lo que coincide pero está afuera', () async {
+      await seed('Charla sobre paradigmas científicos');
+      await seed('Otro paradigma distinto');
 
       final sources = await retriever.retrieve(
-        'Contame qué dice mi bóveda sobre religión, por favor',
+        'paradigma',
+        scopeIds: {'item-0'},
       );
 
       expect(sources, hasLength(1));
-      expect(sources.single.itemTitle, 'Sobre la fe');
-    },
-  );
+      expect(sources.single.itemId, 'item-0');
+    });
 
-  test(
-    'un elemento que menciona varias palabras de la pregunta queda antes '
-    'que uno que solo menciona una',
-    () async {
-      await seed(
-        'Habla de las dos cosas',
-        content: 'Se explican la religión y la filosofía juntas.',
-      );
-      await seed('Solo una de las dos', content: 'Se explica la religión.');
+    test('un alcance vacío no encuentra nada, aunque algo coincida', () async {
+      await seed('Charla sobre paradigmas científicos');
 
-      final sources = await retriever.retrieve('religión filosofía');
+      final sources = await retriever.retrieve('paradigma', scopeIds: {});
 
-      expect(sources.first.itemTitle, 'Habla de las dos cosas');
-    },
-  );
+      expect(sources, isEmpty);
+    });
+  });
 }

@@ -3049,6 +3049,7 @@
   },
   "chatModeVault": "With my vault",
   "chatModeFree": "Free conversation",
+  "chatNotebookScopeAll": "Whole vault",
   "chatNewConversationTooltip": "New conversation",
   "chatFreeModelRequired": "Free conversation needs the language model downloaded: there's no search fallback here, unlike the vault mode.",
   "chatFreeEmptyExplanation": "Chat with the language model like with any assistant: it won't search your vault here, just talk.",
