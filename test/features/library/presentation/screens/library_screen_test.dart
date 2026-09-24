@@ -956,6 +956,43 @@ void main() {
       expect(delete.onPressed, isNull);
     });
 
+    testWidgets('sin nada elegido, la bibliografía está deshabilitada (F15)', (
+      tester,
+    ) async {
+      await harness.capture('Uno');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.checklist));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Icons.format_quote_outlined),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets('exporta la bibliografía de lo elegido (F15, D13)', (
+      tester,
+    ) async {
+      // Un texto suelto se captura como nota, que no cita nada de sí misma:
+      // hace falta una fuente de verdad para que la bibliografía no salga
+      // vacía.
+      await harness.capture('https://ejemplo.org/uno', title: 'Uno');
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.format_quote_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.fileSaver.savedFileName,
+        '${es.bibliographyExportSelectionName}.md',
+      );
+    });
+
     testWidgets('mueve lo elegido a un tema y confirma, de una vez', (
       tester,
     ) async {
@@ -1164,6 +1201,48 @@ void main() {
       expect(find.textContaining('Sin clasificar todavía'), findsOneWidget);
       expect(find.textContaining('Ya tiene espacio'), findsOneWidget);
     });
+
+    testWidgets('la columna de un espacio exporta su bibliografía (F15, D13)', (
+      tester,
+    ) async {
+      await harness.capture('https://ejemplo.org/un-articulo');
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace('Filosofía'))
+              .getRight()
+              .toNullable()!;
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpace(itemId: items.single.id, spaceId: space.id);
+
+      await pumpLibrary(tester);
+      await switchView(tester, es.libraryViewKanban);
+      await tester.tap(find.byIcon(Icons.format_quote_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'Filosofía.md');
+    });
+
+    testWidgets(
+      'la columna "sin clasificar" no ofrece bibliografía: no es un espacio',
+      (tester) async {
+        await harness.capture('Uno');
+        await pumpLibrary(tester);
+
+        await switchView(tester, es.libraryViewKanban);
+
+        expect(find.byIcon(Icons.format_quote_outlined), findsNothing);
+      },
+    );
   });
 
   group('paginación', () {

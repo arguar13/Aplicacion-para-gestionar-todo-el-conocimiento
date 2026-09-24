@@ -645,6 +645,26 @@
   "@exportFormatDocx": {
     "description": "Nombre del formato de exportación .docx, para abrir en Word o similares."
   },
+  "bibliographyExportAction": "Bibliografía",
+  "@bibliographyExportAction": {
+    "description": "Botón o entrada de menú que exporta la bibliografía de un espacio, una rama del Atlas, una nota o una selección (F15, D13)."
+  },
+  "bibliographyExportChooseFormat": "Elegir el formato de la bibliografía",
+  "@bibliographyExportChooseFormat": {
+    "description": "Encabezado de la hoja donde se elige en qué formato guardar una bibliografía."
+  },
+  "bibliographyExportEmpty": "No hay nada que citar todavía.",
+  "@bibliographyExportEmpty": {
+    "description": "Aviso al pedir la bibliografía de algo que no cita, ni tiene, ninguna fuente."
+  },
+  "bibliographyExportFailed": "No se pudo exportar la bibliografía.",
+  "@bibliographyExportFailed": {
+    "description": "Aviso cuando armar o guardar una bibliografía falla."
+  },
+  "bibliographyExportSelectionName": "Bibliografía",
+  "@bibliographyExportSelectionName": {
+    "description": "Nombre sugerido para el archivo de la bibliografía de una selección de la Biblioteca, que no tiene un único título propio como un espacio o una nota."
+  },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {
     "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."

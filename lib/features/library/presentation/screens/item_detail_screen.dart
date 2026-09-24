@@ -21,6 +21,7 @@ import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
+import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
 import 'package:sinapsis/features/duplicates/domain/entities/merged_provenance.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
@@ -75,6 +76,10 @@ class ItemDetailScreen extends ConsumerWidget {
         actions: [
           if (item.valueOrNull != null) ...[
             _ExportButton(item: item.valueOrNull!),
+            // Solo una nota cita algo —F15, D13—: una fuente no tiene
+            // bibliografía propia que exportar.
+            if (item.valueOrNull!.source.kind == SourceKind.manualNote)
+              _BibliographyButton(item: item.valueOrNull!),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
@@ -154,6 +159,40 @@ class _ExportButton extends ConsumerWidget {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
     }, (_) {});
+  }
+}
+
+/// La bibliografía de lo que cita esta nota, sola (F15, D13): distinto de
+/// exportar la nota —que ya la lleva al pie, sin este botón— porque a veces
+/// lo único que hace falta es la lista de fuentes, sin el resto del texto.
+class _BibliographyButton extends ConsumerWidget {
+  const _BibliographyButton({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return IconButton(
+      icon: const Icon(Icons.format_quote_outlined),
+      tooltip: l10n.bibliographyExportAction,
+      onPressed: () => _export(context, ref),
+    );
+  }
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final sources = await ref
+        .read(bibliographyRepositoryProvider)
+        .sourcesCitedBy(item.id);
+    if (!context.mounted) return;
+
+    await exportBibliography(
+      context,
+      ref,
+      sources: sources,
+      suggestedName: item.title,
+    );
   }
 }
 

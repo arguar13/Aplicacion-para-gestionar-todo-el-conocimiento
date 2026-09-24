@@ -362,6 +362,26 @@ void main() {
     );
   });
 
+  testWidgets('«Bibliografía» del menú exporta las fuentes de la rama '
+      '(F15, D13)', (tester) async {
+    await seed();
+    await pump(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: node('roma'),
+        matching: find.byType(PopupMenuButton<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(es.bibliographyExportAction));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(es.exportFormatMarkdown));
+    await tester.pumpAndSettle();
+
+    expect(harness.fileSaver.savedFileName, 'Roma.md');
+  });
+
   testWidgets('una rama sin subtemas abre su material al tocarla', (
     tester,
   ) async {

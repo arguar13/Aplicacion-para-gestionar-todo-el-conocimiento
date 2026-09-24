@@ -18,7 +18,8 @@ const _maxMapNoteChips = 2;
 /// que la app distingue una de otra—, el estado de cobertura, el rango de
 /// fechas que cubre y sus notas mapa como puntos de entrada. Tocar la fila
 /// pliega o despliega (una rama sin subtemas abre su material); el menú y las
-/// marcas llevan al material, a la línea de tiempo y a las notas mapa.
+/// marcas llevan al material, a la línea de tiempo, a las notas mapa y a la
+/// bibliografía de la rama (F15, D13).
 ///
 /// Con el teclado: la flecha derecha despliega, la izquierda pliega, y Enter
 /// hace lo que el toque.
@@ -31,6 +32,7 @@ class BranchTile extends StatelessWidget {
     required this.onOpenMaterial,
     required this.onOpenTimeline,
     required this.onOpenNote,
+    required this.onExportBibliography,
     super.key,
   });
 
@@ -44,6 +46,9 @@ class BranchTile extends StatelessWidget {
   final VoidCallback onOpenMaterial;
   final VoidCallback onOpenTimeline;
   final void Function(String noteId) onOpenNote;
+
+  /// La bibliografía de esta rama —F15, D13—.
+  final VoidCallback onExportBibliography;
 
   KeyEventResult _onKey(KeyEvent event) {
     if (event is! KeyDownEvent || searching) return KeyEventResult.ignored;
@@ -124,6 +129,7 @@ class BranchTile extends StatelessWidget {
               onSelected: (action) {
                 if (action == _material) onOpenMaterial();
                 if (action == _timeline) onOpenTimeline();
+                if (action == _bibliography) onExportBibliography();
                 if (action.startsWith(_notePrefix)) {
                   onOpenNote(action.substring(_notePrefix.length));
                 }
@@ -138,6 +144,10 @@ class BranchTile extends StatelessWidget {
                     value: _timeline,
                     child: Text(l10n.atlasOpenTimeline),
                   ),
+                PopupMenuItem(
+                  value: _bibliography,
+                  child: Text(l10n.bibliographyExportAction),
+                ),
                 for (final note in node.mapNotes)
                   PopupMenuItem(
                     value: '$_notePrefix${note.id}',
@@ -245,6 +255,7 @@ class BranchTile extends StatelessWidget {
 
   static const _material = 'material';
   static const _timeline = 'timeline';
+  static const _bibliography = 'bibliography';
   static const _notePrefix = 'note:';
 }
 

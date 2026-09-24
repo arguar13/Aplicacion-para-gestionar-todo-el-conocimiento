@@ -1058,6 +1058,26 @@
   "exportFormatPdf": "PDF",
   "exportFormatBibtex": "BibTeX",
   "exportFormatDocx": "Word",
+  "bibliographyExportAction": "Bibliography",
+  "@bibliographyExportAction": {
+    "description": "Button or menu entry that exports the bibliography of a space, an Atlas branch, a note, or a selection (F15, D13)."
+  },
+  "bibliographyExportChooseFormat": "Choose the bibliography's format",
+  "@bibliographyExportChooseFormat": {
+    "description": "Heading of the sheet where the format to save a bibliography in is chosen."
+  },
+  "bibliographyExportEmpty": "There is nothing to cite yet.",
+  "@bibliographyExportEmpty": {
+    "description": "Notice when asking for the bibliography of something that does not cite, or have, any source."
+  },
+  "bibliographyExportFailed": "The bibliography could not be exported.",
+  "@bibliographyExportFailed": {
+    "description": "Notice when building or saving a bibliography fails."
+  },
+  "bibliographyExportSelectionName": "Bibliography",
+  "@bibliographyExportSelectionName": {
+    "description": "Suggested file name for the bibliography of a Library selection, which has no single title of its own like a space or a note."
+  },
   "@detailAuthor": {
     "description": "Author of the original content",
     "placeholders": {

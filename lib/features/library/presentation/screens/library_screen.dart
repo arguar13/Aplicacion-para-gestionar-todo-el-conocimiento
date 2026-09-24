@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
@@ -179,6 +180,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               selectedCount: _selectedIds.length,
               onCancel: _exitSelectionMode,
               onExport: () => _exportSelection(context, loadedItems),
+              onExportBibliography: _exportBibliographySelection,
               onMove: () => _moveSelection(context, spaces),
               onDelete: () => _deleteSelection(context),
             )
@@ -349,6 +351,24 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// La bibliografía de lo seleccionado (F15, D13): sin un título propio
+  /// —a diferencia de un espacio o una nota—, así que el archivo se sugiere
+  /// como «Bibliografía» a secas.
+  Future<void> _exportBibliographySelection() async {
+    final l10n = AppLocalizations.of(context)!;
+    final sources = await ref
+        .read(bibliographyRepositoryProvider)
+        .sourcesOf(_selectedIds);
+    if (!mounted) return;
+
+    await exportBibliography(
+      context,
+      ref,
+      sources: sources,
+      suggestedName: l10n.bibliographyExportSelectionName,
+    );
+  }
+
   Future<void> _moveSelection(BuildContext context, List<Space> spaces) async {
     final l10n = AppLocalizations.of(context)!;
     final count = _selectedIds.length;
@@ -410,6 +430,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.selectedCount,
     required this.onCancel,
     required this.onExport,
+    required this.onExportBibliography,
     required this.onMove,
     required this.onDelete,
   });
@@ -417,6 +438,9 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int selectedCount;
   final VoidCallback onCancel;
   final VoidCallback onExport;
+
+  /// La bibliografía de lo seleccionado —F15, D13—.
+  final VoidCallback onExportBibliography;
   final VoidCallback onMove;
   final VoidCallback onDelete;
 
@@ -453,6 +477,11 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.upload_file_outlined),
           tooltip: l10n.libraryExportSelectedTooltip,
           onPressed: hasSelection ? onExport : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.format_quote_outlined),
+          tooltip: l10n.bibliographyExportAction,
+          onPressed: hasSelection ? onExportBibliography : null,
         ),
       ],
     );

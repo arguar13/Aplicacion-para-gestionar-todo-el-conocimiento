@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
+import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
@@ -71,9 +73,31 @@ class _KanbanColumn extends ConsumerStatefulWidget {
 class _KanbanColumnState extends ConsumerState<_KanbanColumn> {
   var _highlighted = false;
 
+  /// La bibliografía de este espacio (F15, D13). Solo para un espacio de
+  /// verdad: «Sin clasificar» no es uno —no tiene con qué nombrar el
+  /// archivo, y agrupa fuentes por no tener espacio, no por tener uno en
+  /// común—.
+  Future<void> _exportBibliography() async {
+    final spaceId = widget.targetSpaceId;
+    if (spaceId == null) return;
+
+    final sources = await ref
+        .read(bibliographyRepositoryProvider)
+        .sourcesOfSpace(spaceId);
+    if (!mounted) return;
+
+    await exportBibliography(
+      context,
+      ref,
+      sources: sources,
+      suggestedName: widget.title,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       width: 260,
@@ -105,6 +129,13 @@ class _KanbanColumnState extends ConsumerState<_KanbanColumn> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+                if (widget.targetSpaceId != null)
+                  IconButton(
+                    icon: const Icon(Icons.format_quote_outlined, size: 18),
+                    tooltip: l10n.bibliographyExportAction,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _exportBibliography,
+                  ),
               ],
             ),
           ),

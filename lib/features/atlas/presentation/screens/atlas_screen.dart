@@ -17,6 +17,8 @@ import 'package:sinapsis/features/atlas/presentation/services/atlas_markdown.dar
 import 'package:sinapsis/features/atlas/presentation/widgets/branch_tile.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/coverage_meter.dart';
 import 'package:sinapsis/features/atlas/presentation/widgets/gaps_card.dart';
+import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -62,6 +64,21 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
   );
 
   void _openNote(String noteId) => context.push(RoutePaths.itemDetail(noteId));
+
+  /// La bibliografía de la rama [node]: la propia rama y todo lo que cuelga
+  /// de ella (F15, D13).
+  Future<void> _exportBibliography(AtlasNode node) async {
+    final sources = await ref
+        .read(bibliographyRepositoryProvider)
+        .sourcesOfBranch(node.valueId);
+    if (!mounted) return;
+    await exportBibliography(
+      context,
+      ref,
+      sources: sources,
+      suggestedName: node.label,
+    );
+  }
 
   /// Guarda el Atlas de [category] como un documento Markdown: una foto de
   /// ahora, para tener el índice fuera de la app.
@@ -221,6 +238,7 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
           onOpenMaterial: _openMaterial,
           onOpenTimeline: _openTimeline,
           onOpenNote: _openNote,
+          onExportBibliography: _exportBibliography,
         );
       },
     );
@@ -255,6 +273,7 @@ class _AtlasList extends StatelessWidget {
     required this.onOpenMaterial,
     required this.onOpenTimeline,
     required this.onOpenNote,
+    required this.onExportBibliography,
   });
 
   final AtlasSnapshot snapshot;
@@ -265,6 +284,7 @@ class _AtlasList extends StatelessWidget {
   final void Function(String valueId) onOpenMaterial;
   final void Function(AtlasNode node) onOpenTimeline;
   final void Function(String noteId) onOpenNote;
+  final void Function(AtlasNode node) onExportBibliography;
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +316,7 @@ class _AtlasList extends StatelessWidget {
           onOpenMaterial: () => onOpenMaterial(node.valueId),
           onOpenTimeline: () => onOpenTimeline(node),
           onOpenNote: onOpenNote,
+          onExportBibliography: () => onExportBibliography(node),
         );
       },
     );

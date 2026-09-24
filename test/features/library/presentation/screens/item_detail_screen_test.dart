@@ -2177,6 +2177,53 @@ void main() {
       expect(find.text(es.globalErrorExportFailed), findsOneWidget);
     });
   });
+
+  group('bibliografía (F15, D13)', () {
+    testWidgets('una fuente no ofrece el botón: no cita, es citada', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('https://ejemplo.org/una-fuente');
+
+      await pumpDetail(tester, id);
+
+      expect(find.byIcon(Icons.format_quote_outlined), findsNothing);
+    });
+
+    testWidgets('una nota que no cita nada lo avisa al tocarlo', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('una nota sin fuentes');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byIcon(Icons.format_quote_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.bibliographyExportEmpty), findsOneWidget);
+    });
+
+    testWidgets('una nota que cita exporta la bibliografía de lo citado', (
+      tester,
+    ) async {
+      final note = await captureAndGetId('una nota que cita');
+      final source = await captureAndGetId('https://ejemplo.org/una-fuente');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createRelation(
+            fromItemId: note,
+            toItemId: source,
+            kind: RelationKind.cites,
+          );
+
+      await pumpDetail(tester, note);
+      await tester.tap(find.byIcon(Icons.format_quote_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'una nota que cita.md');
+      expect(harness.fileSaver.savedBytes, isNotNull);
+    });
+  });
 }
 
 /// Devuelve siempre los mismos borradores, sin tocar ningún modelo.
