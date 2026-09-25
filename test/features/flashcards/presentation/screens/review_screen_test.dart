@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
+import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -46,6 +48,10 @@ void main() {
               (ref) => ExportFlashcardsToAnkiUseCase(
                 flashcards: ref.watch(flashcardRepositoryProvider),
                 topics: ref.watch(ankiTopicResolverProvider),
+                bibliography: ref.watch(bibliographyRepositoryProvider),
+                locator: ref.watch(fragmentLocatorResolverProvider),
+                citationStyle: ref.watch(defaultCitationStyleProvider),
+                citationLanguage: ref.watch(defaultCitationLanguageProvider),
                 builder: _FakeAnkiDeckBuilder(),
                 saver: ref.watch(fileSaverProvider),
               ),

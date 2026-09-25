@@ -41,7 +41,51 @@ class FragmentLocatorResolver {
               ..limit(1))
             .getSingleOrNull();
     if (chunk == null) return null;
+    return _locatorOf(chunk);
+  }
 
+  /// El locator de un lote de pasajes a la vez, cada uno con su propia
+  /// `key` para el resultado —un mismo `itemId` puede repetirse con
+  /// `charOffset` distintos, dos tarjetas citando la misma fuente—. Para
+  /// exportar en masa (Anki, F17): una consulta por tarjeta no entra en el
+  /// objetivo de rendimiento.
+  ///
+  /// A diferencia de [locate], no pide `renditionId`: los chunks de un
+  /// elemento salen siempre de su única forma de texto principal —ver
+  /// [sourceTextRendition]—, así que el `itemId` solo ya alcanza para saber
+  /// de qué forma son.
+  Future<Map<String, CitationLocator>> locateMany(
+    List<({String key, String itemId, int charOffset})> requests,
+  ) async {
+    if (requests.isEmpty) return const {};
+
+    final itemIds = {for (final request in requests) request.itemId};
+    final rows = await (_db.select(
+      _db.chunks,
+    )..where((c) => c.itemId.isIn(itemIds))).get();
+
+    final chunksByItem = <String, List<ChunkRow>>{};
+    for (final row in rows) {
+      (chunksByItem[row.itemId] ??= []).add(row);
+    }
+
+    final result = <String, CitationLocator>{};
+    for (final request in requests) {
+      final chunks = chunksByItem[request.itemId];
+      if (chunks == null) continue;
+      for (final chunk in chunks) {
+        if (chunk.charStart <= request.charOffset &&
+            request.charOffset < chunk.charEnd) {
+          final locator = _locatorOf(chunk);
+          if (locator != null) result[request.key] = locator;
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  CitationLocator? _locatorOf(ChunkRow chunk) {
     final page = chunk.pageNumber;
     if (page != null) return CitationLocator.page('$page');
     final startMs = chunk.startMs;

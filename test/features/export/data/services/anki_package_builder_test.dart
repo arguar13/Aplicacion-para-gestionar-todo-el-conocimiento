@@ -49,7 +49,8 @@ void main() {
   AnkiCardExport export(
     Flashcard card, {
     String deckPath = 'Sinapsis::Sin tema',
-  }) => AnkiCardExport(card: card, deckPath: deckPath);
+    String? provenance,
+  }) => AnkiCardExport(card: card, deckPath: deckPath, provenance: provenance);
 
   test(
     'arma un .zip con la base de Anki y el manifiesto de medios adentro',
@@ -146,6 +147,46 @@ void main() {
     } finally {
       db.close();
     }
+  });
+
+  group('procedencia en el reverso (F17, commit 3)', () {
+    test('con procedencia, va debajo de la respuesta, separada', () async {
+      final bytes = await builder.build([
+        export(
+          card(id: 'c1', front: 'Pregunta', back: 'Respuesta'),
+          provenance: '(Autor, 2020, p. 4)',
+        ),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        final note = db.select('SELECT * FROM notes').single;
+        expect(
+          note['flds'],
+          'Pregunta\u001fRespuesta<br><br>(Autor, 2020, p. 4)',
+        );
+        // El campo de ordenamiento sigue siendo solo la pregunta: la
+        // procedencia no es parte de lo que Anki usa para ordenar ni para
+        // el checksum de duplicados.
+        expect(note['sfld'], 'Pregunta');
+      } finally {
+        db.close();
+      }
+    });
+
+    test('sin procedencia, el reverso queda igual que siempre', () async {
+      final bytes = await builder.build([
+        export(card(id: 'c1', front: 'Pregunta', back: 'Respuesta')),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        final note = db.select('SELECT * FROM notes').single;
+        expect(note['flds'], 'Pregunta\u001fRespuesta');
+      } finally {
+        db.close();
+      }
+    });
   });
 
   group('subdecks (F17, D1/D2)', () {

@@ -173,6 +173,86 @@ void main() {
     );
   });
 
+  group('locateMany (F17): el mismo locator, por lotes', () {
+    test('resuelve varios pasajes de una sola vez, sin mezclarlos', () async {
+      await rendition('texto');
+      await chunk(0, 0, 100, page: 1);
+      await chunk(1, 100, 250, page: 2);
+      await KnowledgeEntryWriter(db, clock: () => now).upsert(
+        KnowledgeItem(
+          id: 'otra',
+          title: 'Otra',
+          source: Source(
+            id: 'src2',
+            kind: SourceKind.document,
+            capturedAt: now,
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      await db
+          .into(db.chunks)
+          .insert(
+            ChunksCompanion.insert(
+              id: 'ajena-0',
+              itemId: 'otra',
+              seq: 0,
+              content: 'x' * 50,
+              charStart: 0,
+              charEnd: 50,
+              startMs: const Value(60000),
+            ),
+          );
+
+      final result = await resolver.locateMany([
+        (key: 'card-1', itemId: 'fuente', charOffset: 10),
+        (key: 'card-2', itemId: 'fuente', charOffset: 180),
+        (key: 'card-3', itemId: 'otra', charOffset: 20),
+      ]);
+
+      expect(result['card-1'], const CitationLocator.page('1'));
+      expect(result['card-2'], const CitationLocator.page('2'));
+      expect(result['card-3'], const CitationLocator.time('1:00'));
+    });
+
+    test('dos pedidos de la misma fuente, con offsets distintos', () async {
+      await rendition('texto');
+      await chunk(0, 0, 100, page: 1);
+      await chunk(1, 100, 250, page: 2);
+
+      final result = await resolver.locateMany([
+        (key: 'card-1', itemId: 'fuente', charOffset: 10),
+        (key: 'card-2', itemId: 'fuente', charOffset: 180),
+      ]);
+
+      expect(result['card-1'], const CitationLocator.page('1'));
+      expect(result['card-2'], const CitationLocator.page('2'));
+    });
+
+    test('sin locator para un pasaje sin fragmento que lo contenga', () async {
+      await rendition('texto');
+      await chunk(0, 0, 100, page: 1);
+
+      final result = await resolver.locateMany([
+        (key: 'card-1', itemId: 'fuente', charOffset: 10),
+        (key: 'card-2', itemId: 'fuente', charOffset: 5000),
+        (key: 'card-3', itemId: 'fantasma', charOffset: 0),
+      ]);
+
+      expect(result.containsKey('card-1'), isTrue);
+      expect(result.containsKey('card-2'), isFalse);
+      expect(result.containsKey('card-3'), isFalse);
+    });
+
+    test('un lote vacío no consulta nada ni rompe', () async {
+      final result = await resolver.locateMany(const []);
+
+      expect(result, isEmpty);
+    });
+  });
+
   test('un fragmento de otra fuente no cuenta', () async {
     await rendition('texto');
     await KnowledgeEntryWriter(db, clock: () => now).upsert(

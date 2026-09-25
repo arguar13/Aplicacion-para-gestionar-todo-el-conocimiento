@@ -9,13 +9,23 @@ import 'package:sinapsis/core/domain/entities/flashcard.dart';
 /// `ankiDeckPathOf`—, así que sigue siendo puro y se puede probar con
 /// `flutter test` sin bindings.
 class AnkiCardExport {
-  const AnkiCardExport({required this.card, required this.deckPath});
+  const AnkiCardExport({
+    required this.card,
+    required this.deckPath,
+    this.provenance,
+  });
 
   final Flashcard card;
 
   /// El subdeck completo, de la raíz a la hoja, separado por `::`
   /// —«Sinapsis::Historia::Roma::República»—.
   final String deckPath;
+
+  /// La cita de la fuente, ya armada como texto plano por quien llama —con
+  /// `FragmentLocatorResolver`/`citationSourceOf` y el estilo por defecto—,
+  /// para el reverso de la tarjeta. `null` sin fuente citable (una nota
+  /// manual, una tarjeta escrita a mano sin fuente) o sin nada que decir.
+  final String? provenance;
 }
 
 /// Arma un mazo de Anki (`.apkg`) a partir de las tarjetas de la bóveda.

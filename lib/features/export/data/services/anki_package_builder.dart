@@ -138,7 +138,7 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
         final noteModSeconds =
             reviewedOrCreatedAt.millisecondsSinceEpoch ~/ 1000;
         final front = card.front.trim();
-        final back = card.back.trim();
+        final back = _backWithProvenance(card.back.trim(), export.provenance);
 
         insertNote.execute([
           noteId,
@@ -201,6 +201,15 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
       ivl: card.intervalDays < 1 ? 1 : card.intervalDays,
       factor: (card.easeFactor * 1000).round(),
     );
+  }
+
+  /// El reverso con la procedencia debajo, separada por una línea en
+  /// blanco —el campo de Anki es HTML, `<br>` y no `\n` es lo que se ve
+  /// como salto de línea—. Sin cita resuelta, el reverso queda igual que
+  /// siempre.
+  String _backWithProvenance(String back, String? provenance) {
+    if (provenance == null || provenance.isEmpty) return back;
+    return '$back<br><br>$provenance';
   }
 
   /// El mismo algoritmo que usa `genanki` para el índice de duplicados de

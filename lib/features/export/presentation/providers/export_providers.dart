@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/citations/data/repositories/bibliography_repository_impl.dart';
 import 'package:sinapsis/features/citations/domain/repositories/bibliography_repository.dart';
+import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/export/data/exporters/bibtex_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
@@ -107,6 +108,10 @@ final exportFlashcardsToAnkiUseCaseProvider =
       return ExportFlashcardsToAnkiUseCase(
         flashcards: ref.watch(flashcardRepositoryProvider),
         topics: ref.watch(ankiTopicResolverProvider),
+        bibliography: ref.watch(bibliographyRepositoryProvider),
+        locator: ref.watch(fragmentLocatorResolverProvider),
+        citationStyle: ref.watch(defaultCitationStyleProvider),
+        citationLanguage: ref.watch(defaultCitationLanguageProvider),
         builder: ref.watch(ankiDeckBuilderProvider),
         saver: ref.watch(fileSaverProvider),
       );
