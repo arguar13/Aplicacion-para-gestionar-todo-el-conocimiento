@@ -140,6 +140,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         FlashcardOptionDraft(
           content: option.content.trim(),
           isCorrect: option.isCorrect,
+          sourceItemId: option.sourceItemId,
           sourceCharStart: option.sourceCharStart,
           sourceCharEnd: option.sourceCharEnd,
         ),
@@ -190,7 +191,10 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         for (final (position, option) in trimmedOptions.indexed) {
           final hasStart = option.sourceCharStart != null;
           final chunkId = hasStart
-              ? await _chunkContaining(itemId, option.sourceCharStart!)
+              ? await _chunkContaining(
+                  option.sourceItemId ?? itemId,
+                  option.sourceCharStart!,
+                )
               : null;
           await _db
               .into(_db.flashcardOptions)

@@ -3,8 +3,17 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
+import 'package:sinapsis/features/flashcards/data/services/distractor_sourcer_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
+import 'package:sinapsis/features/flashcards/domain/services/distractor_sourcer.dart';
+import 'package:sinapsis/features/flashcards/domain/usecases/generate_quiz_usecase.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 
 final flashcardRepositoryProvider = Provider<FlashcardRepository>((ref) {
   return FlashcardRepositoryImpl(
@@ -12,6 +21,25 @@ final flashcardRepositoryProvider = Provider<FlashcardRepository>((ref) {
     telemetry: ref.watch(telemetryServiceProvider),
     ids: ref.watch(idGeneratorProvider),
     clock: ref.watch(clockProvider),
+  );
+});
+
+final distractorSourcerProvider = Provider<DistractorSourcer>((ref) {
+  return DistractorSourcerImpl(
+    database: ref.watch(appDatabaseProvider),
+    topics: ref.watch(ankiTopicResolverProvider),
+    map: ref.watch(knowledgeMapRepositoryProvider),
+    organize: ref.watch(organizeRepositoryProvider),
+    relations: ref.watch(relationCandidateSelectorProvider),
+  );
+});
+
+final generateQuizUseCaseProvider = Provider<GenerateQuizUseCase>((ref) {
+  return GenerateQuizUseCase(
+    library: ref.watch(libraryRepositoryProvider),
+    flashcards: ref.watch(flashcardRepositoryProvider),
+    generator: ref.watch(quizQuestionGeneratorProvider),
+    distractorSourcer: ref.watch(distractorSourcerProvider),
   );
 });
 

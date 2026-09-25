@@ -899,6 +899,34 @@ void main() {
         expect(options[0].sourceChunkId, isNull);
       });
 
+      test('una opción con sourceItemId busca su chunk en OTRO elemento, no en '
+          'el de la tarjeta (F20, distractor real de otra fuente)', () async {
+        final (cardItemId, _) = await seedSource();
+        final (otherItemId, otherChunks) = await seedSource();
+        final otherChunk = otherChunks.first;
+
+        final card = (await repository.createMultipleChoice(
+          itemId: cardItemId,
+          front: '¿Cuál es la correcta?',
+          options: [
+            const FlashcardOptionDraft(content: 'La correcta', isCorrect: true),
+            FlashcardOptionDraft(
+              content: 'Distractor de otra fuente',
+              isCorrect: false,
+              sourceItemId: otherItemId,
+              sourceCharStart: otherChunk.charStart,
+              sourceCharEnd: otherChunk.charEnd,
+            ),
+          ],
+        )).getRight().toNullable()!;
+
+        final options = (await repository.optionsFor(
+          card.id,
+        )).getRight().toNullable()!;
+        final distractor = options.firstWhere((o) => !o.isCorrect);
+        expect(distractor.sourceChunkId, otherChunk.id);
+      });
+
       test('menos de dos opciones no guarda nada', () async {
         final itemId = await seedItem();
 
