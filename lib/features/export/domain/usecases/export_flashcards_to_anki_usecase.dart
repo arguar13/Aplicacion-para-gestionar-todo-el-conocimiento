@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/citations/data/services/fragment_locator_resolver.dart';
@@ -94,8 +96,17 @@ class ExportFlashcardsToAnkiUseCase
           ? CitationForm.note
           : CitationForm.inText;
 
-      final exports = [
-        for (final card in cards)
+      final exports = <AnkiCardExport>[];
+      for (final card in cards) {
+        final answerAndDistractors = await _answerAndDistractorsOf(card);
+        // `null`: una tarjeta de opción múltiple con una forma que este
+        // mazo no sabe mapear fielmente (ver el doc comment de
+        // `_answerAndDistractorsOf`) — queda afuera del archivo, y afuera
+        // de `markExported` más abajo, así que el próximo incremental la
+        // vuelve a intentar en vez de darla por exportada sin haberlo
+        // estado.
+        if (answerAndDistractors == null) continue;
+        exports.add(
           AnkiCardExport(
             card: card,
             deckPath: ankiDeckPathOf(
@@ -103,13 +114,16 @@ class ExportFlashcardsToAnkiUseCase
               temaTree: resolution.tree,
               labelOf: resolution.labelOf,
             ),
+            answer: answerAndDistractors.answer,
+            distractors: answerAndDistractors.distractors,
             provenance: _provenanceOf(
               citationSourceByItem[card.itemId],
               locatorByCard[card.id],
               form,
             ),
           ),
-      ];
+        );
+      }
       final Uint8List bytes;
       final String fileName;
       switch (params.format) {
@@ -128,9 +142,12 @@ class ExportFlashcardsToAnkiUseCase
       // Recién ahora, con el archivo ya guardado, quedan marcadas como
       // exportadas (F17, D4): un fallo acá no deshace el guardado, pero sí
       // se avisa —dejarlo pasar en silencio repetiría estas mismas
-      // tarjetas en el próximo incremental sin que nadie se entere—.
+      // tarjetas en el próximo incremental sin que nadie se entere—. Solo
+      // las que de verdad entraron en `exports` (F20): una excluida por no
+      // poder mapearse fiel no puede quedar marcada como exportada sin
+      // haberlo estado.
       final marked = await _flashcards.markExported({
-        for (final card in cards) card.id,
+        for (final export in exports) export.card.id,
       });
       final markFailure = marked.getLeft().toNullable();
       if (markFailure != null) return left(markFailure);
@@ -162,6 +179,48 @@ class ExportFlashcardsToAnkiUseCase
     );
     final text = citation.toPlainText();
     return text.isEmpty ? null : text;
+  }
+
+  /// Cuántos distractores como máximo trae el segundo modelo de nota de
+  /// `AnkiPackageBuilder` (F20, commit 9): tres campos fijos, uno por
+  /// distractor. Es el mismo tope que `DistractorSourcer.sourceDistractors`
+  /// ya pide por defecto, así que ninguna pregunta armada por
+  /// `GenerateQuizUseCase` lo pasa hoy — queda acá igual, para no exportar
+  /// a medias si algún día una pregunta trae más.
+  static const _maxDistractors = 3;
+
+  /// La respuesta y los distractores de [card], según su forma (F20).
+  /// `freeRecall`/`trueFalse`: `card.back` tal cual, sin distractores.
+  /// `multipleChoice`: la opción marcada correcta como respuesta, el resto
+  /// como distractores —`card.back` queda vacío para esta forma, no sirve—.
+  ///
+  /// `null` si la pregunta no se puede mapear fielmente al segundo modelo:
+  /// sin ninguna opción, sin ninguna marcada correcta, o con más
+  /// distractores de los que el modelo tiene campos —nunca pasa hoy, ver
+  /// [_maxDistractors]—. Mejor dejarla afuera del mazo, señalado en el
+  /// comentario de quien llama, que exportar una tarjeta rota o
+  /// recortada a medias.
+  Future<({String answer, List<String> distractors})?> _answerAndDistractorsOf(
+    Flashcard card,
+  ) async {
+    if (card.kind != FlashcardKind.multipleChoice) {
+      return (answer: card.back, distractors: const <String>[]);
+    }
+
+    final result = await _flashcards.optionsFor(card.id);
+    final options = result.getRight().toNullable() ?? const [];
+    final correct = options.where((o) => o.isCorrect);
+    if (correct.length != 1) return null;
+
+    final distractors = [
+      for (final option in options)
+        if (!option.isCorrect) option.content,
+    ];
+    if (distractors.isEmpty || distractors.length > _maxDistractors) {
+      return null;
+    }
+
+    return (answer: correct.single.content, distractors: distractors);
   }
 }
 

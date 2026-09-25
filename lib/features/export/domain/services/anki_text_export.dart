@@ -44,6 +44,15 @@ enum AnkiTextFormat {
 /// línea, sin excepción). Una tabulación real dentro de un campo —rara en
 /// un front/back escrito a mano— se cambia por un espacio en el TSV, que
 /// no tiene cómo escaparla; el CSV la deja pasar entre comillas.
+///
+/// Un solo modelo de columnas para TODO el archivo (F20): a diferencia del
+/// `.apkg`, el formato de texto de Anki no admite dos formas de nota
+/// distintas en un mismo archivo —el encabezado `#columns:` es uno solo—.
+/// Una tarjeta `multipleChoice` sigue siendo fiel igual: sus distractores
+/// reales entran en el mismo campo `Back`, como una lista legible, en vez
+/// de perderse. No es "a medias" —nada de la información se descarta—,
+/// solo un modelo de Anki propio menos que en el `.apkg`, que es donde de
+/// verdad importa para repasar de forma interactiva.
 Uint8List buildAnkiTextExport(
   List<AnkiCardExport> cards,
   AnkiTextFormat format,
@@ -65,10 +74,22 @@ Uint8List buildAnkiTextExport(
 }
 
 String _backWithProvenance(AnkiCardExport export) {
-  final back = export.card.back.trim();
+  final back = _backWithDistractors(export);
   final provenance = export.provenance;
   if (provenance == null || provenance.isEmpty) return back;
   return '$back<br><br>$provenance';
+}
+
+/// [AnkiCardExport.answer], con los distractores reales debajo —si
+/// trae—, como una lista legible: mismo criterio de contenido que la
+/// plantilla del segundo modelo de `AnkiPackageBuilder`, adaptado a un
+/// único campo de texto.
+String _backWithDistractors(AnkiCardExport export) {
+  final answer = export.answer.trim();
+  if (export.distractors.isEmpty) return answer;
+
+  final distractors = export.distractors.map((d) => d.trim()).join('<br>');
+  return '$answer<br><br>Otras opciones consideradas:<br>$distractors';
 }
 
 /// Un campo listo para una fila: sin saltos de línea reales, sin la

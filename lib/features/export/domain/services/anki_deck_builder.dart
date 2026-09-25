@@ -12,7 +12,9 @@ class AnkiCardExport {
   const AnkiCardExport({
     required this.card,
     required this.deckPath,
+    required this.answer,
     this.provenance,
+    this.distractors = const [],
   });
 
   final Flashcard card;
@@ -20,6 +22,19 @@ class AnkiCardExport {
   /// El subdeck completo, de la raíz a la hoja, separado por `::`
   /// —«Sinapsis::Historia::Roma::República»—.
   final String deckPath;
+
+  /// La respuesta a mostrar (F20): `card.back` para `freeRecall`/
+  /// `trueFalse`; para `multipleChoice`, `card.back` queda vacío
+  /// (`FlashcardRepositoryImpl.createMultipleChoice`) y esto es el
+  /// contenido de la opción marcada correcta. Quien arma [AnkiCardExport]
+  /// resuelve cuál usar, así el builder no necesita saber nada de
+  /// `flashcard_options`.
+  final String answer;
+
+  /// Las opciones incorrectas reales de una tarjeta `multipleChoice`, en el
+  /// orden guardado —nunca la correcta, esa ya está en [answer]—. Vacío
+  /// para cualquier otra forma.
+  final List<String> distractors;
 
   /// La cita de la fuente, ya armada como texto plano por quien llama —con
   /// `FragmentLocatorResolver`/`citationSourceOf` y el estilo por defecto—,

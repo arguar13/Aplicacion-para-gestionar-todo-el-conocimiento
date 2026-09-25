@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
@@ -21,10 +22,19 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 /// queda como tarjeta "nueva"; el resto, como tarjeta "de repaso", con su
 /// intervalo y factor de facilidad ya cargados — así seguir repasando en
 /// Anki continúa donde quedó, en vez de reiniciar el progreso.
+///
+/// DOS modelos de nota en el mismo paquete (F20, commit 9): el básico
+/// (`Front`/`Back`) para `freeRecall`/`trueFalse`, y uno propio para
+/// `multipleChoice` —`Question`/`Answer`/`Distractor1..3`, la pregunta con
+/// distractores reales, nunca degradada al modelo de dos campos—. El
+/// formato clásico de Anki ya admite varios modelos en una misma colección
+/// (`col.models` es un mapa `{modelId: definición}`, cada nota declara el
+/// suyo en `notes.mid`); no hace falta tocar el esquema SQL para esto.
 class AnkiPackageBuilder implements AnkiDeckBuilder {
   const AnkiPackageBuilder();
 
   static const _modelName = 'Sinapsis básico';
+  static const _multipleChoiceModelName = 'Sinapsis opción múltiple';
   static const _defaultDeckId = 1;
   static const _defaultConfId = 1;
 
@@ -85,6 +95,7 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
         path: newId(),
     };
     final modelId = newId();
+    final multipleChoiceModelId = newId();
 
     db.execute(
       'INSERT INTO col '
@@ -105,12 +116,16 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
             modelId: modelId,
           ),
         ),
-        jsonEncode(
-          _models(
+        jsonEncode(<String, dynamic>{
+          ..._basicModel(
             modelId: modelId,
             deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
           ),
-        ),
+          ..._multipleChoiceModel(
+            modelId: multipleChoiceModelId,
+            deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
+          ),
+        }),
         jsonEncode(_decks(deckIdByPath)),
         jsonEncode(_dconf()),
         '{}',
@@ -138,15 +153,26 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
         final noteModSeconds =
             reviewedOrCreatedAt.millisecondsSinceEpoch ~/ 1000;
         final front = card.front.trim();
-        final back = _backWithProvenance(card.back.trim(), export.provenance);
+        final isMultipleChoice = card.kind == FlashcardKind.multipleChoice;
+        final noteModelId = isMultipleChoice ? multipleChoiceModelId : modelId;
+        final String flds;
+        if (isMultipleChoice) {
+          flds = _multipleChoiceFields(export);
+        } else {
+          final back = _backWithProvenance(
+            export.answer.trim(),
+            export.provenance,
+          );
+          flds = '$front\u001f$back';
+        }
 
         insertNote.execute([
           noteId,
           card.id,
-          modelId,
+          noteModelId,
           noteModSeconds,
           '',
-          '$front\u001f$back',
+          flds,
           front,
           _fieldChecksum(front),
           '',
@@ -222,78 +248,147 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     return int.parse(hex, radix: 16);
   }
 
-  Map<String, dynamic> _models({required int modelId, required int deckId}) {
+  Map<String, dynamic> _basicModel({
+    required int modelId,
+    required int deckId,
+  }) {
     return {
-      '$modelId': {
-        'id': modelId,
-        'name': _modelName,
-        'type': 0,
-        'mod': 0,
-        'usn': 0,
-        'sortf': 0,
-        'did': deckId,
-        'tmpls': [
-          {
-            'name': 'Tarjeta 1',
-            'ord': 0,
-            'qfmt': '{{Front}}',
-            'afmt': '{{FrontSide}}\n\n<hr id="answer">\n\n{{Back}}',
-            'did': null,
-            'bqfmt': '',
-            'bafmt': '',
-          },
-        ],
-        'flds': [
-          {
-            'name': 'Front',
-            'ord': 0,
-            'sticky': false,
-            'rtl': false,
-            'font': 'Arial',
-            'size': 20,
-          },
-          {
-            'name': 'Back',
-            'ord': 1,
-            'sticky': false,
-            'rtl': false,
-            'font': 'Arial',
-            'size': 20,
-          },
-        ],
-        'css':
-            '.card {\n'
-            ' font-family: arial;\n'
-            ' font-size: 20px;\n'
-            ' text-align: center;\n'
-            ' color: black;\n'
-            ' background-color: white;\n'
-            '}\n',
-        'latexPre':
-            r'\documentclass[12pt]{article}'
-            '\n'
-            r'\special{papersize=3in,5in}'
-            '\n'
-            r'\usepackage[utf8]{inputenc}'
-            '\n'
-            r'\usepackage{amssymb,amsmath}'
-            '\n'
-            r'\pagestyle{empty}'
-            '\n'
-            r'\setlength{\parindent}{0in}'
-            '\n'
-            r'\begin{document}'
-            '\n',
-        'latexPost': r'\end{document}',
-        'req': [
-          [
-            0,
-            'any',
-            [0],
-          ],
-        ],
-      },
+      '$modelId': _modelDefinition(
+        modelId: modelId,
+        deckId: deckId,
+        name: _modelName,
+        fieldNames: const ['Front', 'Back'],
+        qfmt: '{{Front}}',
+        afmt: '{{FrontSide}}\n\n<hr id="answer">\n\n{{Back}}',
+      ),
     };
+  }
+
+  /// La pregunta con su respuesta correcta, y —si las trae— sus
+  /// distractores reales debajo, en el reverso, para que quien repasa en
+  /// Anki también vea qué otras opciones consideró Sinapsis. `Distractor2`/
+  /// `Distractor3` quedan vacíos, y por eso afuera de la plantilla
+  /// (`{{#Campo}}`, la condición de Anki para "el campo no está vacío"),
+  /// cuando la pregunta trajo menos de tres.
+  Map<String, dynamic> _multipleChoiceModel({
+    required int modelId,
+    required int deckId,
+  }) {
+    return {
+      '$modelId': _modelDefinition(
+        modelId: modelId,
+        deckId: deckId,
+        name: _multipleChoiceModelName,
+        fieldNames: const [
+          'Question',
+          'Answer',
+          'Distractor1',
+          'Distractor2',
+          'Distractor3',
+        ],
+        qfmt: '{{Question}}',
+        afmt:
+            '{{FrontSide}}\n\n<hr id="answer">\n\n'
+            '<b>{{Answer}}</b>\n\n '
+            // Sin espacio entre `<br>` y `{{Distractor1}}` a propósito: es
+            // justo donde el salto de línea de la plantilla tiene que
+            // quedar pegado al campo, no un espacio olvidado.
+            // ignore: missing_whitespace_between_adjacent_strings
+            '{{#Distractor1}}Otras opciones consideradas:<br>'
+            '{{Distractor1}}{{/Distractor1}} '
+            '{{#Distractor2}}<br>{{Distractor2}}{{/Distractor2}} '
+            '{{#Distractor3}}<br>{{Distractor3}}{{/Distractor3}}',
+      ),
+    };
+  }
+
+  /// La definición común a cualquier modelo de nota de este paquete: una
+  /// sola plantilla ("Tarjeta 1"), un campo por [fieldNames] en ese orden
+  /// —el primero es el de ordenamiento (`sortf`)—, mismo CSS y preámbulo de
+  /// LaTeX para los dos modelos.
+  Map<String, dynamic> _modelDefinition({
+    required int modelId,
+    required int deckId,
+    required String name,
+    required List<String> fieldNames,
+    required String qfmt,
+    required String afmt,
+  }) {
+    return {
+      'id': modelId,
+      'name': name,
+      'type': 0,
+      'mod': 0,
+      'usn': 0,
+      'sortf': 0,
+      'did': deckId,
+      'tmpls': [
+        {
+          'name': 'Tarjeta 1',
+          'ord': 0,
+          'qfmt': qfmt,
+          'afmt': afmt,
+          'did': null,
+          'bqfmt': '',
+          'bafmt': '',
+        },
+      ],
+      'flds': [
+        for (final (ord, fieldName) in fieldNames.indexed)
+          {
+            'name': fieldName,
+            'ord': ord,
+            'sticky': false,
+            'rtl': false,
+            'font': 'Arial',
+            'size': 20,
+          },
+      ],
+      'css':
+          '.card {\n'
+          ' font-family: arial;\n'
+          ' font-size: 20px;\n'
+          ' text-align: center;\n'
+          ' color: black;\n'
+          ' background-color: white;\n'
+          '}\n',
+      'latexPre':
+          r'\documentclass[12pt]{article}'
+          '\n'
+          r'\special{papersize=3in,5in}'
+          '\n'
+          r'\usepackage[utf8]{inputenc}'
+          '\n'
+          r'\usepackage{amssymb,amsmath}'
+          '\n'
+          r'\pagestyle{empty}'
+          '\n'
+          r'\setlength{\parindent}{0in}'
+          '\n'
+          r'\begin{document}'
+          '\n',
+      'latexPost': r'\end{document}',
+      'req': [
+        [
+          0,
+          'any',
+          [0],
+        ],
+      ],
+    };
+  }
+
+  /// Los campos de una nota `multipleChoice`, en el orden del modelo:
+  /// pregunta, respuesta correcta, hasta tres distractores —los que
+  /// falten, campo vacío—.
+  String _multipleChoiceFields(AnkiCardExport export) {
+    final distractors = export.distractors;
+    return [
+      export.card.front.trim(),
+      export.answer.trim(),
+      for (var i = 0; i < 3; i++)
+        if (i < distractors.length) distractors[i].trim() else '',
+    ].join('\u001f');
   }
 
   /// Un mazo por cada `deckPath` distinto entre las tarjetas, más el

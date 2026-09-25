@@ -24,12 +24,19 @@ void main() {
   AnkiCardExport export({
     Flashcard? card_,
     String deckPath = 'Sinapsis::Sin tema',
+    String? answer,
     String? provenance,
-  }) => AnkiCardExport(
-    card: card_ ?? card(),
-    deckPath: deckPath,
-    provenance: provenance,
-  );
+    List<String> distractors = const [],
+  }) {
+    final resolved = card_ ?? card();
+    return AnkiCardExport(
+      card: resolved,
+      deckPath: deckPath,
+      answer: answer ?? resolved.back,
+      provenance: provenance,
+      distractors: distractors,
+    );
+  }
 
   String decode(AnkiTextFormat format, List<AnkiCardExport> cards) =>
       utf8.decode(buildAnkiTextExport(cards, format));
@@ -159,6 +166,50 @@ void main() {
       final text = decode(AnkiTextFormat.csv, [export()]);
 
       expect(text, contains('Pregunta,Respuesta,'));
+    });
+  });
+
+  group('una tarjeta de opción múltiple (F20, commit 9)', () {
+    test('sus distractores reales van debajo de la respuesta, en el mismo '
+        'campo Back —el archivo de texto no admite un modelo aparte—', () {
+      final text = decode(AnkiTextFormat.tsv, [
+        // card.back queda vacío en una tarjeta multipleChoice de verdad
+        // (FlashcardRepositoryImpl.createMultipleChoice); answer es lo
+        // que el caso de uso resuelve aparte, de la opción correcta.
+        export(
+          card_: card(back: ''),
+          answer: 'Respuesta',
+          distractors: const ['Distractor uno', 'Distractor dos'],
+        ),
+      ]);
+
+      expect(
+        text,
+        contains(
+          'Pregunta\tRespuesta<br><br>Otras opciones '
+          'consideradas:<br>Distractor uno<br>Distractor dos\t',
+        ),
+      );
+    });
+
+    test('con procedencia, va después de los distractores', () {
+      final text = decode(AnkiTextFormat.tsv, [
+        export(distractors: const ['Distractor uno'], provenance: '(Cita)'),
+      ]);
+
+      expect(
+        text,
+        contains(
+          'Pregunta\tRespuesta<br><br>Otras opciones '
+          'consideradas:<br>Distractor uno<br><br>(Cita)\t',
+        ),
+      );
+    });
+
+    test('sin ningún distractor, el campo queda igual que siempre', () {
+      final text = decode(AnkiTextFormat.tsv, [export()]);
+
+      expect(text, contains('Pregunta\tRespuesta\t'));
     });
   });
 }

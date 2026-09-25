@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/features/export/data/services/anki_package_builder.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
@@ -50,7 +51,14 @@ void main() {
     Flashcard card, {
     String deckPath = 'Sinapsis::Sin tema',
     String? provenance,
-  }) => AnkiCardExport(card: card, deckPath: deckPath, provenance: provenance);
+    List<String> distractors = const [],
+  }) => AnkiCardExport(
+    card: card,
+    deckPath: deckPath,
+    answer: card.back,
+    provenance: provenance,
+    distractors: distractors,
+  );
 
   test(
     'arma un .zip con la base de Anki y el manifiesto de medios adentro',
@@ -261,6 +269,81 @@ void main() {
       }
     },
   );
+
+  group('una tarjeta de opción múltiple (F20, commit 9)', () {
+    Flashcard multipleChoiceCard({String id = 'mc1'}) => Flashcard(
+      id: id,
+      itemId: 'item-1',
+      front: '¿Cuál es correcta?',
+      back: '',
+      kind: FlashcardKind.multipleChoice,
+      dueAt: DateTime.now(),
+      createdAt: DateTime.now(),
+    );
+
+    test(
+      'usa un modelo de nota propio, con la pregunta, la respuesta y los '
+      'distractores reales en campos separados —nunca en Front/Back—',
+      () async {
+        final bytes = await builder.build([
+          AnkiCardExport(
+            card: multipleChoiceCard(),
+            deckPath: 'Sinapsis::Sin tema',
+            answer: 'La correcta',
+            distractors: const ['Distractor uno', 'Distractor dos'],
+          ),
+        ]);
+
+        final db = await _openCollection(bytes);
+        try {
+          final col = db.select('SELECT * FROM col').single;
+          final models =
+              jsonDecode(col['models'] as String) as Map<String, dynamic>;
+          // Dos modelos en la misma colección: el básico y este.
+          expect(models, hasLength(2));
+          expect(
+            models.values.map((m) => (m as Map)['name']),
+            contains('Sinapsis opción múltiple'),
+          );
+
+          final note = db.select('SELECT * FROM notes').single;
+          expect(
+            note['flds'],
+            // El separador de campos de Anki (U+001F) entre cada uno, sin
+            // espacio: no es prosa, es el mismo carácter que ya usa el
+            // básico Front/Back.
+            // ignore: missing_whitespace_between_adjacent_strings
+            '¿Cuál es correcta?\u001fLa correcta\u001fDistractor uno\u001f'
+            'Distractor dos\u001f',
+          );
+        } finally {
+          db.close();
+        }
+      },
+    );
+
+    test('conviven en el mismo mazo con tarjetas de otra forma, cada una con '
+        'su propio modelo', () async {
+      final bytes = await builder.build([
+        export(card(id: 'c1', front: 'Pregunta libre', back: 'Respuesta')),
+        AnkiCardExport(
+          card: multipleChoiceCard(),
+          deckPath: 'Sinapsis::Sin tema',
+          answer: 'La correcta',
+          distractors: const ['Distractor uno'],
+        ),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        final notes = db.select('SELECT * FROM notes ORDER BY rowid');
+        expect(notes, hasLength(2));
+        expect(notes.first['mid'], isNot(notes.last['mid']));
+      } finally {
+        db.close();
+      }
+    });
+  });
 }
 
 Future<sqlite3.Database> _openCollection(Uint8List apkgBytes) async {

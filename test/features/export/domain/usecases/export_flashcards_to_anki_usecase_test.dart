@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/citations/data/services/fragment_locator_resolver.dart';
@@ -441,6 +443,94 @@ void main() {
 
       expect(result.isRight(), isTrue);
       verify(() => repository.markExported({'c1'})).called(1);
+    });
+  });
+
+  group('una tarjeta de opción múltiple (F20, commit 9)', () {
+    Flashcard multipleChoiceCard() => Flashcard(
+      id: 'mc1',
+      itemId: 'item-1',
+      front: '¿Cuál es correcta?',
+      back: '',
+      kind: FlashcardKind.multipleChoice,
+      dueAt: DateTime(2024),
+      createdAt: DateTime(2024),
+    );
+
+    FlashcardOption option(String content, {required bool isCorrect}) =>
+        FlashcardOption(
+          id: 'opt-$content',
+          flashcardId: 'mc1',
+          content: content,
+          isCorrect: isCorrect,
+          position: 0,
+        );
+
+    test('bien formada, arma la respuesta y los distractores reales, sin '
+        'tocar card.back —que queda vacío—', () async {
+      when(
+        () => repository.getAll(),
+      ).thenAnswer((_) async => right([multipleChoiceCard()]));
+      when(() => repository.optionsFor('mc1')).thenAnswer(
+        (_) async => right([
+          option('La correcta', isCorrect: true),
+          option('Distractor uno', isCorrect: false),
+          option('Distractor dos', isCorrect: false),
+        ]),
+      );
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(exportAll: true),
+      );
+
+      expect(result.isRight(), isTrue);
+      final export = builder.receivedCards!.single;
+      expect(export.answer, 'La correcta');
+      expect(export.distractors, ['Distractor uno', 'Distractor dos']);
+    });
+
+    test('sin ninguna opción marcada correcta, queda afuera del mazo y no se '
+        'marca exportada', () async {
+      when(
+        () => repository.getAll(),
+      ).thenAnswer((_) async => right([multipleChoiceCard()]));
+      when(() => repository.optionsFor('mc1')).thenAnswer(
+        (_) async => right([
+          option('Uno', isCorrect: false),
+          option('Dos', isCorrect: false),
+        ]),
+      );
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(exportAll: true),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(builder.receivedCards, isEmpty);
+      verify(() => repository.markExported(<String>{})).called(1);
+    });
+
+    test('con más distractores de los que el modelo admite, queda afuera '
+        'del mazo —nunca recortada a medias', () async {
+      when(
+        () => repository.getAll(),
+      ).thenAnswer((_) async => right([multipleChoiceCard()]));
+      when(() => repository.optionsFor('mc1')).thenAnswer(
+        (_) async => right([
+          option('La correcta', isCorrect: true),
+          option('Uno', isCorrect: false),
+          option('Dos', isCorrect: false),
+          option('Tres', isCorrect: false),
+          option('Cuatro', isCorrect: false),
+        ]),
+      );
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(exportAll: true),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(builder.receivedCards, isEmpty);
     });
   });
 }
