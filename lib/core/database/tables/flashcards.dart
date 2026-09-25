@@ -59,6 +59,11 @@ class Flashcards extends Table {
   IntColumn get sourceCharStart => integer().nullable()();
   IntColumn get sourceCharEnd => integer().nullable()();
 
+  /// Cuándo se exportó por última vez a Anki (F17, D4). Nula hasta la primera
+  /// exportación exitosa: una exportación incremental filtra por esto, y
+  /// «exportar todo» es la opción aparte que la ignora.
+  DateTimeColumn get lastExportedAt => dateTime().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }

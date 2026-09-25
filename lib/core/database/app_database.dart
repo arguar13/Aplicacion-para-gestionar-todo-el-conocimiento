@@ -146,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 26;
+  static const currentSchemaVersion = 27;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -448,6 +448,33 @@ class AppDatabase extends _$AppDatabase {
             knowledgeNotes.derivedEdited,
           );
           await _requireSameCounts(before, step: 'v26', tables: tables);
+        }
+        // Exportación incremental a Anki (F17, D4): una columna nueva y nula
+        // en `flashcards`, ninguna fila existente cambia —nunca se exportó,
+        // que es justo lo que nulo sigue significando—. Los conteos de lo
+        // anterior son compuerta.
+        //
+        // Una base que pasó por v18 en esta misma actualización ya trae la
+        // columna —la reconstrucción de `flashcards` en `repointItem
+        // References` usa la definición de HOY de la tabla—, mismo motivo
+        // que el `_columnExists` de v20 más arriba.
+        if (from < 27) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists(
+            'flashcards',
+            flashcards.lastExportedAt.name,
+          )) {
+            await migrator.addColumn(flashcards, flashcards.lastExportedAt);
+          }
+          await _requireSameCounts(before, step: 'v27', tables: tables);
         }
       });
     },

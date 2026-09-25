@@ -65,6 +65,7 @@ const kFlashcardColumns = [
   'source_chunk_id',
   'source_char_start',
   'source_char_end',
+  'last_exported_at',
 ];
 const kReviewLogColumns = [
   'id',
@@ -164,7 +165,12 @@ class SetUnionMerge {
 
     // Los identificadores de los chunks no son estables —cambiar el texto los
     // rehace—: la tarjeta que apunta a uno que acá no existe conserva solo el
-    // rango de caracteres, que es lo que usa «Ver en la fuente».
+    // rango de caracteres, que es lo que usa «Ver en la fuente». Y
+    // `last_exported_at` (F17, D4) es de ESTE dispositivo —cuándo exportó SU
+    // .apkg, no un dato que viaje entre bóvedas—: una tarjeta que llega de
+    // otra bóveda nunca se exportó desde acá, así que entra en null y no con
+    // lo que diga la incoming, o la próxima exportación incremental la
+    // saltearía creyendo que ya está en el Anki de este dispositivo.
     final flashcards = await _union(
       _db.flashcards,
       'flashcards',
@@ -177,6 +183,7 @@ class SetUnionMerge {
         'source_chunk_id':
             'CASE WHEN EXISTS (SELECT 1 FROM main.chunks c '
             'WHERE c.id = x.source_chunk_id) THEN x.source_chunk_id END',
+        'last_exported_at': 'NULL',
       },
     );
 

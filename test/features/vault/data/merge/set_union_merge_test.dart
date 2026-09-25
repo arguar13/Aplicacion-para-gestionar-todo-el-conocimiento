@@ -160,6 +160,24 @@ void main() {
       expect(card.sourceChunkId, isNull);
     });
 
+    test('una tarjeta nueva entra sin marca de exportada, aunque la incoming '
+        'ya la tuviera (F17, D4)', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addFlashcard('fc', 'a');
+      await pc.db.customStatement(
+        'UPDATE flashcards SET last_exported_at = 1789000000',
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      final card = await tel.db.select(tel.db.flashcards).getSingle();
+      // Es de ESTE dispositivo: nunca exportó esta tarjeta a su propio
+      // .apkg, así que no hereda la fecha de la incoming.
+      expect(card.lastExportedAt, isNull);
+    });
+
     test('con un fragmento que acá existe, lo conserva', () async {
       await shareItems();
       // Los dos tienen la tarjeta en un fragmento con el mismo identificador
