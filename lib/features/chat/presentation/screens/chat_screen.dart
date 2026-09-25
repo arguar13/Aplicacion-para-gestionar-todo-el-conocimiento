@@ -488,10 +488,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final query = await ref
         .read(notebookRepositoryProvider)
         .resolveQuery(notebookId);
-    final result = await ref.read(libraryRepositoryProvider).list(query);
-    return result.match((_) => const {}, (items) {
-      return {for (final item in items) item.id};
-    });
+    // Solo hacen falta los ids, no los elementos enteros —el benchmark de
+    // F16 (16.2, commit 13) encontró que `list()` arma cada `KnowledgeItem`
+    // con sus renditions/etiquetas/propiedades para descartarlas todas acá
+    // mismo, y eso sacaba a un cuaderno de 500 elementos del objetivo de
+    // 300 ms; `matchingIds()` es la misma consulta sin ese armado—.
+    final result = await ref.read(libraryRepositoryProvider).matchingIds(query);
+    return result.match((_) => const {}, (ids) => ids.toSet());
   }
 
   Future<PersistedChatMessage> _answerVault({
