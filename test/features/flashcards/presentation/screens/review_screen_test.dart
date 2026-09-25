@@ -79,6 +79,9 @@ void main() {
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
+    // F17, D4: el diálogo pregunta el alcance antes de exportar.
+    await tester.tap(find.byKey(const Key('review-export-confirm')));
+    await tester.pumpAndSettle();
 
     expect(harness.fileSaver.savedFileName, 'sinapsis.apkg');
     expect(harness.fileSaver.savedBytes, isNotNull);
@@ -92,8 +95,21 @@ void main() {
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('review-export-confirm')));
+    await tester.pumpAndSettle();
 
     expect(find.byType(SnackBar), findsOneWidget);
+  });
+
+  testWidgets('cancelar el diálogo no exporta nada', (tester) async {
+    await pumpReview(tester);
+
+    await tester.tap(find.byTooltip('Exportar mazo a Anki'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(harness.fileSaver.savedFileName, isNull);
   });
 
   group('ver de dónde salió la tarjeta (F11)', () {

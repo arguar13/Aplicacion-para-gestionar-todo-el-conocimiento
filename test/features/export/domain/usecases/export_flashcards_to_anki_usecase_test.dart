@@ -9,7 +9,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/citations/data/services/fragment_locator_resolver.dart';
 import 'package:sinapsis/features/citations/domain/entities/bibliography.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
@@ -139,6 +138,9 @@ void main() {
     locator = _FakeFragmentLocatorResolver();
     builder = _FakeAnkiDeckBuilder();
     saver = FakeFileSaver();
+    when(
+      () => repository.markExported(any()),
+    ).thenAnswer((_) async => right(unit));
   });
 
   ExportFlashcardsToAnkiUseCase useCase() => ExportFlashcardsToAnkiUseCase(
@@ -165,7 +167,9 @@ void main() {
     final cards = [sampleCard()];
     when(() => repository.getAll()).thenAnswer((_) async => right(cards));
 
-    final result = await useCase()(const NoParams());
+    final result = await useCase()(
+      const ExportFlashcardsToAnkiParams(exportAll: true),
+    );
 
     expect(result.isRight(), isTrue);
     expect(builder.receivedCards?.map((e) => e.card).toList(), cards);
@@ -192,7 +196,9 @@ void main() {
           ),
         ];
 
-        final result = await useCase()(const NoParams());
+        final result = await useCase()(
+          const ExportFlashcardsToAnkiParams(exportAll: true),
+        );
 
         expect(result.isRight(), isTrue);
         expect(builder.receivedCards!.single.provenance, isNotNull);
@@ -224,7 +230,9 @@ void main() {
         ];
         locator.locators = {'c1': const CitationLocator.page('4')};
 
-        final result = await useCase()(const NoParams());
+        final result = await useCase()(
+          const ExportFlashcardsToAnkiParams(exportAll: true),
+        );
 
         expect(result.isRight(), isTrue);
         // Solo la tarjeta con rango pide locator: la otra tarjeta comparte
@@ -239,7 +247,9 @@ void main() {
       final cards = [sampleCard()];
       when(() => repository.getAll()).thenAnswer((_) async => right(cards));
 
-      final result = await useCase()(const NoParams());
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(exportAll: true),
+      );
 
       expect(result.isRight(), isTrue);
       expect(builder.receivedCards!.single.provenance, isNull);
@@ -251,7 +261,9 @@ void main() {
       () => repository.getAll(),
     ).thenAnswer((_) async => left(const Failure.unexpected(message: 'x')));
 
-    final result = await useCase()(const NoParams());
+    final result = await useCase()(
+      const ExportFlashcardsToAnkiParams(exportAll: true),
+    );
 
     expect(result.isLeft(), isTrue);
     expect(builder.receivedCards, isNull);
@@ -262,9 +274,89 @@ void main() {
     when(() => repository.getAll()).thenAnswer((_) async => right([]));
     builder.error = StateError('no se pudo armar el .apkg');
 
-    final result = await useCase()(const NoParams());
+    final result = await useCase()(
+      const ExportFlashcardsToAnkiParams(exportAll: true),
+    );
 
     expect(result.isLeft(), isTrue);
     expect(result.getLeft().toNullable(), isA<ExportFailedFailure>());
+  });
+
+  group('incremental (F17, D4)', () {
+    test('por defecto, pide solo lo que nunca se exportó', () async {
+      final cards = [sampleCard()];
+      when(
+        () => repository.getPendingExport(),
+      ).thenAnswer((_) async => right(cards));
+
+      final result = await useCase()(const ExportFlashcardsToAnkiParams());
+
+      expect(result.isRight(), isTrue);
+      expect(builder.receivedCards?.map((e) => e.card).toList(), cards);
+      verifyNever(() => repository.getAll());
+    });
+
+    test('con exportAll, pide todas, sin filtrar por lo nuevo', () async {
+      final cards = [sampleCard()];
+      when(() => repository.getAll()).thenAnswer((_) async => right(cards));
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(exportAll: true),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(builder.receivedCards?.map((e) => e.card).toList(), cards);
+      verifyNever(() => repository.getPendingExport());
+    });
+
+    test(
+      'al guardar con éxito, marca exportadas justo las tarjetas que iban',
+      () async {
+        final cards = [sampleCard()];
+        when(
+          () => repository.getPendingExport(),
+        ).thenAnswer((_) async => right(cards));
+
+        final result = await useCase()(const ExportFlashcardsToAnkiParams());
+
+        expect(result.isRight(), isTrue);
+        verify(() => repository.markExported({'c1'})).called(1);
+      },
+    );
+
+    test(
+      'un mazo vacío no tiene nada que marcar, pero igual arma el archivo',
+      () async {
+        when(
+          () => repository.getPendingExport(),
+        ).thenAnswer((_) async => right(const []));
+
+        final result = await useCase()(const ExportFlashcardsToAnkiParams());
+
+        expect(result.isRight(), isTrue);
+        expect(saver.savedFileName, 'sinapsis.apkg');
+        verify(() => repository.markExported(const {})).called(1);
+      },
+    );
+
+    test(
+      'si falla marcarlas, es un fallo, aunque el archivo ya se guardó',
+      () async {
+        final cards = [sampleCard()];
+        when(
+          () => repository.getPendingExport(),
+        ).thenAnswer((_) async => right(cards));
+        when(
+          () => repository.markExported(any()),
+        ).thenAnswer((_) async => left(const Failure.unexpected(message: 'x')));
+
+        final result = await useCase()(const ExportFlashcardsToAnkiParams());
+
+        expect(result.isLeft(), isTrue);
+        // El archivo ya se guardó antes de intentar marcar: un fallo acá no
+        // lo deshace, solo se avisa.
+        expect(saver.savedFileName, 'sinapsis.apkg');
+      },
+    );
   });
 }

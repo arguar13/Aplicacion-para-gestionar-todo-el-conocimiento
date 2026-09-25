@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/usecase/usecase.dart';
+import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
@@ -38,15 +38,20 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     });
   }
 
-  /// No distingue "canceló el diálogo de guardado" de "lo guardó" — igual
-  /// que el resto de las exportaciones de la app (ver `ExportItemUseCase`).
-  /// Solo avisa cuando algo salió mal de verdad.
+  /// Pregunta el alcance (F17, D4) antes de exportar: incremental por
+  /// defecto —solo lo que nunca se exportó—, con «todo el mazo» como
+  /// interruptor aparte. No distingue "canceló el diálogo de guardado" de
+  /// "lo guardó" — igual que el resto de las exportaciones de la app (ver
+  /// `ExportItemUseCase`). Solo avisa cuando algo salió mal de verdad.
   Future<void> _exportToAnki() async {
     final l10n = AppLocalizations.of(context)!;
+    final exportAll = await _chooseExportScope(context, l10n);
+    if (exportAll == null || !mounted) return;
+
     setState(() => _exporting = true);
 
     final result = await ref.read(exportFlashcardsToAnkiUseCaseProvider)(
-      const NoParams(),
+      ExportFlashcardsToAnkiParams(exportAll: exportAll),
     );
     if (!mounted) return;
     setState(() => _exporting = false);
@@ -56,6 +61,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
     }, (_) {});
+  }
+
+  Future<bool?> _chooseExportScope(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => _ExportScopeDialog(l10n: l10n),
+    );
   }
 
   @override
@@ -229,4 +244,45 @@ class _CardView extends StatelessWidget {
     ReviewGrade.good => l10n.reviewGradeGood,
     ReviewGrade.easy => l10n.reviewGradeEasy,
   };
+}
+
+/// El interruptor de F17, D4: «exportar todo» empieza apagado —el camino
+/// incremental es el que se ofrece por defecto—.
+class _ExportScopeDialog extends StatefulWidget {
+  const _ExportScopeDialog({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  State<_ExportScopeDialog> createState() => _ExportScopeDialogState();
+}
+
+class _ExportScopeDialogState extends State<_ExportScopeDialog> {
+  var _exportAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = widget.l10n;
+    return AlertDialog(
+      title: Text(l10n.reviewExportToAnkiTitle),
+      content: SwitchListTile(
+        key: const Key('review-export-all-switch'),
+        contentPadding: EdgeInsets.zero,
+        title: Text(l10n.reviewExportToAnkiExportAll),
+        value: _exportAll,
+        onChanged: (value) => setState(() => _exportAll = value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: const Key('review-export-confirm'),
+          onPressed: () => Navigator.of(context).pop(_exportAll),
+          child: Text(l10n.reviewExportToAnkiConfirm),
+        ),
+      ],
+    );
+  }
 }

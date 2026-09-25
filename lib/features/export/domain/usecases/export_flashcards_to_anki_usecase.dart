@@ -11,13 +11,14 @@ import 'package:sinapsis/features/export/domain/services/anki_topic_resolver.dar
 import 'package:sinapsis/features/export/domain/services/file_saver.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 
-/// Exporta todo el mazo de flashcards de la bóveda a un `.apkg` de Anki, en
+/// Exporta el mazo de flashcards de la bóveda a un `.apkg` de Anki, en
 /// subdecks por su Tema (F17, D1/D2), con la procedencia de cada tarjeta en
-/// el reverso (F17, commit 3).
+/// el reverso (F17, commit 3) e incremental por defecto (F17, D4).
 ///
 /// A diferencia de `ExportItemUseCase`, no exporta un elemento sino todas
 /// las tarjetas a la vez: es un mazo, no un documento suelto.
-class ExportFlashcardsToAnkiUseCase implements UseCase<Unit, NoParams> {
+class ExportFlashcardsToAnkiUseCase
+    implements UseCase<Unit, ExportFlashcardsToAnkiParams> {
   const ExportFlashcardsToAnkiUseCase({
     required FlashcardRepository flashcards,
     required AnkiTopicResolver topics,
@@ -46,8 +47,12 @@ class ExportFlashcardsToAnkiUseCase implements UseCase<Unit, NoParams> {
   final FileSaver _saver;
 
   @override
-  Future<Either<Failure, Unit>> call(NoParams params) async {
-    final found = await _flashcards.getAll();
+  Future<Either<Failure, Unit>> call(
+    ExportFlashcardsToAnkiParams params,
+  ) async {
+    final found = params.exportAll
+        ? await _flashcards.getAll()
+        : await _flashcards.getPendingExport();
 
     final failure = found.getLeft().toNullable();
     if (failure != null) return left(failure);
@@ -104,6 +109,17 @@ class ExportFlashcardsToAnkiUseCase implements UseCase<Unit, NoParams> {
       ];
       final bytes = await _builder.build(exports);
       await _saver.saveFile(fileName: 'sinapsis.apkg', bytes: bytes);
+
+      // Recién ahora, con el archivo ya guardado, quedan marcadas como
+      // exportadas (F17, D4): un fallo acá no deshace el guardado, pero sí
+      // se avisa —dejarlo pasar en silencio repetiría estas mismas
+      // tarjetas en el próximo incremental sin que nadie se entere—.
+      final marked = await _flashcards.markExported({
+        for (final card in cards) card.id,
+      });
+      final markFailure = marked.getLeft().toNullable();
+      if (markFailure != null) return left(markFailure);
+
       return right(unit);
       // El armado del paquete o el diálogo de guardado pueden fallar por
       // motivos que no tienen un tipo propio, igual que en
@@ -132,4 +148,14 @@ class ExportFlashcardsToAnkiUseCase implements UseCase<Unit, NoParams> {
     final text = citation.toPlainText();
     return text.isEmpty ? null : text;
   }
+}
+
+/// Qué tanto del mazo exportar (F17, D4): por defecto, solo lo que nunca se
+/// exportó —[exportAll] en falso—; en verdad exportarlo TODO de nuevo es una
+/// opción aparte, para quien cambia de dispositivo Anki o necesita
+/// resincronizar por completo.
+final class ExportFlashcardsToAnkiParams {
+  const ExportFlashcardsToAnkiParams({this.exportAll = false});
+
+  final bool exportAll;
 }

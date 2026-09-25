@@ -4187,6 +4187,18 @@
   "@reviewExportToAnkiTooltip": {
     "description": "Tooltip del botón que exporta todas las flashcards a un archivo .apkg de Anki."
   },
+  "reviewExportToAnkiTitle": "Export to Anki",
+  "@reviewExportToAnkiTitle": {
+    "description": "Título del diálogo que pregunta el alcance antes de exportar a Anki (F17)."
+  },
+  "reviewExportToAnkiExportAll": "Export the whole deck, not just what's new",
+  "@reviewExportToAnkiExportAll": {
+    "description": "Interruptor del diálogo de exportar a Anki: apagado exporta solo lo que nunca se exportó (F17, D4)."
+  },
+  "reviewExportToAnkiConfirm": "Export",
+  "@reviewExportToAnkiConfirm": {
+    "description": "Botón que confirma la exportación en el diálogo de exportar a Anki."
+  },
   "reviewAllDone": "Nothing to review right now. Check back later.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

@@ -33,6 +33,11 @@ sealed class Flashcard with _$Flashcard {
     String? sourceChunkId,
     int? sourceCharStart,
     int? sourceCharEnd,
+
+    /// Cuándo se exportó por última vez a un `.apkg` con éxito (F17, D4).
+    /// `null` en una tarjeta que nunca entró en una exportación: es lo que
+    /// el camino incremental usa para decidir qué es «nuevo».
+    DateTime? lastExportedAt,
   }) = _Flashcard;
 
   const Flashcard._();

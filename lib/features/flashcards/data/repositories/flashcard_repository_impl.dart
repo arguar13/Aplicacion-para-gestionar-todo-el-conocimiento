@@ -282,6 +282,44 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<Flashcard>>> getPendingExport() async {
+    try {
+      final rows =
+          await (_db.select(_db.flashcards)
+                ..where(
+                  (f) =>
+                      f.lastExportedAt.isNull() & itemIsActive(_db, f.itemId),
+                )
+                ..orderBy([(f) => OrderingTerm(expression: f.createdAt)]))
+              .get();
+      return right(rows.map(_toEntity).toList());
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.getPendingExport'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> markExported(Set<String> ids) async {
+    if (ids.isEmpty) return right(unit);
+    try {
+      await (_db.update(_db.flashcards)..where((f) => f.id.isIn(ids))).write(
+        FlashcardsCompanion(lastExportedAt: Value(_clock())),
+      );
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.markExported'),
+      );
+    }
+  }
+
   /// El chunk de [itemId] que contiene la posición [offset], o `null` si el
   /// elemento no tiene chunks o [offset] cae fuera de todos.
   ///
@@ -316,6 +354,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     sourceChunkId: row.sourceChunkId,
     sourceCharStart: row.sourceCharStart,
     sourceCharEnd: row.sourceCharEnd,
+    lastExportedAt: row.lastExportedAt,
   );
 
   /// Catch-all deliberado, igual que en el resto de los repositorios: un

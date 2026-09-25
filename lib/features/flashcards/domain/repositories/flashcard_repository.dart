@@ -45,9 +45,19 @@ abstract interface class FlashcardRepository {
   /// Todas las tarjetas de la bóveda, sin importar si ya toca repasarlas.
   ///
   /// A diferencia de [watchDue], no filtra por fecha: es lo que necesita
-  /// exportar el mazo completo a Anki, donde el repaso sigue después de
-  /// exportado y no solo lo que vence hoy.
+  /// exportar «todo el mazo» a Anki (F17, D4) —o repasar sin límite—, donde
+  /// el repaso sigue después de exportado y no solo lo que vence hoy.
   Future<Either<Failure, List<Flashcard>>> getAll();
+
+  /// Las tarjetas que nunca entraron en ninguna exportación exitosa a Anki
+  /// —`lastExportedAt` nulo—, para el camino incremental (F17, D4).
+  /// «Exportar todo» sigue siendo [getAll], sin este filtro.
+  Future<Either<Failure, List<Flashcard>>> getPendingExport();
+
+  /// Marca [ids] como recién exportadas, con la hora de ahora (F17, D4): el
+  /// próximo incremental las deja afuera hasta que vuelvan a ser «nuevas»
+  /// —por ejemplo, si se borran y se recrean—.
+  Future<Either<Failure, Unit>> markExported(Set<String> ids);
 
   /// Las tarjetas de toda la bóveda que ya toca repasar —`dueAt` vencido—,
   /// para la pantalla de repaso diario.

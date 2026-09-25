@@ -3692,6 +3692,18 @@
   "@reviewExportToAnkiTooltip": {
     "description": "Tooltip del botón que exporta todas las flashcards a un archivo .apkg de Anki."
   },
+  "reviewExportToAnkiTitle": "Exportar a Anki",
+  "@reviewExportToAnkiTitle": {
+    "description": "Título del diálogo que pregunta el alcance antes de exportar a Anki (F17)."
+  },
+  "reviewExportToAnkiExportAll": "Exportar todo el mazo, no solo lo nuevo",
+  "@reviewExportToAnkiExportAll": {
+    "description": "Interruptor del diálogo de exportar a Anki: apagado exporta solo lo que nunca se exportó (F17, D4)."
+  },
+  "reviewExportToAnkiConfirm": "Exportar",
+  "@reviewExportToAnkiConfirm": {
+    "description": "Botón que confirma la exportación en el diálogo de exportar a Anki."
+  },
   "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

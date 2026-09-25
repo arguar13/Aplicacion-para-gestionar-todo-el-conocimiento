@@ -358,6 +358,64 @@ void main() {
     });
   });
 
+  group('exportación incremental (F17, D4)', () {
+    test('una tarjeta recién creada nunca se exportó: entra en lo '
+        'pendiente', () async {
+      final item = await seedItem();
+      final card = (await repository.create(
+        itemId: item,
+        front: 'p',
+        back: 'r',
+      )).getRight().toNullable()!;
+
+      final pending = (await repository.getPendingExport())
+          .getRight()
+          .toNullable()!;
+
+      expect(pending.map((c) => c.id), [card.id]);
+      expect(card.lastExportedAt, isNull);
+    });
+
+    test('marcarla exportada la saca de lo pendiente, con la hora de '
+        'ahora', () async {
+      final item = await seedItem();
+      final card = (await repository.create(
+        itemId: item,
+        front: 'p',
+        back: 'r',
+      )).getRight().toNullable()!;
+      now = DateTime(2026, 9, 25, 11);
+
+      final marked = await repository.markExported({card.id});
+
+      expect(marked.isRight(), isTrue);
+      final pending = (await repository.getPendingExport())
+          .getRight()
+          .toNullable()!;
+      expect(pending, isEmpty);
+      final all = (await repository.getAll()).getRight().toNullable()!;
+      expect(all.single.lastExportedAt, now);
+    });
+
+    test('marcar un conjunto vacío no toca nada ni rompe', () async {
+      final result = await repository.markExported(const {});
+
+      expect(result.isRight(), isTrue);
+    });
+
+    test('una tarjeta en la papelera no entra en lo pendiente', () async {
+      final trashed = await seedItem();
+      await repository.create(itemId: trashed, front: 'p', back: 'r');
+      await trashItemRows(db, trashed);
+
+      final pending = (await repository.getPendingExport())
+          .getRight()
+          .toNullable()!;
+
+      expect(pending, isEmpty);
+    });
+  });
+
   group('la papelera (F11)', () {
     Future<void> card(String itemId, String front) =>
         repository.create(itemId: itemId, front: front, back: 'respuesta');
