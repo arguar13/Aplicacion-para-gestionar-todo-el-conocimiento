@@ -39,6 +39,8 @@ import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dar
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
+import 'package:sinapsis/features/notes/presentation/widgets/derived_note_badge.dart';
+import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/map_note_links_section.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/property_editor.dart';
@@ -80,6 +82,12 @@ class ItemDetailScreen extends ConsumerWidget {
             // bibliografía propia que exportar.
             if (item.valueOrNull!.source.kind == SourceKind.manualNote)
               _BibliographyButton(item: item.valueOrNull!),
+            // Cualquier elemento puede ser el origen de un derivado (F16,
+            // D5) —una fuente entera o una nota, no solo desde un cuaderno—.
+            GenerateDerivedNoteButton(
+              sourceTitle: item.valueOrNull!.title,
+              itemId: item.valueOrNull!.id,
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,
@@ -249,6 +257,7 @@ class _DetailBody extends StatelessWidget {
                     children: [
                       _NoteMaturityChip(itemId: item.id),
                       _MapNoteToggle(itemId: item.id),
+                      DerivedNoteBadge(itemId: item.id),
                     ],
                   ),
                 ],

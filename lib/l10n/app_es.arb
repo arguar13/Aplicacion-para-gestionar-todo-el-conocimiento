@@ -2123,6 +2123,111 @@
   "@notebookDetailEmpty": {
     "description": "Estado vacío del panel de un cuaderno."
   },
+  "derivedNoteGenerateTooltip": "Generar derivado",
+  "@derivedNoteGenerateTooltip": {
+    "description": "Tooltip del botón que abre el menú de tipos de derivado (F16, D5), en el detalle de un cuaderno o de un elemento."
+  },
+  "derivedNoteTypeStudyGuide": "Guía de estudio",
+  "@derivedNoteTypeStudyGuide": {
+    "description": "Uno de los cuatro tipos de derivado, en el menú de generación."
+  },
+  "derivedNoteTypeOpenQuestions": "Preguntas abiertas",
+  "@derivedNoteTypeOpenQuestions": {
+    "description": "Uno de los cuatro tipos de derivado, en el menú de generación."
+  },
+  "derivedNoteTypeOutline": "Esquema",
+  "@derivedNoteTypeOutline": {
+    "description": "Uno de los cuatro tipos de derivado, en el menú de generación."
+  },
+  "derivedNoteTypeTimeline": "Cronología",
+  "@derivedNoteTypeTimeline": {
+    "description": "Uno de los cuatro tipos de derivado, en el menú de generación."
+  },
+  "derivedNoteTitleStudyGuide": "Guía de estudio: {source}",
+  "@derivedNoteTitleStudyGuide": {
+    "description": "Título por defecto de una guía de estudio generada, con el nombre del cuaderno o el elemento del que sale.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteTitleOpenQuestions": "Preguntas sobre: {source}",
+  "@derivedNoteTitleOpenQuestions": {
+    "description": "Título por defecto de una lista de preguntas generada.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteTitleOutline": "Esquema: {source}",
+  "@derivedNoteTitleOutline": {
+    "description": "Título por defecto de un esquema generado.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteTitleTimeline": "Cronología: {source}",
+  "@derivedNoteTitleTimeline": {
+    "description": "Título por defecto de una cronología generada.",
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteModelRequired": "Generar un derivado necesita el modelo de lenguaje descargado.",
+  "@derivedNoteModelRequired": {
+    "description": "Aviso al intentar generar un derivado sin el modelo de lenguaje listo."
+  },
+  "derivedNoteDownloadAction": "Descargar",
+  "@derivedNoteDownloadAction": {
+    "description": "Acción del aviso de modelo requerido, lleva a la pantalla de descarga."
+  },
+  "derivedNoteCreated": "Se generó «{title}»",
+  "@derivedNoteCreated": {
+    "description": "Confirmación al generar un derivado con éxito, con su título.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteViewAction": "Ver",
+  "@derivedNoteViewAction": {
+    "description": "Acción del aviso de derivado creado, abre su detalle."
+  },
+  "derivedNoteBadgeLabel": "Generado por IA",
+  "@derivedNoteBadgeLabel": {
+    "description": "Insignia visible en una nota generada (F16, D3)."
+  },
+  "derivedNoteBadgeTooltip": "Generado por {model} el {date}",
+  "@derivedNoteBadgeTooltip": {
+    "description": "Detalle al tocar o pasar el cursor sobre la insignia de una nota generada, cuando el usuario todavía no la editó.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "derivedNoteBadgeTooltipEdited": "Generado por {model} el {date} · editada",
+  "@derivedNoteBadgeTooltipEdited": {
+    "description": "Igual que derivedNoteBadgeTooltip, cuando el usuario ya editó el contenido de la nota generada (derivedEdited).",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "libraryColumnTitle": "Título",
   "@libraryColumnTitle": {
     "description": "Encabezado de columna en la vista de tabla de la biblioteca."

@@ -32,10 +32,14 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 /// commit 11 —eso ya se prueba aparte, acá lo que importa es qué hace el
 /// caso de uso con un borrador YA anclado—.
 class FakeDerivedNoteGenerator implements DerivedNoteGenerator {
-  FakeDerivedNoteGenerator(this.draft);
+  FakeDerivedNoteGenerator(this.draft, {this.throws = false});
 
   DerivedNoteDraft draft;
   List<ChatSource>? sourcesSeen;
+
+  /// Simula una falla del motor de inferencia —de terceros, sin tipo propio
+  /// en Dart— en vez de un borrador.
+  final bool throws;
 
   @override
   Future<DerivedNoteDraft> generateDerivedNote({
@@ -43,6 +47,7 @@ class FakeDerivedNoteGenerator implements DerivedNoteGenerator {
     required List<ChatSource> sources,
   }) async {
     sourcesSeen = sources;
+    if (throws) throw Exception('el modelo falló');
     return draft;
   }
 }
@@ -262,6 +267,33 @@ void main() {
     )).getRight().toNullable()!;
     expect(items, isEmpty);
   });
+
+  test(
+    'una falla del motor de inferencia se traduce a Failure, no revienta',
+    () async {
+      await seedSource('a', 'contenido real');
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.outline, sections: []),
+        throws: true,
+      );
+
+      final result = await useCase(generator)(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.outline,
+          title: 'Esquema',
+          model: 'gemma-3n',
+          itemId: 'a',
+        ),
+      );
+
+      expect(result.isLeft(), isTrue);
+      final items = (await library.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!;
+      // Solo la fuente sembrada: ningún derivado se creó.
+      expect(items, hasLength(1));
+    },
+  );
 
   test('un cuaderno vacío no genera nada', () async {
     final notebook = await notebooks.create(

@@ -101,10 +101,20 @@ class GenerateDerivedNoteUseCase
       );
     }
 
-    final draft = await _generator.generateDerivedNote(
-      type: params.type,
-      sources: sources,
-    );
+    final DerivedNoteDraft draft;
+    try {
+      draft = await _generator.generateDerivedNote(
+        type: params.type,
+        sources: sources,
+      );
+      // El motor de inferencia es de terceros (flutter_gemma); puede fallar
+      // de formas que no tienen un tipo propio en Dart —memoria
+      // insuficiente, un error nativo de la biblioteca de inferencia—,
+      // mismo criterio que `AskVaultQuestionUseCase`.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e) {
+      return left(Failure.unexpected(message: e.toString()));
+    }
     if (draft.isEmpty) {
       return left(
         const Failure.validation(
