@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_applier.dart';
@@ -783,5 +784,68 @@ void main() {
         EntryField.reference,
       ]);
     });
+  });
+
+  group('el índice de texto después de fusionar (F19, 19.5)', () {
+    Future<List<String>> itemSearchMatches(TestVault vault, String input) {
+      final query = buildSearchQuery(input);
+      return vault.db
+          .customSelect(
+            'SELECT item_id FROM item_search WHERE item_search MATCH ? '
+            'ORDER BY rank',
+            variables: [Variable.withString(query)],
+          )
+          .get()
+          .then(
+            (rows) => rows.map((r) => r.data['item_id']! as String).toList(),
+          );
+    }
+
+    Future<int> chunkMatches(TestVault vault, String input) {
+      final query = buildSearchQuery(input);
+      return vault.db
+          .customSelect(
+            'SELECT COUNT(*) AS n FROM chunk_search WHERE chunk_search MATCH ?',
+            variables: [Variable.withString(query)],
+          )
+          .get()
+          .then((rows) => rows.single.data['n']! as int);
+    }
+
+    test('el texto de una fuente que llega queda buscable por sus chunks al '
+        'terminar', () async {
+      pc.at(3);
+      await pc.saveSource(
+        'a',
+        title: 'Fuente A',
+        text: 'Un párrafo sobre revoluciones científicas.',
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      expect(await chunkMatches(tel, 'revoluciones'), 1);
+    });
+
+    test(
+      'un elemento que ya estaba, sin tocar por la fusión, sigue buscable',
+      () async {
+        tel.at(1);
+        await tel.saveSource(
+          'previo',
+          title: 'Ya estaba antes de fusionar',
+          text: 'Contenido que la fusión de este test nunca toca.',
+        );
+
+        pc.at(3);
+        await pc.saveSource('a', title: 'Llega con la fusión');
+
+        tel.at(9);
+        await tel.mergeFrom(pc);
+
+        expect(await itemSearchMatches(tel, 'estaba'), ['previo']);
+        expect(await chunkMatches(tel, 'nunca'), 1);
+      },
+    );
   });
 }

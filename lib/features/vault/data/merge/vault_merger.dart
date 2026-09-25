@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:meta/meta.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_write_scope.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/vault/data/merge/derived_rebuild.dart';
@@ -88,17 +89,29 @@ class VaultMerger {
           await gates.installGuards();
 
           final written = await _write();
-          final derived = await DerivedRebuild(
-            database: _db,
-            ids: _ids,
-            clock: _clock,
-          ).apply();
+          // `MergeWork.touchedItems` ya está completo acá —es lo que
+          // `DerivedRebuild.apply()` lee para saber qué rehacer—, así que se
+          // puede pedir antes de abrir el lote: `item_search` se repuebla
+          // acotado a esos elementos (F19, 19.4) en vez de la bóveda entera.
+          // `chunk_search` sigue con el rebuild completo —acá sí hace falta:
+          // es la fuente real del costo medido en F15/Decisión 48, no algo
+          // que este lote evita tocar como en `KnowledgeEntryWriter.runBulk`—
+          // y el escenario medido (una bóveda vacía) es exactamente donde el
+          // lote y la bóveda son casi lo mismo, así que el rebuild completo
+          // no paga de más.
+          final touchedForIndex = await _touchedItems();
+          final derived = await withSuspendedSearchIndexes(
+            _db,
+            () =>
+                DerivedRebuild(database: _db, ids: _ids, clock: _clock).apply(),
+            touchedItemIds: () => touchedForIndex,
+          );
           await afterWrites?.call(_db);
 
           await gates.verify(
             before: before,
             itemsAdded: written.itemsAdded,
-            rebuilt: await _touchedItems(),
+            rebuilt: touchedForIndex,
           );
 
           final copied = await files.copy(database: _db, incoming: incoming);
