@@ -110,3 +110,48 @@ emulador.
 - [ ] El dibujo tras soltar el gesto es idéntico al vectorial de siempre.
 - [ ] El tope de temas visibles NO se bajó.
 - [ ] Invariante de chunking verde.
+
+## Informe de 18.1 (commit 3, 2026-09-25)
+
+Medido dos veces en el emulador `Sinapsis_Bench` (`tool/bench_android.ps1 -Target
+map_benchmark_test -Label f18`), con resultados consistentes entre las dos corridas. Cifras
+completas en `docs/benchmarks/emulador-Google-sdk_gphone16k_x86_64-android17/2026-09-25-f18/
+latest_map_screens_report.md`.
+
+**El hallazgo central.** Con la comunidad mayor de un árbol real de 2.164 temas, agrupando por
+RAMA DE PRIMER NIVEL ENTERA (como hoy, `areaDepth: 0`), la comunidad mayor da exactamente 300
+nodos —el tope `kMaxVisibleTopics`, sin cambios— y el arrastre sostenido en el nivel de temas da
+p90 de raster 18,4–28,4 ms con 31,9–32,1 % de cuadros fuera de presupuesto (las dos corridas).
+Agrupando por SUB-RAMA (`areaDepth: 2`) —«Historia › Roma», no «Historia» completa—, la comunidad
+mayor TAMBIÉN da 300 nodos (el tope sigue mandando, así que el número de nodos visibles no cambia),
+pero el arrastre da p90 de raster 15,8–15,9 ms —ya DENTRO del presupuesto de 16,6 ms en las dos
+corridas— con 9,8–9,9 % de cuadros fuera —mejor que antes, pero todavía por encima del 5 %—.
+
+**Cuál de los tres desenlaces corresponde.** El segundo: «entra justo o queda cerca del límite →
+hacé 18.2 igual». La sub-rama no vuelve innecesario el caché de rasterizado del gesto, pero reduce
+bastante la brecha que tiene que cerrar —de duplicar el presupuesto a quedar cerca—. Los demás
+escenarios del nivel de temas y de zoom (pellizcar con dos dedos, 36,2–42,9 % de cuadros fuera en
+las dos corridas) siguen fallando con holgura, confirmando que 18.2 probablemente hace falta en más
+de una vista, tal como ya preveía el commit 4 de este plan.
+
+**Sobre los escenarios de estrés (400/800/1.200/2.000, decisión B).** Con los datos ya en mano,
+decido NO construirlos por ahora: el tope real de la app (`kMaxVisibleTopics = 300`) no cambia con
+esta fase —la decisión de mantenerlo ya estaba tomada de antemano—, así que ningún camino real de
+Sinapsis muestra más de 300 temas a la vez nunca; medir 400 a 2.000 exigiría alimentar el renderer
+por fuera de `selectTopics()` con un arnés nuevo, un trabajo real, y el resultado no cambiaría si
+18.2 hace falta (ya confirmado) ni su alcance (ya tiene que cubrir el nivel de temas y el zoom,
+sí o sí). Lo dejo como una pieza opcional para más adelante, si en algún momento se revisita el
+tope de 300 —no antes—. Señalado, no decidido en silencio.
+
+**Hallazgo de tooling, aparte de la app.** `integrationDriver()` (paquete `integration_test`) tiene
+`writeResponseOnFailure: false` por defecto: con cualquier prueba fallada, nunca guarda ningún
+informe del archivo, ni siquiera el de los benchmarks que sí pasaron. Corregido en
+`test_driver/integration_test.dart` con `writeResponseOnFailure: true` —un benchmark que verifica
+un umbral tiene que poder fallar exactamente cuando el umbral no se cumple, que es el caso en el
+que más hace falta el informe guardado—. Vale para cualquier benchmark de dispositivo futuro de
+este proyecto que agregue una aserción de umbral.
+
+**Sigue el commit 4: 18.2**, el caché de rasterizado durante el gesto, con foco en el nivel de
+temas y el zoom —los dos que la medición confirma que lo necesitan—, y en el esquema/panorama si
+una medición más estable (menos sensible al ruido del host, visto en la alta variancia entre las
+dos corridas de este informe) también lo confirma ahí.
