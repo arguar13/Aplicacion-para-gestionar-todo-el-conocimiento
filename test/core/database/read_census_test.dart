@@ -68,6 +68,13 @@ void main() {
         'la vista previa de una fusión cuenta TODOS los elementos de la copia, '
         'también los que están en su papelera: un elemento borrado viaja con '
         'su borrado, y no es una pantalla que se le muestre al usuario',
+    'lib/features/habit/data/repositories/streak_repository_impl.dart':
+        'cuenta el día en que se extrajo una nota atómica para la racha '
+        '(F17, D6), viva o en la papelera: es un hecho histórico que no se '
+        'deshace si la nota se archiva después —mismo criterio que los '
+        'otros tres orígenes de la racha (review_log, field_version, '
+        'habit_event), que tampoco dejan de contar un día por algo que '
+        'pasó más tarde—; no es una lista que se le muestre a nadie',
   };
 
   /// Lo que cuenta como «decidí qué hacer con lo borrado».
