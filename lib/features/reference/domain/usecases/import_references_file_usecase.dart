@@ -29,14 +29,14 @@ import 'package:sinapsis/features/reference/domain/usecases/import_reference_ent
 /// aborta el resto: miles de referencias no pueden depender de que la
 /// primera mala tire abajo todo el archivo.
 ///
-/// El archivo entero entra en UNA sola transacción
-/// (`LibraryRepository.runInTransaction`, F15, comando 16): guardar cada
-/// entrada por separado —cada una con su propio `save`, su propia
-/// confirmación— es lo que hacía que importar 5.000 entradas tardara más de
-/// 20 s incluso en escritorio. Un fallo de verdad inesperado —no una entrada
-/// saltada, que ya se maneja arriba y nunca llega a lanzar— deshace el
-/// archivo entero: mejor eso que una importación a medias sin que nadie lo
-/// haya pedido.
+/// El archivo entero entra en UN solo lote (`LibraryRepository.runBulk`,
+/// F15, comando 16; F19, 19.4): guardar cada entrada por separado —cada
+/// una con su propio `save`, su propia confirmación, su propio índice de
+/// texto reconstruido fila por fila— es lo que hacía que importar 5.000
+/// entradas tardara más de 20 s incluso en escritorio. Un fallo de verdad
+/// inesperado —no una entrada saltada, que ya se maneja arriba y nunca
+/// llega a lanzar— deshace el archivo entero: mejor eso que una importación
+/// a medias sin que nadie lo haya pedido.
 class ImportReferencesFileUseCase {
   ImportReferencesFileUseCase({
     required LibraryRepository library,
@@ -91,7 +91,7 @@ class ImportReferencesFileUseCase {
 
     final (entries, skipped) = _parse(bibliographyFile);
 
-    final report = await _library.runInTransaction(() async {
+    final report = await _library.runBulk(() async {
       final index = await _identity.buildIndex();
       final fuzzyIndex = await _fuzzyMatch.buildIndex();
 

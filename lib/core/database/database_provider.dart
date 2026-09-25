@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_writer_holder.dart';
 import 'package:sinapsis/core/database/device_identity.dart';
 
 /// Quién es esta instalación de la app (F11).
@@ -30,4 +31,12 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
   );
   ref.onDispose(database.close);
   return database;
+});
+
+/// El puente para que un lote (F19, 19.4) abierto por UN repositorio que
+/// escribe con `KnowledgeEntryWriter` —`LibraryRepositoryImpl`,
+/// `ReferenceRepositoryImpl`— se note en el otro: los dos reciben esta misma
+/// instancia. Ver [BulkWriterHolder].
+final bulkWriterHolderProvider = Provider<BulkWriterHolder>((ref) {
+  return BulkWriterHolder();
 });

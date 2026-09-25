@@ -128,4 +128,63 @@ void main() {
 
     expect(await searchItems('lo que sea'), isEmpty);
   });
+
+  group('touchedItemIds (F19, 19.4): repoblar acotado, no la tabla entera', () {
+    test('solo repuebla los ids que se le dan, no toda la bóveda', () async {
+      final before = await newNote('Ya estaba antes del lote');
+      late String duringId;
+
+      await withSuspendedSearchIndexes(db, () async {
+        duringId = await newNote('Nueva durante el lote');
+      }, touchedItemIds: () => [duringId]);
+
+      // La nueva, tocada, queda indexada.
+      expect(await searchItems('nueva'), [duringId]);
+      // La de antes, JAMÁS tocada por este lote, sigue como estaba —no la
+      // tira ni la vuelve a escribir, a diferencia del rebuild entero—.
+      expect(await searchItems('antes'), [before]);
+    });
+
+    test('una lista vacía de ids no repuebla nada', () async {
+      await withSuspendedSearchIndexes(db, () async {
+        await newNote('Adentro, pero nadie la anuncia como tocada');
+      }, touchedItemIds: () => const []);
+
+      expect(await searchItems('adentro'), isEmpty);
+    });
+
+    test(
+      'reindexa el valor de AHORA, no el de cuando se tocó primero',
+      () async {
+        late String id;
+
+        await withSuspendedSearchIndexes(db, () async {
+          id = await newNote('Título original');
+          await db.customStatement('UPDATE item SET title = ? WHERE id = ?', [
+            'Título final',
+            id,
+          ]);
+        }, touchedItemIds: () => [id]);
+
+        expect(await searchItems('final'), [id]);
+        expect(await searchItems('original'), isEmpty);
+      },
+    );
+  });
+
+  group('chunks: false (F19, 19.4): no suspende chunk_search', () {
+    test('un chunk agregado durante el lote se ve enseguida, sin esperar a '
+        'que cierre', () async {
+      final id = await newNote('Con chunk');
+
+      await withSuspendedSearchIndexes(db, () async {
+        await addChunk(id, 'contenido agregado durante el lote');
+        // A diferencia del default: acá el trigger real de chunks sigue
+        // activo, así que ya se ve DENTRO del lote.
+        expect(await chunkMatches('agregado'), 1);
+      }, chunks: false);
+
+      expect(await chunkMatches('agregado'), 1);
+    });
+  });
 }

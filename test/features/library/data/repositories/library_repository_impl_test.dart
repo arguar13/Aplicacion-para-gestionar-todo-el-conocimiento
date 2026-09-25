@@ -6,6 +6,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_writer_holder.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
@@ -16,6 +19,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -25,6 +29,7 @@ import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/reference/data/repositories/reference_repository_impl.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -2155,6 +2160,114 @@ void main() {
       );
 
       expect((await repository.findById(a.id)).getRight().toNullable(), isNull);
+    });
+  });
+
+  group('runBulk (F19, 19.4)', () {
+    Future<List<String>> searchItems(String userInput) async {
+      final query = buildSearchQuery(userInput);
+      if (query.isEmpty) return [];
+      final rows = await db
+          .customSelect(
+            'SELECT item_id FROM item_search WHERE item_search MATCH ? '
+            'ORDER BY rank',
+            variables: [Variable.withString(query)],
+          )
+          .get();
+      return rows.map((r) => r.data['item_id']! as String).toList();
+    }
+
+    test('lo de adentro queda guardado, todo junto', () async {
+      final a = buildItem(title: 'Uno');
+      final b = buildItem(title: 'Dos');
+
+      final result = await repository.runBulk(() async {
+        await repository.save(a);
+        await repository.save(b);
+        return 'listo';
+      });
+
+      expect(result, 'listo');
+      expect(
+        (await repository.findById(a.id)).getRight().toNullable()?.title,
+        'Uno',
+      );
+      expect(
+        (await repository.findById(b.id)).getRight().toNullable()?.title,
+        'Dos',
+      );
+    });
+
+    test('un fallo de adentro deshace TODO, no solo lo que faltaba', () async {
+      final a = buildItem(title: 'Se pierde con el resto');
+
+      await expectLater(
+        repository.runBulk(() async {
+          await repository.save(a);
+          throw StateError('algo salió mal a mitad de camino');
+        }),
+        throwsStateError,
+      );
+
+      expect((await repository.findById(a.id)).getRight().toNullable(), isNull);
+    });
+
+    test(
+      'suspende el índice de texto durante el lote y lo repuebla al cerrar',
+      () async {
+        final a = buildItem(title: 'Revoluciones científicas');
+
+        await repository.runBulk(() async {
+          await repository.save(a);
+          // Adentro del lote: el trigger real está suspendido.
+          expect(await searchItems('revoluciones'), isEmpty);
+        });
+
+        expect(await searchItems('revoluciones'), [a.id]);
+      },
+    );
+
+    test('comparte el lote con un ReferenceRepositoryImpl que use el mismo '
+        'puente: sus campos también se difieren y se vuelcan juntos', () async {
+      final holder = BulkWriterHolder();
+      final shared = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        bulkWriter: holder,
+      );
+      final reference = ReferenceRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        clock: () => now,
+        bulkWriter: holder,
+      );
+
+      final item = buildItem(
+        title: 'Con referencia',
+        sourceKind: SourceKind.reference,
+      );
+
+      Future<List<FieldVersionRow>> referenceVersions() =>
+          (db.select(db.fieldVersions)..where(
+                (f) =>
+                    f.itemId.equals(item.id) &
+                    f.fieldName.equals(EntryField.reference),
+              ))
+              .get();
+
+      await shared.runBulk(() async {
+        await shared.save(item);
+        await reference.saveReference(
+          item.id,
+          const ReferenceData(publisher: 'Editorial Uno'),
+        );
+        // Adentro del lote: el escritor de referencia todavía no volcó su
+        // `field_version` —comparte el mismo lote que abrió `shared`—.
+        expect(await referenceVersions(), isEmpty);
+      });
+
+      expect(await referenceVersions(), hasLength(1));
     });
   });
 }

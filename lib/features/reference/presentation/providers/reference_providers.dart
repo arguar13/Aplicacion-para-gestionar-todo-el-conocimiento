@@ -27,6 +27,7 @@ final referenceRepositoryProvider = Provider<ReferenceRepository>(
     database: ref.watch(appDatabaseProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),
+    bulkWriter: ref.watch(bulkWriterHolderProvider),
   ),
 );
 

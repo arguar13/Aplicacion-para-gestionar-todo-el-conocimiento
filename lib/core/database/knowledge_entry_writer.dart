@@ -65,12 +65,20 @@ class KnowledgeEntryWriter {
 
   String get _deviceId => _db.deviceId;
 
-  /// Modo lote (F19, 19.2, decisión B): mientras [body] corre —recibe ESTE
-  /// mismo escritor, ya en modo lote—, `_touch` no escribe cada
+  /// Modo lote (F19, 19.2/19.4, decisión B): mientras [body] corre —recibe
+  /// ESTE mismo escritor, ya en modo lote—, `_touch` no escribe cada
   /// `field_version` al toque: guarda en memoria el último valor por
   /// (elemento, campo) y lo vuelca en una sola escritura por campo al
   /// cerrar. Alrededor de todo, [withSuspendedSearchIndexes] (decisión A)
-  /// suspende `item_search`/`chunk_search` de la misma forma.
+  /// suspende `item_search`, acotado a los elementos que de verdad
+  /// cambiaron —los mismos que quedaron en el volcado de arriba, ya se
+  /// sabe cuáles son sin otra consulta—, y NO suspende `chunk_search`: este
+  /// escritor nunca escribe `chunks` (ver el doc comment de la clase), y
+  /// suspenderlo para no usarlo solo pagaría el costo de un `rebuild` de
+  /// FTS5 sobre la tabla entera de chunks sin ninguna razón. Medido en un
+  /// lote real de miles de elementos: repoblar `item_search` completo por
+  /// cada lote, por chico que fuera contra una bóveda grande, costaba más
+  /// de lo que ahorraba suspender los triggers (F19, 19.4).
   ///
   /// La suspensión, el cuerpo del lote y el volcado final corren dentro de
   /// UNA transacción: un lote que falla a mitad de camino no deja ni
@@ -87,21 +95,32 @@ class KnowledgeEntryWriter {
     if (_deferredTouches != null) {
       throw StateError('runBulk ya está activo en este escritor: no se anida.');
     }
+    var touchedIds = const Iterable<String>.empty();
     return _db.transaction(() async {
-      return withSuspendedSearchIndexes(_db, () async {
-        _deferredTouches = {};
-        try {
-          return await body(this);
-        } finally {
-          final pending = _deferredTouches!;
-          _deferredTouches = null;
-          for (final itemEntry in pending.entries) {
-            for (final fieldEntry in itemEntry.value.entries) {
-              await _touchNow(itemEntry.key, fieldEntry.key, fieldEntry.value);
+      return withSuspendedSearchIndexes(
+        _db,
+        () async {
+          _deferredTouches = {};
+          try {
+            return await body(this);
+          } finally {
+            final pending = _deferredTouches!;
+            _deferredTouches = null;
+            touchedIds = pending.keys.toList();
+            for (final itemEntry in pending.entries) {
+              for (final fieldEntry in itemEntry.value.entries) {
+                await _touchNow(
+                  itemEntry.key,
+                  fieldEntry.key,
+                  fieldEntry.value,
+                );
+              }
             }
           }
-        }
-      });
+        },
+        touchedItemIds: () => touchedIds,
+        chunks: false,
+      );
     });
   }
 

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_writer_holder.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
@@ -38,7 +39,7 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/library/domain/services/search_snippet.dart';
 
 class LibraryRepositoryImpl implements LibraryRepository {
-  const LibraryRepositoryImpl({
+  LibraryRepositoryImpl({
     required AppDatabase database,
     required TelemetryService telemetry,
     required FileStore files,
@@ -64,13 +65,21 @@ class LibraryRepositoryImpl implements LibraryRepository {
     /// ver [kRankedHitsCap]. Las pruebas lo bajan para ejercitar el otro
     /// camino sin armar decenas de miles de chunks.
     int rankedHitsCap = kRankedHitsCap,
+
+    /// Con quién comparte el escritor en modo lote (F19, 19.4) —de nuevo,
+    /// `null` por defecto no obliga a las pruebas que no lo necesitan a
+    /// enterarse—. `libraryRepositoryProvider` inyecta el mismo puente que
+    /// `referenceRepositoryProvider`, para que un lote abierto con
+    /// [runBulk] beneficie también a lo que se guarda del otro lado.
+    BulkWriterHolder? bulkWriter,
   }) : _rankedHitsCap = rankedHitsCap,
        _db = database,
        _telemetry = telemetry,
        _files = files,
        _duplicateSuggestionGenerator = duplicateSuggestionGenerator,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _bulkWriter = bulkWriter ?? BulkWriterHolder();
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
@@ -79,10 +88,15 @@ class LibraryRepositoryImpl implements LibraryRepository {
   final IdGenerator _ids;
   final Clock _clock;
   final int _rankedHitsCap;
+  final BulkWriterHolder _bulkWriter;
 
   /// Quien escribe el elemento en sí (`item`, `note`, `source`): ver
-  /// [KnowledgeEntryWriter]. No guarda estado: es la base y el reloj.
-  KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
+  /// [KnowledgeEntryWriter]. Sin lote activo, uno nuevo por llamada —no
+  /// guarda estado, es la base y el reloj—; con uno activo ([runBulk]), el
+  /// mismo escritor en modo lote que abrió el lote, venga de este
+  /// repositorio o del puente compartido con `ReferenceRepositoryImpl`.
+  KnowledgeEntryWriter get _writer =>
+      _bulkWriter.current ?? KnowledgeEntryWriter(_db, clock: _clock);
 
   @override
   Future<Either<Failure, KnowledgeItem>> save(KnowledgeItem item) async {
@@ -739,6 +753,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
   @override
   Future<T> runInTransaction<T>(Future<T> Function() body) =>
       _db.transaction(body);
+
+  @override
+  Future<T> runBulk<T>(Future<T> Function() body) => KnowledgeEntryWriter(
+    _db,
+    clock: _clock,
+  ).runBulk((bulkWriter) => _bulkWriter.runWith(bulkWriter, body));
 
   /// Borra el archivo sin dejar que un fallo del disco frustre el borrado.
   ///

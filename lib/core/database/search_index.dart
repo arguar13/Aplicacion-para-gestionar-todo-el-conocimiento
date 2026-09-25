@@ -158,6 +158,17 @@ INSERT INTO item_search (item_id, title, subtitle, body)
 SELECT i.id, i.title, COALESCE(i.subtitle, ''), ${_body('i.id')}
   FROM item i''';
 
+/// Como [populateItemSearch], pero solo para los elementos cuyo id está en
+/// [placeholders] —una lista de `?` ya armada por quien llama, del mismo
+/// largo que los valores que le pase como variables ligadas—, en vez de la
+/// bóveda entera: lo que usa `withSuspendedSearchIndexes` (F19, 19.4) para
+/// repoblar un lote chico sin rehacer la tabla completa.
+String populateItemSearchScoped(String placeholders) =>
+    '''
+INSERT INTO item_search (item_id, title, subtitle, body)
+SELECT i.id, i.title, COALESCE(i.subtitle, ''), ${_body('i.id')}
+  FROM item i WHERE i.id IN ($placeholders)''';
+
 /// El índice de texto de los CHUNKS de las fuentes (F10).
 ///
 /// Es un FTS5 de contenido externo: guarda solo el índice invertido y vuelve a

@@ -139,4 +139,16 @@ abstract interface class LibraryRepository {
   /// escritura en sí. Todo o nada, igual que [save]: si algo de adentro
   /// falla, no queda nada a medias.
   Future<T> runInTransaction<T>(Future<T> Function() body);
+
+  /// Lo mismo que [runInTransaction], y además en modo lote (F19, 19.4): el
+  /// índice de texto queda suspendido —se repuebla entero al cerrar, no fila
+  /// por fila— y cada campo versionado se escribe una sola vez por elemento,
+  /// con su último valor, en vez de una vez por [save].
+  ///
+  /// Para una operación que guarda MUCHOS elementos de golpe —de nuevo,
+  /// importar un `.bib` entero—, no para guardar uno: suspender y repoblar
+  /// el índice entero cuesta más de lo que ahorra cuando [body] solo toca un
+  /// elemento, así que [runInTransaction] sigue siendo lo que corresponde
+  /// para eso.
+  Future<T> runBulk<T>(Future<T> Function() body);
 }

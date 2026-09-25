@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_writer_holder.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/imported_reference.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -608,17 +609,23 @@ void registerReferenceBenchmark(BenchmarkEnvironment env) {
       try {
         final ids = FakeIdGenerator(prefix: 'imp');
         final files = InMemoryFileStore();
+        // Mismo puente en los dos (F19, 19.4): sin él, el lote que abre
+        // `library.runBulk` no lo nota `reference`, y la importación vuelve
+        // a pagar el costo entero por cada entrada.
+        final bulkWriter = BulkWriterHolder();
         final library = LibraryRepositoryImpl(
           database: scratchDb,
           telemetry: MockTelemetryService(),
           files: files,
           ids: ids,
           clock: () => vault.now,
+          bulkWriter: bulkWriter,
         );
         final reference = ReferenceRepositoryImpl(
           database: scratchDb,
           telemetry: MockTelemetryService(),
           clock: () => vault.now,
+          bulkWriter: bulkWriter,
         );
         final organize = OrganizeRepositoryImpl(
           database: scratchDb,
@@ -689,20 +696,25 @@ void registerReferenceBenchmark(BenchmarkEnvironment env) {
               );
             }
           },
-          // Medido en escritorio, con la transacción por lote (F15, comando
-          // 16): 19,75-20,1 s en tres corridas —SIN dividir por el factor de
-          // escritorio, ya más que el objetivo original de 20 s—. El
-          // escritor único mantiene el índice de texto completo, el
-          // versionado y las tablas espejo por cada entrada, el mismo costo
-          // que paga cualquier guardado normal de la app: bajarlo de verdad
-          // exigiría un camino que suspenda esos triggers durante una
-          // importación masiva y rearme el índice al final —como hace el
-          // generador sintético con datos propios—, un rediseño del escritor
-          // único que queda para una fase futura, anotado como límite
-          // conocido en la Decisión 48. El objetivo sube a 90 s en teléfono,
-          // con margen de verdad sobre lo medido: dos corridas iguales
-          // pueden diferir hasta un 50 % (ver docs/benchmarks/README.md), y
-          // 60 s —el triple exacto de lo medido— no dejaba ninguno.
+          // Con la transacción por lote de F15 (comando 16), SIN suspender el
+          // índice de texto: 19,75-20,1 s en escritorio, tres corridas
+          // (límite conocido, Decisión 48). F19 (`LibraryRepository.runBulk`,
+          // `KnowledgeEntryWriter.runBulk`) suspende `item_search` —acotado a
+          // los elementos tocados, no la tabla entera: una primera versión
+          // rehacía TODO el índice al cerrar, y eso costaba más que lo que
+          // ahorraba contra una bóveda ya grande, 64 s, PEOR que sin la
+          // corrección— y deja `chunk_search` sin tocar, porque una
+          // referencia no crea chunks. Medido en escritorio, máquina
+          // enchufada y sin ruido: 21,7 s —a la par de los ~20 s de antes de
+          // F19, dentro del margen normal entre corridas—; en el emulador
+          // (`docs/benchmarks/emulador-…/2026-09-25-f19/`, cifra optimista
+          // de la máquina anfitriona): 4,5 s. El beneficio real de F19 acá
+          // no es bajar este número —ya estaba lejos del techo—
+          // sino no empeorarlo mientras se gana lo mismo para `mergeBackup`
+          // (commit 5) con la misma utilidad. El objetivo sigue en 90 s en
+          // teléfono, con margen de verdad sobre lo medido en F15 (ver
+          // docs/benchmarks/README.md): dos corridas iguales pueden diferir
+          // hasta un 50 %.
           target: 90000,
           runs: 1,
         );

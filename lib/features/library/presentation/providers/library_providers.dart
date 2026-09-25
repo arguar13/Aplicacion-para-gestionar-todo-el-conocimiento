@@ -25,6 +25,7 @@ final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
     ),
     ids: ref.watch(idGeneratorProvider),
     clock: ref.watch(clockProvider),
+    bulkWriter: ref.watch(bulkWriterHolderProvider),
   );
 });
 
