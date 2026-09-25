@@ -152,7 +152,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 29;
+  static const currentSchemaVersion = 30;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -529,6 +529,42 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(flashcardOptions);
           await migrator.createIndex(idxFlashcardOptionsFlashcard);
           await _requireSameCounts(before, step: 'v29', tables: tables);
+        }
+        // De qué elemento sale cada opción (F20): campo PROPIO, no
+        // derivado del chunk —a diferencia de `sourceChunkId`, tiene que
+        // seguir valiendo aunque el texto de la fuente se rehaga y el
+        // chunk se pierda—, mismo criterio que `Flashcard.itemId`. Aditivo;
+        // una opción ya guardada con `sourceChunkId` se rellena sola desde
+        // el elemento de ese chunk, así no queda huérfana por haber nacido
+        // antes de esta columna.
+        if (from < 30) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists(
+            'flashcard_options',
+            flashcardOptions.sourceItemId.name,
+          )) {
+            await migrator.addColumn(
+              flashcardOptions,
+              flashcardOptions.sourceItemId,
+            );
+          }
+          await customStatement(
+            'UPDATE flashcard_options SET source_item_id = ( '
+            'SELECT item_id FROM chunks WHERE chunks.id = '
+            'flashcard_options.source_chunk_id) '
+            'WHERE source_chunk_id IS NOT NULL '
+            'AND source_item_id IS NULL',
+          );
+          await _requireSameCounts(before, step: 'v30', tables: tables);
         }
       });
     },

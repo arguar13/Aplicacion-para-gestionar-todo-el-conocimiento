@@ -925,6 +925,11 @@ void main() {
         )).getRight().toNullable()!;
         final distractor = options.firstWhere((o) => !o.isCorrect);
         expect(distractor.sourceChunkId, otherChunk.id);
+        // optionsFor resuelve sourceItemId con un JOIN a chunks: tiene que
+        // decir el elemento del DISTRACTOR, no el de la tarjeta.
+        expect(distractor.sourceItemId, otherItemId);
+        final correct = options.firstWhere((o) => o.isCorrect);
+        expect(correct.sourceItemId, isNull);
       });
 
       test('menos de dos opciones no guarda nada', () async {

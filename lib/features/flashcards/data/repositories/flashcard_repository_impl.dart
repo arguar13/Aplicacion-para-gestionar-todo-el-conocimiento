@@ -190,11 +190,11 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
 
         for (final (position, option) in trimmedOptions.indexed) {
           final hasStart = option.sourceCharStart != null;
+          final sourceItemId = hasStart
+              ? (option.sourceItemId ?? itemId)
+              : null;
           final chunkId = hasStart
-              ? await _chunkContaining(
-                  option.sourceItemId ?? itemId,
-                  option.sourceCharStart!,
-                )
+              ? await _chunkContaining(sourceItemId!, option.sourceCharStart!)
               : null;
           await _db
               .into(_db.flashcardOptions)
@@ -208,6 +208,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
                   sourceChunkId: Value(chunkId),
                   sourceCharStart: Value(option.sourceCharStart),
                   sourceCharEnd: Value(option.sourceCharEnd),
+                  sourceItemId: Value(sourceItemId),
                 ),
               );
         }
@@ -515,6 +516,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     sourceChunkId: row.sourceChunkId,
     sourceCharStart: row.sourceCharStart,
     sourceCharEnd: row.sourceCharEnd,
+    sourceItemId: row.sourceItemId,
   );
 
   /// Catch-all deliberado, igual que en el resto de los repositorios: un

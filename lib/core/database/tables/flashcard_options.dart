@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
+import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 
 /// Una opción de una tarjeta de opción múltiple (F20): su texto, si es la
 /// correcta, y su propia procedencia.
@@ -37,6 +38,22 @@ class FlashcardOptions extends Table {
       text().nullable().references(Chunks, #id, onDelete: KeyAction.setNull)();
   IntColumn get sourceCharStart => integer().nullable()();
   IntColumn get sourceCharEnd => integer().nullable()();
+
+  /// El elemento dueño de [sourceCharStart]/[sourceCharEnd] —no
+  /// necesariamente el mismo que el de la tarjeta: un distractor por diseño
+  /// suele venir de OTRO elemento (F20, `DistractorSourcer`)—.
+  ///
+  /// Campo PROPIO, no derivado de [sourceChunkId]: a diferencia del chunk
+  /// —que se pierde si el texto de la fuente se rehace—, esto tiene que
+  /// seguir valiendo mientras el rango siga valiendo, mismo criterio que
+  /// `Flashcard.itemId` (que tampoco depende de que su chunk exista).
+  /// `KeyAction.setNull`, no `cascade`: si el elemento citado se borra, la
+  /// opción sigue siendo una respuesta válida, solo pierde a dónde llevar.
+  TextColumn get sourceItemId => text().nullable().references(
+    KnowledgeEntries,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

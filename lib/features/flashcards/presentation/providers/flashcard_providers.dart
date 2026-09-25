@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -60,3 +61,15 @@ final dueFlashcardsProvider = StreamProvider.autoDispose<List<Flashcard>>((
 final dueFlashcardCountProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.watch(flashcardRepositoryProvider).watchDueCount();
 });
+
+/// Las opciones de una tarjeta de opción múltiple, en el orden guardado.
+/// Vacía para lo que no es de opción múltiple, o si la lectura falló —una
+/// falla acá no debería trabar la presentación de la tarjeta, solo dejarla
+/// sin opciones que mostrar—.
+final flashcardOptionsProvider = FutureProvider.autoDispose
+    .family<List<FlashcardOption>, String>((ref, flashcardId) async {
+      final result = await ref
+          .watch(flashcardRepositoryProvider)
+          .optionsFor(flashcardId);
+      return result.getOrElse((_) => const []);
+    });

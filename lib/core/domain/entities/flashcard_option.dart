@@ -28,6 +28,16 @@ sealed class FlashcardOption with _$FlashcardOption {
     String? sourceChunkId,
     int? sourceCharStart,
     int? sourceCharEnd,
+
+    /// El elemento dueño de [sourceCharStart]/[sourceCharEnd] —no
+    /// necesariamente el mismo que el de la tarjeta: un distractor por
+    /// diseño suele venir de OTRO elemento (F20, `DistractorSourcer`)—.
+    ///
+    /// Campo PROPIO, no derivado de [sourceChunkId] (esquema v30): a
+    /// diferencia del chunk —que se pierde si el texto de la fuente se
+    /// rehace—, esto sigue valiendo mientras el rango siga valiendo, mismo
+    /// criterio que `Flashcard.itemId` (que tampoco depende de su chunk).
+    String? sourceItemId,
   }) = _FlashcardOption;
 
   const FlashcardOption._();

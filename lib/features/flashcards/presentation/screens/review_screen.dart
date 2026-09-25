@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
@@ -198,7 +201,7 @@ class _AllDoneView extends StatelessWidget {
   }
 }
 
-class _CardView extends StatelessWidget {
+class _CardView extends ConsumerWidget {
   const _CardView({
     required this.card,
     required this.revealed,
@@ -216,92 +219,137 @@ class _CardView extends StatelessWidget {
   final ValueChanged<ReviewGrade> onGrade;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final isMultipleChoice = card.kind == FlashcardKind.multipleChoice;
 
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            l10n.reviewRemaining(remaining),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      // De opción múltiple, la pregunta + hasta cuatro opciones + los
+      // cuatro botones de calificar a la vez pueden pasarse de la altura
+      // disponible en una pantalla chica —a diferencia de la tarjeta
+      // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
+      // vez de recortarse.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.reviewRemaining(remaining),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: revealed ? null : onReveal,
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 200),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.6,
+            const SizedBox(height: 24),
+            GestureDetector(
+              // De opción múltiple no se "revela" tocando la caja: se
+              // contesta tocando una opción, más abajo.
+              onTap: (revealed || isMultipleChoice) ? null : onReveal,
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 200),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.6,
+                    ),
                   ),
                 ),
-              ),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    card.front,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  if (revealed) ...[
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 16),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      card.back,
+                      card.front,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge,
+                      style: theme.textTheme.titleLarge,
                     ),
+                    // back queda vacío en una tarjeta de opción múltiple
+                    // (FlashcardRepositoryImpl.createMultipleChoice): la
+                    // respuesta sale de sus opciones, no de acá.
+                    if (revealed && !isMultipleChoice) ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      Text(
+                        card.back,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
+            ),
+            const SizedBox(height: 24),
+            // Con la respuesta a la vista, se puede ir a ver de dónde salió
+            // —de opción múltiple, cada opción ya trae la suya propia más
+            // abajo, `card.hasSourceRange` es siempre falso para esta
+            // forma—.
+            if (revealed && card.hasSourceRange) ...[
+              TextButton.icon(
+                icon: const Icon(Icons.menu_book_outlined, size: 18),
+                label: Text(l10n.flashcardsViewSource),
+                onPressed: () => openFlashcardSource(context, card),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (isMultipleChoice) ...[
+              // Montado siempre, contestada o no —así conserva su propio
+              // estado de qué se tocó al revelar, en vez de perderlo
+              // cuando `revealed` cambia y esta sección se arma de
+              // nuevo—: las opciones, ya coloreadas, se quedan a la vista
+              // mientras se califica.
+              _MultipleChoiceAnswer(
+                flashcardId: card.id,
+                onAnswered: (_) => onReveal(),
+              ),
+              if (revealed) ...[
+                const SizedBox(height: 16),
+                _GradeRow(grading: grading, onGrade: onGrade),
+              ],
+            ] else if (!revealed)
+              OutlinedButton(
+                onPressed: onReveal,
+                child: Text(l10n.reviewShowAnswer),
+              )
+            else
+              _GradeRow(grading: grading, onGrade: onGrade),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Los cuatro botones de calificación del algoritmo SM-2 —iguales sea cual
+/// sea la forma de la tarjeta, la calificación es cuánto costó recordar, no
+/// algo que la corrección de una opción múltiple pueda decidir sola—.
+class _GradeRow extends StatelessWidget {
+  const _GradeRow({required this.grading, required this.onGrade});
+
+  final bool grading;
+  final ValueChanged<ReviewGrade> onGrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        for (final grade in ReviewGrade.values) ...[
+          Expanded(
+            child: OutlinedButton(
+              onPressed: grading ? null : () => onGrade(grade),
+              child: Text(_labelFor(l10n, grade)),
             ),
           ),
-          const SizedBox(height: 24),
-          // Con la respuesta a la vista, se puede ir a ver de dónde salió.
-          if (revealed && card.hasSourceRange) ...[
-            TextButton.icon(
-              icon: const Icon(Icons.menu_book_outlined, size: 18),
-              label: Text(l10n.flashcardsViewSource),
-              onPressed: () => openFlashcardSource(context, card),
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (!revealed)
-            OutlinedButton(
-              onPressed: onReveal,
-              child: Text(l10n.reviewShowAnswer),
-            )
-          else
-            Row(
-              children: [
-                for (final grade in ReviewGrade.values) ...[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: grading ? null : () => onGrade(grade),
-                      child: Text(_labelFor(l10n, grade)),
-                    ),
-                  ),
-                  if (grade != ReviewGrade.values.last)
-                    const SizedBox(width: 8),
-                ],
-              ],
-            ),
+          if (grade != ReviewGrade.values.last) const SizedBox(width: 8),
         ],
-      ),
+      ],
     );
   }
 
@@ -311,6 +359,30 @@ class _CardView extends StatelessWidget {
     ReviewGrade.good => l10n.reviewGradeGood,
     ReviewGrade.easy => l10n.reviewGradeEasy,
   };
+}
+
+/// Trae las opciones de [flashcardId] y las muestra con
+/// [MultipleChoiceOptions] apenas están listas —sin spinner propio: la
+/// tarjeta ya se ve, solo faltan sus opciones un instante—.
+class _MultipleChoiceAnswer extends ConsumerWidget {
+  const _MultipleChoiceAnswer({
+    required this.flashcardId,
+    required this.onAnswered,
+  });
+
+  final String flashcardId;
+  final ValueChanged<FlashcardOption> onAnswered;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final options = ref.watch(flashcardOptionsProvider(flashcardId));
+    return options.when(
+      loading: () => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
+      data: (options) =>
+          MultipleChoiceOptions(options: options, onAnswered: onAnswered),
+    );
+  }
 }
 
 /// El interruptor de F17, D4 —«exportar todo» empieza apagado, el camino

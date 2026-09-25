@@ -12,6 +12,7 @@ import 'package:sinapsis/features/citations/presentation/providers/citation_pref
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
@@ -310,5 +311,137 @@ void main() {
       expect(reading.itemId, id);
       expect(reading.jump, (start: 4, end: 12));
     });
+  });
+
+  group('una tarjeta de opción múltiple (F20)', () {
+    /// Guarda una fuente y le crea una tarjeta de opción múltiple, con un
+    /// distractor anclado a OTRO elemento —mismo patrón real que
+    /// `DistractorSourcer`—.
+    Future<String> seedMultipleChoiceCard() async {
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      await harness.capture('Otra fuente, con su propio texto.');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final cardItemId = items.first.id;
+      final otherItemId = items.last.id;
+
+      final card =
+          (await harness.container
+                  .read(flashcardRepositoryProvider)
+                  .createMultipleChoice(
+                    itemId: cardItemId,
+                    front: '¿Qué señala?',
+                    options: [
+                      FlashcardOptionDraft(
+                        content: 'El texto.',
+                        isCorrect: true,
+                        sourceItemId: cardItemId,
+                        sourceCharStart: 4,
+                        sourceCharEnd: 12,
+                      ),
+                      FlashcardOptionDraft(
+                        content: 'Otro texto.',
+                        isCorrect: false,
+                        sourceItemId: otherItemId,
+                        sourceCharStart: 0,
+                        sourceCharEnd: 5,
+                      ),
+                    ],
+                  ))
+              .getRight()
+              .toNullable()!;
+      return card.id;
+    }
+
+    Future<void> pumpRouted(WidgetTester tester) async {
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.pushTo(RoutePaths.review);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('muestra la pregunta y sus opciones, sin revelar nada '
+        'todavía', (tester) async {
+      await seedMultipleChoiceCard();
+      await pumpRouted(tester);
+
+      expect(find.text('¿Qué señala?'), findsOneWidget);
+      expect(find.text('El texto.'), findsOneWidget);
+      expect(find.text('Otro texto.'), findsOneWidget);
+      // No hay botón de "mostrar respuesta": de opción múltiple se
+      // contesta tocando una opción.
+      expect(find.text(es.reviewShowAnswer), findsNothing);
+      // Todavía sin contestar, ningún grado.
+      expect(find.text(es.reviewGradeGood), findsNothing);
+    });
+
+    testWidgets('tocar la opción correcta la revela y deja calificar', (
+      tester,
+    ) async {
+      await seedMultipleChoiceCard();
+      await pumpRouted(tester);
+
+      await tester.tap(find.text('El texto.'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.reviewGradeGood), findsOneWidget);
+    });
+
+    testWidgets(
+      'tocar un distractor también revela, con la procedencia de las dos '
+      'opciones visibles',
+      (tester) async {
+        await seedMultipleChoiceCard();
+        await pumpRouted(tester);
+
+        await tester.tap(find.text('Otro texto.'));
+        await tester.pumpAndSettle();
+
+        expect(find.byIcon(Icons.menu_book_outlined), findsNWidgets(2));
+        expect(find.text(es.reviewGradeGood), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'ver la fuente de un distractor lleva al OTRO elemento, no al de la '
+      'tarjeta',
+      (tester) async {
+        final cardId = await seedMultipleChoiceCard();
+        final card =
+            (await harness.container.read(flashcardRepositoryProvider).getAll())
+                .getRight()
+                .toNullable()!
+                .firstWhere((c) => c.id == cardId);
+        await pumpRouted(tester);
+
+        await tester.tap(find.text('Otro texto.'));
+        await tester.pumpAndSettle();
+        // El orden de las opciones se mezcla (`MultipleChoiceOptions`), así
+        // que no se puede asumir cuál ícono es `.first`/`.last`: se busca
+        // el de la opción con el texto del distractor, no cualquiera.
+        // `InkWell`, no `Row`: un `Row` ancestro también matchea el de la
+        // barra de navegación de escritorio, que envuelve TODA la página.
+        final distractorTile = find.ancestor(
+          of: find.text('Otro texto.'),
+          matching: find.byType(InkWell),
+        );
+        await tester.tap(
+          find.descendant(
+            of: distractorTile,
+            matching: find.byIcon(Icons.menu_book_outlined),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final reading = tester.widget<ReadingScreen>(
+          find.byType(ReadingScreen),
+        );
+        expect(reading.itemId, isNot(card.itemId));
+      },
+    );
   });
 }

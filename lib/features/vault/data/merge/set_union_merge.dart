@@ -86,6 +86,7 @@ const kFlashcardOptionColumns = [
   'source_chunk_id',
   'source_char_start',
   'source_char_end',
+  'source_item_id',
 ];
 const kReviewLogColumns = [
   'id',
@@ -244,6 +245,9 @@ class SetUnionMerge {
         'source_chunk_id':
             'CASE WHEN EXISTS (SELECT 1 FROM main.chunks c '
             'WHERE c.id = x.source_chunk_id) THEN x.source_chunk_id END',
+        'source_item_id':
+            'CASE WHEN ${_itemExists('x.source_item_id')} '
+            'THEN x.source_item_id END',
       },
     );
 
