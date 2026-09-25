@@ -22,6 +22,7 @@ import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -68,6 +69,10 @@ final chatModelProvider = Provider<ChatModel>((ref) {
 });
 
 final flashcardGeneratorProvider = Provider<FlashcardGenerator>((ref) {
+  return ref.watch(_gemmaModelProvider);
+});
+
+final quizQuestionGeneratorProvider = Provider<QuizQuestionGenerator>((ref) {
   return ref.watch(_gemmaModelProvider);
 });
 
