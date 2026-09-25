@@ -4224,6 +4224,68 @@ BLOQUEADO—.
 
 Con esto se cierra el encargo F12–F17 entero.
 
+### 51. F18 del Mapa de conocimiento: medir antes de rediseñar —la distribución realista y el caché de rasterizado durante el gesto
+
+Primera fase del encargo F18–F20 (`docs/planes/F18-mapa-medir-antes-de-redisenar.md`), que cierra
+dos puntos abiertos al final de F12–F17 y agrega una función. No cambia el esquema ni toca el texto
+de ninguna fuente. Cuatro commits: dos de medición (18.1), uno de rediseño (18.2) y este de cierre.
+
+**El hallazgo que cambió la premisa del propio encargo.** F14 cerró con el nivel de temas del Mapa
+fuera del presupuesto de un cuadro (16,6 ms de p90, menos del 5 % de cuadros fuera) con 2.000 temas
+sintéticos, y quedó pendiente decidir entre bajar el tope de 300 temas visibles o cachear el nivel
+durante el gesto —la segunda, ya decidida al aprobar este plan—. Antes de tocar el renderer, 18.1
+investigó si el caso que fallaba era artificial. No lo era del todo: las cifras que fallaron ya
+salían de `structuredTopicInput` (F14), un generador con jerarquía real y ley de potencias, no de
+una asignación al azar —pero agrupaba por RAMA DE PRIMER NIVEL entera («Historia» completa), no por
+una sub-rama más angosta («Historia › Roma»), que es lo que un usuario navega de verdad—. Medido en
+el emulador dos veces, agrupar por sub-rama (`areaDepth: 2`, nuevo parámetro del generador) bajó el
+p90 de raster de 18,4–28,4 ms a 15,8–15,9 ms —ya dentro del presupuesto— y los cuadros fuera de
+presupuesto de ~32 % a ~10 %, con el mismo número de nodos visibles (300, el tope, sin cambios) en
+los dos casos. No alcanzaba para cerrar el criterio solo: cayó en el segundo de los tres desenlaces
+que el plan había previsto, «entra justo o queda cerca del límite → hacé 18.2 igual».
+
+**18.2, el caché de rasterizado durante el gesto.** Al empezar un arrastre o un zoom,
+`MapGraphView` captura el nivel ya dibujado (`RenderRepaintBoundary.toImage`, con el mismo tope de
+tamaño que ya usaba la exportación a PNG de F14) y pinta esa imagen en vez de recorrer el `Stack` de
+hasta 300 nodos y el `CustomPaint` de sus uniones: `InteractiveViewer` sigue transformando esa
+imagen igual que transformaría el dibujo vectorial, así que mover un bitmap reemplaza recorrer el
+grafo entero en cada cuadro. Al soltar, vuelve el dibujo vectorial de siempre, idéntico —la imagen
+es una captura exacta de esa misma caja—; si el zoom se aleja más del doble desde la última
+captura, recaptura una vez a mitad de gesto para que no se vea borroso. **Bug real encontrado y
+corregido antes de cerrar el commit** (no por un test ajeno, por cuatro que ya existían y que
+simulan un gesto entero de una sola vez): si el gesto termina antes de que la captura asíncrona
+resuelva, la imagen vieja podía quedar pegada en pantalla para siempre; corregido con una bandera
+de «gesto en curso» que descarta sin mostrar una captura que ya no le corresponde a nada.
+
+**El resultado, medido limpio** (con la suite de escritorio ya terminada: medirlo con las dos cosas
+corriendo a la vez contaminó una primera corrida —mismo problema de contención de CPU del host que
+ya se conocía al revés, descartada—). Mejora sustancial y consistente en los siete escenarios de
+pantalla: el esquema pasa del todo (1,2 % de cuadros fuera de presupuesto, antes 32,1 %); el zoom
+con dos dedos baja de 36–43 % a 6,5 %; el nivel de temas por rama entera baja de ~32 % a 18,1 %; por
+sub-rama, de 9,8 % a 7,1 %, con el p90 ya bajo presupuesto (14,7 ms); el recálculo de fondo baja de
+~15–20 % a 6,9 %. **No todos los escenarios entran todavía bajo el 5 % estricto** —quedan cerca,
+entre 6,5 % y 8 % la mayoría, salvo el nivel de temas por rama entera (18,1 %)—: es una mejora real
+y medida, con la causa de raíz atacada de frente, pero no un cierre completo del criterio de F14
+para cada escenario. Cifras en `docs/benchmarks/emulador-…/2026-09-25-f18-caching-clean/`.
+
+**El criterio de cierre (18.3, del encargo), con lo que se cumple y lo que no.** Cumplidos: hay
+cifras del nivel de temas con distribución realista y se sabe cuántos temas visibles simultáneos es
+el caso plausible (300, el tope, sin cambios); el escenario de 2.000 sigue etiquetado como el peor
+caso, no el esperado; el tope de temas visibles NO se bajó; el dibujo tras soltar el gesto es
+idéntico al vectorial de siempre (verificado por test); invariante de chunking verde —F18 no tocó
+ningún chunk—. Sin cumplir del todo: el p90 del nivel de temas entra por sub-rama pero no por rama
+entera, y el 5 % de cuadros fuera de presupuesto no se alcanza en la mayoría de los escenarios,
+aunque quedaron mucho más cerca. **Decisión propia, señalada, no en silencio:** no se construyeron
+los cuatro escenarios de estrés (400/800/1.200/2.000 fuera del tope real) que proponía la decisión
+B del plan —el tope real de 300 no cambia con esta fase, y tanto la necesidad de 18.2 como su
+alcance ya quedaron confirmados sin ellos—; quedan como pieza opcional si algún día se revisita el
+tope de 300.
+
+**Lo que F18 no hace, dicho sin adornos.** No baja el tope de 300 temas visibles. No lleva ningún
+escenario del Mapa a cumplir el 5 % estricto en la sub-rama ni en el zoom, aunque los acerca mucho.
+No mide en un teléfono real —sigue siendo emulador, como todo este encargo y el anterior—. No
+construye los escenarios de estrés de la decisión B, por la razón ya dicha.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4557,6 +4619,14 @@ Con esto se cierra el encargo F12–F17 entero.
   50—. Los dos criterios de cierre que dependen de Anki real —importar limpio, reimportar sin
   duplicar— quedan sin verificar: ni Anki de escritorio ni AnkiDroid están instalados en esta
   máquina, y verificarlo a mano queda pendiente. Con esto se cierra el encargo F12–F17 entero.
+- **F18 del Mapa de conocimiento: medir antes de rediseñar.** Las cifras que fallaron al cerrar F14
+  ya salían de un generador con jerarquía, no plano, pero agrupaban por rama de primer nivel entera
+  en vez de por sub-rama; agrupar más fino bajó el p90 de raster del nivel de temas de ~18–28 ms a
+  ~16 ms, y el caché de rasterizado durante el gesto (18.2) bajó los cuadros fuera de presupuesto de
+  entre 32 % y 43 % a entre 1,2 % y 18,1 % según el escenario, con el tope de 300 temas visibles
+  intacto. Primera fase del encargo F18–F20 —ver la decisión 51—. No todos los escenarios entran
+  todavía bajo el 5 % estricto: queda como mejora real y medida, no como cierre completo del
+  criterio de F14.
 
 ### Por construir
 
@@ -4598,3 +4668,13 @@ lápidas para lo que se une por conjuntos, la medición en un teléfono real
 importar un lote grande de referencias, y la verificación a mano en Anki y
 AnkiDroid reales que F17 dejó pendiente. Ninguna está planeada; se planean
 —plan breve, aprobado, después código— cuando le toquen.
+
+Después vino un tercer encargo, F18 a F20, que cierra dos de esas cosas
+—el criterio de fluidez del Mapa que dejó F14, el límite de importar un
+lote grande que dejó F15— y agrega una función: quizzes generados por IA,
+anclados a chunks reales, integrados a la programación espaciada. F18 —el
+Mapa, ver la decisión 51— está construida, con una mejora real y medida
+pero sin cerrar del todo el criterio estricto de F14 en cada escenario.
+F19 —modo lote transaccional— y F20 —quizzes generados y anclados— tienen
+sus planes aprobados (`docs/planes/F19-modo-lote.md`,
+`docs/planes/F20-quizzes-generados.md`) y siguen en orden estricto.

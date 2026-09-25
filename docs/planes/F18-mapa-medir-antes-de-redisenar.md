@@ -1,9 +1,10 @@
 # F18 — Mapa de conocimiento: medir antes de rediseñar
 
-> **Estado: aprobado** (2026-09-25), en el chat, tal como está escrito, con las decisiones A/B/C
-> como se recomendaron. Planificado con el masterprompt F18–F20 que pegaste ese mismo día. Primera
-> fase de un encargo nuevo (F18–F20) que cierra los dos puntos que quedaron abiertos al final de
-> F12–F17 y agrega una función.
+> **Estado: aprobado y construido** (2026-09-25). Aprobado en el chat, tal como está escrito, con
+> las decisiones A/B/C como se recomendaron. Planificado con el masterprompt F18–F20 que pegaste
+> ese mismo día. Primera fase de un encargo nuevo (F18–F20) que cierra los dos puntos que quedaron
+> abiertos al final de F12–F17 y agrega una función. Lo construido, lo que se midió y lo que no
+> cierra del todo, en la Decisión 51 de `../arquitectura.md`.
 
 Al cerrar F14 el nivel de temas del Mapa no entraba en el presupuesto de 16,6 ms por cuadro con
 2.000 temas sintéticos (p90 de raster 38,9 ms, 61,3 % de cuadros fuera; zoom con dos dedos 24,1 ms
