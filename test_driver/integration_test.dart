@@ -23,7 +23,15 @@ import 'package:integration_test/integration_test_driver.dart';
 /// Un texto se guarda tal cual, con el nombre que trae; cualquier otra cosa
 /// —las cifras de cuadros de una pantalla, por ejemplo— se guarda como JSON, en
 /// un archivo con el nombre de su clave y la extensión `.json`.
+///
+/// `writeResponseOnFailure: true` (F18, 18.1): `integrationDriver` por
+/// defecto NUNCA llama a `responseDataCallback` si alguna prueba del archivo
+/// falló —ni siquiera los informes de las pruebas que sí pasaron—. Un
+/// benchmark que verifica un umbral (F18, D3) tiene que fallar PRECISAMENTE
+/// cuando el umbral no se cumple, y ese es el caso en el que más hace falta
+/// el informe guardado, no menos.
 Future<void> main() => integrationDriver(
+  writeResponseOnFailure: true,
   responseDataCallback: (data) async {
     if (data == null) return;
     final out = Directory(
