@@ -24,13 +24,12 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 class AnkiPackageBuilder implements AnkiDeckBuilder {
   const AnkiPackageBuilder();
 
-  static const _deckName = 'Sinapsis';
   static const _modelName = 'Sinapsis básico';
   static const _defaultDeckId = 1;
   static const _defaultConfId = 1;
 
   @override
-  Future<Uint8List> build(List<Flashcard> cards) async {
+  Future<Uint8List> build(List<AnkiCardExport> cards) async {
     // Archivo de trabajo descartable, igual que en
     // `LocalVaultBackupService`: `Directory.systemTemp` y no
     // `path_provider`, para que esta clase se pueda probar con
@@ -63,7 +62,7 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     return Uint8List.fromList(ZipEncoder().encodeBytes(archive));
   }
 
-  void _writeCollection(sqlite3.Database db, List<Flashcard> cards) {
+  void _writeCollection(sqlite3.Database db, List<AnkiCardExport> cards) {
     db.execute(_schemaSql);
 
     final now = DateTime.now();
@@ -71,13 +70,20 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     final crt = createdAt.millisecondsSinceEpoch ~/ 1000;
     final modMs = now.millisecondsSinceEpoch;
 
-    // IDs únicos y crecientes para todo lo que hace falta: el mazo, el
-    // modelo de nota, y cada nota/tarjeta. No importa el orden entre roles
-    // distintos, solo que no se repitan entre sí.
+    // IDs únicos y crecientes para todo lo que hace falta: un mazo por cada
+    // subdeck distinto (D1/D2), el modelo de nota, y cada nota/tarjeta. No
+    // importa el orden entre roles distintos, solo que no se repitan entre
+    // sí.
     var nextId = modMs;
     int newId() => nextId++;
 
-    final deckId = newId();
+    // Un id por PATH distinto, en el orden en que aparece la primera
+    // tarjeta de cada uno: da igual cuál, Anki no distingue el orden de
+    // creación de sus mazos.
+    final deckIdByPath = <String, int>{
+      for (final path in {for (final export in cards) export.deckPath})
+        path: newId(),
+    };
     final modelId = newId();
 
     db.execute(
@@ -89,9 +95,23 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
         crt,
         modMs,
         modMs,
-        jsonEncode(_conf(deckId: deckId, modelId: modelId)),
-        jsonEncode(_models(modelId: modelId, deckId: deckId)),
-        jsonEncode(_decks(deckId: deckId)),
+        // El `deckId` de acá es solo el que Anki propone por defecto para
+        // una tarjeta nueva creada a mano con este modelo, dentro de Anki
+        // mismo —nunca se usa al importar—: dónde queda CADA tarjeta ya
+        // importada lo decide su propia fila en `cards.did`, más abajo.
+        jsonEncode(
+          _conf(
+            deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
+            modelId: modelId,
+          ),
+        ),
+        jsonEncode(
+          _models(
+            modelId: modelId,
+            deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
+          ),
+        ),
+        jsonEncode(_decks(deckIdByPath)),
         jsonEncode(_dconf()),
         '{}',
       ],
@@ -110,7 +130,8 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     );
 
     try {
-      for (final card in cards) {
+      for (final export in cards) {
+        final card = export.card;
         final noteId = newId();
         final cardId = newId();
         final reviewedOrCreatedAt = card.lastReviewedAt ?? card.createdAt;
@@ -135,7 +156,7 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
         insertCard.execute([
           cardId,
           noteId,
-          deckId,
+          deckIdByPath[export.deckPath],
           noteModSeconds,
           scheduling.type,
           scheduling.queue,
@@ -266,14 +287,19 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     };
   }
 
-  Map<String, dynamic> _decks({required int deckId}) {
+  /// Un mazo por cada `deckPath` distinto entre las tarjetas, más el
+  /// `Default` que Anki exige siempre. El nombre completo —con sus `::`— es
+  /// lo único que hace falta: Anki arma el árbol de subdecks a partir de él
+  /// solo, sin una fila propia por cada nivel intermedio.
+  Map<String, dynamic> _decks(Map<String, int> deckIdByPath) {
     return {
       '$_defaultDeckId': _deck(
         id: _defaultDeckId,
         name: 'Default',
         collapsed: true,
       ),
-      '$deckId': _deck(id: deckId, name: _deckName, collapsed: false),
+      for (final MapEntry(key: path, value: id) in deckIdByPath.entries)
+        '$id': _deck(id: id, name: path, collapsed: false),
     };
   }
 

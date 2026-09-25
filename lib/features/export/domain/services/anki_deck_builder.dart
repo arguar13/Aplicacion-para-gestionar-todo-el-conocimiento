@@ -2,6 +2,22 @@ import 'dart:typed_data';
 
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 
+/// Una tarjeta, ya con su subdeck resuelto (F17, D1/D2).
+///
+/// Separado de [Flashcard] a propósito: el builder arma el `.apkg` sin tocar
+/// la base ni el árbol de Temas —eso lo resuelve quien llama, con
+/// `ankiDeckPathOf`—, así que sigue siendo puro y se puede probar con
+/// `flutter test` sin bindings.
+class AnkiCardExport {
+  const AnkiCardExport({required this.card, required this.deckPath});
+
+  final Flashcard card;
+
+  /// El subdeck completo, de la raíz a la hoja, separado por `::`
+  /// —«Sinapsis::Historia::Roma::República»—.
+  final String deckPath;
+}
+
 /// Arma un mazo de Anki (`.apkg`) a partir de las tarjetas de la bóveda.
 ///
 /// Existe como interfaz por la misma razón que el resto de los servicios de
@@ -12,5 +28,7 @@ import 'package:sinapsis/core/domain/entities/flashcard.dart';
 abstract interface class AnkiDeckBuilder {
   /// El `.apkg` completo, listo para guardar o compartir: un `.zip` con la
   /// base de datos SQLite del mazo adentro, en el formato que Anki importa.
-  Future<Uint8List> build(List<Flashcard> cards);
+  /// Un subdeck nuevo por cada [AnkiCardExport.deckPath] distinto entre
+  /// [cards].
+  Future<Uint8List> build(List<AnkiCardExport> cards);
 }

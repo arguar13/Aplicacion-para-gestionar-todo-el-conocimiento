@@ -7,9 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
+import 'package:sinapsis/features/export/domain/services/anki_topic_resolver.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 
@@ -18,25 +20,43 @@ import '../../../../support/fake_file_saver.dart';
 class _MockFlashcardRepository extends Mock implements FlashcardRepository {}
 
 /// Devuelve bytes fijos en vez de armar un `.apkg` de verdad: lo que prueba
-/// este archivo es que el caso de uso encadena bien el repositorio, el
-/// armador y el guardado, no el formato del paquete —eso ya lo cubre
-/// `anki_package_builder_test.dart`.
+/// este archivo es que el caso de uso encadena bien el repositorio, la
+/// resolución de temas, el armador y el guardado, no el formato del
+/// paquete —eso ya lo cubre `anki_package_builder_test.dart`— ni el árbol
+/// de Temas —eso lo cubre `anki_deck_path_test.dart`—.
 class _FakeAnkiDeckBuilder implements AnkiDeckBuilder {
   /// Se activa a mitad de una prueba, después de armar el resto del
   /// escenario — igual que `FakeFileSaver.error`.
   Object? error;
-  List<Flashcard>? receivedCards;
+  List<AnkiCardExport>? receivedCards;
 
   @override
-  Future<Uint8List> build(List<Flashcard> cards) async {
+  Future<Uint8List> build(List<AnkiCardExport> cards) async {
     if (error != null) throw error!;
     receivedCards = cards;
     return Uint8List.fromList([1, 2, 3]);
   }
 }
 
+/// Sin ningún tema para nadie, por defecto: el árbol de Temas ya se prueba
+/// aparte.
+class _FakeAnkiTopicResolver implements AnkiTopicResolver {
+  Set<String>? requestedItemIds;
+
+  @override
+  Future<AnkiTopicResolution> resolve(Set<String> itemIds) async {
+    requestedItemIds = itemIds;
+    return AnkiTopicResolution(
+      tree: VocabularyTree(const []),
+      labelOf: const {},
+      firstTopicByItem: {for (final id in itemIds) id: null},
+    );
+  }
+}
+
 void main() {
   late _MockFlashcardRepository repository;
+  late _FakeAnkiTopicResolver topics;
   late _FakeAnkiDeckBuilder builder;
   late FakeFileSaver saver;
 
@@ -55,12 +75,14 @@ void main() {
 
   setUp(() {
     repository = _MockFlashcardRepository();
+    topics = _FakeAnkiTopicResolver();
     builder = _FakeAnkiDeckBuilder();
     saver = FakeFileSaver();
   });
 
   ExportFlashcardsToAnkiUseCase useCase() => ExportFlashcardsToAnkiUseCase(
     flashcards: repository,
+    topics: topics,
     builder: builder,
     saver: saver,
   );
@@ -81,7 +103,10 @@ void main() {
     final result = await useCase()(const NoParams());
 
     expect(result.isRight(), isTrue);
-    expect(builder.receivedCards, cards);
+    expect(builder.receivedCards?.map((e) => e.card).toList(), cards);
+    // Sin tema asignado: va al subdeck fijo de F17, D1.
+    expect(builder.receivedCards!.single.deckPath, 'Sinapsis::Sin tema');
+    expect(topics.requestedItemIds, {'item-1'});
     expect(saver.savedFileName, 'sinapsis.apkg');
     expect(saver.savedBytes, isNotNull);
   });

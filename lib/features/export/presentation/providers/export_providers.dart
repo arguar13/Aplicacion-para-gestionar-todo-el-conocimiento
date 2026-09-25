@@ -11,12 +11,14 @@ import 'package:sinapsis/features/export/data/exporters/markdown_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/pdf_exporter.dart';
 import 'package:sinapsis/features/export/data/exporters/plain_text_exporter.dart';
 import 'package:sinapsis/features/export/data/services/anki_package_builder.dart';
+import 'package:sinapsis/features/export/data/services/anki_topic_resolver_impl.dart';
 import 'package:sinapsis/features/export/data/services/directory_services.dart';
 import 'package:sinapsis/features/export/data/services/system_file_saver.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/domain/exporters/exporter_registry.dart';
 import 'package:sinapsis/features/export/domain/notebooklm/notebooklm_package_builder.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
+import 'package:sinapsis/features/export/domain/services/anki_topic_resolver.dart';
 import 'package:sinapsis/features/export/domain/services/directory_chooser.dart';
 import 'package:sinapsis/features/export/domain/services/directory_writer.dart';
 import 'package:sinapsis/features/export/domain/services/file_saver.dart';
@@ -96,10 +98,15 @@ final ankiDeckBuilderProvider = Provider<AnkiDeckBuilder>((ref) {
   return const AnkiPackageBuilder();
 });
 
+final ankiTopicResolverProvider = Provider<AnkiTopicResolver>((ref) {
+  return AnkiTopicResolverImpl(database: ref.watch(appDatabaseProvider));
+});
+
 final exportFlashcardsToAnkiUseCaseProvider =
     Provider<ExportFlashcardsToAnkiUseCase>((ref) {
       return ExportFlashcardsToAnkiUseCase(
         flashcards: ref.watch(flashcardRepositoryProvider),
+        topics: ref.watch(ankiTopicResolverProvider),
         builder: ref.watch(ankiDeckBuilderProvider),
         saver: ref.watch(fileSaverProvider),
       );

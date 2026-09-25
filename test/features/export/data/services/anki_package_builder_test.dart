@@ -7,14 +7,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/features/export/data/services/anki_package_builder.dart';
+import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 /// No hay forma de probar un import de verdad contra la aplicación Anki en
 /// este entorno; lo que sí se puede probar —y lo que se prueba acá— es que
 /// el `.apkg` generado es un `.zip` válido con una base SQLite adentro que
 /// respeta el esquema legado de Anki (tablas, columnas y JSON de
-/// configuración), y que el estado SM-2 de cada tarjeta se traduce a los
-/// campos de repaso que Anki espera.
+/// configuración), que el estado SM-2 de cada tarjeta se traduce a los
+/// campos de repaso que Anki espera, y que cada `deckPath` distinto (F17,
+/// D1/D2) es su propio mazo.
 void main() {
   const builder = AnkiPackageBuilder();
 
@@ -44,11 +46,16 @@ void main() {
     );
   }
 
+  AnkiCardExport export(
+    Flashcard card, {
+    String deckPath = 'Sinapsis::Sin tema',
+  }) => AnkiCardExport(card: card, deckPath: deckPath);
+
   test(
     'arma un .zip con la base de Anki y el manifiesto de medios adentro',
     () async {
       final bytes = await builder.build([
-        card(id: 'c1', front: '¿Capital de Francia?', back: 'París'),
+        export(card(id: 'c1', front: '¿Capital de Francia?', back: 'París')),
       ]);
 
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -64,16 +71,18 @@ void main() {
 
   test('cada tarjeta se convierte en una nota y una carta de Anki', () async {
     final bytes = await builder.build([
-      card(id: 'c1', front: 'Pregunta 1', back: 'Respuesta 1'),
-      card(
-        id: 'c2',
-        front: 'Pregunta 2',
-        back: 'Respuesta 2',
-        repetitions: 3,
-        easeFactor: 2.3,
-        intervalDays: 6,
-        dueAt: DateTime.now().add(const Duration(days: 4)),
-        lastReviewedAt: DateTime.now().subtract(const Duration(days: 2)),
+      export(card(id: 'c1', front: 'Pregunta 1', back: 'Respuesta 1')),
+      export(
+        card(
+          id: 'c2',
+          front: 'Pregunta 2',
+          back: 'Respuesta 2',
+          repetitions: 3,
+          easeFactor: 2.3,
+          intervalDays: 6,
+          dueAt: DateTime.now().add(const Duration(days: 4)),
+          lastReviewedAt: DateTime.now().subtract(const Duration(days: 2)),
+        ),
       ),
     ]);
 
@@ -84,7 +93,9 @@ void main() {
 
       expect(notes, hasLength(2));
       expect(cards, hasLength(2));
-      expect(notes.first['flds'], 'Pregunta 1Respuesta 1');
+      // El separador de campos de Anki (U+001F) entre Front y Back: sin él,
+      // Anki lee las dos mitades como un solo campo.
+      expect(notes.first['flds'], 'Pregunta 1\u001fRespuesta 1');
       expect(notes.first['sfld'], 'Pregunta 1');
 
       // La primera nunca se repasó: queda como tarjeta nueva.
@@ -104,9 +115,12 @@ void main() {
   });
 
   test('la fila de la colección trae JSON válido en sus columnas de '
-      'configuración, con el mazo "Sinapsis" entre los mazos', () async {
+      'configuración, con el subdeck de la tarjeta entre los mazos', () async {
     final bytes = await builder.build([
-      card(id: 'c1', front: 'Pregunta', back: 'Respuesta'),
+      export(
+        card(id: 'c1', front: 'Pregunta', back: 'Respuesta'),
+        deckPath: 'Sinapsis::Historia::Roma',
+      ),
     ]);
 
     final db = await _openCollection(bytes);
@@ -121,12 +135,69 @@ void main() {
       final conf = jsonDecode(col['conf'] as String) as Map<String, dynamic>;
 
       expect(models, isNotEmpty);
-      expect(decks.values.any((d) => (d as Map)['name'] == 'Sinapsis'), isTrue);
+      expect(
+        decks.values.any(
+          (d) => (d as Map)['name'] == 'Sinapsis::Historia::Roma',
+        ),
+        isTrue,
+      );
       expect(dconf, isNotEmpty);
       expect(conf['curDeck'], isNotNull);
     } finally {
       db.close();
     }
+  });
+
+  group('subdecks (F17, D1/D2)', () {
+    test('cada deckPath distinto es su propio mazo', () async {
+      final bytes = await builder.build([
+        export(
+          card(id: 'c1', front: 'p1', back: 'r1'),
+          deckPath: 'Sinapsis::Historia::Roma',
+        ),
+        export(
+          card(id: 'c2', front: 'p2', back: 'r2'),
+          deckPath: 'Sinapsis::Historia::Roma',
+        ),
+        export(
+          card(id: 'c3', front: 'p3', back: 'r3'),
+          deckPath: 'Sinapsis::Biología',
+        ),
+        export(card(id: 'c4', front: 'p4', back: 'r4')),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        final col = db.select('SELECT * FROM col').single;
+        final decks =
+            jsonDecode(col['decks'] as String) as Map<String, dynamic>;
+        final names = decks.values.map((d) => (d as Map)['name']).toSet();
+
+        expect(
+          names,
+          containsAll([
+            'Sinapsis::Historia::Roma',
+            'Sinapsis::Biología',
+            'Sinapsis::Sin tema',
+          ]),
+        );
+        // Default + tres subdecks distintos: dos tarjetas comparten uno, no
+        // cuenta doble.
+        expect(decks, hasLength(4));
+
+        final cards = db.select('SELECT * FROM cards');
+        final roma = decks.entries
+            .firstWhere(
+              (e) => (e.value as Map)['name'] == 'Sinapsis::Historia::Roma',
+            )
+            .key;
+        final romaDid = int.parse(roma);
+        final romaCards = cards.where((c) => c['did'] == romaDid);
+        expect(romaCards, hasLength(2));
+      } finally {
+        db.close();
+      }
+    });
   });
 
   test(
@@ -138,6 +209,12 @@ void main() {
       try {
         expect(db.select('SELECT * FROM notes'), isEmpty);
         expect(db.select('SELECT * FROM cards'), isEmpty);
+        // Sin tarjetas, sin ningún subdeck: solo el Default que Anki exige.
+        final col = db.select('SELECT * FROM col').single;
+        final decks =
+            jsonDecode(col['decks'] as String) as Map<String, dynamic>;
+        expect(decks, hasLength(1));
+        expect((decks.values.single as Map)['name'], 'Default');
       } finally {
         db.close();
       }

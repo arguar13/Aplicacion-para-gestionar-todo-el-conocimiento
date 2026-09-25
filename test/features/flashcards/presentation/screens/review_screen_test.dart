@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
@@ -25,7 +24,7 @@ import '../../../../support/library_harness.dart';
 /// importa acá es solo que la pantalla la llame y reaccione bien.
 class _FakeAnkiDeckBuilder implements AnkiDeckBuilder {
   @override
-  Future<Uint8List> build(List<Flashcard> cards) async {
+  Future<Uint8List> build(List<AnkiCardExport> cards) async {
     return Uint8List.fromList([1, 2, 3]);
   }
 }
@@ -46,6 +45,7 @@ void main() {
             exportFlashcardsToAnkiUseCaseProvider.overrideWith(
               (ref) => ExportFlashcardsToAnkiUseCase(
                 flashcards: ref.watch(flashcardRepositoryProvider),
+                topics: ref.watch(ankiTopicResolverProvider),
                 builder: _FakeAnkiDeckBuilder(),
                 saver: ref.watch(fileSaverProvider),
               ),
