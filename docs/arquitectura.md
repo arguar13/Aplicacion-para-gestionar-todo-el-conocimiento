@@ -4349,6 +4349,122 @@ fusión de duplicados —investigado, no hace falta hoy—. No difiere las cuatr
 sugerencias/embeddings —mismo motivo—. No mide `mergeBackup` en el emulador —el plan no lo pedía
 para este commit, a diferencia de la importación de referencias—.
 
+### 53. F20 de quizzes generados y anclados: opción múltiple con distractores reales, nunca inventados
+
+Tercera y última fase del encargo F18–F20 (`docs/planes/F20-quizzes-generados.md`), que agrega una
+función nueva: preguntas de opción múltiple generadas por el modelo, cada opción —la correcta y las
+incorrectas— anclada a un fragmento real de la bóveda, nunca inventada, integradas a la programación
+espaciada SM-2. Nueve commits reales.
+
+**Esquema aditivo, en dos pasos (decisión B).** `flashcards` gana `kind` (`FlashcardKind`:
+`freeRecall`/`multipleChoice`/`trueFalse`, `freeRecall` por defecto para toda tarjeta que ya
+existía); `flashcard_options` nace vacía, una fila por opción con su propio texto, si es la correcta
+y su propia procedencia (`sourceChunkId`/`sourceCharStart`/`sourceCharEnd`, mismo patrón que
+`Flashcard` ya usa) —esquema v29—. El programador SM-2 y `review_log` no cambiaron: ya eran
+agnósticos a la forma de la tarjeta, confirmado leyendo `sm2_scheduler.dart` antes de escribir nada.
+Las opciones NO se anclan por `relations`/`extractedFrom` (decisión A): esa tabla tiene
+`UNIQUE(from_item_id, to_item_id, kind)`, y dos opciones de la MISMA pregunta citando el mismo
+elemento fuente es esperable, no un caso raro —un distractor «hermano del Atlas» o «el otro lado de
+un `contradicts`» cae ahí con normalidad—.
+
+**Un segundo bug de esquema real, encontrado recién al necesitarlo (v30).** `FlashcardOption.
+sourceItemId` —de qué elemento sale la procedencia de una opción, no necesariamente el mismo que el
+de la tarjeta— se resolvía al principio con un `JOIN` a `chunks`, así que se perdía cada vez que el
+chunk no estaba resuelto. A diferencia de `Flashcard.itemId`, un campo PROPIO e independiente de su
+chunk, ese `sourceItemId` derivado dependía enteramente de que el chunk existiera —el mismo caso ya
+documentado de `sourceChunkId` cuando el texto de la fuente se rehace—. Corregido de raíz: columna
+propia, poblada al guardar, con relleno para lo que ya tuviera `sourceChunkId` de antes de v30.
+
+**La generación, en piezas separadas que se combinan recién al guardar.** `QuizQuestionGenerator`
+(reusa `FlashcardDraft` tal cual: front=pregunta, back=respuesta, quote=cita sin anclar) solo
+sugiere pregunta y respuesta, nunca opciones incorrectas —el modelo nunca inventa un distractor,
+restricción inalienable del encargo—. `DistractorSourcer` los trae de la bóveda real, en el orden de
+la decisión C: hermanos del elemento semilla en el árbol de Temas, el otro lado de una relación
+`contradicts`, cercanía por embedding (`RelationCandidateSelector`, ya existía) —la cuarta fuente de
+la decisión C, «misma comunidad del Mapa», queda deliberadamente afuera: investigado antes de
+construir nada, `KnowledgeMapEngine` no expone ningún método de solo lectura para «la comunidad ya
+calculada en esta sesión, sin forzar nada», y las otras tres ya alcanzan—. `GenerateQuizUseCase`
+junta las dos piezas: `generate()` ancla la respuesta correcta con `locateQuote` contra el texto
+real y descarta la pregunta si no ancla o si `DistractorSourcer` no encontró ningún distractor real
+—nunca completa con nada inventado—; `save()` guarda todas las preguntas confirmadas en UNA
+transacción (decisión D). Con un solo distractor real, la pregunta se ofrece igual, como opción
+múltiple de dos opciones, en vez de forzar un tipo de tarjeta que no tiene la forma que hace falta
+—ver el desvío señalado más abajo—.
+
+**Un desvío real del texto del plan, señalado, no en silencio: el quiz nunca pasa por
+`DerivedNoteType`.** Investigado antes de escribir nada (`derived_claim_anchor.dart`,
+`anchorDerivedClaims`, F16 D6): esa función ancla como mucho UNA afirmación por elemento fuente en
+TODA la generación, restricción que existe específicamente porque `RelationKind.extractedFrom` no
+admite dos vínculos del mismo par —la misma colisión que la decisión A del propio plan ya identificó
+y resolvió para las opciones—. Reusar `DerivedNoteType.quiz` tal como sugería la letra del plan
+habría reintroducido, por otra puerta, el problema que la decisión A ya resuelve: una pregunta cuya
+respuesta correcta y un distractor citan el mismo elemento —esperable con un hermano del Atlas o un
+`contradicts` cercano— habría perdido una de las dos afirmaciones en silencio. Por el mismo motivo,
+tampoco degrada nunca a `FlashcardKind.trueFalse`: esa forma necesita una afirmación redactada a
+mano, y convertir una pregunta con su respuesta en una la inventaría —exactamente el material que
+`DistractorSourcer` ya no encontró—. Consecuencia: el quiz no crea ningún elemento nuevo ni lleva
+marca de modelo/fecha —ver el criterio de cierre, más abajo—.
+
+**Revisión obligatoria antes de guardar, con procedencia visible por opción.** `QuizReviewScreen`
+(pantalla completa, no diálogo —una pregunta trae varias opciones con su propia procedencia cada
+una, más contenido del que entra cómodo en un `AlertDialog`—) deja incluir o descartar cada pregunta
+por separado; ninguna se guarda a ciegas. Sin edición de texto, mismo criterio que la revisión de
+tarjetas comunes y de sugerencias de propiedad: editar el texto de una opción la dejaría citando un
+fragmento que ya no dice eso. `MultipleChoiceOptions` (mezcla las opciones una vez por pregunta,
+revela al tocar, con «ver en la fuente» por opción —puede apuntar a un elemento distinto al de la
+tarjeta—) se reusa tal cual en dos lugares: una tarjeta de opción múltiple que ya toca repasar en
+`ReviewScreen` —sigue tocando la programación SM-2 igual que cualquier tarjeta— y una sesión SUELTA
+(`QuizSessionScreen`, para practicar un quiz recién generado sin esperar a que «toque»), que nunca
+llama a `review()` —adelantaría la programación de una tarjeta recién creada por una sesión que no
+es un repaso espaciado real—. Al terminar una sesión suelta, un solo
+`HabitEventRecorder.record(HabitEventKind.quiz)` cuenta para la racha, investigado antes de escribir
+nada: `habit_event` ya es un mecanismo independiente de `review_log`, el mismo que usan `triage` y
+`vocabulary` para lo mismo. `QuizSessionSummaryService` agrupa las preguntas falladas por tema del
+Atlas (`AnkiTopicResolver`, el tema de la PREGUNTA es el de `Flashcard.itemId`) con la nota viva de
+cada tema si tiene una —investigado: no hay relación 1:1 tema↔nota, «la» nota viva es la de `rowid`
+menor, mismo criterio que `AnkiTopicResolver` ya usa para «el primer tema» de un elemento—.
+
+**Exportación a Anki, un segundo tipo de nota, nunca a medias.** El esquema clásico de Anki
+(`col.models`) ya admite varios modelos de nota en la misma colección —cada nota declara el suyo en
+`notes.mid`, no hizo falta tocar el esquema SQL—: `AnkiPackageBuilder` arma uno nuevo
+(`Question`/`Answer`/`Distractor1-3`) para `multipleChoice`, con los distractores reales cada uno en
+su propio campo. Una pregunta mal formada —nunca pasa hoy, pero el esquema no lo impone— queda
+afuera del mazo, nunca exportada a medias, y afuera de `markExported` también —bug real arreglado de
+paso: antes marcaba exportadas TODAS las tarjetas pedidas, no solo las que de verdad entraban al
+archivo—. El camino de texto plano (TSV/CSV) no admite dos modelos —su `#columns:` es uno solo para
+todo el archivo—: los distractores van como lista legible dentro del mismo campo `Back`, sin perder
+ninguna información, solo un modelo de Anki propio menos que en el `.apkg`.
+
+**Alcance reducido de la entrada, señalado.** Solo la entrada desde UN elemento
+(`GenerateQuizButton`, en `item_detail_screen.dart`, mismo patrón que `GenerateDerivedNoteButton`).
+Las otras cuatro del plan —una rama del Atlas, un cuaderno, una vista guardada, la pantalla de
+Repaso— resuelven a VARIOS elementos, y `GenerateQuizUseCase` genera y guarda para uno solo por
+llamada, a diferencia de `GenerateDerivedNoteUseCase`, que ya sabe resolver un cuaderno entero;
+investigado antes de escribir nada, no hay orquestación multi-elemento hoy, haría falta construirla
+de cero. Quedan para una fase futura si hace falta.
+
+**El criterio de cierre (20.6, del encargo), con lo que se cumple y lo que se cumple distinto de la
+letra.** Cumplidos: ninguna opción de ningún quiz existe sin un chunk real que la respalde —cubierto
+por los tests de `DistractorSourcer`, `FlashcardRepositoryImpl.createMultipleChoice` y
+`GenerateQuizUseCase`, cada uno en su capa—; las preguntas confirmadas entran en la programación
+SM-2 y en `review_log` igual que cualquier tarjeta, desde el momento en que se guardan; ninguna
+pregunta llega al repaso sin pasar por `QuizReviewScreen`; la sesión suelta cuenta para la racha,
+capturar sigue sin contar —sin cambios—; invariante de chunking verde —F20 nunca escribe un chunk,
+solo lee los que ya existen, y la suite completa corrió verde antes de cada uno de los nueve
+commits—. **Cumplido distinto de la letra, señalado:** «una pregunta sin distractores suficientes
+degrada o se descarta» se implementó SOLO como descarte —nunca degrada a `trueFalse`, por el motivo
+ya explicado más arriba—; «las cuatro condiciones de generación por IA, como en F16» aplican tal
+cual a una nota derivada, no a una tarjeta —una tarjeta, común o de opción múltiple, nunca creó un
+elemento nuevo ni llevó marca de modelo/fecha, ni antes de F20 (F11) ni ahora—: lo que SÍ aplica —
+nunca sustituye al original, cada opción anclada a su propio chunk real— se cumple.
+
+**Lo que F20 no hace, dicho sin adornos.** No genera un quiz desde una rama del Atlas, un cuaderno,
+una vista guardada ni la pantalla de Repaso —solo desde un elemento—. No degrada nunca a
+`FlashcardKind.trueFalse`. No usa «misma comunidad del Mapa» como fuente de distractores. No mide
+nada en un teléfono real —sigue siendo emulador, como todo este encargo y el anterior—.
+
+Con esto el encargo F18–F20 queda CERRADO entero.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4700,6 +4816,14 @@ para este commit, a diferencia de la importación de referencias—.
   decisión 52—. Dos puntos del plan quedan sin construir, investigados y señalados: ni la
   aceptación de sugerencias en lote ni la fusión de duplicados tienen hoy un llamador que se
   beneficie del modo lote.
+- **F20 de quizzes generados y anclados: opción múltiple con distractores reales, nunca
+  inventados.** El modelo solo propone pregunta y respuesta; los distractores salen de la bóveda
+  real —hermanos del Atlas, el otro lado de un `contradicts`, cercanía por embedding, en ese
+  orden—, cada uno anclado a su propio chunk. Revisión obligatoria antes de guardar, integrada a la
+  programación SM-2, con una sesión suelta que cuenta para la racha sin tocarla, y un segundo tipo
+  de nota de Anki para exportarla. Tercera y última fase del encargo F18–F20 —ver la decisión 53—.
+  Solo la entrada desde un elemento; nunca degrada a verdadero/falso, se descarta en vez de
+  inventar. Con esto el encargo F18–F20 queda CERRADO entero.
 
 ### Por construir
 
@@ -4751,6 +4875,9 @@ pero sin cerrar del todo el criterio estricto de F14 en cada escenario.
 F19 —modo lote transaccional, ver la decisión 52— también está construida:
 corrigió una regresión real que su propia primera versión introdujo, y
 midió mejoras reales en la importación de referencias y en `mergeBackup`.
-Con esto el encargo F18–F20 queda con sus dos primeras fases cerradas.
-F20 —quizzes generados y anclados— tiene su plan aprobado
-(`docs/planes/F20-quizzes-generados.md`) y sigue, en orden estricto.
+F20 —quizzes generados y anclados, ver la decisión 53— también está
+construida: preguntas de opción múltiple con distractores reales de la
+bóveda, nunca inventados, revisadas antes de guardar e integradas a SM-2,
+con una sesión suelta que cuenta para la racha y un segundo tipo de nota
+de Anki para exportarlas —solo desde un elemento, nunca degrada a
+verdadero/falso—. Con esto el encargo F18–F20 queda CERRADO entero.

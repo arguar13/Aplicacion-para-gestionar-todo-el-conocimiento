@@ -1,8 +1,15 @@
 # F20 — Quizzes generados y anclados
 
-> **Estado: aprobado** (2026-09-25), en el chat, tal como está escrito, con las decisiones A/B/C/D
-> como se recomendaron. Planificado con el masterprompt F18–F20. Tercera y última fase, después de
-> F19 porque el modo lote también beneficia a la generación de un quiz largo.
+> **Estado: aprobado y construido** (2026-09-25), en el chat, tal como está escrito, con las
+> decisiones A/B/C/D como se recomendaron. Planificado con el masterprompt F18–F20. Tercera y
+> última fase, después de F19 porque el modo lote también beneficia a la generación de un quiz
+> largo. Cierra con la Decisión 53 de `docs/arquitectura.md`. Dos desvíos reales del texto,
+> señalados, no en silencio: el quiz nunca pasa por `DerivedNoteType` (`anchorDerivedClaims`
+> chocaría con la propia decisión A) y nunca degrada a `FlashcardKind.trueFalse` (degradar
+> inventaría el material que `DistractorSourcer` ya no encontró) — se descarta en su lugar. Solo la
+> entrada desde un elemento; las otras cuatro (rama del Atlas, cuaderno, vista guardada, Repaso)
+> quedan para una fase futura, investigado que necesitan una orquestación multi-elemento que hoy no
+> existe.
 
 Quinto tipo de derivado sobre `DerivedNoteGenerator` (F16), con dos decisiones ya tomadas que este
 plan no vuelve a abrir: el quiz se integra a la programación SM-2 (no es un derivado de una sola
@@ -107,11 +114,26 @@ esquema que un repaso común; ninguna pregunta llega al repaso sin pasar por la 
 
 ## Criterios de cierre (20.6, del encargo)
 
-- [ ] Ninguna opción de ningún quiz existe sin un chunk que la respalde, verificado por test.
-- [ ] Una pregunta sin distractores suficientes degrada o se descarta, nunca se completa con
-      material inventado.
-- [ ] Las preguntas confirmadas entran en la programación SM-2 y en `review_log`.
-- [ ] Ninguna pregunta llega al repaso sin revisión del usuario.
-- [ ] Las cuatro condiciones de generación por IA se cumplen, como en F16.
-- [ ] La sesión de quiz cuenta para la racha; capturar sigue sin contar.
-- [ ] Invariante de chunking verde.
+- [x] Ninguna opción de ningún quiz existe sin un chunk que la respalde, verificado por test:
+      `DistractorSourcer` solo devuelve candidatos con un chunk real (`distractor_sourcer_impl_test.dart`),
+      `FlashcardRepositoryImpl.createMultipleChoice` resuelve el chunk de cada opción contra su propio
+      elemento (`flashcard_repository_impl_test.dart`), y `GenerateQuizUseCase.generate` descarta
+      cualquier pregunta cuya respuesta correcta no ancle (`generate_quiz_usecase_test.dart`).
+- [x] Una pregunta sin distractores suficientes degrada o se descarta —**cumplido distinto de la
+      letra, señalado**: SOLO se descarta, nunca degrada a `FlashcardKind.trueFalse` (esa forma
+      necesita una afirmación redactada a mano; degradar inventaría el lado falso, el mismo material
+      que `DistractorSourcer` ya no encontró). Nunca se completa con material inventado.
+- [x] Las preguntas confirmadas entran en la programación SM-2 y en `review_log`: se guardan con
+      `FlashcardRepository.createMultipleChoice`, la misma tarjeta que cualquier otra —`dueAt` desde
+      ya, historial en `review_log` al primer repaso—.
+- [x] Ninguna pregunta llega al repaso sin revisión del usuario: `QuizReviewScreen` es el único
+      camino a `GenerateQuizUseCase.save`.
+- [x] Las cuatro condiciones de generación por IA se cumplen —**adaptadas a lo que es una tarjeta,
+      señalado**: aplican tal cual a una nota derivada (F16), no a una tarjeta; una tarjeta, común o
+      de opción múltiple, nunca creó un elemento nuevo ni llevó marca de modelo/fecha, ni antes de
+      F20 (F11) ni ahora. Lo que sí aplica se cumple: nunca sustituye al original, cada opción
+      anclada a su propio chunk real.
+- [x] La sesión de quiz cuenta para la racha (`HabitEventRecorder.record(HabitEventKind.quiz)`, una
+      vez al terminar, sin tocar `review()`); capturar sigue sin contar.
+- [x] Invariante de chunking verde: F20 nunca escribe un chunk, solo lee los que ya existen; la
+      suite completa (5.200+ tests) corrió verde antes de cada uno de los nueve commits.
