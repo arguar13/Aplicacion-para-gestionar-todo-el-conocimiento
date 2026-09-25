@@ -3,12 +3,14 @@ import 'package:flutter/painting.dart' show Size;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_repository_impl.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_view.dart';
 import 'package:sinapsis/features/atlas/presentation/services/atlas_markdown.dart';
+import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_layout.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/health/data/repositories/health_repository_impl.dart';
@@ -16,6 +18,7 @@ import 'package:sinapsis/features/library/data/repositories/library_query_sql.da
     show valuesWithDescendantsSql;
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
 import 'package:sinapsis/features/vocabulary/data/repositories/vocabulary_repository_impl.dart';
@@ -128,6 +131,9 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
   late SyntheticVault vault;
   late LibraryRepositoryImpl library;
   late OrganizeRepositoryImpl organize;
+  late NotebookRepositoryImpl notebooks;
+  late LibraryVaultRetriever retriever;
+  const bigNotebookId = 'bench-notebook-500';
   final results = <Measurement>[];
 
   setUpAll(() async {
@@ -148,6 +154,43 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       ids: FakeIdGenerator(prefix: 'org'),
       clock: () => vault.now,
     );
+    notebooks = NotebookRepositoryImpl(
+      database: db,
+      telemetry: telemetry,
+      ids: FakeIdGenerator(prefix: 'nb'),
+      clock: () => vault.now,
+    );
+    retriever = LibraryVaultRetriever(library: library);
+
+    // Un cuaderno manual de 500 elementos (F16, D1), para medir el chat
+    // acotado a un cuaderno GRANDE (16, 13): 500 es el tamaño que propone
+    // el propio plan, no un número arbitrario. Insertado con SQL directo,
+    // no `addItem` 500 veces —acá lo que se mide es la búsqueda, no el
+    // armado del cuaderno—. `insertOnConflictUpdate`/borrar-y-rearmar
+    // porque la bóveda queda cacheada en disco entre corridas (F16, D2 ya
+    // documentó lo mismo para otros escenarios): sin esto, la segunda
+    // corrida choca contra la fila que dejó la primera.
+    await db
+        .into(db.notebooks)
+        .insertOnConflictUpdate(
+          NotebooksCompanion.insert(
+            id: bigNotebookId,
+            name: 'Cuaderno grande',
+            mode: NotebookMode.manual,
+            createdAt: vault.now,
+            updatedAt: vault.now,
+          ),
+        );
+    await db.customStatement(
+      'DELETE FROM notebook_item WHERE notebook_id = ?',
+      [bigNotebookId],
+    );
+    await db.customStatement(
+      'INSERT INTO notebook_item (notebook_id, item_id) '
+      "SELECT ?, id FROM item WHERE kind = 'source' LIMIT 500",
+      [bigNotebookId],
+    );
+
     final counts = vault.counts.entries.map((e) => '${e.key}=${e.value}');
     env.log('Bóveda: ${counts.join(', ')}');
   });
@@ -267,6 +310,39 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
           // Lo que hace la pantalla: la página de resultados, cada uno con
           // dónde está lo que se encontró.
           () => library.search(search(term())),
+          target: 300,
+          runs: 9,
+        ),
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // El chat acotado a un cuaderno grande (F16, D1, 16.2 commit 13): mismo
+  // objetivo que la búsqueda sin acotar —el cuaderno recorta el ruido, no
+  // agranda el trabajo—. Se mide lo que hace `ChatScreen._answerVault` de
+  // verdad por cada pregunta: resolver el alcance del cuaderno de nuevo
+  // —no se cachea entre preguntas, F16 commit 7— y buscar dentro de él.
+  // 500 elementos es el tamaño que propone el propio plan de F16.
+  // -------------------------------------------------------------------
+  for (final (label, term) in [
+    ('palabra rara', () => vault.rareTerm),
+    ('palabra mediana', () => vault.mediumTerm),
+    ('dos palabras', () => '${vault.mediumTerm} ${vault.rareTerm}'),
+  ]) {
+    test('chat acotado a un cuaderno grande: $label', () async {
+      check(
+        await measure(
+          'cuaderno de 500: $label',
+          () async {
+            final query = await notebooks.resolveQuery(bigNotebookId);
+            final scoped = await library.matchingIds(query);
+            final scopeIds = scoped.match(
+              (_) => const <String>{},
+              (ids) => ids.toSet(),
+            );
+            await retriever.retrieve(term(), scopeIds: scopeIds);
+          },
           target: 300,
           runs: 9,
         ),

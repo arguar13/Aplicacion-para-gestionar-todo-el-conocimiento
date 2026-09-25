@@ -196,6 +196,31 @@ recorrido de la tabla, es un caso más de `query_plans_test.dart` —corre
 siempre, no hace falta el `--dart-define`—: eso no necesita 10.000 filas para
 comprobarse, solo el esquema.
 
+## El chat acotado a un cuaderno (F16)
+
+`test/benchmark/vault_benchmark.dart` suma tres escenarios («cuaderno de
+500: …») a la misma bóveda de 10.000 elementos de siempre, sin una capa
+aparte: un cuaderno manual de 500 elementos, sembrado con SQL directo en
+`setUpAll` (no `addItem` 500 veces —lo que se mide es la búsqueda, no el
+armado del cuaderno—). Cada corrida mide lo que hace `ChatScreen.
+_answerVault` de verdad por cada pregunta: resolver el alcance del
+cuaderno de nuevo —no se cachea entre preguntas, F16 commit 7— y buscar
+dentro de él con `LibraryVaultRetriever.retrieve`. Mismo objetivo que la
+búsqueda sin acotar, 300 ms: un cuaderno recorta el ruido, no agranda el
+trabajo.
+
+    flutter test test/benchmark/vault_benchmark_test.dart \
+      --dart-define=BENCH=true --timeout none
+
+    tool/bench_android.ps1 -Label f16
+
+La primera medición (126–186 ms, mediana) encontró que `_resolveScopeIds`
+armaba cada uno de los 500 elementos entero —con sus renditions,
+etiquetas y propiedades— solo para quedarse con el id: `perf(chat)` (F16,
+13a) lo cambió a `LibraryRepository.matchingIds`, la misma consulta sin
+ese armado. En el emulador, ya con el arreglo: 23–101 ms de mediana, bien
+adentro de los 300 ms.
+
 ## Cómo se mide en escritorio
 
     flutter test test/benchmark/vault_benchmark_test.dart \
