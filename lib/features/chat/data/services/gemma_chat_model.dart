@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
@@ -26,6 +27,22 @@ const _systemInstruction =
     'responder la pregunta, decilo con claridad en vez de inventar algo. '
     'Cuando uses un dato de una fuente, mencioná su número entre corchetes, '
     'como [1] o [2].';
+
+/// Mismo formato que `_flashcardSystemInstruction` —reusa
+/// `parseFlashcardDrafts`, F20: una pregunta de opción múltiple con su
+/// respuesta correcta es la misma forma que una tarjeta—, pero pidiendo
+/// preguntas de opción múltiple en vez de estudio libre. Las opciones
+/// incorrectas NUNCA se piden acá: salen de material real de la bóveda, no
+/// de lo que el modelo inventaría como distractor.
+const _quizQuestionSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es generar preguntas de '
+    'opción múltiple con su respuesta correcta a partir del contenido que '
+    'se te da, basándote ÚNICAMENTE en ese contenido. NO propongas '
+    'opciones incorrectas: eso lo hace otra parte del sistema. Usá '
+    'EXACTAMENTE este formato, una pregunta y su respuesta correcta por '
+    'vez, sin numerar, sin usar Markdown ni comillas:\nP: <pregunta>\n'
+    'R: <la respuesta correcta>\nC: <la frase del contenido de la que sale '
+    'la respuesta, copiada TEXTUALMENTE, sin cambiar ni una palabra>';
 
 /// Mismo criterio que el de arriba, pero para generar tarjetas en vez de
 /// contestar una pregunta: sin citas ni corchetes, con el formato exacto
@@ -178,7 +195,8 @@ class GemmaChatModel
         RelationSuggestionService,
         SummarizationService,
         PropertySuggestionService,
-        DerivedNoteGenerator {
+        DerivedNoteGenerator,
+        QuizQuestionGenerator {
   GemmaChatModel();
 
   InferenceModel? _model;
@@ -258,6 +276,38 @@ class GemmaChatModel
           text:
               'Generá hasta $count tarjetas a partir de este contenido:\n\n'
               '$content',
+          isUser: true,
+        ),
+      );
+      final response = await chat.generateChatResponse();
+
+      final text = switch (response) {
+        TextResponse(:final token) => token,
+        _ => '',
+      };
+
+      return parseFlashcardDrafts(text).take(count).toList();
+    } finally {
+      await chat.close();
+    }
+  }
+
+  @override
+  Future<List<FlashcardDraft>> generateQuizQuestions({
+    required String content,
+    int count = 5,
+  }) async {
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _quizQuestionSystemInstruction,
+    );
+
+    try {
+      await chat.addQueryChunk(
+        Message.text(
+          text:
+              'Generá hasta $count preguntas de opción múltiple a partir '
+              'de este contenido:\n\n$content',
           isUser: true,
         ),
       );
