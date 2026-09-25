@@ -4289,6 +4289,60 @@
   "@habitBadgeMonthOfWeeklyConsolidationDescription": {
     "description": "Descripción de la insignia: cada semana de un mes con actividad que cuenta para la racha."
   },
+  "reviewHistoryTooltip": "View review history",
+  "@reviewHistoryTooltip": {
+    "description": "Tooltip del botón en la barra de Repaso que abre el historial de repasos (F17, D8/commit 10b)."
+  },
+  "reviewHistoryTitle": "Review history",
+  "@reviewHistoryTitle": {
+    "description": "Título de la pantalla del historial de repasos (F17, D8)."
+  },
+  "reviewHistoryLoadError": "Couldn't load the history.",
+  "@reviewHistoryLoadError": {
+    "description": "Mensaje cuando falla la lectura del historial de repasos."
+  },
+  "reviewHistoryRetentionSectionTitle": "Retention curve",
+  "@reviewHistoryRetentionSectionTitle": {
+    "description": "Encabezado de la sección de retención semanal del historial de repasos."
+  },
+  "reviewHistoryRetentionEmpty": "No reviews yet to show a curve.",
+  "@reviewHistoryRetentionEmpty": {
+    "description": "Estado vacío de la curva de retención, cuando las últimas semanas no tuvieron ningún repaso."
+  },
+  "reviewHistoryRetentionTooltip": "{count, plural, =0{No reviews this week} =1{1 review, {percent}% retained} other{{count} reviews, {percent}% retained}}",
+  "@reviewHistoryRetentionTooltip": {
+    "description": "Tooltip de una barra de la curva de retención.",
+    "placeholders": {
+      "count": {"type": "int"},
+      "percent": {"type": "int"}
+    }
+  },
+  "reviewHistoryActivitySectionTitle": "Consistency",
+  "@reviewHistoryActivitySectionTitle": {
+    "description": "Encabezado del calendario de actividad del historial de repasos."
+  },
+  "reviewHistoryActivityTooltip": "{count, plural, =0{No reviews} =1{1 review} other{{count} reviews}}",
+  "@reviewHistoryActivityTooltip": {
+    "description": "Tooltip de una celda del calendario de actividad.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "reviewHistoryHardestCardsSectionTitle": "Hardest cards",
+  "@reviewHistoryHardestCardsSectionTitle": {
+    "description": "Encabezado de la sección de tarjetas difíciles del historial de repasos."
+  },
+  "reviewHistoryHardestCardsEmpty": "Not enough reviews yet to point out any.",
+  "@reviewHistoryHardestCardsEmpty": {
+    "description": "Estado vacío de tarjetas difíciles, cuando ninguna tarjeta llegó al piso de repasos."
+  },
+  "reviewHistoryHardestCardsAgainRatio": "{percent}% \"again\"",
+  "@reviewHistoryHardestCardsAgainRatio": {
+    "description": "Proporción de repasos calificados \"de nuevo\" de una tarjeta difícil.",
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  },
   "reviewAllDone": "Nothing to review right now. Check back later.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

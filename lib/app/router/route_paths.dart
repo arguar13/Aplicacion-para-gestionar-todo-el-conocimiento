@@ -152,6 +152,11 @@ abstract final class RoutePaths {
   /// lente sobre el hábito de repasar, no un destino de navegación propio.
   static const reviewBadges = '$review/badges';
 
+  /// El historial de repasos de F17, D8: curva de retención, calendario de
+  /// constancia y tarjetas difíciles. Ruta plana bajo `/review`, mismo
+  /// criterio que [reviewBadges].
+  static const reviewHistory = '$review/history';
+
   /// Idioma, tema, modelo de transcripción, copia de seguridad y bloqueo de
   /// la bóveda, todo junto.
   static const settings = '/settings';
@@ -196,6 +201,7 @@ abstract final class RouteNames {
   static const graphLocal = 'graph-local';
   static const review = 'review';
   static const reviewBadges = 'review-badges';
+  static const reviewHistory = 'review-history';
   static const settings = 'settings';
   static const trash = 'trash';
   static const conflicts = 'conflicts';

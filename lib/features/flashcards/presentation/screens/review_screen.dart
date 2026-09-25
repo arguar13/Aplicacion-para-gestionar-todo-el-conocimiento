@@ -97,6 +97,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             onPressed: () => context.push(RoutePaths.reviewBadges),
           ),
           IconButton(
+            icon: const Icon(Icons.query_stats_outlined),
+            tooltip: l10n.reviewHistoryTooltip,
+            onPressed: () => context.push(RoutePaths.reviewHistory),
+          ),
+          IconButton(
             icon: _exporting
                 ? const SizedBox(
                     width: 20,
