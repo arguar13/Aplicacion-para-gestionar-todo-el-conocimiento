@@ -8,6 +8,9 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_response_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 
@@ -107,6 +110,45 @@ const _summarizationSystemInstruction =
     'párrafos cortos de texto corrido, sin viñetas, sin encabezados y sin '
     'Markdown.';
 
+/// El formato de respuesta compartido por los cuatro derivados (D5): lo
+/// único que cambia entre `_studyGuideSystemInstruction` y las otras tres es
+/// QUÉ generar, nunca el formato en que se lo pide —mismo criterio que
+/// `_flashcardSystemInstruction`, un formato simple y único le deja al
+/// modelo menos formas de desviarse—. `C:` es obligatoria y textual: sin
+/// ella, `anchorDerivedClaims` descarta la afirmación entera (D6).
+const _derivedFormatInstruction =
+    'Usá EXACTAMENTE este formato, sin Markdown ni numeración propia. Para '
+    'agrupar afirmaciones bajo un título (opcional):\nT: <título>\nLuego, '
+    'por cada afirmación:\nA: <afirmación>\nC: <la frase de las fuentes de '
+    'la que sale, copiada TEXTUALMENTE, sin cambiar ni una palabra>\nLa '
+    'línea C: es obligatoria en cada afirmación: sin ella se descarta.';
+
+const _studyGuideSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es armar una guía de '
+    'estudio a partir del contenido de las fuentes que se te dan, '
+    'basándote ÚNICAMENTE en ellas. Agrupá las afirmaciones clave por '
+    'tema, con un título por grupo. $_derivedFormatInstruction';
+
+const _openQuestionsSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es proponer preguntas '
+    'abiertas que el contenido de las fuentes permite responder, '
+    'basándote ÚNICAMENTE en ellas: cada "afirmación" es en realidad una '
+    'pregunta de repaso. No hace falta agrupar por título. '
+    '$_derivedFormatInstruction';
+
+const _outlineSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es armar un esquema con '
+    'los puntos principales del contenido de las fuentes que se te dan, '
+    'basándote ÚNICAMENTE en ellas. Agrupá los puntos por tema, con un '
+    'título por grupo. $_derivedFormatInstruction';
+
+const _timelineSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es armar una cronología '
+    'con los hechos fechables del contenido de las fuentes que se te dan, '
+    'basándote ÚNICAMENTE en ellas, en el orden en que ocurrieron: cada '
+    '"afirmación" es un hecho, con su fecha si la tiene. No hace falta '
+    'agrupar por título. $_derivedFormatInstruction';
+
 /// [ChatModel] sobre `flutter_gemma`: Gemma corriendo en el dispositivo, vía
 /// FFI directo —sin JVM, sin servidor propio, ver la decisión 20 en
 /// docs/arquitectura.md—.
@@ -119,21 +161,24 @@ const _summarizationSystemInstruction =
 /// cada pregunta recupera sus propias fuentes y no tiene por qué compartir
 /// contexto con la charla previa.
 ///
-/// También implementa [FlashcardGenerator], [RelationSuggestionService] y
-/// [PropertySuggestionService]: generar tarjetas, sugerir vínculos y
-/// sugerir propiedades son otras tareas del mismo modelo ya cargado, no
-/// motores aparte. Que la clase concreta viva en el feature `chat` y no en
-/// `flashcards`, `graph` o `suggestions` es una asimetría real —esos
-/// dependen de una implementación de `chat`—, aceptada acá porque la
-/// alternativa (mover la lógica de cachear el modelo a un tercer lugar
-/// compartido) es más superficie nueva por unas pocas clases que la usan.
+/// También implementa [FlashcardGenerator], [RelationSuggestionService],
+/// [SummarizationService], [PropertySuggestionService] y
+/// [DerivedNoteGenerator]: generar tarjetas, sugerir vínculos, resumir,
+/// sugerir propiedades y armar derivados son otras tareas del mismo modelo
+/// ya cargado, no motores aparte. Que la clase concreta viva en el feature
+/// `chat` y no en `flashcards`, `graph`, `suggestions` o `notes` es una
+/// asimetría real —esos dependen de una implementación de `chat`—, aceptada
+/// acá porque la alternativa (mover la lógica de cachear el modelo a un
+/// tercer lugar compartido) es más superficie nueva por unas pocas clases
+/// que la usan.
 class GemmaChatModel
     implements
         ChatModel,
         FlashcardGenerator,
         RelationSuggestionService,
         SummarizationService,
-        PropertySuggestionService {
+        PropertySuggestionService,
+        DerivedNoteGenerator {
   GemmaChatModel();
 
   InferenceModel? _model;
@@ -356,6 +401,39 @@ class GemmaChatModel
       await chat.close();
     }
   }
+
+  @override
+  Future<DerivedNoteDraft> generateDerivedNote({
+    required DerivedNoteType type,
+    required List<ChatSource> sources,
+  }) async {
+    if (sources.isEmpty) {
+      return DerivedNoteDraft(type: type, sections: const []);
+    }
+
+    final model = await _activeModel();
+    final chat = await model.createChat(
+      systemInstruction: _derivedSystemInstructionFor(type),
+    );
+
+    try {
+      await chat.addQueryChunk(
+        Message.text(text: _buildDerivedPrompt(sources), isUser: true),
+      );
+      final response = await chat.generateChatResponse();
+
+      final text = switch (response) {
+        TextResponse(:final token) => token,
+        _ => '',
+      };
+
+      final raw = parseDerivedNoteResponse(text);
+      final sections = anchorDerivedClaims(raw, sources);
+      return DerivedNoteDraft(type: type, sections: sections);
+    } finally {
+      await chat.close();
+    }
+  }
 }
 
 /// [FreeConversation] sobre la sesión de `flutter_gemma`: cada [send]
@@ -439,6 +517,30 @@ String _buildVaultPrompt(String message, List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Contexto de la bóveda:\n$context\n\nMensaje: $message';
+}
+
+/// Qué generar, según [DerivedNoteType]: el formato de respuesta es siempre
+/// el mismo (`_derivedFormatInstruction`), solo cambia esto.
+String _derivedSystemInstructionFor(DerivedNoteType type) {
+  return switch (type) {
+    DerivedNoteType.studyGuide => _studyGuideSystemInstruction,
+    DerivedNoteType.openQuestions => _openQuestionsSystemInstruction,
+    DerivedNoteType.outline => _outlineSystemInstruction,
+    DerivedNoteType.timeline => _timelineSystemInstruction,
+  };
+}
+
+/// El mensaje que se le manda al modelo para armar un derivado: las fuentes
+/// numeradas, mismo formato que [_buildVaultPrompt] —el modelo no necesita
+/// citar el número acá, solo copiar la frase textual, pero numerarlas
+/// ayuda a que no las mezcle—.
+String _buildDerivedPrompt(List<ChatSource> sources) {
+  final context = [
+    for (var i = 0; i < sources.length; i++)
+      '[${i + 1}] ${sources[i].itemTitle}\n${sources[i].excerpt}',
+  ].join('\n\n');
+
+  return 'Fuentes:\n$context';
 }
 
 /// Una línea de vocabulario para [GemmaChatModel.suggestProperties]: el
