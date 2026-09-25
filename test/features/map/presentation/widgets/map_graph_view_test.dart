@@ -457,6 +457,87 @@ void main() {
     expect(layer.willChange, isFalse);
   });
 
+  group('F18, 18.2: caché de rasterizado durante el gesto', () {
+    InteractiveViewer viewer(WidgetTester tester) =>
+        tester.widget(find.byKey(const ValueKey('map-graph-canvas')));
+
+    testWidgets('durante el gesto se pinta la imagen capturada, no los '
+        'nodos', (tester) async {
+      await pump(tester);
+      expect(node('overview:0'), findsOneWidget);
+
+      viewer(tester).onInteractionStart!(ScaleStartDetails());
+      // La captura es asíncrona: deja que se resuelva antes de mirar.
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(RawImage), findsOneWidget);
+      expect(node('overview:0'), findsNothing);
+    });
+
+    testWidgets('al soltar, el dibujo vuelve a ser el vectorial de siempre, '
+        'idéntico al de antes del gesto', (tester) async {
+      await pump(tester);
+
+      final v = viewer(tester);
+      v.onInteractionStart!(ScaleStartDetails());
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(RawImage), findsOneWidget);
+
+      v.onInteractionEnd!(ScaleEndDetails());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RawImage), findsNothing);
+      expect(node('overview:0'), findsOneWidget);
+      expect(node('overview:1'), findsOneWidget);
+      expect(node('overview:2'), findsOneWidget);
+    });
+
+    testWidgets('un arrastre puro no cambia el zoom, así que no recaptura '
+        'nada a mitad de camino', (tester) async {
+      await pump(tester);
+
+      final v = viewer(tester);
+      v.onInteractionStart!(ScaleStartDetails());
+      await tester.pump();
+      await tester.pump();
+      final firstImage = tester.widget<RawImage>(find.byType(RawImage)).image;
+
+      // Un arrastre no toca la escala del controlador.
+      v.onInteractionUpdate!(ScaleUpdateDetails());
+      await tester.pump();
+
+      final stillSame = tester.widget<RawImage>(find.byType(RawImage)).image;
+      expect(identical(firstImage, stillSame), isTrue);
+    });
+
+    testWidgets('un zoom que pasa el doble desde la captura recaptura a '
+        'mitad del gesto', (tester) async {
+      await pump(tester);
+
+      final v = viewer(tester);
+      final controller = v.transformationController!;
+      v.onInteractionStart!(ScaleStartDetails());
+      await tester.pump();
+      await tester.pump();
+      final firstImage = tester.widget<RawImage>(find.byType(RawImage)).image;
+
+      final now = controller.value.getMaxScaleOnAxis();
+      controller.value = Matrix4.diagonal3Values(
+        now * 2.5,
+        now * 2.5,
+        now * 2.5,
+      );
+      v.onInteractionUpdate!(ScaleUpdateDetails());
+      await tester.pump();
+      await tester.pump();
+
+      final recaptured = tester.widget<RawImage>(find.byType(RawImage)).image;
+      expect(identical(firstImage, recaptured), isFalse);
+    });
+  });
+
   group('fuente y nota', () {
     testWidgets('se dibujan distinto, con la forma y el color de su rol', (
       tester,

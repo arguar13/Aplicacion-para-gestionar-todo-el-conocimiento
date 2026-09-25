@@ -35,10 +35,13 @@ Path arrowPath(ArrowHead head) => Path()
   ..lineTo(head.right.dx, head.right.dy)
   ..close();
 
-/// El dibujo dentro de la caja de [boundaryKey] como PNG (F14, D7), o `null` si
-/// todavía no hay nada dibujado. Se achica lo justo para que ningún lado pase
-/// de [maxSide] píxeles: un mapa grande a doble resolución no cabe en memoria.
-Future<Uint8List?> capturePng(
+/// El dibujo dentro de la caja de [boundaryKey], como imagen viva —para
+/// pegarla de vuelta en un `RawImage`, no para exportarla—, o `null` si
+/// todavía no hay nada dibujado. Se achica lo justo para que ningún lado
+/// pase de [maxSide] píxeles: un mapa grande a doble resolución no cabe en
+/// memoria. Quien la pide es quien la libera (F14, D7 lo hace enseguida;
+/// F18, 18.2 la mantiene viva mientras dura un gesto).
+Future<ui.Image?> captureBoundaryImage(
   GlobalKey boundaryKey, {
   double pixelRatio = 2,
   double maxSide = 4096,
@@ -49,7 +52,23 @@ Future<Uint8List?> capturePng(
   final longest = math.max(boundary.size.width, boundary.size.height);
   if (longest <= 0) return null;
   final ratio = math.min(pixelRatio, maxSide / longest);
-  final image = await boundary.toImage(pixelRatio: ratio);
+  return boundary.toImage(pixelRatio: ratio);
+}
+
+/// El dibujo dentro de la caja de [boundaryKey] como PNG (F14, D7), o `null` si
+/// todavía no hay nada dibujado. Se achica lo justo para que ningún lado pase
+/// de [maxSide] píxeles: un mapa grande a doble resolución no cabe en memoria.
+Future<Uint8List?> capturePng(
+  GlobalKey boundaryKey, {
+  double pixelRatio = 2,
+  double maxSide = 4096,
+}) async {
+  final image = await captureBoundaryImage(
+    boundaryKey,
+    pixelRatio: pixelRatio,
+    maxSide: maxSide,
+  );
+  if (image == null) return null;
   try {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     return data?.buffer.asUint8List();

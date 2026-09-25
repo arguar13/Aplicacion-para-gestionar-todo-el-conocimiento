@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +42,11 @@ const _kMinScale = 0.05;
 /// Cuánto tiene que cambiar el zoom en un gesto para que cuente como acercar o
 /// alejar. Menos que esto es arrastrar, y arrastrar no cambia de nivel.
 const _kZoomChange = 1.05;
+
+/// Cuánto puede cambiar el zoom desde que se capturó `_gestureSnapshot` antes
+/// de que se vea inaceptablemente borroso: a partir de acá se recaptura una
+/// vez a mitad del gesto (F18, 18.2).
+const _kMaxSnapshotZoomChange = 2.0;
 
 /// Cuánto se agranda la letra de las etiquetas en el lienzo para que, con el
 /// zoom que haya, se siga leyendo en pantalla: a menos zoom, más letra. Va por
@@ -138,6 +144,23 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   /// El agrandado de las etiquetas para el zoom de ahora: ver [labelScaleFor].
   double _labelScale = 1;
 
+  /// El nivel ya dibujado, capturado al empezar un arrastre o un zoom (F18,
+  /// 18.2): moverlo es mucho más barato que recorrer cientos de nodos en
+  /// cada cuadro. `null` fuera de un gesto, o si la captura falló —ahí se
+  /// sigue dibujando el vectorial de siempre, degradado sin romper nada—.
+  ui.Image? _gestureSnapshot;
+
+  /// El zoom con el que se capturó [_gestureSnapshot]: pasado
+  /// [_kMaxSnapshotZoomChange] de acá, se recaptura para que no se vea
+  /// borroso.
+  double _snapshotScale = 1;
+
+  /// Si hay un gesto en curso ahora mismo (F18, 18.2). La captura es
+  /// asíncrona: sin esto, un gesto que ya terminó cuando la captura recién
+  /// resuelve dejaría la imagen vieja pegada en pantalla para siempre, en
+  /// vez de mostrar el dibujo vectorial que ya le corresponde.
+  bool _gesturing = false;
+
   TopicGraph get _graph => widget.snapshot.graph;
 
   @override
@@ -188,6 +211,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     _controller
       ..removeListener(_onZoom)
       ..dispose();
+    _gestureSnapshot?.dispose();
     super.dispose();
   }
 
@@ -429,6 +453,64 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
 
   void _onInteractionStart(ScaleStartDetails details) {
     _gestureStartScale = _controller.value.getMaxScaleOnAxis();
+    _gesturing = true;
+    unawaited(_captureGestureSnapshot());
+  }
+
+  /// Mientras dura el gesto: si el zoom ya cambió demasiado desde la última
+  /// captura, recaptura una vez para que el bitmap no se vea borroso (F18,
+  /// 18.2). Un arrastre puro no cambia el zoom, así que no recaptura nada.
+  void _onInteractionUpdate(ScaleUpdateDetails details) {
+    if (_gestureSnapshot == null) return;
+    final change = _controller.value.getMaxScaleOnAxis() / _snapshotScale;
+    if (change > _kMaxSnapshotZoomChange ||
+        change < 1 / _kMaxSnapshotZoomChange) {
+      unawaited(_captureGestureSnapshot());
+    }
+  }
+
+  /// Captura el nivel ya dibujado en [_gestureSnapshot] (F18, 18.2). Si algo
+  /// falla —sin tamaño todavía, o lo que sea—, no pasa nada: sin captura, el
+  /// dibujo sigue siendo el vectorial de siempre.
+  Future<void> _captureGestureSnapshot() async {
+    ui.Image? image;
+    try {
+      image = await captureBoundaryImage(
+        _boundaryKey,
+        pixelRatio: MediaQuery.devicePixelRatioOf(context),
+      );
+      // Cualquier falla acá degrada al dibujo vectorial de siempre, no
+      // rompe la vista: no hace falta distinguir el tipo de excepción.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      return;
+    }
+    // El gesto ya terminó mientras la captura estaba en camino: esta imagen
+    // ya no le corresponde a nada, se descarta sin mostrarla.
+    if (image == null || !mounted || !_gesturing) {
+      image?.dispose();
+      return;
+    }
+    _snapshotScale = _controller.value.getMaxScaleOnAxis();
+    _replaceGestureSnapshot(image);
+  }
+
+  void _discardGestureSnapshot() {
+    _gesturing = false;
+    _replaceGestureSnapshot(null);
+  }
+
+  /// Un `ui.Image` vivo a la vez (F18, 18.2): el anterior se libera recién
+  /// después de que el cuadro siguiente —que ya no lo usa— se pintó, no en el
+  /// momento mismo del cambio, para no liberar una imagen que ese mismo
+  /// cuadro todavía estuviera pintando.
+  void _replaceGestureSnapshot(ui.Image? next) {
+    final previous = _gestureSnapshot;
+    if (identical(previous, next)) return;
+    setState(() => _gestureSnapshot = next);
+    if (previous != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    }
   }
 
   /// Al soltar un gesto: si cambió el zoom y pasó un umbral, cambia de nivel en
@@ -438,6 +520,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   /// por debajo de [kZoomOutThreshold], y si bastara estar por debajo,
   /// arrastrar el mapa —que no toca el zoom— lo sacaría del nivel.
   void _onInteractionEnd(ScaleEndDetails details) {
+    _discardGestureSnapshot();
     if (_busy || _viewport.isEmpty) return;
     final scale = _controller.value.getMaxScaleOnAxis();
     final change = scale / _gestureStartScale;
@@ -621,6 +704,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
                   maxScale: 4,
                   boundaryMargin: const EdgeInsets.all(800),
                   onInteractionStart: _onInteractionStart,
+                  onInteractionUpdate: _onInteractionUpdate,
                   onInteractionEnd: _onInteractionEnd,
                   child: RepaintBoundary(
                     key: _boundaryKey,
@@ -631,25 +715,39 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
                       child: SizedBox(
                         width: math.max(_canvas.width, 1),
                         height: math.max(_canvas.height, 1),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: CustomPaint(
-                                // Miles de líneas que no cambian mientras se
-                                // arrastra: que el motor las guarde dibujadas.
-                                isComplex: true,
-                                painter: MapEdgesPainter(
-                                  scene: _scene,
-                                  positions: _positions,
-                                  colors: theme.colorScheme,
+                        // F18, 18.2: mientras dura un gesto, mover una
+                        // imagen ya dibujada es mucho más barato que
+                        // recorrer cientos de nodos en cada cuadro. Al
+                        // soltar (`_discardGestureSnapshot`) vuelve el
+                        // dibujo vectorial de siempre, idéntico al de antes
+                        // del gesto porque la imagen es una captura exacta
+                        // de esa misma caja.
+                        child: switch (_gestureSnapshot) {
+                          final snapshot? => RawImage(
+                            image: snapshot,
+                            fit: BoxFit.fill,
+                          ),
+                          null => Stack(
+                            children: [
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  // Miles de líneas que no cambian mientras
+                                  // se arrastra: que el motor las guarde
+                                  // dibujadas.
+                                  isComplex: true,
+                                  painter: MapEdgesPainter(
+                                    scene: _scene,
+                                    positions: _positions,
+                                    colors: theme.colorScheme,
+                                  ),
                                 ),
                               ),
-                            ),
-                            for (final node in _scene.nodes)
-                              if (_positions[node.key] case final at?)
-                                _placed(context, node, at),
-                          ],
-                        ),
+                              for (final node in _scene.nodes)
+                                if (_positions[node.key] case final at?)
+                                  _placed(context, node, at),
+                            ],
+                          ),
+                        },
                       ),
                     ),
                   ),
