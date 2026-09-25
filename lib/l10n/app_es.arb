@@ -3734,6 +3734,66 @@
       "days": {"type": "int"}
     }
   },
+  "reviewBadgesTooltip": "Ver insignias",
+  "@reviewBadgesTooltip": {
+    "description": "Tooltip del botón en la barra de Repaso que abre la pantalla de insignias (F17, D7/commit 9b)."
+  },
+  "habitBadgesTitle": "Insignias",
+  "@habitBadgesTitle": {
+    "description": "Título de la pantalla de insignias (F17, D7)."
+  },
+  "habitBadgeEarnedLabel": "Ganada",
+  "@habitBadgeEarnedLabel": {
+    "description": "Etiqueta junto a una insignia ya ganada, en la pantalla de insignias."
+  },
+  "habitBadgeFirstMatureNoteLabel": "Primera nota madura",
+  "@habitBadgeFirstMatureNoteLabel": {
+    "description": "Nombre de la insignia: la primera nota viva que llega a madura."
+  },
+  "habitBadgeFirstMatureNoteDescription": "Llevá una nota viva hasta que esté madura.",
+  "@habitBadgeFirstMatureNoteDescription": {
+    "description": "Descripción de la insignia: la primera nota viva que llega a madura."
+  },
+  "habitBadgeTenLivingNotesLabel": "Diez notas vivas",
+  "@habitBadgeTenLivingNotesLabel": {
+    "description": "Nombre de la insignia: diez notas vivas a la vez."
+  },
+  "habitBadgeTenLivingNotesDescription": "Tené diez notas vivas a la vez, en cualquier etapa.",
+  "@habitBadgeTenLivingNotesDescription": {
+    "description": "Descripción de la insignia: diez notas vivas a la vez."
+  },
+  "habitBadgeHundredReviewsLabel": "Cien repasos",
+  "@habitBadgeHundredReviewsLabel": {
+    "description": "Nombre de la insignia: cien repasos acumulados."
+  },
+  "habitBadgeHundredReviewsDescription": "Repasá cien veces, contando cada tarjeta las veces que la repasaste.",
+  "@habitBadgeHundredReviewsDescription": {
+    "description": "Descripción de la insignia: cien repasos acumulados."
+  },
+  "habitBadgeContradictionResolvedLabel": "Una contradicción resuelta",
+  "@habitBadgeContradictionResolvedLabel": {
+    "description": "Nombre de la insignia: una contradicción marcada como revisada."
+  },
+  "habitBadgeContradictionResolvedDescription": "Marcá una contradicción entre dos notas como revisada.",
+  "@habitBadgeContradictionResolvedDescription": {
+    "description": "Descripción de la insignia: una contradicción marcada como revisada."
+  },
+  "habitBadgeCompleteTopicBranchLabel": "Un tema completo",
+  "@habitBadgeCompleteTopicBranchLabel": {
+    "description": "Nombre de la insignia: una rama del Atlas con todas sus fuentes citadas."
+  },
+  "habitBadgeCompleteTopicBranchDescription": "Conseguí que todas las fuentes de una rama del Atlas tengan una nota viva madura que las cite.",
+  "@habitBadgeCompleteTopicBranchDescription": {
+    "description": "Descripción de la insignia: una rama del Atlas con todas sus fuentes citadas."
+  },
+  "habitBadgeMonthOfWeeklyConsolidationLabel": "Un mes de consolidación",
+  "@habitBadgeMonthOfWeeklyConsolidationLabel": {
+    "description": "Nombre de la insignia: cada semana de un mes con actividad que cuenta para la racha."
+  },
+  "habitBadgeMonthOfWeeklyConsolidationDescription": "Tené actividad que cuenta para la racha en cada semana de un mes.",
+  "@habitBadgeMonthOfWeeklyConsolidationDescription": {
+    "description": "Descripción de la insignia: cada semana de un mes con actividad que cuenta para la racha."
+  },
   "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

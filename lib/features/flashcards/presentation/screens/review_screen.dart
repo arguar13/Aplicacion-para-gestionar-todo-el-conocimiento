@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -89,6 +91,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         title: Text(l10n.reviewTitle),
         actions: [
           const _StreakIndicator(),
+          IconButton(
+            icon: const Icon(Icons.military_tech_outlined),
+            tooltip: l10n.reviewBadgesTooltip,
+            onPressed: () => context.push(RoutePaths.reviewBadges),
+          ),
           IconButton(
             icon: _exporting
                 ? const SizedBox(

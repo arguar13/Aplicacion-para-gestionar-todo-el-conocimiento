@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/habit/data/repositories/badge_repository_impl.dart';
 import 'package:sinapsis/features/habit/data/repositories/streak_repository_impl.dart';
+import 'package:sinapsis/features/habit/domain/entities/badge_kind.dart';
 import 'package:sinapsis/features/habit/domain/entities/streak.dart';
+import 'package:sinapsis/features/habit/domain/repositories/badge_repository.dart';
 import 'package:sinapsis/features/habit/domain/repositories/streak_repository.dart';
 
 final streakRepositoryProvider = Provider<StreakRepository>((ref) {
@@ -18,4 +21,20 @@ final streakRepositoryProvider = Provider<StreakRepository>((ref) {
 /// que cuenta.
 final currentStreakProvider = StreamProvider.autoDispose<Streak>((ref) {
   return ref.watch(streakRepositoryProvider).watch();
+});
+
+final badgeRepositoryProvider = Provider<BadgeRepository>((ref) {
+  return BadgeRepositoryImpl(
+    database: ref.watch(appDatabaseProvider),
+    telemetry: ref.watch(telemetryServiceProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
+
+/// Las insignias ganadas hasta ahora (F17, D7/commit 9): se actualiza sola
+/// con cada acción que puede ganar o perder una.
+final earnedBadgesProvider = StreamProvider.autoDispose<Set<BadgeKind>>((
+  ref,
+) {
+  return ref.watch(badgeRepositoryProvider).watch();
 });

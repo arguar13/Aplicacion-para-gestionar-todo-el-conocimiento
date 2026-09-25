@@ -14,6 +14,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_an
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
+import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
@@ -127,6 +128,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.fileSaver.savedFileName, 'sinapsis.tsv');
+  });
+
+  testWidgets('el botón de insignias abre esa pantalla (F17, D7/commit 9b)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(harness.wrapWithAppRouter());
+    await tester.pumpAndSettle();
+    harness.pushTo(RoutePaths.review);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip(es.reviewBadgesTooltip));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BadgesScreen), findsOneWidget);
   });
 
   group('la racha en la barra superior (F17, D3/commit 8)', () {

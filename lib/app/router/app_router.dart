@@ -17,6 +17,7 @@ import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
+import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
 import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -194,6 +195,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.graphTension,
         name: RouteNames.graphTension,
         builder: (context, state) => const TensionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.reviewBadges,
+        name: RouteNames.reviewBadges,
+        builder: (context, state) => const BadgesScreen(),
       ),
       GoRoute(
         path: RoutePaths.graphLocalPattern,
