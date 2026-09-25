@@ -205,6 +205,7 @@ class VaultMerger {
       propertyAssignmentsAdded: vocabulary.assignments,
       valueParentsAdopted: vocabulary.parentsAdopted,
       valueParentsIgnored: vocabulary.parentsIgnored,
+      habitEventsAdded: unions.habitEvents,
     );
   }
 }

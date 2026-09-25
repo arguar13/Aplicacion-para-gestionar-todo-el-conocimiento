@@ -14,6 +14,7 @@ class SetUnionResult {
     this.provenances = 0,
     this.conversations = 0,
     this.messages = 0,
+    this.habitEvents = 0,
   });
 
   final int relations;
@@ -26,6 +27,9 @@ class SetUnionResult {
   final int provenances;
   final int conversations;
   final int messages;
+
+  /// El rastro mínimo de la racha (F17, D6).
+  final int habitEvents;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -108,6 +112,7 @@ const kChatMessageColumns = [
   'error',
   'created_at',
 ];
+const kHabitEventColumns = ['id', 'kind', 'occurred_at'];
 
 /// Une lo que cuelga de los elementos y se junta sin decidir nada (F11): los
 /// vínculos, los resaltados, las tarjetas y sus repasos, las procedencias y las
@@ -264,6 +269,17 @@ class SetUnionMerge {
        AND NOT EXISTS (SELECT 1 FROM main.chat_messages m WHERE m.id = x.id)''',
     );
 
+    // Sin ninguna referencia a otra tabla —solo dice que algo pasó, y
+    // cuándo (F17, D6)—: entra igual que review_log, por id.
+    final habitEvents = await _union(
+      _db.habitEvents,
+      'habit_event',
+      kHabitEventColumns,
+      '''
+      FROM $_incoming.habit_event x
+     WHERE NOT EXISTS (SELECT 1 FROM main.habit_event m WHERE m.id = x.id)''',
+    );
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -273,6 +289,7 @@ class SetUnionMerge {
       provenances: provenances,
       conversations: conversations,
       messages: messages,
+      habitEvents: habitEvents,
     );
   }
 

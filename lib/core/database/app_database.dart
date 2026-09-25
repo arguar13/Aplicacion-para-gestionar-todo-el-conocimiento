@@ -17,6 +17,7 @@ import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/field_versions.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
+import 'package:sinapsis/core/database/tables/habit_events.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/inline_links.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
@@ -46,6 +47,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
@@ -102,6 +104,7 @@ part 'app_database.g.dart';
     NoteTemplates,
     Notebooks,
     NotebookItems,
+    HabitEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -146,7 +149,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 27;
+  static const currentSchemaVersion = 28;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -475,6 +478,26 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(flashcards, flashcards.lastExportedAt);
           }
           await _requireSameCounts(before, step: 'v27', tables: tables);
+        }
+        // La racha (F17, D6): una tabla nueva y vacía, `habit_event`, para
+        // las dos acciones que no dejan rastro con fecha en ningún otro
+        // lado —triar la Bandeja, resolver algo en Vocabulario—; repasar
+        // una tarjeta y editar una nota viva ya lo tienen (`review_log`,
+        // `field_version`). Ninguna fila existente cambia. Los conteos de
+        // lo anterior son compuerta.
+        if (from < 28) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(habitEvents);
+          await migrator.createIndex(idxHabitEventsOccurred);
+          await _requireSameCounts(before, step: 'v28', tables: tables);
         }
       });
     },

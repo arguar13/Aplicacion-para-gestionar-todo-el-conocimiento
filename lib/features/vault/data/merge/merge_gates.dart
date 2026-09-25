@@ -55,6 +55,7 @@ class MergeGates {
     ),
     ...VaultCounts.modelTables,
     ...VaultCounts.durabilityTables.where((t) => t != 'field_version'),
+    ...VaultCounts.habitTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.

@@ -69,6 +69,11 @@ class VaultCounts {
   /// lista, y estas tablas todavía no existían cuando corrían.
   static const notebookTables = <String>['notebook', 'notebook_item'];
 
+  /// El rastro mínimo de la racha (F17, D6). Tampoco está en
+  /// [userDataTables]: los pasos de migración anteriores a v28 cuentan esa
+  /// lista, y esta tabla todavía no existía cuando corrían.
+  static const habitTables = <String>['habit_event'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

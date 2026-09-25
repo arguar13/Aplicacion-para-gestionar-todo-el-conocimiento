@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
 
@@ -474,6 +475,34 @@ void main() {
       expect(kProvenanceColumns.toSet(), await columnsOf('merged_provenances'));
       expect(kConversationColumns.toSet(), await columnsOf('conversations'));
       expect(kChatMessageColumns.toSet(), await columnsOf('chat_messages'));
+      expect(kHabitEventColumns.toSet(), await columnsOf('habit_event'));
+    });
+  });
+
+  group('el rastro de la racha (F17, D6)', () {
+    test('entra el que acá no hay, con lo que tiene', () async {
+      pc.at(5);
+      await pc.addHabitEvent('ev-pc', HabitEventKind.triage);
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.habitEventsAdded, 1);
+      expect(await idsOf(tel, 'habit_event'), {'ev-pc'});
+    });
+
+    test('el mismo id no entra dos veces', () async {
+      tel.at(3);
+      await tel.addHabitEvent('ev-1', HabitEventKind.vocabulary);
+      pc.at(4);
+      await pc.mergeFrom(tel);
+      await pc.addHabitEvent('ev-2', HabitEventKind.triage);
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.habitEventsAdded, 1);
+      expect(await idsOf(tel, 'habit_event'), {'ev-1', 'ev-2'});
     });
   });
 }

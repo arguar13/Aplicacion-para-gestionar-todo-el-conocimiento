@@ -67,6 +67,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     @Default(0) int filesCopiedBytes,
     @Default(0) int filesMissing,
     @Default(0) int filesDiffering,
+
+    /// El rastro mínimo de la racha (F17, D6): triar la Bandeja, resolver
+    /// algo en Vocabulario.
+    @Default(0) int habitEventsAdded,
   }) = _VaultMergeResult;
 
   const VaultMergeResult._();
@@ -93,5 +97,6 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       propertyAssignmentsAdded == 0 &&
       valueParentsAdopted == 0 &&
       sourcesChunked == 0 &&
-      filesCopied == 0;
+      filesCopied == 0 &&
+      habitEventsAdded == 0;
 }

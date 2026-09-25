@@ -18,6 +18,7 @@ import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
@@ -589,6 +590,12 @@ class TestVault {
           deviceId: deviceId,
         ),
       );
+
+  /// El rastro mínimo de la racha (F17, D6): triar la Bandeja, resolver
+  /// algo en Vocabulario.
+  Future<void> addHabitEvent(String id, HabitEventKind kind) => db
+      .into(db.habitEvents)
+      .insert(HabitEventsCompanion.insert(id: id, kind: kind, occurredAt: now));
 
   /// Repasa la tarjeta [flashcardId] a la hora de esta bóveda: cambia su
   /// calendario.
