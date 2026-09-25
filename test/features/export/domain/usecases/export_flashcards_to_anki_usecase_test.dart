@@ -1,6 +1,7 @@
 // El doble lanza lo que el test le dé, igual que `FakeFileSaver`.
 // ignore_for_file: only_throw_errors
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -358,5 +359,88 @@ void main() {
         expect(saver.savedFileName, 'sinapsis.apkg');
       },
     );
+  });
+
+  group('formato del archivo (F17, commit 5)', () {
+    test('por defecto, un .apkg armado por el builder', () async {
+      when(
+        () => repository.getPendingExport(),
+      ).thenAnswer((_) async => right([sampleCard()]));
+
+      final result = await useCase()(const ExportFlashcardsToAnkiParams());
+
+      expect(result.isRight(), isTrue);
+      expect(saver.savedFileName, 'sinapsis.apkg');
+      expect(builder.receivedCards, isNotNull);
+    });
+
+    test(
+      'TSV: mismas tarjetas, como texto, sin pasar por el builder',
+      () async {
+        when(
+          () => repository.getPendingExport(),
+        ).thenAnswer((_) async => right([sampleCard()]));
+
+        final result = await useCase()(
+          const ExportFlashcardsToAnkiParams(format: AnkiExportFormat.tsv),
+        );
+
+        expect(result.isRight(), isTrue);
+        expect(saver.savedFileName, 'sinapsis.tsv');
+        expect(builder.receivedCards, isNull);
+        final text = utf8.decode(saver.savedBytes!);
+        expect(text, contains('#separator:Tab'));
+        expect(text, contains('Pregunta\tRespuesta\t'));
+      },
+    );
+
+    test('CSV: mismas tarjetas, separadas por coma', () async {
+      when(
+        () => repository.getPendingExport(),
+      ).thenAnswer((_) async => right([sampleCard()]));
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(format: AnkiExportFormat.csv),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(saver.savedFileName, 'sinapsis.csv');
+      final text = utf8.decode(saver.savedBytes!);
+      expect(text, contains('#separator:Comma'));
+      expect(text, contains('Pregunta,Respuesta,'));
+    });
+
+    test('TSV con procedencia: la misma cita que iría en el .apkg', () async {
+      when(
+        () => repository.getPendingExport(),
+      ).thenAnswer((_) async => right([sampleCard()]));
+      bibliography.sources = const [
+        BibliographySource(
+          itemId: 'item-1',
+          source: CitationSource(title: 'La fuente'),
+        ),
+      ];
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(format: AnkiExportFormat.tsv),
+      );
+
+      expect(result.isRight(), isTrue);
+      final text = utf8.decode(saver.savedBytes!);
+      expect(text, contains('Respuesta<br><br>'));
+    });
+
+    test('también marca exportadas las tarjetas, como el .apkg', () async {
+      when(
+        () => repository.getPendingExport(),
+      ).thenAnswer((_) async => right([sampleCard()]));
+
+      final result = await useCase()(
+        const ExportFlashcardsToAnkiParams(format: AnkiExportFormat.tsv),
+      );
+
+      expect(result.isRight(), isTrue);
+      verify(() => repository.markExported({'c1'})).called(1);
+    });
   });
 }

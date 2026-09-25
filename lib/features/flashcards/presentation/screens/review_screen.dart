@@ -38,20 +38,25 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     });
   }
 
-  /// Pregunta el alcance (F17, D4) antes de exportar: incremental por
-  /// defecto —solo lo que nunca se exportó—, con «todo el mazo» como
-  /// interruptor aparte. No distingue "canceló el diálogo de guardado" de
-  /// "lo guardó" — igual que el resto de las exportaciones de la app (ver
-  /// `ExportItemUseCase`). Solo avisa cuando algo salió mal de verdad.
+  /// Pregunta el alcance (F17, D4) y el formato (commit 5) antes de
+  /// exportar: incremental por defecto —solo lo que nunca se exportó—, con
+  /// «todo el mazo» como interruptor aparte, y el `.apkg` completo por
+  /// defecto, con TSV/CSV como camino alternativo (D5). No distingue
+  /// "canceló el diálogo de guardado" de "lo guardó" — igual que el resto
+  /// de las exportaciones de la app (ver `ExportItemUseCase`). Solo avisa
+  /// cuando algo salió mal de verdad.
   Future<void> _exportToAnki() async {
     final l10n = AppLocalizations.of(context)!;
-    final exportAll = await _chooseExportScope(context, l10n);
-    if (exportAll == null || !mounted) return;
+    final scope = await _chooseExportScope(context, l10n);
+    if (scope == null || !mounted) return;
 
     setState(() => _exporting = true);
 
     final result = await ref.read(exportFlashcardsToAnkiUseCaseProvider)(
-      ExportFlashcardsToAnkiParams(exportAll: exportAll),
+      ExportFlashcardsToAnkiParams(
+        exportAll: scope.exportAll,
+        format: scope.format,
+      ),
     );
     if (!mounted) return;
     setState(() => _exporting = false);
@@ -63,11 +68,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     }, (_) {});
   }
 
-  Future<bool?> _chooseExportScope(
+  Future<({bool exportAll, AnkiExportFormat format})?> _chooseExportScope(
     BuildContext context,
     AppLocalizations l10n,
   ) {
-    return showDialog<bool>(
+    return showDialog(
       context: context,
       builder: (context) => _ExportScopeDialog(l10n: l10n),
     );
@@ -246,8 +251,10 @@ class _CardView extends StatelessWidget {
   };
 }
 
-/// El interruptor de F17, D4: «exportar todo» empieza apagado —el camino
-/// incremental es el que se ofrece por defecto—.
+/// El interruptor de F17, D4 —«exportar todo» empieza apagado, el camino
+/// incremental es el que se ofrece por defecto— y el formato de F17,
+/// commit 5 —el `.apkg` completo por defecto, TSV/CSV como camino
+/// alternativo (D5)—.
 class _ExportScopeDialog extends StatefulWidget {
   const _ExportScopeDialog({required this.l10n});
 
@@ -259,18 +266,48 @@ class _ExportScopeDialog extends StatefulWidget {
 
 class _ExportScopeDialogState extends State<_ExportScopeDialog> {
   var _exportAll = false;
+  var _format = AnkiExportFormat.apkg;
 
   @override
   Widget build(BuildContext context) {
     final l10n = widget.l10n;
+    final theme = Theme.of(context);
     return AlertDialog(
       title: Text(l10n.reviewExportToAnkiTitle),
-      content: SwitchListTile(
-        key: const Key('review-export-all-switch'),
-        contentPadding: EdgeInsets.zero,
-        title: Text(l10n.reviewExportToAnkiExportAll),
-        value: _exportAll,
-        onChanged: (value) => setState(() => _exportAll = value),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SwitchListTile(
+            key: const Key('review-export-all-switch'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.reviewExportToAnkiExportAll),
+            value: _exportAll,
+            onChanged: (value) => setState(() => _exportAll = value),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.reviewExportToAnkiFormatTitle,
+            style: theme.textTheme.labelLarge,
+          ),
+          RadioGroup<AnkiExportFormat>(
+            groupValue: _format,
+            onChanged: (value) => setState(() => _format = value!),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final format in AnkiExportFormat.values)
+                  RadioListTile<AnkiExportFormat>(
+                    key: Key('review-export-format-${format.name}'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(_formatLabel(l10n, format)),
+                    value: format,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -279,10 +316,19 @@ class _ExportScopeDialogState extends State<_ExportScopeDialog> {
         ),
         FilledButton(
           key: const Key('review-export-confirm'),
-          onPressed: () => Navigator.of(context).pop(_exportAll),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop((exportAll: _exportAll, format: _format)),
           child: Text(l10n.reviewExportToAnkiConfirm),
         ),
       ],
     );
   }
+
+  String _formatLabel(AppLocalizations l10n, AnkiExportFormat format) =>
+      switch (format) {
+        AnkiExportFormat.apkg => l10n.reviewExportToAnkiFormatApkg,
+        AnkiExportFormat.tsv => l10n.reviewExportToAnkiFormatTsv,
+        AnkiExportFormat.csv => l10n.reviewExportToAnkiFormatCsv,
+      };
 }

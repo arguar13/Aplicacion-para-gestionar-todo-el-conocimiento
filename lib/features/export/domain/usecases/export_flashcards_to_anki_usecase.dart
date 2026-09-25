@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
@@ -7,6 +9,7 @@ import 'package:sinapsis/features/citations/domain/repositories/bibliography_rep
 import 'package:sinapsis/features/citations/domain/services/reference_style.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_path.dart';
+import 'package:sinapsis/features/export/domain/services/anki_text_export.dart';
 import 'package:sinapsis/features/export/domain/services/anki_topic_resolver.dart';
 import 'package:sinapsis/features/export/domain/services/file_saver.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
@@ -107,8 +110,20 @@ class ExportFlashcardsToAnkiUseCase
             ),
           ),
       ];
-      final bytes = await _builder.build(exports);
-      await _saver.saveFile(fileName: 'sinapsis.apkg', bytes: bytes);
+      final Uint8List bytes;
+      final String fileName;
+      switch (params.format) {
+        case AnkiExportFormat.apkg:
+          bytes = await _builder.build(exports);
+          fileName = 'sinapsis.apkg';
+        case AnkiExportFormat.tsv:
+          bytes = buildAnkiTextExport(exports, AnkiTextFormat.tsv);
+          fileName = 'sinapsis.tsv';
+        case AnkiExportFormat.csv:
+          bytes = buildAnkiTextExport(exports, AnkiTextFormat.csv);
+          fileName = 'sinapsis.csv';
+      }
+      await _saver.saveFile(fileName: fileName, bytes: bytes);
 
       // Recién ahora, con el archivo ya guardado, quedan marcadas como
       // exportadas (F17, D4): un fallo acá no deshace el guardado, pero sí
@@ -150,12 +165,21 @@ class ExportFlashcardsToAnkiUseCase
   }
 }
 
-/// Qué tanto del mazo exportar (F17, D4): por defecto, solo lo que nunca se
-/// exportó —[exportAll] en falso—; en verdad exportarlo TODO de nuevo es una
-/// opción aparte, para quien cambia de dispositivo Anki o necesita
-/// resincronizar por completo.
+/// En qué archivo termina el mazo (F17, commit 5): el paquete completo, o
+/// el camino alternativo de texto plano —D5, para cuando el `.apkg` no
+/// sirve—.
+enum AnkiExportFormat { apkg, tsv, csv }
+
+/// Qué tanto del mazo exportar (F17, D4) y en qué formato (commit 5). Por
+/// defecto, solo lo que nunca se exportó —[exportAll] en falso—; en verdad
+/// exportarlo TODO de nuevo es una opción aparte, para quien cambia de
+/// dispositivo Anki o necesita resincronizar por completo.
 final class ExportFlashcardsToAnkiParams {
-  const ExportFlashcardsToAnkiParams({this.exportAll = false});
+  const ExportFlashcardsToAnkiParams({
+    this.exportAll = false,
+    this.format = AnkiExportFormat.apkg,
+  });
 
   final bool exportAll;
+  final AnkiExportFormat format;
 }

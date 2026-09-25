@@ -112,6 +112,20 @@ void main() {
     expect(harness.fileSaver.savedFileName, isNull);
   });
 
+  testWidgets('elegir TSV en el diálogo exporta un .tsv (F17, commit 5)', (
+    tester,
+  ) async {
+    await pumpReview(tester);
+
+    await tester.tap(find.byTooltip('Exportar mazo a Anki'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('review-export-format-tsv')));
+    await tester.tap(find.byKey(const Key('review-export-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(harness.fileSaver.savedFileName, 'sinapsis.tsv');
+  });
+
   group('ver de dónde salió la tarjeta (F11)', () {
     /// Guarda una fuente y le crea una tarjeta; con [range], dice de qué
     /// fragmento sale.

@@ -4199,6 +4199,22 @@
   "@reviewExportToAnkiConfirm": {
     "description": "Botón que confirma la exportación en el diálogo de exportar a Anki."
   },
+  "reviewExportToAnkiFormatTitle": "File format",
+  "@reviewExportToAnkiFormatTitle": {
+    "description": "Encabezado del selector de formato en el diálogo de exportar a Anki (F17, commit 5)."
+  },
+  "reviewExportToAnkiFormatApkg": "Anki package (.apkg)",
+  "@reviewExportToAnkiFormatApkg": {
+    "description": "Opción de formato: el paquete completo que Anki importa directo."
+  },
+  "reviewExportToAnkiFormatTsv": "Tab-separated text (.tsv)",
+  "@reviewExportToAnkiFormatTsv": {
+    "description": "Opción de formato: el camino alternativo de texto plano, separado por tabulaciones."
+  },
+  "reviewExportToAnkiFormatCsv": "Comma-separated text (.csv)",
+  "@reviewExportToAnkiFormatCsv": {
+    "description": "Opción de formato: el camino alternativo de texto plano, separado por comas."
+  },
   "reviewAllDone": "Nothing to review right now. Check back later.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."
