@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/bulk_write_scope.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
 import 'package:sinapsis/core/database/person_vocabulary.dart';
@@ -41,7 +42,7 @@ import 'package:sinapsis/core/util/id_generator.dart';
 ///
 /// Un test recorre `lib` y falla si otro archivo escribe estas tablas.
 class KnowledgeEntryWriter {
-  const KnowledgeEntryWriter(
+  KnowledgeEntryWriter(
     this._db, {
     Clock clock = DateTime.now,
     IdGenerator ids = const UuidV7Generator(),
@@ -55,7 +56,54 @@ class KnowledgeEntryWriter {
   /// vocabulario al guardar una referencia.
   final IdGenerator _ids;
 
+  /// Distinto de `null` durante [runBulk]: el último valor de cada (elemento,
+  /// campo) tocado, todavía sin escribir en `field_version`. Vive en la
+  /// instancia —no en la clase— porque cada repositorio crea un escritor
+  /// nuevo por acceso; [runBulk] pasa ESTE escritor a su función para que
+  /// las llamadas de adentro compartan el mismo lote.
+  Map<String, Map<String, DateTime>>? _deferredTouches;
+
   String get _deviceId => _db.deviceId;
+
+  /// Modo lote (F19, 19.2, decisión B): mientras [body] corre —recibe ESTE
+  /// mismo escritor, ya en modo lote—, `_touch` no escribe cada
+  /// `field_version` al toque: guarda en memoria el último valor por
+  /// (elemento, campo) y lo vuelca en una sola escritura por campo al
+  /// cerrar. Alrededor de todo, [withSuspendedSearchIndexes] (decisión A)
+  /// suspende `item_search`/`chunk_search` de la misma forma.
+  ///
+  /// La suspensión, el cuerpo del lote y el volcado final corren dentro de
+  /// UNA transacción: un lote que falla a mitad de camino no deja ni
+  /// índices ni `field_version` a medias, porque Drift deshace la
+  /// transacción entera. Las claves foráneas y los invariantes de texto de
+  /// fuente no dependen de ningún trigger que este método toque, así que
+  /// siguen activos sin cambios durante todo el lote.
+  ///
+  /// No admite anidarse: un escritor ya en modo lote lanza si se lo llama
+  /// de nuevo antes de terminar.
+  Future<T> runBulk<T>(
+    Future<T> Function(KnowledgeEntryWriter writer) body,
+  ) async {
+    if (_deferredTouches != null) {
+      throw StateError('runBulk ya está activo en este escritor: no se anida.');
+    }
+    return _db.transaction(() async {
+      return withSuspendedSearchIndexes(_db, () async {
+        _deferredTouches = {};
+        try {
+          return await body(this);
+        } finally {
+          final pending = _deferredTouches!;
+          _deferredTouches = null;
+          for (final itemEntry in pending.entries) {
+            for (final fieldEntry in itemEntry.value.entries) {
+              await _touchNow(itemEntry.key, fieldEntry.key, fieldEntry.value);
+            }
+          }
+        }
+      });
+    });
+  }
 
   /// Escribe el elemento [item]: la fila de `item` y, según sea, su `source` o
   /// su `note`. Lo único que se escribe del elemento en sí.
@@ -936,8 +984,19 @@ class KnowledgeEntryWriter {
         );
   }
 
-  /// Registra que [field] de [itemId] cambió ahora, en este dispositivo.
+  /// Registra que [field] de [itemId] cambió ahora, en este dispositivo. En
+  /// modo lote ([runBulk]) no escribe nada: guarda el valor en memoria, y
+  /// [runBulk] lo vuelca —una vez por (elemento, campo)— al cerrar.
   Future<void> _touch(String itemId, String field, DateTime now) async {
+    final deferred = _deferredTouches;
+    if (deferred != null) {
+      (deferred[itemId] ??= {})[field] = now;
+      return;
+    }
+    await _touchNow(itemId, field, now);
+  }
+
+  Future<void> _touchNow(String itemId, String field, DateTime now) async {
     final previous =
         await (_db.select(_db.fieldVersions)..where(
               (f) => f.itemId.equals(itemId) & f.fieldName.equals(field),

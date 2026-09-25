@@ -1039,4 +1039,75 @@ void main() {
       },
     );
   });
+
+  group('runBulk (F19, 19.2, decisión B)', () {
+    test('difiere field_version durante el lote y lo escribe una sola vez, '
+        'con el último valor, al cerrar', () async {
+      await writer.runBulk((batch) async {
+        await batch.upsert(sourceItem(title: 'Primero'));
+        // A mitad del lote: todavía no hay ninguna versión escrita.
+        expect(await versions('art'), isEmpty);
+        tick();
+        await batch.upsert(sourceItem(title: 'Segundo'));
+      });
+
+      final fields = await versions('art');
+      expect(fields[EntryField.title]!.updatedAt, clockNow);
+      expect((await entry('art')).title, 'Segundo');
+      // Las dos escrituras cambiaron algo: la fila sí sube su revisión en
+      // cada una, solo `field_version` se difiere.
+      expect((await entry('art')).rev, 2);
+    });
+
+    test(
+      'un fallo a mitad del lote no deja ni datos ni versiones a medias',
+      () async {
+        await expectLater(
+          writer.runBulk((batch) async {
+            await batch.upsert(sourceItem());
+            throw StateError('falla a mitad del lote');
+          }),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(
+          await (db.select(
+            db.knowledgeEntries,
+          )..where((e) => e.id.equals('art'))).getSingleOrNull(),
+          isNull,
+        );
+        expect(await versions('art'), isEmpty);
+      },
+    );
+
+    test('las claves foráneas siguen activas: un chunk sin elemento sigue '
+        'fallando adentro del lote', () async {
+      await expectLater(
+        writer.runBulk((batch) async {
+          await db
+              .into(db.chunks)
+              .insert(
+                ChunksCompanion.insert(
+                  id: 'huerfano',
+                  itemId: 'no-existe',
+                  seq: 0,
+                  content: 'x',
+                  charStart: 0,
+                  charEnd: 1,
+                ),
+              );
+        }),
+        throwsA(anything),
+      );
+    });
+
+    test('no se anida: un runBulk adentro de otro lanza', () async {
+      await expectLater(
+        writer.runBulk((batch) async {
+          await batch.runBulk((inner) async {});
+        }),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
 }
