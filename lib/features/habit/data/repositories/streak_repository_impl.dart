@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/habit/domain/entities/streak.dart';
 import 'package:sinapsis/features/habit/domain/repositories/streak_repository.dart';
@@ -10,15 +12,19 @@ import 'package:sinapsis/features/habit/domain/services/streak_calculator.dart';
 /// «algo pasó, y cuándo» —repasar (`review_log`), editar una nota viva
 /// (`field_version`), extraer una nota atómica (`item.created_at`) y triar
 /// la Bandeja o resolver algo en Vocabulario (`habit_event`, commit 7a/7b)—
-/// y deja el cálculo en sí a [calculateStreak], puro.
+/// y deja el cálculo en sí a [calculateStreak], puro. [watch] es la misma
+/// lectura, reactiva a esas cinco tablas (commit 8).
 class StreakRepositoryImpl implements StreakRepository {
   const StreakRepositoryImpl({
     required AppDatabase database,
+    required TelemetryService telemetry,
     required Clock clock,
   }) : _db = database,
+       _telemetry = telemetry,
        _clock = clock;
 
   final AppDatabase _db;
+  final TelemetryService _telemetry;
   final Clock _clock;
 
   @override
@@ -30,6 +36,23 @@ class StreakRepositoryImpl implements StreakRepository {
       ...await _habitEventDays(),
     };
     return calculateStreak(activeDays, today: _clock());
+  }
+
+  @override
+  Stream<Streak> watch() {
+    return watchQuery(
+      db: _db,
+      tables: [
+        _db.reviewLogs,
+        _db.fieldVersions,
+        _db.knowledgeEntries,
+        _db.knowledgeNotes,
+        _db.habitEvents,
+      ],
+      read: current,
+      telemetry: _telemetry,
+      hint: 'StreakRepositoryImpl.watch',
+    );
   }
 
   Future<Set<DateTime>> _reviewDays() async {

@@ -4215,6 +4215,20 @@
   "@reviewExportToAnkiFormatCsv": {
     "description": "Opción de formato: el camino alternativo de texto plano, separado por comas."
   },
+  "reviewStreakActiveTooltip": "{days, plural, =1{1-day streak. You already did something today.} other{{days}-day streak. You already did something today.}}",
+  "@reviewStreakActiveTooltip": {
+    "description": "Texto del indicador de racha (F17, D6/commit 8) cuando hoy ya cuenta.",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "reviewStreakPendingTooltip": "{days, plural, =1{1-day streak. Do something today to keep it.} other{{days}-day streak. Do something today to keep it.}}",
+  "@reviewStreakPendingTooltip": {
+    "description": "Texto del indicador de racha (F17, D6/commit 8) cuando hoy todavía no cuenta.",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
   "reviewAllDone": "Nothing to review right now. Check back later.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

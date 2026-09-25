@@ -8,6 +8,7 @@ import 'package:sinapsis/features/export/presentation/providers/export_providers
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar las tarjetas que ya tocan, de a una: se lee la pregunta, se
@@ -87,6 +88,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       appBar: AppBar(
         title: Text(l10n.reviewTitle),
         actions: [
+          const _StreakIndicator(),
           IconButton(
             icon: _exporting
                 ? const SizedBox(
@@ -119,6 +121,47 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La racha (F17, D3/D6/commit 8): oculto sin ninguna, mismo criterio que
+/// la insignia de pendientes de `dueFlashcardCountProvider` —nada que
+/// mostrar, nada que ocupar lugar—. El color marca si hoy ya cuenta o si
+/// todavía hace falta hacer algo para mantenerla.
+class _StreakIndicator extends ConsumerWidget {
+  const _StreakIndicator();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(currentStreakProvider).valueOrNull;
+    if (streak == null || streak.days == 0) return const SizedBox.shrink();
+
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final color = streak.activeToday
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
+
+    return Tooltip(
+      message: streak.activeToday
+          ? l10n.reviewStreakActiveTooltip(streak.days)
+          : l10n.reviewStreakPendingTooltip(streak.days),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          key: const Key('review-streak-indicator'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_fire_department, size: 18, color: color),
+            const SizedBox(width: 4),
+            Text(
+              '${streak.days}',
+              style: theme.textTheme.labelLarge?.copyWith(color: color),
+            ),
+          ],
         ),
       ),
     );

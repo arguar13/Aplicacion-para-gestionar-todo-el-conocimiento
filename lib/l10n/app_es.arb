@@ -3720,6 +3720,20 @@
   "@reviewExportToAnkiFormatCsv": {
     "description": "Opción de formato: el camino alternativo de texto plano, separado por comas."
   },
+  "reviewStreakActiveTooltip": "{days, plural, =1{Racha de 1 día. Ya hiciste algo hoy.} other{Racha de {days} días. Ya hiciste algo hoy.}}",
+  "@reviewStreakActiveTooltip": {
+    "description": "Texto del indicador de racha (F17, D6/commit 8) cuando hoy ya cuenta.",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "reviewStreakPendingTooltip": "{days, plural, =1{Racha de 1 día. Hacé algo hoy para seguirla.} other{Racha de {days} días. Hacé algo hoy para seguirla.}}",
+  "@reviewStreakPendingTooltip": {
+    "description": "Texto del indicador de racha (F17, D6/commit 8) cuando hoy todavía no cuenta.",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
   "reviewAllDone": "No hay nada para repasar por ahora. Volvé más tarde.",
   "@reviewAllDone": {
     "description": "Mensaje cuando no quedan tarjetas por repasar."

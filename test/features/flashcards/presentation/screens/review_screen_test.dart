@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/citations/presentation/fragment_citation.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
@@ -124,6 +127,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.fileSaver.savedFileName, 'sinapsis.tsv');
+  });
+
+  group('la racha en la barra superior (F17, D3/commit 8)', () {
+    testWidgets('sin ninguna racha, no muestra nada', (tester) async {
+      await pumpReview(tester);
+
+      expect(find.byKey(const Key('review-streak-indicator')), findsNothing);
+    });
+
+    testWidgets('con algo hecho hoy, muestra los días y avisa que ya cuenta', (
+      tester,
+    ) async {
+      await harness.database
+          .into(harness.database.habitEvents)
+          .insert(
+            HabitEventsCompanion.insert(
+              id: 'ev-1',
+              kind: HabitEventKind.triage,
+              occurredAt: harness.container.read(clockProvider)(),
+            ),
+          );
+
+      await pumpReview(tester);
+
+      expect(find.byKey(const Key('review-streak-indicator')), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.byTooltip(es.reviewStreakActiveTooltip(1)), findsOneWidget);
+    });
+
+    testWidgets(
+      'con algo hecho ayer y nada hoy todavía, sigue viva pero avisa que '
+      'falta hacer algo',
+      (tester) async {
+        await harness.database
+            .into(harness.database.habitEvents)
+            .insert(
+              HabitEventsCompanion.insert(
+                id: 'ev-1',
+                kind: HabitEventKind.vocabulary,
+                occurredAt: harness.container
+                    .read(clockProvider)()
+                    .subtract(const Duration(days: 1)),
+              ),
+            );
+
+        await pumpReview(tester);
+
+        expect(
+          find.byKey(const Key('review-streak-indicator')),
+          findsOneWidget,
+        );
+        expect(find.text('1'), findsOneWidget);
+        expect(
+          find.byTooltip(es.reviewStreakPendingTooltip(1)),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('ver de dónde salió la tarjeta (F11)', () {
