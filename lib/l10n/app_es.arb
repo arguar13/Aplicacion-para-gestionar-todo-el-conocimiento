@@ -3680,6 +3680,18 @@
   "@settingsVaultSection": {
     "description": "Encabezado de la sección de bóveda en ajustes."
   },
+  "settingsHabitSection": "Hábito",
+  "@settingsHabitSection": {
+    "description": "Encabezado de la sección de hábito en ajustes (F17, D9)."
+  },
+  "settingsHabitFeaturesToggle": "Racha, insignias e historial",
+  "@settingsHabitFeaturesToggle": {
+    "description": "Interruptor único que apaga o enciende racha, insignias e historial de repasos (F17, D9)."
+  },
+  "settingsHabitFeaturesToggleSubtitle": "Apagarlo no borra nada: solo deja de mostrarse.",
+  "@settingsHabitFeaturesToggleSubtitle": {
+    "description": "Subtítulo que aclara que apagar el interruptor de hábito no pierde datos (F17, D9)."
+  },
   "libraryReviewTooltip": "Repasar tarjetas",
   "@libraryReviewTooltip": {
     "description": "Tooltip del ícono de repaso en la biblioteca."

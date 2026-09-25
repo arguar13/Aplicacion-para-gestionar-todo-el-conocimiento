@@ -9,6 +9,7 @@ import 'package:sinapsis/features/citations/domain/entities/citation_source.dart
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
@@ -48,6 +49,7 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeNotifierProvider);
     final citationStyle = ref.watch(defaultCitationStyleProvider);
     final citationLanguage = ref.watch(citationPreferencesProvider).language;
+    final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -207,6 +209,22 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(RoutePaths.conflicts),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _SettingsSection(
+            title: l10n.settingsHabitSection,
+            children: [
+              SwitchListTile(
+                key: const Key('settings-habit-features-toggle'),
+                secondary: const Icon(Icons.local_fire_department_outlined),
+                title: Text(l10n.settingsHabitFeaturesToggle),
+                subtitle: Text(l10n.settingsHabitFeaturesToggleSubtitle),
+                value: habitFeaturesEnabled,
+                onChanged: (value) => ref
+                    .read(habitFeaturesEnabledProvider.notifier)
+                    .setEnabled(enabled: value),
               ),
             ],
           ),

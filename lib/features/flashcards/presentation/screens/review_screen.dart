@@ -10,6 +10,7 @@ import 'package:sinapsis/features/export/presentation/providers/export_providers
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -85,22 +86,28 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final due = ref.watch(dueFlashcardsProvider);
+    final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.reviewTitle),
         actions: [
-          const _StreakIndicator(),
-          IconButton(
-            icon: const Icon(Icons.military_tech_outlined),
-            tooltip: l10n.reviewBadgesTooltip,
-            onPressed: () => context.push(RoutePaths.reviewBadges),
-          ),
-          IconButton(
-            icon: const Icon(Icons.query_stats_outlined),
-            tooltip: l10n.reviewHistoryTooltip,
-            onPressed: () => context.push(RoutePaths.reviewHistory),
-          ),
+          // F17, D9: el interruptor único de Ajustes apaga las tres de una
+          // vez, no montando estos widgets en absoluto —así ni siquiera
+          // consultan la base mientras está apagado—.
+          if (habitFeaturesEnabled) ...[
+            const _StreakIndicator(),
+            IconButton(
+              icon: const Icon(Icons.military_tech_outlined),
+              tooltip: l10n.reviewBadgesTooltip,
+              onPressed: () => context.push(RoutePaths.reviewBadges),
+            ),
+            IconButton(
+              icon: const Icon(Icons.query_stats_outlined),
+              tooltip: l10n.reviewHistoryTooltip,
+              onPressed: () => context.push(RoutePaths.reviewHistory),
+            ),
+          ],
           IconButton(
             icon: _exporting
                 ? const SizedBox(

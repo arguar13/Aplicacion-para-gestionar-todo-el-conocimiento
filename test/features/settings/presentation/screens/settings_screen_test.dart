@@ -5,6 +5,7 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
@@ -31,7 +32,7 @@ void main() {
     // de las pruebas de widget (800x600) — agrandar la ventana es más simple
     // y menos frágil que un `scrollUntilVisible` en cada prueba que toca algo
     // del final de la lista.
-    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -39,13 +40,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('muestra las cuatro secciones', (tester) async {
+  testWidgets('muestra las cinco secciones', (tester) async {
     await pumpSettings(tester);
 
     expect(find.text(es.settingsAppearanceSection), findsOneWidget);
     expect(find.text(es.settingsCitationsSection), findsOneWidget);
     expect(find.text(es.settingsAiSection), findsOneWidget);
     expect(find.text(es.settingsVaultSection), findsOneWidget);
+    expect(find.text(es.settingsHabitSection), findsOneWidget);
   });
 
   group('citas (F15)', () {
@@ -168,6 +170,27 @@ void main() {
         harness.container.read(themeModeNotifierProvider),
         ThemeMode.light,
       );
+    });
+  });
+
+  group('hábito (F17, D9)', () {
+    testWidgets('arranca encendido', (tester) async {
+      await pumpSettings(tester);
+
+      final toggle = tester.widget<SwitchListTile>(
+        find.byKey(const Key('settings-habit-features-toggle')),
+      );
+      expect(toggle.value, isTrue);
+      expect(harness.container.read(habitFeaturesEnabledProvider), isTrue);
+    });
+
+    testWidgets('tocarlo lo apaga y se recuerda', (tester) async {
+      await pumpSettings(tester);
+
+      await tester.tap(find.byKey(const Key('settings-habit-features-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(harness.container.read(habitFeaturesEnabledProvider), isFalse);
     });
   });
 
