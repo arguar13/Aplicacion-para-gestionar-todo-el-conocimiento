@@ -1,8 +1,12 @@
 # F17 — Anki y hábito
 
-> **Estado: aprobado** (2026-09-24), en el chat, tal como está escrito. Planificado con el
-> masterprompt completo del encargo F12–F17 que el usuario pegó en el chat ese mismo día. Lo que
-> salga distinto de lo planeado se dice en su decisión de `../arquitectura.md`.
+> **Estado: aprobado y construido** (2026-09-25). Aprobado en el chat, tal como está escrito.
+> Planificado con el masterprompt completo del encargo F12–F17 que el usuario pegó en el chat el
+> 2026-09-24. Lo construido, lo que se midió y lo que no hace, en la Decisión 50 de
+> `../arquitectura.md`. Lo que salió distinto de lo planeado: el commit 6 (prueba real en Anki y
+> AnkiDroid) queda BLOQUEADO, sin cerrar —ni Anki de escritorio ni AnkiDroid están instalados en
+> esta máquina—; los commits 7, 9 y 10 se partieron en sub-commits (7a/b/c, 9a/b, 10a/b) porque el
+> trabajo real resultó más grande que uno solo, mismo criterio que ya usaron F9 a F16.
 
 Sexta y última fase del encargo F12–F17. No cambia el texto de ninguna fuente ni un chunk. Al
 cierre, `verifyChunkInvariant` en verde sobre la bóveda entera.

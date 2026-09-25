@@ -4139,6 +4139,91 @@ que ya existen. No convierte de golpe las notas que ya existen en «generadas»:
 las que nazcan desde un derivado de acá en adelante. No mide en un teléfono real: solo hay emulador, y
 sus tiempos son optimistas.
 
+### 50. F17 de Anki y hábito: exportar completo a Anki —subdecks, procedencia, incremental, TSV/CSV— y una racha, insignias e historial que premian destilar y consolidar, nunca capturar
+
+Sexta y última fase del encargo F12–F17. Cambia el esquema de forma aditiva, en dos pasos
+(v26 → v28): `last_exported_at` nulo en `flashcards` (v27) y `habit_event` (v28). F17 no toca el
+texto de ninguna fuente ni un chunk: el invariante de chunking siguió en verde en cada corrida de
+la suite completa, de principio a fin. Son quince commits reales sobre los doce del plan original:
+el 7 (cálculo de racha) se partió en tres (7a/b/c), el 9 (insignias) y el 10 (historial de
+repasos) en dos cada uno (9a/b, 10a/b) —mismo criterio de partir que F9 a F16 ya usaron cuando el
+trabajo real resultaba más grande que un commit—; el 6 (prueba real en Anki) queda BLOQUEADO, sin
+cerrar. Cada commit compila y analiza por sí solo (`tool/verify_commit.ps1`); el analizador quedó
+en 31 y la suite en 5.135 pruebas.
+
+**Bloque A (17.1), completando lo que ya existía.** `AnkiPackageBuilder` ya armaba un `.apkg`
+clásico desde antes de F17 (esquema legacy, `guid = card.id`, SM-2 mapeado); F17 sumó lo que
+faltaba: subdecks por la jerarquía de Temas del Atlas (`ankiDeckPathOf`, puro, recorre
+`VocabularyTree.ancestorsOf` con el mismo patrón que `atlas_builder.dart`; una tarjeta con varios
+temas va al subdeck de su PRIMER tema asignado, D1, para no inflar «cien tarjetas repasadas»
+contando la misma tarjeta varias veces), procedencia en el reverso (el caso de uso resuelve la
+cita ANTES de llamar al builder, con `BibliographyRepository.sourcesOf` por lotes en vez de la
+`citationSourceOf` que nombraba el plan —mismo motivo que ya corrigió 13a en F15: una consulta por
+elemento sale cara cuando son muchos—), exportación incremental (`last_exported_at`, incremental
+por defecto con «exportar todo» como interruptor aparte, D4) y un exportador TSV/CSV como camino
+alternativo (D5, encabezados de Anki 2.1.54+ verificados por búsqueda web antes de escribir
+código, no adivinados).
+
+**Commit 6, bloqueado, no cerrado.** La prueba real en Anki y AnkiDroid —reimportar actualiza,
+ver los subdecks, ver la procedencia— exige ojos humanos sobre una instalación real. Ni Anki de
+escritorio ni AnkiDroid están instalados en esta máquina, e instalar software no pedido no es una
+decisión que tomar sola. Reportado y dejado abierto, tal como el propio plan ya anticipaba («si no
+está disponible, F17 avanza hasta el paso 5 y NO se declara cerrada» —en la práctica avanzó mucho
+más, hasta el 12, porque el resto del plan no depende de esto—). Pendiente real: instalar Anki o
+AnkiDroid y verificar a mano, o aceptar F17 sin el criterio 17.3 cumplido del todo.
+
+**Bloque B (17.2), racha, insignias e historial.** La racha (D6) junta cuatro orígenes en
+`calculateStreak` (puro, gracia deslizante de 2 días por semana por defecto): `review_log`
+(repasar), `field_versions` de una nota viva (editarla), `item.created_at` de una nota atómica
+(extraerla) y una tabla nueva, `habit_event` —triar la Bandeja y resolver Vocabulario no tenían
+ningún rastro con fecha donde leer eso, a diferencia de los otros tres—. Las insignias (D7): de
+las seis, «una contradicción resuelta» resultó tener solución YA EXISTENTE en la columna
+`reviewed_at` de `relations` (F9, la pantalla de Tensión) —no hizo falta inventar nada—, y «un
+tema completo de punta a punta» —la única cara— se resolvió con un recorrido bottom-up en Dart sobre
+`VocabularyTree`, no una consulta SQL por rama. El historial de repasos (D8): `ReviewHistoryRepository`
+junta retención semanal, calendario de constancia y tarjetas difíciles en una sola lectura;
+tarjetas difíciles usa SQL escrito a mano —mismo criterio que `atlas_query_sql.dart`— porque un
+`GROUP BY`/`HAVING`/`ORDER BY` sobre una proporción calculada no tiene forma limpia en el
+constructor tipado de drift. El interruptor único (D9): `SharedPreferences`, sin ningún estado de
+pausa que mantener —`review_log`/`habit_event` siguen registrando lo de siempre pase lo que pase
+con el interruptor; apagarlo solo deja de MOSTRAR racha, insignias e historial, nunca de
+registrar—, así que encenderlo de nuevo no «reconstruye» nada: no hay nada guardado aparte que
+reconstruir.
+
+**Un tercer censo de columnas, el mismo hallazgo que ya dejó F11.** El paso de v18 para una base
+MUY vieja (`repoint_item_references_v18.dart`) reconstruye `flashcards` con la definición de HOY
+de la tabla: una base que pasa por v18 en la misma actualización ya trae `last_exported_at` antes
+de llegar al paso v27, y migrar así tiraba «duplicate column name» sin el mismo `_columnExists`
+guard que ya protegía las tres columnas de F11 en el paso v20.
+
+**Lo que la medición no hizo, dicho sin adornos.** El plan proponía objetivos de rendimiento
+—exportar 1.000 tarjetas nuevas < 5 s, reexportar de forma incremental < 1 s, calcular la racha y
+las insignias al abrir la app < 100 ms, abrir el historial con 10.000 filas en `review_log` <
+300 ms—, pero el propio plan, ya aprobado, no incluía un paso de medición en Android para 17.2 (el
+único paso de medición del plan es el 6, bloqueado, y es una verificación humana, no una cifra).
+Sin banco de pruebas dedicado ni cifras de emulador para F17: queda para una fase futura, mismo
+criterio que F14 dejó el criterio de fluidez del mapa sin resolver y F15 dejó el límite de
+importar un lote grande.
+
+**El criterio de cierre (17.3, del encargo), con lo que se cumple y lo que no.** Cumplidos: la
+procedencia viaja en la tarjeta; la racha no cuenta capturas —D6 solo cuenta repasar, editar una
+nota viva, extraer una nota atómica, triar la Bandeja y resolver Vocabulario—; la gamificación es
+desactivable por completo (D9); el invariante de chunking siguió en verde sobre la bóveda entera
+en cada corrida. Sin cumplir, los dos que dependen de Anki real: que un `.apkg` exportado importe
+limpio en AnkiDroid y en Anki de escritorio, y que reimportar actualice en vez de duplicar
+verificado a mano —los dos caen en el mismo bloqueo del commit 6—.
+
+**Lo que F17 no hace, dicho sin adornos.** No sincroniza en vivo con Anki (entra y sale por
+archivo, como BibTeX/RIS en F15). No compara ni compite con otros usuarios, ni publica nada. Los
+subdecks no migran solos si la jerarquía de Temas cambia después de exportar. No manda
+notificaciones del sistema operativo (D3: un indicador dentro de la app alcanza). No inventa una
+insignia por volumen puro: las seis están ligadas a destilar, consolidar o repasar, nunca a
+capturar. No mide en Android —ni emulador ni teléfono— ninguno de los cuatro objetivos de
+rendimiento que el propio plan proponía. No verificó a mano en Anki ni AnkiDroid reales —commit 6,
+BLOQUEADO—.
+
+Con esto se cierra el encargo F12–F17 entero.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4458,6 +4543,20 @@ sus tiempos son optimistas.
   del encargo F12–F17 —ver la decisión 49—. Medir encontró que resolver el
   alcance de un cuaderno armaba cada elemento entero solo para sacarle el id:
   se corrigió antes de cerrar la fase.
+- **F17 de Anki y hábito: exportar completo a un `.apkg` que organiza por subdecks, con la
+  procedencia en el reverso, exportación incremental y TSV/CSV como camino alternativo; y una
+  racha, insignias e historial que premian destilar y consolidar, nunca capturar, con un
+  interruptor único que apaga los tres de una vez.** `AnkiPackageBuilder` ya armaba el `.apkg`
+  clásico desde antes; F17 completó lo que faltaba. La racha junta cuatro orígenes —repasar,
+  editar una nota viva, extraer una nota atómica, y una tabla nueva (`habit_event`) para triar la
+  Bandeja y resolver Vocabulario, que no tenían dónde leerse—. De las seis insignias, «una
+  contradicción resuelta» reusa `relations.reviewed_at` (ya existía desde F9) y «un tema completo
+  de punta a punta» se resuelve con un recorrido en Dart, no una consulta por rama. El interruptor
+  de Ajustes no mantiene ningún estado de pausa: apagado, solo deja de mostrarse. Un cambio de
+  esquema aditivo en dos pasos (v27/v28). Sexta y última fase del encargo F12–F17 —ver la decisión
+  50—. Los dos criterios de cierre que dependen de Anki real —importar limpio, reimportar sin
+  duplicar— quedan sin verificar: ni Anki de escritorio ni AnkiDroid están instalados en esta
+  máquina, y verificarlo a mano queda pendiente. Con esto se cierra el encargo F12–F17 entero.
 
 ### Por construir
 
@@ -4476,20 +4575,26 @@ Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras d
 un Android, compactación y copia por tandas, ver la decisión 45—, F13 —la
 jerarquía temática y el Atlas, ver la decisión 46—, F14 —el mapa de
 conocimiento, ver la decisión 47—, F15 —la biblioteca académica, ver la
-decisión 48— y F16 —cuadernos, derivados marcados y vistas, ver la decisión
-49— están construidas. F14 se cerró con una excepción dicha: en el emulador
-el dibujo del mapa no cumple el presupuesto de un cuadro salvo en el nivel de
-elementos, y arreglarlo pide decidir entre dibujar menos temas a la vez o
-rediseñar cómo se dibuja el grafo. F15 se cerró con otra: importar miles de
-entradas de golpe paga el mismo costo por entrada que cualquier guardado
-normal de la app, y bajarlo de verdad pide suspender el índice de texto
-durante el lote y rearmarlo al final, un rediseño del escritor único sobre
-datos reales que queda para una fase futura. Sigue F17 —Anki y hábito—, ya
-aprobado (plan en `docs/planes/`), que se construye a continuación.
+decisión 48—, F16 —cuadernos, derivados marcados y vistas, ver la decisión
+49— y F17 —Anki y hábito, ver la decisión 50— están construidas. Con esto
+el encargo F12–F17 queda CERRADO entero. F14 se cerró con una excepción
+dicha: en el emulador el dibujo del mapa no cumple el presupuesto de un
+cuadro salvo en el nivel de elementos, y arreglarlo pide decidir entre
+dibujar menos temas a la vez o rediseñar cómo se dibuja el grafo. F15 se
+cerró con otra: importar miles de entradas de golpe paga el mismo costo por
+entrada que cualquier guardado normal de la app, y bajarlo de verdad pide
+suspender el índice de texto durante el lote y rearmarlo al final, un
+rediseño del escritor único sobre datos reales que queda para una fase
+futura. F17 se cerró con dos: los dos criterios de cierre que dependen de
+Anki real —importar limpio, reimportar sin duplicar— quedan sin verificar
+(commit 6, BLOQUEADO, sin Anki ni AnkiDroid instalados en esta máquina), y
+ninguno de los cuatro objetivos de rendimiento que el propio plan proponía
+para 17.2 se midió en Android —el plan ya aprobado no incluía ese paso—.
 
-Lo que queda son las cosas que las decisiones 44, 45, 46, 47, 48 y 49 dicen,
-sin adornos, que no hacen: una sincronización que no dependa de traer una
-copia a mano, lápidas para lo que se une por conjuntos, la medición en un
-teléfono real —F12 a F16 midieron en un emulador— y un camino rápido para
-importar un lote grande de referencias. Ninguna está planeada; se planean
+Lo que queda son las cosas que las decisiones 44 a 50 dicen, sin adornos,
+que no hacen: una sincronización que no dependa de traer una copia a mano,
+lápidas para lo que se une por conjuntos, la medición en un teléfono real
+—todo F12 a F17 midió, cuando midió, en un emulador—, un camino rápido para
+importar un lote grande de referencias, y la verificación a mano en Anki y
+AnkiDroid reales que F17 dejó pendiente. Ninguna está planeada; se planean
 —plan breve, aprobado, después código— cuando le toquen.
