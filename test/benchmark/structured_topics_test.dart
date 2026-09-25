@@ -99,6 +99,102 @@ void main() {
     expect(bridges / input.items.length, lessThan(0.2));
   });
 
+  group('areaDepth (F18, 18.1)', () {
+    /// El ancestro de [id] a la profundidad [depth], mismo criterio que
+    /// `areaOf` adentro de la función: se prueba desde afuera, sin acceso a
+    /// lo privado.
+    String areaAt(Map<String, String?> parentOf, String id, int depth) {
+      final chain = [id];
+      var current = id;
+      while (parentOf[current] != null) {
+        current = parentOf[current]!;
+        chain.add(current);
+      }
+      final index = (chain.length - 1) - depth;
+      return chain[index < 0 ? 0 : index];
+    }
+
+    test('por defecto (0) sigue agrupando por rama de primer nivel entera', () {
+      final input = structuredTopicInput(vault());
+      final parentOf = {for (final v in input.values) v.id: v.parentId};
+
+      // Sin el puente, los temas elegidos de un elemento comparten la MISMA
+      // raíz: es la garantía que ya probaba «mayoría del mismo área» para
+      // las relaciones, ahora sobre los propios temas de cada elemento.
+      for (final item in input.items.take(200)) {
+        final primary = item.valueIds.length > 1
+            ? item.valueIds.sublist(0, item.valueIds.length - 1)
+            : item.valueIds;
+        final roots = {for (final id in primary) areaAt(parentOf, id, 0)};
+        expect(roots, hasLength(1));
+      }
+    });
+
+    test('con areaDepth > 0, el área es una sub-rama, más angosta que la '
+        'raíz entera', () {
+      const depth = 2;
+      final flat = structuredTopicInput(vault(), seed: 5);
+      final narrow = structuredTopicInput(vault(), seed: 5, areaDepth: depth);
+      final parentOf = {for (final v in narrow.values) v.id: v.parentId};
+
+      // Misma semilla, mismo árbol: las dos corridas eligen los mismos
+      // ELEMENTOS por área (mismo orden de sorteo), pero la sub-rama agrupa
+      // más fino —hay al menos tantas áreas distintas como con la raíz
+      // entera, y en la práctica más, porque el árbol tiene ramas de sobra
+      // profundidad—.
+      final rootAreas = {
+        for (final item in flat.items) areaAt(parentOf, item.valueIds.first, 0),
+      };
+      final subAreas = {
+        for (final item in narrow.items)
+          areaAt(parentOf, item.valueIds.first, depth),
+      };
+      expect(subAreas.length, greaterThan(rootAreas.length));
+
+      // Sin el puente, los temas elegidos comparten el ancestro a esa
+      // profundidad —no solo la raíz—.
+      for (final item in narrow.items.take(200)) {
+        final primary = item.valueIds.length > 1
+            ? item.valueIds.sublist(0, item.valueIds.length - 1)
+            : item.valueIds;
+        final areas = {for (final id in primary) areaAt(parentOf, id, depth)};
+        expect(areas, hasLength(1));
+      }
+    });
+
+    test('un valor más superficial que areaDepth usa el ancestro más '
+        'profundo que tenga, nunca más abajo de sí mismo', () {
+      // Árbol chico y de poca profundidad: dos raíces con un solo hijo cada
+      // una, nada llega a profundidad 2.
+      const shallow = TopicGraphInput(
+        definitionId: 'tema',
+        definitionName: 'Tema',
+        values: [
+          AtlasValueRow(id: 'r0', label: 'r0'),
+          AtlasValueRow(id: 'r0a', label: 'r0a', parentId: 'r0'),
+          AtlasValueRow(id: 'r1', label: 'r1'),
+          AtlasValueRow(id: 'r1a', label: 'r1a', parentId: 'r1'),
+        ],
+        items: [],
+        relations: [],
+      );
+
+      final input = structuredTopicInput(
+        shallow,
+        items: 200,
+        relations: 100,
+        areaDepth: 5,
+      );
+
+      expect(input.items, isNotEmpty);
+      for (final item in input.items) {
+        for (final id in item.valueIds) {
+          expect({'r0', 'r0a', 'r1', 'r1a'}, contains(id));
+        }
+      }
+    });
+  });
+
   test('hay contradicciones, pocas, y algunas ya revisadas', () {
     final input = structured();
     final contradictions = input.relations

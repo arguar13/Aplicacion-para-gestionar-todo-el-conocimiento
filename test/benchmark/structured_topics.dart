@@ -18,12 +18,21 @@ import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 /// Esta función conserva el ÁRBOL de temas de [vault] —los mismos valores, con
 /// sus mismos padres— y rehace lo que se les asigna:
 ///
-/// - cada elemento tiene un área, que es una rama de primer nivel, elegida con
-///   más probabilidad cuanto más grande es la rama, y de 1 a 4 temas de esa
-///   área, con preferencia por los primeros de la rama —los más generales—;
+/// - cada elemento tiene un área —un ancestro a la profundidad [areaDepth] de
+///   cada valor, una rama de primer nivel completa por defecto (`0`)—,
+///   elegida con más probabilidad cuanto más grande es el área, y de 1 a 4
+///   temas de esa área, con preferencia por los primeros —los más
+///   generales—;
 /// - una parte de los elementos tiene además un tema de OTRA área: los puentes,
 ///   sin los cuales cada área sería una isla;
 /// - la mayoría de los vínculos unen elementos de la misma área.
+///
+/// [areaDepth] > 0 achica el área de «una rama de primer nivel entera» (p.
+/// ej. «Historia» completa) a «una sub-rama a esa profundidad» (p. ej.
+/// «Historia › Roma»): es lo que un usuario navega de verdad, no la raíz de
+/// una categoría entera (F18, 18.1). Un valor más superficial que
+/// [areaDepth] usa el ancestro más profundo que tenga —nunca más abajo que
+/// el propio valor—.
 ///
 /// Es determinista: la misma semilla da siempre lo mismo.
 TopicGraphInput structuredTopicInput(
@@ -33,23 +42,30 @@ TopicGraphInput structuredTopicInput(
   int seed = 14,
   double bridgeShare = 0.08,
   double intraAreaLinkShare = 0.85,
+  int areaDepth = 0,
 }) {
   final random = Random(seed);
   final values = vault.values;
 
-  // La rama de primer nivel de cada valor.
   final parentOf = {for (final v in values) v.id: v.parentId};
-  String rootOf(String id) {
+
+  /// El ancestro de [id] a la profundidad [areaDepth], contando la raíz como
+  /// profundidad 0. Si la rama de [id] es más superficial que eso, el
+  /// ancestro más profundo disponible —hasta el propio [id]—.
+  String areaOf(String id) {
+    final chain = [id];
     var current = id;
     while (parentOf[current] != null) {
       current = parentOf[current]!;
+      chain.add(current);
     }
-    return current;
+    final index = (chain.length - 1) - areaDepth;
+    return chain[index < 0 ? 0 : index];
   }
 
   final areas = <String, List<String>>{};
   for (final value in values) {
-    areas.putIfAbsent(rootOf(value.id), () => []).add(value.id);
+    areas.putIfAbsent(areaOf(value.id), () => []).add(value.id);
   }
   final areaIds = areas.keys.toList()..sort();
 
