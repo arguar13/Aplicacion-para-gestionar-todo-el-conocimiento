@@ -30,6 +30,7 @@ import 'package:sinapsis/features/export/domain/usecases/export_item_usecase.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/export/presentation/widgets/export_format_presentation.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -88,6 +89,7 @@ class ItemDetailScreen extends ConsumerWidget {
               sourceTitle: item.valueOrNull!.title,
               itemId: item.valueOrNull!.id,
             ),
+            GenerateQuizButton(item: item.valueOrNull!),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: l10n.detailDelete,

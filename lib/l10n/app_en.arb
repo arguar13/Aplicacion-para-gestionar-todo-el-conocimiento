@@ -4440,6 +4440,44 @@
   "@flashcardsGenerationFailed": {
     "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
   },
+  "quizGenerateTooltip": "Generate quiz",
+  "@quizGenerateTooltip": {
+    "description": "Botón para generar un quiz de opción múltiple con el modelo de lenguaje."
+  },
+  "quizModelRequired": "Generating a quiz needs the language model downloaded.",
+  "@quizModelRequired": {
+    "description": "Aviso al intentar generar un quiz sin el modelo de lenguaje listo."
+  },
+  "quizNoContentToGenerate": "This item doesn't have any content to generate a quiz from yet.",
+  "@quizNoContentToGenerate": {
+    "description": "Mensaje cuando se intenta generar un quiz de un elemento sin texto."
+  },
+  "quizGenerationFailed": "Couldn't generate any question with real vault material for its options. Try another item, or check that the chat model is downloaded.",
+  "@quizGenerationFailed": {
+    "description": "Mensaje cuando la generación de quiz no produjo ninguna pregunta anclada y con distractores reales."
+  },
+  "quizReviewTitle": "Review suggested questions",
+  "@quizReviewTitle": {
+    "description": "Título de la pantalla que muestra las preguntas de quiz generadas por IA antes de guardarlas."
+  },
+  "quizReviewConfirm": "{count, plural, =1{Save 1 question} other{Save {count} questions}}",
+  "@quizReviewConfirm": {
+    "description": "Botón que confirma las preguntas de quiz marcadas, con la cantidad elegida.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quizSaved": "{count, plural, =1{Saved 1 question.} other{Saved {count} questions.}}",
+  "@quizSaved": {
+    "description": "Confirmación tras guardar las preguntas de quiz elegidas en la revisión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "suggestionsReviewDialogTitle": "Property suggestions",
   "@suggestionsReviewDialogTitle": {
     "description": "Título del diálogo que muestra las propiedades que el modelo sugirió para un elemento."

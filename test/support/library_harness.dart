@@ -88,6 +88,16 @@ class LibraryHarness {
     DateTime? now,
     String locale = 'es',
 
+    /// Overrides propios de la prueba —p. ej. un caso de uso de mentira—,
+    /// ADEMÁS de los de siempre de esta harness. Van en el `overrides` del
+    /// mismo contenedor real, no en un `ProviderScope` aparte envolviendo
+    /// `home:`: una pantalla empujada con `Navigator.push` desde la que
+    /// arma esta harness cuelga del `Overlay` del `Navigator` como HERMANA
+    /// de la ruta inicial, no como su descendiente, así que un
+    /// `ProviderScope(overrides: …)` puesto alrededor de `home:` no llega a
+    /// esa ruta nueva —el contenedor real sí—.
+    List<Override> extraOverrides = const [],
+
     /// Lo que devuelve el selector de archivos. `null` —el valor por
     /// defecto— simula que el usuario lo abre y cancela.
     CapturedFile? chosenFile,
@@ -278,6 +288,7 @@ class LibraryHarness {
             logger: ref.watch(appLoggerProvider),
           ),
         ),
+        ...extraOverrides,
       ],
     );
 

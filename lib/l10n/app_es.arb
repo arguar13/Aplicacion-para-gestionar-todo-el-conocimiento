@@ -3945,6 +3945,44 @@
   "@flashcardsGenerationFailed": {
     "description": "Mensaje cuando la generación con IA no produjo ninguna tarjeta utilizable."
   },
+  "quizGenerateTooltip": "Generar quiz",
+  "@quizGenerateTooltip": {
+    "description": "Botón para generar un quiz de opción múltiple con el modelo de lenguaje."
+  },
+  "quizModelRequired": "Generar un quiz necesita el modelo de lenguaje descargado.",
+  "@quizModelRequired": {
+    "description": "Aviso al intentar generar un quiz sin el modelo de lenguaje listo."
+  },
+  "quizNoContentToGenerate": "Este elemento todavía no tiene contenido del que generar un quiz.",
+  "@quizNoContentToGenerate": {
+    "description": "Mensaje cuando se intenta generar un quiz de un elemento sin texto."
+  },
+  "quizGenerationFailed": "No se pudo generar ninguna pregunta con material real de la bóveda para armar sus opciones. Probá con otro elemento, o comprobá que el modelo de chat esté descargado.",
+  "@quizGenerationFailed": {
+    "description": "Mensaje cuando la generación de quiz no produjo ninguna pregunta anclada y con distractores reales."
+  },
+  "quizReviewTitle": "Revisar preguntas propuestas",
+  "@quizReviewTitle": {
+    "description": "Título de la pantalla que muestra las preguntas de quiz generadas por IA antes de guardarlas."
+  },
+  "quizReviewConfirm": "{count, plural, =1{Guardar 1 pregunta} other{Guardar {count} preguntas}}",
+  "@quizReviewConfirm": {
+    "description": "Botón que confirma las preguntas de quiz marcadas, con la cantidad elegida.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quizSaved": "{count, plural, =1{Se guardó 1 pregunta.} other{Se guardaron {count} preguntas.}}",
+  "@quizSaved": {
+    "description": "Confirmación tras guardar las preguntas de quiz elegidas en la revisión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "suggestionsReviewDialogTitle": "Sugerencias de propiedades",
   "@suggestionsReviewDialogTitle": {
     "description": "Título del diálogo que muestra las propiedades que el modelo sugirió para un elemento."
