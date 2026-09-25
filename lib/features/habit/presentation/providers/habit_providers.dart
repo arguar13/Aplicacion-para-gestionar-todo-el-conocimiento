@@ -3,10 +3,13 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/habit/data/repositories/badge_repository_impl.dart';
+import 'package:sinapsis/features/habit/data/repositories/review_history_repository_impl.dart';
 import 'package:sinapsis/features/habit/data/repositories/streak_repository_impl.dart';
 import 'package:sinapsis/features/habit/domain/entities/badge_kind.dart';
+import 'package:sinapsis/features/habit/domain/entities/review_history.dart';
 import 'package:sinapsis/features/habit/domain/entities/streak.dart';
 import 'package:sinapsis/features/habit/domain/repositories/badge_repository.dart';
+import 'package:sinapsis/features/habit/domain/repositories/review_history_repository.dart';
 import 'package:sinapsis/features/habit/domain/repositories/streak_repository.dart';
 
 final streakRepositoryProvider = Provider<StreakRepository>((ref) {
@@ -33,8 +36,22 @@ final badgeRepositoryProvider = Provider<BadgeRepository>((ref) {
 
 /// Las insignias ganadas hasta ahora (F17, D7/commit 9): se actualiza sola
 /// con cada acción que puede ganar o perder una.
-final earnedBadgesProvider = StreamProvider.autoDispose<Set<BadgeKind>>((
+final earnedBadgesProvider = StreamProvider.autoDispose<Set<BadgeKind>>((ref) {
+  return ref.watch(badgeRepositoryProvider).watch();
+});
+
+final reviewHistoryRepositoryProvider = Provider<ReviewHistoryRepository>((
   ref,
 ) {
-  return ref.watch(badgeRepositoryProvider).watch();
+  return ReviewHistoryRepositoryImpl(
+    database: ref.watch(appDatabaseProvider),
+    telemetry: ref.watch(telemetryServiceProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
+
+/// El historial de repasos (F17, D8): se actualiza solo con cada repaso
+/// nuevo.
+final reviewHistoryProvider = StreamProvider.autoDispose<ReviewHistory>((ref) {
+  return ref.watch(reviewHistoryRepositoryProvider).watch();
 });
