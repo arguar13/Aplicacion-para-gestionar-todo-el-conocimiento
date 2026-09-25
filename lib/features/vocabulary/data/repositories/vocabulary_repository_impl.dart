@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/database/knowledge_row_mapping.dart';
 import 'package:sinapsis/core/database/person_vocabulary.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
@@ -8,6 +9,7 @@ import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
@@ -36,6 +38,13 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
   final TelemetryService _telemetry;
   final IdGenerator _ids;
   final Clock _clock;
+
+  HabitEventRecorder get _habits => HabitEventRecorder(
+    database: _db,
+    telemetry: _telemetry,
+    ids: _ids,
+    clock: _clock,
+  );
 
   // ---------------------------------------------------------------------
   // Estadísticas
@@ -243,6 +252,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
         }
         return done;
       });
+      await _habits.record(HabitEventKind.vocabulary);
 
       return right(_MergeOperation(keepLabel: keep.value, undos: undos));
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -358,6 +368,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
           before: before,
         );
       });
+      await _habits.record(HabitEventKind.vocabulary);
       return right(operation);
     } on _Rejected catch (rejected) {
       return left(rejected.failure);
@@ -524,6 +535,7 @@ class VocabularyRepositoryImpl implements VocabularyRepository {
 
       await (_db.update(_db.propertyValues)..where((v) => v.id.equals(id)))
           .write(PropertyValuesCompanion(value: Value(trimmed)));
+      await _habits.record(HabitEventKind.vocabulary);
 
       return right(
         _RenameOperation(

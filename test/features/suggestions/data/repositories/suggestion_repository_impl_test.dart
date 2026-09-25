@@ -9,6 +9,7 @@ import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -1292,6 +1293,70 @@ void main() {
 
         expect(result.getRight().toNullable(), 0);
       });
+    });
+  });
+
+  group('la racha (F17, D6): triar la Bandeja deja su rastro', () {
+    Future<String> suggestProperty(String itemId) async {
+      final definition =
+          (await organizeRepository.getOrCreatePropertyDefinition(
+            'Región',
+          )).getRight().toNullable()!;
+      final suggestion = (await repository.createPropertySuggestion(
+        targetItemId: itemId,
+        definitionId: definition.id,
+        definitionName: 'Región',
+        value: 'Roma',
+        isNewValue: true,
+      )).getRight().toNullable()!;
+      return suggestion.id;
+    }
+
+    test('accept guarda un evento de triaje', () async {
+      final item = await seedItem();
+      final suggestionId = await suggestProperty(item.id);
+
+      await repository.accept(suggestionId);
+
+      final events = await db.select(db.habitEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.kind, HabitEventKind.triage);
+    });
+
+    test('reject guarda un evento de triaje', () async {
+      final item = await seedItem();
+      final suggestionId = await suggestProperty(item.id);
+
+      await repository.reject(suggestionId);
+
+      final events = await db.select(db.habitEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.kind, HabitEventKind.triage);
+    });
+
+    test('rejectMany guarda UN solo evento para todo el lote', () async {
+      final a = await seedItem(title: 'A');
+      final b = await seedItem(title: 'B');
+      final one = await suggestProperty(a.id);
+      final two = await suggestProperty(b.id);
+
+      await repository.rejectMany([one, two]);
+
+      expect(await db.select(db.habitEvents).get(), hasLength(1));
+    });
+
+    test('rejectMany sin nada que rechazar no guarda ningún evento', () async {
+      final result = await repository.rejectMany(const ['no-existe']);
+
+      expect(result.getRight().toNullable(), 0);
+      expect(await db.select(db.habitEvents).get(), isEmpty);
+    });
+
+    test('un id inexistente no guarda ningún evento', () async {
+      await repository.accept('no-existe');
+      await repository.reject('no-existe');
+
+      expect(await db.select(db.habitEvents).get(), isEmpty);
     });
   });
 

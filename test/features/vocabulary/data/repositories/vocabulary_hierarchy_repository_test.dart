@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -212,6 +213,16 @@ void main() {
       );
     });
 
+    test('guarda un evento de vocabulario para la racha (F17, D6)', () async {
+      await seedRoma();
+
+      await repository.moveValue(valueId: 'republica', parentId: 'grecia');
+
+      final events = await db.select(db.habitEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.kind, HabitEventKind.vocabulary);
+    });
+
     group('se niega, sin tocar nada, si', () {
       Future<void> expectRejected(
         Future<Either<Failure, Object?>> Function() attempt,
@@ -230,6 +241,14 @@ void main() {
           () => repository.moveValue(valueId: 'roma', parentId: 'gracos'),
           'sí mismo',
         );
+      });
+
+      test('y tampoco guarda ningún evento de vocabulario', () async {
+        await seedRoma();
+
+        await repository.moveValue(valueId: 'roma', parentId: 'gracos');
+
+        expect(await db.select(db.habitEvents).get(), isEmpty);
       });
 
       test('el padre es él mismo', () async {

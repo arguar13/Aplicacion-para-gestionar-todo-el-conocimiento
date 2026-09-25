@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/publication_date.dart';
@@ -64,6 +66,13 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   final Clock _clock;
 
   KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
+
+  HabitEventRecorder get _habits => HabitEventRecorder(
+    database: _db,
+    telemetry: _telemetry,
+    ids: _ids,
+    clock: _clock,
+  );
 
   @override
   Stream<List<Suggestion>> watchPendingSuggestions(String itemId) {
@@ -366,6 +375,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       await (_db.update(_db.suggestions)..where((s) => s.id.equals(id))).write(
         const SuggestionsCompanion(status: Value(SuggestionStatus.accepted)),
       );
+      await _habits.record(HabitEventKind.triage);
 
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -659,6 +669,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
           ),
         );
       }
+      await _habits.record(HabitEventKind.triage);
 
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -848,6 +859,9 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
                   status: Value(SuggestionStatus.rejected),
                 ),
               );
+      // Un solo evento para todo el lote: a la racha le alcanza con saber
+      // que triar pasó hoy, no cuántas sugerencias tocó.
+      if (updated.isNotEmpty) await _habits.record(HabitEventKind.triage);
       return right(updated.length);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses

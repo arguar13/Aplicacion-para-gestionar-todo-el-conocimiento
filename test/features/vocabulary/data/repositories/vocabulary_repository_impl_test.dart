@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
+import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -409,6 +410,51 @@ void main() {
       final undone = await repository.undo(op);
 
       expect(undone.getLeft().toNullable(), isA<ValidationFailure>());
+    });
+  });
+
+  group('la racha (F17, D6): fusionar y renombrar dejan su rastro', () {
+    test('fusionar guarda un evento de vocabulario', () async {
+      await seedRomas();
+
+      await repository.mergeValues(
+        keepId: 'roma',
+        discardIds: ['roma-acento', 'rome', 'roma-antigua'],
+      );
+
+      final events = await db.select(db.habitEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.kind, HabitEventKind.vocabulary);
+    });
+
+    test('renombrar guarda un evento de vocabulario', () async {
+      await seedRomas();
+
+      await repository.renameValue(id: 'roma-acento', label: 'Roma latina');
+
+      final events = await db.select(db.habitEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.kind, HabitEventKind.vocabulary);
+    });
+
+    test('una fusión que falla no guarda ningún evento', () async {
+      await seedRomas();
+      repository = buildRepository(_FailingIds(failAfter: 1));
+
+      await repository.mergeValues(
+        keepId: 'roma',
+        discardIds: ['roma-acento', 'rome'],
+      );
+
+      expect(await db.select(db.habitEvents).get(), isEmpty);
+    });
+
+    test('un renombre rechazado no guarda ningún evento', () async {
+      await seedRomas();
+
+      await repository.renameValue(id: 'rome', label: 'ROMA');
+
+      expect(await db.select(db.habitEvents).get(), isEmpty);
     });
   });
 
