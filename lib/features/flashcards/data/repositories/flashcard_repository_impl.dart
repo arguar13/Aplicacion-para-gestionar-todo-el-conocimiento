@@ -4,10 +4,13 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/sm2_scheduler.dart';
@@ -35,6 +38,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     required String back,
     int? sourceCharStart,
     int? sourceCharEnd,
+    FlashcardKind kind = FlashcardKind.freeRecall,
   }) async {
     final trimmedFront = front.trim();
     final trimmedBack = back.trim();
@@ -57,6 +61,15 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         ),
       );
     }
+    if (kind == FlashcardKind.multipleChoice) {
+      return left(
+        const Failure.validation(
+          message:
+              'Una tarjeta de opción múltiple se crea con '
+              'createMultipleChoice, que también pide sus opciones.',
+        ),
+      );
+    }
 
     try {
       final now = _clock();
@@ -70,6 +83,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         back: trimmedBack,
         dueAt: now,
         createdAt: now,
+        kind: kind,
         sourceChunkId: chunkId,
         sourceCharStart: sourceCharStart,
         sourceCharEnd: sourceCharEnd,
@@ -85,6 +99,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
               back: card.back,
               dueAt: card.dueAt,
               createdAt: card.createdAt,
+              kind: Value(card.kind),
               sourceChunkId: Value(card.sourceChunkId),
               sourceCharStart: Value(card.sourceCharStart),
               sourceCharEnd: Value(card.sourceCharEnd),
@@ -96,6 +111,135 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.create'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Flashcard>> createMultipleChoice({
+    required String itemId,
+    required String front,
+    required List<FlashcardOptionDraft> options,
+  }) async {
+    final trimmedFront = front.trim();
+    if (trimmedFront.isEmpty) {
+      return left(
+        const Failure.validation(message: 'La pregunta no puede quedar vacía.'),
+      );
+    }
+    if (options.length < 2) {
+      return left(
+        const Failure.validation(
+          message:
+              'Una pregunta de opción múltiple necesita al menos dos '
+              'opciones.',
+        ),
+      );
+    }
+    final trimmedOptions = [
+      for (final option in options)
+        FlashcardOptionDraft(
+          content: option.content.trim(),
+          isCorrect: option.isCorrect,
+          sourceCharStart: option.sourceCharStart,
+          sourceCharEnd: option.sourceCharEnd,
+        ),
+    ];
+    if (trimmedOptions.any((o) => o.content.isEmpty)) {
+      return left(
+        const Failure.validation(message: 'Ninguna opción puede quedar vacía.'),
+      );
+    }
+    final correctCount = trimmedOptions.where((o) => o.isCorrect).length;
+    if (correctCount != 1) {
+      return left(
+        const Failure.validation(
+          message:
+              'Una pregunta de opción múltiple tiene que tener '
+              'exactamente una opción correcta.',
+        ),
+      );
+    }
+
+    try {
+      final now = _clock();
+      final card = Flashcard(
+        id: _ids.next(),
+        itemId: itemId,
+        front: trimmedFront,
+        back: '',
+        dueAt: now,
+        createdAt: now,
+        kind: FlashcardKind.multipleChoice,
+      );
+
+      await _db.transaction(() async {
+        await _db
+            .into(_db.flashcards)
+            .insert(
+              FlashcardsCompanion.insert(
+                id: card.id,
+                itemId: card.itemId,
+                front: card.front,
+                back: card.back,
+                dueAt: card.dueAt,
+                createdAt: card.createdAt,
+                kind: Value(card.kind),
+              ),
+            );
+
+        for (final (position, option) in trimmedOptions.indexed) {
+          final hasStart = option.sourceCharStart != null;
+          final chunkId = hasStart
+              ? await _chunkContaining(itemId, option.sourceCharStart!)
+              : null;
+          await _db
+              .into(_db.flashcardOptions)
+              .insert(
+                FlashcardOptionsCompanion.insert(
+                  id: _ids.next(),
+                  flashcardId: card.id,
+                  content: option.content,
+                  isCorrect: option.isCorrect,
+                  position: position,
+                  sourceChunkId: Value(chunkId),
+                  sourceCharStart: Value(option.sourceCharStart),
+                  sourceCharEnd: Value(option.sourceCharEnd),
+                ),
+              );
+        }
+      });
+
+      return right(card);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'FlashcardRepositoryImpl.createMultipleChoice',
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<FlashcardOption>>> optionsFor(
+    String flashcardId,
+  ) async {
+    try {
+      final rows =
+          await (_db.select(_db.flashcardOptions)
+                ..where((o) => o.flashcardId.equals(flashcardId))
+                ..orderBy([(o) => OrderingTerm(expression: o.position)]))
+              .get();
+      return right(rows.map(_toOptionEntity).toList());
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.optionsFor'),
+      );
     }
   }
 
@@ -351,10 +495,22 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     intervalDays: row.intervalDays,
     repetitions: row.repetitions,
     lastReviewedAt: row.lastReviewedAt,
+    kind: row.kind,
     sourceChunkId: row.sourceChunkId,
     sourceCharStart: row.sourceCharStart,
     sourceCharEnd: row.sourceCharEnd,
     lastExportedAt: row.lastExportedAt,
+  );
+
+  FlashcardOption _toOptionEntity(FlashcardOptionRow row) => FlashcardOption(
+    id: row.id,
+    flashcardId: row.flashcardId,
+    content: row.content,
+    isCorrect: row.isCorrect,
+    position: row.position,
+    sourceChunkId: row.sourceChunkId,
+    sourceCharStart: row.sourceCharStart,
+    sourceCharEnd: row.sourceCharEnd,
   );
 
   /// Catch-all deliberado, igual que en el resto de los repositorios: un

@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 
 part 'flashcard.freezed.dart';
 
@@ -21,6 +22,12 @@ sealed class Flashcard with _$Flashcard {
     @Default(0) int intervalDays,
     @Default(0) int repetitions,
     DateTime? lastReviewedAt,
+
+    /// La forma de la tarjeta (F20): `freeRecall` para toda tarjeta de
+    /// antes de F20 y para las que se siguen creando a mano. El programador
+    /// SM-2 y `review_log` no lo leen —repasan y registran por igual—: es
+    /// la presentación la que cambia según el valor.
+    @Default(FlashcardKind.freeRecall) FlashcardKind kind,
 
     /// El fragmento de la fuente del que salió la tarjeta (F11): el rango de
     /// caracteres de la forma principal del elemento, y el chunk que lo

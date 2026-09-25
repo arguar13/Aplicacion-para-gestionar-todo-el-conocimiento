@@ -10,6 +10,7 @@ class SetUnionResult {
     this.highlights = 0,
     this.flashcards = 0,
     this.flashcardsUpdated = 0,
+    this.flashcardOptions = 0,
     this.reviews = 0,
     this.provenances = 0,
     this.conversations = 0,
@@ -23,6 +24,10 @@ class SetUnionResult {
 
   /// Tarjetas que ya estaban y cuyo calendario pasó a ser el de la copia.
   final int flashcardsUpdated;
+
+  /// Opciones de una tarjeta de opción múltiple (F20): entran junto con su
+  /// tarjeta, nunca solas.
+  final int flashcardOptions;
   final int reviews;
   final int provenances;
   final int conversations;
@@ -60,6 +65,7 @@ const kFlashcardColumns = [
   'item_id',
   'front',
   'back',
+  'kind',
   'ease_factor',
   'interval_days',
   'repetitions',
@@ -70,6 +76,16 @@ const kFlashcardColumns = [
   'source_char_start',
   'source_char_end',
   'last_exported_at',
+];
+const kFlashcardOptionColumns = [
+  'id',
+  'flashcard_id',
+  'content',
+  'is_correct',
+  'position',
+  'source_chunk_id',
+  'source_char_start',
+  'source_char_end',
 ];
 const kReviewLogColumns = [
   'id',
@@ -210,6 +226,27 @@ class SetUnionMerge {
       updates: {_db.flashcards},
     );
 
+    // Las opciones de una tarjeta de opción múltiple (F20) entran junto con
+    // su tarjeta: si la tarjeta no llegó —por ejemplo, esta bóveda ya la
+    // tenía y no es de opción múltiple— sus opciones tampoco. Mismo criterio
+    // que `source_chunk_id` de la tarjeta, más arriba: se conserva solo si
+    // por coincidencia ya existe localmente.
+    final flashcardOptions = await _union(
+      _db.flashcardOptions,
+      'flashcard_options',
+      kFlashcardOptionColumns,
+      '''
+      FROM $_incoming.flashcard_options x
+     WHERE EXISTS (SELECT 1 FROM main.flashcards f WHERE f.id = x.flashcard_id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.flashcard_options m WHERE m.id = x.id)''',
+      select: {
+        'source_chunk_id':
+            'CASE WHEN EXISTS (SELECT 1 FROM main.chunks c '
+            'WHERE c.id = x.source_chunk_id) THEN x.source_chunk_id END',
+      },
+    );
+
     final reviews = await _union(
       _db.reviewLogs,
       'review_log',
@@ -285,6 +322,7 @@ class SetUnionMerge {
       highlights: highlights,
       flashcards: flashcards,
       flashcardsUpdated: flashcardsUpdated,
+      flashcardOptions: flashcardOptions,
       reviews: reviews,
       provenances: provenances,
       conversations: conversations,

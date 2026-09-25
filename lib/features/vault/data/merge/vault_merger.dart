@@ -208,6 +208,7 @@ class VaultMerger {
       highlightsAdded: unions.highlights,
       flashcardsAdded: unions.flashcards,
       flashcardsUpdated: unions.flashcardsUpdated,
+      flashcardOptionsAdded: unions.flashcardOptions,
       reviewsAdded: unions.reviews,
       provenancesAdded: unions.provenances,
       conversationsAdded: unions.conversations,

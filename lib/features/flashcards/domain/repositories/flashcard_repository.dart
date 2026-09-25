@@ -1,6 +1,9 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 
 /// Crear, repasar y borrar tarjetas: todo lo que necesita esta parte de la
@@ -15,13 +18,39 @@ abstract interface class FlashcardRepository {
   /// elemento. Con él la tarjeta puede llevar de vuelta a su fuente. Se rechaza
   /// un rango a medias, negativo o vacío. El chunk que lo contiene lo busca el
   /// repositorio; si el elemento no tiene chunks, se guarda solo el rango.
+  ///
+  /// [kind] es `freeRecall` por defecto —pregunta y respuesta libres, lo que
+  /// esto siempre fue—. Con `trueFalse` (F20), [front] es la afirmación y
+  /// [back] por qué es verdadera o falsa; no lleva opciones aparte, así que
+  /// no hace falta [createMultipleChoice] para esta forma. `multipleChoice`
+  /// no se crea acá: usa [createMultipleChoice], que además necesita sus
+  /// opciones.
   Future<Either<Failure, Flashcard>> create({
     required String itemId,
     required String front,
     required String back,
     int? sourceCharStart,
     int? sourceCharEnd,
+    FlashcardKind kind = FlashcardKind.freeRecall,
   });
+
+  /// Crea una tarjeta de opción múltiple (F20) para [itemId]: [front] es la
+  /// pregunta, [options] sus opciones —cada una con su propio texto, si es
+  /// la correcta y su propia procedencia—.
+  ///
+  /// Se rechaza sin guardar nada si [options] tiene menos de dos, si ninguna
+  /// —o más de una— está marcada correcta, o si alguna llega con el texto
+  /// vacío. La tarjeta y sus opciones se guardan en UNA transacción
+  /// (decisión D, F20): todo o nada.
+  Future<Either<Failure, Flashcard>> createMultipleChoice({
+    required String itemId,
+    required String front,
+    required List<FlashcardOptionDraft> options,
+  });
+
+  /// Las opciones de la tarjeta [flashcardId], en el orden en que se
+  /// guardaron. Vacío si la tarjeta no es de opción múltiple.
+  Future<Either<Failure, List<FlashcardOption>>> optionsFor(String flashcardId);
 
   Future<Either<Failure, Flashcard>> update({
     required String id,

@@ -37,6 +37,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// Tarjetas que acá ya estaban y cuyo calendario pasó a ser el del repaso
     /// más reciente.
     @Default(0) int flashcardsUpdated,
+
+    /// Opciones de una tarjeta de opción múltiple (F20): entran junto con su
+    /// tarjeta, nunca solas.
+    @Default(0) int flashcardOptionsAdded,
     @Default(0) int reviewsAdded,
     @Default(0) int provenancesAdded,
     @Default(0) int conversationsAdded,
@@ -87,6 +91,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       highlightsAdded == 0 &&
       flashcardsAdded == 0 &&
       flashcardsUpdated == 0 &&
+      flashcardOptionsAdded == 0 &&
       reviewsAdded == 0 &&
       provenancesAdded == 0 &&
       conversationsAdded == 0 &&

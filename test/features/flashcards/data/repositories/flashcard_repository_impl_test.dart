@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -13,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 
@@ -764,6 +766,226 @@ void main() {
       expect(card.sourceCharStart, 0);
       expect(card.sourceCharEnd, 7);
       expect(chunks, isNotEmpty);
+    });
+  });
+
+  group('la forma de la tarjeta (F20)', () {
+    const text = 'Primer párrafo de la fuente.\n\nSegundo párrafo, más largo.';
+
+    Future<(String, List<ChunkRow>)> seedSource() async {
+      final n = counter++;
+      final id = 'item-$n';
+      await libraryRepository.save(
+        KnowledgeItem(
+          id: id,
+          title: 'Fuente $n',
+          source: Source(
+            id: 'src-$n',
+            kind: SourceKind.webPage,
+            capturedAt: now,
+            url: 'https://ejemplo.org/$n',
+          ),
+          processingState: ProcessingState.ready,
+          createdAt: now,
+          updatedAt: now,
+          renditions: [
+            Rendition.text(
+              id: 'rend-$n',
+              itemId: id,
+              kind: RenditionKind.markdown,
+              content: text,
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+      final chunks =
+          await (db.select(db.chunks)
+                ..where((c) => c.itemId.equals(id))
+                ..orderBy([(c) => OrderingTerm(expression: c.seq)]))
+              .get();
+      return (id, chunks);
+    }
+
+    test('create sin kind es freeRecall, lo que siempre fue', () async {
+      final itemId = await seedItem();
+
+      final card = (await repository.create(
+        itemId: itemId,
+        front: 'a',
+        back: 'b',
+      )).getRight().toNullable()!;
+
+      expect(card.kind, FlashcardKind.freeRecall);
+    });
+
+    test('create con trueFalse guarda la afirmación en front y la explicación '
+        'en back, sin opciones aparte', () async {
+      final itemId = await seedItem();
+
+      final card = (await repository.create(
+        itemId: itemId,
+        front: 'El cielo es verde.',
+        back: 'Falso: el cielo se ve azul por la dispersión de Rayleigh.',
+        kind: FlashcardKind.trueFalse,
+      )).getRight().toNullable()!;
+
+      expect(card.kind, FlashcardKind.trueFalse);
+      final options = (await repository.optionsFor(
+        card.id,
+      )).getRight().toNullable()!;
+      expect(options, isEmpty);
+    });
+
+    test(
+      'create rechaza multipleChoice: hace falta createMultipleChoice',
+      () async {
+        final itemId = await seedItem();
+
+        final result = await repository.create(
+          itemId: itemId,
+          front: 'a',
+          back: 'b',
+          kind: FlashcardKind.multipleChoice,
+        );
+
+        expect(result.isLeft(), isTrue);
+        expect(await db.select(db.flashcards).get(), isEmpty);
+      },
+    );
+
+    group('createMultipleChoice', () {
+      test('guarda la tarjeta y sus opciones, en el orden dado, cada una con '
+          'su propio chunk', () async {
+        final (id, chunks) = await seedSource();
+        final second = chunks[1];
+
+        final card = (await repository.createMultipleChoice(
+          itemId: id,
+          front: '¿Cuál es la correcta?',
+          options: [
+            const FlashcardOptionDraft(
+              content: 'Distractor uno',
+              isCorrect: false,
+            ),
+            FlashcardOptionDraft(
+              content: 'La correcta',
+              isCorrect: true,
+              sourceCharStart: second.charStart + 2,
+              sourceCharEnd: second.charStart + 9,
+            ),
+            const FlashcardOptionDraft(
+              content: 'Distractor dos',
+              isCorrect: false,
+            ),
+          ],
+        )).getRight().toNullable()!;
+
+        expect(card.kind, FlashcardKind.multipleChoice);
+        expect(card.front, '¿Cuál es la correcta?');
+
+        final options = (await repository.optionsFor(
+          card.id,
+        )).getRight().toNullable()!;
+        expect(options.map((o) => o.content), [
+          'Distractor uno',
+          'La correcta',
+          'Distractor dos',
+        ]);
+        expect(options.map((o) => o.isCorrect), [false, true, false]);
+        expect(options[1].sourceChunkId, second.id);
+        expect(options[1].sourceCharStart, second.charStart + 2);
+        expect(options[0].sourceChunkId, isNull);
+      });
+
+      test('menos de dos opciones no guarda nada', () async {
+        final itemId = await seedItem();
+
+        final result = await repository.createMultipleChoice(
+          itemId: itemId,
+          front: 'a',
+          options: const [
+            FlashcardOptionDraft(content: 'única', isCorrect: true),
+          ],
+        );
+
+        expect(result.isLeft(), isTrue);
+        expect(await db.select(db.flashcards).get(), isEmpty);
+      });
+
+      test('ninguna opción correcta no guarda nada', () async {
+        final itemId = await seedItem();
+
+        final result = await repository.createMultipleChoice(
+          itemId: itemId,
+          front: 'a',
+          options: const [
+            FlashcardOptionDraft(content: 'uno', isCorrect: false),
+            FlashcardOptionDraft(content: 'dos', isCorrect: false),
+          ],
+        );
+
+        expect(result.isLeft(), isTrue);
+        expect(await db.select(db.flashcards).get(), isEmpty);
+      });
+
+      test('más de una opción correcta no guarda nada', () async {
+        final itemId = await seedItem();
+
+        final result = await repository.createMultipleChoice(
+          itemId: itemId,
+          front: 'a',
+          options: const [
+            FlashcardOptionDraft(content: 'uno', isCorrect: true),
+            FlashcardOptionDraft(content: 'dos', isCorrect: true),
+          ],
+        );
+
+        expect(result.isLeft(), isTrue);
+        expect(await db.select(db.flashcards).get(), isEmpty);
+      });
+
+      test('una opción vacía no guarda nada', () async {
+        final itemId = await seedItem();
+
+        final result = await repository.createMultipleChoice(
+          itemId: itemId,
+          front: 'a',
+          options: const [
+            FlashcardOptionDraft(content: '   ', isCorrect: true),
+            FlashcardOptionDraft(content: 'dos', isCorrect: false),
+          ],
+        );
+
+        expect(result.isLeft(), isTrue);
+        expect(await db.select(db.flashcards).get(), isEmpty);
+        expect(await db.select(db.flashcardOptions).get(), isEmpty);
+      });
+
+      test('borrar la tarjeta se lleva sus opciones', () async {
+        final itemId = await seedItem();
+        final card = (await repository.createMultipleChoice(
+          itemId: itemId,
+          front: 'a',
+          options: const [
+            FlashcardOptionDraft(content: 'uno', isCorrect: true),
+            FlashcardOptionDraft(content: 'dos', isCorrect: false),
+          ],
+        )).getRight().toNullable()!;
+
+        await repository.delete(card.id);
+
+        expect(await db.select(db.flashcardOptions).get(), isEmpty);
+      });
+    });
+
+    test('optionsFor una tarjeta que no existe da una lista vacía', () async {
+      final options = (await repository.optionsFor(
+        'nada',
+      )).getRight().toNullable()!;
+
+      expect(options, isEmpty);
     });
   });
 }

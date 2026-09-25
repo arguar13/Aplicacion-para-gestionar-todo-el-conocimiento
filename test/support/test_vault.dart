@@ -18,6 +18,7 @@ import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -416,6 +417,7 @@ class TestVault {
     String itemId, {
     String front = '¿Qué?',
     String back = 'Eso.',
+    FlashcardKind kind = FlashcardKind.freeRecall,
   }) => db
       .into(db.flashcards)
       .insert(
@@ -426,6 +428,26 @@ class TestVault {
           back: back,
           dueAt: now,
           createdAt: now,
+          kind: Value(kind),
+        ),
+      );
+
+  /// Una opción de una tarjeta de opción múltiple (F20).
+  Future<void> addFlashcardOption(
+    String id,
+    String flashcardId, {
+    String content = 'Una opción',
+    bool isCorrect = false,
+    int position = 0,
+  }) => db
+      .into(db.flashcardOptions)
+      .insert(
+        FlashcardOptionsCompanion.insert(
+          id: id,
+          flashcardId: flashcardId,
+          content: content,
+          isCorrect: isCorrect,
+          position: position,
         ),
       );
 

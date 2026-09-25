@@ -1,4 +1,6 @@
+import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
@@ -286,6 +288,65 @@ void main() {
       expect(result.reviewsAdded, 1);
       expect(await idsOf(tel, 'review_log'), {'rv-tel', 'rv-pc'});
     });
+
+    test('la forma de la tarjeta (F20) viaja con ella', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addFlashcard('fc', 'a', kind: FlashcardKind.trueFalse);
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      final card = await tel.db.select(tel.db.flashcards).getSingle();
+      expect(card.kind, FlashcardKind.trueFalse);
+    });
+
+    test('las opciones de una tarjeta de opción múltiple (F20) entran junto '
+        'con ella, cada una con su procedencia', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addFlashcard('fc', 'a', kind: FlashcardKind.multipleChoice);
+      await pc.addFlashcardOption(
+        'op-1',
+        'fc',
+        content: 'Correcta',
+        isCorrect: true,
+      );
+      await pc.addFlashcardOption(
+        'op-2',
+        'fc',
+        content: 'Distractor',
+        position: 1,
+      );
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.flashcardOptionsAdded, 2);
+      final options = await (tel.db.select(
+        tel.db.flashcardOptions,
+      )..orderBy([(o) => OrderingTerm(expression: o.position)])).get();
+      expect(options.map((o) => o.content), ['Correcta', 'Distractor']);
+      expect(options.map((o) => o.isCorrect), [true, false]);
+    });
+
+    test(
+      'las opciones de una tarjeta que acá ya existía no se repiten',
+      () async {
+        await shareItems();
+        tel.at(3);
+        await tel.addFlashcard('fc', 'a', kind: FlashcardKind.multipleChoice);
+        await tel.addFlashcardOption('op-1', 'fc', isCorrect: true);
+        pc.at(4);
+        await pc.mergeFrom(tel);
+
+        tel.at(9);
+        final result = await tel.mergeFrom(pc);
+
+        expect(result.flashcardOptionsAdded, 0);
+        expect(await idsOf(tel, 'flashcard_options'), {'op-1'});
+      },
+    );
   });
 
   group('las procedencias y las conversaciones', () {
@@ -471,6 +532,10 @@ void main() {
       expect(kRelationColumns.toSet(), await columnsOf('relations'));
       expect(kHighlightColumns.toSet(), await columnsOf('highlights'));
       expect(kFlashcardColumns.toSet(), await columnsOf('flashcards'));
+      expect(
+        kFlashcardOptionColumns.toSet(),
+        await columnsOf('flashcard_options'),
+      );
       expect(kReviewLogColumns.toSet(), await columnsOf('review_log'));
       expect(kProvenanceColumns.toSet(), await columnsOf('merged_provenances'));
       expect(kConversationColumns.toSet(), await columnsOf('conversations'));
