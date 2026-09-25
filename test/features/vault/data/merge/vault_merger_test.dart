@@ -1,4 +1,6 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
@@ -718,6 +720,28 @@ void main() {
         kContributorColumns.toSet(),
         await columnsOf('source_contributor'),
       );
+    });
+
+    test('la marca de generado por IA de una nota viaja entera con ella '
+        '(F16, D3)', () async {
+      await pc.saveNote('derivado', text: 'Un derivado, generado.');
+      await (pc.db.update(
+        pc.db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('derivado'))).write(
+        KnowledgeNotesCompanion(
+          generatedByModel: const Value('gemma-3n'),
+          generatedAt: Value(pc.now),
+        ),
+      );
+
+      await tel.mergeFrom(pc);
+
+      final note = await (tel.db.select(
+        tel.db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('derivado'))).getSingle();
+      expect(note.generatedByModel, 'gemma-3n');
+      expect(note.generatedAt, pc.now);
+      expect(note.derivedEdited, isFalse);
     });
 
     test('cada campo que se fusiona existe donde dice', () async {

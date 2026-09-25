@@ -30,6 +30,9 @@ const kNoteColumns = [
   'maturity',
   'dedup_hash',
   'simhash',
+  'generated_by_model',
+  'generated_at',
+  'derived_edited',
 ];
 const kSourceColumns = [
   'item_id',

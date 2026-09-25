@@ -146,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 25;
+  static const currentSchemaVersion = 26;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -422,6 +422,32 @@ class AppDatabase extends _$AppDatabase {
           final before = await captureVaultCounts(this, tables: tables);
           await migrator.addColumn(conversations, conversations.notebookId);
           await _requireSameCounts(before, step: 'v25', tables: tables);
+        }
+        // La marca de generado por IA (F16, D3): tres columnas nuevas y
+        // nulas —`derived_edited` en falso, no nula— en `note`, ninguna
+        // fila existente cambia de sentido: una nota de antes de esto ya
+        // era «no generada», que es justo lo que `generated_by_model` nulo
+        // sigue significando. Los conteos de lo anterior son compuerta.
+        if (from < 26) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.addColumn(
+            knowledgeNotes,
+            knowledgeNotes.generatedByModel,
+          );
+          await migrator.addColumn(knowledgeNotes, knowledgeNotes.generatedAt);
+          await migrator.addColumn(
+            knowledgeNotes,
+            knowledgeNotes.derivedEdited,
+          );
+          await _requireSameCounts(before, step: 'v26', tables: tables);
         }
       });
     },
