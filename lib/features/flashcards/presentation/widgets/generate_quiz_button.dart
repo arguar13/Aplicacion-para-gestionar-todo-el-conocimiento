@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/quiz_review_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/quiz_session_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El botón «Generar quiz» (F20), en el detalle de un elemento: mismo
@@ -89,14 +91,29 @@ class _GenerateQuizButtonState extends ConsumerState<GenerateQuizButton> {
       return;
     }
 
-    final saved = await Navigator.of(context).push<int>(
+    final saved = await Navigator.of(context).push<List<Flashcard>>(
       MaterialPageRoute(
         builder: (context) =>
             QuizReviewScreen(item: widget.item, questions: questions),
       ),
     );
-    if (saved == null || saved == 0 || !mounted) return;
-    _showMessage(l10n.quizSaved(saved));
+    if (saved == null || saved.isEmpty || !mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.quizSaved(saved.length)),
+          action: SnackBarAction(
+            label: l10n.quizSessionPracticeNow,
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (context) => QuizSessionScreen(cards: saved),
+              ),
+            ),
+          ),
+        ),
+      );
   }
 
   void _showMessage(String message) {

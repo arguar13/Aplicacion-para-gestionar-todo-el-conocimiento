@@ -62,7 +62,7 @@ class _QuizReviewScreenState extends ConsumerState<QuizReviewScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-    }, (saved) => Navigator.of(context).pop(saved.length));
+    }, (saved) => Navigator.of(context).pop(saved));
   }
 
   @override

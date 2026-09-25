@@ -179,6 +179,39 @@ void main() {
       expect(find.text(es.quizReviewTitle), findsNothing);
       expect(find.text(es.quizSaved(1)), findsOneWidget);
       expect(useCase.confirmedSeen, hasLength(1));
+      expect(find.text(es.quizSessionPracticeNow), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tocar "Practicar ahora" abre la sesión suelta con lo recién guardado',
+    (tester) async {
+      final useCase = _FakeGenerateQuizUseCase(
+        generateResult: right([_fixtureQuestion('¿Una pregunta?')]),
+        saveResult: right([
+          Flashcard(
+            id: 'card-1',
+            itemId: 'a',
+            front: '¿Una pregunta?',
+            back: 'la correcta',
+            dueAt: DateTime(2026, 9, 25),
+            createdAt: DateTime(2026, 9, 25),
+            kind: FlashcardKind.multipleChoice,
+          ),
+        ]),
+      );
+      await pumpButton(tester, chatModelReady: true, useCase: useCase);
+
+      await tester.tap(find.byTooltip(es.quizGenerateTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.quizReviewConfirm(1)));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.quizSessionPracticeNow));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.quizSessionTitle), findsOneWidget);
+      expect(find.text('¿Una pregunta?'), findsOneWidget);
     },
   );
 

@@ -4478,6 +4478,64 @@
       }
     }
   },
+  "quizSessionPracticeNow": "Practice now",
+  "@quizSessionPracticeNow": {
+    "description": "Botón, tras guardar un quiz, para empezar una sesión suelta de práctica con lo recién guardado."
+  },
+  "quizSessionTitle": "Quiz session",
+  "@quizSessionTitle": {
+    "description": "Título de la pantalla de la sesión suelta de quiz."
+  },
+  "quizSessionRemaining": "{count, plural, =1{1 question left} other{{count} questions left}}",
+  "@quizSessionRemaining": {
+    "description": "Cuántas preguntas faltan en la sesión suelta de quiz.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quizSessionNext": "Next",
+  "@quizSessionNext": {
+    "description": "Botón para pasar a la siguiente pregunta de la sesión suelta de quiz."
+  },
+  "quizSessionFinish": "Finish",
+  "@quizSessionFinish": {
+    "description": "Botón para terminar la última pregunta de la sesión suelta de quiz."
+  },
+  "quizSessionScore": "{correct} of {total} correct",
+  "@quizSessionScore": {
+    "description": "Resultado final de la sesión suelta de quiz.",
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "quizSessionMissedTopicsTitle": "Topics with the most errors",
+  "@quizSessionMissedTopicsTitle": {
+    "description": "Título del resumen de temas del Atlas que concentraron los errores de la sesión."
+  },
+  "quizSessionMissedTopicsEmpty": "The missed questions don't have any Atlas topic assigned.",
+  "@quizSessionMissedTopicsEmpty": {
+    "description": "Mensaje cuando hubo errores pero ninguno se pudo agrupar por tema."
+  },
+  "quizSessionMissedCount": "{count, plural, =1{1 error} other{{count} errors}}",
+  "@quizSessionMissedCount": {
+    "description": "Cuántas preguntas de este tema se fallaron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quizSessionOpenLivingNote": "Go to note",
+  "@quizSessionOpenLivingNote": {
+    "description": "Botón para abrir la nota viva de un tema con errores."
+  },
   "suggestionsReviewDialogTitle": "Property suggestions",
   "@suggestionsReviewDialogTitle": {
     "description": "Título del diálogo que muestra las propiedades que el modelo sugirió para un elemento."

@@ -8,8 +8,10 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
 import 'package:sinapsis/features/flashcards/data/services/distractor_sourcer_impl.dart';
+import 'package:sinapsis/features/flashcards/data/services/quiz_session_summary_service_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/distractor_sourcer.dart';
+import 'package:sinapsis/features/flashcards/domain/services/quiz_session_summary_service.dart';
 import 'package:sinapsis/features/flashcards/domain/usecases/generate_quiz_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_providers.dart';
@@ -41,6 +43,15 @@ final generateQuizUseCaseProvider = Provider<GenerateQuizUseCase>((ref) {
     flashcards: ref.watch(flashcardRepositoryProvider),
     generator: ref.watch(quizQuestionGeneratorProvider),
     distractorSourcer: ref.watch(distractorSourcerProvider),
+  );
+});
+
+final quizSessionSummaryServiceProvider = Provider<QuizSessionSummaryService>((
+  ref,
+) {
+  return QuizSessionSummaryServiceImpl(
+    database: ref.watch(appDatabaseProvider),
+    topics: ref.watch(ankiTopicResolverProvider),
   );
 });
 

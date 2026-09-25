@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/habit/data/repositories/badge_repository_impl.dart';
@@ -11,6 +12,19 @@ import 'package:sinapsis/features/habit/domain/entities/streak.dart';
 import 'package:sinapsis/features/habit/domain/repositories/badge_repository.dart';
 import 'package:sinapsis/features/habit/domain/repositories/review_history_repository.dart';
 import 'package:sinapsis/features/habit/domain/repositories/streak_repository.dart';
+
+/// Ningún repositorio nuevo lo necesita hoy —cada uno que ya lo usaba lo
+/// arma con un getter privado propio, ver `HabitEventRecorder`—; este es
+/// para quien lo necesite desde la presentación, como la sesión suelta de
+/// quiz (F20, commit 8), sin repetir el cableado.
+final habitEventRecorderProvider = Provider<HabitEventRecorder>((ref) {
+  return HabitEventRecorder(
+    database: ref.watch(appDatabaseProvider),
+    telemetry: ref.watch(telemetryServiceProvider),
+    ids: ref.watch(idGeneratorProvider),
+    clock: ref.watch(clockProvider),
+  );
+});
 
 final streakRepositoryProvider = Provider<StreakRepository>((ref) {
   return StreakRepositoryImpl(

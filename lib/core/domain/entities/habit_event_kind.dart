@@ -14,4 +14,12 @@ enum HabitEventKind {
   /// devuelve— vive en memoria a propósito, para poder deshacerse; no
   /// deja ninguna fila que diga cuándo pasó.
   vocabulary,
+
+  /// Terminar una sesión suelta de quiz (F20, commit 8): a propósito NO
+  /// pasa por `review_log` —esa sesión no toca la programación SM-2, así
+  /// que no tiene la fila que `_reviewDays()` (`HabitActivityDays`) ya
+  /// lee—. Una pregunta de quiz respondida dentro del repaso normal SÍ
+  /// pasa por `FlashcardRepository.review()` como cualquier tarjeta, y
+  /// no necesita este evento aparte.
+  quiz,
 }
