@@ -181,6 +181,84 @@ void main() {
     ]);
   });
 
+  group('la marca de generado (F16, D3)', () {
+    /// Guarda una nota por el editor y la marca como generada, a mano —
+    /// igual que hará el caso de uso de un derivado, que todavía no existe
+    /// en esta ronda—.
+    Future<KnowledgeItem> seedGeneratedNote(WidgetTester tester) async {
+      await pumpEditor(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksParagraphHint),
+        'texto generado',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      final saved =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!
+              .single;
+
+      await (harness.database.update(
+        harness.database.knowledgeNotes,
+      )..where((n) => n.itemId.equals(saved.id))).write(
+        KnowledgeNotesCompanion(
+          generatedByModel: const Value('gemma-3n'),
+          generatedAt: Value(editorNow),
+        ),
+      );
+
+      return saved;
+    }
+
+    Future<bool> derivedEditedOf(String itemId) async {
+      final note = await (harness.database.select(
+        harness.database.knowledgeNotes,
+      )..where((n) => n.itemId.equals(itemId))).getSingle();
+      return note.derivedEdited;
+    }
+
+    testWidgets('editar el contenido de un derivado lo marca', (tester) async {
+      final saved = await seedGeneratedNote(tester);
+
+      await tester.pumpWidget(
+        harness.wrap(BlockEditorScreen(key: UniqueKey(), existingItem: saved)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksParagraphHint),
+        'texto editado por el usuario',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(await derivedEditedOf(saved.id), isTrue);
+    });
+
+    testWidgets('guardar sin cambiar el contenido no lo marca', (tester) async {
+      final saved = await seedGeneratedNote(tester);
+
+      await tester.pumpWidget(
+        harness.wrap(BlockEditorScreen(key: UniqueKey(), existingItem: saved)),
+      );
+      await tester.pumpAndSettle();
+
+      // Solo el título cambia; el contenido de los bloques queda igual.
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksTitleHint),
+        'nuevo título',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      expect(await derivedEditedOf(saved.id), isFalse);
+    });
+  });
+
   group('deduplicación', () {
     const existingText = 'Un texto que ya está guardado desde antes';
 

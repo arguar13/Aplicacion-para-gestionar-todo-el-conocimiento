@@ -21,6 +21,7 @@ import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warn
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
+import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -368,17 +369,18 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     // Si ya había una rendition de bloques, se conserva su id: es la misma
     // forma de contenido, actualizada, no una nueva que reemplaza a la
     // vieja.
-    final existingBlocksId = existing?.renditions
+    final existingBlocksRendition = existing?.renditions
         .whereType<TextRendition>()
         .where((r) => r.kind == RenditionKind.blocks)
-        .firstOrNull
-        ?.id;
+        .firstOrNull;
+    final existingBlocksId = existingBlocksRendition?.id;
+    final blocksContent = encodeContentBlocks(blocks);
 
     final blocksRendition = Rendition.text(
       id: existingBlocksId ?? ids.next(),
       itemId: itemId,
       kind: RenditionKind.blocks,
-      content: encodeContentBlocks(blocks),
+      content: blocksContent,
       isPrimary: true,
       createdAt: now,
     );
@@ -418,6 +420,14 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
       return;
+    }
+
+    // Editar el contenido de un derivado lo hace suyo (F16, D3): solo al
+    // editar una nota que ya existía, y solo si el texto de verdad cambió
+    // —abrir y guardar sin tocar nada no cuenta—. `markEdited` no hace nada
+    // si la nota no es un derivado, así que no hace falta consultar eso acá.
+    if (existing != null && existingBlocksRendition?.content != blocksContent) {
+      await ref.read(derivedNoteRepositoryProvider).markEdited(itemId);
     }
 
     // Las propiedades de la plantilla (F16) recién ahora, con el elemento ya

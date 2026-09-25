@@ -542,6 +542,66 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Marca [itemId] como generada por [model] (F16, D3): una sola vez, al
+  /// nacer como derivado. Devuelve `false` si el elemento no existe o si ya
+  /// estaba marcado —la propia tabla documenta que esto «no se toca
+  /// después»—.
+  ///
+  /// Aparte de [setNoteKind]/[setMaturity] en que NO pasa por
+  /// [EntryField]/[_touch]: esos dos son valores que el usuario elige y
+  /// puede cambiar de nuevo desde una pantalla, así que necesitan
+  /// versionarse para que una fusión sepa distinguir «lo cambié yo» de «lo
+  /// cambió el otro». Esto se escribe una sola vez, nunca desde una
+  /// interfaz que el usuario controle —mismo criterio que `dedupHash`/
+  /// `simhash`, calculados una vez y nunca versionados—.
+  Future<bool> markGenerated(
+    String itemId, {
+    required String model,
+    required DateTime at,
+  }) async {
+    return _db.transaction(() async {
+      final note = await (_db.select(
+        _db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(itemId))).getSingleOrNull();
+      if (note == null || note.generatedByModel != null) return false;
+      await (_db.update(
+        _db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(itemId))).write(
+        KnowledgeNotesCompanion(
+          generatedByModel: Value(model),
+          generatedAt: Value(at),
+        ),
+      );
+      await _bumpEntry(itemId);
+      return true;
+    });
+  }
+
+  /// Marca que el usuario ya tocó el contenido de la nota generada
+  /// [itemId] (F16, D3): «pasa a ser suya». De falso a verdadero una sola
+  /// vez, sin vuelta atrás. Devuelve `false` si el elemento no existe, no es
+  /// una nota generada —`generatedByModel` nulo: «siempre en falso para una
+  /// nota que no es un derivado», tal como documenta la propia tabla— o ya
+  /// estaba marcado. Mismo motivo que [markGenerated] para no pasar por
+  /// [EntryField]/[_touch]: no hay ninguna pantalla donde el usuario elija
+  /// este valor a mano, es un efecto de editar el contenido, no un campo
+  /// propio.
+  Future<bool> markDerivedEdited(String itemId) async {
+    return _db.transaction(() async {
+      final note = await (_db.select(
+        _db.knowledgeNotes,
+      )..where((n) => n.itemId.equals(itemId))).getSingleOrNull();
+      if (note == null || note.generatedByModel == null || note.derivedEdited) {
+        return false;
+      }
+      await (_db.update(_db.knowledgeNotes)
+            ..where((n) => n.itemId.equals(itemId)))
+          .write(const KnowledgeNotesCompanion(derivedEdited: Value(true)));
+      await _bumpEntry(itemId);
+      return true;
+    });
+  }
+
   /// Cambia el subtítulo y/o las notas libres de [itemId]; lo que no se pasa
   /// no se toca. Devuelve `false` si el elemento no existe.
   ///

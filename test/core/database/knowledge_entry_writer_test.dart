@@ -508,6 +508,100 @@ void main() {
     });
   });
 
+  group('la marca de generación (F16, D3)', () {
+    test('marca el modelo y la fecha la primera vez', () async {
+      await writer.upsert(noteItem());
+
+      final marked = await writer.markGenerated(
+        'nota',
+        model: 'gemma-3n',
+        at: captured,
+      );
+
+      expect(marked, isTrue);
+      final note = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('nota'))).getSingle();
+      expect(note.generatedByModel, 'gemma-3n');
+      expect(note.generatedAt, captured);
+    });
+
+    test('no se toca después: una segunda vez no cambia nada', () async {
+      await writer.upsert(noteItem());
+      await writer.markGenerated('nota', model: 'gemma-3n', at: captured);
+
+      final marked = await writer.markGenerated(
+        'nota',
+        model: 'otro-modelo',
+        at: clockNow,
+      );
+
+      expect(marked, isFalse);
+      final note = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('nota'))).getSingle();
+      expect(note.generatedByModel, 'gemma-3n');
+      expect(note.generatedAt, captured);
+    });
+
+    test('un elemento que no existe devuelve false', () async {
+      expect(
+        await writer.markGenerated('nada', model: 'gemma-3n', at: captured),
+        isFalse,
+      );
+    });
+
+    test(
+      'no se versiona: ninguna nota es un campo que el usuario elija',
+      () async {
+        await writer.upsert(noteItem());
+        final before = await versions('nota');
+
+        await writer.markGenerated('nota', model: 'gemma-3n', at: captured);
+
+        expect(await versions('nota'), before);
+      },
+    );
+
+    test('una nota que no es un derivado no se puede marcar editada', () async {
+      await writer.upsert(noteItem());
+
+      expect(await writer.markDerivedEdited('nota'), isFalse);
+      final note = await (db.select(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('nota'))).getSingle();
+      expect(note.derivedEdited, isFalse);
+    });
+
+    test(
+      'editar el contenido de un derivado lo marca la primera vez',
+      () async {
+        await writer.upsert(noteItem());
+        await writer.markGenerated('nota', model: 'gemma-3n', at: captured);
+
+        final marked = await writer.markDerivedEdited('nota');
+
+        expect(marked, isTrue);
+        final note = await (db.select(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals('nota'))).getSingle();
+        expect(note.derivedEdited, isTrue);
+      },
+    );
+
+    test('sin vuelta atrás: una segunda vez no hace nada', () async {
+      await writer.upsert(noteItem());
+      await writer.markGenerated('nota', model: 'gemma-3n', at: captured);
+      await writer.markDerivedEdited('nota');
+
+      expect(await writer.markDerivedEdited('nota'), isFalse);
+    });
+
+    test('un elemento que no existe devuelve false', () async {
+      expect(await writer.markDerivedEdited('nada'), isFalse);
+    });
+  });
+
   group('la papelera', () {
     test(
       'mandar a la papelera pone deletedAt, sube la revisión y lo versiona',
