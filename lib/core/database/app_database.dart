@@ -16,6 +16,7 @@ import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
 import 'package:sinapsis/core/database/tables/embeddings.dart';
 import 'package:sinapsis/core/database/tables/field_versions.dart';
+import 'package:sinapsis/core/database/tables/flashcard_options.dart';
 import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/habit_events.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
@@ -47,6 +48,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -80,6 +82,7 @@ part 'app_database.g.dart';
     Highlights,
     Spaces,
     Flashcards,
+    FlashcardOptions,
     Conversations,
     ChatMessages,
     PropertyDefinitions,
@@ -149,7 +152,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 28;
+  static const currentSchemaVersion = 29;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -498,6 +501,34 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(habitEvents);
           await migrator.createIndex(idxHabitEventsOccurred);
           await _requireSameCounts(before, step: 'v28', tables: tables);
+        }
+        // Quizzes generados (F20): una tarjeta gana `kind` —`freeRecall` por
+        // defecto para toda tarjeta que ya existía, aditivo, ninguna cambia
+        // de forma— y las de opción múltiple guardan sus opciones en una
+        // tabla nueva, `flashcard_options`, vacía hasta que se genere la
+        // primera. Los conteos de todo lo anterior son compuerta.
+        //
+        // Una base que pasó por v18 en esta misma actualización ya trae la
+        // columna `kind` —la reconstrucción de `flashcards` usa la
+        // definición de HOY de la tabla—, mismo motivo que el
+        // `_columnExists` de v20/v27 más arriba.
+        if (from < 29) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists('flashcards', flashcards.kind.name)) {
+            await migrator.addColumn(flashcards, flashcards.kind);
+          }
+          await migrator.createTable(flashcardOptions);
+          await migrator.createIndex(idxFlashcardOptionsFlashcard);
+          await _requireSameCounts(before, step: 'v29', tables: tables);
         }
       });
     },

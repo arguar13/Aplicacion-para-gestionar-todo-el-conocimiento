@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 
 /// Una tarjeta de repaso: una pregunta, una respuesta, y el estado de
 /// repetición espaciada que decide cuándo volver a mostrarla.
@@ -20,6 +21,13 @@ class Flashcards extends Table {
 
   TextColumn get front => text()();
   TextColumn get back => text()();
+
+  /// La forma de la tarjeta (F20): `freeRecall` para toda tarjeta que ya
+  /// existía —lo que `Flashcard` siempre fue— y para las que se siguen
+  /// creando a mano. `multipleChoice`/`trueFalse` son las de un quiz
+  /// generado.
+  TextColumn get kind =>
+      textEnum<FlashcardKind>().withDefault(const Constant('freeRecall'))();
 
   /// El factor de facilidad de SM-2 (Anki usa el mismo algoritmo, con estas
   /// mismas variables). Arranca en 2.5 —el valor de origen del algoritmo— y

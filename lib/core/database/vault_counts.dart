@@ -74,6 +74,11 @@ class VaultCounts {
   /// lista, y esta tabla todavía no existía cuando corrían.
   static const habitTables = <String>['habit_event'];
 
+  /// Las opciones de una tarjeta de opción múltiple (F20). Tampoco está en
+  /// [userDataTables]: los pasos de migración anteriores a v29 cuentan esa
+  /// lista, y esta tabla todavía no existía cuando corrían.
+  static const quizTables = <String>['flashcard_options'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

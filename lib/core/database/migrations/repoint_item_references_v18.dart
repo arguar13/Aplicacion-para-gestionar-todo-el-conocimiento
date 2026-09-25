@@ -164,9 +164,9 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
   await migrator.alterTable(TableMigration(db.renditions));
   await migrator.alterTable(TableMigration(db.relations));
   // `alterTable` reconstruye la tabla con su definición de HOY: `flashcards`
-  // ganó tres columnas en v20 y una más en v27, que una base de v16 o v17
-  // todavía no tiene ninguna. Sin `newColumns` intentaría copiarlas desde una
-  // tabla que no las trae. Cada paso las agrega solo si faltan.
+  // ganó tres columnas en v20, una más en v27 y otra en v29, que una base de
+  // v16 o v17 todavía no tiene ninguna. Sin `newColumns` intentaría copiarlas
+  // desde una tabla que no las trae. Cada paso las agrega solo si faltan.
   await migrator.alterTable(
     TableMigration(
       db.flashcards,
@@ -175,6 +175,7 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
         db.flashcards.sourceCharStart,
         db.flashcards.sourceCharEnd,
         db.flashcards.lastExportedAt,
+        db.flashcards.kind,
       ],
     ),
   );
