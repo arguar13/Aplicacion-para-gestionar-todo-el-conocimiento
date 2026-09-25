@@ -45,5 +45,12 @@ class DerivedNoteRepositoryImpl implements DerivedNoteRepository {
   }
 
   @override
+  Future<void> markGenerated(
+    String itemId, {
+    required String model,
+    required DateTime at,
+  }) => _writer.markGenerated(itemId, model: model, at: at);
+
+  @override
   Future<void> markEdited(String itemId) => _writer.markDerivedEdited(itemId);
 }

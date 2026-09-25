@@ -25,6 +25,7 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
@@ -83,6 +84,10 @@ final summarizationServiceProvider = Provider<SummarizationService>((ref) {
 final propertySuggestionServiceProvider = Provider<PropertySuggestionService>((
   ref,
 ) {
+  return ref.watch(_gemmaModelProvider);
+});
+
+final derivedNoteGeneratorProvider = Provider<DerivedNoteGenerator>((ref) {
   return ref.watch(_gemmaModelProvider);
 });
 

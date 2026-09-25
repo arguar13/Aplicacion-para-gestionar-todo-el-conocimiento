@@ -77,6 +77,16 @@ void main() {
     expect(mark.edited, isFalse);
   });
 
+  test('markGenerated del propio repositorio marca la nota', () async {
+    await seedNote('nota');
+
+    await repository.markGenerated('nota', model: 'gemma-3n', at: now);
+
+    final mark = await repository.watchMark('nota').first;
+    expect(mark!.model, 'gemma-3n');
+    expect(mark.generatedAt, now);
+  });
+
   test('marcar como editada se refleja en la marca', () async {
     await seedNote('nota');
     await writer.markGenerated('nota', model: 'gemma-3n', at: now);
