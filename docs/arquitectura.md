@@ -4286,6 +4286,69 @@ escenario del Mapa a cumplir el 5 % estricto en la sub-rama ni en el zoom, aunqu
 No mide en un teléfono real —sigue siendo emulador, como todo este encargo y el anterior—. No
 construye los escenarios de estrés de la decisión B, por la razón ya dicha.
 
+### 52. F19 de modo lote transaccional: suspender el índice de texto acotado a lo tocado, no la bóveda entera
+
+Segunda fase del encargo F18–F20 (`docs/planes/F19-modo-lote.md`), que cierra el límite que dejó
+F15: importar miles de referencias, o traer una copia entera con `mergeBackup`, pagaba el mismo
+costo por fila que cualquier guardado normal —el índice de texto completo, el versionado por
+campo— en vez de uno acotado al lote. No cambia el esquema ni toca el texto de ninguna fuente.
+
+**La utilidad de bajo nivel, genérica a propósito (decisión A).**
+`withSuspendedSearchIndexes` (`lib/core/database/bulk_write_scope.dart`) suspende los triggers
+reales de `item_search`/`chunk_search` mientras dura un lote, y los repuebla al cerrar —incluso si
+el lote falla, antes de propagar el error—. No está atada al escritor único: la usan tanto
+`KnowledgeEntryWriter.runBulk` (decisión B) como `VaultMerger` alrededor de `DerivedRebuild.apply()`
+(decisión D), que no pasa por el escritor único y por eso no podría usar `runBulk`.
+`KnowledgeEntryWriter` gana un modo lote interno: mientras dura, no escribe cada `field_version` al
+toque —guarda el último valor por (elemento, campo) en memoria y lo vuelca una vez por campo al
+cerrar—.
+
+**La regresión real que la propia medición encontró y corrigió, no una que se hubiera anticipado.**
+La primera versión de `withSuspendedSearchIndexes` rehacía `item_search`/`chunk_search` ENTEROS al
+cerrar cualquier lote —el mismo camino que ya usaba una migración—, un costo proporcional al tamaño
+de TODA la bóveda, no al del lote. Medido contra la bóveda sintética de referencias (15.000
+elementos): importar 5.000 con esa primera versión tardó 64 s, PEOR que los ~20 s de antes de F19.
+Corregido con dos parámetros nuevos en la utilidad: `touchedItemIds` (una función, llamada después
+del lote, con los ids que cambiaron) repuebla `item_search` acotado a esas filas en vez de la tabla
+entera —`KnowledgeEntryWriter.runBulk` ya tiene esos ids gratis, son las claves de su
+`field_version` diferido—; y `chunks` (`true` por defecto) decide si se suspende `chunk_search` —el
+escritor único lo pone en `false`, porque nunca escribe chunks, y suspenderlo para no usarlo solo
+pagaría el `rebuild` completo de FTS5 sobre cientos de miles de filas sin ninguna razón—.
+`VaultMerger` sigue con el `chunk_search` sin acotar —ahí SÍ hace falta rehacerlo, es donde está el
+costo real que midió F15— y con la tabla `item_search` acotada, aprovechando que `MergeWork.
+touchedItems` ya estaba disponible sin costo extra.
+
+**Medido antes y después, máquina enchufada y sin ruido, con la corrección puesta.**
+`ImportReferencesFileUseCase` migrado de `runInTransaction` a un `LibraryRepository.runBulk` nuevo
+—que convive con `runInTransaction`, que sigue sirviendo para guardar UN elemento, donde suspender
+el índice entero costaría más de lo que ahorra—: importar 5.000 referencias, 21,7 s en escritorio
+—a la par de los ~20 s de antes de F19, dentro del margen normal entre corridas— y 4,5 s en el
+emulador, muy por debajo del objetivo de 90 s. `VaultMerger.merge` envuelve `DerivedRebuild.apply()`
+con la misma utilidad: fusionar una variante de 250 elementos sobre una bóveda ya de 10.000 bajó de
+19,8 s a 16,2 s, refusionar lo mismo de 11,0 s a 8,4 s, y traer la copia entera a una bóveda vacía
+—el escenario de la decisión 45— de 68,2 s a 59,7 s. Mejora real en los cuatro números medidos, con
+`verifyChunkInvariant` y los conteos por tabla en verde. El beneficio de F19 en el caso de
+importación no es bajar un número que ya estaba lejos del techo —el objetivo original de F15 ya era
+20 s—, sino corregir la regresión propia y dejar lista la misma utilidad para `mergeBackup`, donde
+sí se nota.
+
+**Dos puntos del plan, salteados y señalados, no en silencio, por la misma razón: investigados
+antes de construir nada, ninguno tiene hoy un llamador real que se beneficie.** La decisión C
+—diferir y disparar una sola vez las cuatro generadoras de sugerencias/embeddings— no aplica a
+ninguna operación de este plan: `ImportReferencesFileUseCase` crea fuentes de referencia, y el
+único gancho de sugerencias que dispara `LibraryRepositoryImpl.save` actúa solo sobre notas;
+`mergeBackup` ya no las dispara, por diseño, desde F16. El commit 6 —sugerencias en lote y
+reconstrucción de chunks tras fusionar duplicados— tampoco: `SuggestionRepositoryImpl.acceptMany`
+escribe únicamente en `item_property_values`, que ningún trigger de `item_search`/`chunk_search`
+mira; y `MergeDuplicateItemsUseCaseImpl` fusiona UN par de elementos por llamada, sin ningún
+llamador que lo invoque en lote sobre muchos pares a la vez. Los dos quedan documentados acá para
+si algún día un llamador real los necesita —no se descartan, se posponen hasta que haga falta—.
+
+**Lo que F19 no hace, dicho sin adornos.** No toca la aceptación de sugerencias en lote ni la
+fusión de duplicados —investigado, no hace falta hoy—. No difiere las cuatro generadoras de
+sugerencias/embeddings —mismo motivo—. No mide `mergeBackup` en el emulador —el plan no lo pedía
+para este commit, a diferencia de la importación de referencias—.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4627,6 +4690,16 @@ construye los escenarios de estrés de la decisión B, por la razón ya dicha.
   intacto. Primera fase del encargo F18–F20 —ver la decisión 51—. No todos los escenarios entran
   todavía bajo el 5 % estricto: queda como mejora real y medida, no como cierre completo del
   criterio de F14.
+- **F19 de modo lote transaccional: `withSuspendedSearchIndexes` suspende el índice de texto
+  acotado a lo tocado, no la bóveda entera.** Cierra el límite que dejó F15 —importar miles de
+  referencias, o traer una copia entera con `mergeBackup`, pagaba el costo de un guardado normal
+  por fila—. La primera versión rehacía el índice ENTERO al cerrar cualquier lote y eso midió PEOR
+  que antes de F19 (64 s contra ~20 s); corregida para acotarse a los elementos tocados, importar
+  5.000 referencias volvió a los ~20 s de antes en escritorio y bajó a 4,5 s en el emulador, y
+  `mergeBackup` a una bóveda vacía bajó de 68,2 s a 59,7 s. Segunda fase del encargo F18–F20 —ver la
+  decisión 52—. Dos puntos del plan quedan sin construir, investigados y señalados: ni la
+  aceptación de sugerencias en lote ni la fusión de duplicados tienen hoy un llamador que se
+  beneficie del modo lote.
 
 ### Por construir
 
@@ -4675,6 +4748,9 @@ lote grande que dejó F15— y agrega una función: quizzes generados por IA,
 anclados a chunks reales, integrados a la programación espaciada. F18 —el
 Mapa, ver la decisión 51— está construida, con una mejora real y medida
 pero sin cerrar del todo el criterio estricto de F14 en cada escenario.
-F19 —modo lote transaccional— y F20 —quizzes generados y anclados— tienen
-sus planes aprobados (`docs/planes/F19-modo-lote.md`,
-`docs/planes/F20-quizzes-generados.md`) y siguen en orden estricto.
+F19 —modo lote transaccional, ver la decisión 52— también está construida:
+corrigió una regresión real que su propia primera versión introdujo, y
+midió mejoras reales en la importación de referencias y en `mergeBackup`.
+Con esto el encargo F18–F20 queda con sus dos primeras fases cerradas.
+F20 —quizzes generados y anclados— tiene su plan aprobado
+(`docs/planes/F20-quizzes-generados.md`) y sigue, en orden estricto.

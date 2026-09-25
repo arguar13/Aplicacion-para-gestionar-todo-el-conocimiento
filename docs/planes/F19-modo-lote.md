@@ -1,8 +1,11 @@
 # F19 — Modo lote transaccional (deuda de arquitectura)
 
-> **Estado: aprobado** (2026-09-25), en el chat, tal como está escrito, con las decisiones A/B/C/D
-> como se recomendaron. Planificado con el masterprompt F18–F20. Segunda fase del encargo, antes
-> que F20 porque el modo lote beneficia también a la generación de un quiz largo.
+> **Estado: aprobado y construido** (2026-09-25), con las decisiones A/B/C/D como se recomendaron.
+> Planificado con el masterprompt F18–F20. Segunda fase del encargo, antes que F20 porque el modo
+> lote beneficia también a la generación de un quiz largo. Cierra con la Decisión 52 de
+> `docs/arquitectura.md`. Las decisiones C (commit 3) y el commit 6 se saltearon, señalados:
+> investigados antes de construir nada, ninguno tiene hoy un llamador real que se beneficie —queda
+> documentado por si algún día lo necesitan, no descartado—.
 
 F15 encontró que importar 5.000 entradas de BibTeX tarda ~20 s en escritorio, y el diagnóstico ya
 dado entonces es el que este plan confirma con el código real: la causa no son las transacciones,
@@ -105,9 +108,19 @@ tocado.
 
 ## Criterios de cierre (19.3, del encargo)
 
-- [ ] Existe un modo lote genérico, usable por cualquier operación masiva.
-- [ ] Un lote fallido no deja índices ni datos a medias, verificado forzando un fallo.
-- [ ] Importación de BibTeX medida antes y después, con mejora sustancial.
-- [ ] `mergeBackup` medido antes y después.
-- [ ] Las guardas de texto de fuente nunca se suspenden, verificado por test.
-- [ ] Invariante de chunking verde.
+- [x] Existe un modo lote genérico, usable por cualquier operación masiva —`withSuspendedSearchIndexes`
+  (decisión A) y `KnowledgeEntryWriter.runBulk`/`LibraryRepository.runBulk` (decisión B), los dos
+  reusados por `VaultMerger` sin pasar por el escritor único (decisión D).
+- [x] Un lote fallido no deja índices ni datos a medias, verificado forzando un fallo —tests
+  dedicados en `bulk_write_scope_test.dart` y `knowledge_entry_writer_test.dart`.
+- [x] Importación de BibTeX medida antes y después. La primera versión midió PEOR (64 s contra ~20 s
+  de antes de F19: una regresión real, encontrada y corregida antes de cerrar el commit); corregida,
+  volvió a los ~20 s de antes en escritorio (21,7 s) y bajó a 4,5 s en el emulador. El beneficio real
+  de F19 acá no es bajar un número que ya estaba lejos del techo, es no empeorarlo.
+- [x] `mergeBackup` medido antes y después: tel→pc 19,8 s→16,2 s, refusionar 11,0 s→8,4 s, copia
+  entera a bóveda vacía 68,2 s→59,7 s —mejora real en los tres, sin la regresión que sí tuvo la
+  importación—.
+- [x] Las guardas de texto de fuente nunca se suspenden, verificado por test —claves foráneas
+  probadas activas dentro de un lote en `knowledge_entry_writer_test.dart`.
+- [x] Invariante de chunking verde —`verifyChunkInvariant` en los benchmarks de referencia y de
+  fusión, y tests nuevos de `chunk_search`/`item_search` después de fusionar.
