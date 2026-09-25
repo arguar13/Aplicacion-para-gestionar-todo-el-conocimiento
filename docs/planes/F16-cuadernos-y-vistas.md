@@ -1,8 +1,13 @@
 # F16 — Cuadernos, consulta enfocada y vistas (NotebookLM y Notion)
 
-> **Estado: aprobado** (2026-09-24), en el chat, tal como está escrito. Planificado con el
-> masterprompt completo del encargo F12–F17 que el usuario pegó en el chat ese mismo día. Lo que
-> salga distinto de lo planeado se dice en su decisión de `../arquitectura.md`.
+> **Estado: aprobado y construido** (2026-09-24). Aprobado en el chat, tal como está escrito, con
+> las ocho decisiones D1 a D8 y los objetivos de medición propuestos. Planificado con el masterprompt
+> completo del encargo F12–F17 que el usuario pegó en el chat ese mismo día. Lo construido, lo que
+> se midió y lo que no hace, en la Decisión 49 de `../arquitectura.md`. Lo que salió distinto de lo
+> planeado: los commits 12 y 13 salieron partidos —12 en tres (12a/b/c), 13 en dos (13a/b)—; la
+> medición del chat acotado a un cuaderno encontró un costo real (`_resolveScopeIds` armaba cada
+> elemento entero solo para sacarle el id) y se corrigió con su propio commit `perf(...)` (13a) antes
+> del que mide (13b), mismo criterio que F13 y F14.
 
 Quinta fase del encargo F12–F17. No cambia el texto de ninguna fuente ni un chunk; si algo de lo
 nuevo generara texto, es SIEMPRE un `item` de nota nuevo, nunca una edición de lo existente —ver la

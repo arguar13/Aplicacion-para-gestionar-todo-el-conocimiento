@@ -4026,6 +4026,119 @@ mano. Un benchmark que ESCRIBE no puede compartir la base cacheada de los que so
 de fuentes de más para la corrida siguiente —corre sobre una copia (`VACUUM INTO`), mismo criterio que
 `vault_merge_benchmark.dart`—.
 
+### 49. F16 de cuadernos, consulta enfocada y vistas: un subconjunto con nombre, cuatro derivados anclados a su fuente, y vistas y plantillas guardadas
+
+Quinta fase del encargo F12–F17. Cambia el esquema de forma aditiva, en cuatro pasos (v22 → v26):
+`saved_view`/`note_template` (v23), `notebook`/`notebook_item` (v24), `conversations.notebook_id`
+(v25), y `generated_by_model`/`generated_at`/`derived_edited` en `note` (v26). F16 no toca el texto de
+ninguna fuente ni un chunk: un derivado nace SIEMPRE como una nota nueva, nunca una edición de lo que
+ya existe. Son 17 commits: los 14 del plan original, con el 12 partido en tres (12a/b/c) y el 13 en dos
+(13a/b) según hacía falta —el mismo criterio que F9 a F15—. Cada commit compila y analiza por sí solo
+(`tool/verify_commit.ps1`); el analizador quedó en 31 y la suite en 4.954 pruebas.
+
+**Orden interno, al revés del que nombra el encargo (D8).** El plan hizo vistas y plantillas primero
+(16.3), cuadernos después (16.1) y derivados al final (16.2): 16.3 es la pieza más autocontenida y de
+menor riesgo, 16.1 reusa directamente su mecanismo de «consulta guardada» (un cuaderno «por consulta» y
+una vista guardada son el mismo dato, `LibraryQuery` con nombre, aplicado a dos pantallas distintas), y
+16.2 es lo más nuevo —cambios al chat, esquema de notas, generación con IA que hay que anclar bien—, así
+que convenía dejarlo para cuando lo demás ya estuviera probado. El encargo solo exige que F15 y F16 sean
+independientes entre sí, no fija un orden interno.
+
+**Un cuaderno, y por qué no es `Space`.** `Notebook` —manual (`notebook_item`, pertenencia por
+referencia, mismo criterio que `item_property_values`) o por consulta (una `LibraryQuery` con nombre,
+resuelta en el momento)— acota el chat a un subconjunto sin exigir que cada elemento viva en un solo
+lugar, a diferencia de `Space`. `NotebookRepository.resolveQuery` unifica los dos modos en una sola
+`LibraryQuery`, así que quien consume un cuaderno —el chat, un derivado— no necesita saber en qué modo
+está. Sirve como buscador acotado incluso SIN el modelo de lenguaje descargado: acotar es solo FTS5,
+generar es lo único que de verdad necesita el modelo.
+
+**El chat resuelve el chunk real, no un recorte de 400 caracteres.** `ChatSource` gana
+`sourceCharStart`/`sourceCharEnd` —las mismas coordenadas que `Relations`/`Chunks`—, replicando en Dart,
+sobre lo que `LibraryRepository` ya trajo cargado, la regla de F10 (texto principal, o el más viejo si
+ninguno es principal): sin consulta nueva, sin dependencia nueva. Un elemento sin forma que se
+fragmente —una nota manual, o algo sin procesar— sigue mostrando su fragmento como siempre, con offset
+`null`: sin nada a lo que anclar una cita, no sin cita.
+
+**`DerivedNoteGenerator`, un generador único para los cuatro tipos (D5).** Guía de estudio, preguntas
+abiertas, esquema y cronología comparten una sola interfaz, parametrizada por un enum, con una plantilla
+de instrucción por tipo y el mismo formato de respuesta —mismo patrón que `FlashcardGenerator`—. Cada
+afirmación se ancla buscando la cita del modelo, TEXTUAL, dentro del `excerpt` de la fuente y corriendo
+el rango por su `sourceCharStart` (D6): lo que no se pueda anclar así no se escribe en el derivado —
+«mejor ninguno que uno equivocado», el mismo criterio que una tarjeta de F11 sin cita verificable, un
+paso más estricto—. Cada fuente ancla como mucho UNA afirmación por derivado: `RelationKind.
+extractedFrom` tiene `UNIQUE(from_item_id, to_item_id, kind)`, así que una segunda afirmación sobre la
+misma fuente no tendría dónde guardar su propio rango; se descarta, no se junta con la primera. Es una
+limitación real y deliberada, no un defecto: un derivado que sale de UN SOLO elemento nunca puede tener
+más de una afirmación anclada.
+
+**Generar, guardar y marcar, todo o nada.** `GenerateDerivedNoteUseCase` resuelve las fuentes —todo lo
+que resuelve un cuaderno, o un único elemento—, genera el borrador, arma el contenido como bloques
+(un encabezado por sección, un ítem por afirmación) y guarda la nota, su marca
+(`generated_by_model`/`generated_at`, escrita una sola vez, nunca versionada: no hay ninguna pantalla
+donde el usuario la elija a mano) y una relación `extractedFrom` por afirmación, dentro de una sola
+transacción. Sin fuentes o sin nada anclado, no se crea nada. Editar el contenido de un derivado lo
+marca `derived_edited` la primera vez —«pasa a ser suyo»—, sin fecha ni historial propios:
+`field_versions` ya anota cuándo se tocó el contenido. La insignia «Generado por IA» —con el modelo y
+la fecha en el tooltip— vive en el mismo lugar que la madurez de una nota; el botón de generar, en el
+cuaderno y en cualquier elemento, con el mismo aviso de «modelo requerido» que ya usa resumir.
+
+**Vistas guardadas y plantillas.** Una vista guarda `LibraryQuery` —filtro y orden, no `ids` ni
+`limit`/`offset`: eso es de la sesión o de la página, no del filtro que se nombra y guarda—, con su modo
+de vista y si está fijada en la navegación. Una plantilla de nota precarga bloques y propiedades; una
+propiedad de plantilla se guarda por categoría y etiqueta, no por el id del valor, así que aplicarla
+sigue el mismo camino que escribirla a mano —crea el valor si hace falta, sin referencia colgando si el
+original se borra o se fusiona—. La vista de calendario agrupa por Fecha del hecho (por defecto) o por
+fecha de captura, reusando `LibraryQuery` tal cual.
+
+**Dos censos de fusión que una columna nueva puede dejar atrás.** `lib/features/vault/data/merge/`
+tiene DOS mecanismos de fusión con su propio censo de columnas —`SetUnionMerge.kConversationColumns`
+(conflicto por conflicto) y `EntryMergeApplier.kNoteColumns` (copia entera de un elemento nuevo)—, y
+NINGUNO de los dos lo agarra `flutter test` de área, solo la suite completa. Dos columnas nuevas de esta
+fase cayeron en ese hueco y se corrigieron en el mismo commit que las agregó: `notebook_id` en
+`conversations` (v25, degrada a `null` si el cuaderno no existe del lado que recibe —los cuadernos son
+de un dispositivo, no viajan en la fusión—) y las tres columnas de la marca de generado en `note` (v26,
+viajan enteras: la marca es del elemento mismo). Queda como lección permanente: ante cualquier columna
+nueva, `grep` en esa carpeta por una columna hermana de la misma tabla antes de dar el commit por
+cerrado.
+
+**Lo que la medición encontró.** El benchmark de la bóveda sintética sumó tres escenarios —un cuaderno
+manual de 500 elementos, el tamaño que propone el propio plan— que miden lo que hace el chat de verdad
+por cada pregunta: resolver el alcance del cuaderno de nuevo —no se cachea entre preguntas— y buscar
+dentro de él. La primera corrida mostró 126–186 ms, sobre el umbral de escritorio: `_resolveScopeIds`
+armaba cada uno de los 500 elementos ENTERO —renditions, etiquetas, propiedades— solo para sacarle el
+id. Se cambió a `LibraryRepository.matchingIds`, la misma consulta que `list()` ya hace por dentro, sin
+ese segundo paso —un `perf(...)` aparte, antes del commit que mide, mismo criterio que F13 y F14—.
+
+**Cifras del emulador** (AVD `Pixel_9_Pro`, Google sdk_gphone16k_x86_64, Android 17, PC enchufada;
+`docs/benchmarks/emulador-…/2026-09-24-f16/`):
+
+| escenario | medido (mediana) | objetivo |
+|---|---|---|
+| cuaderno de 500: palabra rara | 23 ms | 300 ms |
+| cuaderno de 500: palabra mediana | 54 ms | 300 ms |
+| cuaderno de 500: dos palabras | 101 ms | 300 ms |
+
+Los otros 25 escenarios del mismo archivo —búsqueda sin acotar, detalle, grafo local, línea de tiempo,
+salud, filtro jerárquico, Atlas, vocabulario— siguen verdes, sin cambios propios de esta fase.
+
+**El criterio de cierre (16.4 del encargo), con lo que se cumple.** El chat se acota a un cuaderno y
+cita solo dentro de él, con o sin modelo descargado. Los derivados cumplen las cuatro condiciones de la
+sección 1 del encargo: nacen como un elemento nuevo, marcados con el modelo y la fecha, cada afirmación
+citada a su chunk real, y ninguna pantalla muestra un derivado en lugar del texto original —una nota
+generada se ve, se edita y se cita exactamente como cualquier otra, solo con su insignia de más—. Vistas
+guardadas y plantillas funcionan de punta a punta. El invariante de chunking sigue en verde sobre la
+bóveda entera: F16 nunca tocó un chunk ni el texto de una fuente.
+
+**Lo que F16 no hace, dicho sin adornos.** No sincroniza con el NotebookLM real de Google —comparten
+nombre por la función, no el producto—. Un derivado no ancla una afirmación a más de un chunk, y un
+derivado de un solo elemento nunca puede tener más de una afirmación anclada —ver arriba—. La
+generación no funciona sin el modelo descargado, a diferencia de un cuaderno, que sí sirve como buscador
+acotado sin él. No hay comentarios ni nada multiusuario en un cuaderno: la bóveda sigue siendo de un
+dispositivo. Las plantillas no son un motor de bloques nuevo: predefinen una estructura con los bloques
+que ya existen. No convierte de golpe las notas que ya existen en «generadas»: la marca solo la llevan
+las que nazcan desde un derivado de acá en adelante. No mide en un teléfono real: solo hay emulador, y
+sus tiempos son optimistas.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4327,6 +4440,24 @@ de fuentes de más para la corrida siguiente —corre sobre una copia (`VACUUM I
   miles de entradas de golpe paga el mismo costo por entrada que cualquier
   guardado normal de la app: queda como límite conocido, sin camino rápido
   para un lote grande.
+- **F16 de cuadernos, consulta enfocada y vistas: un subconjunto con nombre
+  para el chat, cuatro derivados anclados a su fuente, y vistas y plantillas
+  guardadas.** Un `Notebook` —manual o por consulta guardada— acota el chat a
+  un subconjunto sin exigir que cada elemento viva en un solo lugar, y sirve
+  como buscador acotado incluso sin el modelo de lenguaje descargado.
+  `DerivedNoteGenerator` propone una guía de estudio, preguntas abiertas, un
+  esquema o una cronología desde un cuaderno o un elemento; cada afirmación se
+  ancla con `RelationKind.extractedFrom` a un fragmento real de su fuente —lo
+  que no se pueda anclar textual no se escribe—, y el derivado nace como una
+  nota nueva, marcada con el modelo y la fecha, nunca reemplazando el
+  original. Vistas guardadas (filtro + modo + orden, fijables en la
+  navegación) y plantillas de nota (bloques y propiedades precargados)
+  completan lo que faltaba de Notion. Un cambio de esquema aditivo, en cuatro
+  pasos (v23 a v26): `saved_view`/`note_template`, `notebook`/`notebook_item`,
+  `conversations.notebook_id`, y la marca de generado en `note`. Quinta fase
+  del encargo F12–F17 —ver la decisión 49—. Medir encontró que resolver el
+  alcance de un cuaderno armaba cada elemento entero solo para sacarle el id:
+  se corrigió antes de cerrar la fase.
 
 ### Por construir
 
@@ -4344,21 +4475,21 @@ decisión 44—.
 Después vino un segundo encargo, F12 a F17. F12 —el cierre de deuda: cifras de
 un Android, compactación y copia por tandas, ver la decisión 45—, F13 —la
 jerarquía temática y el Atlas, ver la decisión 46—, F14 —el mapa de
-conocimiento, ver la decisión 47— y F15 —la biblioteca académica, ver la
-decisión 48— están construidas. F14 se cerró con una excepción dicha: en el
-emulador el dibujo del mapa no cumple el presupuesto de un cuadro salvo en el
-nivel de elementos, y arreglarlo pide decidir entre dibujar menos temas a la
-vez o rediseñar cómo se dibuja el grafo. F15 se cerró con otra: importar
-miles de entradas de golpe paga el mismo costo por entrada que cualquier
-guardado normal de la app, y bajarlo de verdad pide suspender el índice de
-texto durante el lote y rearmarlo al final, un rediseño del escritor único
-sobre datos reales que queda para una fase futura. Siguen F16 —cuadernos,
-derivados marcados y vistas— y F17 —Anki y hábito—, ya aprobados
-(planes en `docs/planes/`), que se construyen a continuación.
+conocimiento, ver la decisión 47—, F15 —la biblioteca académica, ver la
+decisión 48— y F16 —cuadernos, derivados marcados y vistas, ver la decisión
+49— están construidas. F14 se cerró con una excepción dicha: en el emulador
+el dibujo del mapa no cumple el presupuesto de un cuadro salvo en el nivel de
+elementos, y arreglarlo pide decidir entre dibujar menos temas a la vez o
+rediseñar cómo se dibuja el grafo. F15 se cerró con otra: importar miles de
+entradas de golpe paga el mismo costo por entrada que cualquier guardado
+normal de la app, y bajarlo de verdad pide suspender el índice de texto
+durante el lote y rearmarlo al final, un rediseño del escritor único sobre
+datos reales que queda para una fase futura. Sigue F17 —Anki y hábito—, ya
+aprobado (plan en `docs/planes/`), que se construye a continuación.
 
-Lo que queda son las cosas que las decisiones 44, 45, 46, 47 y 48 dicen, sin
-adornos, que no hacen: una sincronización que no dependa de traer una copia a
-mano, lápidas para lo que se une por conjuntos, la medición en un teléfono real
-—F12 a F15 midieron en un emulador— y un camino rápido para importar un lote
-grande de referencias. Ninguna está planeada; se planean —plan breve, aprobado,
-después código— cuando le toquen.
+Lo que queda son las cosas que las decisiones 44, 45, 46, 47, 48 y 49 dicen,
+sin adornos, que no hacen: una sincronización que no dependa de traer una
+copia a mano, lápidas para lo que se une por conjuntos, la medición en un
+teléfono real —F12 a F16 midieron en un emulador— y un camino rápido para
+importar un lote grande de referencias. Ninguna está planeada; se planean
+—plan breve, aprobado, después código— cuando le toquen.
