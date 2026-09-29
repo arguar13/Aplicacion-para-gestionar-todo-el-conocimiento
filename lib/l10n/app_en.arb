@@ -608,6 +608,15 @@
       }
     }
   },
+  "processingTranscribing": "Transcribing… {percent}%",
+  "@processingTranscribing": {
+    "description": "Progress of transcribing an audio or video, next to its progress bar",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "processingWaitingForLongDetail": "Waiting its turn: another long job (a transcription or scanned pages) finishes first.",
   "@processingWaitingForLongDetail": {
     "description": "On an item's detail, while its long part waits for another long job"

@@ -36,11 +36,22 @@ void main() {
     expect(find.text(es.processingRecognizingPages(12, 400)), findsOneWidget);
   });
 
-  testWidgets('cualquier otro trabajo dice el porcentaje', (tester) async {
+  testWidgets('un audio o un video en el carril largo dice que se está '
+      'transcribiendo', (tester) async {
     await pump(
       tester,
       const ProcessingProgress(lane: ProcessingLane.long, done: 1, total: 4),
-      kind: SourceKind.audio,
+      kind: SourceKind.video,
+    );
+
+    expect(find.text(es.processingTranscribing(25)), findsOneWidget);
+  });
+
+  testWidgets('cualquier otro trabajo dice el porcentaje', (tester) async {
+    await pump(
+      tester,
+      const ProcessingProgress(done: 1, total: 4),
+      kind: SourceKind.webPage,
     );
 
     expect(find.text(es.processingProgressLabel(25)), findsOneWidget);

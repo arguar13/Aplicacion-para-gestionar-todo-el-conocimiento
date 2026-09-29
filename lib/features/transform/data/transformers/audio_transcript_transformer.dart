@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -7,6 +8,7 @@ import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
@@ -25,7 +27,9 @@ class AudioTranscriptTransformer implements Transformer {
     required FileStore files,
     required IdGenerator ids,
     required Clock clock,
+    ProcessingCheckpoints? checkpoints,
   }) : _transcriber = transcriber,
+       _checkpoints = checkpoints,
        _files = files,
        _ids = ids,
        _clock = clock;
@@ -34,6 +38,11 @@ class AudioTranscriptTransformer implements Transformer {
   final FileStore _files;
   final IdGenerator _ids;
   final Clock _clock;
+
+  /// Dónde se guardan los tramos ya transcritos, para retomar un audio de
+  /// horas si se interrumpe (F21). `null` en las pruebas que no lo
+  /// necesitan: se transcribe de un tirón.
+  final ProcessingCheckpoints? _checkpoints;
 
   /// Trabajo largo, y todo en el carril largo: su tramo corto no hace nada
   /// que pueda colgarse.
@@ -74,7 +83,28 @@ class AudioTranscriptTransformer implements Transformer {
     // que el transcriptor recibe la ruta relativa y la resuelve por su
     // cuenta.
     final transcriberPath = kIsWeb ? path : await _files.resolve(path);
-    final text = await _transcriber.transcribe(transcriberPath);
+    final checkpoints = _checkpoints;
+    final text = await _transcriber.transcribe(
+      transcriberPath,
+      session: TranscriptionSession(
+        context: context,
+        workKey: item.id,
+        loadSegments: checkpoints == null
+            ? null
+            : () => checkpoints.load(
+                item.id,
+                ProcessingCheckpointKind.transcriptSegment,
+              ),
+        saveSegment: checkpoints == null
+            ? null
+            : (segment, text) => checkpoints.save(
+                item.id,
+                ProcessingCheckpointKind.transcriptSegment,
+                position: segment,
+                content: text,
+              ),
+      ),
+    );
 
     // Sin texto transcripto no es un fallo: un video sin diálogo, música
     // instrumental, silencio. El elemento se marca listo igual, con el

@@ -49,8 +49,25 @@ class ProcessingProgressBar extends StatelessWidget {
   final ProcessingProgress progress;
 
   /// Qué se está procesando, para decir qué es el trabajo largo: en un
-  /// documento, reconocer sus páginas escaneadas —"12 de 400"—.
+  /// documento, reconocer sus páginas escaneadas —"12 de 400"—; en un audio
+  /// o un video, transcribirlo.
   final SourceKind? kind;
+
+  /// Qué es el trabajo largo en curso, dicho con lo que es: páginas en un
+  /// documento, transcripción en un audio o un video. `null` si no se sabe.
+  String? _longWorkLabel(AppLocalizations l10n) {
+    final fraction = progress.fraction;
+    if (progress.lane != ProcessingLane.long || fraction == null) return null;
+    return switch (kind) {
+      SourceKind.document => l10n.processingRecognizingPages(
+        progress.done,
+        progress.total,
+      ),
+      SourceKind.audio ||
+      SourceKind.video => l10n.processingTranscribing((fraction * 100).floor()),
+      _ => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,11 +78,8 @@ class ProcessingProgressBar extends StatelessWidget {
 
     final label = waiting
         ? l10n.processingWaitingForLongDetail
-        : kind == SourceKind.document &&
-              progress.lane == ProcessingLane.long &&
-              progress.total > 0
-        ? l10n.processingRecognizingPages(progress.done, progress.total)
-        : l10n.processingProgressLabel(((fraction ?? 0) * 100).floor());
+        : _longWorkLabel(l10n) ??
+              l10n.processingProgressLabel(((fraction ?? 0) * 100).floor());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

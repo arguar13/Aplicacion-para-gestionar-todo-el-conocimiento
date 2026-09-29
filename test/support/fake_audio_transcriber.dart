@@ -21,9 +21,16 @@ class FakeAudioTranscriber implements AudioTranscriber {
   /// que se le pide la absoluta y no la relativa que guarda la base.
   final requested = <String>[];
 
+  /// La sesión de cada pedido, en orden.
+  final sessions = <TranscriptionSession>[];
+
   @override
-  Future<String> transcribe(String absolutePath) async {
+  Future<String> transcribe(
+    String absolutePath, {
+    TranscriptionSession session = TranscriptionSession.detached,
+  }) async {
     requested.add(absolutePath);
+    sessions.add(session);
     if (error != null) throw error!;
 
     return text;

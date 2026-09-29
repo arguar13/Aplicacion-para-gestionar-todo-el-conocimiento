@@ -2,13 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
 import '../../../../support/fake_audio_transcriber.dart';
 import '../../../../support/fake_id_generator.dart';
@@ -144,4 +148,57 @@ void main() {
       );
     });
   });
+
+  test('los tramos se guardan y se retoman para este elemento, con el '
+      'contexto de la cola (F21)', () async {
+    final checkpoints = _MemoryCheckpoints();
+    await checkpoints.save(
+      'item-1',
+      ProcessingCheckpointKind.transcriptSegment,
+      position: 0,
+      content: 'de antes',
+    );
+    final context = CancellableTransformContext(CancellationSignal());
+
+    await AudioTranscriptTransformer(
+      transcriber: transcriber,
+      files: files,
+      ids: FakeIdGenerator(),
+      clock: () => now,
+      checkpoints: checkpoints,
+    ).transform(await seed(), context: context);
+
+    final session = transcriber.sessions.single;
+    expect(session.workKey, 'item-1');
+    expect(identical(session.context, context), isTrue);
+    expect(await session.transcribedSegments(), {0: 'de antes'});
+
+    await session.saveSegment(1, 'nuevo');
+    expect(
+      await checkpoints.load(
+        'item-1',
+        ProcessingCheckpointKind.transcriptSegment,
+      ),
+      {0: 'de antes', 1: 'nuevo'},
+    );
+  });
+}
+
+/// El avance guardado, en memoria.
+class _MemoryCheckpoints implements ProcessingCheckpoints {
+  final _saved = <(String, ProcessingCheckpointKind), Map<int, String>>{};
+
+  @override
+  Future<Map<int, String>> load(
+    String itemId,
+    ProcessingCheckpointKind kind,
+  ) async => {...?_saved[(itemId, kind)]};
+
+  @override
+  Future<void> save(
+    String itemId,
+    ProcessingCheckpointKind kind, {
+    required int position,
+    required String content,
+  }) async => (_saved[(itemId, kind)] ??= {})[position] = content;
 }

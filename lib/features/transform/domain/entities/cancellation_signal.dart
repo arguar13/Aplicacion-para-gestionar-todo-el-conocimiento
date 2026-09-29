@@ -39,3 +39,46 @@ class ProcessingCancelledException implements Exception {
   @override
   String toString() => 'Se abandonó el procesamiento: el elemento se borró.';
 }
+
+/// [source], hasta que [whenCancelled] se complete: entonces lanza
+/// [ProcessingCancelledException] en el acto —aunque no esté llegando nada—
+/// y deja de leer [source].
+///
+/// Soltar [source] NO se espera, ni al cancelar ni cuando quien lee deja de
+/// leer: cancelar una descarga trabada esperando una respuesta que no llega,
+/// o un motor nativo a mitad de un tramo, no se completa hasta que esa
+/// espera termine —o nunca—, y quien lee no suelta lo que tenga a medias
+/// hasta que la cancelación se complete. El origen se cierra solo cuando
+/// despierta.
+Stream<T> cancellableStream<T>(Stream<T> source, Future<void> whenCancelled) {
+  late final StreamController<T> controller;
+  StreamSubscription<T>? subscription;
+
+  void release() {
+    final released = subscription?.cancel();
+    subscription = null;
+    if (released != null) unawaited(released);
+  }
+
+  controller = StreamController<T>(
+    onListen: () {
+      subscription = source.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      unawaited(
+        whenCancelled.then((_) {
+          if (controller.isClosed) return;
+          release();
+          controller.addError(const ProcessingCancelledException());
+          unawaited(controller.close());
+        }),
+      );
+    },
+    onPause: () => subscription?.pause(),
+    onResume: () => subscription?.resume(),
+    onCancel: release,
+  );
+  return controller.stream;
+}

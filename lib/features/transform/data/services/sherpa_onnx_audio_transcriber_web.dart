@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
@@ -49,7 +50,10 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
   static const _sampleRate = 16000;
 
   @override
-  Future<String> transcribe(String path) async {
+  Future<String> transcribe(
+    String path, {
+    TranscriptionSession session = TranscriptionSession.detached,
+  }) async {
     if (!await _model.isReady()) throw const WhisperModelNotReadyException();
 
     final sourceBytes = await _files.read(path);
@@ -95,7 +99,24 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
       );
       final samples = pcm16ToFloat32Samples(pcmBytes);
 
-      return transcribeInChunks(recognizer, samples);
+      // Por tramos, con avance y retomable, igual que en el dispositivo
+      // (F21). Acá no hay isolates: entre tramo y tramo se le devuelve el
+      // turno a la interfaz.
+      return await runSegmentedTranscription(
+        segmentCount: (samples.length / whisperChunkSamples).ceil(),
+        session: session,
+        transcribe: (pending) async* {
+          for (final segment in pending) {
+            final start = segment * whisperChunkSamples;
+            final end = math.min(start + whisperChunkSamples, samples.length);
+            yield (
+              segment,
+              transcribeWindow(recognizer, samples.sublist(start, end)),
+            );
+            await Future<void>.delayed(Duration.zero);
+          }
+        },
+      );
     } finally {
       recognizer.free();
     }

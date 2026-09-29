@@ -143,6 +143,7 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
+      checkpoints: ref.watch(processingStateRepositoryProvider),
     ),
   ]);
 });

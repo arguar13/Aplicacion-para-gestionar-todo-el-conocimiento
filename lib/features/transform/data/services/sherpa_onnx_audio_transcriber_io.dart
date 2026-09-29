@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' as math;
 
 import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
@@ -17,34 +19,32 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 ///    de un video— a WAV de 16 kHz mono con `audio_decoder`: es el formato
 ///    exacto que espera un modelo de Whisper, sea cual sea el formato de
 ///    origen. Archivo a archivo, no bytes a bytes: así el origen —que puede
-///    ser un video de varios cientos de megas— nunca se carga entero en la
-///    memoria de Dart, solo lo lee el decodificador nativo.
-/// 2. Leer ese WAV y decodificarlo con sherpa-onnx, en un isolate aparte.
+///    ser un video de varios GB— nunca se carga en la memoria de Dart, solo
+///    lo lee el decodificador nativo. El WAV queda en disco hasta terminar:
+///    si la app se cierra a mitad de camino, al retomar no se reconvierte
+///    (F21).
+/// 2. Transcribirlo por tramos de 30 segundos —la ventana de Whisper, ver
+///    `transcribeInChunks`— en un isolate aparte, leyendo del WAV de a un
+///    tramo: una hora de audio son 115 MB de WAV y 230 MB de muestras, y ya
+///    no se cargan enteros (F21). Cada tramo terminado vuelve al isolate
+///    principal, que lo guarda y avisa el avance; al retomar, los tramos ya
+///    guardados no se repiten. Ver `runSegmentedTranscription`.
 ///
 /// Por qué en dos pasos y no todo junto: `audio_decoder` habla con las APIs
 /// nativas de la plataforma por un canal de método, y esos canales no
 /// existen en un isolate de fondo sin configuración extra. sherpa-onnx, en
 /// cambio, son llamadas FFI directas —sin canal de por medio— pero
 /// **síncronas y bloqueantes**: decodificar una hora de podcast congelaría
-/// la interfaz entera si corriera en el isolate principal. `Isolate.run`
-/// separa justo lo que hace falta separar, sin más.
+/// la interfaz entera si corriera en el isolate principal.
 ///
-/// Ya no se usa `sherpa_onnx.readWave()`: no existe en la web (ver
-/// `SherpaOnnxAudioTranscriberWeb`), así que las dos plataformas convierten
-/// el WAV a las muestras normalizadas con la misma función de Dart puro,
-/// `pcm16ToFloat32Samples`. Acá el WAV lo sigue escribiendo `audio_decoder`
-/// con su cabecera RIFF de siempre, así que se la saltea.
-///
-/// La decodificación en sí pasa por `transcribeInChunks`, no por un solo
-/// `OfflineStream` con el audio entero adentro: Whisper está entrenado
-/// sobre una ventana fija de 30 segundos, y un audio más largo que eso se
-/// recortaba en silencio a esos primeros 30 segundos sin avisar nada. Ver
-/// el comentario de esa función para el porqué completo.
+/// Abandonar —el elemento se borró— mata el isolate: una llamada nativa en
+/// curso no se puede interrumpir desde Dart, pero no hay por qué esperarla.
 ///
 /// Sin pruebas propias, igual que `MlKitImageTextExtractor` y
 /// `HttpWhisperModelManager`: envuelve un motor real —FFI nativo, en un
 /// isolate— que no tiene con qué correr en un test. Lo que sí se prueba es
-/// `AudioTranscriptTransformer`, contra un doble de esta interfaz.
+/// `runSegmentedTranscription` —qué se retoma, qué se guarda, cómo se
+/// corta— y `AudioTranscriptTransformer`, contra dobles.
 class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   const SherpaOnnxAudioTranscriberIo({
     required WhisperModelManager model,
@@ -63,76 +63,222 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   /// bytes fijos, sin fragmentos extra.
   static const _wavHeaderBytes = 44;
 
-  /// Un solo nombre fijo, no uno por llamada: la cola procesa de a un
-  /// elemento por vez, así que nunca hay dos conversiones en curso al mismo
-  /// tiempo, y un nombre fijo es uno menos que limpiar si algo se
-  /// interrumpe a mitad de camino.
-  static const _tempFileName = 'sinapsis-transcripcion.wav';
-
   @override
-  Future<String> transcribe(String path) async {
+  Future<String> transcribe(
+    String path, {
+    TranscriptionSession session = TranscriptionSession.detached,
+  }) async {
     if (!await _model.isReady()) throw const WhisperModelNotReadyException();
 
     final modelPaths = await _model.paths();
     final tempDirectory = await _temporaryDirectory();
-    final wavPath = p.join(tempDirectory.path, _tempFileName);
+    final wav = File(p.join(tempDirectory.path, _wavName(session.workKey)));
+    // Marca de que la conversión terminó: un WAV sin ella quedó a medias
+    // —la app se cerró mientras se convertía— y se rehace.
+    final converted = File('${wav.path}.listo');
 
-    // Se sacan a variables sueltas antes de cruzar al isolate: son las que
-    // de verdad importan que lleguen bien, y un `String` no deja ninguna
-    // duda de que se puede enviar. `WhisperModelPaths` no necesita saberlo.
-    final encoderPath = modelPaths.encoder;
-    final decoderPath = modelPaths.decoder;
-    final tokensPath = modelPaths.tokens;
-
+    var keepForResume = false;
     try {
-      await AudioDecoder.convertToWav(
-        path,
-        wavPath,
-        sampleRate: _sampleRate,
-        channels: 1,
+      if (!converted.existsSync() || !wav.existsSync()) {
+        await AudioDecoder.convertToWav(
+          path,
+          wav.path,
+          sampleRate: _sampleRate,
+          channels: 1,
+        );
+        converted.writeAsStringSync('');
+      }
+      session.context.throwIfCancelled();
+
+      final samples = (wav.lengthSync() - _wavHeaderBytes) ~/ 2;
+      final segmentCount = (samples / whisperChunkSamples).ceil();
+
+      final job = _TranscriptionJob(
+        wavPath: wav.path,
+        encoder: modelPaths.encoder,
+        decoder: modelPaths.decoder,
+        tokens: modelPaths.tokens,
+        threads: _threads,
       );
-
-      return await Isolate.run(() {
-        sherpa_onnx.initBindings();
-
-        final recognizer = sherpa_onnx.OfflineRecognizer(
-          sherpa_onnx.OfflineRecognizerConfig(
-            model: sherpa_onnx.OfflineModelConfig(
-              whisper: sherpa_onnx.OfflineWhisperModelConfig(
-                encoder: encoderPath,
-                decoder: decoderPath,
-                // Sin esto, Whisper redetecta el idioma en cada ventana de
-                // 30 segundos por separado —ver `transcribeInChunks`—, y en
-                // un audio largo eso puede hacer que el idioma "flote"
-                // entre fragmentos, sobre todo en los más cortos, con
-                // ruido, o con nombres propios en otro idioma. Fijarlo en
-                // español, el idioma principal de quien usa esta app, evita
-                // esa redetección innecesaria.
-                language: 'es',
-                task: 'transcribe',
-              ),
-              tokens: tokensPath,
-              modelType: 'whisper',
-              debug: false,
-            ),
-          ),
-        );
-
-        final wavBytes = File(wavPath).readAsBytesSync();
-        final samples = pcm16ToFloat32Samples(
-          wavBytes,
-          headerBytes: _wavHeaderBytes,
-        );
-
-        try {
-          return transcribeInChunks(recognizer, samples);
-        } finally {
-          recognizer.free();
-        }
-      });
+      final text = await runSegmentedTranscription(
+        segmentCount: segmentCount,
+        session: session,
+        transcribe: job.run,
+      );
+      return text;
+    } on Object {
+      // Interrumpido por un fallo que un reintento puede salvar: el WAV
+      // convertido se conserva si hay dónde retomarlo. Abandonado —se borró
+      // el elemento— no: no hay nada que retomar.
+      keepForResume = session.workKey != null && !session.context.isCancelled;
+      rethrow;
     } finally {
-      final wavFile = File(wavPath);
-      if (wavFile.existsSync()) await wavFile.delete();
+      if (!keepForResume) {
+        if (wav.existsSync()) await wav.delete();
+        if (converted.existsSync()) await converted.delete();
+      }
     }
   }
+
+  /// Cuántos hilos usa Whisper. Con uno —el valor por defecto de
+  /// sherpa-onnx— una hora de audio tardaba horas en un teléfono de ocho
+  /// núcleos (F21). Más de cuatro no rinde: en un teléfono los núcleos de
+  /// más son los de bajo consumo, que frenan al resto.
+  static int get _threads => math.min(Platform.numberOfProcessors, 4);
+
+  /// Un WAV por elemento, para retomar el suyo; uno suelto si no se sabe de
+  /// quién es.
+  static String _wavName(String? workKey) {
+    final safe = workKey?.replaceAll(RegExp('[^A-Za-z0-9_-]'), '_');
+    return safe == null
+        ? 'sinapsis-transcripcion.wav'
+        : 'sinapsis-transcripcion-$safe.wav';
+  }
+}
+
+/// Transcribir los tramos que faltan de un WAV, en un isolate aparte.
+class _TranscriptionJob {
+  const _TranscriptionJob({
+    required this.wavPath,
+    required this.encoder,
+    required this.decoder,
+    required this.tokens,
+    required this.threads,
+  });
+
+  final String wavPath;
+  final String encoder;
+  final String decoder;
+  final String tokens;
+  final int threads;
+
+  /// Los tramos [pending], transcritos, a medida que el isolate los
+  /// termina. Dejar de escuchar mata el isolate.
+  Stream<(int, String)> run(List<int> pending) {
+    late final StreamController<(int, String)> controller;
+    final port = ReceivePort();
+    Isolate? isolate;
+
+    void stop() {
+      isolate?.kill(priority: Isolate.immediate);
+      isolate = null;
+      port.close();
+    }
+
+    controller = StreamController<(int, String)>(
+      onListen: () async {
+        port.listen((message) {
+          switch (message) {
+            case (final int segment, final String text):
+              controller.add((segment, text));
+            case _TranscriptionFailed(:final error):
+              controller.addError(TranscriptionFailedException(error));
+              stop();
+              unawaited(controller.close());
+            case null:
+              stop();
+              unawaited(controller.close());
+          }
+        });
+        try {
+          isolate = await Isolate.spawn(
+            _transcribeSegments,
+            _WorkerArgs(
+              port.sendPort,
+              job: this,
+              pending: List.unmodifiable(pending),
+            ),
+          );
+          // El isolate no pudo nacer: un fallo de la plataforma, no del audio.
+          // ignore: avoid_catches_without_on_clauses
+        } catch (error) {
+          controller.addError(TranscriptionFailedException('$error'));
+          stop();
+          unawaited(controller.close());
+        }
+      },
+      onCancel: stop,
+    );
+    return controller.stream;
+  }
+}
+
+class _WorkerArgs {
+  const _WorkerArgs(this.sendPort, {required this.job, required this.pending});
+
+  final SendPort sendPort;
+  final _TranscriptionJob job;
+  final List<int> pending;
+}
+
+class _TranscriptionFailed {
+  const _TranscriptionFailed(this.error);
+
+  final String error;
+}
+
+/// El isolate: arma el reconocedor una vez, y transcribe cada tramo de
+/// [_WorkerArgs.pending] leyéndolo del WAV —solo ese tramo—, mandando cada
+/// uno apenas lo termina. `null` al final.
+void _transcribeSegments(_WorkerArgs args) {
+  final job = args.job;
+  final out = args.sendPort;
+
+  sherpa_onnx.OfflineRecognizer? recognizer;
+  RandomAccessFile? wav;
+  try {
+    sherpa_onnx.initBindings();
+    recognizer = sherpa_onnx.OfflineRecognizer(
+      sherpa_onnx.OfflineRecognizerConfig(
+        model: sherpa_onnx.OfflineModelConfig(
+          whisper: sherpa_onnx.OfflineWhisperModelConfig(
+            encoder: job.encoder,
+            decoder: job.decoder,
+            // Sin esto, Whisper redetecta el idioma en cada ventana de 30
+            // segundos por separado —ver `transcribeInChunks`—, y en un audio
+            // largo eso puede hacer que el idioma "flote" entre fragmentos,
+            // sobre todo en los más cortos, con ruido, o con nombres propios
+            // en otro idioma. Fijarlo en español, el idioma principal de
+            // quien usa esta app, evita esa redetección innecesaria.
+            language: 'es',
+            task: 'transcribe',
+          ),
+          tokens: job.tokens,
+          modelType: 'whisper',
+          numThreads: job.threads,
+          debug: false,
+        ),
+      ),
+    );
+
+    wav = File(job.wavPath).openSync();
+    const bytesPerSegment = whisperChunkSamples * 2;
+    for (final segment in args.pending) {
+      wav.setPositionSync(
+        SherpaOnnxAudioTranscriberIo._wavHeaderBytes +
+            segment * bytesPerSegment,
+      );
+      final samples = pcm16ToFloat32Samples(wav.readSync(bytesPerSegment));
+      out.send((segment, transcribeWindow(recognizer, samples)));
+    }
+    out.send(null);
+    // Cualquier falla del motor nativo o del archivo: vuelve como un fallo
+    // de la transcripción, con su motivo, en vez de dejar el isolate mudo.
+    // ignore: avoid_catches_without_on_clauses
+  } catch (error) {
+    out.send(_TranscriptionFailed('$error'));
+  } finally {
+    wav?.closeSync();
+    recognizer?.free();
+  }
+}
+
+/// La transcripción falló en el motor, con [detail] como motivo.
+class TranscriptionFailedException implements Exception {
+  const TranscriptionFailedException(this.detail);
+
+  final String detail;
+
+  @override
+  String toString() => 'La transcripción falló: $detail';
 }

@@ -61,23 +61,34 @@ String transcribeInChunks(
 
   for (var offset = 0; offset < samples.length; offset += chunkSamples) {
     final end = (offset + chunkSamples).clamp(0, samples.length);
-    final stream = recognizer.createStream();
-    try {
-      stream.acceptWaveform(
-        samples: samples.sublist(offset, end),
-        sampleRate: sampleRate,
-      );
-      recognizer.decode(stream);
+    final text = transcribeWindow(
+      recognizer,
+      samples.sublist(offset, end),
+      sampleRate: sampleRate,
+    );
+    if (text.isEmpty) continue;
 
-      final text = recognizer.getResult(stream).text.trim();
-      if (text.isEmpty) continue;
-
-      if (buffer.isNotEmpty) buffer.write(' ');
-      buffer.write(text);
-    } finally {
-      stream.free();
-    }
+    if (buffer.isNotEmpty) buffer.write(' ');
+    buffer.write(text);
   }
 
   return buffer.toString();
+}
+
+/// Transcribe UNA ventana de Whisper —hasta 30 segundos, ver
+/// [transcribeInChunks]—: el tramo que se transcribe, se guarda y se retoma
+/// de a uno en un audio largo (F21).
+String transcribeWindow(
+  sherpa_onnx.OfflineRecognizer recognizer,
+  Float32List samples, {
+  int sampleRate = 16000,
+}) {
+  final stream = recognizer.createStream();
+  try {
+    stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    recognizer.decode(stream);
+    return recognizer.getResult(stream).text.trim();
+  } finally {
+    stream.free();
+  }
 }

@@ -97,50 +97,12 @@ class DownloadYouTubeAudioUseCase {
     return saved;
   }
 
-  /// [source], salvo que [cancellation] pida abandonar: entonces lanza
-  /// [ProcessingCancelledException] en el acto —aunque no esté llegando
-  /// nada—, y deja de leer [source].
-  ///
-  /// Soltar [source] NO se espera, ni al cancelar ni cuando quien lee deja
-  /// de leer: cancelar una descarga trabada esperando una respuesta que no
-  /// llega no se completa hasta que esa espera termine —o nunca—, y quien
-  /// guarda no suelta el archivo a medias hasta que la cancelación se
-  /// complete. El origen se cierra solo cuando despierte.
+  /// [source], salvo que [cancellation] pida abandonar: ver
+  /// [cancellableStream].
   Stream<List<int>> _cancellable(
     Stream<List<int>> source,
     CancellationSignal? cancellation,
-  ) {
-    if (cancellation == null) return source;
-
-    late final StreamController<List<int>> controller;
-    StreamSubscription<List<int>>? subscription;
-
-    void release() {
-      final released = subscription?.cancel();
-      subscription = null;
-      if (released != null) unawaited(released);
-    }
-
-    controller = StreamController<List<int>>(
-      onListen: () {
-        subscription = source.listen(
-          controller.add,
-          onError: controller.addError,
-          onDone: controller.close,
-        );
-        unawaited(
-          cancellation.whenCancelled.then((_) {
-            if (controller.isClosed) return;
-            release();
-            controller.addError(const ProcessingCancelledException());
-            unawaited(controller.close());
-          }),
-        );
-      },
-      onPause: () => subscription?.pause(),
-      onResume: () => subscription?.resume(),
-      onCancel: release,
-    );
-    return controller.stream;
-  }
+  ) => cancellation == null
+      ? source
+      : cancellableStream(source, cancellation.whenCancelled);
 }
