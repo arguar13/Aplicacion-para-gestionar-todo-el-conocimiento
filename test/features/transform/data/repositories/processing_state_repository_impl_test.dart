@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -251,5 +252,98 @@ void main() {
     await seed('fallido', state: ProcessingState.failed);
 
     expect(await states.pendingIds(), ['a', 'b']);
+  });
+
+  group('avance guardado (F21)', () {
+    test('lo guardado vuelve, separado por trabajo', () async {
+      await seed('libro');
+
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.ocrPage,
+        position: 0,
+        content: 'Página uno',
+      );
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.ocrPage,
+        position: 2,
+        content: '',
+      );
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.transcriptSegment,
+        position: 0,
+        content: 'Otro trabajo',
+      );
+
+      expect(await states.load('libro', ProcessingCheckpointKind.ocrPage), {
+        0: 'Página uno',
+        2: '',
+      });
+    });
+
+    test('guardar la misma parte otra vez la reemplaza', () async {
+      await seed('libro');
+      for (final text in ['primero', 'después']) {
+        await states.save(
+          'libro',
+          ProcessingCheckpointKind.ocrPage,
+          position: 0,
+          content: text,
+        );
+      }
+
+      expect(await states.load('libro', ProcessingCheckpointKind.ocrPage), {
+        0: 'después',
+      });
+    });
+
+    test('guardar una parte es avance: los intentos vuelven a cero', () async {
+      // Un libro de 400 páginas que se interrumpe tres veces no es un
+      // elemento que "revienta siempre": avanzó cada vez.
+      await seed('libro');
+      await setAttempts('libro', 2);
+
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.ocrPage,
+        position: 0,
+        content: 'x',
+      );
+
+      expect((await sourceOf('libro')).processingAttempts, 0);
+    });
+
+    test('succeed lo borra: lo reunido ya está en el elemento', () async {
+      await seed('libro');
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.ocrPage,
+        position: 0,
+        content: 'x',
+      );
+
+      await states.succeed('libro');
+
+      expect(await states.load('libro', ProcessingCheckpointKind.ocrPage), {});
+    });
+
+    test('fallar o volver a la espera lo conserva, para retomarlo', () async {
+      await seed('libro');
+      await states.save(
+        'libro',
+        ProcessingCheckpointKind.ocrPage,
+        position: 0,
+        content: 'x',
+      );
+
+      await states.fail('libro', ProcessingFailureReason.network);
+      await states.requeue('libro');
+
+      expect(await states.load('libro', ProcessingCheckpointKind.ocrPage), {
+        0: 'x',
+      });
+    });
   });
 }

@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 
 /// [ProcessingStateRepository] sobre las columnas de procesamiento de
-/// `source`: `processing_status`, `processing_error` y `processing_attempts`.
+/// `source` —`processing_status`, `processing_error` y
+/// `processing_attempts`— y el avance guardado de `processing_checkpoint`.
 ///
 /// Una nota no tiene fila en `source` ni nada que procesar: sobre ella, cada
 /// operación no hace nada.
@@ -15,6 +17,8 @@ class ProcessingStateRepositoryImpl implements ProcessingStateRepository {
   final AppDatabase _db;
 
   $KnowledgeSourcesTable get _sources => _db.knowledgeSources;
+
+  $ProcessingCheckpointsTable get _checkpoints => _db.processingCheckpoints;
 
   UpdateStatement<$KnowledgeSourcesTable, KnowledgeSourceRow> _update(
     String itemId,
@@ -48,12 +52,51 @@ class ProcessingStateRepositoryImpl implements ProcessingStateRepository {
       );
 
   @override
-  Future<void> succeed(String itemId) => _update(itemId).write(
-    const KnowledgeSourcesCompanion(
-      processingError: Value(null),
-      processingAttempts: Value(0),
-    ),
-  );
+  Future<void> succeed(String itemId) => _db.transaction(() async {
+    await _update(itemId).write(
+      const KnowledgeSourcesCompanion(
+        processingError: Value(null),
+        processingAttempts: Value(0),
+      ),
+    );
+    await (_db.delete(
+      _checkpoints,
+    )..where((c) => c.itemId.equals(itemId))).go();
+  });
+
+  @override
+  Future<Map<int, String>> load(
+    String itemId,
+    ProcessingCheckpointKind kind,
+  ) async {
+    final rows = await (_db.select(
+      _checkpoints,
+    )..where((c) => c.itemId.equals(itemId) & c.kind.equalsValue(kind))).get();
+    return {for (final row in rows) row.position: row.content};
+  }
+
+  @override
+  Future<void> save(
+    String itemId,
+    ProcessingCheckpointKind kind, {
+    required int position,
+    required String content,
+  }) => _db.transaction(() async {
+    await _db
+        .into(_checkpoints)
+        .insertOnConflictUpdate(
+          ProcessingCheckpointsCompanion.insert(
+            itemId: itemId,
+            kind: kind,
+            position: position,
+            content: content,
+          ),
+        );
+    // Avanzó: lo interrumpido deja de acercarse al tope de intentos.
+    await _update(
+      itemId,
+    ).write(const KnowledgeSourcesCompanion(processingAttempts: Value(0)));
+  });
 
   @override
   Future<void> requeue(String itemId) => _update(itemId).write(

@@ -1,4 +1,5 @@
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 
 /// Los cambios de estado del procesamiento de una fuente, como operaciones
 /// puntuales sobre la base.
@@ -10,7 +11,8 @@ import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 ///
 /// Los métodos lanzan si la base falla: quien los llama —la cola y el caso de
 /// uso que procesa— ya atrapa cualquier error para que nunca corte la cola.
-abstract interface class ProcessingStateRepository {
+abstract interface class ProcessingStateRepository
+    implements ProcessingCheckpoints {
   /// Marca [itemId] en curso, borra el motivo de un fallo anterior y cuenta
   /// un intento más. Devuelve cuántos intentos lleva, contando este.
   Future<int> begin(String itemId);
@@ -18,7 +20,8 @@ abstract interface class ProcessingStateRepository {
   /// Marca [itemId] fallido por [reason]. Conserva los intentos.
   Future<void> fail(String itemId, ProcessingFailureReason reason);
 
-  /// Tras un procesamiento exitoso: sin motivo de fallo y sin intentos.
+  /// Tras un procesamiento exitoso: sin motivo de fallo, sin intentos y sin
+  /// avance guardado —lo reunido ya está en el elemento—.
   Future<void> succeed(String itemId);
 
   /// Deja [itemId] en espera desde cero —sin motivo ni intentos—, para que
