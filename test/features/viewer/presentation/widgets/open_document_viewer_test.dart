@@ -163,7 +163,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
-    late bool result;
+    bool? result;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -204,12 +204,25 @@ void main() {
       // `SelectableText`, el render progresivo de `pdfrx`—, y lo único que
       // hace falta comprobar acá es qué pantalla se abrió, no que termine
       // de dibujarse del todo.
+      //
+      // Hasta que llegue la respuesta, no una cantidad fija de pulsos: la E/S
+      // real tarda lo que tarda, y con la máquina cargada —la suite entera
+      // corriendo— cinco pulsos de 20 ms no alcanzaban y la prueba fallaba
+      // sin que nada anduviera mal. Con un tope, para que una regresión que
+      // cuelgue la apertura falle en vez de esperar para siempre.
+      final deadline = DateTime.now().add(const Duration(seconds: 30));
+      while (result == null && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // Unos pulsos más: que la pantalla de destino llegue a montarse.
       for (var i = 0; i < 5; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 20));
         await tester.pump(const Duration(milliseconds: 100));
       }
     });
-    return result;
+    expect(result, isNotNull, reason: 'la apertura no terminó en 30 s');
+    return result!;
   }
 
   group('fuentes sin archivo que mostrar', () {
