@@ -1,6 +1,6 @@
 # F21 — Procesamiento confiable y rápido
 
-> **Estado: cerrado** (2026-09-29) en diecinueve commits —ver la decisión 54 en
+> **Estado: cerrado** (2026-09-29) en diecisiete commits numerados y tres correcciones sueltas —ver la decisión 54 en
 > `docs/arquitectura.md` y el cierre al final—. **Aprobado** (2026-09-29), en el chat, con la decisión A en una variante propia del
 > usuario (ver abajo), B y C como se recomendaron, y la escala subida a libros de cientos de
 > páginas y videos de hasta 3-4 horas. Nace de un reporte del uso real en el teléfono (Xiaomi
@@ -213,7 +213,8 @@ quedaron; borrar a mitad y comprobar que la cola sigue.
 
 ## Cierre
 
-Diecinueve commits (del 1 al 17, más dos correcciones de prueba). Lo que quedó distinto del plan:
+Diecisiete commits numerados y tres correcciones sueltas —dos de pruebas y una de la versión release,
+que nunca se había compilado y frenaba en R8—. Lo que quedó distinto del plan:
 
 - **El esquema v31 llegó más tarde y más chico.** El motivo, los intentos y el estado del
   procesamiento ya tenían columnas en `source`; v31 solo agrega el avance guardado

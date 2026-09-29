@@ -4471,7 +4471,9 @@ Nace del uso real en el teléfono (Xiaomi, HyperOS): un short de YouTube de dos 
 web y un libro quedaban "Procesando" para siempre, todo lo que se guardaba después quedaba "En
 espera" detrás, y borrar lo trabado no destrababa nada. Plan: `docs/planes/F21-procesamiento-
 confiable.md`, con la escala subida por el usuario a libros de cientos de páginas y videos de hasta
-cuatro horas. Diecinueve commits: diecisiete numerados y dos correcciones de pruebas.
+cuatro horas. Diecisiete commits numerados, más tres correcciones sueltas: dos de pruebas y una de la
+versión release —que nunca se había compilado y frenaba en R8 por reconocedores de ML Kit que la
+app no usa (`android/app/proguard-rules.pro`)—.
 
 **Las causas, medidas en la app en vivo, no supuestas.** El estado interno de la cola se leyó de la
 memoria del proceso por el servicio de depuración de Dart. Lo que quedaba `processing` cuando la app
