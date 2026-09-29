@@ -1,10 +1,28 @@
 # F21 — Procesamiento confiable y rápido
 
-> **Estado: propuesto** (2026-09-29), pendiente de aprobación. Nace de un reporte del uso real en
-> el teléfono (Xiaomi 23090RA98G, HyperOS): un short de YouTube de 2 minutos, una página web y un
-> libro quedan "Procesando" para siempre; lo que se guarda después queda "En espera" detrás; borrar
-> lo trabado no destraba nada. Pedido adicional: videos de media hora o una hora sin que tarde
-> todo el día.
+> **Estado: aprobado** (2026-09-29), en el chat, con la decisión A en una variante propia del
+> usuario (ver abajo), B y C como se recomendaron, y la escala subida a libros de cientos de
+> páginas y videos de hasta 3-4 horas. Nace de un reporte del uso real en el teléfono (Xiaomi
+> 23090RA98G, HyperOS): un short de YouTube de 2 minutos, una página web y un libro quedan
+> "Procesando" para siempre; lo que se guarda después queda "En espera" detrás; borrar lo trabado
+> no destraba nada.
+
+## Escala objetivo
+
+Libros de cientos de páginas (escaneados incluidos) y videos o audios de **hasta 3-4 horas**, de
+YouTube o del propio teléfono. A esa escala no alcanza con que sea rápido:
+
+- **Nada carga el archivo entero en memoria.** Hoy la captura lee cada archivo completo a
+  `Uint8List` y rechaza lo que pasa de 500 MB (`CapturedFile.maxBytes`) —un video de 3 horas
+  grabado con el teléfono pesa varios GB—; el documento se abre desde bytes; el audio se decodifica
+  entero; el audio de YouTube se junta en memoria. Todo pasa a trabajar desde el disco, por partes.
+- **Lo largo se retoma donde quedó.** Una transcripción de 4 horas o el reconocimiento de 500
+  páginas escaneadas guardan su avance por tramo o por página: si se interrumpen, siguen desde ahí,
+  no desde cero.
+- **Avance visible** en la tarjeta y en el detalle, con barra.
+- **Lo que viene después también escala:** fragmentar e indexar el texto de un libro de cientos de
+  páginas, y calcular los vectores del motor de relaciones de miles de fragmentos, se miden; lo
+  pesado va al carril largo, por partes y retomable.
 
 ## Qué pasa de verdad (medido, no supuesto)
 
@@ -83,7 +101,20 @@ etapa en la PC. Siete causas, cada una con su evidencia:
 - **Versión final en el teléfono:** al cerrar, se instala la versión de lanzamiento (release), no
   la de depuración.
 
-## Decisiones que necesito que confirmes al aprobar (mi recomendación va primero)
+## Decisiones tomadas
+
+- **A — elegida en una variante propia:** se extrae el texto que el documento ya trae (rápido, en
+  el carril corto) **y** se reconocen las páginas escaneadas **siempre, automáticamente**, pero en
+  segundo plano, en el carril largo, con barra de avance y retomable, sin impedir nunca abrir el
+  libro. En el detalle de un documento lo principal es **el original** en su visor; el texto
+  extraído no se muestra para leer —queda plegado— porque existe para la búsqueda, el chat, las
+  tarjetas, el quiz y las citas, no para verlo.
+- **B — recomendada:** el audio de YouTube solo se baja si lo pedís.
+- **C — recomendada:** la transcripción larga sigue aunque salgas de la app, con notificación.
+  Se extiende al otro trabajo largo, el reconocimiento de páginas escaneadas: el servicio en
+  primer plano cubre el carril largo entero.
+
+Texto original de las opciones, como se presentaron:
 
 - **A. Documentos (PDF, EPUB, DOCX).** Pediste que no se les extraiga nada. Antes de hacerlo, lo
   que eso cuesta: el visor integrado sí deja leer, seleccionar y copiar, pero **la búsqueda, el
@@ -119,20 +150,29 @@ etapa en la PC. Siete causas, cada una con su evidencia:
 
 1. `fix(transform)`: lo interrumpido se retoma al abrir; la cola se resincroniza desde la base al
    nacer y deja de observar sus dependencias.
-2. `feat(database)`: esquema v31 — motivo del fallo y cantidad de intentos del procesamiento
-   (respaldo previo, compuerta de conteo, y los tres censos de la fusión).
+2. `feat(database)`: esquema v31 — motivo del fallo, cantidad de intentos y avance guardado del
+   procesamiento (respaldo previo, compuerta de conteo, y los tres censos de la fusión).
 3. `fix(transform)`: tiempos límite en toda etapa de red (YouTube incluido) y vigilante por
    elemento; el motivo queda guardado. Tope de intentos para lo interrumpido.
 4. `fix(transform)`: borrar cancela; el guardado final no pisa cambios hechos durante el
    procesamiento.
-5. `refactor(transform)`: dos carriles, corto y largo.
-6. `perf(transform)`: archivado web liviano, y el HTML pesado fuera del hilo principal.
-7. `perf(transform)`: YouTube listo con la transcripción; audio según la decisión B, a disco.
-8. `feat(transform)`: documentos según la decisión A.
-9. `perf(transform)`: transcripción en el dispositivo por tramos, con todos los núcleos y avance.
-10. `feat(transform)`: servicio en primer plano en Android (decisión C).
-11. `feat(library)`: motivo visible, "Descargar el modelo", y retomar lo que esperaba un modelo.
-12. `docs(arquitectura)`: Decisión 54, cierre de F21. Instalación de la versión release.
+5. `refactor(transform)`: dos carriles, corto y largo, e informe de avance por elemento.
+6. `feat(library)`: barra de avance en la tarjeta y en el detalle.
+7. `perf(transform)`: archivado web liviano, y el HTML pesado fuera del hilo principal.
+8. `perf(capture)`: capturar por ruta, copiando por partes —sin cargar el archivo en memoria— y
+   sin el tope de 500 MB (el límite pasa a ser el espacio libre).
+9. `perf(transform)`: YouTube listo con la transcripción; audio a pedido (decisión B), directo a
+   disco, con avance y cancelable.
+10. `feat(transform)`: documentos según la decisión A — abiertos desde el disco, texto por página,
+    reconocimiento de escaneos en el carril largo fuera del hilo principal, retomable por página;
+    el detalle muestra el original primero y el texto plegado.
+11. `perf(transform)`: transcripción en el dispositivo por tramos desde disco, con todos los
+    núcleos, avance, y retomable por tramo.
+12. `feat(transform)`: servicio en primer plano en Android para el carril largo (decisión C).
+13. `perf(relations)`: lo que viene después de procesar —fragmentos, índice, vectores— medido a
+    escala de libro y de video de 4 horas; lo pesado, por partes en el carril largo.
+14. `feat(library)`: motivo visible, "Descargar el modelo", y retomar lo que esperaba un modelo.
+15. `docs(arquitectura)`: Decisión 54, cierre de F21. Instalación de la versión release.
 
 ## Cómo se verifica
 
@@ -144,16 +184,21 @@ etiqueta agregada durante el procesamiento sobrevive al guardado final; un eleme
 frena a uno corto; reconstruir las dependencias no vacía la cola.
 
 En el teléfono, versión release, antes y después, con cifras en `docs/benchmarks/`: tiempo hasta
-"listo" de un short de YouTube y de un video de una hora, de la página de vaticannews, de un PDF
-de cientos de páginas, y de un audio local de media hora; cerrar la app a mitad de un
-procesamiento y comprobar que se retoma; borrar a mitad y comprobar que la cola sigue.
+"listo" de un short de YouTube y de un video de 3-4 horas, de la página de vaticannews, de un PDF
+de cientos de páginas con texto y de uno escaneado, y de un audio o video local de al menos una
+hora (con la extrapolación a 4 horas explícita); memoria máxima durante cada uno; cerrar la app a
+mitad de una transcripción y de un reconocimiento de escaneos y comprobar que siguen desde donde
+quedaron; borrar a mitad y comprobar que la cola sigue.
 
 ## Criterios de cierre
 
 - [ ] Ningún elemento queda "Procesando" para siempre: lo interrumpido se retoma, lo colgado vence.
 - [ ] Nada frena la cola: ni un elemento colgado, ni uno largo, ni uno borrado.
-- [ ] Un video de YouTube de una hora queda listo en segundos (con subtítulos disponibles).
+- [ ] Un video de YouTube de 3-4 horas queda listo en segundos (con subtítulos disponibles).
+- [ ] Un video local de varios GB se guarda sin cargarse en memoria, y su transcripción se retoma
+      donde quedó si se interrumpe.
+- [ ] Un libro de cientos de páginas se abre al instante; su texto y el reconocimiento de sus
+      páginas escaneadas avanzan en segundo plano con barra, y se retoman donde quedaron.
 - [ ] La página de vaticannews queda lista en una fracción de lo que tarda hoy, medida.
 - [ ] Todo fallo muestra su motivo real y, si falta un modelo, cómo conseguirlo.
-- [ ] Documentos y transcripción local según las decisiones A y C, con cifras reales del teléfono.
 - [ ] Invariante de chunking verde; la suite completa verde antes de cada commit.
