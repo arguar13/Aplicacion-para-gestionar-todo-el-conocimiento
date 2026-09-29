@@ -6,6 +6,7 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
@@ -38,9 +39,11 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     required ProcessItemUseCase Function() processItem,
     required ProcessingStateRepository Function() processingStates,
     required AppLogger logger,
+    LongWorkKeeper Function()? longWork,
   }) : _processItem = processItem,
        _processingStates = processingStates,
        _logger = logger,
+       _longWork = longWork,
        super(const ProcessingQueueState());
 
   /// Cuántas veces se retoma algo que quedó a medias porque la app se cerró,
@@ -52,6 +55,15 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   final ProcessItemUseCase Function() _processItem;
   final ProcessingStateRepository Function() _processingStates;
   final AppLogger _logger;
+
+  /// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
+  /// C). `null` en las pruebas que no lo miran.
+  final LongWorkKeeper Function()? _longWork;
+
+  /// El de [_longWork], pedido una sola vez, al primer uso: al descartarse,
+  /// la cola suelta el que ya tiene, sin pedirle nada a un contenedor que
+  /// quizá ya se descartó.
+  LongWorkKeeper? _keeper;
 
   /// Lo que espera empezar, en orden.
   final _queue = Queue<String>();
@@ -247,6 +259,22 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
       active: Map.unmodifiable(_active),
       waiting: _queue.length,
     );
+    _keepAliveWhileLong();
+  }
+
+  /// Mientras algo esté en el carril largo, la app se mantiene viva con el
+  /// avance de lo que corre ahí; si no, se suelta.
+  void _keepAliveWhileLong() {
+    final keeper = _keeper ??= _longWork?.call();
+    if (keeper == null) return;
+
+    final long = _active.values.where((p) => p.lane == ProcessingLane.long);
+    if (long.isEmpty) {
+      keeper.idle();
+    } else {
+      final current = long.first;
+      keeper.working(done: current.done, total: current.total);
+    }
   }
 
   @override
@@ -255,6 +283,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     // seguiría escribiendo estado sobre un notifier ya descartado.
     _isDisposed = true;
     _queue.clear();
+    _keeper?.idle();
     unawaited(_pendingWatch?.cancel());
     super.dispose();
   }
@@ -379,6 +408,7 @@ final processingQueueProvider =
         processItem: () => ref.read(processItemUseCaseProvider),
         processingStates: () => ref.read(processingStateRepositoryProvider),
         logger: ref.read(appLoggerProvider),
+        longWork: () => ref.read(longWorkKeeperProvider),
       );
     });
 

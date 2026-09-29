@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
@@ -23,6 +24,7 @@ import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/data/services/platform_long_work_keeper.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
@@ -38,6 +40,7 @@ import 'package:sinapsis/features/transform/domain/documents/document_parser.dar
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/download_youtube_audio_usecase.dart';
@@ -163,6 +166,15 @@ final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
     const EpubParser(),
     const PlainTextParser(),
   ];
+});
+
+/// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
+/// C): el servicio en primer plano en Android; nada en el resto.
+final longWorkKeeperProvider = Provider<LongWorkKeeper>((ref) {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return const NoLongWorkKeeper();
+  }
+  return PlatformLongWorkKeeper(logger: ref.watch(appLoggerProvider));
 });
 
 final processingStateRepositoryProvider = Provider<ProcessingStateRepository>((

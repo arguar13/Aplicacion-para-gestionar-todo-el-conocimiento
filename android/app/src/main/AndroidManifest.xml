@@ -6,6 +6,13 @@
          Store por completo. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- El trabajo largo —transcribir horas de audio, reconocer las páginas
+         de un libro escaneado— en un servicio en primer plano con su
+         notificación (F21, decisión C): ver `LongWorkService`. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -48,6 +55,10 @@
                 <data android:mimeType="*/*"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".LongWorkService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

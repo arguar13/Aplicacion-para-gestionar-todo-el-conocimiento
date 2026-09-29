@@ -1,8 +1,13 @@
 package app.sinapsis
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     // `receive_sharing_intent` 1.9.0 no envuelve en try/catch sus propias
@@ -34,7 +39,50 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // El canal del trabajo largo (F21): la cola de Dart avisa cuándo hay
+    // trabajo largo en curso y cuánto va; ver `LongWorkService`.
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LONG_WORK_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "working" -> {
+                        askForNotificationsOnce()
+                        LongWorkService.working(
+                            this,
+                            call.argument<Int>("done") ?: 0,
+                            call.argument<Int>("total") ?: 0,
+                        )
+                        result.success(null)
+                    }
+                    "idle" -> {
+                        LongWorkService.idle(this)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    // Android 13 en adelante pide permiso para mostrar notificaciones. Se
+    // pide la primera vez que hace falta —cuando arranca un trabajo largo—,
+    // no al abrir la app sin contexto. Sin permiso el trabajo sigue igual:
+    // solo no se ve la notificación.
+    private fun askForNotificationsOnce() {
+        if (askedForNotifications || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        askedForNotifications = true
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATIONS_REQUEST)
+    }
+
     private companion object {
         const val TAG = "MainActivity"
+        const val LONG_WORK_CHANNEL = "app.sinapsis/long_work"
+        const val NOTIFICATIONS_REQUEST = 21
+        var askedForNotifications = false
     }
 }

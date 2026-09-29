@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La notificación del trabajo largo (F21): ver LongWorkService. -->
+<resources>
+    <string name="long_work_channel">Trabajo largo</string>
+    <string name="long_work_title">Sinapsis está procesando</string>
+    <string name="long_work_starting">Empezando…</string>
+    <string name="long_work_progress">%1$d %% hecho. Podés seguir usando el teléfono.</string>
+</resources>

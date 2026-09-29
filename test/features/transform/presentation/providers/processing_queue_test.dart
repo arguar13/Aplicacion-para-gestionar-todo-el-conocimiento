@@ -17,6 +17,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
@@ -170,12 +171,14 @@ void main() {
   ProcessingQueueNotifier buildQueue(
     Transformer transformer, {
     ProcessItemUseCase Function()? resolveProcessItem,
+    LongWorkKeeper? longWork,
   }) {
     final useCase = buildUseCase(transformer);
     final queue = ProcessingQueueNotifier(
       processItem: resolveProcessItem ?? () => useCase,
       processingStates: () => ProcessingStateRepositoryImpl(db),
       logger: const SilentLogger(),
+      longWork: longWork == null ? null : () => longWork,
     );
     // Tolerante a propósito: una de las pruebas descarta la cola a mano, y
     // descartar dos veces revienta.
@@ -730,6 +733,37 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 20)));
   });
 
+  group('mantener viva la app en el trabajo largo (F21, decisión C)', () {
+    test('mientras hay algo en el carril largo, con su avance; al terminar, '
+        'se suelta', () async {
+      await seed('video-largo');
+      final keeper = _RecordingKeeper();
+      final transformer = _ScriptedTransformer(
+        gated: true,
+        longOn: {'video-largo'},
+        progressOf: {'video-largo': (3, 10)},
+      );
+      final queue = buildQueue(transformer, longWork: keeper)
+        ..enqueue('video-largo');
+      await transformer.enteredLong('video-largo');
+      await _until(() async => keeper.calls.contains('working 3/10'));
+
+      transformer.release('video-largo');
+      await whenIdle(queue);
+      expect(keeper.calls.last, 'idle');
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('lo corto no la mantiene viva', () async {
+      await seed('pagina');
+      final keeper = _RecordingKeeper();
+      final queue = buildQueue(_ScriptedTransformer(), longWork: keeper)
+        ..enqueue('pagina');
+
+      await whenIdle(queue);
+      expect(keeper.calls.where((c) => c.startsWith('working')), isEmpty);
+    }, timeout: const Timeout(Duration(seconds: 20)));
+  });
+
   group('al descartarse', () {
     test('no sigue con los que quedaban esperando', () async {
       // Cerrar la app a mitad de la cola no puede dejar trabajo escribiendo
@@ -760,4 +794,16 @@ Future<void> _until(Future<bool> Function() condition) async {
   while (!await condition()) {
     await Future<void>.delayed(const Duration(milliseconds: 5));
   }
+}
+
+/// Anota lo que la cola le pide al que mantiene viva la app.
+class _RecordingKeeper implements LongWorkKeeper {
+  final calls = <String>[];
+
+  @override
+  void working({required int done, required int total}) =>
+      calls.add('working $done/$total');
+
+  @override
+  void idle() => calls.add('idle');
 }
