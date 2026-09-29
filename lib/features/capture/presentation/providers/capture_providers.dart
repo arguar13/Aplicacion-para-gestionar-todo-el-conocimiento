@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
@@ -17,6 +18,7 @@ import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
 
 /// El orden de esta lista es parte del comportamiento, no un detalle de
 /// escritura: el registro se queda con el primero que acepte.
@@ -41,10 +43,33 @@ final sourceAdapterRegistryProvider = Provider<SourceAdapterRegistry>((ref) {
   ]);
 });
 
+/// Cuánto espacio libre queda en la carpeta de la app, donde el almacén
+/// guarda los originales: el límite real para guardar un archivo (F21).
+/// Donde no se puede saber —la web— es `null`, y no se frena nada por no
+/// saberlo.
+///
+/// Un provider propio para que las pruebas lo reemplacen: medirlo le
+/// pregunta al sistema operativo, y en una prueba no hay a quién.
+final captureFreeBytesProvider = Provider<Future<int?> Function()>((ref) {
+  final probe = ref.watch(freeSpaceProbeProvider);
+  return () async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      return await probe.freeBytesAt(directory.path);
+      // Sin carpeta de documentos —la web— no hay espacio que medir: se
+      // sigue sin el control.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      return null;
+    }
+  };
+});
+
 final captureItemUseCaseProvider = Provider<CaptureItemUseCase>((ref) {
   return CaptureItemUseCase(
     registry: ref.watch(sourceAdapterRegistryProvider),
     repository: ref.watch(libraryRepositoryProvider),
+    freeBytes: ref.watch(captureFreeBytesProvider),
   );
 });
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -110,6 +111,37 @@ void main() {
       // por la mitad produce un nombre inválido.
       expect(result, contains('あ'));
       expect(() => utf8.decode(utf8.encode(result)), returnsNormally);
+    });
+  });
+
+  group('guardar por partes (F21)', () {
+    test('lo que llega por partes se guarda entero, en su carpeta', () async {
+      // Un video de varios GB se guarda así, sin estar entero en memoria.
+      final path = await store.saveStream(
+        bytes: Stream.fromIterable([bytes('primera '), bytes('segunda')]),
+        suggestedName: 'misa.mp4',
+        id: 'src-1',
+      );
+
+      expect(path, 'originales/src-1/misa.mp4');
+      expect(utf8.decode((await store.read(path))!), 'primera segunda');
+    });
+
+    test('si el origen se corta a mitad de camino, no queda un archivo a '
+        'medias y se avisa', () async {
+      final controller = StreamController<List<int>>();
+      final saving = store.saveStream(
+        bytes: controller.stream,
+        suggestedName: 'cortado.mp4',
+        id: 'src-2',
+      );
+      controller
+        ..add(bytes('una parte'))
+        ..addError(const FileSystemException('se desconectó'));
+      await controller.close();
+
+      await expectLater(saving, throwsA(isA<FileSystemException>()));
+      expect(await store.exists('originales/src-2/cortado.mp4'), isFalse);
     });
   });
 

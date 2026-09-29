@@ -58,6 +58,13 @@ class _RealFileStore implements FileStore {
     required String suggestedName,
     required String id,
   }) => throw UnimplementedError();
+
+  @override
+  Future<String> saveStream({
+    required Stream<List<int>> bytes,
+    required String suggestedName,
+    required String id,
+  }) => throw UnimplementedError();
 }
 
 /// Dónde está la librería nativa de PDFium.

@@ -1381,6 +1381,18 @@
       }
     }
   },
+  "globalErrorNotEnoughSpace": "There isn't enough space on the device: the file is {size} MB and {free} MB are free. Free up some space and try again.",
+  "@globalErrorNotEnoughSpace": {
+    "description": "Shown when a file to save doesn't fit in the device's free space",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "free": {
+        "type": "String"
+      }
+    }
+  },
   "@globalErrorStorage": {
     "description": "Shown for a CacheFailure: local storage could not be read or written"
   },

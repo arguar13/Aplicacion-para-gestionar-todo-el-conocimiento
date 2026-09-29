@@ -277,6 +277,10 @@ class LibraryHarness {
           FakeVaultLocalDataSource.withPin('246810'),
         ),
         pinHasherProvider.overrideWithValue(FakePinHasher()),
+        // Medir el espacio libre le pregunta al sistema operativo, que en un
+        // test no responde: sin esto, guardar un archivo se quedaba
+        // esperando para siempre. `null` es "no se sabe": no frena nada.
+        captureFreeBytesProvider.overrideWithValue(() async => null),
         // La cola no procesa en los tests que no la están probando. Sin
         // esto, abrir la biblioteca dispararía descargas reales y el estado
         // de cada elemento cambiaría bajo los pies de las aserciones.

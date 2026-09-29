@@ -46,8 +46,8 @@ class AttachReferenceFileUseCase {
     // Se copia primero y se guarda después —mismo orden que `FileAdapter`—:
     // si la copia falla, el elemento sigue como estaba, en vez de quedar
     // apuntando a un archivo que no está.
-    final storedPath = await _files.save(
-      bytes: file.bytes,
+    final storedPath = await _files.saveStream(
+      bytes: file.openRead(),
       suggestedName: file.name,
       id: current.id,
     );

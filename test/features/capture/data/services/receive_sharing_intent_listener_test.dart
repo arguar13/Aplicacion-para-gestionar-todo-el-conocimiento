@@ -104,7 +104,7 @@ void main() {
       expect(requests, hasLength(1));
       final captured = requests.single.asFile;
       expect(captured?.name, 'foto.jpg');
-      expect(captured?.bytes, utf8.encode('contenido de mentira'));
+      expect(await captured?.readAll(), utf8.encode('contenido de mentira'));
     });
 
     test(
@@ -141,18 +141,25 @@ void main() {
       expect(requests, isEmpty);
     });
 
-    test('un archivo demasiado pesado se descarta sin leerlo entero', () async {
-      final file = writeFileOfSize('enorme.pdf', CapturedFile.maxBytes + 1);
+    test('un archivo más pesado que 500 MB se ofrece igual, sin leerlo '
+        'entero', () async {
+      // Antes se descartaba en silencio: todo se cargaba en memoria. Ahora
+      // se guarda por partes (F21): de acá solo sale su tamaño y su
+      // comienzo.
+      final file = writeFileOfSize('misa.mp4', CapturedFile.maxBytes + 1);
       ReceiveSharingIntent.setMockValues(
         initialMedia: [
-          SharedMediaFile(path: file.path, type: SharedMediaType.file),
+          SharedMediaFile(path: file.path, type: SharedMediaType.video),
         ],
         mediaStream: const Stream.empty(),
       );
 
       final requests = await listener.initial();
 
-      expect(requests, isEmpty);
+      final captured = requests.single.asFile!;
+      expect(captured.name, 'misa.mp4');
+      expect(captured.sizeInBytes, CapturedFile.maxBytes + 1);
+      expect(captured.head.length, CapturedFile.headBytes);
     });
 
     test('varias cosas compartidas juntas se ofrecen todas, no solo la '

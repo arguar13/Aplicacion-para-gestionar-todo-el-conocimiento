@@ -27,20 +27,6 @@ Future<void> importReferences(BuildContext context, WidgetRef ref) async {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
     return;
-  } on FileTooLargeException {
-    if (!context.mounted) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.globalErrorFileTooLarge(
-              (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
-            ),
-          ),
-        ),
-      );
-    return;
   }
   if (files.isEmpty || !context.mounted) return;
 

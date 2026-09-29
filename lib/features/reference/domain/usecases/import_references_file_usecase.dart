@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:fpdart/fpdart.dart';
 import 'package:path/path.dart' as p;
@@ -75,7 +76,7 @@ class ImportReferencesFileUseCase {
         ),
       );
     }
-    if (bibliographyFile.bytes.length > maxBytes) {
+    if (bibliographyFile.sizeInBytes > maxBytes) {
       return left(
         const Failure.validation(
           message:
@@ -89,7 +90,10 @@ class ImportReferencesFileUseCase {
         if (file != bibliographyFile) file,
     ];
 
-    final (entries, skipped) = _parse(bibliographyFile);
+    final (entries, skipped) = _parse(
+      bibliographyFile.name,
+      await bibliographyFile.readAll(),
+    );
 
     final report = await _library.runBulk(() async {
       final index = await _identity.buildIndex();
@@ -163,10 +167,11 @@ class ImportReferencesFileUseCase {
   }
 
   (List<ImportedReference>, List<ReferenceImportSkip>) _parse(
-    CapturedFile file,
+    String name,
+    Uint8List bytes,
   ) {
-    final text = utf8.decode(file.bytes, allowMalformed: true);
-    if (p.extension(file.name).toLowerCase() == '.ris') {
+    final text = utf8.decode(bytes, allowMalformed: true);
+    if (p.extension(name).toLowerCase() == '.ris') {
       final result = parseRis(text);
       return (
         result.entries,

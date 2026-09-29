@@ -55,6 +55,36 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<String> saveStream({
+    required Stream<List<int>> bytes,
+    required String suggestedName,
+    required String id,
+  }) async {
+    // La misma carpeta por fuente que `save`: ver ahí el porqué.
+    final relativePath = p.join(_folder, id, sanitizeFileName(suggestedName));
+    final file = File(await resolve(relativePath));
+    await file.parent.create(recursive: true);
+
+    final sink = file.openWrite();
+    try {
+      // `addStream` y no juntar en memoria: cada parte se escribe apenas
+      // llega, y lo que ocupa en memoria es una parte, no el archivo.
+      await sink.addStream(bytes);
+      await sink.flush();
+      await sink.close();
+      // Cualquier fallo —el origen que se corta, el disco lleno— deja un
+      // archivo a medias que nadie va a poder abrir: se borra y se avisa.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await sink.close().catchError((_) {});
+      if (file.existsSync()) await file.delete();
+      rethrow;
+    }
+
+    return p.posix.joinAll(p.split(relativePath));
+  }
+
+  @override
   Future<Uint8List?> read(String relativePath) async {
     final file = File(await resolve(relativePath));
     if (!file.existsSync()) return null;

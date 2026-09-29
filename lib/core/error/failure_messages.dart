@@ -28,6 +28,11 @@ extension FailureLocalization on Failure {
       FileTooLargeFailure(:final maxBytes) => l10n.globalErrorFileTooLarge(
         _megabytes(maxBytes),
       ),
+      NotEnoughSpaceFailure(:final neededBytes, :final freeBytes) =>
+        l10n.globalErrorNotEnoughSpace(
+          _megabytes(neededBytes),
+          _megabytes(freeBytes),
+        ),
       UnexpectedFailure() => l10n.globalErrorUnexpected,
       ExportFailedFailure() => l10n.globalErrorExportFailed,
     };

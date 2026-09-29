@@ -77,6 +77,52 @@ class OpfsFileStore implements FileStore {
   }
 
   @override
+  Future<String> saveStream({
+    required Stream<List<int>> bytes,
+    required String suggestedName,
+    required String id,
+  }) async {
+    final name = sanitizeFileName(suggestedName);
+
+    final root = await _root();
+    final originales = await root
+        .getDirectoryHandle(
+          _folder,
+          web.FileSystemGetDirectoryOptions(create: true),
+        )
+        .toDart;
+    final idDirectory = await originales
+        .getDirectoryHandle(id, web.FileSystemGetDirectoryOptions(create: true))
+        .toDart;
+    final fileHandle = await idDirectory
+        .getFileHandle(name, web.FileSystemGetFileOptions(create: true))
+        .toDart;
+
+    // Parte por parte, igual que en disco: ver `FileStore.saveStream`.
+    final writable = await fileHandle.createWritable().toDart;
+    try {
+      await for (final chunk in bytes) {
+        final part = chunk is Uint8List ? chunk : Uint8List.fromList(chunk);
+        await writable.write(part.toJS).toDart;
+      }
+      await writable.close().toDart;
+      // Un origen que se corta a mitad de camino no deja un archivo a medias.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      await writable.abort().toDart;
+      try {
+        await idDirectory.removeEntry(name).toDart;
+        // Si ni siquiera se puede borrar lo escrito, el error que importa es
+        // el original, que se relanza igual.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {}
+      rethrow;
+    }
+
+    return '$_folder/$id/$name';
+  }
+
+  @override
   Future<Uint8List?> read(String relativePath) async {
     final segments = relativePath.split('/');
     final fileName = segments.removeLast();

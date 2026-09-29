@@ -39,6 +39,21 @@ class InMemoryFileStore implements FileStore {
   }
 
   @override
+  Future<String> saveStream({
+    required Stream<List<int>> bytes,
+    required String suggestedName,
+    required String id,
+  }) async {
+    final builder = BytesBuilder(copy: false);
+    await bytes.forEach(builder.add);
+    return save(
+      bytes: builder.takeBytes(),
+      suggestedName: suggestedName,
+      id: id,
+    );
+  }
+
+  @override
   Future<Uint8List?> read(String relativePath) async => _contents[relativePath];
 
   @override

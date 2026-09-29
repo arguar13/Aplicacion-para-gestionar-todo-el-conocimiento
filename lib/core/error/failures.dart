@@ -36,6 +36,18 @@ sealed class Failure with _$Failure {
     required int maxBytes,
   }) = FileTooLargeFailure;
 
+  /// No hay lugar en el dispositivo para guardar un archivo (F21).
+  ///
+  /// Guardar un archivo ya no tiene un tope fijo —se copia por partes, sin
+  /// pasar entero por la memoria—: el límite real es el espacio libre. Es su
+  /// propia variante porque el remedio es otro que el de [FileTooLargeFailure]:
+  /// liberar espacio, no elegir un archivo más chico.
+  const factory Failure.notEnoughSpace({
+    required String message,
+    required int neededBytes,
+    required int freeBytes,
+  }) = NotEnoughSpaceFailure;
+
   const factory Failure.unexpected({required String message}) =
       UnexpectedFailure;
 

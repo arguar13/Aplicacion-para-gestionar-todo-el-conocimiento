@@ -4,62 +4,84 @@ import 'package:sinapsis/core/storage/file_format.dart';
 
 /// Un archivo que alguien trajo a la app.
 ///
-/// Lleva los bytes en memoria y no una ruta. La razón es que el archivo puede
-/// venir de cualquier lado —el selector del sistema, el botón de compartir de
-/// otra app, un arrastre— y en varios de esos casos la ruta es temporal: el
-/// sistema la borra en cuanto la app que la compartió termina. Leerlo ahí
-/// mismo y quedarse con los bytes es lo que garantiza que lo que el usuario
-/// eligió llegue entero al almacén.
+/// Puede vivir **en memoria** —lo que ya llega como bytes: una foto recién
+/// sacada, lo que entrega el navegador— o **en disco** —lo que el selector
+/// del sistema, el botón de compartir de otra app o un arrastre entregan
+/// como ruta—. En disco no se lee entero nunca: se sabe su tamaño, se leen
+/// sus primeros [headBytes] para reconocer qué es, y se copia al almacén
+/// por partes ([openRead]). Es lo que permite guardar un video de varios GB
+/// grabado con el teléfono sin que la app se quede sin memoria (F21); antes
+/// cada archivo se cargaba entero y se rechazaba lo que pasara de 500 MB.
 ///
-/// Tiene un costo: un archivo de mil megas ocuparía mil megas de memoria. Por
-/// eso la captura rechaza lo que pase de [maxBytes] con un mensaje claro, en
-/// vez de que la app muera sin explicación. Una variante que copie por
-/// partes sin pasar por memoria —para audio y video de horas de verdad, sin
-/// ningún tope— sigue siendo trabajo pendiente: subir [maxBytes] ayuda hasta
-/// donde ayuda cargar todo de una vez, no lo reemplaza.
+/// La ruta del origen puede ser temporal —el sistema la borra en cuanto la
+/// app que la compartió termina—: por eso se copia al almacén en el momento
+/// de guardar, no se guarda la ruta.
 class CapturedFile {
-  const CapturedFile({required this.name, required this.bytes});
+  /// Un archivo que ya está en memoria.
+  CapturedFile({required this.name, required Uint8List bytes})
+    : sizeInBytes = bytes.length,
+      head = bytes.length <= headBytes
+          ? bytes
+          : Uint8List.sublistView(bytes, 0, headBytes),
+      _bytes = bytes,
+      _open = null;
+
+  /// Un archivo en disco, de [sizeInBytes], cuyos primeros bytes son [head]
+  /// y que se lee por partes con [openRead].
+  CapturedFile.onDisk({
+    required this.name,
+    required this.sizeInBytes,
+    required this.head,
+    required Stream<List<int>> Function() openRead,
+  }) : _bytes = null,
+       _open = openRead;
+
+  /// Cuántos bytes del comienzo alcanzan para reconocer el formato sin leer
+  /// el archivo entero: las firmas están en los primeros bytes, y en un
+  /// DOCX o un EPUB las entradas que los delatan están entre las primeras
+  /// del ZIP.
+  static const headBytes = 64 * 1024;
 
   /// El nombre que traía. Es entrada no confiable —lo puede haber puesto
   /// cualquier app— y se sanea antes de escribirlo en el disco (ver
   /// `sanitizeFileName`).
   final String name;
 
-  final Uint8List bytes;
+  final int sizeInBytes;
+
+  /// Los primeros bytes, como mucho [headBytes].
+  final Uint8List head;
+
+  final Uint8List? _bytes;
+  final Stream<List<int>> Function()? _open;
 
   /// Qué es esto en realidad, mirando los bytes y no el nombre.
-  FileFormat get format => detectFileFormat(bytes, name: name);
+  FileFormat get format => detectFileFormat(head, name: name);
 
-  int get sizeInBytes => bytes.length;
+  /// El contenido, por partes. Lo que usa quien lo copia al almacén.
+  Stream<List<int>> openRead() {
+    final bytes = _bytes;
+    if (bytes != null) return Stream<List<int>>.value(bytes);
+    return _open!();
+  }
 
-  /// Lo más grande que se acepta: 500 MB.
+  /// El contenido entero, en memoria. Solo para quien de verdad lo necesita
+  /// entero —un adjunto del chat, una bibliografía—, y después de comprobar
+  /// [isTooLarge]: para guardar, [openRead].
+  Future<Uint8List> readAll() async {
+    final bytes = _bytes;
+    if (bytes != null) return bytes;
+    final builder = BytesBuilder(copy: false);
+    await _open!().forEach(builder.add);
+    return builder.takeBytes();
+  }
+
+  /// Lo más grande que se carga **entero en memoria**: 500 MB.
   ///
-  /// Cubre un documento escaneado de miles de páginas —mil páginas rondan
-  /// los 100 MB— y varias horas de audio a un bitrate normal; un video
-  /// largo de verdad, comprimido, puede seguir sin entrar. Subirlo más allá
-  /// de esto empieza a arriesgar la memoria de un teléfono modesto, porque
-  /// el archivo entero se carga de una sola vez —ver el comentario de la
-  /// clase—, no en partes.
+  /// No es un tope para guardar —eso se copia por partes, y el límite es el
+  /// espacio libre del dispositivo—, sino para lo que de verdad necesita el
+  /// archivo entero: un adjunto del chat, una bibliografía.
   static const maxBytes = 500 * 1024 * 1024;
 
   bool get isTooLarge => sizeInBytes > maxBytes;
-}
-
-/// El archivo que se está por traer pesa más que [CapturedFile.maxBytes],
-/// según el tamaño que ya informa el origen —el selector del sistema, el
-/// archivo soltado sobre la ventana, lo que llegó por el botón de
-/// compartir— sin necesidad de abrirlo.
-///
-/// Se lanza **antes** de leer esos bytes del disco, no después:
-/// [CapturedFile.isTooLarge] ya existe para el caso en que el archivo se
-/// leyó igual, pero confiar solo
-/// en ese chequeo significaría cargar en memoria un archivo de varios
-/// cientos de megas solo para terminar descartándolo por pesado — el mismo
-/// desperdicio que puede hacer que la app se quede sin memoria y se cierre
-/// en un teléfono modesto, en vez de mostrar el aviso de siempre.
-class FileTooLargeException implements Exception {
-  const FileTooLargeException();
-
-  @override
-  String toString() => 'El archivo pesa más de ${CapturedFile.maxBytes} bytes';
 }

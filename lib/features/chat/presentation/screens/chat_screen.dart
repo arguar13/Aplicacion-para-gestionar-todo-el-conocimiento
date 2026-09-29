@@ -261,14 +261,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final CapturedFile? chosen;
     try {
       chosen = await ref.read(fileChooserProvider).pickOne();
-    } on FileTooLargeException {
-      if (!mounted) return;
-      _showSnack(
-        l10n.globalErrorFileTooLarge(
-          (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
-        ),
-      );
-      return;
     } on FileAccessDeniedException {
       if (!mounted) return;
       _showSnack(l10n.captureFileAccessDenied);
@@ -283,10 +275,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // `try`, sí se la puede usar sin `!` en cualquier lado.
     final file = chosen;
 
-    // El selector ya rechazó por su cuenta lo que pesa de más —ver
-    // `FileTooLargeException` arriba—, pero `isTooLarge` se deja como red
-    // final: en la web el archivo ya se leyó igual al elegirlo, así que ahí
-    // el chequeo de tamaño no puede evitar la lectura, solo el resto.
+    // Un adjunto del chat se le pasa al modelo, así que se necesita entero en
+    // memoria: se comprueba el tamaño —que el selector informa sin leer el
+    // archivo— antes de leerlo, y lo que pasa del tope se rechaza con un
+    // aviso claro en vez de dejar que la app se quede sin memoria.
     if (file.isTooLarge) {
       _showSnack(
         l10n.globalErrorFileTooLarge(
@@ -295,13 +287,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
       return;
     }
+    final bytes = await file.readAll();
+    if (!mounted) return;
 
     final format = file.format;
     if (format.sourceKind == SourceKind.image) {
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)
-          .save(bytes: file.bytes, suggestedName: file.name, id: ids.next());
+          .save(bytes: bytes, suggestedName: file.name, id: ids.next());
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
@@ -311,7 +305,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               kind: ChatAttachmentKind.image,
               relativePath: relativePath,
             ),
-            bytes: file.bytes,
+            bytes: bytes,
           ),
         );
       });
@@ -329,11 +323,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _attaching = true);
     try {
-      final parsed = await parser.parse(file.bytes);
+      final parsed = await parser.parse(bytes);
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)
-          .save(bytes: file.bytes, suggestedName: file.name, id: ids.next());
+          .save(bytes: bytes, suggestedName: file.name, id: ids.next());
       if (!mounted) return;
       setState(() {
         _pendingAttachments.add(
@@ -344,7 +338,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               relativePath: relativePath,
               extractedText: parsed.markdown,
             ),
-            bytes: file.bytes,
+            bytes: bytes,
           ),
         );
       });

@@ -883,6 +883,7 @@
   "globalErrorValidation": "Revisá los datos que ingresaste.",
   "globalErrorStorage": "No se pudieron leer los datos guardados en este dispositivo.",
   "globalErrorFileTooLarge": "El archivo es demasiado grande. El máximo es {size} MB.",
+  "globalErrorNotEnoughSpace": "No hay espacio suficiente en el dispositivo: el archivo pesa {size} MB y quedan {free} MB libres. Liberá espacio y probá de nuevo.",
   "@globalErrorFileTooLarge": {
     "description": "Mostrado cuando el archivo elegido supera el límite de tamaño.",
     "placeholders": {

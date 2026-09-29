@@ -55,8 +55,10 @@ class FileAdapter implements SourceAdapter {
     // Se copia primero y se guarda después. Si la copia falla —disco lleno,
     // permisos— el elemento no llega a existir, en vez de quedar una fila
     // apuntando a un archivo que no está.
-    final storedPath = await _files.save(
-      bytes: file.bytes,
+    // Por partes, no entero en memoria: un video de varios GB grabado con el
+    // teléfono se copia sin que la app se quede sin memoria (F21).
+    final storedPath = await _files.saveStream(
+      bytes: file.openRead(),
       suggestedName: file.name,
       id: sourceId,
     );

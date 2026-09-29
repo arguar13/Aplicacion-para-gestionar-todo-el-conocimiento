@@ -221,33 +221,6 @@ void main() {
         expect(find.text('manual.pdf'), findsOneWidget);
       },
     );
-
-    testWidgets('un archivo demasiado pesado avisa en vez de quedar elegido', (
-      tester,
-    ) async {
-      // El selector de mentira lanza esto directo, sin devolver ningún
-      // archivo: es lo que hace `SystemFileChooser` de verdad cuando el
-      // tamaño que ya informa el sistema —sin haber leído nada todavía—
-      // pasa el máximo. Ver `FileTooLargeException`.
-      harness = await LibraryHarness.create(
-        fileChooserError: const FileTooLargeException(),
-      );
-      await pumpCapture(tester);
-
-      await selectType(tester, es.captureTypeBook);
-
-      expect(
-        find.text(
-          es.globalErrorFileTooLarge(
-            (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
-          ),
-        ),
-        findsOneWidget,
-      );
-      // Ningún archivo quedó elegido: sigue ofreciendo el botón de
-      // siempre, no la tarjeta de "archivo elegido".
-      expect(find.text(es.captureChooseFileAction), findsOneWidget);
-    });
   });
 
   group('cámara', () {
@@ -781,29 +754,23 @@ void main() {
       expect(find.text('foto.jpg'), findsOneWidget);
     });
 
-    testWidgets('soltar un archivo demasiado pesado avisa, sin leerlo', (
-      tester,
-    ) async {
+    testWidgets('un video de varios GB queda elegido, sin tope y sin '
+        'leerse entero', (tester) async {
+      // Antes lo que pasaba de 500 MB se rechazaba: todo se cargaba entero
+      // en memoria. Ahora se guarda por partes y el límite es el espacio
+      // libre (F21). `length:` simula el tamaño que informa el sistema sin
+      // tener que reservar de verdad los gigas en la prueba.
       await pumpCapture(tester);
 
-      // `length:` simula el tamaño que ya informa el sistema al arrastrar
-      // —el mismo que consulta `XFile.length()` sin abrir el archivo—,
-      // sin tener que reservar de verdad los megas del límite en la
-      // prueba.
       await dropFiles(tester, [
-        fakeDroppedFile('enorme.pdf', length: CapturedFile.maxBytes + 1),
+        fakeDroppedFile(
+          'misa-de-cuatro-horas.mp4',
+          bytes: Uint8List.fromList('contenido'.codeUnits),
+          length: 3 * 1024 * 1024 * 1024,
+        ),
       ]);
 
-      expect(
-        find.text(
-          es.globalErrorFileTooLarge(
-            (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
-          ),
-        ),
-        findsOneWidget,
-      );
-      // Sin ningún archivo elegido, sigue en el selector de tipo.
-      expect(find.text(es.captureTypePrompt), findsOneWidget);
+      expect(find.text('misa-de-cuatro-horas.mp4'), findsOneWidget);
     });
 
     testWidgets('reemplaza el archivo ya elegido, no lo duplica', (

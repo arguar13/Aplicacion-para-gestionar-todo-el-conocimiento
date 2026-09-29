@@ -15,6 +15,20 @@ import 'dart:typed_data';
 /// nombran, y para poder probar todo lo que los usa sin tocar el disco real
 /// del usuario.
 abstract interface class FileStore {
+  /// Guarda lo que va llegando por [bytes], por partes, y devuelve la **ruta
+  /// relativa** donde quedó — lo mismo que [save], sin tener nunca el archivo
+  /// entero en memoria.
+  ///
+  /// Es lo que permite guardar un video de varios GB grabado con el teléfono,
+  /// o el audio de un video de cuatro horas (F21): con [save] habría que
+  /// tenerlo entero en memoria primero. Si [bytes] falla a mitad de camino,
+  /// no queda un archivo a medias: se borra lo escrito y se relanza el error.
+  Future<String> saveStream({
+    required Stream<List<int>> bytes,
+    required String suggestedName,
+    required String id,
+  });
+
   /// Guarda [bytes] y devuelve la **ruta relativa** donde quedaron.
   ///
   /// [suggestedName] es el nombre que traía el archivo. Se usa solo para que

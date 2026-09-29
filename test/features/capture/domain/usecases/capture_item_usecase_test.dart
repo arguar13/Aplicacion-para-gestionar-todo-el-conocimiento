@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -6,11 +9,13 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/capture/data/adapters/file_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/plain_text_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/web_link_adapter.dart';
 import 'package:sinapsis/features/capture/data/adapters/youtube_link_adapter.dart';
 import 'package:sinapsis/features/capture/domain/adapters/source_adapter_registry.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
+import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/usecases/capture_item_usecase.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -65,6 +70,59 @@ void main() {
     )).getRight().toNullable()!;
     return items.length;
   }
+
+  group('archivos grandes (F21): sin tope fijo, el límite es el espacio '
+      'libre', () {
+    CaptureItemUseCase withFreeBytes(int? free) => CaptureItemUseCase(
+      registry: SourceAdapterRegistry([
+        FileAdapter(files: files, ids: ids, clock: () => now),
+      ]),
+      repository: repository,
+      freeBytes: () async => free,
+    );
+
+    /// Un archivo que dice pesar [size] sin ocupar esa memoria de verdad.
+    CapturedFile fileOfSize(String name, int size) => CapturedFile.onDisk(
+      name: name,
+      sizeInBytes: size,
+      head: Uint8List.fromList(utf8.encode('contenido')),
+      openRead: () => Stream.value(utf8.encode('contenido')),
+    );
+
+    test('un video de varios GB que entra en el espacio libre se '
+        'guarda', () async {
+      const gb = 1024 * 1024 * 1024;
+      final result = await withFreeBytes(10 * gb)(
+        CaptureRequest.file(file: fileOfSize('misa.mp4', 3 * gb)),
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(await countStored(), 1);
+    });
+
+    test('uno que no entra se rechaza antes de copiar nada, diciendo '
+        'cuánto falta', () async {
+      final result = await withFreeBytes(100 * 1024 * 1024)(
+        CaptureRequest.file(file: fileOfSize('misa.mp4', 500 * 1024 * 1024)),
+      );
+
+      expect(
+        result.getLeft().toNullable(),
+        isA<NotEnoughSpaceFailure>()
+            .having((f) => f.neededBytes, 'necesario', 500 * 1024 * 1024)
+            .having((f) => f.freeBytes, 'libre', 100 * 1024 * 1024),
+      );
+      expect(await countStored(), 0);
+    });
+
+    test('si no se puede saber el espacio libre, no se frena nada', () async {
+      final result = await withFreeBytes(null)(
+        CaptureRequest.file(file: fileOfSize('misa.mp4', 1024)),
+      );
+
+      expect(result.isRight(), isTrue);
+    });
+  });
 
   group('validación', () {
     test('una entrada vacía no guarda nada', () async {

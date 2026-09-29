@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:sinapsis/features/capture/data/services/captured_file_on_disk.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 
@@ -57,27 +58,12 @@ class SystemFileChooser implements FileChooser {
   }
 
   Future<CapturedFile?> _fileFrom(PlatformFile picked) async {
-    // El selector ya informa el tamaño sin haber leído el contenido: se
-    // rechaza acá, antes de `_readFrom`, para no cargar en memoria un
-    // archivo de cientos de megas que se va a descartar de todos modos.
-    if (picked.size > CapturedFile.maxBytes) {
-      throw const FileTooLargeException();
-    }
+    // En la web no hay rutas: lo único que llega son los bytes.
+    final bytes = picked.bytes;
+    if (bytes != null) return CapturedFile(name: picked.name, bytes: bytes);
 
-    final bytes = picked.bytes ?? await _readFrom(picked.path);
-    if (bytes == null) return null;
-
-    return CapturedFile(name: picked.name, bytes: bytes);
-  }
-
-  Future<Uint8List?> _readFrom(String? path) async {
+    final path = picked.path;
     if (path == null) return null;
-
-    final file = File(path);
-    // La ruta que entrega el selector puede haber caducado entre que el
-    // usuario eligió y el sistema liberó el archivo temporal.
-    if (!file.existsSync()) return null;
-
-    return file.readAsBytes();
+    return capturedFileOnDisk(File(path), name: picked.name);
   }
 }

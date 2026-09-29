@@ -301,25 +301,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.captureFileAccessDenied)));
-    } on FileTooLargeException {
-      if (!mounted) return;
-
-      _showFileTooLarge(l10n);
     }
-  }
-
-  void _showFileTooLarge(AppLocalizations l10n) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            l10n.globalErrorFileTooLarge(
-              (CapturedFile.maxBytes / (1024 * 1024)).round().toString(),
-            ),
-          ),
-        ),
-      );
   }
 
   /// Abre la cámara del sistema y suma lo que salga a [_scannedPages]. El
@@ -336,7 +318,10 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
       final photo = await ref.read(cameraChooserProvider).takePhoto();
       if (photo == null || !mounted) return;
 
-      setState(() => _scannedPages.add(photo.bytes));
+      // Una foto ya llega en memoria: `readAll` no lee nada del disco.
+      final page = await photo.readAll();
+      if (!mounted) return;
+      setState(() => _scannedPages.add(page));
     } on CameraAccessDeniedException {
       if (!mounted) return;
 
@@ -372,20 +357,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
     final item = dropped.single;
 
-    // `length()` solo consulta el tamaño del archivo, sin leerlo: se
-    // rechaza acá, antes de `readAsBytes()`, por el mismo motivo que
-    // `SystemFileChooser` — no cargar en memoria un archivo de cientos de
-    // megas que se va a descartar de todos modos.
-    if (await item.length() > CapturedFile.maxBytes) {
-      if (!mounted) return;
-      _showFileTooLarge(l10n);
-      return;
-    }
-
-    final bytes = await item.readAsBytes();
+    final file = await _capturedFileFrom(item);
     if (!mounted) return;
 
-    final file = CapturedFile(name: item.name, bytes: bytes);
     setState(() {
       _file = file;
       _kind = _kindFor(file.format.sourceKind);
@@ -1074,4 +1048,31 @@ class _ChosenFileCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// [item] sin leerlo entero (F21): su tamaño, sus primeros bytes para
+/// reconocer qué es, y cómo leerlo por partes al guardarlo. Con la propia
+/// API del archivo soltado y no con su ruta: en la web no hay una ruta de
+/// verdad, solo el contenido.
+Future<CapturedFile> _capturedFileFrom(DropItem item) async {
+  final size = await item.length();
+
+  // Desde el principio, y se corta apenas alcanza: `break` cancela la
+  // lectura, así que de un video de varios GB se lee una parte, no el video.
+  final builder = BytesBuilder(copy: false);
+  await for (final chunk in item.openRead()) {
+    builder.add(chunk);
+    if (builder.length >= CapturedFile.headBytes) break;
+  }
+  final read = builder.takeBytes();
+  final head = read.length > CapturedFile.headBytes
+      ? Uint8List.sublistView(read, 0, CapturedFile.headBytes)
+      : read;
+
+  return CapturedFile.onDisk(
+    name: item.name,
+    sizeInBytes: size,
+    head: head,
+    openRead: item.openRead,
+  );
 }

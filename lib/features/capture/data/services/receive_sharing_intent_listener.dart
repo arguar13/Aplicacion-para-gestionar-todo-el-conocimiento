@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:sinapsis/features/capture/data/services/captured_file_on_disk.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
-import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/shared_content_listener.dart';
 
 /// [SharedContentListener] sobre [`receive_sharing_intent`]
@@ -32,7 +32,7 @@ class ReceiveSharingIntentListener implements SharedContentListener {
       // Sin este aviso, lo mismo que arrancó la app se procesaría de nuevo
       // cada vez que algo más vuelva a preguntar por `getInitialMedia()`.
       await ReceiveSharingIntent.instance.reset();
-      return _toRequests(media);
+      return await _toRequests(media);
       // Sin plugin nativo del otro lado —una plataforma no configurada, o
       // los tests, que corren sin ningún sistema operativo real— esta
       // llamada no tiene con qué responder. No es un error del usuario: es
@@ -56,45 +56,38 @@ class ReceiveSharingIntentListener implements SharedContentListener {
         test: (error) =>
             error is PlatformException || error is MissingPluginException,
       )
-      .map(_toRequests)
+      .asyncMap(_toRequests)
       .where((requests) => requests.isNotEmpty);
 
-  List<CaptureRequest> _toRequests(List<SharedMediaFile> media) => media
-      .map(_toRequest)
-      .where((request) => request != null)
-      .cast<CaptureRequest>()
-      .toList();
-
-  CaptureRequest? _toRequest(SharedMediaFile media) => switch (media.type) {
-    SharedMediaType.text ||
-    SharedMediaType.url => CaptureRequest.text(rawInput: media.path),
-    SharedMediaType.image ||
-    SharedMediaType.video ||
-    SharedMediaType.file => _toFileRequest(media),
-  };
-
-  CaptureRequest? _toFileRequest(SharedMediaFile media) {
-    final bytes = _readBytes(media.path);
-    if (bytes == null) return null;
-
-    return CaptureRequest.file(
-      file: CapturedFile(name: p.basename(media.path), bytes: bytes),
-    );
+  Future<List<CaptureRequest>> _toRequests(List<SharedMediaFile> media) async {
+    final requests = <CaptureRequest>[];
+    for (final item in media) {
+      final request = await _toRequest(item);
+      if (request != null) requests.add(request);
+    }
+    return requests;
   }
 
-  Uint8List? _readBytes(String path) {
-    try {
-      final file = File(path);
-      // El tamaño se consulta sin leer el archivo: uno de cientos de megas
-      // compartido desde otra app se descarta acá, antes de cargarlo entero
-      // en memoria para terminar rechazándolo igual —ver `CapturedFile.
-      // maxBytes`—. No hay a quién avisarle acá —esto corre en segundo
-      // plano, sin ninguna pantalla mirando— así que se lo trata como el
-      // caso de abajo: la copia ya no sirve, y no se produce ningún
-      // `CaptureRequest`.
-      if (file.lengthSync() > CapturedFile.maxBytes) return null;
+  Future<CaptureRequest?> _toRequest(SharedMediaFile media) async =>
+      switch (media.type) {
+        SharedMediaType.text ||
+        SharedMediaType.url => CaptureRequest.text(rawInput: media.path),
+        SharedMediaType.image ||
+        SharedMediaType.video ||
+        SharedMediaType.file => await _toFileRequest(media),
+      };
 
-      return file.readAsBytesSync();
+  /// En disco, sin leerlo entero (F21): un video de varios GB compartido
+  /// desde la galería se copia al almacén por partes al guardarlo. Antes se
+  /// cargaba entero en memoria, y lo que pasaba de 500 MB se descartaba en
+  /// silencio.
+  Future<CaptureRequest?> _toFileRequest(SharedMediaFile media) async {
+    try {
+      final file = await capturedFileOnDisk(
+        File(media.path),
+        name: p.basename(media.path),
+      );
+      return file == null ? null : CaptureRequest.file(file: file);
       // El plugin copia lo compartido a una carpeta temporal antes de
       // avisar, pero esa copia puede haber desaparecido si el sistema
       // limpió la caché entre que se compartió y que Sinapsis la leyó.
