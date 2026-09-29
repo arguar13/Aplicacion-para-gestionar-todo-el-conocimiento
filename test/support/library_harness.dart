@@ -21,7 +21,6 @@ import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -283,9 +282,9 @@ class LibraryHarness {
         // de cada elemento cambiaría bajo los pies de las aserciones.
         processingQueueProvider.overrideWith(
           (ref) => InertProcessingQueue(
-            processItem: ref.watch(processItemUseCaseProvider),
-            repository: ref.watch(libraryRepositoryProvider),
-            logger: ref.watch(appLoggerProvider),
+            processItem: () => ref.read(processItemUseCaseProvider),
+            processingStates: () => ref.read(processingStateRepositoryProvider),
+            logger: ref.read(appLoggerProvider),
           ),
         ),
         ...extraOverrides,

@@ -144,7 +144,7 @@ class CorruptedPinHasher implements PinHasher {
 class InertProcessingQueue extends ProcessingQueueNotifier {
   InertProcessingQueue({
     required super.processItem,
-    required super.repository,
+    required super.processingStates,
     required super.logger,
   });
 
@@ -159,5 +159,5 @@ class InertProcessingQueue extends ProcessingQueueNotifier {
   void enqueue(String itemId) => enqueued.add(itemId);
 
   @override
-  Future<void> enqueuePending() async => pendingSweeps++;
+  Future<void> resume() async => pendingSweeps++;
 }

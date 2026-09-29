@@ -33,6 +33,12 @@ void main() {
             'generate_duplicate_suggestions_usecase.dart':
         'dedup_hash y simhash: huellas derivadas del texto, se recalculan '
         'cuando hace falta; no son una modificación del usuario',
+    'lib/features/transform/data/repositories/'
+            'processing_state_repository_impl.dart':
+        'processing_status, processing_error y processing_attempts: el estado '
+        'técnico del procesamiento en este dispositivo (F21), sin linaje ni '
+        'field_version; no es una modificación del usuario, y marcarlo '
+        'guardando el elemento entero pisaba lo que el usuario sí cambió',
     'lib/core/database/migrations/mirror_unmirrored_items.dart':
         'migración de F3: espejaba lo que no tenía fila en el modelo nuevo, '
         'con el dispositivo del espejo (todavía no había identidad)',

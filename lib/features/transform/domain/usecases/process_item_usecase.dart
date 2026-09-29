@@ -13,28 +13,38 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/reference/domain/services/metadata_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
+import 'package:sinapsis/features/transform/domain/usecases/processing_failure_classifier.dart';
 
 /// Trae el contenido de un elemento que quedó pendiente.
 ///
 /// El orden de los pasos importa, y todos existen por una razón:
 ///
-/// 1. Se marca **en curso** y se guarda, antes de empezar. Eso es lo que hace
-///    que la interfaz pueda mostrar que algo está trabajando — la lista
-///    escucha los cambios de la base, así que ve el cambio de estado sola.
+/// 1. Se marca **en curso** —y se cuenta el intento— antes de empezar. Eso es
+///    lo que hace que la interfaz pueda mostrar que algo está trabajando — la
+///    lista escucha los cambios de la base, así que ve el cambio de estado
+///    sola. El intento contado es lo que le permite a la cola dejar de
+///    retomar algo que hace caer la app cada vez.
 /// 2. Se transforma. Acá es donde se sale a la red, se tarda y se puede
 ///    fallar.
 /// 3. Se guarda el resultado como **listo**.
 ///
-/// Si el paso 2 falla, el elemento queda **fallido** pero conserva todo lo
-/// que ya tenía: su enlace, su título provisional, la nota del usuario. Nunca
-/// se borra nada por un error de red. Rechazar algo porque una etapa opcional
-/// no funcionó sería peor que aceptarlo incompleto, y además se puede
-/// reintentar cuando haya conexión.
+/// Si el paso 2 falla, el elemento queda **fallido**, con el motivo guardado,
+/// pero conserva todo lo que ya tenía: su enlace, su título provisional, la
+/// nota del usuario. Nunca se borra nada por un error de red. Rechazar algo
+/// porque una etapa opcional no funcionó sería peor que aceptarlo incompleto,
+/// y además se puede reintentar cuando haya conexión.
+///
+/// Los pasos 1 y el fallo son operaciones puntuales de
+/// [ProcessingStateRepository], no un guardado del elemento entero: guardar la
+/// foto que se tenía en la mano pisaba lo que el usuario hubiera cambiado
+/// mientras tanto.
 class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   const ProcessItemUseCase({
     required TransformerRegistry registry,
     required LibraryRepository repository,
+    required ProcessingStateRepository processingStates,
     required AppLogger logger,
     required TelemetryService telemetry,
     required Clock clock,
@@ -44,6 +54,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required MetadataSuggestionGenerator metadataSuggestionGenerator,
   }) : _registry = registry,
        _repository = repository,
+       _processingStates = processingStates,
        _logger = logger,
        _telemetry = telemetry,
        _clock = clock,
@@ -54,6 +65,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
 
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
+  final ProcessingStateRepository _processingStates;
   final AppLogger _logger;
   final TelemetryService _telemetry;
   final Clock _clock;
@@ -95,20 +107,17 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
           updatedAt: _clock(),
         ),
       );
+      if (result.isRight()) await _processingStates.succeed(item.id);
       _generateSuggestions(result);
       return result;
     }
 
-    // Se publica el "en curso" antes de empezar, para que la interfaz lo
-    // muestre mientras dura.
-    await _repository.save(
-      item.copyWith(
-        processingState: ProcessingState.processing,
-        updatedAt: _clock(),
-      ),
-    );
-
     try {
+      // Se publica el "en curso" antes de empezar, para que la interfaz lo
+      // muestre mientras dura. Adentro del `try`: si la base falla acá, el
+      // fallo tiene que quedar registrado como cualquier otro, no escapar.
+      await _processingStates.begin(item.id);
+
       final enriched = await transformer.transform(item);
 
       final result = await _repository.save(
@@ -117,6 +126,7 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
           updatedAt: _clock(),
         ),
       );
+      if (result.isRight()) await _processingStates.succeed(item.id);
       _generateSuggestions(result);
       return result;
       // Catch-all deliberado: acá entra cualquier cosa que pueda salir de la
@@ -125,21 +135,32 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       // atascado en "en curso" para siempre.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
-      _logger.error('No se pudo procesar ${item.id}.', e, stackTrace);
+      final reason = processingFailureReasonFor(e);
+      _logger.error(
+        'No se pudo procesar ${item.id} (${reason.name}).',
+        e,
+        stackTrace,
+      );
       _telemetry.recordError(
         e,
         stackTrace,
         hint: 'ProcessItemUseCase: ${item.source.kind.name}',
       );
 
-      // Se guarda lo que el elemento ya tenía, solo con el estado cambiado:
-      // un fallo de red no puede costarle al usuario el enlace que guardó.
-      await _repository.save(
-        item.copyWith(
-          processingState: ProcessingState.failed,
-          updatedAt: _clock(),
-        ),
-      );
+      // Solo cambia el estado y el motivo: un fallo de red no puede costarle
+      // al usuario el enlace que guardó, ni lo que editó mientras esperaba.
+      try {
+        await _processingStates.fail(item.id, reason);
+        // Si ni siquiera se puede registrar el fallo, la base está en
+        // problemas: se informa, pero no se deja escapar —cortaría la cola—.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (failError, failStack) {
+        _logger.error(
+          'Tampoco se pudo registrar el fallo de ${item.id}.',
+          failError,
+          failStack,
+        );
+      }
 
       return left(Failure.unexpected(message: e.toString()));
     }

@@ -10,6 +10,8 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
@@ -51,6 +53,7 @@ void main() {
   }) => ProcessItemUseCase(
     registry: registry,
     repository: repository,
+    processingStates: ProcessingStateRepositoryImpl(db),
     logger: const SilentLogger(),
     telemetry: MockTelemetryService(),
     clock: () => now,
@@ -160,6 +163,66 @@ void main() {
 
       expect(result.isLeft(), isTrue);
       expect((await reload(item.id)).processingState, ProcessingState.failed);
+    });
+  });
+
+  group('estado del procesamiento: intentos y motivo', () {
+    Future<KnowledgeSourceRow> sourceOf(String id) => (db.select(
+      db.knowledgeSources,
+    )..where((s) => s.itemId.equals(id))).getSingle();
+
+    test('un fallo guarda su motivo real, no un "no se pudo" '
+        'genérico', () async {
+      // "Himno de Alabanza" (F21): falló porque faltaba el modelo de
+      // transcripción, y la app solo decía "No se pudo sacar el texto".
+      final item = await seedPending();
+
+      await build(
+        TransformerRegistry([
+          FakeTransformer(error: const WhisperModelNotReadyException()),
+        ]),
+      )(item.id);
+
+      final row = await sourceOf(item.id);
+      expect(row.processingError, 'transcriptionModelMissing');
+      expect(row.processingAttempts, 1);
+    });
+
+    test('un éxito deja sin motivo y sin intentos', () async {
+      final item = await seedPending();
+      await build(
+        TransformerRegistry([FakeTransformer(error: Exception('sin red'))]),
+      )(item.id);
+
+      await build(TransformerRegistry([FakeTransformer()]))(item.id);
+
+      final row = await sourceOf(item.id);
+      expect(row.processingError, isNull);
+      expect(row.processingAttempts, 0);
+    });
+
+    test('al fallar NO pisa lo que el usuario cambió mientras se '
+        'procesaba', () async {
+      // Antes el fallo se registraba guardando la foto del elemento tomada al
+      // empezar: un título o una nota cambiados en el medio se perdían.
+      final item = await seedPending();
+
+      await build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_) async {
+              await repository.save(
+                (await reload(item.id)).copyWith(title: 'Lo renombré yo'),
+              );
+            },
+            error: Exception('sin red'),
+          ),
+        ]),
+      )(item.id);
+
+      final reloaded = await reload(item.id);
+      expect(reloaded.processingState, ProcessingState.failed);
+      expect(reloaded.title, 'Lo renombré yo');
     });
   });
 

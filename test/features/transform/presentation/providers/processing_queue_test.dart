@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
@@ -11,12 +13,15 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
+import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/fake_metadata_suggestion_generator.dart';
@@ -109,11 +114,11 @@ void main() {
 
   tearDown(() => db.close());
 
-  ProcessingQueueNotifier buildQueue(Transformer transformer) {
-    final queue = ProcessingQueueNotifier(
-      processItem: ProcessItemUseCase(
+  ProcessItemUseCase buildUseCase(Transformer transformer) =>
+      ProcessItemUseCase(
         registry: TransformerRegistry([transformer]),
         repository: repository,
+        processingStates: ProcessingStateRepositoryImpl(db),
         logger: const SilentLogger(),
         telemetry: MockTelemetryService(),
         clock: () => now,
@@ -121,8 +126,16 @@ void main() {
         relationSuggestionGenerator: FakeRelationSuggestionGenerator(),
         duplicateSuggestionGenerator: FakeDuplicateSuggestionGenerator(),
         metadataSuggestionGenerator: FakeMetadataSuggestionGenerator(),
-      ),
-      repository: repository,
+      );
+
+  ProcessingQueueNotifier buildQueue(
+    Transformer transformer, {
+    ProcessItemUseCase Function()? resolveProcessItem,
+  }) {
+    final useCase = buildUseCase(transformer);
+    final queue = ProcessingQueueNotifier(
+      processItem: resolveProcessItem ?? () => useCase,
+      processingStates: () => ProcessingStateRepositoryImpl(db),
       logger: const SilentLogger(),
     );
     // Tolerante a propósito: una de las pruebas descarta la cola a mano, y
@@ -285,10 +298,72 @@ void main() {
       final transformer = _ScriptedTransformer();
       final queue = buildQueue(transformer);
 
-      await queue.enqueuePending();
+      await queue.resume();
       await whenIdle(queue);
 
       expect(transformer.processed, containsAll(['uno', 'dos']));
+    });
+
+    test('se retoma también lo que quedó EN CURSO: la app se cerró a mitad '
+        'de procesarlo', () async {
+      // "El Santo Rosario" (F21): quedó "Procesando" de una sesión en la que
+      // HyperOS congeló la app, y nada lo volvía a encolar nunca.
+      await seed('a-medias', state: ProcessingState.processing);
+
+      final transformer = _ScriptedTransformer();
+      final queue = buildQueue(transformer);
+
+      await queue.resume();
+      await whenIdle(queue);
+
+      expect(transformer.processed, ['a-medias']);
+      expect(await stateOf('a-medias'), ProcessingState.ready);
+    });
+
+    test('algo que se cortó demasiadas veces no se retoma más: queda '
+        'fallido por interrupción', () async {
+      // Si es él el que hace caer la app, retomarlo en cada arranque sería
+      // un bucle.
+      await seed('tumba-la-app', state: ProcessingState.processing);
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('tumba-la-app'))).write(
+        const KnowledgeSourcesCompanion(
+          processingAttempts: Value(
+            ProcessingQueueNotifier.maxInterruptedAttempts,
+          ),
+        ),
+      );
+
+      final transformer = _ScriptedTransformer();
+      final queue = buildQueue(transformer);
+
+      await queue.resume();
+      await whenIdle(queue);
+
+      expect(transformer.processed, isEmpty);
+      expect(await stateOf('tumba-la-app'), ProcessingState.failed);
+    });
+
+    test('retomar dos veces en la misma sesión no toma por interrumpido lo '
+        'que se está procesando ahora', () async {
+      await seed('a');
+
+      final transformer = _ScriptedTransformer(gated: true);
+      final queue = buildQueue(transformer);
+      await queue.resume();
+      await transformer.started('a');
+
+      // La biblioteca se vuelve a montar —bloquear y desbloquear la bóveda,
+      // por ejemplo— y pide retomar otra vez mientras 'a' está en curso.
+      await queue.resume();
+      expect(await stateOf('a'), ProcessingState.processing);
+
+      transformer.release('a');
+      await whenIdle(queue);
+
+      expect(transformer.processed, ['a']);
+      expect(await stateOf('a'), ProcessingState.ready);
     });
 
     test('NO se reintenta solo lo que ya falló', () async {
@@ -301,7 +376,7 @@ void main() {
       final transformer = _ScriptedTransformer();
       final queue = buildQueue(transformer);
 
-      await queue.enqueuePending();
+      await queue.resume();
       await whenIdle(queue);
 
       expect(transformer.processed, ['pendiente']);
@@ -314,10 +389,95 @@ void main() {
       final transformer = _ScriptedTransformer();
       final queue = buildQueue(transformer);
 
-      await queue.enqueuePending();
+      await queue.resume();
       await whenIdle(queue);
 
       expect(transformer.processed, isEmpty);
+    });
+
+    test('ni lo que está en la papelera', () async {
+      await seed('borrado');
+      await repository.delete('borrado');
+
+      final transformer = _ScriptedTransformer();
+      final queue = buildQueue(transformer);
+
+      await queue.resume();
+      await whenIdle(queue);
+
+      expect(transformer.processed, isEmpty);
+    });
+  });
+
+  group('reintentar a pedido', () {
+    test('vuelve a procesar un fallido, desde cero', () async {
+      await seed('fallido', state: ProcessingState.failed);
+      await (db.update(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('fallido'))).write(
+        const KnowledgeSourcesCompanion(
+          processingAttempts: Value(2),
+          processingError: Value('network'),
+        ),
+      );
+
+      final transformer = _ScriptedTransformer();
+      final queue = buildQueue(transformer);
+
+      await queue.retry('fallido');
+      await whenIdle(queue);
+
+      expect(transformer.processed, ['fallido']);
+      expect(await stateOf('fallido'), ProcessingState.ready);
+    });
+  });
+
+  group('nada corta la cola', () {
+    test('si armar el caso de uso lanza, el siguiente se procesa '
+        'igual', () async {
+      await seed('a');
+      await seed('b');
+
+      final transformer = _ScriptedTransformer();
+      final useCase = buildUseCase(transformer);
+      var calls = 0;
+      final queue =
+          buildQueue(
+              transformer,
+              resolveProcessItem: () {
+                calls++;
+                if (calls == 1) throw StateError('un proveedor roto');
+                return useCase;
+              },
+            )
+            ..enqueue('a')
+            ..enqueue('b');
+      await whenIdle(queue);
+
+      expect(transformer.processed, ['b']);
+      expect(queue.state, const ProcessingQueueState.idle());
+    });
+  });
+
+  group('el proveedor', () {
+    test('no se reconstruye —ni pierde la cola— cuando se reconstruye lo '
+        'que usa', () {
+      // Antes observaba ~20 proveedores: elegir otro modelo de chat
+      // reconstruía la cola y dejaba todo "En espera" hasta el próximo
+      // arranque.
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final before = container.read(processingQueueProvider.notifier);
+      container
+        ..invalidate(processItemUseCaseProvider)
+        ..invalidate(processingStateRepositoryProvider)
+        ..invalidate(chatModelOptionNotifierProvider);
+
+      expect(
+        identical(container.read(processingQueueProvider.notifier), before),
+        isTrue,
+      );
     });
   });
 

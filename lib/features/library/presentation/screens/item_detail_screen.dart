@@ -723,8 +723,9 @@ class _NoContentYet extends ConsumerWidget {
           // existe— y volver a intentarlo solo gastaría batería y datos para
           // fallar de nuevo. Quien sabe si vale la pena es el usuario.
           FilledButton.tonalIcon(
-            onPressed: () =>
-                ref.read(processingQueueProvider.notifier).enqueue(item.id),
+            onPressed: () => unawaited(
+              ref.read(processingQueueProvider.notifier).retry(item.id),
+            ),
             icon: const Icon(Icons.refresh, size: 18),
             label: Text(l10n.detailRetry),
           ),

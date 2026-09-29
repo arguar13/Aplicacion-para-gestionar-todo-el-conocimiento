@@ -2,12 +2,9 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
-import 'package:sinapsis/features/library/domain/entities/library_query.dart';
-import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
@@ -24,18 +21,29 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 ///
 /// No bloquea nada: quien capturó ya tiene su elemento guardado, y la
 /// interfaz se entera de cada cambio por el stream de la biblioteca.
+///
+/// Sus dependencias se piden **al usarlas**, no al nacer: la cola vive en
+/// memoria, y si naciera observando la cadena de proveedores que arma el
+/// caso de uso, cualquier reconstrucción de uno de ellos —elegir otro modelo
+/// de chat, por ejemplo— la descartaría con todo lo que tenía esperando.
 class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   ProcessingQueueNotifier({
-    required ProcessItemUseCase processItem,
-    required LibraryRepository repository,
+    required ProcessItemUseCase Function() processItem,
+    required ProcessingStateRepository Function() processingStates,
     required AppLogger logger,
   }) : _processItem = processItem,
-       _repository = repository,
+       _processingStates = processingStates,
        _logger = logger,
        super(const ProcessingQueueState.idle());
 
-  final ProcessItemUseCase _processItem;
-  final LibraryRepository _repository;
+  /// Cuántas veces se retoma algo que quedó a medias porque la app se cerró,
+  /// antes de darlo por fallido. Tres cubre un cierre por accidente y un
+  /// sistema que congela la app en segundo plano; más que eso es algo que
+  /// la hace caer, y seguir reintentándolo en cada arranque sería un bucle.
+  static const maxInterruptedAttempts = 3;
+
+  final ProcessItemUseCase Function() _processItem;
+  final ProcessingStateRepository Function() _processingStates;
   final AppLogger _logger;
 
   final _queue = Queue<String>();
@@ -49,6 +57,11 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
 
   var _isDraining = false;
   var _isDisposed = false;
+
+  /// Si ya se recuperó lo que quedó a medias de una sesión anterior. Una vez
+  /// por cola: lo que está "en curso" después de eso lo está de verdad, en
+  /// esta sesión.
+  var _recoveredInterrupted = false;
 
   /// Suma un elemento a la cola y arranca si no estaba andando.
   void enqueue(String itemId) {
@@ -73,29 +86,64 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     unawaited(_drain());
   }
 
-  /// Encola todo lo que quedó esperando de sesiones anteriores.
+  /// Retoma todo lo que quedó esperando de sesiones anteriores.
   ///
   /// Se llama al abrir la app: alguien pudo capturar cinco enlaces sin
   /// conexión y cerrar; al volver, eso tiene que completarse solo, sin que
   /// haya que acordarse de pedirlo.
   ///
+  /// Incluye lo que quedó **en curso**: la app se cerró, o el sistema la
+  /// congeló o la mató, a mitad de procesarlo. Sin esto quedaba "Procesando"
+  /// para siempre, porque nada lo volvía a encolar. El tope de
+  /// [maxInterruptedAttempts] evita que algo que la hace caer se retome en
+  /// cada arranque.
+  ///
   /// Los que fallaron NO entran acá. Un fallo puede ser permanente —un video
   /// borrado, una página que ya no existe— y reintentarlo en cada arranque
   /// sería gastar batería y datos para volver a fallar. Se reintentan a
-  /// pedido, desde el elemento.
-  Future<void> enqueuePending() async {
-    final result = await _repository.list(
-      const LibraryQuery(processingStates: {ProcessingState.pending}),
-    );
-
-    result.match(
-      (failure) => _logger.error('No se pudo leer lo pendiente.', failure),
-      (items) {
-        for (final item in items) {
-          enqueue(item.id);
+  /// pedido, desde el elemento ([retry]).
+  Future<void> resume() async {
+    try {
+      final states = _processingStates();
+      if (!_recoveredInterrupted) {
+        final current = _current;
+        final interrupted = await states.recoverInterrupted(
+          maxAttempts: maxInterruptedAttempts,
+          inFlight: {?current},
+        );
+        _recoveredInterrupted = true;
+        if (interrupted.isNotEmpty) {
+          _logger.info(
+            'Se retoman ${interrupted.length} elementos que quedaron a medias.',
+          );
         }
-      },
-    );
+      }
+
+      for (final itemId in await states.pendingIds()) {
+        if (_isDisposed) return;
+        enqueue(itemId);
+      }
+      // Lo que se retoma no puede, si la base falla, tumbar la app en el
+      // arranque: se informa y la próxima apertura vuelve a intentarlo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _logger.error('No se pudo retomar lo pendiente.', e, stackTrace);
+    }
+  }
+
+  /// Vuelve a procesar [itemId] a pedido del usuario, desde cero: sin el
+  /// motivo del fallo anterior y con sus propios intentos.
+  Future<void> retry(String itemId) async {
+    try {
+      await _processingStates().requeue(itemId);
+      // Si no se pudo dejar en espera, se procesa igual: el reintento es lo
+      // que el usuario pidió, y el procesamiento vuelve a marcar su estado.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _logger.error('No se pudo dejar en espera $itemId.', e, stackTrace);
+    }
+    if (_isDisposed) return;
+    enqueue(itemId);
   }
 
   Future<void> _drain() async {
@@ -115,11 +163,16 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
           // El caso de uso no lanza: traduce cualquier fallo a un `Left` y
           // deja el elemento marcado. Es lo que permite que un enlace roto no
           // corte la cola y los demás sigan procesándose.
-          final result = await _processItem(itemId);
+          final result = await _processItem()(itemId);
           result.match(
             (failure) => _logger.warning('Quedó pendiente $itemId: $failure'),
             (_) {},
           );
+          // Red de seguridad por si algo lanza igual —armar el caso de uso,
+          // por ejemplo—: un solo elemento nunca puede cortar la cola.
+          // ignore: avoid_catches_without_on_clauses
+        } catch (e, stackTrace) {
+          _logger.error('La cola no pudo procesar $itemId.', e, stackTrace);
         } finally {
           _current = null;
         }
@@ -143,11 +196,13 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
 /// Deliberadamente NO autoDispose: la cola tiene que seguir trabajando
 /// aunque el usuario cambie de pantalla. Descartarla al desmontar la lista
 /// dejaría las descargas a medio camino cada vez que alguien abre un detalle.
+///
+/// Y deliberadamente sin `ref.watch`: ver [ProcessingQueueNotifier].
 final processingQueueProvider =
     StateNotifierProvider<ProcessingQueueNotifier, ProcessingQueueState>((ref) {
       return ProcessingQueueNotifier(
-        processItem: ref.watch(processItemUseCaseProvider),
-        repository: ref.watch(libraryRepositoryProvider),
-        logger: ref.watch(appLoggerProvider),
+        processItem: () => ref.read(processItemUseCaseProvider),
+        processingStates: () => ref.read(processingStateRepositoryProvider),
+        logger: ref.read(appLoggerProvider),
       );
     });

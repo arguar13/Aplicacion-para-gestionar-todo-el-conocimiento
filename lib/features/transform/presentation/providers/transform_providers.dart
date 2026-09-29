@@ -21,6 +21,7 @@ import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
+import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
@@ -33,6 +34,7 @@ import 'package:sinapsis/features/transform/domain/clients/social_post_client.da
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
@@ -161,10 +163,17 @@ final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
   ];
 });
 
+final processingStateRepositoryProvider = Provider<ProcessingStateRepository>((
+  ref,
+) {
+  return ProcessingStateRepositoryImpl(ref.watch(appDatabaseProvider));
+});
+
 final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
   return ProcessItemUseCase(
     registry: ref.watch(transformerRegistryProvider),
     repository: ref.watch(libraryRepositoryProvider),
+    processingStates: ref.watch(processingStateRepositoryProvider),
     logger: ref.watch(appLoggerProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),

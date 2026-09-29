@@ -104,14 +104,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     super.initState();
 
     // Retoma lo que quedó a medias en sesiones anteriores: alguien pudo
-    // capturar cinco enlaces sin conexión y cerrar la app. Al volver, eso se
-    // completa solo, sin que haya que acordarse de pedirlo.
+    // capturar cinco enlaces sin conexión y cerrar la app, o el sistema pudo
+    // cerrarla a mitad de procesar algo. Al volver, eso se completa solo, sin
+    // que haya que acordarse de pedirlo.
     //
     // Diferido al post-frame por la regla de Riverpod de no tocar providers
     // mientras se construye el árbol de widgets.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(ref.read(processingQueueProvider.notifier).enqueuePending());
+      unawaited(ref.read(processingQueueProvider.notifier).resume());
     });
   }
 
