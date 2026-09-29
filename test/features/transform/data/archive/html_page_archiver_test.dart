@@ -253,6 +253,94 @@ void main() {
     });
   });
 
+  group('liviano (F21)', () {
+    test('sin tipografías: las @font-face se quitan y sus fuentes no se '
+        'piden', () async {
+      // vaticannews pedía decenas de tipografías —armenio, canarés,
+      // malayalam, en .eot y .ttf cada una— para un artículo de 1,5 KB.
+      final fetcher = FakeResourceFetcher(
+        byUrl: {
+          'https://ejemplo.org/tema.css': utf8.encode(
+            "@font-face{font-family:X;src:url('x.woff2') format('woff2')} "
+            "body{background:url('fondo.png')}",
+          ),
+          'https://ejemplo.org/fondo.png': png,
+        },
+      );
+      final archiver = build(fetcher);
+
+      final result = await archiveToString(
+        archiver,
+        '<html><head><link rel="stylesheet" href="tema.css"> '
+        '<style>@font-face{font-family:Y;src:url(y.ttf)}</style> '
+        '</head><body></body></html>',
+      );
+
+      expect(result, isNot(contains('@font-face')));
+      expect(
+        fetcher.requested.map((u) => u.path),
+        isNot(anyOf(contains('/x.woff2'), contains('/y.ttf'))),
+      );
+      expect(result, contains("url('data:image/png;base64,"));
+    });
+
+    test('un recurso que nombran dos hojas se pide una sola vez', () async {
+      final css = utf8.encode("a{background:url('/fondo.png')}");
+      final fetcher = FakeResourceFetcher(
+        byUrl: {
+          'https://ejemplo.org/a.css': css,
+          'https://ejemplo.org/b.css': css,
+          'https://ejemplo.org/fondo.png': png,
+        },
+      );
+      final archiver = build(fetcher);
+
+      await archiveToString(
+        archiver,
+        '<html><head><link rel="stylesheet" href="a.css"> '
+        '<link rel="stylesheet" href="b.css"></head><body></body></html>',
+      );
+
+      expect(
+        fetcher.requested.where((u) => u.path == '/fondo.png'),
+        hasLength(1),
+      );
+    });
+
+    test('pasado el tope de pedidos, no se pide nada más', () async {
+      final fetcher = FakeResourceFetcher(
+        byUrl: {for (var i = 0; i < 10; i++) 'https://ejemplo.org/$i.png': png},
+      );
+      final archiver = HtmlPageArchiver(fetcher: fetcher, maxRequests: 3);
+
+      await archiveToString(
+        archiver,
+        '''
+<html><body>${[for (var i = 0; i < 10; i++) '<img src="$i.png">'].join()}</body></html>''',
+      );
+
+      expect(fetcher.requested, hasLength(3));
+    });
+
+    test('lo que no llega antes del tope de tiempo se abandona y la página '
+        'se archiva igual', () async {
+      final archiver = HtmlPageArchiver(
+        fetcher: _SlowResourceFetcher(const Duration(seconds: 5)),
+        timeBudget: const Duration(milliseconds: 100),
+      );
+      final watch = Stopwatch()..start();
+
+      final result = await archiveToString(
+        archiver,
+        '<html><body><img src="lenta.png"><p>El artículo.</p></body></html>',
+      );
+
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+      expect(result, contains('El artículo.'));
+      expect(result, contains('src="lenta.png"'));
+    });
+  });
+
   group('robustez', () {
     test('un recurso que lanza en vez de fallar en silencio no tumba el '
         'archivado entero', () async {
@@ -286,4 +374,17 @@ void main() {
 class _ThrowingResourceFetcher implements ResourceFetcher {
   @override
   Future<Uint8List?> fetchBytes(Uri url) => throw StateError('roto');
+}
+
+/// Un servidor que tarda en responder.
+class _SlowResourceFetcher implements ResourceFetcher {
+  _SlowResourceFetcher(this.delay);
+
+  final Duration delay;
+
+  @override
+  Future<Uint8List?> fetchBytes(Uri url) async {
+    await Future<void>.delayed(delay);
+    return null;
+  }
 }

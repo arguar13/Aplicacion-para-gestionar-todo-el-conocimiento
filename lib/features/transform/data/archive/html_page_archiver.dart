@@ -18,18 +18,48 @@ import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart
 /// HTML+CSS estático —video, iframes, contenido armado por JavaScript—.
 /// Perseguir eso multiplicaría la complejidad para un beneficio que no le
 /// sirve a una app de lectura.
+///
+/// **Liviano a propósito (F21).** Archivar la página de vaticannews costaba
+/// 335 descargas y 13,8 MB —tipografías de armenio, canarés, malayalam, en
+/// `.eot` y `.ttf` cada una, 134 de ellas 404— para un artículo de 1,5 KB:
+/// once de los doce segundos que tardaba en quedar lista. Por eso:
+///
+/// - **Sin tipografías.** Se quitan las reglas `@font-face`: no aportan nada
+///   para leer, y dejarlas apuntando afuera haría que la página archivada
+///   salga a buscarlas a internet cada vez que se abre.
+/// - **Cada recurso se pide una vez**, aunque lo nombren varias hojas.
+/// - **Tope de pedidos y de tiempo.** Pasado cualquiera de los dos, lo que
+///   falta se deja apuntando al original: el artículo ya quedó guardado
+///   aparte, y el archivado es un extra que no puede frenar la cola.
 class HtmlPageArchiver implements PageArchiver {
   const HtmlPageArchiver({
     required ResourceFetcher fetcher,
     int maxResourceBytes = _defaultMaxResourceBytes,
     int maxTotalBytes = _defaultMaxTotalBytes,
+    int maxRequests = _defaultMaxRequests,
+    Duration timeBudget = _defaultTimeBudget,
   }) : _fetcher = fetcher,
        _maxResourceBytes = maxResourceBytes,
-       _maxTotalBytes = maxTotalBytes;
+       _maxTotalBytes = maxTotalBytes,
+       _maxRequests = maxRequests,
+       _timeBudget = timeBudget;
 
   final ResourceFetcher _fetcher;
   final int _maxResourceBytes;
   final int _maxTotalBytes;
+  final int _maxRequests;
+  final Duration _timeBudget;
+
+  /// Cuántos recursos se piden, como mucho, para archivar una página. Una
+  /// página de lectura normal tiene una docena de imágenes y un par de hojas
+  /// de estilo; más que esto es decoración.
+  static const _defaultMaxRequests = 60;
+
+  /// Cuánto puede tardar el archivado entero. Pasado esto se deja de pedir,
+  /// y lo que estaba en camino se abandona.
+  static const _defaultTimeBudget = Duration(seconds: 20);
+
+  static final _fontFacePattern = RegExp(r'@font-face\s*\{[^}]*\}');
 
   /// Lo más grande que se incrusta de un solo recurso, por defecto.
   ///
@@ -53,11 +83,19 @@ class HtmlPageArchiver implements PageArchiver {
   Future<Uint8List?> archive(String html, {required Uri baseUri}) async {
     try {
       final document = html_parser.parse(html);
-      final budget = _Budget(_maxTotalBytes);
+      final budget = _Budget(
+        bytes: _maxTotalBytes,
+        requests: _maxRequests,
+        time: _timeBudget,
+      );
 
       await _embedImages(document, baseUri: baseUri, budget: budget);
-      await _embedLinkedStylesheets(document, baseUri: baseUri, budget: budget);
+      // Los `<style>` de la página antes que las hojas enlazadas: las hojas
+      // se convierten en `<style>` ya incrustados, y recorrerlos de nuevo
+      // era buscar `url(...)` entre megas de datos que ya no hacía falta
+      // tocar.
       await _embedInlineStyles(document, baseUri: baseUri, budget: budget);
+      await _embedLinkedStylesheets(document, baseUri: baseUri, budget: budget);
 
       return Uint8List.fromList(utf8.encode(document.outerHtml));
       // Una página ajena puede traer cualquier cosa. Nada de lo que salga
@@ -101,7 +139,7 @@ class HtmlPageArchiver implements PageArchiver {
         final resolved = _resolve(baseUri, href);
         if (resolved == null) return;
 
-        final bytes = await _fetcher.fetchBytes(resolved);
+        final bytes = await budget.fetch(resolved, _fetcher);
         if (bytes == null || !budget.spend(bytes.length)) return;
 
         // Las referencias relativas de la hoja se resuelven contra la
@@ -136,7 +174,8 @@ class HtmlPageArchiver implements PageArchiver {
     });
   }
 
-  /// Reemplaza cada `url(...)` de [css] por el dato incrustado que se pueda.
+  /// Reemplaza cada `url(...)` de [original] por el dato incrustado que se
+  /// pueda, sin las reglas `@font-face`.
   ///
   /// Primero se resuelven todas las referencias —cada una que no sea
   /// repetida, a la vez que las demás— y recién después se reescribe el
@@ -146,13 +185,16 @@ class HtmlPageArchiver implements PageArchiver {
   /// `String.replaceAllMapped` no acepta una función asíncrona, así que no
   /// hay manera de resolver y reemplazar en el mismo paso.
   Future<String> _rewriteCssUrls(
-    String css, {
+    String original, {
     required Uri baseUri,
     required _Budget budget,
   }) async {
+    // Sin tipografías: ver la documentación de la clase.
+    final css = original.replaceAll(_fontFacePattern, '');
+
     // Un `Set`, no una lista: una hoja de estilo repite la misma URL de
-    // ícono o de fuente muchas veces, y traerla una sola vez por referencia
-    // distinta —no por aparición— es lo que evita pedirla de más.
+    // ícono muchas veces, y traerla una sola vez por referencia distinta
+    // —no por aparición— es lo que evita pedirla de más.
     final rawUrls = _cssUrlPattern
         .allMatches(css)
         .map((match) => match.group(2)!.trim())
@@ -177,7 +219,7 @@ class HtmlPageArchiver implements PageArchiver {
   }
 
   Future<String?> _fetchAsDataUri(Uri url, {required _Budget budget}) async {
-    final bytes = await _fetcher.fetchBytes(url);
+    final bytes = await budget.fetch(url, _fetcher);
     if (bytes == null || bytes.length > _maxResourceBytes) return null;
 
     final mimeType = _mimeTypeOf(bytes);
@@ -239,22 +281,50 @@ Future<void> _forEachConcurrently<T>(
   await Future.wait(List.generate(concurrency, (_) => worker()));
 }
 
-/// Cuánto queda del tope total.
+/// Cuánto queda de los tres topes —bytes, pedidos, tiempo— y lo que ya se
+/// pidió.
 ///
 /// Nace y muere en cada llamada a [PageArchiver.archive]: es mutable a
 /// propósito, pero nunca se comparte entre el archivado de dos páginas.
 class _Budget {
-  _Budget(this._remaining);
+  _Budget({required int bytes, required int requests, required Duration time})
+    : _bytes = bytes,
+      _requests = requests,
+      _time = time;
 
-  int _remaining;
+  int _bytes;
+  int _requests;
+  final Duration _time;
+  final _clock = Stopwatch()..start();
+
+  /// Lo que ya se pidió, por URL: un recurso que nombran dos hojas de estilo
+  /// se pide una vez, y los dos esperan la misma respuesta.
+  final _fetched = <Uri, Future<Uint8List?>>{};
 
   /// Si hay lugar para [bytes] más, los descuenta y devuelve `true`. Si no,
   /// no toca nada — quien pidió se queda sin incrustar ese recurso, pero
   /// nada más se rompe.
   bool spend(int bytes) {
-    if (bytes > _remaining) return false;
-    _remaining -= bytes;
+    if (bytes > _bytes) return false;
+    _bytes -= bytes;
     return true;
+  }
+
+  /// Trae [url] con [fetcher], una sola vez por archivado. `null` —sin
+  /// pedirlo— si ya no quedan pedidos o tiempo; y lo que no llega antes de
+  /// que se acabe el tiempo se abandona, también como `null`.
+  Future<Uint8List?> fetch(Uri url, ResourceFetcher fetcher) {
+    final known = _fetched[url];
+    if (known != null) return known;
+
+    final remaining = _time - _clock.elapsed;
+    if (_requests <= 0 || remaining <= Duration.zero) {
+      return Future<Uint8List?>.value();
+    }
+    _requests--;
+    return _fetched[url] = fetcher
+        .fetchBytes(url)
+        .timeout(remaining, onTimeout: () => null);
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:html2md/html2md.dart' as html2md;
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -61,17 +63,6 @@ class WebArticleTransformer implements Transformer {
   final Clock _clock;
   final AppLogger _logger;
 
-  /// Convierte el HTML del artículo a Markdown.
-  ///
-  /// `headingStyle: 'atx'` no es un detalle de gusto. Por defecto la
-  /// librería escribe los encabezados de nivel 1 y 2 al estilo antiguo
-  /// —subrayados con `===` y `---`— y del 3 en adelante con almohadillas,
-  /// así que un mismo documento sale con dos convenciones mezcladas. Con
-  /// `atx` todos quedan como `#`, `##`, `###`, que es lo que esperan
-  /// Obsidian, Logseq y cualquier editor actual.
-  String _toMarkdown(String html) =>
-      html2md.convert(html, styleOptions: const {'headingStyle': 'atx'});
-
   /// Trabajo corto: una página y lo que haga falta para archivarla.
   @override
   Duration? get timeLimit => kShortTransformTimeLimit;
@@ -95,9 +86,22 @@ class WebArticleTransformer implements Transformer {
     final url = Uri.parse(item.source.url!);
 
     final html = await _client.fetchHtml(url);
-    final article = _extractor.extract(html, baseUri: url);
 
-    if (article == null) {
+    // Fuera del hilo principal (F21): leer una página de cientos de KB con el
+    // algoritmo del modo lectura y convertirla a Markdown es trabajo síncrono
+    // que traba la interfaz mientras dura. Se puede mover porque el
+    // extractor no tiene estado propio y lo que entra y sale son datos
+    // simples.
+    final extractor = _extractor;
+    final (article, markdown) = await Isolate.run(() {
+      final extracted = extractor.extract(html, baseUri: url);
+      return (
+        extracted,
+        extracted == null ? null : _toMarkdown(extracted.contentHtml),
+      );
+    });
+
+    if (article == null || markdown == null) {
       // No había artículo: una portada, un listado, un panel. Se lanza en vez
       // de guardar un revoltijo de fragmentos de menú — el elemento queda
       // marcado como fallido y conserva su enlace, que sigue sirviendo.
@@ -131,7 +135,7 @@ class WebArticleTransformer implements Transformer {
           id: _ids.next(),
           itemId: item.id,
           kind: RenditionKind.markdown,
-          content: _toMarkdown(article.contentHtml),
+          content: markdown,
           isPrimary: true,
           createdAt: now,
         ),
@@ -169,3 +173,17 @@ class WebArticleTransformer implements Transformer {
     }
   }
 }
+
+/// Convierte el HTML del artículo a Markdown.
+///
+/// `headingStyle: 'atx'` no es un detalle de gusto. Por defecto la librería
+/// escribe los encabezados de nivel 1 y 2 al estilo antiguo —subrayados con
+/// `===` y `---`— y del 3 en adelante con almohadillas, así que un mismo
+/// documento sale con dos convenciones mezcladas. Con `atx` todos quedan
+/// como `#`, `##`, `###`, que es lo que esperan Obsidian, Logseq y cualquier
+/// editor actual.
+///
+/// Una función suelta y no un método: corre en otro isolate, y así no
+/// arrastra al transformador entero —con sus dependencias— hasta allá.
+String _toMarkdown(String html) =>
+    html2md.convert(html, styleOptions: const {'headingStyle': 'atx'});
