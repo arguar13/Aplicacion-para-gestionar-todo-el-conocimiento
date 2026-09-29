@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
+import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 // Con prefijo: el paquete trae su propia `VideoUnavailableException`, que
 // colisiona con la del dominio. El prefijo desambigua y, de paso, deja a la
@@ -12,27 +15,55 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_api;
 /// de elegirlo: no hace falta clave, no hay cuotas diarias y no hay una
 /// consola de Google donde registrar el proyecto. Es lo que hace DownSub por
 /// dentro, sin depender de que DownSub siga existiendo.
+///
+/// **Todo pedido lleva su límite de tiempo** (F21). El paquete habla con
+/// YouTube por su propio cliente HTTP, sin ninguno: una conexión que moría a
+/// mitad de camino —el teléfono se durmió, pasó de wifi a datos— dejaba la
+/// espera colgada para siempre, y con ella la cola entera. Un pedido que se
+/// pasa de [callTimeout] lanza `TimeoutException`; una descarga que deja de
+/// recibir datos durante [stallTimeout], también. Los cortes de red se
+/// traducen a [NetworkException]: se guardan como "sin conexión", no como un
+/// error desconocido.
 class YoutubeExplodeClient implements YouTubeClient {
-  const YoutubeExplodeClient();
+  const YoutubeExplodeClient({
+    yt_api.YoutubeExplode Function()? create,
+    this.callTimeout = const Duration(seconds: 45),
+    this.stallTimeout = const Duration(seconds: 45),
+  }) : _create = create ?? yt_api.YoutubeExplode.new;
+
+  /// Cómo se arma el cliente del paquete. Se inyecta para poder probar los
+  /// límites sin salir a la red.
+  final yt_api.YoutubeExplode Function() _create;
+
+  /// Lo más que puede tardar un pedido suelto: los datos del video, la lista
+  /// de subtítulos, la pista elegida, la lista de pistas de audio. Holgado
+  /// —el paquete reintenta solo los fallos pasajeros, y una conexión móvil
+  /// lenta no es un cuelgue—, pero finito.
+  final Duration callTimeout;
+
+  /// Cuánto puede pasar una descarga sin recibir ni un byte antes de darla
+  /// por muerta. No es un tope a la descarga entera: el audio de un video de
+  /// cuatro horas tarda lo que tarda mientras siga llegando.
+  final Duration stallTimeout;
 
   @override
   Future<YouTubeVideoData> fetchVideo(
     String videoId, {
     List<String> preferredLanguages = const ['es', 'en'],
   }) async {
-    final yt = yt_api.YoutubeExplode();
+    final yt = _create();
 
     try {
       // Las dos llamadas son independientes —una trae metadata del video,
       // la otra la pista de subtítulos— así que arrancan las dos antes de
       // esperar cualquiera de las dos: esperarlas una detrás de la otra
       // sumaría su tiempo en vez de superponerlo.
-      final videoFuture = yt.videos.get(videoId);
-      final transcriptFuture = _fetchTranscript(
-        yt,
-        videoId,
-        preferredLanguages,
-      );
+      final videoFuture = yt.videos.get(videoId).timeout(callTimeout);
+      final transcriptFuture = _fetchTranscript(yt, videoId, preferredLanguages)
+        ..ignore();
+      // `ignore()` no descarta el resultado —se espera abajo igual—: solo
+      // evita que, si el primero falla y se sale sin esperar al segundo, el
+      // error del segundo quede sin atrapar.
       final video = await videoFuture;
       final transcript = await transcriptFuture;
 
@@ -50,13 +81,14 @@ class YoutubeExplodeClient implements YouTubeClient {
       // privado) y `VideoRequiresPurchaseException` (de pago) extienden
       // `VideoUnplayableException`. Se traduce al tipo del dominio para que
       // quien llame no tenga que conocer las excepciones del paquete.
-      //
-      // Los fallos pasajeros —`TransientFailureException`,
-      // `RequestLimitExceededException`— NO se atrapan acá a propósito: esos
-      // sí valen la pena reintentarlos, y suben para que el elemento quede
-      // marcado como fallido y se pueda volver a encolar.
     } on yt_api.VideoUnplayableException {
       throw VideoUnavailableException(videoId);
+    } on http.ClientException catch (error) {
+      throw _networkFailure(error);
+    } on yt_api.TransientFailureException catch (error) {
+      throw _networkFailure(error);
+    } on yt_api.RequestLimitExceededException catch (error) {
+      throw _networkFailure(error);
     } finally {
       // Cierra el cliente HTTP interno. Sin esto, cada video procesado deja
       // una conexión abierta y una cola larga las acumula todas.
@@ -66,22 +98,34 @@ class YoutubeExplodeClient implements YouTubeClient {
 
   @override
   Future<Uint8List> fetchAudio(String videoId) async {
-    final yt = yt_api.YoutubeExplode();
+    final yt = _create();
 
     try {
-      final manifest = await yt.videos.streams.getManifest(videoId);
+      final manifest = await yt.videos.streams
+          .getManifest(videoId)
+          .timeout(callTimeout);
       // La de mayor bitrate entre las que traen solo audio: no hace falta
       // el video para escuchar ni para transcribir, y bajar el archivo
       // completo pesaría muchas veces más para nada que se vaya a usar.
       final audioStream = manifest.audioOnly.withHighestBitrate();
 
-      final chunks = <int>[];
-      await for (final chunk in yt.videos.streams.get(audioStream)) {
-        chunks.addAll(chunk);
+      // `BytesBuilder` y no una `List<int>`: la lista guarda cada byte en un
+      // entero de 8, y el audio de un video largo se multiplicaba por ocho en
+      // memoria (F21).
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk
+          in yt.videos.streams.get(audioStream).timeout(stallTimeout)) {
+        bytes.add(chunk);
       }
-      return Uint8List.fromList(chunks);
+      return bytes.takeBytes();
     } on yt_api.VideoUnplayableException {
       throw VideoUnavailableException(videoId);
+    } on http.ClientException catch (error) {
+      throw _networkFailure(error);
+    } on yt_api.TransientFailureException catch (error) {
+      throw _networkFailure(error);
+    } on yt_api.RequestLimitExceededException catch (error) {
+      throw _networkFailure(error);
     } finally {
       yt.close();
     }
@@ -92,11 +136,15 @@ class YoutubeExplodeClient implements YouTubeClient {
     String videoId,
     List<String> preferredLanguages,
   ) async {
-    final manifest = await yt.videos.closedCaptions.getManifest(videoId);
+    final manifest = await yt.videos.closedCaptions
+        .getManifest(videoId)
+        .timeout(callTimeout);
     final chosen = _pickTrack(manifest, preferredLanguages);
     if (chosen == null) return const [];
 
-    final track = await yt.videos.closedCaptions.get(chosen);
+    final track = await yt.videos.closedCaptions
+        .get(chosen)
+        .timeout(callTimeout);
 
     return track.captions
         .map(
@@ -135,3 +183,9 @@ class YoutubeExplodeClient implements YouTubeClient {
     return human.isNotEmpty ? human.first : manifest.tracks.first;
   }
 }
+
+/// Un corte de red —del cliente HTTP, o un fallo pasajero que el paquete ya
+/// no pudo reintentar— como [NetworkException]: se guarda como "sin
+/// conexión", que se resuelve reintentando, y no como un error desconocido.
+NetworkException _networkFailure(Object error) =>
+    NetworkException(message: 'YouTube no respondió: $error');

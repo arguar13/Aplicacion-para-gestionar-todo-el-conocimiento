@@ -109,10 +109,14 @@ class FakeTransformer implements Transformer {
     this.error,
     this.enrich,
     this.onTransform,
+    this.timeLimit,
   });
 
   final bool accepts;
   final Object? error;
+
+  @override
+  final Duration? timeLimit;
 
   /// Qué devolver. Por defecto agrega una forma de texto, que es lo que hace
   /// un transformador real.

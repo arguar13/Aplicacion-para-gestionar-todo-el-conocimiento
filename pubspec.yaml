@@ -82,6 +82,11 @@ dependencies:
   html: ^0.15.7
   # HTML -> Markdown: el formato de intercambio del proyecto.
   html2md: ^1.3.2
+  # Ya venía como dependencia transitiva —la usa `youtube_explode_dart` para
+  # hablar con YouTube—; se declara explícita porque el cliente de YouTube
+  # reconoce su `ClientException` para decir "sin conexión" en vez de "error
+  # desconocido" cuando la red se corta a mitad de un pedido (F21).
+  http: ^1.6.0
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente: codifica a PNG los píxeles
   # BGRA crudos que devuelve `pdfrx_engine` al renderizar una página de PDF,

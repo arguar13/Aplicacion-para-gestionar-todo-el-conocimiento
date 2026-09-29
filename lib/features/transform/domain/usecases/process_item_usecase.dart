@@ -118,7 +118,13 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       // fallo tiene que quedar registrado como cualquier otro, no escapar.
       await _processingStates.begin(item.id);
 
-      final enriched = await transformer.transform(item);
+      // El tope del trabajo corto: pasado ese tiempo algo se trabó, y
+      // esperarlo frenaría la cola entera. `timeout` no corta lo que quedó
+      // corriendo —eso lo resuelve la cancelación—, pero la cola sigue y el
+      // resultado tardío se descarta.
+      final work = transformer.transform(item);
+      final limit = transformer.timeLimit;
+      final enriched = limit == null ? await work : await work.timeout(limit);
 
       final result = await _repository.save(
         enriched.copyWith(

@@ -35,6 +35,11 @@ class AudioTranscriptTransformer implements Transformer {
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// Trabajo largo: transcribir horas de audio no tiene un tope fijo
+  /// razonable.
+  @override
+  Duration? get timeLimit => null;
+
   @override
   bool canTransform(KnowledgeItem item) {
     final kind = item.source.kind;

@@ -46,6 +46,13 @@ class YouTubeTranscriptTransformer implements Transformer {
   final Clock _clock;
   final AppLogger _logger;
 
+  /// Sin tope fijo mientras el audio se baje acá adentro: el de un video de
+  /// cuatro horas pesa cientos de MB y tarda lo que tarda. No puede colgarse
+  /// igual: cada pedido a YouTube lleva su propio límite, y la descarga del
+  /// audio se corta si deja de llegar (ver `YoutubeExplodeClient`).
+  @override
+  Duration? get timeLimit => null;
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.youtube) return false;

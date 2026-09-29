@@ -53,6 +53,10 @@ class SocialPostTransformer implements Transformer {
   final Clock _clock;
   final AppLogger _logger;
 
+  /// Trabajo corto: una publicación y, como mucho, su imagen.
+  @override
+  Duration? get timeLimit => kShortTransformTimeLimit;
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.socialPost) return false;

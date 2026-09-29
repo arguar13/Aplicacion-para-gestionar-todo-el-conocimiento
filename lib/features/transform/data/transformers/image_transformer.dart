@@ -34,6 +34,10 @@ class ImageTransformer implements Transformer {
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// Trabajo corto: reconocer el texto de una sola foto.
+  @override
+  Duration? get timeLimit => kShortTransformTimeLimit;
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.image) return false;

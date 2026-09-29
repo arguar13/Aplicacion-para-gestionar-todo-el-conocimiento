@@ -72,6 +72,10 @@ class WebArticleTransformer implements Transformer {
   String _toMarkdown(String html) =>
       html2md.convert(html, styleOptions: const {'headingStyle': 'atx'});
 
+  /// Trabajo corto: una página y lo que haga falta para archivarla.
+  @override
+  Duration? get timeLimit => kShortTransformTimeLimit;
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.webPage) return false;

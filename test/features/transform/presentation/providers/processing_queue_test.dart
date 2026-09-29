@@ -40,7 +40,19 @@ class MockTelemetryService extends Mock implements TelemetryService {}
 /// quieto hasta que el test lo suelta, así que se puede mirar la cola a mitad
 /// de camino sin depender de cuánto tarde nada.
 class _ScriptedTransformer implements Transformer {
-  _ScriptedTransformer({this.gated = false, this.failOn = const <String>{}});
+  _ScriptedTransformer({
+    this.gated = false,
+    this.failOn = const <String>{},
+    this.hangOn = const <String>{},
+    this.timeLimit,
+  });
+
+  /// Identificadores que no terminan nunca: un pedido a la red que quedó
+  /// colgado.
+  final Set<String> hangOn;
+
+  @override
+  final Duration? timeLimit;
 
   /// Con el freno puesto, `transform` no termina hasta que se llame a
   /// [release].
@@ -78,6 +90,7 @@ class _ScriptedTransformer implements Transformer {
     if (!startSignal.isCompleted) startSignal.complete();
 
     if (gated) await _signal(_released, item.id).future;
+    if (hangOn.contains(item.id)) await Completer<void>().future;
     if (failOn.contains(item.id)) throw Exception('se cayó ${item.id}');
 
     return item.copyWith(
@@ -430,6 +443,31 @@ void main() {
       expect(transformer.processed, ['fallido']);
       expect(await stateOf('fallido'), ProcessingState.ready);
     });
+  });
+
+  group('nada frena la cola', () {
+    test(
+      'un elemento colgado vence su tope y el siguiente se procesa',
+      () async {
+        // El short de YouTube (F21): un pedido que nunca respondía dejaba todo
+        // lo que venía detrás "En espera" para siempre.
+        await seed('colgado');
+        await seed('siguiente');
+
+        final transformer = _ScriptedTransformer(
+          hangOn: {'colgado'},
+          timeLimit: const Duration(milliseconds: 50),
+        );
+        final queue = buildQueue(transformer)
+          ..enqueue('colgado')
+          ..enqueue('siguiente');
+        await whenIdle(queue);
+
+        expect(await stateOf('colgado'), ProcessingState.failed);
+        expect(await stateOf('siguiente'), ProcessingState.ready);
+      },
+      timeout: const Timeout(Duration(seconds: 20)),
+    );
   });
 
   group('nada corta la cola', () {

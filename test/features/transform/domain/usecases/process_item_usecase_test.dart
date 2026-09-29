@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
@@ -187,6 +188,25 @@ void main() {
       expect(row.processingError, 'transcriptionModelMissing');
       expect(row.processingAttempts, 1);
     });
+
+    test('un trabajo corto que no responde vence su tope y queda fallido '
+        'por tiempo', () async {
+      final item = await seedPending();
+
+      final result = await build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_) => Completer<void>().future,
+            timeLimit: const Duration(milliseconds: 50),
+          ),
+        ]),
+      )(item.id);
+
+      expect(result.isLeft(), isTrue);
+      final row = await sourceOf(item.id);
+      expect(row.processingStatus, SourceProcessingStatus.failed);
+      expect(row.processingError, 'timedOut');
+    }, timeout: const Timeout(Duration(seconds: 20)));
 
     test('un éxito deja sin motivo y sin intentos', () async {
       final item = await seedPending();

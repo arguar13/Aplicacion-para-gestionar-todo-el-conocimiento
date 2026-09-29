@@ -25,5 +25,11 @@ ProcessingFailureReason processingFailureReasonFor(
   MissingOriginalFileException() => ProcessingFailureReason.missingOriginalFile,
   TimeoutException() => ProcessingFailureReason.timedOut,
   NetworkException() => ProcessingFailureReason.network,
+  // La página respondió que ya no está, o que no deja leerla: reintentar no
+  // lo va a cambiar.
+  ServerException(statusCode: 404 || 410) ||
+  UnauthorizedException() => ProcessingFailureReason.unavailable,
+  // Cualquier otro error del servidor suele ser pasajero.
+  ServerException() => ProcessingFailureReason.network,
   _ => ProcessingFailureReason.unknown,
 };

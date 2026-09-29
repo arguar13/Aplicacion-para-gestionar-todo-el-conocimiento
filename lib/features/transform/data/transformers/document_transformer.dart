@@ -45,6 +45,11 @@ class DocumentTransformer implements Transformer {
   /// comporta como siempre, sin este resguardo.
   final Future<bool> Function(String itemId)? _hasConfirmedReference;
 
+  /// Trabajo largo: un libro de cientos de páginas —y, si está escaneado,
+  /// reconocer cada una— no tiene un tope fijo razonable.
+  @override
+  Duration? get timeLimit => null;
+
   @override
   bool canTransform(KnowledgeItem item) {
     if (item.source.kind != SourceKind.document) return false;

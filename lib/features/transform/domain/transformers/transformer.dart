@@ -30,4 +30,19 @@ abstract interface class Transformer {
   /// Lanza si no puede completar el trabajo. Quien llama decide qué hacer con
   /// eso; lo que nunca se hace es perder lo que ya estaba guardado.
   Future<KnowledgeItem> transform(KnowledgeItem item);
+
+  /// Cuánto puede tardar [transform], como mucho, antes de darlo por colgado.
+  ///
+  /// Con un tope para el trabajo corto —traer una página, una publicación,
+  /// reconocer una foto—: pasado ese tiempo algo se trabó, y esperarlo
+  /// frenaría todo lo que viene detrás en la cola. `null` para el trabajo
+  /// largo —transcribir horas de audio, leer un libro de cientos de páginas—,
+  /// que no tiene un tope fijo razonable: ahí cada pedido a la red lleva su
+  /// propio límite.
+  Duration? get timeLimit;
 }
+
+/// El tope de [Transformer.timeLimit] para el trabajo corto. Holgado a
+/// propósito —una conexión lenta de datos móviles no es un cuelgue—, pero
+/// finito: nada corto puede frenar la cola más que esto.
+const kShortTransformTimeLimit = Duration(minutes: 3);
