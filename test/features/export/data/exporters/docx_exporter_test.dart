@@ -12,6 +12,7 @@ import 'package:sinapsis/features/export/data/exporters/docx_exporter.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 
+import '../../../../support/document_parsing.dart';
 import '../../../../support/sample_knowledge_item.dart';
 
 void main() {
@@ -38,7 +39,7 @@ void main() {
     // pensado para leer documentos de Word de verdad, lo pueda leer.
     Future<String> exportAndReadBack(KnowledgeItem item) async {
       final bytes = await exporter.export(item);
-      final parsed = await const DocxParser().parse(bytes);
+      final parsed = await const DocxParser().parseBytes(bytes);
       return parsed.markdown;
     }
 
@@ -105,7 +106,7 @@ void main() {
         sampleKnowledgeItem(),
         bibliography: bibliography,
       );
-      final markdown = (await const DocxParser().parse(bytes)).markdown;
+      final markdown = (await const DocxParser().parseBytes(bytes)).markdown;
 
       expect(markdown, contains('Referencias'));
       expect(markdown, contains('García'));

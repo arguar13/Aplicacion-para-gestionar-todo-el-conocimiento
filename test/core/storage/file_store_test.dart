@@ -145,6 +145,45 @@ void main() {
     });
   });
 
+  group('leer una parte, sin traer el archivo entero (F21)', () {
+    late String path;
+
+    setUp(() async {
+      path = await store.save(
+        bytes: bytes('0123456789'),
+        suggestedName: 'libro.pdf',
+        id: 'src-1',
+      );
+    });
+
+    test('un tramo del medio', () async {
+      expect(await store.readRange(path, start: 3, length: 4), bytes('3456'));
+    });
+
+    test('un tramo que se pasa del final devuelve lo que hay', () async {
+      expect(await store.readRange(path, start: 8, length: 10), bytes('89'));
+    });
+
+    test('cuánto pesa, sin leerlo', () async {
+      expect(await store.sizeOf(path), 10);
+    });
+
+    test('la ruta en el disco, para abrirlo desde ahí', () async {
+      final local = await store.localPathOf(path);
+
+      expect(local, isNotNull);
+      expect(File(local!).readAsStringSync(), '0123456789');
+    });
+
+    test('si ya no está, todo devuelve null', () async {
+      await store.delete(path);
+
+      expect(await store.readRange(path, start: 0, length: 4), isNull);
+      expect(await store.sizeOf(path), isNull);
+      expect(await store.localPathOf(path), isNull);
+    });
+  });
+
   group('guardar y recuperar', () {
     test('lo guardado vuelve igual', () async {
       final path = await store.save(

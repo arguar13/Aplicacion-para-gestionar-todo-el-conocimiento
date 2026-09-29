@@ -75,10 +75,10 @@ class PdfParser implements DocumentParser {
   bool canParse(FileFormat format) => format == FileFormat.pdf;
 
   @override
-  Future<ParsedDocument> parse(Uint8List bytes) async {
+  Future<ParsedDocument> parse(DocumentSource source) async {
     await _initialize();
 
-    final document = await _open(bytes);
+    final document = await _open(source);
     try {
       // Cada página ocupa su lugar aunque esté en blanco: el segmento número
       // N del texto es la página N. Descartar las vacías corría todas las
@@ -103,7 +103,12 @@ class PdfParser implements DocumentParser {
       // en su paquete XMP —ver `readPdfMetadata`—. El resto de lo que esa
       // lectura encuentra —DOI, revista, volumen— no cabe acá: sale como
       // sugerencia de referencia (F15), no como algo que se escribe solo.
-      final metadata = readPdfMetadata(bytes);
+      // Por tramos: un libro escaneado de cientos de megas no pasa entero por
+      // memoria para leerle el título (F21).
+      final metadata = await readPdfMetadataFrom(
+        size: source.size,
+        readRange: source.readRange,
+      );
 
       // Un documento sin una sola letra sale vacío, no como una fila de
       // separadores.
@@ -185,8 +190,17 @@ class PdfParser implements DocumentParser {
     }
   }
 
-  Future<PdfDocument> _open(Uint8List bytes) async {
+  Future<PdfDocument> _open(DocumentSource source) async {
     try {
+      // Desde el disco, si está en uno: PDFium lee solo las partes que
+      // necesita, y un libro de cientos de páginas no pasa entero por la
+      // memoria de Dart —ni se copia a la nativa— para sacarle el texto
+      // (F21).
+      final localPath = source.localPath;
+      if (localPath != null) return await PdfDocument.openFile(localPath);
+
+      // En la web no hay ruta: se abre desde los bytes.
+      final bytes = await source.readAll();
       return await PdfDocument.openData(
         bytes,
         // Por debajo de este tamaño, `pdfrx_engine` copia los bytes a
@@ -197,13 +211,12 @@ class PdfParser implements DocumentParser {
         // (`FPDF_LoadCustomDocument`), un camino mucho más nuevo y más
         // frágil: ahí es donde fallan PDFs que PDFium abre sin problema por
         // cualquier otra vía, sin que el archivo tenga nada de malo. Como
-        // los bytes ya están enteros acá
-        // —el llamador ya los leyó del almacén—, no hay ningún ahorro de
-        // memoria real en evitar la copia; subir el umbral bien por encima
-        // de lo que pesa un documento típico es forzar el camino robusto
-        // sin costo. Se deja un techo (64 MB) para no intentarlo con un
-        // archivo verdaderamente enorme, donde sí importa no duplicarlo en
-        // memoria nativa de una sola vez.
+        // los bytes ya están enteros acá, no hay ningún ahorro de memoria
+        // real en evitar la copia; subir el umbral bien por encima de lo que
+        // pesa un documento típico es forzar el camino robusto sin costo. Se
+        // deja un techo (64 MB) para no intentarlo con un archivo
+        // verdaderamente enorme, donde sí importa no duplicarlo en memoria
+        // nativa de una sola vez.
         maxSizeToCacheOnMemory: bytes.length <= _maxDirectLoadBytes
             ? bytes.length
             : null,

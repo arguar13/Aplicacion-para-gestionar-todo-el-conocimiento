@@ -23,7 +23,7 @@ void main() {
     renderCalls = 0;
     resolver = ItemThumbnailResolver(
       files: files,
-      renderPdfFirstPage: (bytes) async {
+      renderPdfFirstPage: ({localPath, bytes}) async {
         renderCalls++;
         return renderedPage;
       },

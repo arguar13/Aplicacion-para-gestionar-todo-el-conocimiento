@@ -53,6 +53,17 @@ class _RealFileStore implements FileStore {
   }
 
   @override
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int length,
+  }) => throw UnimplementedError();
+  @override
+  Future<int?> sizeOf(String relativePath) => throw UnimplementedError();
+  @override
+  Future<String?> localPathOf(String relativePath) async => path;
+
+  @override
   Future<String> save({
     required Uint8List bytes,
     required String suggestedName,

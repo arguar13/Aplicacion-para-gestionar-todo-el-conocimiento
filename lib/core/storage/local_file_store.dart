@@ -114,6 +114,37 @@ class LocalFileStore implements FileStore {
   }
 
   @override
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int length,
+  }) async {
+    final file = File(await resolve(relativePath));
+    if (!file.existsSync()) return null;
+
+    // Con `RandomAccessFile`, por lo mismo que en `readHead`.
+    final handle = await file.open();
+    try {
+      await handle.setPosition(start);
+      return await handle.read(length);
+    } finally {
+      await handle.close();
+    }
+  }
+
+  @override
+  Future<int?> sizeOf(String relativePath) async {
+    final file = File(await resolve(relativePath));
+    return file.existsSync() ? file.length() : null;
+  }
+
+  @override
+  Future<String?> localPathOf(String relativePath) async {
+    final path = await resolve(relativePath);
+    return File(path).existsSync() ? path : null;
+  }
+
+  @override
   Future<bool> exists(String relativePath) async {
     return File(await resolve(relativePath)).existsSync();
   }

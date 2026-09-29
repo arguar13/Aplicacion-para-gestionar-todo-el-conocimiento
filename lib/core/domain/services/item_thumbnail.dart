@@ -42,7 +42,11 @@ class ItemThumbnailNone extends ItemThumbnail {
 /// Renderiza la primera página de un PDF como PNG, a tamaño de miniatura.
 /// Inyectado para poder probar el resolver sin abrir PDFium de verdad —el
 /// mismo criterio que `PdfEngineInitializer` en `PdfParser`.
-typedef RenderPdfFirstPage = Future<Uint8List?> Function(Uint8List pdfBytes);
+///
+/// Recibe el PDF por su ruta en el disco si la tiene —[localPath]—, o si no
+/// por sus [bytes] (en la web).
+typedef RenderPdfFirstPage =
+    Future<Uint8List?> Function({String? localPath, Uint8List? bytes});
 
 /// Decide y trae la vista previa de un elemento para mostrarlo con portada.
 ///
@@ -98,13 +102,24 @@ class ItemThumbnailResolver {
     final path = item.source.originalFilePath;
     if (path == null) return const ItemThumbnailNone();
 
-    final bytes = await _files.read(path);
-    if (bytes == null) return const ItemThumbnailNone();
+    final head = await _files.readHead(path);
+    if (head == null) return const ItemThumbnailNone();
 
-    final format = detectFileFormat(bytes, name: p.basename(path));
+    final format = detectFileFormat(head, name: p.basename(path));
     if (format != FileFormat.pdf) return const ItemThumbnailNone();
 
-    final page = await _renderPdfFirstPage(bytes);
+    // Desde el disco si se puede: la miniatura de un libro de cientos de
+    // megas no puede traerlo entero a memoria cada vez que aparece su
+    // tarjeta (F21).
+    final localPath = await _files.localPathOf(path);
+    final Uint8List? page;
+    if (localPath != null) {
+      page = await _renderPdfFirstPage(localPath: localPath);
+    } else {
+      final bytes = await _files.read(path);
+      if (bytes == null) return const ItemThumbnailNone();
+      page = await _renderPdfFirstPage(bytes: bytes);
+    }
     return page == null ? const ItemThumbnailNone() : ItemThumbnailBytes(page);
   }
 

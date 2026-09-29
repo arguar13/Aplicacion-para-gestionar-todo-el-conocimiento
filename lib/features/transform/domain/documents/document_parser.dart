@@ -51,7 +51,59 @@ abstract interface class DocumentParser {
   /// Lanza [UnreadableDocumentException] si los bytes no son lo que decían
   /// ser. Que un archivo esté corrupto no es un defecto del programa: pasa
   /// con descargas cortadas y con adjuntos de correo mal reensamblados.
-  Future<ParsedDocument> parse(Uint8List bytes);
+  Future<ParsedDocument> parse(DocumentSource source);
+}
+
+/// Un documento por leer, sin haberlo traído a memoria todavía (F21).
+///
+/// Cada formato decide cuánto necesita: un PDF de cientos de páginas se abre
+/// desde el disco y sus metadatos se leen del principio y del final, sin
+/// pasar nunca entero por memoria; un EPUB o un DOCX —un ZIP que hay que
+/// descomprimir— sí se leen enteros, y pesan decenas de megas, no cientos.
+class DocumentSource {
+  const DocumentSource({
+    required this.name,
+    required this.size,
+    required Future<Uint8List> Function() readAll,
+    required Future<Uint8List> Function(int start, int length) readRange,
+    this.localPath,
+  }) : _readAll = readAll,
+       _readRange = readRange;
+
+  /// Un documento que ya está en memoria: el que se acaba de armar en una
+  /// prueba, o el que llega de un lugar que no es el almacén.
+  factory DocumentSource.memory(Uint8List bytes, {String name = 'documento'}) =>
+      DocumentSource(
+        name: name,
+        size: bytes.length,
+        readAll: () async => bytes,
+        readRange: (start, length) async {
+          final from = start.clamp(0, bytes.length);
+          final to = (start + length).clamp(from, bytes.length);
+          return Uint8List.sublistView(bytes, from, to);
+        },
+      );
+
+  /// El nombre del archivo, con su extensión: un `.txt` y un `.md` no tienen
+  /// firma, y sin el nombre no se reconocerían.
+  final String name;
+
+  /// Cuánto pesa, en bytes.
+  final int size;
+
+  /// Dónde está en el disco del dispositivo, si está en uno —para abrirlo
+  /// desde ahí—, o `null` —en la web, o en memoria—.
+  final String? localPath;
+
+  final Future<Uint8List> Function() _readAll;
+  final Future<Uint8List> Function(int start, int length) _readRange;
+
+  /// El documento entero, en memoria.
+  Future<Uint8List> readAll() => _readAll();
+
+  /// Hasta [length] bytes a partir de [start]; menos si termina antes.
+  Future<Uint8List> readRange(int start, int length) =>
+      _readRange(start, length);
 }
 
 /// El archivo no se pudo leer: estaba corrupto, cortado, o cifrado.

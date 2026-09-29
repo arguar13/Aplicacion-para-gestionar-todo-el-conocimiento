@@ -10,19 +10,29 @@ import 'package:pdfrx/pdfrx.dart';
 /// para reconocer texto.
 const _thumbnailWidth = 240.0;
 
-/// Renderiza la primera página de [pdfBytes] como PNG, con el mismo motor
+/// Renderiza la primera página de un PDF —desde [localPath] si está en el
+/// disco, o si no desde [bytes]— como PNG, con el mismo motor
 /// —`pdfrx` sobre PDFium— que ya usa `PdfParser` para el OCR de páginas
 /// escaneadas.
 ///
 /// `null` ante cualquier fallo: un PDF cifrado, corrupto, o simplemente sin
 /// páginas. Una tarjeta sin miniatura cae en su ícono de siempre, así que no
 /// hace falta distinguir el motivo — ver `ItemThumbnailResolver`.
-Future<Uint8List?> renderPdfFirstPageThumbnail(Uint8List pdfBytes) async {
+Future<Uint8List?> renderPdfFirstPageThumbnail({
+  String? localPath,
+  Uint8List? bytes,
+}) async {
   await pdfrxFlutterInitialize();
 
   PdfDocument? document;
   try {
-    document = await PdfDocument.openData(pdfBytes);
+    if (localPath != null) {
+      document = await PdfDocument.openFile(localPath);
+    } else if (bytes != null) {
+      document = await PdfDocument.openData(bytes);
+    } else {
+      return null;
+    }
     if (document.pages.isEmpty) return null;
 
     final page = document.pages.first;

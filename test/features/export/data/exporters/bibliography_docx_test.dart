@@ -14,6 +14,7 @@ import 'package:sinapsis/features/citations/domain/services/styles/ieee_style.da
 import 'package:sinapsis/features/export/data/exporters/bibliography_docx.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:xml/xml.dart';
+import '../../../../support/document_parsing.dart';
 
 /// La bibliografía como `.docx` (F15): un documento de verdad, con el título de
 /// la lista, una entrada por párrafo, sangría francesa y las cursivas del
@@ -210,7 +211,7 @@ void main() {
     test('el propio lector de .docx del proyecto la lee de vuelta', () async {
       // La prueba más fuerte de que esto es un `.docx` de verdad es que el
       // `DocxParser`, pensado para documentos de Word, lo pueda leer.
-      final parsed = await const DocxParser().parse(
+      final parsed = await const DocxParser().parseBytes(
         buildBibliographyDocx(apa()),
       );
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
@@ -33,15 +34,22 @@ Future<ExtractedMetadata?> extractedMetadataOf(
     case SourceKind.document:
       final path = item.source.originalFilePath;
       if (path == null) return null;
-      final bytes = await files.read(path);
-      if (bytes == null) return null;
+      final size = await files.sizeOf(path);
+      final head = await files.readHead(path);
+      if (size == null || head == null) return null;
       // Solo el PDF: es el único formato que no trae su propio título ni su
       // propio autor (ver `PdfParser`, F15, 11a) — un EPUB o un DOCX ya los
       // completan por su cuenta, sin pasar por una sugerencia.
-      if (detectFileFormat(bytes, name: p.basename(path)) != FileFormat.pdf) {
+      if (detectFileFormat(head, name: p.basename(path)) != FileFormat.pdf) {
         return null;
       }
-      return readPdfMetadata(bytes);
+      // Por tramos, sin traer a memoria un libro de cientos de megas (F21).
+      return readPdfMetadataFrom(
+        size: size,
+        readRange: (start, length) async =>
+            await files.readRange(path, start: start, length: length) ??
+            Uint8List(0),
+      );
 
     case SourceKind.webPage:
       final path = item.source.originalFilePath;

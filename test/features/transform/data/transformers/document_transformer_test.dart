@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
@@ -284,4 +285,39 @@ void main() {
       expect(asked, item.id);
     });
   });
+
+  test('le pasa el documento al lector sin traerlo a memoria: nombre, '
+      'tamaño y cómo leerlo, y el lector decide (F21)', () async {
+    final pdf = buildPdf(pageTexts: ['Hola']);
+    final parser = _RecordingParser();
+    final item = await seed(pdf, name: 'libro.pdf');
+
+    await DocumentTransformer(
+      parsers: [parser],
+      files: files,
+      ids: FakeIdGenerator(),
+      clock: () => now,
+    ).transform(item);
+
+    final received = parser.received!;
+    expect(received.name, 'libro.pdf');
+    expect(received.size, pdf.length);
+    expect(await received.readRange(0, 5), pdf.sublist(0, 5));
+    // En memoria no hay disco del que abrirlo.
+    expect(received.localPath, isNull);
+  });
+}
+
+/// Un lector de PDF que solo anota qué recibió.
+class _RecordingParser implements DocumentParser {
+  DocumentSource? received;
+
+  @override
+  bool canParse(FileFormat format) => format == FileFormat.pdf;
+
+  @override
+  Future<ParsedDocument> parse(DocumentSource source) async {
+    received = source;
+    return const ParsedDocument(markdown: 'Hola');
+  }
 }

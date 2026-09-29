@@ -67,14 +67,18 @@ class DocumentTransformer implements Transformer {
   }) async {
     final path = item.source.originalFilePath!;
 
-    final bytes = await _files.read(path);
-    if (bytes == null) throw MissingOriginalFileException(path);
+    // Sin traerlo a memoria: cada lector decide cuánto necesita (F21). Un
+    // PDF de cientos de páginas se abre desde el disco.
+    final size = await _files.sizeOf(path);
+    final head = await _files.readHead(path, maxBytes: 64 * 1024);
+    if (size == null || head == null) throw MissingOriginalFileException(path);
 
     // Se le pasa el nombre, no solo los bytes: un `.txt` y un `.md` no
     // empiezan con ninguna firma, así que sin el nombre quedarían sin
     // reconocer y sin leer. El nombre sale de la ruta del almacén, que
     // conserva el original ya saneado.
-    final format = detectFileFormat(bytes, name: p.basename(path));
+    final name = p.basename(path);
+    final format = detectFileFormat(head, name: name);
     final parser = _parsers.where((p) => p.canParse(format)).firstOrNull;
 
     // Ningún lector para este formato: un `.zip`, un `.odt`, algo que no se
@@ -85,7 +89,27 @@ class DocumentTransformer implements Transformer {
     // es lo que importaba.
     if (parser == null) return item;
 
-    final parsed = await parser.parse(bytes);
+    final parsed = await parser.parse(
+      DocumentSource(
+        name: name,
+        size: size,
+        localPath: await _files.localPathOf(path),
+        readAll: () async {
+          final bytes = await _files.read(path);
+          if (bytes == null) throw MissingOriginalFileException(path);
+          return bytes;
+        },
+        readRange: (start, length) async {
+          final bytes = await _files.readRange(
+            path,
+            start: start,
+            length: length,
+          );
+          if (bytes == null) throw MissingOriginalFileException(path);
+          return bytes;
+        },
+      ),
+    );
     if (parsed.isEmpty) return item;
 
     final now = _clock();

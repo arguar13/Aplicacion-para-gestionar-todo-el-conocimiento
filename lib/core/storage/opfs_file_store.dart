@@ -144,10 +144,35 @@ class OpfsFileStore implements FileStore {
   }
 
   @override
-  Future<Uint8List?> readHead(
+  Future<Uint8List?> readHead(String relativePath, {int maxBytes = 4096}) =>
+      readRange(relativePath, start: 0, length: maxBytes);
+
+  @override
+  Future<Uint8List?> readRange(
     String relativePath, {
-    int maxBytes = 4096,
+    required int start,
+    required int length,
   }) async {
+    final file = await _file(relativePath);
+    if (file == null) return null;
+
+    // `Blob.slice` recorta antes de leer: no hace falta traer el archivo
+    // entero a memoria de JavaScript solo para mirarle una parte.
+    final buffer = await file.slice(start, start + length).arrayBuffer().toDart;
+    return buffer.toDart.asUint8List();
+  }
+
+  @override
+  Future<int?> sizeOf(String relativePath) async =>
+      (await _file(relativePath))?.size;
+
+  /// En OPFS no hay ruta que otra librería pueda abrir: ver [resolve].
+  @override
+  Future<String?> localPathOf(String relativePath) async => null;
+
+  /// El archivo de [relativePath], o `null` si no existe o dejó de existir
+  /// entre que se resolvió el directorio y se pidió abrirlo.
+  Future<web.File?> _file(String relativePath) async {
     final segments = relativePath.split('/');
     final fileName = segments.removeLast();
 
@@ -156,15 +181,9 @@ class OpfsFileStore implements FileStore {
 
     try {
       final fileHandle = await directory.getFileHandle(fileName).toDart;
-      final file = await fileHandle.getFile().toDart;
-      // `Blob.slice` recorta antes de leer: no hace falta traer el archivo
-      // entero a memoria de JavaScript solo para mirarle los primeros
-      // bytes.
-      final head = file.slice(0, maxBytes);
-      final buffer = await head.arrayBuffer().toDart;
-      return buffer.toDart.asUint8List();
-      // El archivo no existe, o dejó de existir entre que se resolvió el
-      // directorio y se pidió abrirlo.
+      return await fileHandle.getFile().toDart;
+      // OPFS no distingue sus fallos con tipos propios: la única forma de
+      // saber que el archivo no está es intentar abrirlo.
       // ignore: avoid_catches_without_on_clauses
     } catch (_) {
       return null;

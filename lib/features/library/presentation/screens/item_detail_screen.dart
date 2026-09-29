@@ -307,6 +307,8 @@ class _DetailBody extends StatelessWidget {
 
                 if (texts.isEmpty)
                   _NoContentYet(item: item)
+                else if (item.source.kind == SourceKind.document)
+                  _CollapsedExtractedText(item: item, texts: texts)
                 else
                   for (final rendition in texts) ...[
                     if (rendition.kind == RenditionKind.blocks)
@@ -461,6 +463,48 @@ class _MapNoteToggle extends ConsumerWidget {
 /// —`[mm:ss]` al principio de cada línea, las pone `formatTranscript` en
 /// `youtube_transcript_transformer.dart`—, con un botón para quitarlas y
 /// dejar el texto corrido.
+/// El texto que se sacó de un documento, plegado (F21, decisión A).
+///
+/// En un documento lo principal es el original, arriba, en su visor: el
+/// texto extraído existe para la búsqueda, el chat, las tarjetas y el quiz,
+/// no para leerlo acá. Plegado tampoco se construye: el de un libro de
+/// cientos de páginas no se arma hasta que alguien lo abre.
+class _CollapsedExtractedText extends StatelessWidget {
+  const _CollapsedExtractedText({required this.item, required this.texts});
+
+  final KnowledgeItem item;
+  final List<TextRendition> texts;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      leading: const Icon(Icons.notes_outlined),
+      title: Text(l10n.detailExtractedTextTitle),
+      subtitle: Text(
+        l10n.detailExtractedTextSubtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      children: [
+        for (final rendition in texts) ...[
+          if (rendition.kind == RenditionKind.blocks)
+            _BlocksRendition(item: item, rendition: rendition)
+          else
+            _TextRenditionView(item: item, rendition: rendition),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+  }
+}
+
 class _TextRenditionView extends ConsumerWidget {
   const _TextRenditionView({required this.item, required this.rendition});
 

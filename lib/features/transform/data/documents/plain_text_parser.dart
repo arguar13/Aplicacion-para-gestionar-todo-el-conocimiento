@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -18,7 +17,8 @@ class PlainTextParser implements DocumentParser {
       format == FileFormat.plainText || format == FileFormat.markdown;
 
   @override
-  Future<ParsedDocument> parse(Uint8List bytes) async {
+  Future<ParsedDocument> parse(DocumentSource source) async {
+    final bytes = await source.readAll();
     // `allowMalformed`: un byte suelto corrupto —o un archivo guardado en
     // Latin-1 por un editor viejo— no puede costar el resto del texto. Se
     // sustituye el carácter ilegible y se sigue, que es infinitamente mejor

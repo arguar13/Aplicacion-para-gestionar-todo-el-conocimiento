@@ -323,7 +323,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _attaching = true);
     try {
-      final parsed = await parser.parse(bytes);
+      final parsed = await parser.parse(
+        DocumentSource.memory(bytes, name: file.name),
+      );
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)

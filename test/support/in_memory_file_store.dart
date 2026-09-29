@@ -68,6 +68,28 @@ class InMemoryFileStore implements FileStore {
   }
 
   @override
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int length,
+  }) async {
+    final bytes = _contents[relativePath];
+    if (bytes == null) return null;
+    if (start >= bytes.length) return Uint8List(0);
+
+    final end = start + length;
+    return bytes.sublist(start, end > bytes.length ? bytes.length : end);
+  }
+
+  @override
+  Future<int?> sizeOf(String relativePath) async =>
+      _contents[relativePath]?.length;
+
+  /// En memoria no hay ningún archivo que otra librería pueda abrir.
+  @override
+  Future<String?> localPathOf(String relativePath) async => null;
+
+  @override
   Future<bool> exists(String relativePath) async =>
       _contents.containsKey(relativePath);
 

@@ -234,6 +234,8 @@
   "youtubeAudioDownloadingUnknown": "Descargando el audio…",
   "youtubeAudioCancel": "Cancelar",
   "youtubeAudioFailed": "No se pudo descargar el audio.",
+  "detailExtractedTextTitle": "Texto extraído",
+  "detailExtractedTextSubtitle": "Lo usan la búsqueda, el chat, las tarjetas y el quiz. Lo principal es el original, arriba.",
   "youtubeAudioDownloaded": "Audio descargado: se escucha sin conexión.",
   "captureTitle": "Guardar algo",
   "captureHint": "Pegá un enlace, o escribí lo que quieras conservar",

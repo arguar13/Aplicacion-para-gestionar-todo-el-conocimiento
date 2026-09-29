@@ -8,6 +8,7 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 
+import '../../../../support/document_parsing.dart';
 import '../../../../support/fake_image_text_extractor.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/sample_files.dart';
@@ -110,14 +111,43 @@ void main() {
   });
 
   group('leyendo PDFs de verdad', () {
+    test('desde el disco: lee lo mismo, sin pedir el archivo entero', () async {
+      // Un libro de cientos de megas se abre desde el disco (F21): si el
+      // lector pidiera los bytes enteros, esta prueba falla.
+      final bytes = buildPdf(pageTexts: ['Primera', 'Segunda']);
+      final dir = Directory.systemTemp.createTempSync('pdf_disco');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final file = File('${dir.path}/libro.pdf')..writeAsBytesSync(bytes);
+
+      final result = await parser.parse(
+        DocumentSource(
+          name: 'libro.pdf',
+          size: bytes.length,
+          localPath: file.path,
+          readAll: () => fail('no tiene por qué leerlo entero'),
+          readRange: (start, length) async => Uint8List.sublistView(
+            bytes,
+            start,
+            (start + length).clamp(0, bytes.length),
+          ),
+        ),
+      );
+
+      expect(result.pageCount, 2);
+      expect(result.markdown, contains('Primera'));
+      expect(result.markdown, contains('Segunda'));
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
     test('el texto de una pagina llega entero', () async {
-      final result = await parser.parse(buildPdf(pageTexts: ['Hola mundo']));
+      final result = await parser.parseBytes(
+        buildPdf(pageTexts: ['Hola mundo']),
+      );
 
       expect(result.markdown, contains('Hola mundo'));
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
     test('varias paginas quedan separadas y contadas', () async {
-      final result = await parser.parse(
+      final result = await parser.parseBytes(
         buildPdf(pageTexts: ['Pagina uno', 'Pagina dos', 'Pagina tres']),
       );
 
@@ -129,7 +159,7 @@ void main() {
 
     test('una pagina en blanco conserva su lugar: el segmento N es la pagina '
         'N', () async {
-      final result = await parser.parse(
+      final result = await parser.parseBytes(
         buildPdf(pageTexts: ['Pagina uno', '', 'Pagina tres']),
       );
 
@@ -145,7 +175,7 @@ void main() {
       // Un escaneo es un album de fotos de paginas: no contiene ni una letra.
       // Fallar lo pondria en rojo y ofreceria reintentar algo que no puede
       // funcionar hasta que exista el reconocimiento optico.
-      final result = await parser.parse(buildPdf(pageTexts: ['', '']));
+      final result = await parser.parseBytes(buildPdf(pageTexts: ['', '']));
 
       expect(result.isEmpty, isTrue);
       expect(result.pageCount, 2);
@@ -164,7 +194,7 @@ void main() {
       );
       expect(bulky.length, greaterThan(1024 * 1024));
 
-      final result = await parser.parse(bulky);
+      final result = await parser.parseBytes(bulky);
 
       expect(result.pageCount, 60);
       expect(result.markdown, contains('Pagina 0'));
@@ -174,7 +204,7 @@ void main() {
     test(
       'el titulo y el autor salen del diccionario Info, si lo trae',
       () async {
-        final result = await parser.parse(
+        final result = await parser.parseBytes(
           buildPdf(
             pageTexts: ['Hola mundo'],
             info: {
@@ -191,7 +221,9 @@ void main() {
     );
 
     test('sin diccionario Info, el titulo y el autor quedan vacios', () async {
-      final result = await parser.parse(buildPdf(pageTexts: ['Hola mundo']));
+      final result = await parser.parseBytes(
+        buildPdf(pageTexts: ['Hola mundo']),
+      );
 
       expect(result.title, isNull);
       expect(result.author, isNull);
@@ -201,7 +233,7 @@ void main() {
       final basura = Uint8List.fromList(utf8.encode('esto no es un pdf'));
 
       await expectLater(
-        parser.parse(basura),
+        parser.parseBytes(basura),
         throwsA(isA<UnreadableDocumentException>()),
       );
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
@@ -222,7 +254,9 @@ void main() {
           ocrFileStore: files,
         );
 
-        final result = await parserConOcr.parse(buildPdf(pageTexts: ['', '']));
+        final result = await parserConOcr.parseBytes(
+          buildPdf(pageTexts: ['', '']),
+        );
 
         expect(result.markdown, contains('texto reconocido'));
         expect(result.pageCount, 2);
@@ -243,7 +277,9 @@ void main() {
         ocrFileStore: InMemoryFileStore(),
       );
 
-      final result = await parserConOcr.parse(buildPdf(pageTexts: ['', '']));
+      final result = await parserConOcr.parseBytes(
+        buildPdf(pageTexts: ['', '']),
+      );
 
       expect(result.isEmpty, isTrue);
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
@@ -259,7 +295,7 @@ void main() {
         ocrFileStore: InMemoryFileStore(),
       );
 
-      final result = await parserConOcr.parse(
+      final result = await parserConOcr.parseBytes(
         buildPdf(pageTexts: ['Hola mundo']),
       );
 

@@ -38,8 +38,11 @@ class EpubParser implements DocumentParser {
   // se procesa en otro isolate en vez de congelar la interfaz mientras
   // dura.
   @override
-  Future<ParsedDocument> parse(Uint8List bytes) =>
-      Isolate.run(() => _parse(bytes));
+  Future<ParsedDocument> parse(DocumentSource source) async {
+    // Un ZIP se descomprime entero: se lee entero, fuera del hilo principal.
+    final bytes = await source.readAll();
+    return Isolate.run(() => _parse(bytes));
+  }
 
   ParsedDocument _parse(Uint8List bytes) {
     final archive = _decode(bytes);

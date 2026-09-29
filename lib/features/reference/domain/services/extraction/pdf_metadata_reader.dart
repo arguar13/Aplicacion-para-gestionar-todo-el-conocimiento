@@ -38,6 +38,94 @@ ExtractedMetadata readPdfMetadata(Uint8List bytes) {
   return mergeExtractedMetadata([_fromXmp(text), _fromInfoDict(text)]);
 }
 
+/// Hasta este tamaño, [readPdfMetadataFrom] lee el PDF entero: es lo más
+/// completo, y un artículo o un libro de texto pesan pocos megas.
+const pdfMetadataWholeReadLimit = 16 * 1024 * 1024;
+
+/// Cuánto se lee del principio y del final de un PDF más grande.
+const _pdfMetadataWindow = 1024 * 1024;
+
+/// Lo mismo que [readPdfMetadata], para un PDF de cualquier tamaño, sin
+/// traerlo entero a memoria (F21): convertido a texto, un libro escaneado de
+/// 300 MB ocupaba 900 MB.
+///
+/// Por encima de [pdfMetadataWholeReadLimit] lee solo el principio y el
+/// final, que es donde un PDF guarda el `trailer`, la tabla de referencias
+/// y —casi siempre— el paquete XMP. Si el objeto `Info` está en el medio, la
+/// tabla dice dónde, y se lee solo ese tramo. Lo que quede fuera de eso —una
+/// tabla comprimida, un XMP a mitad del archivo— no se encuentra, igual que
+/// no lo encuentra la lectura completa cuando está comprimido.
+Future<ExtractedMetadata> readPdfMetadataFrom({
+  required int size,
+  required Future<Uint8List> Function(int start, int length) readRange,
+}) async {
+  if (size <= pdfMetadataWholeReadLimit) {
+    return readPdfMetadata(await readRange(0, size));
+  }
+
+  final head = String.fromCharCodes(await readRange(0, _pdfMetadataWindow));
+  final tailStart = size - _pdfMetadataWindow;
+  final tail = String.fromCharCodes(
+    await readRange(tailStart, _pdfMetadataWindow),
+  );
+
+  // Cada tramo por separado: juntarlos inventaría un bloque que empieza en
+  // uno y termina en el otro.
+  final xmp = _fromXmp(head);
+  final fromXmp = xmp.isEmpty ? _fromXmp(tail) : xmp;
+
+  final objNum = _infoObjectNumber(tail) ?? _infoObjectNumber(head);
+  String? body;
+  if (objNum != null) {
+    body = _objectBody(tail, objNum) ?? _objectBody(head, objNum);
+    if (body == null) {
+      final offset = _xrefOffsetOf(tail, objNum);
+      if (offset != null && offset < size) {
+        body = _objectBody(
+          String.fromCharCodes(await readRange(offset, 64 * 1024)),
+          objNum,
+        );
+      }
+    }
+  }
+
+  return mergeExtractedMetadata([fromXmp, _fromInfoBody(body)]);
+}
+
+/// Dónde empieza el objeto [objNum] según la tabla de referencias clásica
+/// (`xref`) que haya en [text] —la última, si hay varias—, o `null` si no
+/// figura. Una tabla comprimida (PDF 1.5 en adelante) no se lee: es un flujo
+/// comprimido, no texto.
+int? _xrefOffsetOf(String text, int objNum) {
+  // Precedida de cualquier espacio, no solo de un fin de línea: hay
+  // generadores que la pegan a lo anterior. `startxref` no cuenta.
+  final tables = RegExp(r'(?:^|\s)xref\s*[\r\n]').allMatches(text).toList();
+  for (final table in tables.reversed) {
+    var position = table.end;
+    final subsection = RegExp(r'(\d+)\s+(\d+)\s*[\r\n]+');
+    while (true) {
+      final header = subsection.matchAsPrefix(text, position);
+      if (header == null) break;
+      final first = int.parse(header.group(1)!);
+      final count = int.parse(header.group(2)!);
+      position = header.end;
+
+      // Cada entrada mide 20 bytes: `oooooooooo ggggg n` más el fin de
+      // línea, por norma.
+      if (objNum >= first && objNum < first + count) {
+        final entryStart = position + (objNum - first) * 20;
+        if (entryStart + 18 > text.length) return null;
+        final entry = RegExp(
+          r'(\d{10}) \d{5} n',
+        ).matchAsPrefix(text, entryStart);
+        return entry == null ? null : int.parse(entry.group(1)!);
+      }
+      position += count * 20;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // XMP
 // ---------------------------------------------------------------------------
@@ -134,8 +222,10 @@ String _unescapeXml(String text) => text
 // Diccionario Info
 // ---------------------------------------------------------------------------
 
-ExtractedMetadata _fromInfoDict(String text) {
-  final body = _infoDictBody(text);
+ExtractedMetadata _fromInfoDict(String text) =>
+    _fromInfoBody(_infoDictBody(text));
+
+ExtractedMetadata _fromInfoBody(String? body) {
   if (body == null) return const ExtractedMetadata();
 
   final title = _infoValue(body, 'Title');
@@ -160,10 +250,19 @@ ExtractedMetadata _fromInfoDict(String text) {
 /// `endobj`. `null` si no se lo encuentra: puede estar comprimido dentro de
 /// un `ObjStm`, donde esta búsqueda de texto no llega.
 String? _infoDictBody(String text) {
-  final refs = RegExp(r'/Info\s+(\d+)\s+0\s+R').allMatches(text).toList();
-  if (refs.isEmpty) return null;
-  final objNum = refs.last.group(1)!;
+  final objNum = _infoObjectNumber(text);
+  return objNum == null ? null : _objectBody(text, objNum);
+}
 
+/// El número del objeto que nombra `/Info N 0 R` —el último, si el archivo
+/// se guardó más de una vez—, o `null`.
+int? _infoObjectNumber(String text) {
+  final refs = RegExp(r'/Info\s+(\d+)\s+0\s+R').allMatches(text).toList();
+  return refs.isEmpty ? null : int.parse(refs.last.group(1)!);
+}
+
+/// Lo que hay entre `N 0 obj` y su `endobj` en [text], o `null`.
+String? _objectBody(String text, int objNum) {
   final objStart = RegExp(
     '(?:^|[\\r\\n])\\s*$objNum\\s+0\\s+obj',
   ).firstMatch(text);

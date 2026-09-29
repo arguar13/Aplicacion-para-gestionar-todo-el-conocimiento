@@ -6,13 +6,14 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/data/documents/docx_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 
+import '../../../../support/document_parsing.dart';
 import '../../../../support/sample_files.dart';
 
 void main() {
   const parser = DocxParser();
 
   Future<String> markdownOf(String body) async =>
-      (await parser.parse(buildDocx(body: body))).markdown;
+      (await parser.parseBytes(buildDocx(body: body))).markdown;
 
   group('que sabe leer', () {
     test('solo DOCX', () {
@@ -246,7 +247,7 @@ void main() {
 
   group('metadatos', () {
     test('el titulo y el autor salen de docProps', () async {
-      final result = await parser.parse(
+      final result = await parser.parseBytes(
         buildDocx(title: 'La tesis de Ana', author: 'Ana Martinez'),
       );
 
@@ -255,7 +256,7 @@ void main() {
     });
 
     test('sin metadatos no inventa nada', () async {
-      final result = await parser.parse(buildDocx());
+      final result = await parser.parseBytes(buildDocx());
 
       expect(result.title, isNull);
       expect(result.author, isNull);
@@ -264,7 +265,9 @@ void main() {
     test('unos metadatos vacios cuentan como ausentes', () async {
       // Word escribe la etiqueta vacia cuando nunca se puso un titulo. Un
       // titulo vacio pisaria el provisional y dejaria la fila sin nada.
-      final result = await parser.parse(buildDocx(title: '', author: '   '));
+      final result = await parser.parseBytes(
+        buildDocx(title: '', author: '   '),
+      );
 
       expect(result.title, isNull);
       expect(result.author, isNull);
@@ -276,14 +279,14 @@ void main() {
       final basura = Uint8List.fromList(utf8.encode('esto no es un docx'));
 
       expect(
-        () => parser.parse(basura),
+        () => parser.parseBytes(basura),
         throwsA(isA<UnreadableDocumentException>()),
       );
     });
 
     test('un ZIP sin word/document.xml lanza', () {
       expect(
-        () => parser.parse(buildPlainZip()),
+        () => parser.parseBytes(buildPlainZip()),
         throwsA(isA<UnreadableDocumentException>()),
       );
     });
@@ -292,7 +295,7 @@ void main() {
       final roto = buildDocx(body: '<w:p><w:r><w:t>sin cerrar');
 
       expect(
-        () => parser.parse(roto),
+        () => parser.parseBytes(roto),
         throwsA(isA<UnreadableDocumentException>()),
       );
     });

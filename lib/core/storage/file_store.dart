@@ -58,6 +58,31 @@ abstract interface class FileStore {
   /// bytes alcanza.
   Future<Uint8List?> readHead(String relativePath, {int maxBytes = 4096});
 
+  /// Hasta [length] bytes de lo guardado en [relativePath] a partir de
+  /// [start] —menos si el archivo termina antes—, o `null` si ya no está.
+  ///
+  /// Para leer una parte de un archivo grande sin traerlo entero: los
+  /// metadatos de un PDF de varios cientos de megas están al principio y al
+  /// final, no en el medio (F21).
+  Future<Uint8List?> readRange(
+    String relativePath, {
+    required int start,
+    required int length,
+  });
+
+  /// Cuánto pesa lo guardado en [relativePath], en bytes, o `null` si ya no
+  /// está. Sin leerlo.
+  Future<int?> sizeOf(String relativePath);
+
+  /// La ruta de [relativePath] en el sistema de archivos del dispositivo, si
+  /// el archivo vive en uno —para abrirlo desde el disco en vez de pasarlo
+  /// por memoria—, o `null` si no: en la web vive en OPFS, donde no hay una
+  /// ruta que otra librería pueda abrir.
+  ///
+  /// Distinto de [resolve], que siempre devuelve algo —en la web, una ruta
+  /// dentro de OPFS—: esto solo devuelve una ruta abrible con `dart:io`.
+  Future<String?> localPathOf(String relativePath);
+
   /// Si [relativePath] todavía está guardado, sin leer su contenido.
   ///
   /// Separado de [read] a propósito: un transformador que solo necesita

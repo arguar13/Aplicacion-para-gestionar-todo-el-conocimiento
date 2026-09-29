@@ -662,6 +662,14 @@
   "@youtubeAudioFailed": {
     "description": "A YouTube audio download failed for an unknown reason"
   },
+  "detailExtractedTextTitle": "Extracted text",
+  "@detailExtractedTextTitle": {
+    "description": "Header of the collapsed extracted text of a document in its detail"
+  },
+  "detailExtractedTextSubtitle": "Used by search, chat, cards and quizzes. The original, above, is what matters.",
+  "@detailExtractedTextSubtitle": {
+    "description": "Why the extracted text of a document is collapsed"
+  },
   "youtubeAudioDownloaded": "Audio downloaded: you can listen offline.",
   "@youtubeAudioDownloaded": {
     "description": "Above the player of a YouTube video's downloaded audio"
