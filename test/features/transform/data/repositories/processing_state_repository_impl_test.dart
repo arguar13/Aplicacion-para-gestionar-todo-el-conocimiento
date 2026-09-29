@@ -326,7 +326,10 @@ void main() {
 
       await states.succeed('libro');
 
-      expect(await states.load('libro', ProcessingCheckpointKind.ocrPage), {});
+      expect(
+        await states.load('libro', ProcessingCheckpointKind.ocrPage),
+        isEmpty,
+      );
     });
 
     test('fallar o volver a la espera lo conserva, para retomarlo', () async {
