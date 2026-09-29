@@ -4465,6 +4465,98 @@ nada en un teléfono real —sigue siendo emulador, como todo este encargo y el 
 
 Con esto el encargo F18–F20 queda CERRADO entero.
 
+### 54. F21 de procesamiento confiable y rápido: nada queda "Procesando" para siempre, y lo largo va por partes, con avance y retomable
+
+Nace del uso real en el teléfono (Xiaomi, HyperOS): un short de YouTube de dos minutos, una página
+web y un libro quedaban "Procesando" para siempre, todo lo que se guardaba después quedaba "En
+espera" detrás, y borrar lo trabado no destrababa nada. Plan: `docs/planes/F21-procesamiento-
+confiable.md`, con la escala subida por el usuario a libros de cientos de páginas y videos de hasta
+cuatro horas. Diecinueve commits: diecisiete numerados y dos correcciones de pruebas.
+
+**Las causas, medidas en la app en vivo, no supuestas.** El estado interno de la cola se leyó de la
+memoria del proceso por el servicio de depuración de Dart. Lo que quedaba `processing` cuando la app
+se cerraba nunca se retomaba —solo se encolaba lo `pending`—; el cliente de YouTube no tenía tiempo
+límite y la cola era una sola fila sin vigilante; borrar no cancelaba; el guardado final escribía la
+foto del elemento tomada al empezar (pisaba lo editado mientras tanto); la cola observaba unos veinte
+proveedores y una reconstrucción la vaciaba; archivar la página de vaticannews bajaba 335 recursos
+(13,8 MB) para 1,5 KB de artículo; el audio de YouTube, el WAV de una transcripción y cada archivo
+capturado pasaban enteros por memoria; Whisper corría con un hilo.
+
+**Lo que no se traba.** El estado técnico del procesamiento vive en las columnas de `source`
+(`processing_status`, `processing_error`, `processing_attempts`), escritas por
+`ProcessingStateRepository` con actualizaciones puntuales, nunca guardando el elemento entero —lo
+editado mientras tanto sobrevive; el guardado final es una fusión de tres vías sobre la versión
+actual, `mergeTransformResult`—. Al abrir, lo interrumpido se retoma, con un tope de tres intentos
+para que algo que hace caer la app no la haga caer en cada arranque. Cada pedido a la red tiene su
+tiempo límite, y un vigilante por elemento: en el carril corto, un tope fijo (3 minutos); en el
+largo, que no deje de avanzar (10 minutos sin avance). Borrar cancela en el acto
+(`CancellationSignal`, `cancellableStream`): la cola sigue a la base (`watchRemoved`,
+`watchPendingIds`) y no depende de que el trabajo cancelado colabore. El motivo real de cada fallo
+se guarda (`ProcessingFailureReason`) y se muestra con qué hacer —"Descargar el modelo" si falta el
+de transcripción, y al bajarlo lo que lo esperaba se retoma solo—.
+
+**Dos carriles.** Lo corto (una página, un video con subtítulos) no espera a lo largo (transcribir,
+reconocer páginas escaneadas): cada carril es de a uno, y un trabajo pasa al largo cuando descubre
+que lo es (`TransformContext.enterLongLane`), con avance por elemento en la tarjeta y en el detalle
+—"Reconociendo páginas escaneadas: 12 de 400", "Transcribiendo… 40 %"—. En Android, mientras hay
+algo en el carril largo, un servicio en primer plano (`LongWorkService`, Kotlin, sin dependencias
+nuevas; tipo `mediaProcessing` en Android 15, `dataSync` antes) mantiene viva la app con una
+notificación de avance: sin él, HyperOS la congelaba a los pocos minutos en segundo plano. No hace
+el trabajo —lo hace Dart—; si se cierra la app desde "recientes", se va con ella, y lo hecho ya quedó
+guardado.
+
+**Nada entero en memoria, y lo largo retomable (esquema v31).** Capturar copia por partes al almacén
+(`FileStore.saveStream`), sin el tope de 500 MB —el límite pasa a ser el espacio libre—. Los
+documentos se abren desde el disco (`DocumentSource`, `PdfDocument.openFile`); los metadatos de un
+PDF se leen del principio y del final, siguiendo la tabla de referencias si el `Info` está en el
+medio. La tabla nueva `processing_checkpoint` guarda cada página reconocida y cada tramo transcrito:
+al retomar no se repiten, y guardar una parte nueva pone los intentos en cero —un libro que se
+interrumpe varias veces avanzó cada vez; uno que revienta siempre en la misma página, no—. Es estado
+de trabajo: se borra al terminar bien y la fusión de bóvedas no la copia.
+
+**Las decisiones del usuario.** A, en una variante propia: el texto que el documento ya trae se saca
+rápido, y las páginas escaneadas se reconocen siempre, solas, en el carril largo, página por página
+—solo las que no traen texto, y no las que están en blanco de verdad, que se detectan
+renderizándolas a 64 px—, con la compresión de cada imagen fuera del hilo principal. En el detalle
+de un documento lo principal es el original en su visor; el texto extraído queda plegado, porque
+existe para la búsqueda, el chat, las tarjetas y el quiz. B: el audio de YouTube ya no se baja solo
+—el video queda listo en segundos con su transcripción, dure lo que dure—; se baja a pedido, directo
+a disco, con avance y cancelable, y se escucha debajo de la vista previa del video, que sigue siendo
+lo principal. C: el servicio en primer plano, de arriba.
+
+**La transcripción, por tramos.** El WAV convertido queda en disco con una marca de "conversión
+terminada" (al retomar no se reconvierte); un isolate propio lee de a un tramo, con hasta cuatro
+hilos de Whisper, y cada tramo vuelve apenas termina, se guarda y avisa el avance. La medición en el
+emulador destapó un defecto que venía de antes: sherpa-onnx se reserva medio segundo de relleno y
+descarta lo que pasa de 29,5 s de cada ventana, así que con tramos de 30 s se perdía medio segundo
+cada medio minuto. Los tramos pasaron a 29 s.
+
+**Lo que viene después, medido a escala.** En el PC, guardar un libro de 500 páginas (1,77 millones
+de caracteres, 999 fragmentos) tarda 569 ms —fragmentar, 68; el resto es la base, que en la app
+corre en su propio isolate—. Dos cosas no escalaban y se corrigieron: los vectores de un elemento se
+pedían todos juntos, todo o nada —ahora van por tandas de 32, cada una guardada, y se retoman—, y
+elegir candidatos a relación cargaba el texto de todos los fragmentos de la bóveda y promediaba
+diez mil vectores en el hilo de la interfaz —ahora lee solo identificadores y vectores, hace la
+matemática en un isolate y trae el extracto solo de los que quedaron—.
+
+**Cifras** (`docs/benchmarks/`): vaticannews, archivar de 11,5 s y 335 pedidos a 1,1 s y 60 (PC). En
+el emulador Pixel 9 Pro (x86_64, 4 núcleos, Android 17): reconocer 20 páginas escaneadas, 14-31 s
+(0,7-1,6 s por página, según la carga del PC que corre el emulador), retomando desde la mitad, entre
+un tercio y la mitad de eso;
+transcribir 9,5 minutos de voz con Whisper "small" y cuatro hilos, 9,6-11,7 minutos —alrededor de
+un minuto por minuto de audio: cuatro horas serían unas cuatro o cinco en el emulador—, retomando
+desde la mitad, algo más de la mitad; memoria pico del proceso, 1,65 GB, casi toda del modelo; con
+tramos de 29 s, ningún aviso de recorte (28 en 30 tramos antes); el servicio en primer
+plano aparece con el trabajo y se suelta 15 s después de terminar, comprobado con
+`dumpsys activity services`.
+
+**Lo que F21 no hace, dicho sin adornos.** No hay cifras de un teléfono real: todo lo de Android es
+del emulador, que no representa la velocidad del teléfono del usuario. No se midió un video de
+YouTube de cuatro horas de punta a punta —el camino ya no baja audio, solo la transcripción—, ni la
+captura de un video de varios GB en el dispositivo. El modelo "base", más rápido que "small", no se
+sumó: queda como opción si las cifras del teléfono lo piden. Si se cierra la app desde "recientes",
+el trabajo largo se detiene —se retoma al volver—; no sigue sin la app.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4824,6 +4916,12 @@ Con esto el encargo F18–F20 queda CERRADO entero.
   de nota de Anki para exportarla. Tercera y última fase del encargo F18–F20 —ver la decisión 53—.
   Solo la entrada desde un elemento; nunca degrada a verdadero/falso, se descarta en vez de
   inventar. Con esto el encargo F18–F20 queda CERRADO entero.
+- **F21 de procesamiento confiable y rápido.** Nada queda "Procesando" para siempre: lo
+  interrumpido se retoma, lo colgado vence, borrar cancela y la cola no se frena. Dos carriles,
+  corto y largo, con avance visible y el motivo real de cada fallo. Libros de cientos de páginas y
+  videos de horas: nada entero en memoria, las páginas escaneadas y los tramos de audio se guardan
+  a medida que salen (esquema v31) y se retoman, con un servicio en primer plano en Android. El
+  audio de YouTube, solo a pedido. Ver la decisión 54.
 
 ### Por construir
 

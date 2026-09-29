@@ -1,6 +1,7 @@
 # F21 — Procesamiento confiable y rápido
 
-> **Estado: aprobado** (2026-09-29), en el chat, con la decisión A en una variante propia del
+> **Estado: cerrado** (2026-09-29) en diecinueve commits —ver la decisión 54 en
+> `docs/arquitectura.md` y el cierre al final—. **Aprobado** (2026-09-29), en el chat, con la decisión A en una variante propia del
 > usuario (ver abajo), B y C como se recomendaron, y la escala subida a libros de cientos de
 > páginas y videos de hasta 3-4 horas. Nace de un reporte del uso real en el teléfono (Xiaomi
 > 23090RA98G, HyperOS): un short de YouTube de 2 minutos, una página web y un libro quedan
@@ -192,13 +193,34 @@ quedaron; borrar a mitad y comprobar que la cola sigue.
 
 ## Criterios de cierre
 
-- [ ] Ningún elemento queda "Procesando" para siempre: lo interrumpido se retoma, lo colgado vence.
-- [ ] Nada frena la cola: ni un elemento colgado, ni uno largo, ni uno borrado.
-- [ ] Un video de YouTube de 3-4 horas queda listo en segundos (con subtítulos disponibles).
-- [ ] Un video local de varios GB se guarda sin cargarse en memoria, y su transcripción se retoma
-      donde quedó si se interrumpe.
-- [ ] Un libro de cientos de páginas se abre al instante; su texto y el reconocimiento de sus
+- [x] Ningún elemento queda "Procesando" para siempre: lo interrumpido se retoma, lo colgado vence.
+- [x] Nada frena la cola: ni un elemento colgado, ni uno largo, ni uno borrado.
+- [~] Un video de YouTube de 3-4 horas queda listo en segundos (con subtítulos disponibles). El
+      camino ya no baja el audio —solo título, autor y transcripción, con tope de tiempo—, pero no
+      se midió con un video real de cuatro horas.
+- [x] Un video local de varios GB se guarda sin cargarse en memoria, y su transcripción se retoma
+      donde quedó si se interrumpe. Lo segundo, medido en el emulador; lo primero, probado con
+      pruebas y no con un archivo de varios GB en el dispositivo.
+- [x] Un libro de cientos de páginas se abre al instante; su texto y el reconocimiento de sus
       páginas escaneadas avanzan en segundo plano con barra, y se retoman donde quedaron.
-- [ ] La página de vaticannews queda lista en una fracción de lo que tarda hoy, medida.
-- [ ] Todo fallo muestra su motivo real y, si falta un modelo, cómo conseguirlo.
-- [ ] Invariante de chunking verde; la suite completa verde antes de cada commit.
+- [x] La página de vaticannews queda lista en una fracción de lo que tarda hoy, medida: archivarla
+      pasó de 11,5 s y 335 pedidos a 1,1 s y 60 (PC).
+- [x] Todo fallo muestra su motivo real y, si falta un modelo, cómo conseguirlo.
+- [x] Invariante de chunking verde; la suite completa verde antes de cada commit. Con dos salvedades
+      dichas en su momento: el commit 10 salió con un aviso del analizador en una prueba,
+      corregido en un commit aparte; y cuatro pruebas de tiempo o de memoria fallaron alguna vez
+      con la máquina cargada y pasaron solas —la del visor de documentos se corrigió de raíz—.
+
+## Cierre
+
+Diecinueve commits (del 1 al 17, más dos correcciones de prueba). Lo que quedó distinto del plan:
+
+- **El esquema v31 llegó más tarde y más chico.** El motivo, los intentos y el estado del
+  procesamiento ya tenían columnas en `source`; v31 solo agrega el avance guardado
+  (`processing_checkpoint`).
+- **Un defecto que no estaba en el plan:** medido en el emulador, sherpa-onnx descartaba el último
+  medio segundo de cada tramo de 30 s. Los tramos pasaron a 29 s.
+- **Cifras del emulador, no del teléfono**: el teléfono del usuario se usa a diario y no se tocó.
+  La prueba en dispositivo (`integration_test/processing_benchmark_test.dart`) queda lista para
+  medirlo cuando se pueda.
+- **El modelo "base"** no se sumó: la elección, con las cifras del teléfono delante.
