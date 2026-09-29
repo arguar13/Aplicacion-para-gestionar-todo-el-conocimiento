@@ -103,4 +103,66 @@ void main() {
     )..where((e) => e.chunkId.like('$itemId-chunk-%'))).get();
     expect(rows, hasLength(3));
   });
+
+  group('un libro entero (F21)', () {
+    test('se pide por tandas, no todo junto', () async {
+      final itemId = await seedItem();
+      await seedChunks(itemId, ChunkEmbeddingIndexerImpl.batchSize * 2 + 5);
+      final batches = <int>[];
+      final counting = _CountingEmbeddingService(batches);
+
+      final result = await ChunkEmbeddingIndexerImpl(
+        database: db,
+        embeddings: counting,
+        clock: () => now,
+      ).indexItem(itemId);
+
+      expect(result, ChunkEmbeddingIndexerImpl.batchSize * 2 + 5);
+      expect(batches, [
+        ChunkEmbeddingIndexerImpl.batchSize,
+        ChunkEmbeddingIndexerImpl.batchSize,
+        5,
+      ]);
+    });
+
+    test('si se corta a mitad de camino, lo guardado queda, y la próxima '
+        'pasada sigue desde lo que falta', () async {
+      final itemId = await seedItem();
+      await seedChunks(itemId, ChunkEmbeddingIndexerImpl.batchSize + 3);
+      final batches = <int>[];
+      final failing = _CountingEmbeddingService(batches, failOnBatch: 2);
+
+      await expectLater(
+        ChunkEmbeddingIndexerImpl(
+          database: db,
+          embeddings: failing,
+          clock: () => now,
+        ).indexItem(itemId),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        await db.select(db.embeddings).get(),
+        hasLength(ChunkEmbeddingIndexerImpl.batchSize),
+      );
+
+      expect(await indexer.indexItem(itemId), 3);
+      expect(embeddings.requests, hasLength(3));
+    });
+  });
+}
+
+/// Anota cuántos fragmentos se piden en cada tanda; con [failOnBatch], esa
+/// tanda (desde 1) falla, como una app que se cierra a mitad de camino.
+class _CountingEmbeddingService extends FakeEmbeddingService {
+  _CountingEmbeddingService(this.batches, {this.failOnBatch});
+
+  final List<int> batches;
+  final int? failOnBatch;
+
+  @override
+  Future<List<List<double>>> embedBatch(List<String> texts) async {
+    batches.add(texts.length);
+    if (batches.length == failOnBatch) throw StateError('se cortó');
+    return super.embedBatch(texts);
+  }
 }
