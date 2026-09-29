@@ -1,0 +1,9 @@
+{
+  "dispositivo": "emulador Pixel_9_Pro (sdk_gphone16k_x86_64, x86_64, Android 17, 4 núcleos) en PC i5-10300H; tramos de 29 s",
+  "paginas": 20,
+  "ms_total": 31104,
+  "ms_por_pagina": 1555,
+  "ms_retomando_desde_la_mitad": 17758,
+  "rss_mb_antes": 263,
+  "rss_mb_despues": 353
+}

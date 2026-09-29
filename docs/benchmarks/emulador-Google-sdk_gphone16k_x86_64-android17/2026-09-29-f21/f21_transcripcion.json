@@ -1,0 +1,12 @@
+{
+  "dispositivo": "emulador Pixel_9_Pro (sdk_gphone16k_x86_64, x86_64, Android 17, 4 núcleos) en PC i5-10300H",
+  "minutos_de_audio": "9.5",
+  "tramos": 20,
+  "hilos": 4,
+  "ms_total": 578923,
+  "minutos_por_minuto_de_audio": "1.01",
+  "extrapolado_4_horas_min": 244,
+  "ms_retomando_desde_la_mitad": 334468,
+  "rss_mb_pico": 1646,
+  "comienzo_del_texto": "Guía de uso de Synapsis esta guía explica, paso a paso y en lenguaje simple, como usar cada función de la app. Está pensada para alguien que la abre por primera vez y no sabe nada de ella. No hace fal"
+}
