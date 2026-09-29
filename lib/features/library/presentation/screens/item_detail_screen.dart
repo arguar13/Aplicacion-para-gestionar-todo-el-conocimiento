@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -50,6 +51,8 @@ import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dar
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -686,6 +689,18 @@ class _NoContentYet extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final failed = item.processingState == ProcessingState.failed;
+    // Los dos se escuchan siempre y se usan según el estado. Escucharlos
+    // solo cuando corresponde suscribía y desuscribía la consulta en medio
+    // de un cuadro cada vez que el elemento cambiaba de estado —al tocar
+    // "Reintentar", por ejemplo—.
+    final activeProgress = ref.watch(processingProgressProvider(item.id));
+    final failure = ref.watch(processingFailureProvider(item.id)).valueOrNull;
+    final progress = failed ? null : activeProgress;
+    // La causa real del fallo, no un "no se pudo" genérico (F21): lo que
+    // falta —un modelo, la conexión— dice también qué hacer.
+    final reason = failed ? failure : null;
+    final needsTranscriptionModel =
+        reason == ProcessingFailureReason.transcriptionModelMissing;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,7 +723,8 @@ class _NoContentYet extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _emptyStateMessage(l10n, item: item, failed: failed),
+                failureMessage(l10n, reason) ??
+                    _emptyStateMessage(l10n, item: item, failed: failed),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -716,7 +732,22 @@ class _NoContentYet extends ConsumerWidget {
             ),
           ],
         ),
-        if (failed) ...[
+        // Un libro de cientos de páginas o un video de horas: la barra dice
+        // cuánto va, y el original se puede abrir y leer mientras tanto.
+        if (progress != null) ...[
+          const SizedBox(height: 12),
+          ProcessingProgressBar(progress: progress),
+        ],
+        if (needsTranscriptionModel) ...[
+          const SizedBox(height: 12),
+          // Reintentar sin el modelo volvería a fallar igual: lo que resuelve
+          // es descargarlo, y al terminar este elemento se retoma solo.
+          FilledButton.tonalIcon(
+            onPressed: () => context.push(RoutePaths.transcriptionModel),
+            icon: const Icon(Icons.download, size: 18),
+            label: Text(l10n.failureTranscriptionModelAction),
+          ),
+        ] else if (failed) ...[
           const SizedBox(height: 12),
           // Reintentar es a pedido y no automático en cada arranque: un fallo
           // puede ser permanente —un video borrado, una página que ya no

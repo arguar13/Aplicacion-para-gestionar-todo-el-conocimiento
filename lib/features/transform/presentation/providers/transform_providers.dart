@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
+import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
@@ -168,6 +169,14 @@ final processingStateRepositoryProvider = Provider<ProcessingStateRepository>((
 ) {
   return ProcessingStateRepositoryImpl(ref.watch(appDatabaseProvider));
 });
+
+/// Por qué falló un elemento —`null` si no falló—, siguiendo a la base: lo
+/// que muestra el detalle en vez de un "no se pudo" genérico.
+final processingFailureProvider = StreamProvider.autoDispose
+    .family<ProcessingFailureReason?, String>(
+      (ref, itemId) =>
+          ref.watch(processingStateRepositoryProvider).watchFailure(itemId),
+    );
 
 final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
   return ProcessItemUseCase(

@@ -583,6 +583,59 @@
   "@processingFailed": {
     "description": "Badge on an item whose conversion failed; it still keeps whatever was obtained"
   },
+  "processingWaitingForLong": "Waiting its turn",
+  "@processingWaitingForLong": {
+    "description": "Badge on an item whose long part (transcription, scanned pages) waits for another long job to finish first"
+  },
+  "processingProgressLabel": "Processing… {percent}%",
+  "@processingProgressLabel": {
+    "description": "Progress of an item being processed, shown next to its progress bar",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "processingWaitingForLongDetail": "Waiting its turn: another long job (a transcription or scanned pages) finishes first.",
+  "@processingWaitingForLongDetail": {
+    "description": "On an item's detail, while its long part waits for another long job"
+  },
+  "failureTranscriptionModelMissing": "Getting the text out of this audio needs the transcription model, which hasn't been downloaded yet. It downloads once and then works offline. As soon as it finishes, this item is processed on its own.",
+  "@failureTranscriptionModelMissing": {
+    "description": "Why an audio or video couldn't be transcribed: the on-device model is missing"
+  },
+  "failureTranscriptionModelAction": "Download the model",
+  "@failureTranscriptionModelAction": {
+    "description": "Button that opens the screen to download the transcription model"
+  },
+  "failureTimedOut": "It took too long and was stopped. Everything you saved is still here; try again.",
+  "@failureTimedOut": {
+    "description": "Why an item's processing failed: it stopped responding or went over its time limit"
+  },
+  "failureNetwork": "Couldn't connect. Check your connection and try again. Everything you saved is still here.",
+  "@failureNetwork": {
+    "description": "Why an item's processing failed: no connection, or the server didn't answer"
+  },
+  "failureUnavailable": "The content is no longer available: it was deleted, it's private, or it doesn't allow reading it. The link is still saved.",
+  "@failureUnavailable": {
+    "description": "Why an item's processing failed: the video, post or page is gone or not readable"
+  },
+  "failureNoArticle": "The page doesn't have an article to read: it may be a home page or a listing. The link is still saved.",
+  "@failureNoArticle": {
+    "description": "Why a web page's processing failed: no article could be extracted from it"
+  },
+  "failureUnreadableDocument": "The document couldn't be read: it may be damaged or password-protected. The original file is still saved.",
+  "@failureUnreadableDocument": {
+    "description": "Why a document's processing failed: it's damaged, encrypted or unsupported"
+  },
+  "failureMissingOriginalFile": "The original file is no longer on this device.",
+  "@failureMissingOriginalFile": {
+    "description": "Why an item's processing failed: its original file is gone from the app's storage"
+  },
+  "failureInterrupted": "The app closed several times while this was being processed. Try again with the app open.",
+  "@failureInterrupted": {
+    "description": "Why an item's processing failed: the app was closed or killed mid-processing too many times"
+  },
   "captureTitle": "Save something",
   "@captureTitle": {
     "description": "Title of the capture screen"

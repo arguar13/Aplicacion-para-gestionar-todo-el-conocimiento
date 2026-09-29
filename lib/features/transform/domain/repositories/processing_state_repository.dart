@@ -47,6 +47,15 @@ abstract interface class ProcessingStateRepository {
   /// que cambia algo tenga que acordarse de avisarle.
   Stream<List<String>> watchPendingIds();
 
+  /// Por qué falló [itemId], cada vez que cambia; `null` si no falló. Lo que
+  /// muestra el detalle en vez de un "no se pudo" genérico.
+  Stream<ProcessingFailureReason?> watchFailure(String itemId);
+
+  /// Vuelve a dejar en espera, desde cero, todo lo que falló por [reason]:
+  /// lo que esperaba el modelo de transcripción, cuando termina de
+  /// descargarse. Devuelve cuántos.
+  Future<int> requeueFailedWith(ProcessingFailureReason reason);
+
   /// Si [itemId] está en la papelera o ya no existe.
   Future<bool> isRemoved(String itemId);
 

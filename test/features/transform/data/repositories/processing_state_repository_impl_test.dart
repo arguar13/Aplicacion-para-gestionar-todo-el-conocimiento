@@ -200,6 +200,49 @@ void main() {
     });
   });
 
+  test('watchFailure dice por qué falló, y nada si no falló', () async {
+    await seed('a');
+
+    expect(await states.watchFailure('a').first, isNull);
+
+    await states.fail('a', ProcessingFailureReason.network);
+    expect(
+      await states.watchFailure('a').first,
+      ProcessingFailureReason.network,
+    );
+
+    await states.requeue('a');
+    expect(await states.watchFailure('a').first, isNull);
+  });
+
+  test('requeueFailedWith vuelve a poner en espera solo lo que falló por '
+      'ese motivo', () async {
+    // Lo que esperaba el modelo de transcripción, al terminar de bajarlo.
+    await seed('audio-1');
+    await seed('audio-2');
+    await seed('sin-red');
+    await states.fail(
+      'audio-1',
+      ProcessingFailureReason.transcriptionModelMissing,
+    );
+    await states.fail(
+      'audio-2',
+      ProcessingFailureReason.transcriptionModelMissing,
+    );
+    await states.fail('sin-red', ProcessingFailureReason.network);
+
+    final count = await states.requeueFailedWith(
+      ProcessingFailureReason.transcriptionModelMissing,
+    );
+
+    expect(count, 2);
+    expect(await states.pendingIds(), containsAll(['audio-1', 'audio-2']));
+    expect(
+      (await sourceOf('sin-red')).processingStatus,
+      SourceProcessingStatus.failed,
+    );
+  });
+
   test('pendingIds: en espera, sin la papelera, en orden de captura', () async {
     await seed('b', capturedAt: now.add(const Duration(minutes: 2)));
     await seed('a', capturedAt: now.add(const Duration(minutes: 1)));

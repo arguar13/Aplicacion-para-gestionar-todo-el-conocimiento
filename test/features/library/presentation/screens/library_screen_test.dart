@@ -32,6 +32,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_item_card
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -264,6 +265,46 @@ void main() {
       await pumpLibrary(tester);
 
       expect(find.text(es.processingPending), findsOneWidget);
+    });
+
+    testWidgets('lo que está en curso muestra cuánto va, con su barra', (
+      tester,
+    ) async {
+      // Un libro de cientos de páginas o un video de horas se ve avanzar
+      // desde la lista, sin abrirlo (F21).
+      final result = await harness.container.read(captureItemUseCaseProvider)(
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/un-libro'),
+      );
+      final id = result.getRight().toNullable()!.id;
+      harness.queue.showProgress({
+        id: const ProcessingProgress(
+          lane: ProcessingLane.long,
+          done: 1,
+          total: 4,
+        ),
+      });
+
+      await pumpLibrary(tester);
+
+      expect(find.text(es.processingProgressLabel(25)), findsOneWidget);
+      expect(find.text(es.processingPending), findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('lo que espera turno detrás de otro trabajo largo lo dice', (
+      tester,
+    ) async {
+      final result = await harness.container.read(captureItemUseCaseProvider)(
+        const CaptureRequest.text(rawInput: 'https://ejemplo.org/otro-video'),
+      );
+      final id = result.getRight().toNullable()!.id;
+      harness.queue.showProgress({
+        id: const ProcessingProgress(lane: ProcessingLane.waitingForLong),
+      });
+
+      await pumpLibrary(tester);
+
+      expect(find.text(es.processingWaitingForLong), findsOneWidget);
     });
 
     testWidgets('no marca lo que ya está completo: una insignia de "listo" '

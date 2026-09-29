@@ -1,4 +1,5 @@
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/vault/data/datasources/vault_local_data_source.dart';
 import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
 import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
@@ -160,4 +161,10 @@ class InertProcessingQueue extends ProcessingQueueNotifier {
 
   @override
   Future<void> resume() async => pendingSweeps++;
+
+  /// Simula lo que publicaría la cola de verdad mientras trabaja: qué está
+  /// en curso y cuánto va. Para probar la barra de avance sin procesar nada.
+  // ignore: use_setters_to_change_properties
+  void showProgress(Map<String, ProcessingProgress> active) =>
+      state = ProcessingQueueState(active: active);
 }

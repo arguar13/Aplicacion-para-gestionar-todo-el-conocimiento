@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
+import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -52,6 +53,9 @@ class _TranscriptionModelScreenState
   Future<void> _checkStatus() async {
     final manager = ref.read(whisperModelManagerProvider);
     final ready = await manager.isReady();
+    // También al abrir con el modelo ya descargado: la descarga sigue aunque
+    // se salga de esta pantalla, y entonces nadie vio terminarla.
+    if (ready) _resumeWaitingForModel();
     if (!mounted) return;
 
     setState(() {
@@ -93,6 +97,7 @@ class _TranscriptionModelScreenState
             });
           },
           onDone: () {
+            _resumeWaitingForModel();
             if (!mounted) return;
             setState(() {
               _downloadProgress = null;
@@ -100,6 +105,18 @@ class _TranscriptionModelScreenState
             });
           },
         );
+  }
+
+  /// Lo que falló porque faltaba este modelo vuelve a quedar en espera, y la
+  /// cola —que sigue a la base— lo retoma sola: nadie tiene que ir audio por
+  /// audio a tocar "Reintentar" (F21).
+  void _resumeWaitingForModel() {
+    unawaited(
+      ref
+          .read(processingStateRepositoryProvider)
+          .requeueFailedWith(ProcessingFailureReason.transcriptionModelMissing)
+          .catchError((Object _) => 0),
+    );
   }
 
   @override

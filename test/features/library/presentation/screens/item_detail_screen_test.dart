@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -33,6 +34,8 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -1047,6 +1050,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.queue.enqueued, [id]);
+    });
+
+    testWidgets('si faltaba el modelo de transcripción, lo dice y ofrece '
+        'descargarlo, no reintentar', (tester) async {
+      // "Himno de Alabanza" (F21): decía "No se pudo sacar el texto" y un
+      // "Reintentar" que iba a fallar igual, sin decir que faltaba el modelo.
+      final id = await captureAndGetId('https://ejemplo.org/un-audio');
+      await markFailed(id);
+      await harness.container
+          .read(processingStateRepositoryProvider)
+          .fail(id, ProcessingFailureReason.transcriptionModelMissing);
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.failureTranscriptionModelMissing), findsOneWidget);
+      expect(find.text(es.failureTranscriptionModelAction), findsOneWidget);
+      expect(find.text(es.detailRetry), findsNothing);
+    });
+
+    testWidgets('un corte de conexión lo dice, y ahí sí ofrece '
+        'reintentar', (tester) async {
+      final id = await captureAndGetId('https://ejemplo.org/sin-red');
+      await markFailed(id);
+      await harness.container
+          .read(processingStateRepositoryProvider)
+          .fail(id, ProcessingFailureReason.network);
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.failureNetwork), findsOneWidget);
+      expect(find.text(es.detailRetry), findsOneWidget);
+    });
+
+    testWidgets('mientras avanza, muestra la barra con cuánto va', (
+      tester,
+    ) async {
+      // Un libro de cientos de páginas se ve avanzar, y el original se puede
+      // leer mientras tanto.
+      final id = await captureAndGetId('https://ejemplo.org/un-libro');
+      harness.queue.showProgress({
+        id: const ProcessingProgress(
+          lane: ProcessingLane.long,
+          done: 3,
+          total: 10,
+        ),
+      });
+
+      await pumpDetail(tester, id);
+
+      expect(find.text(es.processingProgressLabel(30)), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsWidgets);
     });
 
     testWidgets('algo que todavía está en camino NO ofrece reintento', (

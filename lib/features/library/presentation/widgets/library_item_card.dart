@@ -17,6 +17,8 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Una fila de la biblioteca.
@@ -136,13 +138,15 @@ class LibraryItemCard extends StatelessWidget {
                         ),
                         if (stateLabel != null) ...[
                           const SizedBox(width: 8),
-                          _StateBadge(
-                            label: stateLabel,
+                          _ProcessingBadge(
+                            itemId: item.id,
+                            fallbackLabel: stateLabel,
                             color: item.processingState.color(colors)!,
                           ),
                         ],
                       ],
                     ),
+                    if (stateLabel != null) _ProcessingBar(itemId: item.id),
                     if (citation case final citation?) ...[
                       const SizedBox(height: 6),
                       _CitationLine(
@@ -480,6 +484,55 @@ class _ItemThumbnailBadge extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// La insignia de estado de algo que todavía no está listo, con su avance si
+/// está en curso: "Procesando… 40 %", o "Esperando turno" detrás de otro
+/// trabajo largo (F21). Si no hay avance que contar, [fallbackLabel].
+class _ProcessingBadge extends ConsumerWidget {
+  const _ProcessingBadge({
+    required this.itemId,
+    required this.fallbackLabel,
+    required this.color,
+  });
+
+  final String itemId;
+  final String fallbackLabel;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final progress = ref.watch(processingProgressProvider(itemId));
+
+    return _StateBadge(
+      label: progressBadgeLabel(l10n, progress) ?? fallbackLabel,
+      color: color,
+    );
+  }
+}
+
+/// Una barra fina bajo el título mientras el elemento avanza y ya se sabe
+/// cuánto le falta: un libro de cientos de páginas o un video de horas se
+/// ve avanzar desde la lista, sin abrirlo.
+class _ProcessingBar extends ConsumerWidget {
+  const _ProcessingBar({required this.itemId});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fraction = ref.watch(processingProgressProvider(itemId))?.fraction;
+    if (fraction == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: LinearProgressIndicator(value: fraction, minHeight: 3),
       ),
     );
   }

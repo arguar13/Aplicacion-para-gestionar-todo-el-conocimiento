@@ -112,6 +112,37 @@ class ProcessingStateRepositoryImpl implements ProcessingStateRepository {
   ];
 
   @override
+  Stream<ProcessingFailureReason?> watchFailure(String itemId) =>
+      (_db.selectOnly(_sources)
+            ..addColumns([_sources.processingStatus, _sources.processingError])
+            ..where(_sources.itemId.equals(itemId)))
+          .map((row) {
+            final status = row.readWithConverter(_sources.processingStatus);
+            if (status != SourceProcessingStatus.failed) return null;
+            return ProcessingFailureReason.fromStored(
+                  row.read(_sources.processingError),
+                ) ??
+                ProcessingFailureReason.unknown;
+          })
+          .watchSingleOrNull()
+          .distinct();
+
+  @override
+  Future<int> requeueFailedWith(ProcessingFailureReason reason) =>
+      (_db.update(_sources)..where(
+            (s) =>
+                s.processingStatus.equalsValue(SourceProcessingStatus.failed) &
+                s.processingError.equals(reason.name),
+          ))
+          .write(
+            const KnowledgeSourcesCompanion(
+              processingStatus: Value(SourceProcessingStatus.pending),
+              processingError: Value(null),
+              processingAttempts: Value(0),
+            ),
+          );
+
+  @override
   Future<bool> isRemoved(String itemId) async =>
       await _inTrashQuery(itemId).getSingleOrNull() ?? true;
 
