@@ -40,6 +40,7 @@ import 'package:sinapsis/features/transform/domain/services/audio_transcriber.da
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
+import 'package:sinapsis/features/transform/domain/usecases/download_youtube_audio_usecase.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/platform_audio_transcriber.dart';
 import 'package:sinapsis/features/transform/presentation/providers/platform_image_text_extractor.dart';
@@ -102,10 +103,8 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
   return TransformerRegistry([
     YouTubeTranscriptTransformer(
       client: ref.watch(youTubeClientProvider),
-      files: ref.watch(fileStoreProvider),
       ids: ids,
       clock: clock,
-      logger: ref.watch(appLoggerProvider),
     ),
     SocialPostTransformer(
       client: ref.watch(socialPostClientProvider),
@@ -169,6 +168,16 @@ final processingStateRepositoryProvider = Provider<ProcessingStateRepository>((
 ) {
   return ProcessingStateRepositoryImpl(ref.watch(appDatabaseProvider));
 });
+
+final downloadYouTubeAudioUseCaseProvider =
+    Provider<DownloadYouTubeAudioUseCase>((ref) {
+      return DownloadYouTubeAudioUseCase(
+        client: ref.watch(youTubeClientProvider),
+        files: ref.watch(fileStoreProvider),
+        repository: ref.watch(libraryRepositoryProvider),
+        clock: ref.watch(clockProvider),
+      );
+    });
 
 /// Por qué falló un elemento —`null` si no falló—, siguiendo a la base: lo
 /// que muestra el detalle en vez de un "no se pudo" genérico.

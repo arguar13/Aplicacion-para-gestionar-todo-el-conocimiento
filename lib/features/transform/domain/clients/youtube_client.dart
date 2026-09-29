@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'youtube_client.freezed.dart';
@@ -53,12 +51,36 @@ abstract interface class YouTubeClient {
     List<String> preferredLanguages,
   });
 
-  /// El audio del video, para escucharlo y transcribirlo en la app cuando no
-  /// tenía subtítulos.
+  /// El audio del video, para escucharlo sin conexión: se baja solo si el
+  /// usuario lo pide (F21, decisión B).
   ///
   /// Solo el audio y no el video completo: es lo único que hace falta para
-  /// las dos cosas —oírlo, transcribirlo—, y baja una fracción del peso.
-  Future<Uint8List> fetchAudio(String videoId);
+  /// oírlo, y baja una fracción del peso. Llega **por partes**
+  /// ([YouTubeAudioStream.bytes]) para guardarse directo a disco: el de un
+  /// video de cuatro horas pesa cientos de MB, y juntarlo en memoria
+  /// primero es justo lo que hacía que la app se quedara sin memoria.
+  Future<YouTubeAudioStream> openAudio(String videoId);
+}
+
+/// El audio de un video, listo para ir guardándose a medida que llega.
+class YouTubeAudioStream {
+  const YouTubeAudioStream({
+    required this.bytes,
+    required this.fileExtension,
+    this.totalBytes,
+  });
+
+  /// El contenido, por partes. Lanza si la descarga se corta o deja de
+  /// llegar.
+  final Stream<List<int>> bytes;
+
+  /// Cuánto pesa en total, si YouTube lo informa: lo que permite mostrar
+  /// cuánto va.
+  final int? totalBytes;
+
+  /// La extensión del contenedor —`m4a`, `webm`—, para el nombre del
+  /// archivo.
+  final String fileExtension;
 }
 
 /// El video no existe, es privado o fue dado de baja.

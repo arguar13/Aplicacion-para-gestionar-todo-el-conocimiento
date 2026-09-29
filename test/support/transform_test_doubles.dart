@@ -5,6 +5,7 @@
 // puede simular ambas.
 // ignore_for_file: only_throw_errors
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -22,7 +23,13 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 /// Un test que pidiera videos de verdad fallaría sin conexión, cambiaría de
 /// resultado cuando cambie el video y tardaría segundos en cada corrida.
 class FakeYouTubeClient implements YouTubeClient {
-  FakeYouTubeClient({this.data, this.error, this.audio, this.audioError});
+  FakeYouTubeClient({
+    this.data,
+    this.error,
+    this.audio,
+    this.audioError,
+    this.audioPausedAfterFirstChunk,
+  });
 
   /// Lo que devuelve. Si es `null` y no hay [error], responde un video mínimo.
   final YouTubeVideoData? data;
@@ -30,13 +37,17 @@ class FakeYouTubeClient implements YouTubeClient {
   /// Si está, se lanza en vez de responder.
   final Object? error;
 
-  /// Los bytes que devuelve [fetchAudio]. `null` sin [audioError] responde
-  /// un audio mínimo, para que probar la transcripción no obligue a
-  /// configurar también el audio en cada test.
+  /// Los bytes del audio que entrega [openAudio], en partes de 2 bytes.
+  /// `null` sin [audioError] responde un audio mínimo.
   final Uint8List? audio;
 
-  /// Si está, [fetchAudio] lo lanza en vez de responder.
+  /// Si está, [openAudio] lo lanza en vez de responder.
   final Object? audioError;
+
+  /// Si está, entrega la primera parte y no sigue hasta que se complete: para
+  /// hacer algo "mientras baja" sin depender del azar. Uno que nunca se
+  /// completa es una descarga colgada.
+  final Future<void>? audioPausedAfterFirstChunk;
 
   /// Los identificadores que se le pidieron, en orden.
   final requested = <String>[];
@@ -56,11 +67,32 @@ class FakeYouTubeClient implements YouTubeClient {
   }
 
   @override
-  Future<Uint8List> fetchAudio(String videoId) async {
+  Future<YouTubeAudioStream> openAudio(String videoId) async {
     audioRequested.add(videoId);
     if (audioError != null) throw audioError!;
 
-    return audio ?? Uint8List.fromList([1, 2, 3]);
+    final bytes = audio ?? Uint8List.fromList([1, 2, 3, 4, 5, 6]);
+    final chunks = [
+      for (var i = 0; i < bytes.length; i += 2)
+        bytes.sublist(i, i + 2 > bytes.length ? bytes.length : i + 2),
+    ];
+
+    Stream<List<int>> stream() async* {
+      final pause = audioPausedAfterFirstChunk;
+      if (pause == null) {
+        yield* Stream.fromIterable(chunks);
+        return;
+      }
+      yield chunks.first;
+      await pause;
+      yield* Stream.fromIterable(chunks.skip(1));
+    }
+
+    return YouTubeAudioStream(
+      bytes: stream(),
+      totalBytes: bytes.length,
+      fileExtension: 'm4a',
+    );
   }
 }
 

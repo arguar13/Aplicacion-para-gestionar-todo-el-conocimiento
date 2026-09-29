@@ -633,6 +633,39 @@
     "description": "Why an item's processing failed: its original file is gone from the app's storage"
   },
   "failureInterrupted": "The app closed several times while this was being processed. Try again with the app open.",
+  "youtubeAudioDownloadAction": "Download the audio",
+  "@youtubeAudioDownloadAction": {
+    "description": "Button on a YouTube item to download its audio, only when the user asks for it"
+  },
+  "youtubeAudioDownloadHint": "To listen to it inside the app, offline. The transcript is already saved.",
+  "@youtubeAudioDownloadHint": {
+    "description": "Explains what downloading a YouTube video's audio is for"
+  },
+  "youtubeAudioDownloading": "Downloading the audio… {percent}%",
+  "@youtubeAudioDownloading": {
+    "description": "Progress of a YouTube audio download",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "youtubeAudioDownloadingUnknown": "Downloading the audio…",
+  "@youtubeAudioDownloadingUnknown": {
+    "description": "A YouTube audio download whose total size is unknown"
+  },
+  "youtubeAudioCancel": "Cancel",
+  "@youtubeAudioCancel": {
+    "description": "Stops a YouTube audio download in progress"
+  },
+  "youtubeAudioFailed": "Couldn't download the audio.",
+  "@youtubeAudioFailed": {
+    "description": "A YouTube audio download failed for an unknown reason"
+  },
+  "youtubeAudioDownloaded": "Audio downloaded: you can listen offline.",
+  "@youtubeAudioDownloaded": {
+    "description": "Above the player of a YouTube video's downloaded audio"
+  },
   "@failureInterrupted": {
     "description": "Why an item's processing failed: the app was closed or killed mid-processing too many times"
   },

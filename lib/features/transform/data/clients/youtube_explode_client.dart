@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:sinapsis/core/error/exceptions.dart';
@@ -97,35 +96,53 @@ class YoutubeExplodeClient implements YouTubeClient {
   }
 
   @override
-  Future<Uint8List> fetchAudio(String videoId) async {
+  Future<YouTubeAudioStream> openAudio(String videoId) async {
     final yt = _create();
 
+    final yt_api.AudioOnlyStreamInfo audio;
     try {
       final manifest = await yt.videos.streams
           .getManifest(videoId)
           .timeout(callTimeout);
       // La de mayor bitrate entre las que traen solo audio: no hace falta
-      // el video para escuchar ni para transcribir, y bajar el archivo
-      // completo pesaría muchas veces más para nada que se vaya a usar.
-      final audioStream = manifest.audioOnly.withHighestBitrate();
-
-      // `BytesBuilder` y no una `List<int>`: la lista guarda cada byte en un
-      // entero de 8, y el audio de un video largo se multiplicaba por ocho en
-      // memoria (F21).
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk
-          in yt.videos.streams.get(audioStream).timeout(stallTimeout)) {
-        bytes.add(chunk);
+      // el video para escuchar, y bajar el archivo completo pesaría muchas
+      // veces más para nada que se vaya a usar.
+      audio = manifest.audioOnly.withHighestBitrate();
+    } on Object catch (error) {
+      // Nada que devolver: el cliente se cierra acá, no al terminar el
+      // stream que nunca llega a existir.
+      yt.close();
+      if (error is yt_api.VideoUnplayableException) {
+        throw VideoUnavailableException(videoId);
       }
-      return bytes.takeBytes();
-    } on yt_api.VideoUnplayableException {
-      throw VideoUnavailableException(videoId);
-    } on http.ClientException catch (error) {
-      throw _networkFailure(error);
-    } on yt_api.TransientFailureException catch (error) {
-      throw _networkFailure(error);
-    } on yt_api.RequestLimitExceededException catch (error) {
-      throw _networkFailure(error);
+      if (_isNetworkFailure(error)) throw _networkFailure(error);
+      rethrow;
+    }
+
+    return YouTubeAudioStream(
+      bytes: _audioBytes(yt, audio),
+      totalBytes: audio.size.totalBytes,
+      // Un audio solo en un contenedor MP4 es un M4A: el nombre que
+      // reconocen los reproductores.
+      fileExtension: audio.container == yt_api.StreamContainer.mp4
+          ? 'm4a'
+          : audio.container.name,
+    );
+  }
+
+  /// El audio por partes, tal como llega. Se corta si deja de llegar
+  /// durante [stallTimeout] —no por su duración total: el de cuatro horas
+  /// tarda lo que tarda mientras siga llegando—, y cierra el cliente al
+  /// terminar, al fallar o si quien lo lee lo abandona.
+  Stream<List<int>> _audioBytes(
+    yt_api.YoutubeExplode yt,
+    yt_api.AudioOnlyStreamInfo audio,
+  ) async* {
+    try {
+      yield* yt.videos.streams.get(audio).timeout(stallTimeout);
+    } on Object catch (error) {
+      if (_isNetworkFailure(error)) throw _networkFailure(error);
+      rethrow;
     } finally {
       yt.close();
     }
@@ -189,3 +206,8 @@ class YoutubeExplodeClient implements YouTubeClient {
 /// conexión", que se resuelve reintentando, y no como un error desconocido.
 NetworkException _networkFailure(Object error) =>
     NetworkException(message: 'YouTube no respondió: $error');
+
+bool _isNetworkFailure(Object error) =>
+    error is http.ClientException ||
+    error is yt_api.TransientFailureException ||
+    error is yt_api.RequestLimitExceededException;

@@ -64,7 +64,7 @@ void main() {
       ).thenAnswer((_) => Completer<yt_api.StreamManifest>().future);
 
       await expectLater(
-        client().fetchAudio('abc'),
+        client().openAudio('abc'),
         throwsA(isA<TimeoutException>()),
       );
     });

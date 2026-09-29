@@ -2,16 +2,14 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/logging/app_logger.dart';
-import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
-/// Trae la transcripción de un video de YouTube, junto con su título, su
-/// autor reales y su audio.
+/// Trae la transcripción de un video de YouTube, junto con su título y su
+/// autor reales.
 ///
 /// La transcripción es el reemplazo de DownSub, y sale mejor que integrarlo:
 /// los subtítulos se piden sin clave de API y sin cuotas diarias, no hay que
@@ -19,39 +17,27 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 /// queda guardado con el enlace al video en vez de en un archivo suelto en
 /// Descargas.
 ///
-/// El audio se baja además, no en su lugar: es lo que permite escuchar el
-/// video sin salir de la app y, más adelante, borrarlo y quedarse solo con
-/// el texto (ver `deleteOriginalFileUseCase`) para quien ya leyó la
-/// transcripción y no necesita guardar el archivo. Que la descarga del
-/// audio falle —un video protegido, una restricción regional— no puede
-/// costarle al usuario la transcripción que sí se consiguió: se intenta
-/// aparte y en silencio, con el mismo criterio que ya usa
-/// `WebArticleTransformer` para archivar la página completa.
+/// **Solo la transcripción** (F21, decisión B): unos KB, segundos para un
+/// video de cualquier duración. El audio ya no se baja acá —antes el video
+/// no quedaba listo hasta terminar de bajar el audio entero, cientos de MB
+/// en uno de cuatro horas—: se baja solo si el usuario lo pide, desde el
+/// detalle (`DownloadYouTubeAudioUseCase`).
 class YouTubeTranscriptTransformer implements Transformer {
   const YouTubeTranscriptTransformer({
     required YouTubeClient client,
-    required FileStore files,
     required IdGenerator ids,
     required Clock clock,
-    required AppLogger logger,
   }) : _client = client,
-       _files = files,
        _ids = ids,
-       _clock = clock,
-       _logger = logger;
+       _clock = clock;
 
   final YouTubeClient _client;
-  final FileStore _files;
   final IdGenerator _ids;
   final Clock _clock;
-  final AppLogger _logger;
 
-  /// Sin tope fijo mientras el audio se baje acá adentro: el de un video de
-  /// cuatro horas pesa cientos de MB y tarda lo que tarda. No puede colgarse
-  /// igual: cada pedido a YouTube lleva su propio límite, y la descarga del
-  /// audio se corta si deja de llegar (ver `YoutubeExplodeClient`).
+  /// Trabajo corto: los datos del video y sus subtítulos.
   @override
-  Duration? get timeLimit => null;
+  Duration? get timeLimit => kShortTransformTimeLimit;
 
   @override
   bool canTransform(KnowledgeItem item) {
@@ -76,12 +62,6 @@ class YouTubeTranscriptTransformer implements Transformer {
     final data = await _client.fetchVideo(videoId);
     final now = _clock();
 
-    final audioPath = await _downloadAudioSafely(
-      videoId,
-      sourceId: item.source.id,
-      title: data.title,
-    );
-
     return item.copyWith(
       // El título provisional era el identificador del video; ahora se sabe
       // cómo se llama de verdad.
@@ -91,38 +71,9 @@ class YouTubeTranscriptTransformer implements Transformer {
         authorName: data.authorName ?? item.source.authorName,
         authorUrl: data.authorChannelUrl ?? item.source.authorUrl,
         publishedAt: data.publishedAt ?? item.source.publishedAt,
-        originalFilePath: audioPath ?? item.source.originalFilePath,
       ),
       renditions: _renditionsFor(item.id, data, now),
     );
-  }
-
-  /// Baja el audio y lo guarda, o `null` si no se pudo.
-  ///
-  /// Atrapa cualquier fallo a propósito, igual que
-  /// `WebArticleTransformer._archiveSafely`: el audio es un extra sobre el
-  /// resultado principal —la transcripción—, y no puede costarle al usuario
-  /// perder esta última porque un video esté protegido o restringido en su
-  /// región.
-  Future<String?> _downloadAudioSafely(
-    String videoId, {
-    required String sourceId,
-    required String title,
-  }) async {
-    try {
-      final bytes = await _client.fetchAudio(videoId);
-      return await _files.save(
-        bytes: bytes,
-        suggestedName: '$title.m4a',
-        id: sourceId,
-      );
-      // El audio es un extra: cualquier fallo, del tipo que sea, se registra
-      // y se sigue sin él, en vez de perder la transcripción.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e) {
-      _logger.warning('No se pudo bajar el audio del video $videoId: $e');
-      return null;
-    }
   }
 
   /// Qué se guarda como contenido.
