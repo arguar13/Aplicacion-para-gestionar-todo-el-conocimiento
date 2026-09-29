@@ -26,7 +26,14 @@ Float32List pcm16ToFloat32Samples(Uint8List bytes, {int headerBytes = 0}) {
 
 /// Cuántas muestras entran en la ventana de audio que espera Whisper, a la
 /// frecuencia con la que está entrenado el modelo.
-const whisperChunkSamples = 16000 * 30;
+///
+/// 29 segundos y no los 30 de la ventana de Whisper: sherpa-onnx se reserva
+/// 50 cuadros —medio segundo— de relleno al final, y todo lo que pase de
+/// 29,5 s lo descarta con un aviso ("Only waves less than 30 seconds are
+/// supported"). Con tramos de 30 s se perdía el último medio segundo de
+/// cada uno: palabras sueltas en cada borde, cada medio minuto —medido en
+/// el emulador (F21): 28 avisos en 30 tramos llenos—.
+const whisperChunkSamples = 16000 * 29;
 
 /// Transcribe [samples] entero, partido en ventanas de [chunkSamples], y
 /// concatena el texto de cada una.
@@ -75,7 +82,7 @@ String transcribeInChunks(
   return buffer.toString();
 }
 
-/// Transcribe UNA ventana de Whisper —hasta 30 segundos, ver
+/// Transcribe UNA ventana de Whisper —hasta 29 segundos, ver
 /// [transcribeInChunks]—: el tramo que se transcribe, se guarda y se retoma
 /// de a uno en un audio largo (F21).
 String transcribeWindow(

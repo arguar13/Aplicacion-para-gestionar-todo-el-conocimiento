@@ -23,7 +23,7 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 ///    lo lee el decodificador nativo. El WAV queda en disco hasta terminar:
 ///    si la app se cierra a mitad de camino, al retomar no se reconvierte
 ///    (F21).
-/// 2. Transcribirlo por tramos de 30 segundos —la ventana de Whisper, ver
+/// 2. Transcribirlo por tramos de 29 segundos —la ventana de Whisper, ver
 ///    `transcribeInChunks`— en un isolate aparte, leyendo del WAV de a un
 ///    tramo: una hora de audio son 115 MB de WAV y 230 MB de muestras, y ya
 ///    no se cargan enteros (F21). Cada tramo terminado vuelve al isolate
