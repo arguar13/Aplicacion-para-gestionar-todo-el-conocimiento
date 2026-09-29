@@ -218,6 +218,7 @@
   "processingFailed": "No se pudo extraer",
   "processingWaitingForLong": "Esperando turno",
   "processingProgressLabel": "Procesando… {percent} %",
+  "processingRecognizingPages": "Reconociendo páginas escaneadas: {done} de {total}",
   "processingWaitingForLongDetail": "Esperando turno: primero termina otro trabajo largo (una transcripción o páginas escaneadas).",
   "failureTranscriptionModelMissing": "Para sacar el texto de este audio hace falta el modelo de transcripción, que todavía no se descargó. Se descarga una sola vez y después funciona sin conexión. Apenas termine, este elemento se procesa solo.",
   "failureTranscriptionModelAction": "Descargar el modelo",

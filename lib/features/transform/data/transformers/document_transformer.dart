@@ -1,5 +1,6 @@
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -8,6 +9,7 @@ import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
 /// Saca el texto de los documentos guardados como archivo.
@@ -25,7 +27,9 @@ class DocumentTransformer implements Transformer {
     required IdGenerator ids,
     required Clock clock,
     Future<bool> Function(String itemId)? hasConfirmedReference,
+    ProcessingCheckpoints? checkpoints,
   }) : _parsers = parsers,
+       _checkpoints = checkpoints,
        _files = files,
        _ids = ids,
        _clock = clock,
@@ -45,10 +49,17 @@ class DocumentTransformer implements Transformer {
   /// comporta como siempre, sin este resguardo.
   final Future<bool> Function(String itemId)? _hasConfirmedReference;
 
-  /// Trabajo largo: un libro de cientos de páginas —y, si está escaneado,
-  /// reconocer cada una— no tiene un tope fijo razonable.
+  /// Dónde se guarda el avance de un trabajo largo —las páginas escaneadas
+  /// ya reconocidas— para retomarlo si se interrumpe (F21). `null` en las
+  /// pruebas que no lo necesitan: se hace todo de un tirón, como siempre.
+  final ProcessingCheckpoints? _checkpoints;
+
+  /// Sacar el texto que el documento ya trae es trabajo corto —segundos,
+  /// incluso con cientos de páginas—, con el tope del carril corto: un motor
+  /// trabado no frena la cola. Reconocer páginas escaneadas es largo, y el
+  /// lector pasa al carril largo para eso, donde el tope fijo no corre.
   @override
-  Duration? get timeLimit => null;
+  Duration? get timeLimit => kShortTransformTimeLimit;
 
   @override
   bool canTransform(KnowledgeItem item) {
@@ -109,6 +120,7 @@ class DocumentTransformer implements Transformer {
           return bytes;
         },
       ),
+      session: _sessionFor(item, context),
     );
     if (parsed.isEmpty) return item;
 
@@ -136,6 +148,26 @@ class DocumentTransformer implements Transformer {
           createdAt: now,
         ),
       ],
+    );
+  }
+
+  DocumentParseSession _sessionFor(
+    KnowledgeItem item,
+    TransformContext context,
+  ) {
+    final checkpoints = _checkpoints;
+    if (checkpoints == null) return DocumentParseSession(context: context);
+
+    return DocumentParseSession(
+      context: context,
+      loadRecognizedPages: () =>
+          checkpoints.load(item.id, ProcessingCheckpointKind.ocrPage),
+      saveRecognizedPage: (page, text) => checkpoints.save(
+        item.id,
+        ProcessingCheckpointKind.ocrPage,
+        position: page,
+        content: text,
+      ),
     );
   }
 }

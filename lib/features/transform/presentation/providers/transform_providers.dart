@@ -130,6 +130,7 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       clock: clock,
       hasConfirmedReference: (itemId) async =>
           !(await ReferenceReader(db).read(itemId)).isEmpty,
+      checkpoints: ref.watch(processingStateRepositoryProvider),
     ),
     ImageTransformer(
       extractor: ref.watch(imageTextExtractorProvider),

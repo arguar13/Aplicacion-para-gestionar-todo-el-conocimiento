@@ -790,7 +790,7 @@ class _NoContentYet extends ConsumerWidget {
         // cuánto va, y el original se puede abrir y leer mientras tanto.
         if (progress != null) ...[
           const SizedBox(height: 12),
-          ProcessingProgressBar(progress: progress),
+          ProcessingProgressBar(progress: progress, kind: item.source.kind),
         ],
         if (needsTranscriptionModel) ...[
           const SizedBox(height: 12),

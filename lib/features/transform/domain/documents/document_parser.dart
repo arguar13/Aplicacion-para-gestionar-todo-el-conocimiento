@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
 /// Lo que se sacó de un documento.
 ///
@@ -51,7 +52,44 @@ abstract interface class DocumentParser {
   /// Lanza [UnreadableDocumentException] si los bytes no son lo que decían
   /// ser. Que un archivo esté corrupto no es un defecto del programa: pasa
   /// con descargas cortadas y con adjuntos de correo mal reensamblados.
-  Future<ParsedDocument> parse(DocumentSource source);
+  ///
+  /// [session] es el trabajo en curso: con qué avisar el avance, cómo saber
+  /// si hay que abandonar y dónde guardar lo ya hecho. Solo lo usa un
+  /// formato con trabajo largo —el PDF escaneado—; el resto lo ignora.
+  Future<ParsedDocument> parse(
+    DocumentSource source, {
+    DocumentParseSession session = DocumentParseSession.detached,
+  });
+}
+
+/// El trabajo en curso de leer un documento (F21): lo que necesita un lector
+/// para un trabajo largo —reconocer cientos de páginas escaneadas— sin
+/// frenar la cola ni perder lo hecho si la app se cierra.
+class DocumentParseSession {
+  const DocumentParseSession({
+    this.context = TransformContext.detached,
+    Future<Map<int, String>> Function()? loadRecognizedPages,
+    Future<void> Function(int page, String text)? saveRecognizedPage,
+  }) : _load = loadRecognizedPages,
+       _save = saveRecognizedPage;
+
+  /// Sin cola ni avance guardado: una prueba, o un adjunto del chat.
+  static const detached = DocumentParseSession();
+
+  /// La cola: pasar al carril largo, avisar el avance, saber si abandonar.
+  final TransformContext context;
+
+  final Future<Map<int, String>> Function()? _load;
+  final Future<void> Function(int page, String text)? _save;
+
+  /// Las páginas ya reconocidas en un intento anterior: número de página
+  /// (desde 0) → texto.
+  Future<Map<int, String>> recognizedPages() async =>
+      await _load?.call() ?? const {};
+
+  /// Guarda que [page] ya se reconoció, con su [text].
+  Future<void> saveRecognizedPage(int page, String text) async =>
+      _save?.call(page, text);
 }
 
 /// Un documento por leer, sin haberlo traído a memoria todavía (F21).

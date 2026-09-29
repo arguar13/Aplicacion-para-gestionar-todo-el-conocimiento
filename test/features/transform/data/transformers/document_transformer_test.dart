@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
@@ -13,6 +14,7 @@ import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -306,18 +308,76 @@ void main() {
     // En memoria no hay disco del que abrirlo.
     expect(received.localPath, isNull);
   });
+  test('el avance de las páginas escaneadas se guarda para este elemento, '
+      'y se retoma de ahí (F21)', () async {
+    final checkpoints = _MemoryCheckpoints();
+    await checkpoints.save(
+      'item-1',
+      ProcessingCheckpointKind.ocrPage,
+      position: 0,
+      content: 'de antes',
+    );
+    final parser = _RecordingParser(
+      onParse: (session) async {
+        expect(await session.recognizedPages(), {0: 'de antes'});
+        await session.saveRecognizedPage(1, 'nueva');
+      },
+    );
+    final item = await seed(buildPdf(), name: 'libro.pdf');
+
+    await DocumentTransformer(
+      parsers: [parser],
+      files: files,
+      ids: FakeIdGenerator(),
+      clock: () => now,
+      checkpoints: checkpoints,
+    ).transform(item);
+
+    expect(await checkpoints.load('item-1', ProcessingCheckpointKind.ocrPage), {
+      0: 'de antes',
+      1: 'nueva',
+    });
+  });
+}
+
+/// El avance guardado, en memoria.
+class _MemoryCheckpoints implements ProcessingCheckpoints {
+  final _saved = <(String, ProcessingCheckpointKind), Map<int, String>>{};
+
+  @override
+  Future<Map<int, String>> load(
+    String itemId,
+    ProcessingCheckpointKind kind,
+  ) async => {...?_saved[(itemId, kind)]};
+
+  @override
+  Future<void> save(
+    String itemId,
+    ProcessingCheckpointKind kind, {
+    required int position,
+    required String content,
+  }) async => (_saved[(itemId, kind)] ??= {})[position] = content;
 }
 
 /// Un lector de PDF que solo anota qué recibió.
 class _RecordingParser implements DocumentParser {
+  _RecordingParser({this.onParse});
+
+  /// Lo que hace con la sesión, si algo.
+  final Future<void> Function(DocumentParseSession session)? onParse;
+
   DocumentSource? received;
 
   @override
   bool canParse(FileFormat format) => format == FileFormat.pdf;
 
   @override
-  Future<ParsedDocument> parse(DocumentSource source) async {
+  Future<ParsedDocument> parse(
+    DocumentSource source, {
+    DocumentParseSession session = DocumentParseSession.detached,
+  }) async {
     received = source;
+    await onParse?.call(session);
     return const ParsedDocument(markdown: 'Hola');
   }
 }

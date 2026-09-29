@@ -34,7 +34,10 @@ class DocxParser implements DocumentParser {
   // excepción de documento ilegible) son datos simples, transferibles entre
   // isolates sin depender de ningún canal de plataforma.
   @override
-  Future<ParsedDocument> parse(DocumentSource source) async {
+  Future<ParsedDocument> parse(
+    DocumentSource source, {
+    DocumentParseSession session = DocumentParseSession.detached,
+  }) async {
     // Un ZIP se descomprime entero: se lee entero, fuera del hilo principal.
     final bytes = await source.readAll();
     return Isolate.run(() => _parse(bytes));

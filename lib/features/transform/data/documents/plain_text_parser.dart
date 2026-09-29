@@ -17,7 +17,10 @@ class PlainTextParser implements DocumentParser {
       format == FileFormat.plainText || format == FileFormat.markdown;
 
   @override
-  Future<ParsedDocument> parse(DocumentSource source) async {
+  Future<ParsedDocument> parse(
+    DocumentSource source, {
+    DocumentParseSession session = DocumentParseSession.detached,
+  }) async {
     final bytes = await source.readAll();
     // `allowMalformed`: un byte suelto corrupto —o un archivo guardado en
     // Latin-1 por un editor viejo— no puede costar el resto del texto. Se

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -43,9 +44,13 @@ String? failureMessage(
 /// La barra de avance de un elemento en curso, con su leyenda. Indeterminada
 /// mientras el trabajo todavía no dijo cuánto hay.
 class ProcessingProgressBar extends StatelessWidget {
-  const ProcessingProgressBar({required this.progress, super.key});
+  const ProcessingProgressBar({required this.progress, this.kind, super.key});
 
   final ProcessingProgress progress;
+
+  /// Qué se está procesando, para decir qué es el trabajo largo: en un
+  /// documento, reconocer sus páginas escaneadas —"12 de 400"—.
+  final SourceKind? kind;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +61,10 @@ class ProcessingProgressBar extends StatelessWidget {
 
     final label = waiting
         ? l10n.processingWaitingForLongDetail
+        : kind == SourceKind.document &&
+              progress.lane == ProcessingLane.long &&
+              progress.total > 0
+        ? l10n.processingRecognizingPages(progress.done, progress.total)
         : l10n.processingProgressLabel(((fraction ?? 0) * 100).floor());
 
     return Column(

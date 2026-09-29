@@ -237,9 +237,14 @@ Uint8List withSignature(List<int> signature, {int padding = 64}) =>
 /// Con [info] agrega un diccionario `Info` —`/Title (...)`, `/Author (...)`—
 /// referenciado desde el `trailer`, como el que escribe cualquier programa
 /// que guarda esos datos: es lo que `readPdfMetadata` (F15) sabe leer.
+///
+/// Las páginas de [scannedPages] (por índice, desde 0) llevan tinta sin una
+/// letra —un rectángulo negro dibujado—: lo que ve el lector en una página
+/// escaneada, a diferencia de una página en blanco de verdad (F21).
 Uint8List buildPdf({
   List<String> pageTexts = const ['Hola mundo'],
   Map<String, String>? info,
+  Set<int> scannedPages = const {},
 }) {
   final objects = <String>[
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -253,9 +258,11 @@ Uint8List buildPdf({
     final contentNumber = pageNumber + 1;
     pageRefs.add('$pageNumber 0 R');
 
-    final stream = pageTexts[i].isEmpty
-        ? ''
-        : 'BT /F1 24 Tf 72 700 Td (${_escapePdfString(pageTexts[i])}) Tj ET';
+    final stream = [
+      if (pageTexts[i].isNotEmpty)
+        'BT /F1 24 Tf 72 700 Td (${_escapePdfString(pageTexts[i])}) Tj ET',
+      if (scannedPages.contains(i)) '0 g 72 200 468 400 re f',
+    ].join('\n');
 
     objects
       ..add(

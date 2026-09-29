@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,8 +6,11 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx_engine/pdfrx_engine.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
 import '../../../../support/document_parsing.dart';
 import '../../../../support/fake_image_text_extractor.dart';
@@ -239,68 +243,162 @@ void main() {
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
   });
 
-  group('respaldo de OCR para paginas escaneadas', () {
-    test(
-      'reconoce el texto de cada pagina con el extractor inyectado',
-      () async {
-        final extractor = FakeImageTextExtractor(text: 'texto reconocido');
-        final files = InMemoryFileStore();
-        final parserConOcr = PdfParser(
+  group('paginas escaneadas (F21: siempre, por pagina, retomable)', () {
+    PdfParser withOcr(FakeImageTextExtractor extractor, {FileStore? files}) =>
+        PdfParser(
           initialize: () async {
             Pdfrx.pdfiumModulePath = _pdfiumPath;
             await pdfrxInitialize();
           },
           ocrExtractor: extractor,
-          ocrFileStore: files,
+          ocrFileStore: files ?? InMemoryFileStore(),
         );
 
-        final result = await parserConOcr.parseBytes(
-          buildPdf(pageTexts: ['', '']),
-        );
+    test('reconoce el texto de cada pagina escaneada', () async {
+      final extractor = FakeImageTextExtractor(text: 'texto reconocido');
+      final files = InMemoryFileStore();
 
-        expect(result.markdown, contains('texto reconocido'));
-        expect(result.pageCount, 2);
-        // Ninguna imagen temporal de la pagina queda en el almacen: se
-        // limpia apenas se termina de reconocer.
-        expect(files.paths, isEmpty);
-      },
-      skip: _pdfiumPath == null ? _missingPdfium : null,
-    );
+      final result = await withOcr(
+        extractor,
+        files: files,
+      ).parseBytes(buildPdf(pageTexts: ['', ''], scannedPages: {0, 1}));
+
+      expect(result.markdown, contains('texto reconocido'));
+      expect(result.pageCount, 2);
+      expect(extractor.requested, hasLength(2));
+      // Ninguna imagen temporal de la pagina queda en el almacen: se
+      // limpia apenas se termina de reconocer.
+      expect(files.paths, isEmpty);
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
     test('si el OCR tampoco encuentra nada, sigue vacio', () async {
-      final parserConOcr = PdfParser(
-        initialize: () async {
-          Pdfrx.pdfiumModulePath = _pdfiumPath;
-          await pdfrxInitialize();
-        },
-        ocrExtractor: FakeImageTextExtractor(),
-        ocrFileStore: InMemoryFileStore(),
-      );
-
-      final result = await parserConOcr.parseBytes(
-        buildPdf(pageTexts: ['', '']),
-      );
+      final result = await withOcr(
+        FakeImageTextExtractor(),
+      ).parseBytes(buildPdf(pageTexts: ['', ''], scannedPages: {0, 1}));
 
       expect(result.isEmpty, isTrue);
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
     test('una pagina con texto propio no pasa por OCR', () async {
-      final extractor = FakeImageTextExtractor(text: 'no debería aparecer');
-      final parserConOcr = PdfParser(
-        initialize: () async {
-          Pdfrx.pdfiumModulePath = _pdfiumPath;
-          await pdfrxInitialize();
-        },
-        ocrExtractor: extractor,
-        ocrFileStore: InMemoryFileStore(),
-      );
+      final extractor = FakeImageTextExtractor(text: 'no deberia aparecer');
 
-      final result = await parserConOcr.parseBytes(
-        buildPdf(pageTexts: ['Hola mundo']),
-      );
+      final result = await withOcr(
+        extractor,
+      ).parseBytes(buildPdf(pageTexts: ['Hola mundo']));
 
       expect(result.markdown, contains('Hola mundo'));
       expect(extractor.requested, isEmpty);
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test(
+      'en un PDF mixto, solo la escaneada se reconoce, en su lugar',
+      () async {
+        final extractor = FakeImageTextExtractor(text: 'la escaneada');
+
+        final result = await withOcr(extractor).parseBytes(
+          buildPdf(pageTexts: ['Hola mundo', ''], scannedPages: {1}),
+        );
+
+        final segments = result.markdown.split('\n\n---\n\n');
+        expect(segments[0], contains('Hola mundo'));
+        expect(segments[1], 'la escaneada');
+        expect(extractor.requested, hasLength(1));
+      },
+      skip: _pdfiumPath == null ? _missingPdfium : null,
+    );
+
+    test('una pagina en blanco de verdad no se manda a reconocer', () async {
+      final extractor = FakeImageTextExtractor(text: 'papel vacio');
+      final context = _RecordingContext();
+
+      final result = await withOcr(extractor).parse(
+        DocumentSource.memory(buildPdf(pageTexts: ['Hola mundo', ''])),
+        session: DocumentParseSession(context: context),
+      );
+
+      expect(result.markdown, isNot(contains('papel vacio')));
+      expect(extractor.requested, isEmpty);
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test(
+      'pasa al carril largo, avisa el avance y guarda cada pagina',
+      () async {
+        final context = _RecordingContext();
+        final saved = <int, String>{};
+
+        await withOcr(FakeImageTextExtractor(text: 'reconocida')).parse(
+          DocumentSource.memory(
+            buildPdf(pageTexts: ['', '', ''], scannedPages: {0, 1, 2}),
+          ),
+          session: DocumentParseSession(
+            context: context,
+            saveRecognizedPage: (page, text) async => saved[page] = text,
+          ),
+        );
+
+        expect(context.enteredLongLane, isTrue);
+        expect(context.progress, [(0, 3), (1, 3), (2, 3), (3, 3)]);
+        expect(saved, {0: 'reconocida', 1: 'reconocida', 2: 'reconocida'});
+      },
+      skip: _pdfiumPath == null ? _missingPdfium : null,
+    );
+
+    test(
+      'retoma: lo ya reconocido en un intento anterior no se repite',
+      () async {
+        final extractor = FakeImageTextExtractor(text: 'nueva');
+
+        final result = await withOcr(extractor).parse(
+          DocumentSource.memory(
+            buildPdf(pageTexts: ['', ''], scannedPages: {0, 1}),
+          ),
+          session: DocumentParseSession(
+            loadRecognizedPages: () async => {0: 'de antes'},
+          ),
+        );
+
+        expect(result.markdown.split('\n\n---\n\n'), ['de antes', 'nueva']);
+        expect(extractor.requested, hasLength(1));
+      },
+      skip: _pdfiumPath == null ? _missingPdfium : null,
+    );
+
+    test('cancelado, deja de reconocer en el acto', () async {
+      final context = _RecordingContext()..cancelled = true;
+
+      await expectLater(
+        withOcr(FakeImageTextExtractor(text: 'x')).parse(
+          DocumentSource.memory(
+            buildPdf(pageTexts: ['', ''], scannedPages: {0, 1}),
+          ),
+          session: DocumentParseSession(context: context),
+        ),
+        throwsA(isA<ProcessingCancelledException>()),
+      );
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
   });
+}
+
+/// Un contexto de cola que anota lo que le piden.
+class _RecordingContext implements TransformContext {
+  bool enteredLongLane = false;
+  bool cancelled = false;
+  final progress = <(int, int)>[];
+
+  @override
+  bool get isCancelled => cancelled;
+
+  @override
+  Future<void> get whenCancelled => Completer<void>().future;
+
+  @override
+  void throwIfCancelled() {
+    if (cancelled) throw const ProcessingCancelledException();
+  }
+
+  @override
+  Future<void> enterLongLane() async => enteredLongLane = true;
+
+  @override
+  void reportProgress(int done, int total) => progress.add((done, total));
 }

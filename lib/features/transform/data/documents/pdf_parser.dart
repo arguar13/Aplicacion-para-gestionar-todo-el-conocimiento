@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -19,17 +20,25 @@ import 'package:sinapsis/features/transform/domain/services/image_text_extractor
 /// gratuito por debajo de cierta facturación. Ver la decisión 3 en
 /// `docs/arquitectura.md`.
 ///
-/// **Primero intenta el texto que el PDF ya tiene.** Es instantáneo y exacto,
-/// así que es lo único que se prueba mientras alguna página lo traiga.
+/// **Primero, el texto que el PDF ya tiene.** Es instantáneo y exacto: se lee
+/// página por página.
 ///
-/// **Un PDF escaneado no tiene ni una letra**: es un álbum de fotos de
-/// páginas. Ahí es donde entra `ocrExtractor`, si se lo pasa: cuando
-/// *ninguna* página trajo texto propio, cada página se renderiza como imagen
-/// y se le pide el mismo reconocimiento óptico que ya usa `ImageTransformer`
+/// **Después, las páginas escaneadas** —las que no traen ni una letra: una
+/// foto de la página—, siempre y automáticamente (F21, decisión A), si hay
+/// con qué reconocerlas (`ocrExtractor`): cada una se renderiza como imagen y
+/// se le pide el mismo reconocimiento óptico que ya usa `ImageTransformer`
 /// para una foto suelta —Google ML Kit en Android, Tesseract en la web y en
-/// escritorio—. Sin `ocrExtractor` —o si el reconocimiento tampoco encuentra
-/// nada, un escaneo de verdad en blanco— el documento sale vacío en vez de
-/// fallar: el archivo original queda guardado, que es lo que importa.
+/// escritorio—. Es trabajo largo: pasa al carril largo de la cola, avisa el
+/// avance página por página y guarda cada página reconocida, así que un
+/// libro de cientos de páginas escaneadas que se interrumpe sigue desde
+/// donde quedó. Las páginas con texto propio no se tocan: mezclarles lo que
+/// reconoce un OCR —que siempre tiene algún error— degradaría lo único que
+/// ya se sabe exacto. Una página en blanco de verdad tampoco se manda a
+/// reconocer.
+///
+/// Sin `ocrExtractor` —o si el reconocimiento no encuentra nada— las páginas
+/// escaneadas quedan vacías en vez de fallar: el archivo original queda
+/// guardado, que es lo que importa.
 class PdfParser implements DocumentParser {
   const PdfParser({
     PdfEngineInitializer? initialize,
@@ -75,7 +84,10 @@ class PdfParser implements DocumentParser {
   bool canParse(FileFormat format) => format == FileFormat.pdf;
 
   @override
-  Future<ParsedDocument> parse(DocumentSource source) async {
+  Future<ParsedDocument> parse(
+    DocumentSource source, {
+    DocumentParseSession session = DocumentParseSession.detached,
+  }) async {
     await _initialize();
 
     final document = await _open(source);
@@ -84,19 +96,19 @@ class PdfParser implements DocumentParser {
       // N del texto es la página N. Descartar las vacías corría todas las
       // siguientes, y con ellas el número de página que un resultado de
       // búsqueda cita (ver `ChunkingService`).
-      var pages = <String>[];
+      final pages = <String>[];
       for (final page in document.pages) {
+        session.context.throwIfCancelled();
         final text = (await page.loadText())?.fullText ?? '';
         pages.add(cleanPdfPageText(text));
       }
 
-      // Ninguna página trajo texto propio: puede ser un escaneo. Antes de
-      // darlo por vacío, se intenta reconocer el texto de cada imagen de
-      // página. Si alguna página sí tenía texto, no se toca nada: mezclar
-      // texto real con lo que reconoce un OCR —que siempre tiene algún
-      // error— degradaría la única parte que ya se sabe exacta.
-      if (pages.every((page) => page.isEmpty)) {
-        pages = await _ocrPages(document);
+      final scanned = [
+        for (var i = 0; i < pages.length; i++)
+          if (pages[i].isEmpty) i,
+      ];
+      if (scanned.isNotEmpty) {
+        await _recognizeScanned(document, pages, scanned, session);
       }
 
       // El título y el autor, si el PDF los trae en su diccionario `Info` o
@@ -127,27 +139,85 @@ class PdfParser implements DocumentParser {
     }
   }
 
-  Future<List<String>> _ocrPages(PdfDocument document) async {
+  /// Reconoce las páginas [scanned] de [document] y deja su texto en
+  /// [pages], en el carril largo, página por página: avisa el avance, guarda
+  /// cada una y saltea las que ya se reconocieron en un intento anterior.
+  Future<void> _recognizeScanned(
+    PdfDocument document,
+    List<String> pages,
+    List<int> scanned,
+    DocumentParseSession session,
+  ) async {
     final extractor = _ocrExtractor;
     final files = _ocrFileStore;
-    if (extractor == null || files == null) return const [];
+    if (extractor == null || files == null) return;
 
-    final pages = <String>[];
-    for (final page in document.pages) {
-      try {
-        final text = await _ocrPage(page, files, extractor);
-        pages.add(cleanPdfPageText(text));
-        // Una página que no se pudo renderizar o reconocer no tira abajo
-        // el resto del documento: se sigue con la próxima, y lo que sí se
-        // reconoció queda igual —la fallida ocupa su lugar, vacía—. Ninguna de
-        // las dos fallas tiene un tipo propio en Dart —vienen de PDFium y de un
-        // motor de OCR de terceros—.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (_) {
-        pages.add('');
+    final context = session.context;
+    await context.enterLongLane();
+
+    final already = await session.recognizedPages();
+    var done = 0;
+    context.reportProgress(done, scanned.length);
+
+    for (final index in scanned) {
+      context.throwIfCancelled();
+
+      var text = already[index];
+      if (text == null) {
+        text = await _recognizePage(document.pages[index], files, extractor);
+        await session.saveRecognizedPage(index, text);
       }
+      pages[index] = text;
+
+      done++;
+      context.reportProgress(done, scanned.length);
     }
-    return pages;
+  }
+
+  /// El texto reconocido de [page], limpio, o vacío si está en blanco o si
+  /// no se pudo reconocer.
+  Future<String> _recognizePage(
+    PdfPage page,
+    FileStore files,
+    ImageTextExtractor extractor,
+  ) async {
+    try {
+      if (await _looksBlank(page)) return '';
+      return cleanPdfPageText(await _ocrPage(page, files, extractor));
+      // Una página que no se pudo renderizar o reconocer no tira abajo el
+      // resto del documento: queda vacía y se sigue con la próxima. Ninguna
+      // de las dos fallas tiene un tipo propio en Dart —vienen de PDFium y de
+      // un motor de OCR de terceros—.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Si [page] está en blanco: se la renderiza chiquita —un instante— y se
+  /// mira si hay algo que no sea casi blanco. Un libro con texto propio y
+  /// una docena de páginas en blanco no tiene por qué pasar al carril largo a
+  /// reconocer papel vacío.
+  Future<bool> _looksBlank(PdfPage page) async {
+    final scale = _blankProbeWidth / page.width;
+    final rendered = await page.render(
+      fullWidth: page.width * scale,
+      fullHeight: page.height * scale,
+    );
+    if (rendered == null) return true;
+    try {
+      final pixels = rendered.pixels;
+      for (var i = 0; i + 2 < pixels.length; i += 4) {
+        if (pixels[i] < _inkThreshold ||
+            pixels[i + 1] < _inkThreshold ||
+            pixels[i + 2] < _inkThreshold) {
+          return false;
+        }
+      }
+      return true;
+    } finally {
+      rendered.dispose();
+    }
   }
 
   Future<String> _ocrPage(
@@ -161,27 +231,22 @@ class PdfParser implements DocumentParser {
     );
     if (rendered == null) return '';
 
-    final String tempPath;
+    final Uint8List png;
     try {
-      final png = img.encodePng(
-        img.Image.fromBytes(
-          width: rendered.width,
-          height: rendered.height,
-          bytes: rendered.pixels.buffer,
-          order: img.ChannelOrder.bgra,
-          numChannels: 4,
-        ),
-      );
-
-      tempPath = await files.save(
-        bytes: Uint8List.fromList(png),
-        suggestedName: 'pagina-${page.pageNumber}.png',
-        id: 'ocr-pdf-${DateTime.now().microsecondsSinceEpoch}',
+      png = await _encodePng(
+        rendered.pixels,
+        width: rendered.width,
+        height: rendered.height,
       );
     } finally {
       rendered.dispose();
     }
 
+    final tempPath = await files.save(
+      bytes: png,
+      suggestedName: 'pagina-${page.pageNumber}.png',
+      id: 'ocr-pdf-${DateTime.now().microsecondsSinceEpoch}',
+    );
     try {
       final extractorPath = kIsWeb ? tempPath : await files.resolve(tempPath);
       return await extractor.extractText(extractorPath);
@@ -293,3 +358,39 @@ String? _authorLine(List<Contributor> contributors) {
 
 /// Prepara el motor nativo de PDF. Se inyecta para poder probarlo.
 typedef PdfEngineInitializer = Future<void> Function();
+
+/// Hasta qué ancho se renderiza una página para ver si está en blanco.
+const _blankProbeWidth = 64.0;
+
+/// Un canal por debajo de esto es tinta, no papel: deja pasar el gris muy
+/// claro de un escaneo "en blanco" y el ruido del papel.
+const _inkThreshold = 200;
+
+/// La imagen BGRA de una página, como PNG, **fuera del hilo principal**: una
+/// página a 180 dpi son unos 12 MB de píxeles, y comprimirlos en Dart puro
+/// en el hilo de la interfaz la trababa página tras página (F21). En la web
+/// no hay isolates: se comprime ahí mismo.
+///
+/// Compresión mínima: el PNG vive un instante —lo lee el reconocimiento y se
+/// borra—, y comprimir más cuesta tiempo sin ahorrar nada que importe.
+Future<Uint8List> _encodePng(
+  Uint8List bgra, {
+  required int width,
+  required int height,
+}) async {
+  Uint8List encode(Uint8List pixels) => img.encodePng(
+    img.Image.fromBytes(
+      width: width,
+      height: height,
+      bytes: pixels.buffer,
+      order: img.ChannelOrder.bgra,
+      numChannels: 4,
+    ),
+    level: 1,
+  );
+
+  if (kIsWeb) return encode(bgra);
+
+  final transferable = TransferableTypedData.fromList([bgra]);
+  return Isolate.run(() => encode(transferable.materialize().asUint8List()));
+}
