@@ -15,6 +15,7 @@ import 'package:sinapsis/features/suggestions/domain/services/property_suggestio
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/merge_transform_result.dart';
 import 'package:sinapsis/features/transform/domain/usecases/processing_failure_classifier.dart';
@@ -56,7 +57,9 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required RelationSuggestionGenerator relationSuggestionGenerator,
     required DuplicateSuggestionGenerator duplicateSuggestionGenerator,
     required MetadataSuggestionGenerator metadataSuggestionGenerator,
-  }) : _registry = registry,
+    Duration longStallLimit = kLongTransformStallLimit,
+  }) : _longStallLimit = longStallLimit,
+       _registry = registry,
        _repository = repository,
        _processingStates = processingStates,
        _logger = logger,
@@ -67,6 +70,9 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
        _duplicateSuggestionGenerator = duplicateSuggestionGenerator,
        _metadataSuggestionGenerator = metadataSuggestionGenerator;
 
+  /// Cuánto puede pasar el trabajo largo sin informar avance. Se inyecta
+  /// para poder probarlo sin esperar diez minutos.
+  final Duration _longStallLimit;
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
   final ProcessingStateRepository _processingStates;
@@ -81,12 +87,13 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   @override
   Future<Either<Failure, KnowledgeItem>> call(String itemId) => process(itemId);
 
-  /// Procesa [itemId]. Si [cancellation] pide abandonar —el elemento se borró
-  /// mientras tanto—, se lo suelta en el acto: no se espera a que termine lo
-  /// que quedó corriendo, y su resultado no se guarda.
+  /// Procesa [itemId] dentro de [context], la cola que lo corre. Si el
+  /// contexto pide abandonar —el elemento se borró mientras tanto—, se lo
+  /// suelta en el acto: no se espera a que termine lo que quedó corriendo, y
+  /// su resultado no se guarda.
   Future<Either<Failure, KnowledgeItem>> process(
     String itemId, {
-    CancellationSignal? cancellation,
+    TransformContext context = TransformContext.detached,
   }) async {
     final found = await _repository.findById(itemId);
 
@@ -114,12 +121,12 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       );
     }
 
-    return _process(item, cancellation);
+    return _process(item, context);
   }
 
   Future<Either<Failure, KnowledgeItem>> _process(
     KnowledgeItem item,
-    CancellationSignal? cancellation,
+    TransformContext context,
   ) async {
     final transformer = _registry.resolve(item);
 
@@ -143,14 +150,30 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       // fallo tiene que quedar registrado como cualquier otro, no escapar.
       await _processingStates.begin(item.id);
 
-      // El tope del trabajo corto: pasado ese tiempo algo se trabó, y
-      // esperarlo frenaría la cola entera. Ni el tope ni la cancelación
-      // cortan lo que quedó corriendo —cada pedido a la red termina solo, con
-      // su propio límite—: la cola sigue y el resultado tardío se descarta.
-      final limit = transformer.timeLimit;
-      var work = transformer.transform(item);
-      if (limit != null) work = work.timeout(limit);
-      final enriched = await _unlessCancelled(work, cancellation);
+      // Vigilado: con tope fijo mientras está en el carril corto —pasado ese
+      // tiempo algo se trabó, y esperarlo frenaría la cola entera—, y en el
+      // largo, cortado solo si deja de avanzar. Ni el vigilante ni la
+      // cancelación cortan lo que quedó corriendo —cada pedido a la red
+      // termina solo, con su propio límite, y lo largo consulta la
+      // cancelación entre parte y parte—: la cola sigue y el resultado
+      // tardío se descarta.
+      final watchdog = _Watchdog(
+        context,
+        shortLimit: transformer.timeLimit,
+        stallLimit: _longStallLimit,
+      );
+      final KnowledgeItem enriched;
+      try {
+        enriched = await Future.any([
+          transformer.transform(item, context: watchdog),
+          watchdog.expired<KnowledgeItem>(),
+          context.whenCancelled.then<KnowledgeItem>(
+            (_) => throw const ProcessingCancelledException(),
+          ),
+        ]);
+      } finally {
+        watchdog.dispose();
+      }
 
       final result = await _repository.runInTransaction(() async {
         // Sobre la versión ACTUAL, leída en la misma transacción en la que se
@@ -231,21 +254,6 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     }
   }
 
-  /// [work], salvo que antes se pida abandonar: entonces lanza
-  /// [ProcessingCancelledException] en el acto, sin esperar a [work].
-  Future<T> _unlessCancelled<T>(
-    Future<T> work,
-    CancellationSignal? cancellation,
-  ) {
-    if (cancellation == null) return work;
-    return Future.any([
-      work,
-      cancellation.whenCancelled.then<T>(
-        (_) => throw const ProcessingCancelledException(),
-      ),
-    ]);
-  }
-
   /// Fire-and-forget, cuatro veces: no bloquea `_process()` ni propaga un
   /// error de ningún generador — un fallo acá no puede tumbar el
   /// resultado de haber procesado el elemento con éxito. `.catchError` es
@@ -272,5 +280,79 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
         _metadataSuggestionGenerator.generate(saved).catchError((_, __) {}),
       );
     });
+  }
+}
+
+/// Vigila el trabajo de un transformador, entre él y la cola.
+///
+/// Dos reglas, según el carril: en el corto, un tope fijo —pasado ese tiempo
+/// algo se trabó—; en el largo, que no deje de avanzar —una transcripción de
+/// cuatro horas tarda lo que tarda, pero si pasa [_stallLimit] sin informar
+/// nada, se colgó—. Esperar turno para entrar al carril largo no cuenta para
+/// ninguna de las dos: detrás de una transcripción larga, esperar es lo
+/// normal.
+class _Watchdog implements TransformContext {
+  _Watchdog(
+    this._outer, {
+    required Duration? shortLimit,
+    required Duration stallLimit,
+  }) : _stallLimit = stallLimit {
+    if (shortLimit != null) _timer = Timer(shortLimit, _expire);
+  }
+
+  final TransformContext _outer;
+  final Duration _stallLimit;
+  final _expired = Completer<void>();
+  Timer? _timer;
+  var _inLongLane = false;
+  var _disposed = false;
+
+  /// Lanza [TimeoutException] cuando vence alguna de las dos reglas.
+  Future<T> expired<T>() => _expired.future.then<T>(
+    (_) => throw TimeoutException(
+      _inLongLane
+          ? 'Dejó de avanzar en el carril largo.'
+          : 'Superó el tope del trabajo corto.',
+    ),
+  );
+
+  void _expire() {
+    if (!_expired.isCompleted) _expired.complete();
+  }
+
+  void _arm(Duration duration) {
+    _timer?.cancel();
+    if (!_disposed) _timer = Timer(duration, _expire);
+  }
+
+  void dispose() {
+    _disposed = true;
+    _timer?.cancel();
+  }
+
+  @override
+  bool get isCancelled => _outer.isCancelled;
+
+  @override
+  Future<void> get whenCancelled => _outer.whenCancelled;
+
+  @override
+  void throwIfCancelled() => _outer.throwIfCancelled();
+
+  @override
+  Future<void> enterLongLane() async {
+    if (_inLongLane) return;
+    _inLongLane = true;
+    // Esperar turno no cuenta: el tope del corto se desarma, y el de "sin
+    // avance" se arma recién al entrar.
+    _timer?.cancel();
+    await _outer.enterLongLane();
+    _arm(_stallLimit);
+  }
+
+  @override
+  void reportProgress(int done, int total) {
+    _outer.reportProgress(done, total);
+    if (_inLongLane) _arm(_stallLimit);
   }
 }

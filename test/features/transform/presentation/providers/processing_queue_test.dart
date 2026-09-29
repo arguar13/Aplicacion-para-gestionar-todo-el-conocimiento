@@ -45,6 +45,8 @@ class _ScriptedTransformer implements Transformer {
     this.gated = false,
     this.failOn = const <String>{},
     this.hangOn = const <String>{},
+    this.longOn = const <String>{},
+    this.progressOf = const {},
     this.timeLimit,
   });
 
@@ -83,12 +85,35 @@ class _ScriptedTransformer implements Transformer {
   @override
   bool canTransform(KnowledgeItem item) => true;
 
+  /// Identificadores que pasan al carril largo antes de su freno —como una
+  /// transcripción—, informando [progressOf] al entrar.
+  final Set<String> longOn;
+
+  /// Lo que informa cada uno de [longOn] al entrar al carril largo.
+  final Map<String, (int, int)> progressOf;
+
+  final _enteredLong = <String, Completer<void>>{};
+
+  /// Espera a que [itemId] haya entrado al carril largo.
+  Future<void> enteredLong(String itemId) =>
+      _signal(_enteredLong, itemId).future;
+
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
     processed.add(item.id);
 
     final startSignal = _signal(_started, item.id);
     if (!startSignal.isCompleted) startSignal.complete();
+
+    if (longOn.contains(item.id)) {
+      await context.enterLongLane();
+      final progress = progressOf[item.id];
+      if (progress != null) context.reportProgress(progress.$1, progress.$2);
+      _signal(_enteredLong, item.id).complete();
+    }
 
     if (gated) await _signal(_released, item.id).future;
     if (hangOn.contains(item.id)) await Completer<void>().future;
@@ -194,11 +219,11 @@ void main() {
   /// convierte cualquier prueba en una apuesta, y la que se pierde de vez en
   /// cuando es peor que la que no existe.
   Future<void> whenIdle(ProcessingQueueNotifier queue) {
-    if (queue.state is QueueIdle) return Future<void>.value();
+    if (queue.state.isIdle) return Future<void>.value();
 
     final done = Completer<void>();
     final remove = queue.addListener((state) {
-      if (state is QueueIdle && !done.isCompleted) done.complete();
+      if (state.isIdle && !done.isCompleted) done.complete();
     }, fireImmediately: false);
 
     return done.future.whenComplete(remove);
@@ -538,7 +563,7 @@ void main() {
       await whenIdle(queue);
 
       expect(transformer.processed, ['b']);
-      expect(queue.state, const ProcessingQueueState.idle());
+      expect(queue.state.isIdle, isTrue);
     });
   });
 
@@ -580,26 +605,129 @@ void main() {
       // Los dos que entraron después del arranque tienen que contarse ya. Si
       // el contador solo se refrescara al sacar el siguiente de la cola, la
       // interfaz mostraría "faltan 0" con dos esperando turno.
-      expect(
-        queue.state,
-        const ProcessingQueueState.working(currentItemId: 'a', remaining: 2),
-      );
+      expect(queue.state.active.keys, ['a']);
+      expect(queue.state.waiting, 2);
 
       transformer.release('a');
       await transformer.started('b');
 
-      expect(
-        queue.state,
-        const ProcessingQueueState.working(currentItemId: 'b', remaining: 1),
-      );
+      expect(queue.state.active.keys, ['b']);
+      expect(queue.state.waiting, 1);
 
       transformer
         ..release('b')
         ..release('c');
       await whenIdle(queue);
 
-      expect(queue.state, const ProcessingQueueState.idle());
+      expect(queue.state.isIdle, isTrue);
     });
+
+    test('publica el avance de lo que va por el carril largo', () async {
+      // Lo que dibuja la barra: "página 3 de 10".
+      await seed('libro');
+
+      final transformer = _ScriptedTransformer(
+        gated: true,
+        longOn: {'libro'},
+        progressOf: {'libro': (3, 10)},
+      );
+      final queue = buildQueue(transformer)..enqueue('libro');
+      await transformer.enteredLong('libro');
+
+      expect(
+        queue.state.active['libro'],
+        const ProcessingProgress(lane: ProcessingLane.long, done: 3, total: 10),
+      );
+      expect(queue.state.active['libro']!.fraction, closeTo(0.3, 1e-9));
+
+      transformer.release('libro');
+      await whenIdle(queue);
+      expect(queue.state.active, isEmpty);
+    });
+  });
+
+  group('dos carriles', () {
+    test('lo largo no frena a lo corto: la página se procesa mientras el '
+        'video se transcribe', () async {
+      // Con una sola fila, un video de cuatro horas frenaba la página web que
+      // se guardó después (F21).
+      await seed('video-largo');
+      await seed('pagina');
+
+      final transformer = _ScriptedTransformer(
+        gated: true,
+        longOn: {'video-largo'},
+      );
+      final queue = buildQueue(transformer)
+        ..enqueue('video-largo')
+        ..enqueue('pagina');
+      await transformer.enteredLong('video-largo');
+      await transformer.started('pagina');
+
+      transformer.release('pagina');
+      await _until(
+        () async => await stateOf('pagina') == ProcessingState.ready,
+      );
+      expect(await stateOf('video-largo'), ProcessingState.processing);
+      expect(queue.state.active['video-largo']!.lane, ProcessingLane.long);
+
+      transformer.release('video-largo');
+      await whenIdle(queue);
+      expect(await stateOf('video-largo'), ProcessingState.ready);
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('el carril largo también es de a uno: el segundo espera su '
+        'turno', () async {
+      await seed('primero');
+      await seed('segundo');
+
+      final transformer = _ScriptedTransformer(
+        gated: true,
+        longOn: {'primero', 'segundo'},
+      );
+      final queue = buildQueue(transformer)
+        ..enqueue('primero')
+        ..enqueue('segundo');
+      await transformer.enteredLong('primero');
+      await transformer.started('segundo');
+      await _until(
+        () async =>
+            queue.state.active['segundo']?.lane ==
+            ProcessingLane.waitingForLong,
+      );
+
+      transformer.release('primero');
+      await transformer.enteredLong('segundo');
+      expect(queue.state.active['segundo']!.lane, ProcessingLane.long);
+
+      transformer.release('segundo');
+      await whenIdle(queue);
+      expect(await stateOf('segundo'), ProcessingState.ready);
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('borrar uno que espera turno para el carril largo lo saca de la '
+        'fila', () async {
+      await seed('primero');
+      await seed('esperando');
+
+      final transformer = _ScriptedTransformer(
+        gated: true,
+        longOn: {'primero', 'esperando'},
+      );
+      final queue = buildQueue(transformer)
+        ..enqueue('primero')
+        ..enqueue('esperando');
+      await transformer.enteredLong('primero');
+      await transformer.started('esperando');
+
+      await repository.delete('esperando');
+      await _until(() async => !queue.state.active.containsKey('esperando'));
+
+      transformer.release('primero');
+      await whenIdle(queue);
+      expect(transformer.processed, ['primero', 'esperando']);
+      expect(await stateOf('primero'), ProcessingState.ready);
+    }, timeout: const Timeout(Duration(seconds: 20)));
   });
 
   group('al descartarse', () {
@@ -623,4 +751,13 @@ void main() {
       expect(await stateOf('b'), ProcessingState.pending);
     });
   });
+}
+
+/// Espera a que [condition] se cumpla, dándole turno al resto: lo que la
+/// cola hace en paralelo entre sus dos carriles no se puede esperar con una
+/// sola señal.
+Future<void> _until(Future<bool> Function() condition) async {
+  while (!await condition()) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
 }

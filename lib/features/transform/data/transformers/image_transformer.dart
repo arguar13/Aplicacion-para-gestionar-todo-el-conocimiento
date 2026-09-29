@@ -50,7 +50,10 @@ class ImageTransformer implements Transformer {
   }
 
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
     final path = item.source.originalFilePath!;
 
     final bytes = await _files.read(path);

@@ -14,6 +14,7 @@ import 'package:sinapsis/features/library/data/repositories/library_repository_i
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 
@@ -52,7 +53,9 @@ void main() {
     FakeRelationSuggestionGenerator? relationSuggestionGenerator,
     FakeDuplicateSuggestionGenerator? duplicateSuggestionGenerator,
     FakeMetadataSuggestionGenerator? metadataSuggestionGenerator,
+    Duration longStallLimit = const Duration(minutes: 10),
   }) => ProcessItemUseCase(
+    longStallLimit: longStallLimit,
     registry: registry,
     repository: repository,
     processingStates: ProcessingStateRepositoryImpl(db),
@@ -125,7 +128,7 @@ void main() {
       ProcessingState? stateDuringWork;
 
       final transformer = FakeTransformer(
-        onTransform: (_) async {
+        onTransform: (_, _) async {
           stateDuringWork = (await reload(item.id)).processingState;
         },
       );
@@ -197,7 +200,7 @@ void main() {
       final result = await build(
         TransformerRegistry([
           FakeTransformer(
-            onTransform: (_) => Completer<void>().future,
+            onTransform: (_, _) => Completer<void>().future,
             timeLimit: const Duration(milliseconds: 50),
           ),
         ]),
@@ -231,7 +234,7 @@ void main() {
       await build(
         TransformerRegistry([
           FakeTransformer(
-            onTransform: (_) async {
+            onTransform: (_, _) async {
               await repository.save(
                 (await reload(item.id)).copyWith(title: 'Lo renombré yo'),
               );
@@ -261,7 +264,7 @@ void main() {
       await build(
         TransformerRegistry([
           FakeTransformer(
-            onTransform: (_) async {
+            onTransform: (_, _) async {
               await repository.save(
                 (await reload(item.id)).copyWith(notes: 'Para el jueves'),
               );
@@ -283,7 +286,7 @@ void main() {
       await build(
         TransformerRegistry([
           FakeTransformer(
-            onTransform: (_) async {
+            onTransform: (_, _) async {
               await repository.save(
                 (await reload(item.id)).copyWith(title: 'Mi título'),
               );
@@ -301,7 +304,7 @@ void main() {
 
       final result = await build(
         TransformerRegistry([
-          FakeTransformer(onTransform: (_) => repository.delete(item.id)),
+          FakeTransformer(onTransform: (_, _) => repository.delete(item.id)),
         ]),
       )(item.id);
 
@@ -325,14 +328,14 @@ void main() {
       final processing = build(
         TransformerRegistry([
           FakeTransformer(
-            onTransform: (_) {
+            onTransform: (_, _) {
               started.complete();
               // Un pedido a la red que no vuelve nunca.
               return Completer<void>().future;
             },
           ),
         ]),
-      ).process(item.id, cancellation: cancellation);
+      ).process(item.id, context: CancellableTransformContext(cancellation));
 
       await started.future;
       cancellation.cancel();
@@ -354,6 +357,82 @@ void main() {
       expect(result.isLeft(), isTrue);
       expect(transformer.transformed, isEmpty);
     });
+  });
+
+  group('el vigilante del trabajo largo', () {
+    Future<KnowledgeSourceRow> sourceOf(String id) => (db.select(
+      db.knowledgeSources,
+    )..where((s) => s.itemId.equals(id))).getSingle();
+
+    test('en el carril largo no rige el tope fijo: tarda lo que tarda '
+        'mientras informe avance', () async {
+      // Una transcripción de cuatro horas no puede vencer a los tres minutos.
+      final item = await seedPending();
+
+      final result = await build(
+        TransformerRegistry([
+          FakeTransformer(
+            timeLimit: const Duration(milliseconds: 50),
+            onTransform: (_, context) async {
+              await context.enterLongLane();
+              for (var part = 1; part <= 6; part++) {
+                await Future<void>.delayed(const Duration(milliseconds: 30));
+                context.reportProgress(part, 6);
+              }
+            },
+          ),
+        ]),
+        longStallLimit: const Duration(milliseconds: 150),
+      )(item.id);
+
+      expect(result.isRight(), isTrue);
+      expect((await reload(item.id)).processingState, ProcessingState.ready);
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('en el carril largo, si deja de avanzar, vence por tiempo', () async {
+      final item = await seedPending();
+
+      final result = await build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_, context) async {
+              await context.enterLongLane();
+              context.reportProgress(1, 100);
+              await Completer<void>().future;
+            },
+          ),
+        ]),
+        longStallLimit: const Duration(milliseconds: 80),
+      )(item.id);
+
+      expect(result.isLeft(), isTrue);
+      expect((await sourceOf(item.id)).processingError, 'timedOut');
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('esperar turno para entrar al carril largo no cuenta para ningún '
+        'tope', () async {
+      // Detrás de una transcripción larga, esperar es lo normal.
+      final item = await seedPending();
+
+      final result =
+          await build(
+            TransformerRegistry([
+              FakeTransformer(
+                timeLimit: const Duration(milliseconds: 50),
+                onTransform: (_, context) async {
+                  await context.enterLongLane();
+                  context.reportProgress(1, 1);
+                },
+              ),
+            ]),
+            longStallLimit: const Duration(milliseconds: 50),
+          ).process(
+            item.id,
+            context: _SlowLaneContext(const Duration(milliseconds: 200)),
+          );
+
+      expect(result.isRight(), isTrue);
+    }, timeout: const Timeout(Duration(seconds: 20)));
   });
 
   group('elementos que ya no están', () {
@@ -620,4 +699,26 @@ void main() {
       expect(metadataGenerator.calls, [item.id]);
     });
   });
+}
+
+/// Una cola cuyo carril largo está ocupado un rato: entrar tarda [wait].
+class _SlowLaneContext implements TransformContext {
+  _SlowLaneContext(this.wait);
+
+  final Duration wait;
+
+  @override
+  bool get isCancelled => false;
+
+  @override
+  Future<void> get whenCancelled => Completer<void>().future;
+
+  @override
+  void throwIfCancelled() {}
+
+  @override
+  Future<void> enterLongLane() => Future<void>.delayed(wait);
+
+  @override
+  void reportProgress(int done, int total) {}
 }

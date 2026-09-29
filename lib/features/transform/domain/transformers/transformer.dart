@@ -1,4 +1,7 @@
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
+
+export 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
 /// Convierte un elemento a las formas en que se puede leer y buscar.
 ///
@@ -29,16 +32,25 @@ abstract interface class Transformer {
   ///
   /// Lanza si no puede completar el trabajo. Quien llama decide qué hacer con
   /// eso; lo que nunca se hace es perder lo que ya estaba guardado.
-  Future<KnowledgeItem> transform(KnowledgeItem item);
+  ///
+  /// [context] es la cola que lo corre: por él se pasa al carril largo, se
+  /// informa el avance y se consulta si el elemento se borró. Por fuera de la
+  /// cola, [TransformContext.detached].
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  });
 
-  /// Cuánto puede tardar [transform], como mucho, antes de darlo por colgado.
+  /// Cuánto puede tardar el tramo corto de [transform] —todo lo que hace
+  /// antes de [TransformContext.enterLongLane], si es que entra— antes de
+  /// darlo por colgado.
   ///
   /// Con un tope para el trabajo corto —traer una página, una publicación,
   /// reconocer una foto—: pasado ese tiempo algo se trabó, y esperarlo
-  /// frenaría todo lo que viene detrás en la cola. `null` para el trabajo
-  /// largo —transcribir horas de audio, leer un libro de cientos de páginas—,
-  /// que no tiene un tope fijo razonable: ahí cada pedido a la red lleva su
-  /// propio límite.
+  /// frenaría todo lo que viene detrás en la cola. `null` para lo que todavía
+  /// no separa su parte larga de la corta: ahí cada pedido a la red lleva su
+  /// propio límite. Lo que corre en el carril largo no tiene tope fijo: lo
+  /// vigila que siga avanzando.
   Duration? get timeLimit;
 }
 
@@ -46,3 +58,9 @@ abstract interface class Transformer {
 /// propósito —una conexión lenta de datos móviles no es un cuelgue—, pero
 /// finito: nada corto puede frenar la cola más que esto.
 const kShortTransformTimeLimit = Duration(minutes: 3);
+
+/// Cuánto puede pasar el trabajo largo sin informar avance antes de darlo por
+/// colgado. No es un tope a su duración: una transcripción de cuatro horas
+/// tarda lo que tarda mientras siga avanzando. Holgado: un tramo de audio o
+/// una página escaneada tardan segundos, no minutos.
+const kLongTransformStallLimit = Duration(minutes: 10);

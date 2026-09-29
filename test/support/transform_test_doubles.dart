@@ -124,7 +124,11 @@ class FakeTransformer implements Transformer {
 
   /// Se llama al empezar. Sirve para observar el estado justo antes de
   /// transformar — por ejemplo, comprobar que ya se publicó "en curso".
-  final Future<void> Function(KnowledgeItem)? onTransform;
+  ///
+  /// Recibe el contexto de la cola: con él una prueba puede pasar al carril
+  /// largo o informar avance, como haría un transformador de verdad.
+  final Future<void> Function(KnowledgeItem item, TransformContext context)?
+  onTransform;
 
   final transformed = <String>[];
 
@@ -132,9 +136,12 @@ class FakeTransformer implements Transformer {
   bool canTransform(KnowledgeItem item) => accepts;
 
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
     transformed.add(item.id);
-    await onTransform?.call(item);
+    await onTransform?.call(item, context);
     if (error != null) throw error!;
 
     if (enrich != null) return enrich!(item);

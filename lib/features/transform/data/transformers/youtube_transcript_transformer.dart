@@ -68,7 +68,10 @@ class YouTubeTranscriptTransformer implements Transformer {
   }
 
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
     final videoId = YouTubeUrl.videoIdOf(Uri.parse(item.source.url!))!;
     final data = await _client.fetchVideo(videoId);
     final now = _clock();

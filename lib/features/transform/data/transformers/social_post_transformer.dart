@@ -68,7 +68,10 @@ class SocialPostTransformer implements Transformer {
   }
 
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
     final url = Uri.parse(item.source.url!);
     final post = await _client.fetchPost(url);
 

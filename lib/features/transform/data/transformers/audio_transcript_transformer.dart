@@ -35,8 +35,8 @@ class AudioTranscriptTransformer implements Transformer {
   final IdGenerator _ids;
   final Clock _clock;
 
-  /// Trabajo largo: transcribir horas de audio no tiene un tope fijo
-  /// razonable.
+  /// Trabajo largo, y todo en el carril largo: su tramo corto no hace nada
+  /// que pueda colgarse.
   @override
   Duration? get timeLimit => null;
 
@@ -53,7 +53,15 @@ class AudioTranscriptTransformer implements Transformer {
   }
 
   @override
-  Future<KnowledgeItem> transform(KnowledgeItem item) async {
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
+    // El trabajo entero es largo: se pasa al carril largo de entrada, y la
+    // página o la publicación que se capture mientras tanto no espera a que
+    // termine de transcribirse una hora de audio.
+    await context.enterLongLane();
+
     final path = item.source.originalFilePath!;
 
     // Alcanza con comprobar que siga estando: lo único que hace falta
