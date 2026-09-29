@@ -97,11 +97,37 @@ class ProcessingStateRepositoryImpl implements ProcessingStateRepository {
   });
 
   @override
-  Future<List<String>> pendingIds() async {
-    final query = _withStatus(SourceProcessingStatus.pending)
-      ..where(_db.knowledgeEntries.deletedAt.isNull());
-    final rows = await query.get();
-    return [for (final row in rows) row.readTable(_sources).itemId];
+  Future<List<String>> pendingIds() async =>
+      _idsOf(await _pendingQuery().get());
+
+  @override
+  Stream<List<String>> watchPendingIds() => _pendingQuery().watch().map(_idsOf);
+
+  JoinedSelectStatement<HasResultSet, dynamic> _pendingQuery() =>
+      _withStatus(SourceProcessingStatus.pending)
+        ..where(_db.knowledgeEntries.deletedAt.isNull());
+
+  List<String> _idsOf(List<TypedResult> rows) => [
+    for (final row in rows) row.readTable(_sources).itemId,
+  ];
+
+  @override
+  Future<bool> isRemoved(String itemId) async =>
+      await _inTrashQuery(itemId).getSingleOrNull() ?? true;
+
+  @override
+  Stream<bool> watchRemoved(String itemId) => _inTrashQuery(
+    itemId,
+  ).watchSingleOrNull().map((inTrash) => inTrash ?? true).distinct();
+
+  /// Si [itemId] está en la papelera; sin fila —`null` al leerla— si se
+  /// borró para siempre.
+  Selectable<bool> _inTrashQuery(String itemId) {
+    final entries = _db.knowledgeEntries;
+    return (_db.selectOnly(entries)
+          ..addColumns([entries.deletedAt])
+          ..where(entries.id.equals(itemId)))
+        .map((row) => row.read(entries.deletedAt) != null);
   }
 
   /// Las fuentes con [status] junto a su elemento, en orden de captura: lo

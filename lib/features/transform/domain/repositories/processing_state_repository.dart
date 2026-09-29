@@ -40,4 +40,18 @@ abstract interface class ProcessingStateRepository {
 
   /// Lo que está en espera y no está en la papelera, en orden de captura.
   Future<List<String>> pendingIds();
+
+  /// [pendingIds], cada vez que cambia: lo que se restaura de la papelera, lo
+  /// que trae una copia de otro dispositivo, lo que se vuelve a dejar en
+  /// espera. Es lo que deja a la cola seguir a la base sin que cada pantalla
+  /// que cambia algo tenga que acordarse de avisarle.
+  Stream<List<String>> watchPendingIds();
+
+  /// Si [itemId] está en la papelera o ya no existe.
+  Future<bool> isRemoved(String itemId);
+
+  /// Emite si [itemId] está en la papelera o ya no existe, cada vez que eso
+  /// cambia: lo que la cola escucha para soltar en el acto lo que el usuario
+  /// borró mientras se procesaba, lo borre desde donde lo borre.
+  Stream<bool> watchRemoved(String itemId);
 }

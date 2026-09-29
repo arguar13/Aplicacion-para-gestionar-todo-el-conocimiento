@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
@@ -243,6 +244,115 @@ void main() {
       final reloaded = await reload(item.id);
       expect(reloaded.processingState, ProcessingState.failed);
       expect(reloaded.title, 'Lo renombré yo');
+    });
+  });
+
+  group('mientras se procesaba, el usuario siguió usando el elemento', () {
+    Future<KnowledgeSourceRow> sourceOf(String id) => (db.select(
+      db.knowledgeSources,
+    )..where((s) => s.itemId.equals(id))).getSingle();
+
+    test('lo que cambió se conserva, y lo que trajo el transformador '
+        'entra igual', () async {
+      // Antes el resultado se guardaba sobre la foto tomada al empezar: una
+      // nota o un título cambiados en el medio se perdían.
+      final item = await seedPending();
+
+      await build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_) async {
+              await repository.save(
+                (await reload(item.id)).copyWith(notes: 'Para el jueves'),
+              );
+            },
+          ),
+        ]),
+      )(item.id);
+
+      final result = await reload(item.id);
+      expect(result.processingState, ProcessingState.ready);
+      expect(result.notes, 'Para el jueves');
+      expect(result.title, 'Título traído de la red');
+      expect(result.searchableText, contains('El contenido que se trajo'));
+    });
+
+    test('si le cambió el título, gana el suyo', () async {
+      final item = await seedPending();
+
+      await build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_) async {
+              await repository.save(
+                (await reload(item.id)).copyWith(title: 'Mi título'),
+              );
+            },
+          ),
+        ]),
+      )(item.id);
+
+      expect((await reload(item.id)).title, 'Mi título');
+    });
+
+    test('si lo mandó a la papelera, el resultado no se guarda y queda en '
+        'espera por si lo restaura', () async {
+      final item = await seedPending();
+
+      final result = await build(
+        TransformerRegistry([
+          FakeTransformer(onTransform: (_) => repository.delete(item.id)),
+        ]),
+      )(item.id);
+
+      expect(result.isLeft(), isTrue);
+      final row = await sourceOf(item.id);
+      expect(row.processingStatus, SourceProcessingStatus.pending);
+      // Un elemento en la papelera no se devuelve al buscarlo: se mira la
+      // tabla de formas directamente.
+      final renditions = await (db.select(
+        db.renditions,
+      )..where((r) => r.itemId.equals(item.id))).get();
+      expect(renditions, isEmpty);
+    });
+
+    test('con la señal de cancelación, lo suelta en el acto sin esperar al '
+        'transformador', () async {
+      final item = await seedPending();
+      final cancellation = CancellationSignal();
+      final started = Completer<void>();
+
+      final processing = build(
+        TransformerRegistry([
+          FakeTransformer(
+            onTransform: (_) {
+              started.complete();
+              // Un pedido a la red que no vuelve nunca.
+              return Completer<void>().future;
+            },
+          ),
+        ]),
+      ).process(item.id, cancellation: cancellation);
+
+      await started.future;
+      cancellation.cancel();
+
+      expect((await processing).isLeft(), isTrue);
+      expect(
+        (await sourceOf(item.id)).processingStatus,
+        SourceProcessingStatus.pending,
+      );
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('en la papelera antes de su turno: ni se empieza', () async {
+      final item = await seedPending();
+      await repository.delete(item.id);
+      final transformer = FakeTransformer();
+
+      final result = await build(TransformerRegistry([transformer]))(item.id);
+
+      expect(result.isLeft(), isTrue);
+      expect(transformer.transformed, isEmpty);
     });
   });
 

@@ -13,8 +13,10 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/reference/domain/services/metadata_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
+import 'package:sinapsis/features/transform/domain/usecases/merge_transform_result.dart';
 import 'package:sinapsis/features/transform/domain/usecases/processing_failure_classifier.dart';
 
 /// Trae el contenido de un elemento que quedó pendiente.
@@ -39,7 +41,9 @@ import 'package:sinapsis/features/transform/domain/usecases/processing_failure_c
 /// Los pasos 1 y el fallo son operaciones puntuales de
 /// [ProcessingStateRepository], no un guardado del elemento entero: guardar la
 /// foto que se tenía en la mano pisaba lo que el usuario hubiera cambiado
-/// mientras tanto.
+/// mientras tanto. Por lo mismo el paso 3 aplica el resultado sobre la
+/// versión actual ([mergeTransformResult]), y no lo guarda si el elemento se
+/// borró mientras se procesaba.
 class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   const ProcessItemUseCase({
     required TransformerRegistry registry,
@@ -75,7 +79,15 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   final MetadataSuggestionGenerator _metadataSuggestionGenerator;
 
   @override
-  Future<Either<Failure, KnowledgeItem>> call(String itemId) async {
+  Future<Either<Failure, KnowledgeItem>> call(String itemId) => process(itemId);
+
+  /// Procesa [itemId]. Si [cancellation] pide abandonar —el elemento se borró
+  /// mientras tanto—, se lo suelta en el acto: no se espera a que termine lo
+  /// que quedó corriendo, y su resultado no se guarda.
+  Future<Either<Failure, KnowledgeItem>> process(
+    String itemId, {
+    CancellationSignal? cancellation,
+  }) async {
     final found = await _repository.findById(itemId);
 
     final failure = found.getLeft().toNullable();
@@ -92,10 +104,23 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       );
     }
 
-    return _process(item);
+    // Lo mismo si está en la papelera: no se procesa, y queda en espera por
+    // si alguien lo restaura.
+    if (await _processingStates.isRemoved(itemId)) {
+      return left(
+        const Failure.unexpected(
+          message: 'El elemento está en la papelera; nada que procesar.',
+        ),
+      );
+    }
+
+    return _process(item, cancellation);
   }
 
-  Future<Either<Failure, KnowledgeItem>> _process(KnowledgeItem item) async {
+  Future<Either<Failure, KnowledgeItem>> _process(
+    KnowledgeItem item,
+    CancellationSignal? cancellation,
+  ) async {
     final transformer = _registry.resolve(item);
 
     if (transformer == null) {
@@ -119,22 +144,56 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
       await _processingStates.begin(item.id);
 
       // El tope del trabajo corto: pasado ese tiempo algo se trabó, y
-      // esperarlo frenaría la cola entera. `timeout` no corta lo que quedó
-      // corriendo —eso lo resuelve la cancelación—, pero la cola sigue y el
-      // resultado tardío se descarta.
-      final work = transformer.transform(item);
+      // esperarlo frenaría la cola entera. Ni el tope ni la cancelación
+      // cortan lo que quedó corriendo —cada pedido a la red termina solo, con
+      // su propio límite—: la cola sigue y el resultado tardío se descarta.
       final limit = transformer.timeLimit;
-      final enriched = limit == null ? await work : await work.timeout(limit);
+      var work = transformer.transform(item);
+      if (limit != null) work = work.timeout(limit);
+      final enriched = await _unlessCancelled(work, cancellation);
 
-      final result = await _repository.save(
-        enriched.copyWith(
-          processingState: ProcessingState.ready,
-          updatedAt: _clock(),
-        ),
-      );
+      final result = await _repository.runInTransaction(() async {
+        // Sobre la versión ACTUAL, leída en la misma transacción en la que se
+        // escribe: mientras se procesaba, el usuario pudo ponerle etiquetas,
+        // cambiarle el título o mandarlo a la papelera.
+        final current = (await _repository.findById(
+          item.id,
+        )).getRight().toNullable();
+        if (current == null || await _processingStates.isRemoved(item.id)) {
+          throw const ProcessingCancelledException();
+        }
+        return _repository.save(
+          mergeTransformResult(
+            original: item,
+            enriched: enriched,
+            current: current,
+          ).copyWith(
+            processingState: ProcessingState.ready,
+            updatedAt: _clock(),
+          ),
+        );
+      });
       if (result.isRight()) await _processingStates.succeed(item.id);
       _generateSuggestions(result);
       return result;
+    } on ProcessingCancelledException {
+      _logger.info('Se abandonó ${item.id}: se borró mientras se procesaba.');
+      // En espera y no fallido: no falló nada, y si se lo restaura de la
+      // papelera tiene que volver a procesarse.
+      try {
+        await _processingStates.requeue(item.id);
+        // Ver el mismo resguardo en el registro de un fallo, abajo.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (requeueError, requeueStack) {
+        _logger.error(
+          'No se pudo dejar en espera ${item.id}.',
+          requeueError,
+          requeueStack,
+        );
+      }
+      return left(
+        const Failure.unexpected(message: 'Se abandonó: el elemento se borró.'),
+      );
       // Catch-all deliberado: acá entra cualquier cosa que pueda salir de la
       // red o de un parser ajeno, incluidos `Error`s que no son `Exception`.
       // Dejar escapar uno cortaría la cola entera y dejaría el elemento
@@ -170,6 +229,21 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
 
       return left(Failure.unexpected(message: e.toString()));
     }
+  }
+
+  /// [work], salvo que antes se pida abandonar: entonces lanza
+  /// [ProcessingCancelledException] en el acto, sin esperar a [work].
+  Future<T> _unlessCancelled<T>(
+    Future<T> work,
+    CancellationSignal? cancellation,
+  ) {
+    if (cancellation == null) return work;
+    return Future.any([
+      work,
+      cancellation.whenCancelled.then<T>(
+        (_) => throw const ProcessingCancelledException(),
+      ),
+    ]);
   }
 
   /// Fire-and-forget, cuatro veces: no bloquea `_process()` ni propaga un

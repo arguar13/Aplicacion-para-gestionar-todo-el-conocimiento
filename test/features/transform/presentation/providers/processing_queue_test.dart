@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
@@ -468,6 +469,50 @@ void main() {
       },
       timeout: const Timeout(Duration(seconds: 20)),
     );
+  });
+
+  group('lo que el usuario borra o restaura', () {
+    test('borrar el que está en curso destraba la cola en el acto', () async {
+      // Borrar el short trabado no destrababa nada (F21): la cola seguía
+      // esperando lo que el usuario ya había descartado.
+      await seed('trabado');
+      await seed('siguiente');
+
+      final transformer = _ScriptedTransformer(hangOn: {'trabado'});
+      final queue = buildQueue(transformer)
+        ..enqueue('trabado')
+        ..enqueue('siguiente');
+      await transformer.started('trabado');
+
+      await repository.delete('trabado');
+      await transformer.started('siguiente');
+      await whenIdle(queue);
+
+      expect(await stateOf('siguiente'), ProcessingState.ready);
+      // En espera —no fallido—, por si se lo restaura. Un elemento en la
+      // papelera no se devuelve al buscarlo: se mira su fila directamente.
+      final trabado = await (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('trabado'))).getSingle();
+      expect(trabado.processingStatus, SourceProcessingStatus.pending);
+    }, timeout: const Timeout(Duration(seconds: 20)));
+
+    test('lo que se restaura de la papelera se procesa solo', () async {
+      // La cola sigue a la base: nadie tiene que acordarse de avisarle.
+      await seed('borrado');
+      await repository.delete('borrado');
+
+      final transformer = _ScriptedTransformer();
+      final queue = buildQueue(transformer);
+      await queue.resume();
+      expect(transformer.processed, isEmpty);
+
+      await repository.restore('borrado');
+      await transformer.started('borrado');
+      await whenIdle(queue);
+
+      expect(await stateOf('borrado'), ProcessingState.ready);
+    }, timeout: const Timeout(Duration(seconds: 20)));
   });
 
   group('nada corta la cola', () {

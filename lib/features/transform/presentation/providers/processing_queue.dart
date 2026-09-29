@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
@@ -62,6 +63,9 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   /// por cola: lo que está "en curso" después de eso lo está de verdad, en
   /// esta sesión.
   var _recoveredInterrupted = false;
+
+  /// Lo que sigue a la base para encolar lo que vuelve a quedar en espera.
+  StreamSubscription<List<String>>? _pendingWatch;
 
   /// Suma un elemento a la cola y arranca si no estaba andando.
   void enqueue(String itemId) {
@@ -123,6 +127,21 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
         if (_isDisposed) return;
         enqueue(itemId);
       }
+
+      // De acá en más, la cola sigue a la base: lo que se restaura de la
+      // papelera, lo que trae una copia de otro dispositivo o lo que vuelve a
+      // quedar en espera entra solo, sin que quien lo cambió tenga que
+      // avisar. `enqueue` no repite lo que ya está en la cola o en curso.
+      _pendingWatch ??= states.watchPendingIds().listen(
+        (ids) {
+          for (final itemId in ids) {
+            if (_isDisposed) return;
+            enqueue(itemId);
+          }
+        },
+        onError: (Object e, StackTrace stackTrace) =>
+            _logger.error('Se dejó de seguir lo pendiente.', e, stackTrace),
+      );
       // Lo que se retoma no puede, si la base falla, tumbar la app en el
       // arranque: se informa y la próxima apertura vuelve a intentarlo.
       // ignore: avoid_catches_without_on_clauses
@@ -159,11 +178,25 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
           remaining: _queue.length,
         );
 
+        // Si el usuario lo manda a la papelera —desde el detalle, desde la
+        // lista, al fusionar duplicados: desde donde sea— mientras se
+        // procesa, se lo suelta en el acto y la cola pasa al siguiente. Se
+        // escucha la base y no a quien borra: así ningún camino de borrado
+        // se puede olvidar de avisar.
+        final cancellation = CancellationSignal();
+        StreamSubscription<bool>? removal;
         try {
+          removal = _processingStates().watchRemoved(itemId).listen((removed) {
+            if (removed) cancellation.cancel();
+          }, onError: (Object _) {});
+
           // El caso de uso no lanza: traduce cualquier fallo a un `Left` y
           // deja el elemento marcado. Es lo que permite que un enlace roto no
           // corte la cola y los demás sigan procesándose.
-          final result = await _processItem()(itemId);
+          final result = await _processItem().process(
+            itemId,
+            cancellation: cancellation,
+          );
           result.match(
             (failure) => _logger.warning('Quedó pendiente $itemId: $failure'),
             (_) {},
@@ -174,6 +207,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
         } catch (e, stackTrace) {
           _logger.error('La cola no pudo procesar $itemId.', e, stackTrace);
         } finally {
+          await removal?.cancel();
           _current = null;
         }
       }
@@ -189,6 +223,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     // seguiría escribiendo estado sobre un notifier ya descartado.
     _isDisposed = true;
     _queue.clear();
+    unawaited(_pendingWatch?.cancel());
     super.dispose();
   }
 }
