@@ -23,6 +23,29 @@ void main() {
     });
   });
 
+  group('lo que no es énfasis se ve tal cual (F22)', () {
+    test('un guion bajo adentro de una palabra', () {
+      expect(
+        RenderedMarkdown.parse('la variable var_uno_dos').displayText,
+        'la variable var_uno_dos',
+      );
+    });
+
+    test('asteriscos con espacios alrededor', () {
+      expect(
+        RenderedMarkdown.parse('2 * 3 * 4 = 24').displayText,
+        '2 * 3 * 4 = 24',
+      );
+    });
+
+    test('el énfasis de verdad sigue funcionando', () {
+      expect(
+        RenderedMarkdown.parse('una _idea_ y **otra** y *más*').displayText,
+        'una idea y otra y más',
+      );
+    });
+  });
+
   group('texto sin marcado', () {
     test('queda exactamente igual', () {
       final rendered = RenderedMarkdown.parse('Un párrafo cualquiera.');

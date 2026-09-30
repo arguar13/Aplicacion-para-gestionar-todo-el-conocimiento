@@ -314,8 +314,17 @@ class RenderedMarkdown {
   // primera que encaje, de izquierda a derecha entre las alternativas—, así
   // que `[[Texto]]` nunca termina interpretado como dos pares de corchetes
   // sueltos ni como si `*` de énfasis pudiera colarse adentro.
+  //
+  // Las reglas de CommonMark que importan para no comerse texto (F22): el
+  // énfasis no empieza ni termina con un espacio —"2 * 3 * 4" no es
+  // cursiva—, y el guion bajo no marca nada adentro de una palabra
+  // —"var_uno_dos" de una página web o un EPUB se ve tal cual—.
   static final _emphasisPattern = RegExp(
-    r'\[\[(.+?)\]\]|\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_',
+    r'\[\[(.+?)\]\]'
+    r'|\*\*(\S(?:.*?\S)?)\*\*'
+    r'|\*(\S(?:.*?\S)?)\*'
+    r'|(?<![\p{L}\p{N}])_(\S(?:.*?\S)?)_(?![\p{L}\p{N}])',
+    unicode: true,
   );
 
   static void _parseInline(
