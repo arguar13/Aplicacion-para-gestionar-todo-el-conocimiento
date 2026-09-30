@@ -182,7 +182,10 @@ const wordNamespaces =
     'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
     'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" '
     'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
-    'xmlns:v="urn:schemas-microsoft-com:vml"';
+    'xmlns:v="urn:schemas-microsoft-com:vml" '
+    'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+    'xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" '
+    'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"';
 
 /// Una parte de Word —`numbering.xml`, `footnotes.xml`, un encabezado—: la
 /// raíz [root] (`w:numbering`, `w:hdr`…) con [content] adentro.

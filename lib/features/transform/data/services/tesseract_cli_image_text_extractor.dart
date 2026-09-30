@@ -44,14 +44,37 @@ class TesseractCliImageTextExtractor implements ImageTextExtractor {
       throw TesseractNotAvailableException(_text(result.stderr));
     }
 
-    return _withoutPageSeparator(_text(result.stdout));
+    return _withoutPageSeparators(_text(result.stdout));
   }
 
   /// Tesseract termina cada página con un salto de página (`\f`): es el
-  /// separador del motor, no un carácter de la imagen. Se quita **solo** ese,
-  /// el del final (F22).
-  String _withoutPageSeparator(String text) =>
-      text.endsWith('\f') ? text.substring(0, text.length - 1) : text;
+  /// separador del motor, no un carácter de la imagen (F22).
+  ///
+  /// El del final no separa nada y se quita. Los del medio —un TIFF de varias
+  /// páginas— sí separan: cada uno pasa a ser un salto de párrafo, una línea
+  /// en blanco entre página y página, que es como se separan los bloques en
+  /// lo que la app guarda. Tesseract ya cierra cada página con su propio
+  /// salto de línea; se completa solo lo que falta para la línea en blanco, y
+  /// una página sin texto no deja un hueco. El texto de cada página no se
+  /// toca.
+  String _withoutPageSeparators(String text) {
+    final pages = text.split('\f');
+    // Lo que queda después del último `\f`: vacío cuando el motor cerró la
+    // última página, como hace siempre.
+    if (pages.length > 1 && pages.last.isEmpty) pages.removeLast();
+
+    final withText = pages.where((page) => page.isNotEmpty).toList();
+    if (withText.isEmpty) return '';
+
+    final buffer = StringBuffer();
+    for (final (i, page) in withText.indexed) {
+      buffer.write(page);
+      if (i == withText.length - 1) break;
+      if (page.endsWith('\n\n')) continue;
+      buffer.write(page.endsWith('\n') ? '\n' : '\n\n');
+    }
+    return buffer.toString();
+  }
 }
 
 /// La salida de Tesseract es siempre UTF-8, sea cual sea el sistema.

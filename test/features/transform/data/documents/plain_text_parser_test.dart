@@ -121,16 +121,63 @@ void main() {
     });
 
     test('UTF-8 con un byte roto sigue siendo UTF-8', () async {
-      // Un solo byte dañado no puede convertir el resto en "canciÃ³n": se
-      // marca ese carácter y lo demás llega bien.
+      // Un solo byte dañado no puede convertir el resto en "canciÃ³n": ese
+      // byte se lee solo, como Windows-1252, y lo demás llega bien.
       expect(
         await textOf([
           ...utf8.encode('canción '),
           0xFF,
           ...utf8.encode(' más'),
         ]),
-        'canción \uFFFD más',
+        'canción ÿ más',
       );
+    });
+
+    test('un empate entre bien formados y rotos sigue siendo UTF-8', () async {
+      // Antes, un caracter bien formado y un byte suelto mandaban el archivo
+      // entero a Windows-1252: "canciÃ³nÃ".
+      expect(await textOf([...utf8.encode('canción'), 0xC3]), 'canciónÃ');
+    });
+
+    test('una ñ de Windows dentro de un UTF-8 no se pierde', () async {
+      // Antes salia "a" + caracter de reemplazo + "o": el byte suelto se
+      // cambiaba por el reemplazo. Ahora es la letra que era.
+      expect(
+        await textOf([
+          ...utf8.encode('Canción del a'),
+          0xF1,
+          ...utf8.encode('o — ñandú'),
+        ]),
+        'Canción del año — ñandú',
+      );
+    });
+
+    test('con la marca de UTF-8, un byte roto tampoco se pierde', () async {
+      expect(
+        await textOf([0xEF, 0xBB, 0xBF, ...utf8.encode('a'), 0xF1, 0x6F]),
+        'año',
+      );
+    });
+
+    test('con mas bytes rotos que bien formados es Windows-1252', () async {
+      // "Ã³" en Windows-1252 son dos bytes que por casualidad forman una
+      // "ó" de UTF-8; las dos "ñ" sueltas dicen que el archivo no es UTF-8.
+      expect(
+        await textOf([
+          ...latin1.encode('a'),
+          0xF1,
+          ...latin1.encode('o, ca'),
+          0xF1,
+          ...latin1.encode('a y '),
+          0xC3,
+          0xB3,
+        ]),
+        'año, caña y Ã³',
+      );
+    });
+
+    test('los caracteres de cuatro bytes de UTF-8 llegan enteros', () async {
+      expect(await textOf([...utf8.encode('Hola 🎵 '), 0xF1]), 'Hola 🎵 ñ');
     });
   });
 

@@ -8,6 +8,59 @@ import 'package:sinapsis/features/transform/domain/documents/document_parser.dar
 
 import '../../../../support/document_parsing.dart';
 import '../../../../support/sample_files.dart';
+import '../../../../support/silent_logger.dart';
+
+class _RecordingLogger extends SilentLogger {
+  final warnings = <String>[];
+
+  @override
+  void warning(String message, [Object? error, StackTrace? stackTrace]) =>
+      warnings.add(message);
+}
+
+/// Un archivo de relaciones con estas relaciones: `(id, tipo, destino)`. El
+/// tipo es el ultimo tramo de la direccion (`numbering`, `chart`...).
+String _relationships(List<(String, String, String)> relations) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${[for (final (id, type, target) in relations) '  <Relationship Id="$id" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/$type" Target="$target"/>'].join('\n')}
+</Relationships>''';
+
+/// El ZIP [zip] con los datos comprimidos de la parte [name] rotos: como un
+/// archivo danado en la descarga o en el disco.
+Uint8List _withDamagedPart(Uint8List zip, String name) {
+  final nameBytes = utf8.encode(name);
+  for (var i = 0; i + 30 < zip.length; i++) {
+    final isLocalHeader =
+        zip[i] == 0x50 &&
+        zip[i + 1] == 0x4B &&
+        zip[i + 2] == 0x03 &&
+        zip[i + 3] == 0x04;
+    if (!isLocalHeader) continue;
+    final nameLength = zip[i + 26] | (zip[i + 27] << 8);
+    final extraLength = zip[i + 28] | (zip[i + 29] << 8);
+    final found = String.fromCharCodes(
+      zip.sublist(i + 30, i + 30 + nameLength),
+    );
+    if (found != String.fromCharCodes(nameBytes)) continue;
+
+    final size =
+        zip[i + 18] |
+        (zip[i + 19] << 8) |
+        (zip[i + 20] << 16) |
+        (zip[i + 21] << 24);
+    final start = i + 30 + nameLength + extraLength;
+    final damaged = Uint8List.fromList(zip);
+    // Un bloque de tipo 3 no existe en deflate: el descompresor no puede
+    // seguir.
+    for (var k = start; k < start + size; k++) {
+      damaged[k] = 0xFF;
+    }
+    return damaged;
+  }
+  throw StateError('$name no esta en el ZIP');
+}
 
 void main() {
   const parser = DocxParser();
@@ -807,6 +860,538 @@ ${wordParagraph('Cuerpo.')}
 
       expect(result.title, isNull);
       expect(result.author, isNull);
+    });
+  });
+
+  group('ecuaciones (F22)', () {
+    String run(String text) => '<m:r><m:t>$text</m:t></m:r>';
+
+    test('un parrafo que es solo una ecuacion no desaparece', () async {
+      // Antes todo lo que no era `w:` se descartaba, y la ecuacion con el.
+      final markdown = await markdownOf('''
+    <w:p><m:oMathPara><m:oMath>
+      <m:sSup><m:e>${run('x')}</m:e><m:sup>${run('2')}</m:sup></m:sSup>
+      ${run('+')}
+      <m:f><m:num>${run('a+b')}</m:num><m:den>${run('c')}</m:den></m:f>
+    </m:oMath></m:oMathPara></w:p>
+''');
+
+      expect(markdown, 'x^2+(a+b)/c');
+    });
+
+    test('una ecuacion en medio de la frase queda en su lugar', () async {
+      final markdown = await markdownOf('''
+    <w:p>
+      <w:r><w:t xml:space="preserve">El area es </w:t></w:r>
+      <m:oMath>${run('π')}<m:sSup><m:e>${run('r')}</m:e><m:sup>${run('2')}</m:sup></m:sSup></m:oMath>
+      <w:r><w:t>.</w:t></w:r>
+    </w:p>
+''');
+
+      expect(markdown, 'El area es πr^2.');
+    });
+
+    test('sumas, raices, delimitadores e indices', () async {
+      final markdown = await markdownOf('''
+    <w:p><m:oMathPara>
+      <m:oMath>
+        <m:nary>
+          <m:naryPr><m:chr m:val="∑"/></m:naryPr>
+          <m:sub>${run('i=1')}</m:sub><m:sup>${run('n')}</m:sup>
+          <m:e><m:sSub><m:e>${run('a')}</m:e><m:sub>${run('i')}</m:sub></m:sSub></m:e>
+        </m:nary>
+      </m:oMath>
+      <m:oMath>
+        <m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>${run('x+1')}</m:e></m:rad>
+        ${run('·')}
+        <m:rad><m:deg>${run('3')}</m:deg><m:e>${run('y')}</m:e></m:rad>
+      </m:oMath>
+      <m:oMath>
+        <m:sSup><m:e>${run('x')}</m:e><m:sup>${run('n+1')}</m:sup></m:sSup>
+        ${run('∈')}
+        <m:d><m:dPr><m:begChr m:val="["/><m:endChr m:val="]"/><m:sepChr m:val=","/></m:dPr>
+          <m:e>${run('0')}</m:e><m:e>${run('1')}</m:e>
+        </m:d>
+      </m:oMath>
+      <m:oMath>
+        <m:nary><m:sub>${run('0')}</m:sub><m:sup>${run('1')}</m:sup><m:e>${run('f(t)dt')}</m:e></m:nary>
+      </m:oMath>
+    </m:oMathPara></w:p>
+''');
+
+      expect(
+        markdown,
+        '∑_(i=1)^n a_i  \n'
+        '√(x+1)·∛y  \n'
+        'x^(n+1)∈[0,1]  \n'
+        '∫_0^1 f(t)dt',
+      );
+    });
+  });
+
+  group('campos (F22)', () {
+    String field(String type) =>
+        '<w:r><w:fldChar w:fldCharType="$type"/></w:r>';
+    String code(String text) =>
+        '<w:r><w:instrText xml:space="preserve">$text</w:instrText></w:r>';
+    String text(String value) =>
+        '<w:r><w:t xml:space="preserve">$value</w:t></w:r>';
+
+    test('un campo dentro del codigo de otro no se escribe', () async {
+      // `{ IF { MERGEFIELD Sexo } = "F" "Estimada" "Estimado" }`: el "F" es
+      // el resultado del campo de adentro, pero esta en el codigo del de
+      // afuera. Antes salia "FEstimada".
+      final markdown = await markdownOf('''
+    <w:p>
+      ${field('begin')}${code(' IF ')}
+      ${field('begin')}${code(' MERGEFIELD Sexo ')}${field('separate')}${text('F')}${field('end')}
+      ${code(' = "F" "Estimada" "Estimado" ')}
+      ${field('separate')}${text('Estimada')}${field('end')}
+      ${text(' Ana:')}
+    </w:p>
+''');
+
+      expect(markdown, 'Estimada Ana:');
+    });
+
+    test('un indice que abarca varios parrafos se lee entero', () async {
+      final markdown = await markdownOf('''
+    <w:p>${field('begin')}${code(' TOC ')}${field('separate')}${text('Introduccion 1')}</w:p>
+    <w:p>${text('Metodo 2')}</w:p>
+    <w:p>${text('Resultados 3')}${field('end')}</w:p>
+    <w:p>${text('El cuerpo.')}</w:p>
+''');
+
+      expect(
+        markdown,
+        'Introduccion 1\n\nMetodo 2\n\nResultados 3\n\nEl cuerpo.',
+      );
+    });
+
+    test('un campo simple sigue dando su resultado', () async {
+      final markdown = await markdownOf('''
+    <w:p>${text('Pagina ')}<w:fldSimple w:instr=" PAGE ">${text('7')}</w:fldSimple></w:p>
+''');
+
+      expect(markdown, 'Pagina 7');
+    });
+
+    test('un campo que nunca termina no se lleva el resto', () async {
+      final markdown = await markdownOf('''
+    <w:p>${text('Antes ')}${field('begin')}${code(' REF roto ')}${text('despues.')}</w:p>
+    <w:p>${text('Otro parrafo.')}</w:p>
+''');
+
+      expect(markdown, 'Antes despues.\n\nOtro parrafo.');
+    });
+  });
+
+  group('celdas combinadas (F22)', () {
+    test('cada texto queda en su columna', () async {
+      // Una celda que ocupa dos columnas y una fila que empieza con una
+      // columna sin celda: sin completarlas, "C" quedaba bajo "b".
+      const body = '''
+    <w:tbl>
+      <w:tr>
+        <w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>C</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>a</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>b</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>c</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr>
+        <w:trPr><w:gridBefore w:val="1"/></w:trPr>
+        <w:tc><w:p><w:r><w:t>y</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>z</w:t></w:r></w:p></w:tc>
+      </w:tr>
+    </w:tbl>
+''';
+
+      expect(
+        await markdownOf(body),
+        '| A |  | C |\n'
+        '| --- | --- | --- |\n'
+        '| a | b | c |\n'
+        '|  | y | z |',
+      );
+    });
+  });
+
+  group('titulos y saltos (F22)', () {
+    test(
+      'el nivel de esquema 9 es texto independiente, no un titulo',
+      () async {
+        expect(
+          await markdownOf(wordParagraph('Cuerpo', outlineLevel: 9)),
+          'Cuerpo',
+        );
+      },
+    );
+
+    test('un salto de pagina al comienzo de un titulo no se escribe', () async {
+      // Antes quedaba "#   \nCapitulo 2": un titulo vacio y un parrafo.
+      const body = '''
+    <w:p><w:r><w:t>Fin del uno.</w:t></w:r></w:p>
+    <w:p>
+      <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+      <w:r><w:br w:type="page"/></w:r>
+      <w:r><w:t>Capitulo 2</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), 'Fin del uno.\n\n# Capitulo 2');
+    });
+
+    test('un parrafo que es solo un salto de pagina no deja nada', () async {
+      const body = '''
+    <w:p><w:r><w:t>Antes.</w:t><w:br w:type="page"/></w:r></w:p>
+    <w:p><w:r><w:br w:type="column"/></w:r></w:p>
+    <w:p><w:r><w:t>Despues.</w:t></w:r></w:p>
+''';
+
+      expect(await markdownOf(body), 'Antes.\n\nDespues.');
+    });
+
+    test('en medio del texto es el salto de linea que Word muestra', () async {
+      const body = '''
+    <w:p><w:r><w:t>Arriba</w:t><w:br w:type="page"/><w:t>abajo</w:t></w:r></w:p>
+''';
+
+      expect(await markdownOf(body), 'Arriba  \nabajo');
+    });
+
+    test('un titulo de dos lineas lleva la almohadilla en cada una', () async {
+      const body = '''
+    <w:p>
+      <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+      <w:r><w:br/><w:t>Capitulo 1</w:t><w:br/><w:t>El comienzo</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), '# Capitulo 1\n# El comienzo');
+    });
+
+    test('el numero de una lista no va delante de un salto', () async {
+      const body = '''
+    <w:p>
+      <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>
+      <w:r><w:br/><w:t>Punto</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), '- Punto');
+    });
+  });
+
+  group('listas definidas por un estilo de lista (F22)', () {
+    test('se sigue el estilo hasta los niveles de verdad', () async {
+      // La definicion que usa el parrafo esta vacia: solo dice "usar el
+      // estilo MiLista". Sin seguirlo, la lista salia como vinetas "- ".
+      final parts = {
+        'word/numbering.xml': wordPart('w:numbering', '''
+<w:abstractNum w:abstractNumId="0">
+  <w:styleLink w:val="MiLista"/>
+  <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1)"/></w:lvl>
+</w:abstractNum>
+<w:abstractNum w:abstractNumId="1"><w:numStyleLink w:val="MiLista"/></w:abstractNum>
+<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>'''),
+        'word/styles.xml': wordPart('w:styles', '''
+<w:style w:type="numbering" w:styleId="MiLista">
+  <w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr>
+</w:style>'''),
+      };
+      String item(String text) =>
+          '''
+<w:p>
+  <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr>
+  <w:r><w:t>$text</w:t></w:r>
+</w:p>''';
+
+      expect(
+        await markdownOf(item('Uno') + item('Dos'), parts: parts),
+        'a) Uno\n\nb) Dos',
+      );
+    });
+  });
+
+  group('las partes se buscan por sus relaciones (F22)', () {
+    test('el cuerpo y la numeracion, donde el paquete diga', () async {
+      final parts = {
+        '_rels/.rels': _relationships([
+          ('rId1', 'officeDocument', 'contenido/principal.xml'),
+        ]),
+        'contenido/principal.xml': wordPart('w:document', '''
+<w:body>
+  <w:p>
+    <w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="3"/></w:numPr></w:pPr>
+    <w:r><w:t>El de verdad.</w:t></w:r>
+  </w:p>
+</w:body>'''),
+        'contenido/_rels/principal.xml.rels': _relationships([
+          ('rIdN', 'numbering', 'listas.xml'),
+        ]),
+        'contenido/listas.xml': wordPart('w:numbering', '''
+<w:abstractNum w:abstractNumId="0">
+  <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:lvlText w:val="%1."/></w:lvl>
+</w:abstractNum>
+<w:num w:numId="3"><w:abstractNumId w:val="0"/></w:num>'''),
+      };
+
+      expect(
+        await markdownOf(wordParagraph('No es este.'), parts: parts),
+        'I. El de verdad.',
+      );
+    });
+  });
+
+  group('SmartArt y graficos (F22)', () {
+    test('el texto de un SmartArt va como bloque, en su orden', () async {
+      // Los elementos se leen del raiz a sus hijos, en el orden que Word
+      // les da (`srcOrd`), no en el orden del archivo.
+      final parts = {
+        'word/_rels/document.xml.rels': _relationships([
+          ('rIdDm', 'diagramData', 'diagrams/data1.xml'),
+        ]),
+        'word/diagrams/data1.xml': wordPart('dgm:dataModel', '''
+<dgm:ptLst>
+  <dgm:pt modelId="0" type="doc"><dgm:t><a:p/></dgm:t></dgm:pt>
+  <dgm:pt modelId="3"><dgm:t><a:p><a:r><a:t>Detalle b</a:t></a:r></a:p></dgm:t></dgm:pt>
+  <dgm:pt modelId="1"><dgm:t><a:p><a:r><a:t>La </a:t></a:r><a:r><a:t>idea</a:t></a:r></a:p></dgm:t></dgm:pt>
+  <dgm:pt modelId="2"><dgm:t><a:p><a:r><a:t>Detalle a</a:t></a:r></a:p></dgm:t></dgm:pt>
+</dgm:ptLst>
+<dgm:cxnLst>
+  <dgm:cxn modelId="10" srcId="0" destId="1" srcOrd="0"/>
+  <dgm:cxn modelId="11" srcId="1" destId="3" srcOrd="1"/>
+  <dgm:cxn modelId="12" srcId="1" destId="2" srcOrd="0"/>
+</dgm:cxnLst>'''),
+      };
+
+      final markdown = await markdownOf('''
+    <w:p>
+      <w:r><w:t>Antes.</w:t></w:r>
+      <w:r><w:drawing><wp:inline><a:graphic><a:graphicData>
+        <dgm:relIds r:dm="rIdDm" r:lo="rIdLo" r:qs="rIdQs" r:cs="rIdCs"/>
+      </a:graphicData></a:graphic></wp:inline></w:drawing></w:r>
+    </w:p>
+${wordParagraph('Despues.')}
+''', parts: parts);
+
+      expect(
+        markdown,
+        'Antes.\n\nLa idea  \nDetalle a  \nDetalle b\n\nDespues.',
+      );
+    });
+
+    test('el titulo de un grafico y los de sus ejes se guardan', () async {
+      final parts = {
+        'word/_rels/document.xml.rels': _relationships([
+          ('rIdCh', 'chart', 'charts/chart1.xml'),
+        ]),
+        'word/charts/chart1.xml': wordPart('c:chartSpace', '''
+<c:chart>
+  <c:title><c:tx><c:rich><a:p><a:r><a:t>Ventas 2024</a:t></a:r></a:p></c:rich></c:tx></c:title>
+  <c:plotArea><c:valAx><c:title><c:tx><c:rich><a:p><a:r><a:t>Pesos</a:t></a:r></a:p></c:rich></c:tx></c:title>
+  <c:txPr><a:p><a:pPr/><a:endParaRPr/></a:p></c:txPr></c:valAx></c:plotArea>
+</c:chart>'''),
+      };
+
+      final markdown = await markdownOf('''
+    <w:p><w:r><w:drawing><wp:inline><a:graphic><a:graphicData>
+      <c:chart r:id="rIdCh"/>
+    </a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>
+''', parts: parts);
+
+      expect(markdown, 'Ventas 2024  \nPesos');
+    });
+  });
+
+  group('control de cambios (F22)', () {
+    test('un parrafo borrado no avanza la numeracion', () async {
+      final parts = {
+        'word/numbering.xml': wordPart('w:numbering', '''
+<w:abstractNum w:abstractNumId="0">
+  <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>
+</w:abstractNum>
+<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'''),
+      };
+      const numPr =
+          '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>';
+
+      final markdown = await markdownOf('''
+    <w:p><w:pPr>$numPr</w:pPr><w:r><w:t>Uno</w:t></w:r></w:p>
+    <w:p>
+      <w:pPr>$numPr<w:rPr><w:del w:id="1" w:author="Ana"/></w:rPr></w:pPr>
+      <w:del w:id="2" w:author="Ana"><w:r><w:delText>Borrado</w:delText></w:r></w:del>
+    </w:p>
+    <w:p><w:pPr>$numPr</w:pPr><w:r><w:t>Dos</w:t></w:r></w:p>
+''', parts: parts);
+
+      expect(markdown, '1. Uno\n\n2. Dos');
+    });
+
+    test('una fila borrada no se guarda', () async {
+      const body = '''
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>Queda</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr>
+        <w:trPr><w:del w:id="1" w:author="Ana"/></w:trPr>
+        <w:tc><w:p><w:del w:id="2" w:author="Ana"><w:r><w:delText>Se fue</w:delText></w:r></w:del></w:p></w:tc>
+      </w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Tambien</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
+''';
+
+      expect(await markdownOf(body), '| Queda |\n| --- |\n| Tambien |');
+    });
+  });
+
+  group('texto oculto, ruby y fragmentos incrustados (F22)', () {
+    test('el texto oculto se guarda: es texto del documento', () async {
+      // Decision documentada en el lector: Word lo muestra al activar
+      // "mostrar todo", y perderlo seria perder texto.
+      const body = '''
+    <w:p>
+      <w:r><w:t xml:space="preserve">Respuesta: </w:t></w:r>
+      <w:r><w:rPr><w:vanish/></w:rPr><w:t>42</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), 'Respuesta: 42');
+    });
+
+    test('la lectura de un ruby va despues, entre parentesis', () async {
+      const body = '''
+    <w:p>
+      <w:r><w:ruby>
+        <w:rubyPr><w:rubyAlign w:val="center"/></w:rubyPr>
+        <w:rt><w:r><w:t>かんじ</w:t></w:r></w:rt>
+        <w:rubyBase><w:r><w:t>漢字</w:t></w:r></w:rubyBase>
+      </w:ruby></w:r>
+      <w:r><w:t>です</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), '漢字(かんじ)です');
+    });
+
+    test('un fragmento HTML o de texto se lee en su lugar', () async {
+      final parts = {
+        'word/_rels/document.xml.rels': _relationships([
+          ('rIdH', 'aFChunk', 'fragmento.htm'),
+          ('rIdT', 'aFChunk', 'notas.txt'),
+        ]),
+        'word/fragmento.htm':
+            '<html><head><title>No</title></head>'
+            '<body><p>Hola <b>mundo</b>.</p></body></html>',
+        'word/notas.txt': 'Linea uno\nLinea dos',
+      };
+
+      final markdown = await markdownOf('''
+${wordParagraph('Antes.')}
+    <w:altChunk r:id="rIdH"/>
+    <w:altChunk r:id="rIdT"/>
+${wordParagraph('Despues.')}
+''', parts: parts);
+
+      expect(
+        markdown,
+        'Antes.\n\nHola **mundo**.\n\nLinea uno\nLinea dos\n\nDespues.',
+      );
+    });
+
+    test('un fragmento en otro formato no frena y queda registrado', () async {
+      final logger = _RecordingLogger();
+      final parts = {
+        'word/_rels/document.xml.rels': _relationships([
+          ('rIdR', 'aFChunk', 'fragmento.rtf'),
+        ]),
+        'word/fragmento.rtf': r'{\rtf1 Hola}',
+      };
+
+      final result = await DocxParser(logger: logger).parseBytes(
+        buildDocx(
+          body: '${wordParagraph('Texto.')}<w:altChunk r:id="rIdR"/>',
+          parts: parts,
+        ),
+      );
+
+      expect(result.markdown, 'Texto.');
+      expect(logger.warnings.single, contains('word/fragmento.rtf'));
+    });
+  });
+
+  group('lo que antes rompia el documento (F22)', () {
+    test('un simbolo con un codigo invalido queda como reemplazo', () async {
+      const body = '''
+    <w:p>
+      <w:r><w:t>a</w:t></w:r>
+      <w:r><w:sym w:font="Symbol" w:char="FFFFFFFF"/></w:r>
+      <w:r><w:t>b</w:t></w:r>
+    </w:p>
+''';
+
+      expect(await markdownOf(body), 'a�b');
+    });
+
+    test('una parte opcional danada se saltea y queda registrada', () async {
+      final logger = _RecordingLogger();
+      final docx = buildDocx(
+        body: wordParagraph('Punto', listLevel: 0) + wordParagraph('Sigue.'),
+        parts: {
+          'word/numbering.xml': wordPart('w:numbering', '''
+<w:abstractNum w:abstractNumId="0">
+  <w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>
+</w:abstractNum>
+<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'''),
+        },
+      );
+
+      final result = await DocxParser(
+        logger: logger,
+      ).parseBytes(_withDamagedPart(docx, 'word/numbering.xml'));
+
+      // Sin la numeracion, el punto queda como vineta: el texto, entero.
+      expect(result.markdown, '- Punto\n\nSigue.');
+      expect(
+        logger.warnings.single,
+        allOf(contains('word/numbering.xml'), contains('dañada')),
+      );
+    });
+  });
+
+  group('rendimiento y marcas (F22)', () {
+    test('miles de pedazos con el mismo formato se juntan enteros', () async {
+      final runs = List.filled(
+        20000,
+        '<w:r><w:rPr><w:b/></w:rPr><w:t>a</w:t></w:r>',
+      ).join();
+
+      expect(await markdownOf('<w:p>$runs</w:p>'), '**${'a' * 20000}**');
+    });
+
+    test('la negrita y la cursiva superpuestas se anidan', () async {
+      // Antes: `**super*****cali*****fragil**`, que se lee de mas de una
+      // forma.
+      const body = '''
+    <w:p>
+      <w:r><w:rPr><w:b/></w:rPr><w:t>super</w:t></w:r>
+      <w:r><w:rPr><w:b/><w:i/></w:rPr><w:t>cali</w:t></w:r>
+      <w:r><w:rPr><w:b/></w:rPr><w:t>fragil</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve">una </w:t></w:r>
+      <w:r><w:rPr><w:b/><w:i/></w:rPr><w:t xml:space="preserve">frase </w:t></w:r>
+      <w:r><w:rPr><w:i/></w:rPr><w:t>entera</w:t></w:r>
+    </w:p>
+''';
+
+      expect(
+        await markdownOf(body),
+        '**super*cali*fragil**\n\n*una **frase** entera*',
+      );
     });
   });
 

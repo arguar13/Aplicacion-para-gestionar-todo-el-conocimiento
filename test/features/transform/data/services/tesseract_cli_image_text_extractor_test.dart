@@ -41,14 +41,25 @@ void main() {
     expect(text, 'Canción del año\n');
   });
 
-  test('se quita solo el salto de pagina final del motor (F22)', () async {
+  test('se quita el salto de pagina final del motor (F22)', () async {
     // Tesseract cierra cada pagina con `\f`: es su separador, no un
-    // caracter de la imagen. Uno que este en medio no se toca.
+    // caracter de la imagen.
     final text = await tesseract(
-      utf8.encode('Primera\n\fSegunda\n\f'),
+      utf8.encode('Una sola pagina.\n\f'),
+    ).extractText('foto.png');
+
+    expect(text, 'Una sola pagina.\n');
+  });
+
+  test('entre paginas de un TIFF queda un salto de parrafo (F22)', () async {
+    // Antes el `\f` del medio quedaba en el texto, invisible y pegado a la
+    // pagina siguiente. Ahora separa las paginas con una linea en blanco,
+    // sin tocar el texto de ninguna; una pagina sin texto no deja hueco.
+    final text = await tesseract(
+      utf8.encode('Primera\n\fSegunda\n\f\fTercera sin salto\fCuarta\n\f'),
     ).extractText('foto.tif');
 
-    expect(text, 'Primera\n\fSegunda\n');
+    expect(text, 'Primera\n\nSegunda\n\nTercera sin salto\n\nCuarta\n');
   });
 
   test('un fallo del motor avisa con su mensaje, en UTF-8', () async {

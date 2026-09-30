@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/storage/file_format.dart';
@@ -29,7 +28,7 @@ class PlainTextParser implements DocumentParser {
     DocumentSource source, {
     DocumentParseSession session = DocumentParseSession.detached,
   }) async {
-    final text = _decode(await source.readAll());
+    final text = decodePlainText(await source.readAll());
 
     return ParsedDocument(markdown: text, title: _firstHeading(text));
   }
@@ -51,7 +50,8 @@ class PlainTextParser implements DocumentParser {
   }
 }
 
-/// Los bytes de un archivo de texto, como texto.
+/// Los bytes de un archivo de texto, como texto. Lo usa también el lector de
+/// Word, con el texto suelto que un documento trae incrustado (F22).
 ///
 /// En este orden, de lo seguro a lo supuesto:
 ///
@@ -63,15 +63,19 @@ class PlainTextParser implements DocumentParser {
 ///    alfabeto latino tiene un byte en cero en casi todos los caracteres,
 ///    siempre del mismo lado. Un texto de verdad en cualquier otra
 ///    codificación no tiene ceros.
-/// 3. **UTF-8**, si los bytes lo son. Con un byte suelto roto en medio —un
-///    archivo cortado, un carácter dañado— se sigue leyendo como UTF-8 y ese
-///    carácter queda como `�`: lo que decide es que haya más caracteres de
-///    UTF-8 bien formados que rotos.
+/// 3. **UTF-8**, si hay al menos un carácter de más de un byte bien formado
+///    y los bytes que no encajan en ninguno no son más que ellos. Un byte
+///    suelto roto en medio —un archivo cortado, un carácter dañado, una "ñ"
+///    de Windows pegada en un texto en UTF-8— no convierte el resto en
+///    "canciÃ³n": **ese byte** se lee como Windows-1252, que es casi siempre
+///    lo que era (F22). Antes quedaba como `�`, y un empate entre bien
+///    formados y rotos mandaba el archivo entero a Windows-1252.
 /// 4. Si no, **Windows-1252**: lo que escriben los programas viejos de
 ///    Windows, y un superconjunto de Latin-1 en todo lo que se escribe.
-String _decode(Uint8List bytes) {
+String decodePlainText(Uint8List bytes) {
   if (_startsWith(bytes, const [0xEF, 0xBB, 0xBF])) {
-    return utf8.decode(bytes.sublist(3), allowMalformed: true);
+    // La marca dice UTF-8 sin dudas: se lee así aunque haya bytes rotos.
+    return _readUtf8(bytes, 3).text;
   }
   // UTF-32 antes que UTF-16: la marca de UTF-32 LE empieza con la de
   // UTF-16 LE.
@@ -91,11 +95,12 @@ String _decode(Uint8List bytes) {
   final utf16 = _utf16WithoutMark(bytes);
   if (utf16 != null) return _decodeUtf16(bytes, 0, littleEndian: utf16);
 
-  final (:valid, :invalid) = _utf8Sequences(bytes);
-  if (invalid == 0 || valid > invalid) {
-    return utf8.decode(bytes, allowMalformed: true);
-  }
-  return decodeWindows1252(bytes);
+  // Sin ningún carácter de más de un byte no hay nada que decidir: cada byte
+  // roto ya se lee como Windows-1252, y un texto solo ASCII es el mismo en
+  // las dos.
+  final asUtf8 = _readUtf8(bytes, 0);
+  if (asUtf8.invalid > asUtf8.valid) return decodeWindows1252(bytes);
+  return asUtf8.text;
 }
 
 bool _startsWith(Uint8List bytes, List<int> prefix) {
@@ -163,19 +168,27 @@ String _decodeUtf32(Uint8List bytes, int start, {required bool littleEndian}) {
   return buffer.toString();
 }
 
-/// Cuántos caracteres de más de un byte de UTF-8 están bien formados, y
-/// cuántos bytes no encajan en ninguno.
+/// Los bytes desde [start] leídos como UTF-8, con cuántos caracteres de más
+/// de un byte estaban bien formados y cuántos bytes no encajaban en ninguno.
 ///
 /// Un archivo en Windows-1252 casi nunca forma por casualidad una secuencia
 /// válida de UTF-8: la "ñ" es 0xF1, que en UTF-8 anuncia cuatro bytes, y la
 /// "o" que le sigue no es uno de ellos.
-({int valid, int invalid}) _utf8Sequences(Uint8List bytes) {
+///
+/// Es un decodificador propio, y no `utf8.decode` con `allowMalformed`,
+/// porque ese cambia cada byte roto por `�` y el carácter se pierde. Acá
+/// cada byte que no encaja se lee solo, como Windows-1252 —el 0xF1 de
+/// "a⟨F1⟩o" es la "ñ" de "año"—, y la lectura sigue en el byte siguiente
+/// (F22).
+({String text, int valid, int invalid}) _readUtf8(Uint8List bytes, int start) {
+  final buffer = StringBuffer();
   var valid = 0;
   var invalid = 0;
-  var i = 0;
+  var i = start;
   while (i < bytes.length) {
     final lead = bytes[i];
     if (lead < 0x80) {
+      buffer.writeCharCode(lead);
       i++;
       continue;
     }
@@ -186,34 +199,40 @@ String _decodeUtf32(Uint8List bytes, int start, {required bool littleEndian}) {
       >= 0xF0 && <= 0xF4 => 4,
       _ => 0,
     };
-    if (length == 0 || i + length > bytes.length) {
+    var ok = length > 0 && i + length <= bytes.length;
+    if (ok) {
+      // El segundo byte tiene un rango más estrecho en algunos casos: sin
+      // esto pasarían por válidas las formas largas y los sustitutos.
+      final second = bytes[i + 1];
+      final (low, high) = switch (lead) {
+        0xE0 => (0xA0, 0xBF),
+        0xED => (0x80, 0x9F),
+        0xF0 => (0x90, 0xBF),
+        0xF4 => (0x80, 0x8F),
+        _ => (0x80, 0xBF),
+      };
+      ok = second >= low && second <= high;
+      for (var k = 2; ok && k < length; k++) {
+        ok = bytes[i + k] & 0xC0 == 0x80;
+      }
+    }
+
+    if (!ok) {
+      buffer.write(decodeWindows1252([lead]));
       invalid++;
       i++;
       continue;
     }
 
-    // El segundo byte tiene un rango más estrecho en algunos casos: sin
-    // esto pasarían por válidas las formas largas y los sustitutos.
-    final second = bytes[i + 1];
-    final (low, high) = switch (lead) {
-      0xE0 => (0xA0, 0xBF),
-      0xED => (0x80, 0x9F),
-      0xF0 => (0x90, 0xBF),
-      0xF4 => (0x80, 0x8F),
-      _ => (0x80, 0xBF),
-    };
-    var ok = second >= low && second <= high;
-    for (var k = 2; ok && k < length; k++) {
-      ok = bytes[i + k] & 0xC0 == 0x80;
+    // Los bits del primer byte que quedan después de la marca de longitud,
+    // y seis por cada byte de continuación.
+    var code = lead & (0xFF >> (length + 1));
+    for (var k = 1; k < length; k++) {
+      code = (code << 6) | (bytes[i + k] & 0x3F);
     }
-
-    if (ok) {
-      valid++;
-      i += length;
-    } else {
-      invalid++;
-      i++;
-    }
+    buffer.writeCharCode(code);
+    valid++;
+    i += length;
   }
-  return (valid: valid, invalid: invalid);
+  return (text: buffer.toString(), valid: valid, invalid: invalid);
 }
