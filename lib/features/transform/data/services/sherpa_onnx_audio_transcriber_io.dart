@@ -53,11 +53,17 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   const SherpaOnnxAudioTranscriberIo({
     required WhisperModelManager model,
     required Future<Directory> Function() temporaryDirectory,
+    int? threads,
   }) : _model = model,
-       _temporaryDirectory = temporaryDirectory;
+       _temporaryDirectory = temporaryDirectory,
+       _threadsOverride = threads;
 
   final WhisperModelManager _model;
   final Future<Directory> Function() _temporaryDirectory;
+
+  /// Cuántos hilos usar en vez de los de [_threads]: solo para medir en el
+  /// dispositivo cuál rinde más (F22, `transcription_fidelity_test.dart`).
+  final int? _threadsOverride;
 
   /// La frecuencia con la que está entrenado Whisper. No es un ajuste: es
   /// parte del modelo, así que no se expone como parámetro.
@@ -107,7 +113,7 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
         encoder: modelPaths.encoder,
         decoder: modelPaths.decoder,
         tokens: modelPaths.tokens,
-        threads: _threads,
+        threads: _threadsOverride ?? _threads,
         language: language,
       );
       final text = await runSegmentedTranscription(
