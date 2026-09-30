@@ -2,15 +2,18 @@
 // transcripción de verdad —Whisper (sherpa-onnx) con los tramos cortados en
 // pausas y la protección contra bucles— sobre audios reales.
 //
-// Uso (teléfono con depuración USB):
+// Uso (teléfono con depuración USB). Con el sabor `staging`, NUNCA con el
+// que se usa a diario: `flutter drive` desinstala la app antes de
+// instalarse, y con ella se iría la bóveda del usuario. `staging` es otra
+// app (`app.sinapsis.staging`), con sus propios datos.
 //
-//   flutter drive --flavor dev --driver test_driver/integration_test.dart \
+//   flutter drive --flavor staging --driver test_driver/integration_test.dart \
 //     --target integration_test/transcription_fidelity_test.dart \
 //     --dart-define=BENCH_DEVICE_INFO="..." --dart-define=BENCH_THREADS=2,4,6
 //
 // y, cuando la prueba avise que espera los audios (WAV de 16 kHz mono):
 //
-//   adb shell mkdir -p /sdcard/Android/data/app.sinapsis.dev/files/fidelidad
+//   adb shell mkdir -p /sdcard/Android/data/app.sinapsis.staging/files/fidelidad
 //   adb push charla.wav alabanza.wav /sdcard/.../files/fidelidad/
 //   adb shell touch /sdcard/.../files/fidelidad/listo
 //
