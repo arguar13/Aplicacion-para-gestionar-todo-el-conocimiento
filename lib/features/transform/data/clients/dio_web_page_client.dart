@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/core/network/dio_exception_mapper.dart';
+import 'package:sinapsis/features/transform/data/clients/html_text_decoder.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
 /// [WebPageClient] sobre el `Dio` de la app.
@@ -20,17 +21,22 @@ class DioWebPageClient implements WebPageClient {
   @override
   Future<String> fetchHtml(Uri url) async {
     try {
-      final response = await _dio.getUri<String>(
+      final response = await _dio.getUri<List<int>>(
         url,
         options: Options(
-          // Se pide texto explícitamente: sin esto, Dio intenta interpretar
-          // la respuesta como JSON y se rompe con el primer `<`.
-          responseType: ResponseType.plain,
+          // Se piden los bytes, no texto (F22): con `ResponseType.plain`
+          // Dio decodifica siempre como UTF-8, sin mirar el `charset` que
+          // declara el servidor, y una página en Latin-1 perdía cada tilde.
+          // La codificación la decide `decodeHtmlBytes`, como un navegador.
+          responseType: ResponseType.bytes,
           headers: const {'Accept': 'text/html,application/xhtml+xml'},
         ),
       );
 
-      return response.data ?? '';
+      return decodeHtmlBytes(
+        response.data ?? const [],
+        contentType: response.headers.value(Headers.contentTypeHeader),
+      );
     } on DioException catch (error) {
       throw mapDioException(error);
     }

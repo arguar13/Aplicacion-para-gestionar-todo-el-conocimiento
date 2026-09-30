@@ -45,6 +45,24 @@ void main() {
     expect(await client.fetchHtml(url), '<html>hola</html>');
   });
 
+  test('respeta el charset que declara el servidor (F22)', () async {
+    // Antes Dio decodificaba todo como UTF-8: "Año" en Latin-1 salía
+    // "A�o".
+    final client = clientWith(
+      _FakeAdapter(
+        (_) async => ResponseBody.fromBytes(
+          latin1.encode('<p>Año, niño y café</p>'),
+          200,
+          headers: {
+            Headers.contentTypeHeader: ['text/html; charset=ISO-8859-1'],
+          },
+        ),
+      ),
+    );
+
+    expect(await client.fetchHtml(url), '<p>Año, niño y café</p>');
+  });
+
   test('sin conexión: NetworkException, para guardarlo como "sin '
       'conexión" (F21)', () async {
     final client = clientWith(

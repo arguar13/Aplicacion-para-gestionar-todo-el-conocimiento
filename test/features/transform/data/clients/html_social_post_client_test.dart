@@ -195,6 +195,43 @@ void main() {
       expect(data.caption, 'Tacos & burritos "ricos"');
     });
 
+    test('traduce todas las entidades, no solo un puñado (F22)', () async {
+      // Antes se desescapaban seis a mano: "&#233;", "&nbsp;" y "&hellip;"
+      // quedaban tal cual en el texto guardado.
+      const html = '''
+<html><head>
+<meta property="og:description" content="Caf&#233;&nbsp;y m&aacute;s&hellip;">
+</head><body></body></html>
+''';
+
+      final data = await build(
+        html,
+      ).fetchPost(Uri.parse('https://www.instagram.com/reel/abc123/'));
+
+      expect(data.caption, 'Café y más…');
+    });
+
+    test(
+      'desescapa una sola vez: "&amp;lt;" es el texto "&lt;" (F22)',
+      () async {
+        // Con "&amp;" primero en la lista, la segunda pasada lo convertía
+        // en "<": otro texto.
+        const html = '''
+<html><head>
+<meta property="og:description" content="Escribí &amp;lt;b&amp;gt; para negrita">
+<meta property="og:video" content="https://x.example/v.mp4?a=1&amp;b=%26lt">
+</head><body></body></html>
+''';
+
+        final data = await build(
+          html,
+        ).fetchPost(Uri.parse('https://www.instagram.com/reel/abc123/'));
+
+        expect(data.caption, 'Escribí &lt;b&gt; para negrita');
+        expect(data.videoUrl, Uri.parse('https://x.example/v.mp4?a=1&b=%26lt'));
+      },
+    );
+
     test(
       'og:video:secure_url gana sobre og:video cuando están los dos',
       () async {

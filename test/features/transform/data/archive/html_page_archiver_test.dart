@@ -341,6 +341,30 @@ void main() {
     });
   });
 
+  group('codificación (F22)', () {
+    test('el archivo, escrito en UTF-8, dice UTF-8 y no la codificación '
+        'que declaraba la página', () async {
+      // Si conservara el windows-1252, un navegador leería los bytes UTF-8
+      // del archivo como Windows-1252: "Año" saldría "AÃ±o".
+      final result = await archiveToString(
+        build(FakeResourceFetcher()),
+        [
+          '<html><head><meta charset="windows-1252">',
+          '<meta http-equiv="Content-Type" content="text/html; ',
+          'charset=windows-1252"></head><body><p>Año</p></body></html>',
+        ].join(),
+      );
+
+      expect(
+        result,
+        [
+          '<html><head><meta charset="utf-8"></head>',
+          '<body><p>Año</p></body></html>',
+        ].join(),
+      );
+    });
+  });
+
   group('robustez', () {
     test('un recurso que lanza en vez de fallar en silencio no tumba el '
         'archivado entero', () async {

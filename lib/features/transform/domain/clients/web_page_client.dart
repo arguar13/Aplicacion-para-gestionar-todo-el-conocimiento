@@ -11,9 +11,9 @@ sealed class ExtractedArticle with _$ExtractedArticle {
     /// comentarios y barras laterales.
     required String contentHtml,
 
-    /// El mismo contenido sin etiquetas. Se usa para saber si valió la pena
-    /// la extracción: una página que devuelve cuatro palabras no era un
-    /// artículo.
+    /// El mismo contenido sin etiquetas. Se usa para saber si hubo algo que
+    /// extraer: una página sin una letra no tiene artículo. Una con cuatro
+    /// palabras sí, y se guarda (F22).
     required String textContent,
     String? title,
     String? byline,
@@ -41,11 +41,12 @@ abstract interface class WebPageClient {
 /// transformador ni nada aguas arriba.
 // ignore: one_member_abstracts
 abstract interface class ArticleExtractor {
-  /// El artículo, o `null` si la página no tenía uno reconocible.
+  /// El artículo, o `null` si la página no tenía ningún texto.
   ///
-  /// `null` es una respuesta legítima y frecuente: una portada, un listado de
-  /// productos o un panel de control no son artículos, y forzar una
-  /// extracción sobre ellos devolvería un revoltijo de fragmentos de menú.
+  /// Un texto corto no es motivo para `null` (F22): descartarlo era perder
+  /// contenido real —un aviso, una nota breve— sin guardar ni la página.
+  /// `null` queda para lo que de verdad no tiene nada que leer: una página
+  /// vacía, o una que solo arma su contenido con JavaScript.
   ExtractedArticle? extract(String html, {required Uri baseUri});
 }
 

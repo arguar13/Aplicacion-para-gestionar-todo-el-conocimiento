@@ -15,16 +15,26 @@ import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart'
 /// con tests, sin código obsoleto— y no que funcione con sitios reales. Por
 /// eso también queda detrás de [ArticleExtractor]: si falla con alguna clase
 /// de páginas, se cambia acá y nada más se entera.
+///
+/// **Un artículo corto se guarda igual (F22).** Antes, por debajo de 250
+/// caracteres se decía que no había artículo, y el transformador lanzaba
+/// antes de archivar: de un aviso breve, una nota de dos párrafos o una
+/// página de definiciones no quedaba ni el texto ni la página. Ahora todo
+/// texto que el algoritmo encuentre se devuelve; `null` queda solo para una
+/// página sin una letra.
+///
+/// **El límite que queda, y que es del algoritmo.** Readability, en un
+/// artículo largo, limpia "condicionalmente" tablas, listas y `<div>` que
+/// parecen navegación —muchos enlaces, pocas comas, más ítems que
+/// párrafos—, y saca el `<h1>` que repite el título (que igual queda como
+/// título del elemento). Casi siempre acierta, pero una lista de
+/// referencias o una tabla con enlaces puede caer. No se reescribe acá: el
+/// paquete no deja apagar esa limpieza, y el resguardo ya existe, porque la
+/// página entera queda archivada como el archivo original de la fuente. En
+/// un artículo de menos de 500 caracteres, en cambio, el algoritmo vuelve a
+/// intentar sin esa limpieza, así que lo corto sale con sus tablas y listas.
 class ReaderModeArticleExtractor implements ArticleExtractor {
   const ReaderModeArticleExtractor();
-
-  /// Por debajo de esto, lo extraído no es un artículo.
-  ///
-  /// El algoritmo siempre devuelve *algo* si encuentra texto, y en una
-  /// portada o un listado ese algo es un amasijo de fragmentos de menú.
-  /// Guardar eso sería peor que no guardar contenido: ensucia la búsqueda y
-  /// hace creer que el artículo se archivó cuando no.
-  static const _minimumArticleLength = 250;
 
   @override
   ExtractedArticle? extract(String html, {required Uri baseUri}) {
@@ -47,7 +57,7 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
     if (article == null) return null;
 
     final text = article.textContent.trim();
-    if (text.length < _minimumArticleLength) return null;
+    if (text.isEmpty) return null;
 
     final content = article.content.trim();
     if (content.isEmpty) return null;

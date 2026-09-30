@@ -130,8 +130,20 @@ void main() {
     });
   });
 
-  group('páginas que no son artículos', () {
-    test('una portada con puros enlaces devuelve null', () {
+  // Antes, por debajo de 250 caracteres se decía que no había artículo y el
+  // transformador lanzaba antes de archivar: no quedaba ni el texto ni la
+  // página. Ahora lo que el algoritmo encuentre se devuelve (F22).
+  group('páginas cortas o que no son artículos', () {
+    test('una página con muy poco texto devuelve ese texto, no null', () {
+      const tiny = '<html><body><p>Hola.</p></body></html>';
+
+      final article = extractor.extract(tiny, baseUri: baseUri);
+
+      expect(article?.textContent, 'Hola.');
+    });
+
+    test('una portada con puros enlaces devuelve su texto en vez de '
+        'descartarlo', () {
       const homepage = '''
 <html><body>
   <nav><a href="/a">Uno</a><a href="/b">Dos</a><a href="/c">Tres</a></nav>
@@ -139,21 +151,26 @@ void main() {
 </body></html>
 ''';
 
-      expect(extractor.extract(homepage, baseUri: baseUri), isNull);
+      final article = extractor.extract(homepage, baseUri: baseUri);
+
+      expect(article?.textContent, contains('Nota 1'));
+      expect(article?.textContent, contains('Nota 2'));
     });
 
-    test('una página con muy poco texto devuelve null: no era un artículo', () {
-      // El algoritmo siempre devuelve algo si encuentra texto. El umbral de
-      // longitud es lo que evita guardar cuatro palabras sueltas como si
-      // fueran el contenido archivado.
-      const tiny = '<html><body><p>Hola.</p></body></html>';
-
-      expect(extractor.extract(tiny, baseUri: baseUri), isNull);
-    });
-
-    test('HTML vacío o roto devuelve null en vez de estallar', () {
+    test('solo una página sin una letra devuelve null', () {
       expect(extractor.extract('', baseUri: baseUri), isNull);
-      expect(extractor.extract('<<<no es html>>>', baseUri: baseUri), isNull);
+      expect(
+        extractor.extract('<html><body> </body></html>', baseUri: baseUri),
+        isNull,
+      );
+    });
+
+    test('HTML roto no estalla: se lee como lo leería un navegador', () {
+      // "<<<no es html>>>" se ve en un navegador como "<<>>": ese es su
+      // texto.
+      final article = extractor.extract('<<<no es html>>>', baseUri: baseUri);
+
+      expect(article?.textContent, '<<>>');
     });
   });
 }

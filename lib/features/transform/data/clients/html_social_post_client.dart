@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:html/dom.dart';
+import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/features/transform/domain/clients/social_post_client.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
@@ -24,14 +26,19 @@ class HtmlSocialPostClient implements SocialPostClient {
 
   @override
   Future<SocialPostData> fetchPost(Uri url) async {
-    final html = await _client.fetchHtml(url);
+    // Se lee con un parser de HTML de verdad y no con expresiones regulares
+    // (F22): así cada atributo llega con todas sus entidades traducidas
+    // —"&#233;", "&nbsp;", "&hellip;"— y traducidas una sola vez. Antes se
+    // desescapaban seis a mano, y como "&amp;" iba primero, un "&amp;lt;"
+    // del original —que es el texto "&lt;"— terminaba como "<".
+    final document = html_parser.parse(await _client.fetchHtml(url));
 
     if (url.host.contains('tiktok.com')) {
-      final fromTikTok = _fromTikTokEmbed(html);
+      final fromTikTok = _fromTikTokEmbed(document);
       if (fromTikTok != null) return fromTikTok;
     }
 
-    return _fromOpenGraph(html);
+    return _fromOpenGraph(document);
   }
 
   /// El JSON que TikTok deja en la página para hidratar su propia interfaz.
@@ -40,15 +47,16 @@ class HtmlSocialPostClient implements SocialPostClient {
   /// usuario— pero solo cuando la estructura es la esperada. `null` si el
   /// script no está o si algo del camino no es lo que se esperaba, para que
   /// [fetchPost] caiga en Open Graph en vez de fallar.
-  SocialPostData? _fromTikTokEmbed(String html) {
-    final scriptMatch = RegExp(
-      '<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>',
-      dotAll: true,
-    ).firstMatch(html);
-    if (scriptMatch == null) return null;
+  SocialPostData? _fromTikTokEmbed(Document document) {
+    // El contenido de un `<script>` es texto crudo para el parser: llega tal
+    // cual, sin traducir entidades, que es lo que espera `jsonDecode`.
+    final script = document.getElementById(
+      '__UNIVERSAL_DATA_FOR_REHYDRATION__',
+    );
+    if (script == null) return null;
 
     try {
-      final data = jsonDecode(scriptMatch.group(1)!);
+      final data = jsonDecode(script.text);
       final item = _dig(data, [
         '__DEFAULT_SCOPE__',
         'webapp.video-detail',
@@ -101,59 +109,36 @@ class HtmlSocialPostClient implements SocialPostClient {
   /// previas de enlaces compartidos. El resguardo universal: más pobre que
   /// leer el JSON propio de la plataforma, pero disponible en casi cualquier
   /// publicación pública.
-  SocialPostData _fromOpenGraph(String html) {
+  SocialPostData _fromOpenGraph(Document document) {
     final videoUrl =
-        _metaContent(html, 'og:video:secure_url') ??
-        _metaContent(html, 'og:video');
+        _metaContent(document, 'og:video:secure_url') ??
+        _metaContent(document, 'og:video');
     // Solo se guarda si no hay video: entre las dos, el video es el
     // contenido más completo, y `og:image` en una publicación con video
     // suele ser apenas un fotograma de portada, no algo que valga la pena
     // guardar aparte.
-    final imageUrl = videoUrl == null ? _metaContent(html, 'og:image') : null;
+    final imageUrl = videoUrl == null
+        ? _metaContent(document, 'og:image')
+        : null;
 
     return SocialPostData(
-      caption: _metaContent(html, 'og:description'),
-      authorName: _metaContent(html, 'og:title'),
-      videoUrl: videoUrl != null
-          ? Uri.tryParse(_unescapeHtmlEntities(videoUrl))
-          : null,
-      imageUrl: imageUrl != null
-          ? Uri.tryParse(_unescapeHtmlEntities(imageUrl))
-          : null,
+      caption: _metaContent(document, 'og:description'),
+      authorName: _metaContent(document, 'og:title'),
+      // Sin desescapar otra vez: el parser ya tradujo las entidades, y una
+      // segunda pasada convertía un "&amp;lt;" en "<".
+      videoUrl: videoUrl != null ? Uri.tryParse(videoUrl) : null,
+      imageUrl: imageUrl != null ? Uri.tryParse(imageUrl) : null,
     );
   }
 
-  /// El contenido de `<meta property="$property" content="...">`, sin
-  /// importar en qué orden vengan los atributos —ambos órdenes aparecen en
-  /// la práctica según la plataforma.
-  String? _metaContent(String html, String property) {
-    final propertyFirst = RegExp(
-      '<meta[^>]*property="$property"[^>]*content="([^"]*)"',
-    ).firstMatch(html);
-    if (propertyFirst != null) {
-      return _unescapeHtmlEntities(propertyFirst.group(1)!);
-    }
-
-    final contentFirst = RegExp(
-      '<meta[^>]*content="([^"]*)"[^>]*property="$property"',
-    ).firstMatch(html);
-    return contentFirst != null
-        ? _unescapeHtmlEntities(contentFirst.group(1)!)
-        : null;
-  }
-
-  /// Las entidades que de verdad aparecen en atributos HTML de un `<meta>`.
-  ///
-  /// No hace falta una lista completa: esto no interpreta HTML de verdad,
-  /// solo el puñado de entidades que las plataformas usan al escapar
-  /// comillas, símbolos y saltos de línea dentro de un atributo.
-  String _unescapeHtmlEntities(String text) {
-    return text
-        .replaceAll('&amp;', '&')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#039;', "'")
-        .replaceAll('&apos;', "'")
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
-  }
+  /// El contenido de `<meta property="$property" content="...">`, con sus
+  /// entidades ya traducidas por el parser, sin importar en qué orden vengan
+  /// los atributos —ambos órdenes aparecen en la práctica según la
+  /// plataforma— ni con qué comillas.
+  String? _metaContent(Document document, String property) => document
+      .querySelectorAll('meta')
+      .where((meta) => meta.attributes['property'] == property)
+      .map((meta) => meta.attributes['content'])
+      .nonNulls
+      .firstOrNull;
 }

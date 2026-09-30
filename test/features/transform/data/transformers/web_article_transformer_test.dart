@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
@@ -115,15 +116,60 @@ void main() {
       final result = await transformer.transform(webItem());
       final content = result.renditions.single.searchableText!;
 
-      expect(content, contains('## Un subtítulo'));
-      expect(content, contains('**énfasis**'));
-      expect(content, isNot(contains('<p>')));
-      // Sin configurar el estilo, la librería escribe los encabezados de
-      // nivel 1 y 2 subrayados con === y ---, y del 3 en adelante con
-      // almohadillas: el mismo documento saldría con dos convenciones.
-      expect(content, isNot(contains('---')));
+      // Carácter por carácter (F22). Con html2md, además, sin configurar el
+      // estilo los encabezados de nivel 1 y 2 salían subrayados con === y
+      // ---: el mismo documento con dos convenciones.
+      expect(content, '## Un subtítulo\n\nCon **énfasis**.');
       expect(result.renditions.single.renditionKind, RenditionKind.markdown);
     });
+
+    test('no agrega barras invertidas al texto del artículo (F22)', () async {
+      // html2md guardaba "\[1\]", "1\. Intro" y "a\_b": barras que el
+      // artículo no tiene.
+      final transformer = build(
+        extractor: FakeArticleExtractor(
+          article: const ExtractedArticle(
+            contentHtml:
+                '<p>Ver [1].</p><p>1. Intro</p><p>a_b y 10<sup>6</sup></p>',
+            textContent: 'Ver [1]. 1. Intro a_b y 106',
+          ),
+        ),
+      );
+
+      final result = await transformer.transform(webItem());
+
+      expect(
+        result.renditions.single.searchableText,
+        'Ver [1].\n\n1. Intro\n\na_b y 10<sup>6</sup>',
+      );
+    });
+
+    test(
+      'un artículo corto se guarda, con la página archivada (F22)',
+      () async {
+        // Con el extractor de verdad: antes, por debajo de 250 caracteres se
+        // decía que no había artículo y no se guardaba ni el texto ni la
+        // página.
+        final transformer = WebArticleTransformer(
+          client: FakeWebPageClient(
+            html: '<html><body><p>Cerrado por feriado.</p></body></html>',
+          ),
+          extractor: const ReaderModeArticleExtractor(),
+          archiver: FakePageArchiver(
+            result: Uint8List.fromList(utf8.encode('<html></html>')),
+          ),
+          files: files,
+          ids: ids,
+          clock: () => now,
+          logger: const SilentLogger(),
+        );
+
+        final result = await transformer.transform(webItem());
+
+        expect(result.renditions.single.searchableText, 'Cerrado por feriado.');
+        expect(result.source.originalFilePath, isNotNull);
+      },
+    );
 
     test(
       'reemplaza el título deducido de la URL por el del artículo',
@@ -176,21 +222,18 @@ void main() {
     });
   });
 
-  group('páginas que no son artículos', () {
-    test(
-      'lanza en vez de guardar un revoltijo de fragmentos de menú',
-      () async {
-        // Una portada, un listado de productos o un panel de control no tienen
-        // artículo. Forzar la extracción devolvería restos de navegación, que
-        // ensucian la búsqueda y hacen creer que se archivó algo.
-        final transformer = build(extractor: FakeArticleExtractor());
+  group('páginas sin nada que leer', () {
+    test('lanza en vez de guardar un elemento vacío', () async {
+      // El extractor solo responde que no hay artículo cuando la página no
+      // tiene ni una letra (F22): vacía, o armada entera con JavaScript.
+      // El elemento queda como fallido y conserva su enlace.
+      final transformer = build(extractor: FakeArticleExtractor());
 
-        expect(
-          () => transformer.transform(webItem()),
-          throwsA(isA<NoArticleFoundException>()),
-        );
-      },
-    );
+      expect(
+        () => transformer.transform(webItem()),
+        throwsA(isA<NoArticleFoundException>()),
+      );
+    });
   });
 
   group('archivado de la página', () {

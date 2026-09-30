@@ -78,10 +78,11 @@ dependencies:
   # el reconocedor de script latino: cubre español e inglés, los dos idiomas
   # de la interfaz, sin sumar los paquetes de otros alfabetos.
   google_mlkit_text_recognition: ^0.17.1
-  # Parseo de HTML, para la extracción de artículos.
+  # Parseo de HTML, para la extracción de artículos y para convertir a
+  # Markdown el HTML de las páginas y los libros EPUB. La conversión es
+  # propia (`html_to_markdown.dart`) y no de `html2md`, que escapaba el texto
+  # sin opción para no hacerlo: "[1]" se guardaba "\[1\]" (F22).
   html: ^0.15.7
-  # HTML -> Markdown: el formato de intercambio del proyecto.
-  html2md: ^1.3.2
   # Ya venía como dependencia transitiva —la usa `youtube_explode_dart` para
   # hablar con YouTube—; se declara explícita porque el cliente de YouTube
   # reconoce su `ClientException` para decir "sin conexión" en vez de "error

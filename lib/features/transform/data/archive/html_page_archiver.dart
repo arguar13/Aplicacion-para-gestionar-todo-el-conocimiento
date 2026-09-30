@@ -83,6 +83,7 @@ class HtmlPageArchiver implements PageArchiver {
   Future<Uint8List?> archive(String html, {required Uri baseUri}) async {
     try {
       final document = html_parser.parse(html);
+      _declareUtf8(document);
       final budget = _Budget(
         bytes: _maxTotalBytes,
         requests: _maxRequests,
@@ -106,6 +107,27 @@ class HtmlPageArchiver implements PageArchiver {
     } catch (_) {
       return null;
     }
+  }
+
+  /// El archivo se escribe en UTF-8, y tiene que decirlo (F22).
+  ///
+  /// La página llega ya convertida a texto con la codificación que declaraba
+  /// —ver `decodeHtmlBytes`—, y se guarda en UTF-8. Si conservara su
+  /// `<meta charset="windows-1252">`, el navegador que abra el archivo
+  /// leería esos bytes UTF-8 como Windows-1252 y cada tilde saldría como dos
+  /// caracteres rotos ("aÃ±o").
+  void _declareUtf8(Document document) {
+    for (final meta in document.querySelectorAll('meta')) {
+      final httpEquiv = meta.attributes['http-equiv']?.trim().toLowerCase();
+      if (meta.attributes.containsKey('charset') ||
+          httpEquiv == 'content-type') {
+        meta.remove();
+      }
+    }
+    document.head?.nodes.insert(
+      0,
+      Element.tag('meta')..attributes['charset'] = 'utf-8',
+    );
   }
 
   Future<void> _embedImages(

@@ -1,6 +1,5 @@
 import 'dart:isolate';
 
-import 'package:html2md/html2md.dart' as html2md;
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -9,6 +8,7 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
@@ -27,6 +27,11 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 /// - El índice de búsqueda toma el texto de todas las formas guardadas. Con
 ///   el HTML adentro, cada artículo entraría dos veces y con los nombres de
 ///   las etiquetas mezclados entre las palabras.
+///
+/// La conversión es la misma que la de los libros EPUB, `htmlToMarkdown`:
+/// el texto del artículo va carácter por carácter, sin las barras
+/// invertidas que agregaba `html2md` (F22). Ver ahí qué marcado se agrega y
+/// por qué.
 ///
 /// Además de extraer el artículo, archiva la página entera tal como estaba
 /// —con sus imágenes y sus estilos incrustados, al modo de SingleFile— y la
@@ -97,14 +102,15 @@ class WebArticleTransformer implements Transformer {
       final extracted = extractor.extract(html, baseUri: url);
       return (
         extracted,
-        extracted == null ? null : _toMarkdown(extracted.contentHtml),
+        extracted == null ? null : htmlToMarkdown(extracted.contentHtml),
       );
     });
 
     if (article == null || markdown == null) {
-      // No había artículo: una portada, un listado, un panel. Se lanza en vez
-      // de guardar un revoltijo de fragmentos de menú — el elemento queda
-      // marcado como fallido y conserva su enlace, que sigue sirviendo.
+      // La página no tenía ni una letra que leer —vacía, o armada entera con
+      // JavaScript—. Un texto corto ya no llega acá: se guarda (F22). Se
+      // lanza para que el elemento quede como fallido y conserve su enlace,
+      // que sigue sirviendo.
       throw NoArticleFoundException(url);
     }
 
@@ -173,17 +179,3 @@ class WebArticleTransformer implements Transformer {
     }
   }
 }
-
-/// Convierte el HTML del artículo a Markdown.
-///
-/// `headingStyle: 'atx'` no es un detalle de gusto. Por defecto la librería
-/// escribe los encabezados de nivel 1 y 2 al estilo antiguo —subrayados con
-/// `===` y `---`— y del 3 en adelante con almohadillas, así que un mismo
-/// documento sale con dos convenciones mezcladas. Con `atx` todos quedan
-/// como `#`, `##`, `###`, que es lo que esperan Obsidian, Logseq y cualquier
-/// editor actual.
-///
-/// Una función suelta y no un método: corre en otro isolate, y así no
-/// arrastra al transformador entero —con sus dependencias— hasta allá.
-String _toMarkdown(String html) =>
-    html2md.convert(html, styleOptions: const {'headingStyle': 'atx'});
