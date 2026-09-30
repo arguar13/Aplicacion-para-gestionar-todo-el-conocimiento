@@ -154,7 +154,7 @@ void main() {
     final checkpoints = _MemoryCheckpoints();
     await checkpoints.save(
       'item-1',
-      ProcessingCheckpointKind.transcriptSegment,
+      ProcessingCheckpointKind.transcriptWindow,
       position: 0,
       content: 'de antes',
     );
@@ -177,10 +177,31 @@ void main() {
     expect(
       await checkpoints.load(
         'item-1',
-        ProcessingCheckpointKind.transcriptSegment,
+        ProcessingCheckpointKind.transcriptWindow,
       ),
       {0: 'de antes', 1: 'nuevo'},
     );
+  });
+
+  test('lo guardado con los tramos de 29 s de antes de F22 no se retoma: '
+      'son otros tramos, y mezclarlos daría texto repetido', () async {
+    final checkpoints = _MemoryCheckpoints();
+    await checkpoints.save(
+      'item-1',
+      ProcessingCheckpointKind.transcriptSegment,
+      position: 0,
+      content: 'tramo viejo de 29 s',
+    );
+
+    await AudioTranscriptTransformer(
+      transcriber: transcriber,
+      files: files,
+      ids: FakeIdGenerator(),
+      clock: () => now,
+      checkpoints: checkpoints,
+    ).transform(await seed());
+
+    expect(await transcriber.sessions.single.transcribedSegments(), isEmpty);
   });
 }
 

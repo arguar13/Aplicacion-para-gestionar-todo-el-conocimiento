@@ -7,6 +7,7 @@ import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
+import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
@@ -23,12 +24,15 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 ///    lo lee el decodificador nativo. El WAV queda en disco hasta terminar:
 ///    si la app se cierra a mitad de camino, al retomar no se reconvierte
 ///    (F21).
-/// 2. Transcribirlo por tramos de 29 segundos —la ventana de Whisper, ver
-///    `transcribeInChunks`— en un isolate aparte, leyendo del WAV de a un
-///    tramo: una hora de audio son 115 MB de WAV y 230 MB de muestras, y ya
-///    no se cargan enteros (F21). Cada tramo terminado vuelve al isolate
-///    principal, que lo guarda y avisa el avance; al retomar, los tramos ya
-///    guardados no se repiten. Ver `runSegmentedTranscription`.
+/// 2. Transcribirlo por tramos de hasta 14,5 segundos cortados en pausas,
+///    con protección contra los bucles del motor y sin mandarle el silencio
+///    —ver `speech_windows.dart` (F22)—, en un isolate aparte, leyendo del
+///    WAV de a un tramo: una hora de audio son 115 MB de WAV y 230 MB de
+///    muestras, y no se cargan enteros (F21). Dónde cortar sale de recorrer
+///    el WAV una vez, por partes, midiendo su energía. Cada tramo terminado
+///    vuelve al isolate principal, que lo guarda y avisa el avance; al
+///    retomar, los tramos ya guardados no se repiten. Ver
+///    `runSegmentedTranscription`.
 ///
 /// Por qué en dos pasos y no todo junto: `audio_decoder` habla con las APIs
 /// nativas de la plataforma por un canal de método, y esos canales no
@@ -90,18 +94,22 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
       }
       session.context.throwIfCancelled();
 
-      final samples = (wav.lengthSync() - _wavHeaderBytes) ~/ 2;
-      final segmentCount = (samples / whisperChunkSamples).ceil();
+      final wavPath = wav.path;
+      final windows = await Isolate.run(
+        () => planWindows(_energyProfileOf(wavPath)),
+      );
+      session.context.throwIfCancelled();
 
       final job = _TranscriptionJob(
         wavPath: wav.path,
+        windows: windows,
         encoder: modelPaths.encoder,
         decoder: modelPaths.decoder,
         tokens: modelPaths.tokens,
         threads: _threads,
       );
       final text = await runSegmentedTranscription(
-        segmentCount: segmentCount,
+        segmentCount: windows.length,
         session: session,
         transcribe: job.run,
       );
@@ -126,6 +134,23 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   /// más son los de bajo consumo, que frenan al resto.
   static int get _threads => math.min(Platform.numberOfProcessors, 4);
 
+  /// La energía del WAV en [path], leyéndolo de a 1 MB: no se carga entero.
+  static EnergyProfile _energyProfileOf(String path) {
+    final builder = EnergyProfileBuilder();
+    final file = File(path).openSync();
+    try {
+      file.setPositionSync(_wavHeaderBytes);
+      while (true) {
+        final bytes = file.readSync(1 << 20);
+        if (bytes.isEmpty) break;
+        builder.add(pcm16ToFloat32Samples(bytes));
+      }
+    } finally {
+      file.closeSync();
+    }
+    return builder.build();
+  }
+
   /// Un WAV por elemento, para retomar el suyo; uno suelto si no se sabe de
   /// quién es.
   static String _wavName(String? workKey) {
@@ -140,6 +165,7 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
 class _TranscriptionJob {
   const _TranscriptionJob({
     required this.wavPath,
+    required this.windows,
     required this.encoder,
     required this.decoder,
     required this.tokens,
@@ -147,6 +173,10 @@ class _TranscriptionJob {
   });
 
   final String wavPath;
+
+  /// Los tramos en que se parte el audio, en orden: el número de tramo es
+  /// su posición acá.
+  final List<AudioWindow> windows;
   final String encoder;
   final String decoder;
   final String tokens;
@@ -235,7 +265,7 @@ void _transcribeSegments(_WorkerArgs args) {
             encoder: job.encoder,
             decoder: job.decoder,
             // Sin esto, Whisper redetecta el idioma en cada ventana de 30
-            // segundos por separado —ver `transcribeInChunks`—, y en un audio
+            // segundos por separado, y en un audio
             // largo eso puede hacer que el idioma "flote" entre fragmentos,
             // sobre todo en los más cortos, con ruido, o con nombres propios
             // en otro idioma. Fijarlo en español, el idioma principal de
@@ -252,14 +282,23 @@ void _transcribeSegments(_WorkerArgs args) {
     );
 
     wav = File(job.wavPath).openSync();
-    const bytesPerSegment = whisperChunkSamples * 2;
+    final engine = recognizer;
     for (final segment in args.pending) {
+      final window = job.windows[segment];
+      if (window.silent) {
+        out.send((segment, ''));
+        continue;
+      }
       wav.setPositionSync(
-        SherpaOnnxAudioTranscriberIo._wavHeaderBytes +
-            segment * bytesPerSegment,
+        SherpaOnnxAudioTranscriberIo._wavHeaderBytes + window.start * 2,
       );
-      final samples = pcm16ToFloat32Samples(wav.readSync(bytesPerSegment));
-      out.send((segment, transcribeWindow(recognizer, samples)));
+      final samples = pcm16ToFloat32Samples(wav.readSync(window.length * 2));
+      final text = transcribeGuarded(
+        samples,
+        (samples) => transcribeWindow(engine, samples),
+        offset: window.start,
+      );
+      out.send((segment, text));
     }
     out.send(null);
     // Cualquier falla del motor nativo o del archivo: vuelve como un fallo

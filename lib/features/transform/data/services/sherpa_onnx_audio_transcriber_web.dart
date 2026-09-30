@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
@@ -6,6 +6,7 @@ import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/transform/data/services/opfs_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 import 'package:sinapsis/features/transform/data/services/sherpa_onnx_offline_recognizer_fix.dart';
+import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
@@ -99,19 +100,30 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
       );
       final samples = pcm16ToFloat32Samples(pcmBytes);
 
-      // Por tramos, con avance y retomable, igual que en el dispositivo
-      // (F21). Acá no hay isolates: entre tramo y tramo se le devuelve el
-      // turno a la interfaz.
+      // Por tramos cortados en pausas, con protección contra los bucles del
+      // motor, avance y retomable, igual que en el dispositivo (F21, F22).
+      // Acá no hay isolates: entre tramo y tramo se le devuelve el turno a
+      // la interfaz.
+      final windows = planWindows(EnergyProfile.of(samples));
       return await runSegmentedTranscription(
-        segmentCount: (samples.length / whisperChunkSamples).ceil(),
+        segmentCount: windows.length,
         session: session,
         transcribe: (pending) async* {
           for (final segment in pending) {
-            final start = segment * whisperChunkSamples;
-            final end = math.min(start + whisperChunkSamples, samples.length);
+            final window = windows[segment];
             yield (
               segment,
-              transcribeWindow(recognizer, samples.sublist(start, end)),
+              window.silent
+                  ? ''
+                  : transcribeGuarded(
+                      Float32List.sublistView(
+                        samples,
+                        window.start,
+                        window.end,
+                      ),
+                      (samples) => transcribeWindow(recognizer, samples),
+                      offset: window.start,
+                    ),
             );
             await Future<void>.delayed(Duration.zero);
           }

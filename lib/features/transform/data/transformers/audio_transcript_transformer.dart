@@ -93,13 +93,13 @@ class AudioTranscriptTransformer implements Transformer {
             ? null
             : () => checkpoints.load(
                 item.id,
-                ProcessingCheckpointKind.transcriptSegment,
+                ProcessingCheckpointKind.transcriptWindow,
               ),
         saveSegment: checkpoints == null
             ? null
             : (segment, text) => checkpoints.save(
                 item.id,
-                ProcessingCheckpointKind.transcriptSegment,
+                ProcessingCheckpointKind.transcriptWindow,
                 position: segment,
                 content: text,
               ),
