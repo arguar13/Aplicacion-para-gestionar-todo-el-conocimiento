@@ -142,6 +142,12 @@ dependencies:
   # costo de sumar `url_launcher` de paso deja de pesar más que construir
   # un visor de páginas a mano.
   pdfrx: ^2.6.1
+  # La copia de Material con la que `pdfrx` arma sus widgets (el menú de
+  # copiar texto, entre otros). Venía como dependencia transitiva; se declara
+  # para darle al visor las traducciones y el tema que esas clases buscan y
+  # que la app —hecha con `flutter/material`— no registra. Ver
+  # `PdfrxMaterialBridge`.
+  material_ui: ^1.2.0
   # La API de lectura de PDF sobre PDFium, en Dart puro y con licencia MIT.
   # Reemplaza a syncfusion_flutter_pdf, cuya licencia community es
   # propietaria: ver la decisión 3 en docs/arquitectura.md. Sigue siendo lo
