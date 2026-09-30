@@ -610,6 +610,11 @@ class AppDatabase extends _$AppDatabase {
               knowledgeSources.language,
             );
           }
+          // El índice de los chunks pasa a indexar también las palabras
+          // cortadas por guion al final del renglón, unidas: el texto de un
+          // PDF se guarda desde F22 tal cual, con sus renglones (ver
+          // `chunkSearchText`). Se rehace entero con la definición nueva.
+          await _rebuildChunkSearchIndex();
           await _requireSameCounts(before, step: 'v32', tables: tables);
         }
       });
@@ -687,10 +692,34 @@ class AppDatabase extends _$AppDatabase {
   /// Crea el índice de texto de los chunks, su vista de vocabulario y los
   /// triggers que lo mantienen.
   Future<void> _createChunkSearchIndex() async {
+    await customStatement(createChunkSearchTextView);
     await customStatement(createChunkSearchTable);
     await customStatement(createChunkVocabTable);
     for (final trigger in chunkSearchTriggers) {
       await customStatement(trigger);
+    }
+  }
+
+  /// Suelta el índice de texto de los chunks —triggers, vocabulario, tabla y
+  /// vista— y lo vuelve a crear y a llenar con la definición de hoy. El
+  /// índice es derivado: rehacerlo no toca ningún dato. Exige al final una
+  /// entrada por chunk.
+  Future<void> _rebuildChunkSearchIndex() async {
+    for (final trigger in chunkSearchTriggerNames) {
+      await customStatement('DROP TRIGGER IF EXISTS $trigger');
+    }
+    await customStatement('DROP TABLE IF EXISTS chunk_vocab');
+    await customStatement('DROP TABLE IF EXISTS chunk_search');
+    await customStatement('DROP VIEW IF EXISTS chunk_search_text');
+    await _createChunkSearchIndex();
+    await customStatement(rebuildChunkSearch);
+    final indexed = await _count('chunk_search_docsize');
+    final chunksNow = await _count('chunks');
+    if (indexed != chunksNow) {
+      throw StateError(
+        'El índice de texto de los chunks quedó con $indexed entradas y '
+        'hay $chunksNow chunks.',
+      );
     }
   }
 

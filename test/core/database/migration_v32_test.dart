@@ -27,6 +27,12 @@ void main() {
       "content_hash, processing_status) VALUES ('alabanza', 'audio', "
       "'Un coro', $seconds, 'hash', 'done')",
     );
+    // Un chunk de un libro con una palabra cortada al final del renglón.
+    await db.customStatement(
+      'INSERT INTO chunks (id, item_id, seq, content, char_start, char_end) '
+      "VALUES ('c1', 'alabanza', 0, 'las ex-' || char(10) || 'plicaciones', "
+      '0, 19)',
+    );
   }
 
   final untouched = [
@@ -87,6 +93,22 @@ void main() {
           ..where((s) => s.itemId.equals('alabanza')))
         .write(const KnowledgeSourcesCompanion(language: Value('en')));
     expect((await db.select(db.knowledgeSources).getSingle()).language, 'en');
+  });
+
+  test('el índice de los chunks queda rehecho: encuentra la palabra cortada '
+      'por guion de lo que ya estaba', () async {
+    final db = await migrateFrom31();
+
+    final found = await db
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM chunk_search '
+          "WHERE chunk_search MATCH 'explicaciones'",
+        )
+        .getSingle();
+    expect(found.read<int>('n'), 1);
+    await db.customStatement(
+      "INSERT INTO chunk_search (chunk_search) VALUES ('integrity-check')",
+    );
   });
 
   test('no queda ninguna clave que apunte a algo que no existe', () async {

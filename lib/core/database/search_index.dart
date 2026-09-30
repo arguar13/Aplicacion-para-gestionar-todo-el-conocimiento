@@ -187,10 +187,49 @@ SELECT i.id, i.title, COALESCE(i.subtitle, ''), ${_body('i.id')}
 const createChunkSearchTable = '''
 CREATE VIRTUAL TABLE IF NOT EXISTS chunk_search USING fts5(
   content,
-  content = 'chunks',
+  content = 'chunk_search_text',
   content_rowid = 'row_key',
   tokenize = "unicode61 remove_diacritics 2"
 )''';
+
+/// Las cuatro formas de cortar una palabra al final de un renglón que
+/// deshace [chunkSearchText]: guion común (con salto de Windows o no),
+/// guion suave (U+00AD) y guion tipográfico (U+2010).
+String _joinedHyphenations(String column) =>
+    'replace(replace(replace(replace($column, '
+    "'-' || char(13) || char(10), ''), "
+    "'-' || char(10), ''), "
+    "char(173) || char(10), ''), "
+    "char(8208) || char(10), '')";
+
+/// El texto que INDEXA la búsqueda de un chunk, como expresión SQL sobre
+/// [column] (F22).
+///
+/// El texto guardado es el original, carácter por carácter: un libro PDF
+/// conserva sus renglones y sus guiones de corte, `ex-⏎plicaciones`. Para
+/// que buscar "explicaciones" lo encuentre igual, el índice recibe, además
+/// del texto tal cual, la versión con esas palabras unidas —solo en los
+/// chunks que tienen alguna; el resto se indexa igual que siempre—. Van las
+/// dos y no solo la unida porque un guion al final del renglón también
+/// puede ser de verdad: `teórico-⏎práctico`, `1990-⏎1995`, y así se
+/// encuentran tanto "teórico" como "teóricopráctico".
+///
+/// Es solo lo que se indexa: nadie lee este texto. La app no usa
+/// `snippet()` ni `highlight()` de FTS5 —que sí dependen de que índice y
+/// texto coincidan palabra por palabra—, solo `MATCH` y `rank`.
+String chunkSearchText(String column) {
+  final joined = _joinedHyphenations(column);
+  return 'CASE WHEN $joined <> $column '
+      'THEN $column || char(10) || $joined ELSE $column END';
+}
+
+/// De dónde lee `chunk_search` el texto que indexa al reconstruirse: los
+/// chunks, con [chunkSearchText] (F22). Una vista y no `chunks` directo,
+/// para que reconstruir el índice —`rebuild`— indexe exactamente lo mismo
+/// que los triggers, fila por fila.
+final createChunkSearchTextView = '''
+CREATE VIEW IF NOT EXISTS chunk_search_text AS
+SELECT row_key, ${chunkSearchText('content')} AS content FROM chunks''';
 
 /// Cuántos chunks contienen cada palabra, según el propio índice.
 ///
@@ -209,24 +248,37 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunk_vocab USING fts5vocab(chunk_search, row
 /// En una tabla de contenido externo, borrar o cambiar una fila obliga a
 /// decirle al índice QUÉ texto tenía: por eso los triggers de baja y de cambio
 /// pasan `OLD.content`.
+///
+/// Lo que se indexa —y lo que se le dice al índice que se borra— es
+/// [chunkSearchText] del texto, no el texto a secas (F22).
 final chunkSearchTriggers = <String>[
   '''
 CREATE TRIGGER IF NOT EXISTS chunks_search_ai AFTER INSERT ON chunks BEGIN
-  INSERT INTO chunk_search (rowid, content) VALUES (NEW.row_key, NEW.content);
+  INSERT INTO chunk_search (rowid, content)
+  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
 END''',
 
   '''
 CREATE TRIGGER IF NOT EXISTS chunks_search_ad AFTER DELETE ON chunks BEGIN
   INSERT INTO chunk_search (chunk_search, rowid, content)
-  VALUES ('delete', OLD.row_key, OLD.content);
+  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
 END''',
 
   '''
 CREATE TRIGGER IF NOT EXISTS chunks_search_au AFTER UPDATE OF content ON chunks BEGIN
   INSERT INTO chunk_search (chunk_search, rowid, content)
-  VALUES ('delete', OLD.row_key, OLD.content);
-  INSERT INTO chunk_search (rowid, content) VALUES (NEW.row_key, NEW.content);
+  VALUES ('delete', OLD.row_key, ${chunkSearchText('OLD.content')});
+  INSERT INTO chunk_search (rowid, content)
+  VALUES (NEW.row_key, ${chunkSearchText('NEW.content')});
 END''',
+];
+
+/// Los nombres de [chunkSearchTriggers], para soltarlos al rehacer el
+/// índice.
+const chunkSearchTriggerNames = [
+  'chunks_search_ai',
+  'chunks_search_ad',
+  'chunks_search_au',
 ];
 
 /// Reconstruye `chunk_search` desde `chunks`. Para la migración, que primero

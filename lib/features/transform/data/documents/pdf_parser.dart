@@ -303,49 +303,26 @@ class PdfParser implements DocumentParser {
 /// verdaderamente atípico.
 const _maxDirectLoadBytes = 64 * 1024 * 1024;
 
-/// Deja el texto de una página de PDF en algo legible.
+/// El texto de una página de PDF, tal como lo trae el documento (F22).
 ///
-/// PDFium devuelve el texto tal como está puesto en la página, y una página
-/// maquetada trae rarezas que no son parte de lo que el autor escribió:
+/// Lo único que cambia son los finales de línea —`\r\n` y `\r` pasan a
+/// `\n`, el mismo salto escrito de otra forma— y una página que es solo
+/// espacios cuenta como vacía: no tiene ninguna letra, y es lo que marca una
+/// página escaneada (ver `PdfParser`).
 ///
-/// - **Saltos de línea en medio de las frases**, porque el salto es del
-///   ancho de la página y no del párrafo. Se unen: si no, el índice de
-///   búsqueda guarda medias frases y buscar una expresión de cuatro palabras
-///   no encuentra nada. Dos saltos seguidos sí marcan un párrafo nuevo y se
-///   respetan.
-/// - **Guiones de corte de palabra** al final del renglón: `cono-` y
-///   `cimiento` se juntan en `conocimiento`, o la palabra queda partida en
-///   dos mitades que no se encuentran nunca.
-///
-/// Lo segundo tiene un costo conocido y aceptado: una palabra compuesta que
-/// caiga justo al final de un renglón —`teórico-práctico`— también se junta,
-/// y pierde su guion. No hay forma de distinguirlas mirando el texto: las
-/// dos son un guion al final de la línea. Se elige juntar porque los cortes
-/// de palabra son muchísimo más frecuentes que un compuesto cayendo
-/// exactamente ahí, y porque el daño es asimétrico: un compuesto sin guion
-/// se sigue leyendo y se sigue encontrando, y una palabra partida en dos no.
-/// Es lo mismo que hacen las herramientas clásicas de extracción.
-///
-/// El guion suave —el carácter invisible que algunos PDFs usan para marcar
-/// justamente un corte— sí es inequívoco, y se trata igual.
-///
-/// Se expone para poder probarlo por su cuenta: es lo que decide si el texto
-/// de un libro entero se puede buscar o no.
+/// El resto queda: los saltos de línea de la maquetación, los guiones
+/// de corte al final del renglón, los espacios que alinean columnas. Antes
+/// se "limpiaba" —se unían los renglones, se juntaban `cono-` y `cimiento`,
+/// se colapsaban los espacios—, y eso borraba la forma de poemas, listas,
+/// tablas e índices, pegaba compuestos como `teórico-práctico` en
+/// `teóricopráctico` y rangos como `1990-1995` en `19901995`. Ninguna de
+/// esas uniones hacía falta: la búsqueda encuentra una frase aunque cruce un
+/// salto de línea, y encuentra la palabra cortada por guion porque el índice
+/// —solo el índice— recibe también la versión con esas palabras unidas (ver
+/// `chunkSearchText` en `search_index.dart`).
 String cleanPdfPageText(String raw) {
   final text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-
-  final unhyphenated = text.replaceAllMapped(
-    RegExp(r'(\w)[-\u00AD]\n(\w)'),
-    (m) => '${m[1]}${m[2]}',
-  );
-
-  final joined = unhyphenated.replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), ' ');
-
-  return joined
-      .split('\n')
-      .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
-      .join('\n')
-      .trim();
+  return text.trim().isEmpty ? '' : text;
 }
 
 /// Los autores que `readPdfMetadata` encontró, como un único texto —«Gabriel

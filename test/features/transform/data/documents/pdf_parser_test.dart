@@ -44,73 +44,67 @@ void main() {
     });
   });
 
-  group('limpieza del texto de una pagina', () {
-    // Se prueba aparte del motor nativo porque es lo que decide si el texto
-    // de un libro entero se puede buscar o no, y merece casos precisos.
+  group('el texto de una pagina, tal cual (F22)', () {
+    // Se prueba aparte del motor nativo: es lo que decide si el texto de un
+    // libro entero se guarda como es. Cada caso, caracter por caracter.
 
-    test('une las frases partidas por el ancho de la pagina', () {
-      // El salto es del diseno de la pagina, no del parrafo. Sin unirlas, el
-      // indice guarda medias frases y buscar una expresion de cuatro palabras
-      // no encuentra nada.
+    test('los renglones quedan como en la pagina', () {
+      // Poemas, listas, indices y tablas viven de sus saltos de linea.
       expect(
         cleanPdfPageText('La estructura de las\nrevoluciones cientificas'),
-        'La estructura de las revoluciones cientificas',
+        'La estructura de las\nrevoluciones cientificas',
+      );
+      expect(
+        cleanPdfPageText('Enero 100\nFebrero 200\nMarzo 300'),
+        'Enero 100\nFebrero 200\nMarzo 300',
       );
     });
 
-    test('respeta los parrafos de verdad', () {
-      // Dos saltos seguidos si marcan un parrafo nuevo.
+    test('los parrafos, tambien', () {
       expect(
         cleanPdfPageText('Primer parrafo.\n\nSegundo parrafo.'),
         'Primer parrafo.\n\nSegundo parrafo.',
       );
     });
 
-    test('junta las palabras cortadas con guion', () {
-      // O la palabra queda partida en dos mitades que no se encuentran nunca.
+    test('el guion de corte al final del renglon no se toca: la busqueda '
+        'encuentra la palabra igual (ver search_index)', () {
       expect(
         cleanPdfPageText('El cono-\ncimiento acumulado'),
-        'El conocimiento acumulado',
+        'El cono-\ncimiento acumulado',
       );
     });
 
-    test('un compuesto cortado al final del renglon tambien se junta', () {
-      // Costo conocido y aceptado: `teorico-practico` partido al final de una
-      // linea es indistinguible de una palabra cortada. Se elige juntar
-      // porque los cortes son muchisimo mas frecuentes, y porque el dano es
-      // asimetrico: un compuesto sin guion se sigue leyendo y se sigue
-      // encontrando; una palabra partida en dos, no.
+    test('ni un compuesto ni un rango se pegan', () {
+      // Antes: "teoricopractico" y "19901995".
       expect(
         cleanPdfPageText('un enfoque teorico-\npractico'),
-        'un enfoque teoricopractico',
+        'un enfoque teorico-\npractico',
       );
+      expect(cleanPdfPageText('entre 1990-\n1995'), 'entre 1990-\n1995');
     });
 
-    test('el guion suave tambien se junta: ese si es inequivoco', () {
-      // Algunos PDFs marcan el corte con el caracter invisible U+00AD, que
-      // existe solo para eso.
+    test('el guion suave queda donde estaba', () {
+      expect(cleanPdfPageText('El cono­\ncimiento'), 'El cono­\ncimiento');
+    });
+
+    test('solo cambian los saltos de Windows, que son el mismo salto', () {
       expect(
-        cleanPdfPageText(
-          'El cono\u00ADcimiento'.replaceAll('\u00AD', '\u00AD\n'),
-        ),
-        'El conocimiento',
+        cleanPdfPageText('Una linea\r\nY otra\rY otra mas'),
+        'Una linea\nY otra\nY otra mas',
       );
     });
 
-    test('normaliza los saltos de Windows', () {
-      expect(cleanPdfPageText('Una linea\r\nY otra'), 'Una linea Y otra');
-    });
-
-    test('colapsa los espacios de maquetacion', () {
-      // El texto justificado llega con espacios de relleno entre palabras.
+    test('los espacios que alinean columnas quedan', () {
       expect(
-        cleanPdfPageText('Palabras    muy      separadas'),
-        'Palabras muy separadas',
+        cleanPdfPageText('Nombre      Edad\nAna         34'),
+        'Nombre      Edad\nAna         34',
       );
     });
 
-    test('una pagina en blanco queda vacia', () {
+    test('una pagina sin ninguna letra queda vacia', () {
       expect(cleanPdfPageText('   \n\n  \t '), '');
+      expect(cleanPdfPageText(''), '');
     });
   });
 
