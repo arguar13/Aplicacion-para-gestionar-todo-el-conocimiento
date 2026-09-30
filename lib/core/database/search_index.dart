@@ -192,15 +192,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunk_search USING fts5(
   tokenize = "unicode61 remove_diacritics 2"
 )''';
 
-/// Las cuatro formas de cortar una palabra al final de un renglón que
-/// deshace [chunkSearchText]: guion común (con salto de Windows o no),
-/// guion suave (U+00AD) y guion tipográfico (U+2010).
+/// Las formas de cortar una palabra que deshace [chunkSearchText]: al final
+/// de un renglón, guion común (con salto de Windows o no), guion suave
+/// (U+00AD) y guion tipográfico (U+2010); y el guion suave en cualquier
+/// lugar, que es un punto de corte posible y no un carácter —un Word lo trae
+/// adentro de las palabras, "ex­plicación", y FTS5 lo toma como separador—.
 String _joinedHyphenations(String column) =>
-    'replace(replace(replace(replace($column, '
+    'replace(replace(replace(replace(replace($column, '
     "'-' || char(13) || char(10), ''), "
     "'-' || char(10), ''), "
     "char(173) || char(10), ''), "
-    "char(8208) || char(10), '')";
+    "char(8208) || char(10), ''), "
+    "char(173), '')";
 
 /// El texto que INDEXA la búsqueda de un chunk, como expresión SQL sobre
 /// [column] (F22).

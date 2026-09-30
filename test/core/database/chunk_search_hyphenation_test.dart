@@ -86,6 +86,13 @@ void main() {
     expect(await matches('revelación'), 1);
   });
 
+  test('un guion suave adentro de una palabra, como lo trae un Word, no la '
+      'parte para la búsqueda', () async {
+    await addChunk('las ex­plicaciones');
+
+    expect(await matches('explicaciones'), 1);
+  });
+
   test('cambiar y borrar un chunk con guiones deja el índice exacto', () async {
     final rowKey = await addChunk('las ex-\nplicaciones');
 

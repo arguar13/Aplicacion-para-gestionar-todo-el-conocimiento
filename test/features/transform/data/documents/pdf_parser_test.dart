@@ -25,6 +25,12 @@ import '../../../../support/sample_files.dart';
 /// visible**, en vez de quedar en verde sin haber probado nada.
 final _pdfiumPath = Platform.environment['PDFIUM_PATH'];
 
+/// Una página con texto propio de sobra —más de 100 caracteres visibles—:
+/// no es candidata a escaneada (F22). ASCII, como pide `buildPdf`.
+const _fullPage =
+    'Una pagina con texto propio de sobra: el cuerpo entero del capitulo '
+    'esta en el documento, letra por letra, y no hace falta reconocer nada.';
+
 const _missingPdfium =
     r'Falta PDFIUM_PATH. Correr: export PDFIUM_PATH="$(tool/fetch_pdfium.sh)"';
 
@@ -278,10 +284,52 @@ void main() {
 
       final result = await withOcr(
         extractor,
-      ).parseBytes(buildPdf(pageTexts: ['Hola mundo']));
+      ).parseBytes(buildPdf(pageTexts: [_fullPage]));
 
-      expect(result.markdown, contains('Hola mundo'));
+      expect(result.markdown, _fullPage);
       expect(extractor.requested, isEmpty);
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('una escaneada con solo el numero de pagina como texto se reconoce, '
+        'y queda lo reconocido (F22)', () async {
+      // Antes solo se reconocia una pagina sin NINGUNA letra: el cuerpo de
+      // esta se perdia.
+      const body =
+          'El presente comentario responde a una preocupacion de hace anos. '
+          'Como cristiano primero, como sacerdote y profesor despues.';
+      final extractor = FakeImageTextExtractor(text: '12\n$body');
+
+      final result = await withOcr(
+        extractor,
+      ).parseBytes(buildPdf(pageTexts: ['12'], scannedPages: {0}));
+
+      expect(result.markdown, '12\n$body');
+      expect(extractor.requested, hasLength(1));
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('una pagina digital con poco texto conserva el suyo, exacto, si el '
+        'reconocimiento no trae mas (F22)', () async {
+      final extractor = FakeImageTextExtractor(text: 'Capitu1o 3');
+
+      final result = await withOcr(
+        extractor,
+      ).parseBytes(buildPdf(pageTexts: ['Capitulo 3']));
+
+      expect(result.markdown, 'Capitulo 3');
+    }, skip: _pdfiumPath == null ? _missingPdfium : null);
+
+    test('si el reconocimiento falla, se reintenta, y la pagina queda '
+        'marcada: nunca vacia como si se hubiera reconocido (F22)', () async {
+      final extractor = FakeImageTextExtractor()
+        ..error = Exception('el motor no pudo');
+
+      final result = await withOcr(
+        extractor,
+      ).parseBytes(buildPdf(pageTexts: ['', ''], scannedPages: {1}));
+
+      final segments = result.markdown.split('\n\n---\n\n');
+      expect(segments[1], '[página 2: no se pudo reconocer el texto]');
+      expect(extractor.requested, hasLength(2));
     }, skip: _pdfiumPath == null ? _missingPdfium : null);
 
     test(
@@ -289,12 +337,12 @@ void main() {
       () async {
         final extractor = FakeImageTextExtractor(text: 'la escaneada');
 
-        final result = await withOcr(extractor).parseBytes(
-          buildPdf(pageTexts: ['Hola mundo', ''], scannedPages: {1}),
-        );
+        final result = await withOcr(
+          extractor,
+        ).parseBytes(buildPdf(pageTexts: [_fullPage, ''], scannedPages: {1}));
 
         final segments = result.markdown.split('\n\n---\n\n');
-        expect(segments[0], contains('Hola mundo'));
+        expect(segments[0], _fullPage);
         expect(segments[1], 'la escaneada');
         expect(extractor.requested, hasLength(1));
       },
@@ -305,8 +353,10 @@ void main() {
       final extractor = FakeImageTextExtractor(text: 'papel vacio');
       final context = _RecordingContext();
 
+      // La primera, con texto propio de sobra: la que se prueba es la
+      // segunda, en blanco.
       final result = await withOcr(extractor).parse(
-        DocumentSource.memory(buildPdf(pageTexts: ['Hola mundo', ''])),
+        DocumentSource.memory(buildPdf(pageTexts: [_fullPage, ''])),
         session: DocumentParseSession(context: context),
       );
 

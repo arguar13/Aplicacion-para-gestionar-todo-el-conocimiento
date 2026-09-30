@@ -80,6 +80,15 @@ class PdfParser implements DocumentParser {
   /// imagen tan pesada que la vuelva lenta página por página.
   static const _ocrRenderScale = 2.5;
 
+  /// Por debajo de esta cantidad de caracteres visibles, una página puede
+  /// ser una escaneada con apenas un número de página o una marca de agua
+  /// como texto real: se la manda a reconocer (F22).
+  static const _sparseTextChars = 100;
+
+  /// Cuántas veces se intenta reconocer una página antes de darla por no
+  /// reconocida.
+  static const _ocrAttempts = 2;
+
   @override
   bool canParse(FileFormat format) => format == FileFormat.pdf;
 
@@ -103,9 +112,15 @@ class PdfParser implements DocumentParser {
         pages.add(cleanPdfPageText(text));
       }
 
+      // Una página escaneada no siempre llega sin ninguna letra: muchas
+      // traen como texto real solo el número de página, una marca de agua o
+      // el sello de quien la digitalizó, y el cuerpo es una imagen. Antes
+      // solo se reconocía la que no tenía NADA, y el cuerpo de esas se
+      // perdía (F22). Ahora pasa por el reconocimiento toda página con muy
+      // poco texto propio; `_pickRecognized` decide después cuál queda.
       final scanned = [
         for (var i = 0; i < pages.length; i++)
-          if (pages[i].isEmpty) i,
+          if (_visibleChars(pages[i]) < _sparseTextChars) i,
       ];
       if (scanned.isNotEmpty) {
         await _recognizeScanned(document, pages, scanned, session);
@@ -164,7 +179,14 @@ class PdfParser implements DocumentParser {
 
       var text = already[index];
       if (text == null) {
-        text = await _recognizePage(document.pages[index], files, extractor);
+        final recognized = await _recognizePage(
+          document.pages[index],
+          files,
+          extractor,
+        );
+        text = recognized == null
+            ? _pageNotRecognized(index, pages[index])
+            : _pickRecognized(pages[index], recognized);
         await session.saveRecognizedPage(index, text);
       }
       pages[index] = text;
@@ -174,24 +196,29 @@ class PdfParser implements DocumentParser {
     }
   }
 
-  /// El texto reconocido de [page], limpio, o vacío si está en blanco o si
-  /// no se pudo reconocer.
-  Future<String> _recognizePage(
+  /// El texto reconocido de [page]: vacío si está en blanco, `null` si no
+  /// se pudo reconocer ni reintentándolo.
+  ///
+  /// Una falla ya no se guarda como página vacía y reconocida (F22): así el
+  /// hueco quedaba para siempre, sin aviso, y al retomar ni se reintentaba.
+  Future<String?> _recognizePage(
     PdfPage page,
     FileStore files,
     ImageTextExtractor extractor,
   ) async {
-    try {
-      if (await _looksBlank(page)) return '';
-      return cleanPdfPageText(await _ocrPage(page, files, extractor));
-      // Una página que no se pudo renderizar o reconocer no tira abajo el
-      // resto del documento: queda vacía y se sigue con la próxima. Ninguna
-      // de las dos fallas tiene un tipo propio en Dart —vienen de PDFium y de
-      // un motor de OCR de terceros—.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (_) {
-      return '';
+    for (var attempt = 0; attempt < _ocrAttempts; attempt++) {
+      try {
+        if (await _looksBlank(page)) return '';
+        return cleanPdfPageText(await _ocrPage(page, files, extractor));
+        // Una página que no se pudo renderizar o reconocer no tira abajo el
+        // resto del documento: se reintenta, y si no hay caso queda marcada
+        // —ver `_pageNotRecognized`— y se sigue con la próxima. Ninguna de
+        // las dos fallas tiene un tipo propio en Dart —vienen de PDFium y de
+        // un motor de OCR de terceros—.
+        // ignore: avoid_catches_without_on_clauses
+      } catch (_) {}
     }
+    return null;
   }
 
   /// Si [page] está en blanco: se la renderiza chiquita —un instante— y se
@@ -370,4 +397,35 @@ Future<Uint8List> _encodePng(
 
   final transferable = TransferableTypedData.fromList([bgra]);
   return Isolate.run(() => encode(transferable.materialize().asUint8List()));
+}
+
+/// Cuántos caracteres visibles —ni espacios ni saltos— tiene [text].
+int _visibleChars(String text) =>
+    text.runes.where((rune) => !_isSpace(rune)).length;
+
+bool _isSpace(int rune) =>
+    rune == 0x20 || (rune >= 0x09 && rune <= 0x0D) || rune == 0xA0;
+
+/// Cuál texto queda de una página con poco texto propio que además se
+/// reconoció (F22). Sin ninguna letra propia, el reconocido. Si tenía algo,
+/// el reconocido solo si trae claramente más —el doble, y al
+/// menos 40 caracteres más—, que es el caso de una escaneada con un número
+/// de página o un sello como texto. Si no, el propio del documento, que es
+/// exacto: una portada o una página de título digital no se reemplaza por
+/// una lectura aproximada de sí misma.
+String _pickRecognized(String own, String recognized) {
+  final ownChars = _visibleChars(own);
+  if (ownChars == 0) return recognized;
+  final recognizedChars = _visibleChars(recognized);
+  final clearlyMore =
+      recognizedChars >= ownChars * 2 && recognizedChars >= ownChars + 40;
+  return clearlyMore ? recognized : own;
+}
+
+/// Lo que queda de la página [index] (desde 0) cuando no se pudo reconocer:
+/// su texto propio, si tenía, y una marca visible del hueco —nunca una
+/// página vacía que parece reconocida (F22)—.
+String _pageNotRecognized(int index, String own) {
+  final marker = '[página ${index + 1}: no se pudo reconocer el texto]';
+  return own.isEmpty ? marker : '$own\n$marker';
 }
