@@ -280,9 +280,13 @@ void main() {
       final seen = listenTo(engine.watch(request));
       await until(() => readyOf(seen.states).isNotEmpty);
 
+      // Una ráfaga de verdad: cada cambio le devuelve el turno al bucle de
+      // eventos, pero sin esperas cronometradas. Con 3 ms reales entre uno y
+      // otro, una máquina cargada estiraba alguno más allá de la espera del
+      // motor, la ráfaga se partía en dos y daba tres cálculos.
       for (var i = 0; i < 10; i++) {
         repository.notify();
-        await Future<void>.delayed(const Duration(milliseconds: 3));
+        await Future<void>.delayed(Duration.zero);
       }
       await until(() => readyOf(seen.states).length == 2, reason: 'ráfaga');
       await Future<void>.delayed(debounce * 4);
