@@ -36,6 +36,10 @@ class KnowledgeSources extends Table {
   DateTimeColumn get capturedAt => dateTime()();
   TextColumn get originalBlobPath => text().nullable()();
 
+  /// El idioma del original, como código de dos letras: ver
+  /// `Source.language` (F22, esquema v32).
+  TextColumn get language => text().nullable()();
+
   /// SHA-256 del texto de la forma principal SIN normalizar — sirve de guarda
   /// de idempotencia para el chunking (`chunkAndPersistSource`: "¿ya
   /// corrió?"), no para comparar contra otro elemento.

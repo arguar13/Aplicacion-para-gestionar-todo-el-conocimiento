@@ -2559,6 +2559,10 @@
   "@conflictsFieldOriginalFile": {
     "description": "Nombre del campo archivo original en un conflicto."
   },
+  "conflictsFieldLanguage": "Original language",
+  "@conflictsFieldLanguage": {
+    "description": "Nombre del campo idioma del original (el idioma en que se habla un audio o está escrito un texto) en un conflicto."
+  },
   "conflictsFieldReference": "Bibliographic data",
   "@conflictsFieldReference": {
     "description": "Name of the field of a merge conflict that holds the bibliographic data and the people of a source"

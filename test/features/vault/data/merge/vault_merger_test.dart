@@ -774,6 +774,7 @@ void main() {
         EntryField.authorUrl,
         EntryField.publishedAt,
         EntryField.originalBlobPath,
+        EntryField.language,
         EntryField.reference,
       });
       expect(mergeFieldNamed(EntryField.rendition('x')), isNull);

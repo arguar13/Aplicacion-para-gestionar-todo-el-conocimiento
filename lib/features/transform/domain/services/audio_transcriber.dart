@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
@@ -18,11 +19,25 @@ abstract interface class AudioTranscriber {
   /// [session] es el trabajo en curso: un audio de horas se transcribe por
   /// tramos, avisando el avance y guardando cada tramo, para retomarlo si
   /// se interrumpe (F21).
+  ///
+  /// [language] es el idioma en que se habla, como código de dos letras:
+  /// se transcribe en ese idioma, sin detectarlo ni traducir (F22).
   Future<String> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
+    String language = defaultTranscriptionLanguage,
   });
 }
+
+/// El idioma de un audio del que no se sabe el idioma: el de quien usa esta
+/// app. Detectarlo solo no es opción: Whisper confunde el español con el
+/// gallego y le quita las tildes (medido, F22).
+const defaultTranscriptionLanguage = 'es';
+
+/// Los idiomas que se ofrecen para transcribir, como código de dos letras.
+/// Whisper admite muchos más; estos son los que tiene sentido ofrecer en una
+/// lista corta, y cualquier otro código que llegue igual se respeta.
+const transcriptionLanguages = ['es', 'en', 'pt', 'fr', 'it', 'de'];
 
 /// El trabajo en curso de transcribir un audio (F21): con qué avisar el
 /// avance y saber si abandonar, y dónde guardar los tramos ya hechos.
@@ -69,10 +84,17 @@ class TranscriptionSession {
 /// con su texto a medida que los termina. Es todo lo que cambia entre un
 /// motor y otro; el resto —qué falta, qué se guarda, cómo se arma el texto—
 /// es esto, y por eso se prueba acá, sin motor.
+///
+/// Con [segmentStart] —dónde empieza cada tramo en el audio—, el texto sale
+/// con una línea por tramo y su marca de tiempo, "[3:15] …", igual que una
+/// transcripción de YouTube (F22): se puede ubicar cada frase en el audio,
+/// y la búsqueda y las citas ya entienden ese formato. Sin él, texto corrido.
+/// Un tramo sin texto —silencio, música— no deja línea.
 Future<String> runSegmentedTranscription({
   required int segmentCount,
   required TranscriptionSession session,
   required Stream<(int, String)> Function(List<int> pending) transcribe,
+  Duration Function(int segment)? segmentStart,
 }) async {
   final context = session.context..throwIfCancelled();
 
@@ -102,8 +124,13 @@ Future<String> runSegmentedTranscription({
     }
   }
 
-  return texts
-      .map((text) => text?.trim() ?? '')
-      .where((text) => text.isNotEmpty)
-      .join(' ');
+  String line(int segment, String text) => segmentStart == null
+      ? text
+      : '[${formatTimestamp(segmentStart(segment))}] $text';
+
+  final lines = [
+    for (var i = 0; i < segmentCount; i++)
+      if (texts[i]?.trim() case final text? when text.isNotEmpty) line(i, text),
+  ];
+  return lines.join(segmentStart == null ? ' ' : '\n');
 }

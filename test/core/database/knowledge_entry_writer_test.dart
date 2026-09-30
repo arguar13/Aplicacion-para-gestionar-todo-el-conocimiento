@@ -48,6 +48,7 @@ void main() {
     String? spaceId,
     String? url = 'https://ejemplo.org/roma',
     String? authorName,
+    String? language,
     ProcessingState state = ProcessingState.ready,
   }) => KnowledgeItem(
     id: id,
@@ -61,6 +62,7 @@ void main() {
       capturedAt: captured,
       url: url,
       authorName: authorName,
+      language: language,
     ),
     processingState: state,
     createdAt: captured,
@@ -182,6 +184,22 @@ void main() {
   });
 
   group('guardar de nuevo', () {
+    test('el idioma del original se guarda, se lee y cambiarlo se versiona '
+        '(F22)', () async {
+      Future<KnowledgeSourceRow> sourceRow() => (db.select(
+        db.knowledgeSources,
+      )..where((s) => s.itemId.equals('art'))).getSingle();
+
+      await writer.upsert(sourceItem());
+      expect((await sourceRow()).language, isNull);
+      tick();
+
+      await writer.upsert(sourceItem(language: 'en'));
+
+      expect((await sourceRow()).language, 'en');
+      expect((await versions('art'))[EntryField.language]!.deviceId, me);
+    });
+
     test(
       'un guardado que no cambia nada no toca ni la revisión ni la versión',
       () async {
@@ -946,12 +964,15 @@ void main() {
         EntryField.publishedAt,
         '1789000000',
       );
+      await writer.setFieldFromText('art', EntryField.language, 'en');
 
       final row = await source('art');
       expect(row.authorName, 'Beto');
       expect(row.originUrl, 'https://otra.org');
       expect(row.authorUrl, 'https://beto.org');
       expect(row.originalBlobPath, 'originales/art/x.pdf');
+      expect(row.language, 'en');
+      expect((await versions('art'))[EntryField.language]!.deviceId, me);
       expect(
         row.publishedAt,
         DateTime.fromMillisecondsSinceEpoch(1789000000 * 1000),

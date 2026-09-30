@@ -88,6 +88,24 @@ void main() {
     expect(text, 'tramo 0 tramo 2');
   });
 
+  test('con el inicio de cada tramo, una línea por tramo con su marca de '
+      'tiempo, como una transcripción de YouTube; el silencio no deja '
+      'línea (F22)', () async {
+    final text = await runSegmentedTranscription(
+      segmentCount: 4,
+      session: TranscriptionSession(loadSegments: () async => {2: ''}),
+      transcribe: engine,
+      segmentStart: (segment) => [
+        Duration.zero,
+        const Duration(seconds: 14, milliseconds: 380),
+        const Duration(seconds: 28),
+        const Duration(hours: 1, minutes: 2, seconds: 7),
+      ][segment],
+    );
+
+    expect(text, '[0:00] tramo 0\n[0:14] tramo 1\n[1:02:07] tramo 3');
+  });
+
   test('cancelar corta en el acto, aunque el motor siga en un tramo, y lo '
       'suelta', () async {
     final signal = CancellationSignal();

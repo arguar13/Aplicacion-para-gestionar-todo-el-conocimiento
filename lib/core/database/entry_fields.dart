@@ -24,6 +24,7 @@ abstract final class EntryField {
   static const authorUrl = 'authorUrl';
   static const publishedAt = 'publishedAt';
   static const originalBlobPath = 'originalBlobPath';
+  static const language = 'language';
 
   /// Los datos bibliográficos de una fuente (F15) y sus personas, JUNTOS: es un
   /// solo campo de linaje aunque vivan en dos tablas. Si dos dispositivos la

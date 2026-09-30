@@ -64,6 +64,7 @@ final kMergeFields = List<MergeField>.unmodifiable(const [
   MergeField._(EntryField.authorUrl, 'source', 'author_url'),
   MergeField._(EntryField.publishedAt, 'source', 'published_at'),
   MergeField._(EntryField.originalBlobPath, 'source', 'original_blob_path'),
+  MergeField._(EntryField.language, 'source', 'language'),
   MergeField._(
     EntryField.reference,
     'source_reference',

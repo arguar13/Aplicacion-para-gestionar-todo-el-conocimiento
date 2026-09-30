@@ -1876,6 +1876,10 @@
   "@conflictsFieldOriginalFile": {
     "description": "Nombre del campo archivo original en un conflicto."
   },
+  "conflictsFieldLanguage": "Idioma del original",
+  "@conflictsFieldLanguage": {
+    "description": "Nombre del campo idioma del original (el idioma en que se habla un audio o está escrito un texto) en un conflicto."
+  },
   "conflictsFieldText": "Texto",
   "@conflictsFieldText": {
     "description": "Nombre de un conflicto de texto."

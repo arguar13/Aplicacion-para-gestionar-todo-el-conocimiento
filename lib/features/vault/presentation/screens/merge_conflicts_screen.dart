@@ -307,6 +307,7 @@ String conflictFieldLabel(AppLocalizations l10n, MergeConflict conflict) {
     EntryField.authorUrl => l10n.conflictsFieldAuthorUrl,
     EntryField.publishedAt => l10n.conflictsFieldPublishedAt,
     EntryField.originalBlobPath => l10n.conflictsFieldOriginalFile,
+    EntryField.language => l10n.conflictsFieldLanguage,
     EntryField.reference => l10n.conflictsFieldReference,
     _ => conflict.fieldName,
   };

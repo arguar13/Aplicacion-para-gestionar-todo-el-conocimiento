@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
@@ -129,19 +130,4 @@ String formatTranscript(List<TranscriptLine> lines) {
   return lines
       .map((line) => '[${formatTimestamp(line.offset)}] ${line.text}')
       .join('\n');
-}
-
-/// `2:07` para lo que dura menos de una hora, `1:02:07` para lo que dura más.
-///
-/// No se usa siempre el formato largo porque la mayoría de los videos duran
-/// minutos, y un `0:02:07` obliga a leer un cero que no aporta nada.
-String formatTimestamp(Duration offset) {
-  final hours = offset.inHours;
-  final minutes = offset.inMinutes.remainder(60);
-  final seconds = offset.inSeconds.remainder(60);
-
-  final paddedSeconds = seconds.toString().padLeft(2, '0');
-  if (hours == 0) return '$minutes:$paddedSeconds';
-
-  return '$hours:${minutes.toString().padLeft(2, '0')}:$paddedSeconds';
 }

@@ -32,6 +32,7 @@ Source sourceFor(KnowledgeEntryRow item, KnowledgeSourceRow? source) {
     authorUrl: source.authorUrl,
     publishedAt: source.publishedAt,
     originalFilePath: source.originalBlobPath,
+    language: source.language,
   );
 }
 

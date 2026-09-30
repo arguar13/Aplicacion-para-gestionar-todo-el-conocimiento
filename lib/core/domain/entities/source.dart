@@ -40,5 +40,17 @@ sealed class Source with _$Source {
     /// Es el seguro contra el enlace que mañana da 404 — que es exactamente
     /// el problema que esta app viene a resolver.
     String? originalFilePath,
+
+    /// El idioma en que se habla o está escrito el original, como código de
+    /// dos letras ("es", "en"): con qué idioma se transcribe un audio o un
+    /// video, y en qué idioma están los subtítulos de YouTube que se
+    /// guardaron. Nulo: no se sabe, y un audio se transcribe en español —el
+    /// idioma de quien usa esta app— (F22).
+    ///
+    /// Se guarda para no traducir sin querer: Whisper con el idioma fijado
+    /// en español transcribe un audio en inglés traduciéndolo, y dejándolo
+    /// detectar solo confunde el español con el gallego y le quita las
+    /// tildes (medido, F22).
+    String? language,
   }) = _Source;
 }

@@ -155,7 +155,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 31;
+  static const currentSchemaVersion = 32;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -586,6 +586,31 @@ class AppDatabase extends _$AppDatabase {
           final before = await captureVaultCounts(this, tables: tables);
           await migrator.createTable(processingCheckpoints);
           await _requireSameCounts(before, step: 'v31', tables: tables);
+        }
+        // El idioma del original (F22): con qué idioma se transcribe un
+        // audio, y en cuál están los subtítulos guardados de YouTube. Una
+        // columna nueva, nula en todo lo de antes —"no se sabe", que se
+        // transcribe en español como siempre—. Aditiva; los conteos son
+        // compuerta.
+        if (from < 32) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists('source', knowledgeSources.language.name)) {
+            await migrator.addColumn(
+              knowledgeSources,
+              knowledgeSources.language,
+            );
+          }
+          await _requireSameCounts(before, step: 'v32', tables: tables);
         }
       });
     },

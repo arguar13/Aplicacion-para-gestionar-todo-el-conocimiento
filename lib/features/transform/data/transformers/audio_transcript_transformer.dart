@@ -86,6 +86,7 @@ class AudioTranscriptTransformer implements Transformer {
     final checkpoints = _checkpoints;
     final text = await _transcriber.transcribe(
       transcriberPath,
+      language: item.source.language ?? defaultTranscriptionLanguage,
       session: TranscriptionSession(
         context: context,
         workKey: item.id,

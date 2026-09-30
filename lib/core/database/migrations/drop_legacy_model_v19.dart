@@ -114,7 +114,16 @@ Future<LegacyModelDropPlan> dropLegacyModel(
     );
   }
 
-  await migrator.alterTable(TableMigration(db.knowledgeSources));
+  // `alterTable` reconstruye la tabla con su definición de HOY: `source`
+  // ganó `language` en v32, que una base de v18 todavía no tiene. Sin
+  // `newColumns` intentaría copiarla desde una tabla que no la trae; el
+  // paso de v32 la agrega solo si falta.
+  await migrator.alterTable(
+    TableMigration(
+      db.knowledgeSources,
+      newColumns: [db.knowledgeSources.language],
+    ),
+  );
   for (final table in const ['item_tags', 'tags', 'items', 'sources']) {
     await migrator.deleteTable(table);
   }

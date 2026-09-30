@@ -71,6 +71,7 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   Future<String> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
+    String language = defaultTranscriptionLanguage,
   }) async {
     if (!await _model.isReady()) throw const WhisperModelNotReadyException();
 
@@ -107,10 +108,12 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
         decoder: modelPaths.decoder,
         tokens: modelPaths.tokens,
         threads: _threads,
+        language: language,
       );
       final text = await runSegmentedTranscription(
         segmentCount: windows.length,
         session: session,
+        segmentStart: (segment) => windows[segment].startTime,
         transcribe: job.run,
       );
       return text;
@@ -170,6 +173,7 @@ class _TranscriptionJob {
     required this.decoder,
     required this.tokens,
     required this.threads,
+    required this.language,
   });
 
   final String wavPath;
@@ -181,6 +185,9 @@ class _TranscriptionJob {
   final String decoder;
   final String tokens;
   final int threads;
+
+  /// El idioma en que se habla: ver `AudioTranscriber.transcribe`.
+  final String language;
 
   /// Los tramos [pending], transcritos, a medida que el isolate los
   /// termina. Dejar de escuchar mata el isolate.
@@ -264,13 +271,12 @@ void _transcribeSegments(_WorkerArgs args) {
           whisper: sherpa_onnx.OfflineWhisperModelConfig(
             encoder: job.encoder,
             decoder: job.decoder,
-            // Sin esto, Whisper redetecta el idioma en cada ventana de 30
-            // segundos por separado, y en un audio
-            // largo eso puede hacer que el idioma "flote" entre fragmentos,
-            // sobre todo en los más cortos, con ruido, o con nombres propios
-            // en otro idioma. Fijarlo en español, el idioma principal de
-            // quien usa esta app, evita esa redetección innecesaria.
-            language: 'es',
+            // Fijado siempre, nunca detectado: Whisper redetecta el idioma
+            // en cada tramo por separado, y en español lo confunde con el
+            // gallego y quita las tildes; fijado en otro idioma que el que
+            // se habla, traduce (medido, F22). Es el idioma que se eligió
+            // para este elemento, o español.
+            language: job.language,
             task: 'transcribe',
           ),
           tokens: job.tokens,

@@ -54,6 +54,7 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
   Future<String> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
+    String language = defaultTranscriptionLanguage,
   }) async {
     if (!await _model.isReady()) throw const WhisperModelNotReadyException();
 
@@ -73,10 +74,9 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
           whisper: sherpa_onnx.OfflineWhisperModelConfig(
             encoder: modelPaths.encoder,
             decoder: modelPaths.decoder,
-            // Ver el comentario del mismo cambio en
-            // `SherpaOnnxAudioTranscriberIo`: sin esto, Whisper redetecta
-            // el idioma en cada ventana de 30 segundos por separado.
-            language: 'es',
+            // Fijado siempre, nunca detectado: ver el mismo comentario en
+            // `SherpaOnnxAudioTranscriberIo` (F22).
+            language: language,
             task: 'transcribe',
           ),
           tokens: modelPaths.tokens,
@@ -108,6 +108,7 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
       return await runSegmentedTranscription(
         segmentCount: windows.length,
         session: session,
+        segmentStart: (segment) => windows[segment].startTime,
         transcribe: (pending) async* {
           for (final segment in pending) {
             final window = windows[segment];

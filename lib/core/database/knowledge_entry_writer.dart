@@ -818,6 +818,7 @@ class KnowledgeEntryWriter {
       case EntryField.authorName:
       case EntryField.authorUrl:
       case EntryField.originalBlobPath:
+      case EntryField.language:
         return _setSourceText(itemId, field, value);
       case EntryField.publishedAt:
         final seconds = value == null ? null : int.tryParse(value);
@@ -854,6 +855,7 @@ class KnowledgeEntryWriter {
         EntryField.originUrl => source.originUrl,
         EntryField.authorName => source.authorName,
         EntryField.authorUrl => source.authorUrl,
+        EntryField.language => source.language,
         _ => source.originalBlobPath,
       };
       if (current == text) return null;
@@ -867,6 +869,7 @@ class KnowledgeEntryWriter {
         EntryField.authorUrl => KnowledgeSourcesCompanion(
           authorUrl: Value(text),
         ),
+        EntryField.language => KnowledgeSourcesCompanion(language: Value(text)),
         _ => KnowledgeSourcesCompanion(originalBlobPath: Value(text)),
       };
     });
@@ -962,6 +965,7 @@ class KnowledgeEntryWriter {
       if (existing?.publishedAt != source.publishedAt) EntryField.publishedAt,
       if (existing?.originalBlobPath != source.originalFilePath)
         EntryField.originalBlobPath,
+      if (existing?.language != source.language) EntryField.language,
     ];
   }
 
@@ -997,6 +1001,7 @@ class KnowledgeEntryWriter {
             publishedAt: Value(item.source.publishedAt),
             capturedAt: item.source.capturedAt,
             originalBlobPath: Value(item.source.originalFilePath),
+            language: Value(item.source.language),
             contentHash: existingSource?.contentHash ?? '',
             processingStatus: sourceProcessingStatusFor(item.processingState),
           ),

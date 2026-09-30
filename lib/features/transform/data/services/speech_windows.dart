@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 
 /// Cómo se parte un audio en los tramos que Whisper transcribe de a uno, y
@@ -61,8 +62,7 @@ class AudioWindow {
 
   int get length => end - start;
 
-  Duration get startTime =>
-      Duration(microseconds: start * 1000000 ~/ speechSampleRate);
+  Duration get startTime => _time(start);
 
   @override
   bool operator ==(Object other) =>
@@ -279,12 +279,7 @@ void _transcribeGuarded(
 /// transcribir sin inventar: "[fragmento no reconocido 3:15–3:19]".
 String unrecognizedMarker(int start, int end) =>
     '[fragmento no reconocido '
-    '${_clock(start)}–${_clock(end)}]';
+    '${formatTimestamp(_time(start))}–${formatTimestamp(_time(end))}]';
 
-String _clock(int sample) {
-  final seconds = sample ~/ speechSampleRate;
-  final h = seconds ~/ 3600;
-  final m = seconds % 3600 ~/ 60;
-  final s = (seconds % 60).toString().padLeft(2, '0');
-  return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$s' : '$m:$s';
-}
+Duration _time(int sample) =>
+    Duration(microseconds: sample * 1000000 ~/ speechSampleRate);

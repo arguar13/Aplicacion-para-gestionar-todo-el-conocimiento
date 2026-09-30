@@ -44,6 +44,11 @@ KnowledgeItem mergeTransformResult({
       enriched.source.originalFilePath,
       current.source.originalFilePath,
     ),
+    language: pick(
+      original.source.language,
+      enriched.source.language,
+      current.source.language,
+    ),
   );
 
   final renditionsChanged = !_sameElements(

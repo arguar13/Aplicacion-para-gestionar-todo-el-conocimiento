@@ -24,13 +24,18 @@ class FakeAudioTranscriber implements AudioTranscriber {
   /// La sesión de cada pedido, en orden.
   final sessions = <TranscriptionSession>[];
 
+  /// El idioma de cada pedido, en orden.
+  final languages = <String>[];
+
   @override
   Future<String> transcribe(
     String absolutePath, {
     TranscriptionSession session = TranscriptionSession.detached,
+    String language = defaultTranscriptionLanguage,
   }) async {
     requested.add(absolutePath);
     sessions.add(session);
+    languages.add(language);
     if (error != null) throw error!;
 
     return text;

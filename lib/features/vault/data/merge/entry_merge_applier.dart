@@ -43,6 +43,7 @@ const kSourceColumns = [
   'published_at',
   'captured_at',
   'original_blob_path',
+  'language',
   'content_hash',
   'dedup_hash',
   'simhash',

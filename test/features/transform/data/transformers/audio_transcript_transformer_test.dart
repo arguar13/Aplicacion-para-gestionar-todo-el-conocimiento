@@ -38,6 +38,7 @@ void main() {
   Future<KnowledgeItem> seed({
     SourceKind kind = SourceKind.audio,
     bool withFile = true,
+    String? language,
   }) async {
     final path = withFile
         ? await files.save(
@@ -55,6 +56,7 @@ void main() {
         kind: kind,
         capturedAt: now,
         originalFilePath: path,
+        language: language,
       ),
       processingState: ProcessingState.pending,
       createdAt: now,
@@ -181,6 +183,14 @@ void main() {
       ),
       {0: 'de antes', 1: 'nuevo'},
     );
+  });
+
+  test('se transcribe en el idioma del original, y en español si no se '
+      'sabe: nunca detectado ni traducido (F22)', () async {
+    await transformer.transform(await seed());
+    await transformer.transform(await seed(language: 'en'));
+
+    expect(transcriber.languages, ['es', 'en']);
   });
 
   test('lo guardado con los tramos de 29 s de antes de F22 no se retoma: '
