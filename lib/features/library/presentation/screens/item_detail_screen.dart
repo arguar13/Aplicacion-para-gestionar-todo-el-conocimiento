@@ -40,6 +40,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
+import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
@@ -523,11 +524,13 @@ class _TextRenditionView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        ReextractionStatus(item: item),
         Align(
           alignment: Alignment.centerRight,
           child: Wrap(
             spacing: 4,
             children: [
+              if (canReextractText(item)) ReextractTextButton(item: item),
               if (isTranscriptSource(item.source) &&
                   hasTimestamps(rendition.content))
                 TextButton.icon(

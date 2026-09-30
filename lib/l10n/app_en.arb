@@ -1353,6 +1353,26 @@
       }
     }
   },
+  "detailReextract": "Extract the text again",
+  "@detailReextract": {
+    "description": "Botón del detalle: vuelve a leer el original (transcribir, reconocer, leer el documento) con la versión actual de la app."
+  },
+  "detailReextractBody": "The original is read again with the current version of the app, and the new text replaces the current one. Your highlights are moved to their place in the new text; any that can't be found are kept in the item's note, not lost.",
+  "@detailReextractBody": {
+    "description": "Explicación del diálogo de volver a extraer el texto."
+  },
+  "detailReextractLanguage": "Spoken language",
+  "@detailReextractLanguage": {
+    "description": "Etiqueta del selector de idioma de un audio o video al volver a extraer su texto."
+  },
+  "detailReextractConfirm": "Extract again",
+  "@detailReextractConfirm": {
+    "description": "Botón que confirma volver a extraer el texto."
+  },
+  "detailReextractStarted": "Extracting the text again.",
+  "@detailReextractStarted": {
+    "description": "Aviso al empezar a volver a extraer el texto."
+  },
   "detailRemoveTimestamps": "Remove timestamps",
   "detailTimestampsRemoved": "Timestamps removed",
   "detailCopyContent": "Copy all",

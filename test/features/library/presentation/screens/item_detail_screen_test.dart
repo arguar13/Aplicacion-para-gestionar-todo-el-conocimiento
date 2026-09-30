@@ -13,6 +13,7 @@ import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
@@ -159,6 +160,36 @@ void main() {
       expect(find.textContaining('var_uno_dos'), findsOneWidget);
       expect(find.textContaining('# 3 no es un título'), findsOneWidget);
       expect(find.text(es.detailRemoveTimestamps), findsOneWidget);
+    });
+
+    testWidgets('volver a extraer: en un audio pregunta el idioma, lo guarda '
+        'y deja pedido volver a extraerlo (F22)', (tester) async {
+      final id = await saveWithText(
+        SourceKind.audio,
+        'es tu maquillaje, es tu maquillaje',
+        file: 'originales/f22/alabanza.m4a',
+      );
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.text(es.detailReextract));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.detailReextractLanguage), findsOneWidget);
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('English').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.detailReextractConfirm));
+      await tester.pumpAndSettle();
+
+      final source = await (harness.database.select(
+        harness.database.knowledgeSources,
+      )..where((s) => s.itemId.equals(id))).getSingle();
+      expect(source.language, 'en');
+      final marks = await (harness.database.select(
+        harness.database.processingCheckpoints,
+      )..where((c) => c.itemId.equals(id))).get();
+      expect(marks.map((m) => m.kind), [ProcessingCheckpointKind.reextract]);
     });
 
     testWidgets('un PDF con una línea que empieza como una marca no ofrece '

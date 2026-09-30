@@ -24,6 +24,7 @@ import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/data/repositories/text_anchor_relocator_impl.dart';
 import 'package:sinapsis/features/transform/data/services/platform_long_work_keeper.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
@@ -215,5 +216,6 @@ final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
       duplicateSuggestionGeneratorProvider,
     ),
     metadataSuggestionGenerator: ref.watch(metadataSuggestionGeneratorProvider),
+    anchorRelocator: TextAnchorRelocatorImpl(ref.watch(appDatabaseProvider)),
   );
 });

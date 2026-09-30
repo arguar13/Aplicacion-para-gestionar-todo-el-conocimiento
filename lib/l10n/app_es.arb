@@ -839,6 +839,26 @@
   "@libraryViewsDeleteTooltip": {
     "description": "Botón para borrar una vista guardada, en la hoja de vistas."
   },
+  "detailReextract": "Volver a extraer el texto",
+  "@detailReextract": {
+    "description": "Botón del detalle: vuelve a leer el original (transcribir, reconocer, leer el documento) con la versión actual de la app."
+  },
+  "detailReextractBody": "Se vuelve a leer el original con la versión actual de la app, y el texto nuevo reemplaza al de ahora. Tus subrayados se llevan a su lugar en el texto nuevo; los que no se encuentren quedan en la nota del elemento, no se pierden.",
+  "@detailReextractBody": {
+    "description": "Explicación del diálogo de volver a extraer el texto."
+  },
+  "detailReextractLanguage": "Idioma en que se habla",
+  "@detailReextractLanguage": {
+    "description": "Etiqueta del selector de idioma de un audio o video al volver a extraer su texto."
+  },
+  "detailReextractConfirm": "Volver a extraer",
+  "@detailReextractConfirm": {
+    "description": "Botón que confirma volver a extraer el texto."
+  },
+  "detailReextractStarted": "Se está volviendo a extraer el texto.",
+  "@detailReextractStarted": {
+    "description": "Aviso al empezar a volver a extraer el texto."
+  },
   "detailRemoveTimestamps": "Quitar marcas de tiempo",
   "@detailRemoveTimestamps": {
     "description": "Acción que borra las marcas [mm:ss] de una transcripción y la deja como texto corrido."

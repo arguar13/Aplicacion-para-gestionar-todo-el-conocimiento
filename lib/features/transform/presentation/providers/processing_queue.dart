@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
@@ -170,6 +171,38 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       _logger.error('No se pudo dejar en espera $itemId.', e, stackTrace);
+    }
+    if (_isDisposed) return;
+    enqueue(itemId);
+  }
+
+  /// Vuelve a extraer el texto de [itemId] a pedido del usuario (F22): con
+  /// el motor y los lectores de hoy, aunque ya tenga texto. Deja la marca
+  /// en la base —sobrevive a que se cierre la app— y lo pone en espera; el
+  /// procesamiento reemplaza el texto viejo en su lugar y reubica los
+  /// subrayados (ver `ProcessItemUseCase`).
+  ///
+  /// Sin la marca no se encola: procesarlo así lo daría por completo sin
+  /// hacer nada.
+  Future<void> reextract(String itemId) async {
+    try {
+      final states = _processingStates();
+      await states.save(
+        itemId,
+        ProcessingCheckpointKind.reextract,
+        position: 0,
+        content: '',
+      );
+      await states.requeue(itemId);
+      // Cualquier falla de la base: se avisa en el registro y no se encola.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _logger.error(
+        'No se pudo pedir volver a extraer $itemId.',
+        e,
+        stackTrace,
+      );
+      return;
     }
     if (_isDisposed) return;
     enqueue(itemId);

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -15,10 +17,12 @@ import 'package:sinapsis/features/suggestions/domain/services/property_suggestio
 import 'package:sinapsis/features/suggestions/domain/services/relation_suggestion_generator.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
+import 'package:sinapsis/features/transform/domain/repositories/text_anchor_relocator.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/merge_transform_result.dart';
 import 'package:sinapsis/features/transform/domain/usecases/processing_failure_classifier.dart';
+import 'package:sinapsis/features/transform/domain/usecases/reextraction.dart';
 
 /// Trae el contenido de un elemento que quedó pendiente.
 ///
@@ -57,8 +61,10 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required RelationSuggestionGenerator relationSuggestionGenerator,
     required DuplicateSuggestionGenerator duplicateSuggestionGenerator,
     required MetadataSuggestionGenerator metadataSuggestionGenerator,
+    TextAnchorRelocator? anchorRelocator,
     Duration longStallLimit = kLongTransformStallLimit,
   }) : _longStallLimit = longStallLimit,
+       _anchorRelocator = anchorRelocator,
        _registry = registry,
        _repository = repository,
        _processingStates = processingStates,
@@ -73,6 +79,11 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   /// Cuánto puede pasar el trabajo largo sin informar avance. Se inyecta
   /// para poder probarlo sin esperar diez minutos.
   final Duration _longStallLimit;
+
+  /// Lleva los subrayados y las citas al texto nuevo cuando se vuelve a
+  /// extraer (F22). Sin él, volver a extraer igual conserva los subrayados
+  /// —la forma no cambia de identificador—, pero sin moverlos.
+  final TextAnchorRelocator? _anchorRelocator;
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
   final ProcessingStateRepository _processingStates;
@@ -124,11 +135,75 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     return _process(item, context);
   }
 
+  /// Si el usuario pidió volver a extraer el texto de [itemId] (F22). Si
+  /// no se puede saber —la base falló—, se procesa como siempre.
+  Future<bool> _reextractionRequested(String itemId) async {
+    try {
+      final marks = await _processingStates.load(
+        itemId,
+        ProcessingCheckpointKind.reextract,
+      );
+      return marks.isNotEmpty;
+      // Cualquier falla de la base: se procesa como siempre.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _logger.error(
+        'No se pudo leer si $itemId se vuelve a extraer.',
+        e,
+        stackTrace,
+      );
+      return false;
+    }
+  }
+
+  /// Después de volver a extraer (F22): lo que apuntaba al texto de
+  /// [before] —subrayados, tarjetas, extractos— se lleva a su lugar en el de
+  /// [after]. Los subrayados que no se encuentran quedan en las notas del
+  /// elemento, citados con su nota: nada de lo que el usuario marcó se
+  /// pierde. Dentro de la transacción del guardado.
+  Future<Either<Failure, KnowledgeItem>> _relocateAnchors(
+    Either<Failure, KnowledgeItem> saved, {
+    required KnowledgeItem before,
+    required KnowledgeItem after,
+  }) async {
+    final relocator = _anchorRelocator;
+    final old = primaryTextOf(before);
+    final now = old == null
+        ? null
+        : after.renditions
+              .whereType<TextRendition>()
+              .where((r) => r.id == old.id)
+              .firstOrNull;
+    if (relocator == null ||
+        old == null ||
+        now == null ||
+        now.content == old.content) {
+      return saved;
+    }
+
+    final lost = await relocator.relocate(
+      itemId: after.id,
+      renditionId: old.id,
+      from: old.content,
+      to: now.content,
+    );
+    if (lost.isEmpty) return saved;
+    return _repository.save(
+      after.copyWith(notes: notesWithLostHighlights(after.notes, lost)),
+    );
+  }
+
   Future<Either<Failure, KnowledgeItem>> _process(
     KnowledgeItem item,
     TransformContext context,
   ) async {
-    final transformer = _registry.resolve(item);
+    // Volver a extraer (F22): el transformador se elige como si el
+    // elemento no tuviera texto —todos piden eso para correr—, pero recibe
+    // el elemento entero, y el texto nuevo toma el lugar del viejo.
+    final reextract = await _reextractionRequested(item.id);
+    final transformer = _registry.resolve(
+      reextract ? item.copyWith(renditions: const []) : item,
+    );
 
     if (transformer == null) {
       // Nada que hacer: ya está completo. Se marca listo para que no siga
@@ -175,6 +250,10 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
         watchdog.dispose();
       }
 
+      final proposed = reextract
+          ? replaceExtractedText(original: item, enriched: enriched)
+          : enriched;
+
       final result = await _repository.runInTransaction(() async {
         // Sobre la versión ACTUAL, leída en la misma transacción en la que se
         // escribe: mientras se procesaba, el usuario pudo ponerle etiquetas,
@@ -185,16 +264,19 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
         if (current == null || await _processingStates.isRemoved(item.id)) {
           throw const ProcessingCancelledException();
         }
-        return _repository.save(
+        final saved = await _repository.save(
           mergeTransformResult(
             original: item,
-            enriched: enriched,
+            enriched: proposed,
             current: current,
           ).copyWith(
             processingState: ProcessingState.ready,
             updatedAt: _clock(),
           ),
         );
+        final savedItem = saved.getRight().toNullable();
+        if (!reextract || savedItem == null) return saved;
+        return _relocateAnchors(before: current, after: savedItem, saved);
       });
       if (result.isRight()) await _processingStates.succeed(item.id);
       _generateSuggestions(result);

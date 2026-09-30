@@ -1,22 +1,28 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
+import 'package:sinapsis/features/transform/data/repositories/text_anchor_relocator_impl.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
-import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
+import 'package:sinapsis/features/transform/domain/usecases/reextraction.dart';
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/fake_metadata_suggestion_generator.dart';
@@ -70,6 +76,7 @@ void main() {
         duplicateSuggestionGenerator ?? FakeDuplicateSuggestionGenerator(),
     metadataSuggestionGenerator:
         metadataSuggestionGenerator ?? FakeMetadataSuggestionGenerator(),
+    anchorRelocator: TextAnchorRelocatorImpl(db),
   );
 
   Future<KnowledgeItem> seedPending() async {
@@ -92,6 +99,145 @@ void main() {
 
   Future<KnowledgeItem> reload(String id) async =>
       (await repository.findById(id)).getRight().toNullable()!;
+
+  group('volver a extraer el texto (F22)', () {
+    const oldText =
+        'Te amo Dios. es tu maquillaje, es tu maquillaje, es tu maquillaje. '
+        'Tu fidelidad sigue persiguiéndome.';
+    const newText =
+        '[0:00] Te amo Dios\n[0:14] Tu amor nunca me falla\n'
+        '[0:28] Tu fidelidad sigue persiguiéndome';
+
+    Future<KnowledgeItem> seedWithText() async {
+      final item = KnowledgeItem(
+        id: 'alabanza',
+        title: 'Alabanza',
+        notes: 'Mi nota.',
+        source: Source(
+          id: 'alabanza',
+          kind: SourceKind.audio,
+          capturedAt: now,
+          originalFilePath: 'originales/alabanza.m4a',
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+        renditions: [
+          Rendition.text(
+            id: 'texto-viejo',
+            itemId: 'alabanza',
+            kind: RenditionKind.plainText,
+            content: oldText,
+            isPrimary: true,
+            createdAt: now,
+          ),
+        ],
+      );
+      await repository.save(item);
+      return item;
+    }
+
+    Future<void> highlight(String id, String excerpt, {String? note}) {
+      final start = oldText.indexOf(excerpt);
+      return db
+          .into(db.highlights)
+          .insert(
+            HighlightsCompanion.insert(
+              id: id,
+              renditionId: 'texto-viejo',
+              startOffset: start,
+              endOffset: start + excerpt.length,
+              excerpt: excerpt,
+              note: Value(note),
+              createdAt: now,
+            ),
+          );
+    }
+
+    Future<void> requestReextraction(String itemId) async {
+      final states = ProcessingStateRepositoryImpl(db);
+      await states.save(
+        itemId,
+        ProcessingCheckpointKind.reextract,
+        position: 0,
+        content: '',
+      );
+      await states.requeue(itemId);
+    }
+
+    test(
+      'sin pedirlo, un elemento con texto no se vuelve a transformar',
+      () async {
+        final item = await seedWithText();
+        final transformer = _LikeARealOne(newText);
+
+        await build(TransformerRegistry([transformer]))(item.id);
+
+        expect(transformer.calls, 0);
+        expect(primaryTextOf(await reload(item.id))!.content, oldText);
+      },
+    );
+
+    test('pedido, el texto nuevo toma el lugar del viejo —la misma forma—, '
+        'y los subrayados van a su lugar en el texto nuevo', () async {
+      final item = await seedWithText();
+      await highlight('h1', 'Tu fidelidad sigue persiguiéndome', note: 'Clave');
+      await requestReextraction(item.id);
+
+      await build(TransformerRegistry([_LikeARealOne(newText)]))(item.id);
+
+      final after = await reload(item.id);
+      final text = primaryTextOf(after)!;
+      expect(text.id, 'texto-viejo');
+      expect(text.content, newText);
+      expect(after.processingState, ProcessingState.ready);
+
+      final moved = await db.select(db.highlights).getSingle();
+      expect(
+        newText.substring(moved.startOffset, moved.endOffset),
+        'Tu fidelidad sigue persiguiéndome',
+      );
+      expect(moved.note, 'Clave');
+      // Terminado bien, la marca se va: no se vuelve a extraer otra vez.
+      expect(
+        await ProcessingStateRepositoryImpl(
+          db,
+        ).load(item.id, ProcessingCheckpointKind.reextract),
+        isEmpty,
+      );
+    });
+
+    test('un subrayado que ya no está en el texto nuevo no se pierde: queda '
+        'en la nota del elemento, con su nota', () async {
+      final item = await seedWithText();
+      await highlight('h1', 'es tu maquillaje', note: 'Esto no se canta');
+      await requestReextraction(item.id);
+
+      await build(TransformerRegistry([_LikeARealOne(newText)]))(item.id);
+
+      final after = await reload(item.id);
+      expect(await db.select(db.highlights).get(), isEmpty);
+      expect(
+        after.notes,
+        'Mi nota.\n\n'
+        'Subrayados que no se encontraron en el texto nuevo:\n\n'
+        '> es tu maquillaje\n\nEsto no se canta',
+      );
+    });
+
+    test('si el motor no trae texto, queda el de antes: volver a extraer '
+        'nunca deja menos', () async {
+      final item = await seedWithText();
+      await highlight('h1', 'Te amo Dios');
+      await requestReextraction(item.id);
+
+      await build(TransformerRegistry([_LikeARealOne('   ')]))(item.id);
+
+      final after = await reload(item.id);
+      expect(primaryTextOf(after)!.content, oldText);
+      expect(await db.select(db.highlights).get(), hasLength(1));
+    });
+  });
 
   group('sin transformador que aplique', () {
     test(
@@ -721,4 +867,39 @@ class _SlowLaneContext implements TransformContext {
 
   @override
   void reportProgress(int done, int total) {}
+}
+
+/// Como un transformador de verdad: solo acepta un elemento sin texto, y
+/// devuelve una forma de texto nueva, con su propio identificador.
+class _LikeARealOne implements Transformer {
+  _LikeARealOne(this.text);
+
+  final String text;
+  int calls = 0;
+
+  @override
+  Duration? get timeLimit => null;
+
+  @override
+  bool canTransform(KnowledgeItem item) => item.renditions.isEmpty;
+
+  @override
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
+    calls++;
+    return item.copyWith(
+      renditions: [
+        Rendition.text(
+          id: 'texto-nuevo-$calls',
+          itemId: item.id,
+          kind: RenditionKind.plainText,
+          content: text,
+          isPrimary: true,
+          createdAt: DateTime(2026, 9, 30),
+        ),
+      ],
+    );
+  }
 }

@@ -14,4 +14,11 @@ enum ProcessingCheckpointKind {
   /// Un tramo de audio cortado en una pausa (F22, ver `planWindows`), ya
   /// transcrito.
   transcriptWindow,
+
+  /// El usuario pidió volver a extraer el texto del elemento (F22): una sola
+  /// fila, en la posición 0. Mientras exista, el procesamiento corre el
+  /// transformador aunque el elemento ya tenga texto, y el texto nuevo toma
+  /// el lugar del viejo. Se va con el resto del avance cuando termina bien;
+  /// si falla, queda, y reintentar sigue siendo volver a extraer.
+  reextract,
 }
