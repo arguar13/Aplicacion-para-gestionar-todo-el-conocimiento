@@ -60,7 +60,12 @@ class YouTubeTranscriptTransformer implements Transformer {
     TransformContext context = TransformContext.detached,
   }) async {
     final videoId = YouTubeUrl.videoIdOf(Uri.parse(item.source.url!))!;
-    final data = await _client.fetchVideo(videoId);
+    // Si el usuario eligió un idioma para este video, ese manda; si no, el
+    // que se habla en él (F22).
+    final data = await _client.fetchVideo(
+      videoId,
+      preferredLanguages: [?item.source.language],
+    );
     final now = _clock();
 
     return item.copyWith(
@@ -72,6 +77,7 @@ class YouTubeTranscriptTransformer implements Transformer {
         authorName: data.authorName ?? item.source.authorName,
         authorUrl: data.authorChannelUrl ?? item.source.authorUrl,
         publishedAt: data.publishedAt ?? item.source.publishedAt,
+        language: data.transcriptLanguage ?? item.source.language,
       ),
       renditions: _renditionsFor(item.id, data, now),
     );

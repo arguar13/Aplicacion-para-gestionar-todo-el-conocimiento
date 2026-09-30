@@ -52,15 +52,19 @@ class FakeYouTubeClient implements YouTubeClient {
   /// Los identificadores que se le pidieron, en orden.
   final requested = <String>[];
 
+  /// Los idiomas preferidos de cada pedido, en orden.
+  final languagesRequested = <List<String>>[];
+
   /// Los identificadores para los que se pidió el audio, en orden.
   final audioRequested = <String>[];
 
   @override
   Future<YouTubeVideoData> fetchVideo(
     String videoId, {
-    List<String> preferredLanguages = const ['es', 'en'],
+    List<String> preferredLanguages = const [],
   }) async {
     requested.add(videoId);
+    languagesRequested.add(preferredLanguages);
     if (error != null) throw error!;
 
     return data ?? const YouTubeVideoData(title: 'Un video');

@@ -25,12 +25,19 @@ void main() {
     String url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     List<Rendition> renditions = const [],
     SourceKind kind = SourceKind.youtube,
+    String? language,
   }) => KnowledgeItem(
     id: 'item-1',
     // El título provisional que puso la captura: el identificador del video,
     // porque sin red no se sabía cómo se llamaba.
     title: 'youtu.be/dQw4w9WgXcQ',
-    source: Source(id: 'src-1', kind: kind, capturedAt: now, url: url),
+    source: Source(
+      id: 'src-1',
+      kind: kind,
+      capturedAt: now,
+      url: url,
+      language: language,
+    ),
     processingState: ProcessingState.pending,
     createdAt: now,
     updatedAt: now,
@@ -147,6 +154,30 @@ void main() {
       ).transform(videoItem(url: 'https://youtu.be/abcdefghijk'));
 
       expect(client.requested, ['abcdefghijk']);
+    });
+
+    test('guarda en qué idioma están los subtítulos, y sin un idioma '
+        'elegido no le pide ninguno: manda el que se habla (F22)', () async {
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(
+          title: 'A talk',
+          transcript: [TranscriptLine(offset: Duration.zero, text: 'Hello')],
+          transcriptLanguage: 'en',
+        ),
+      );
+
+      final result = await build(client).transform(videoItem());
+
+      expect(result.source.language, 'en');
+      expect(client.languagesRequested.single, isEmpty);
+    });
+
+    test('el idioma que eligió el usuario se le pide primero', () async {
+      final client = FakeYouTubeClient();
+
+      await build(client).transform(videoItem(language: 'pt'));
+
+      expect(client.languagesRequested.single, ['pt']);
     });
   });
 

@@ -32,6 +32,11 @@ sealed class YouTubeVideoData with _$YouTubeVideoData {
     /// el camino es transcribir el audio (fase posterior). Mientras tanto, el
     /// título y el autor ya valen la pena.
     @Default(<TranscriptLine>[]) List<TranscriptLine> transcript,
+
+    /// El idioma de [transcript], como código de dos letras ("es", "en"):
+    /// el idioma en que se habla, salvo que no hubiera subtítulos en ese
+    /// idioma. Nulo si no hay transcripción (F22).
+    String? transcriptLanguage,
   }) = _YouTubeVideoData;
 }
 
@@ -43,9 +48,12 @@ sealed class YouTubeVideoData with _$YouTubeVideoData {
 abstract interface class YouTubeClient {
   /// Metadatos y subtítulos de un video.
   ///
-  /// [preferredLanguages] se recorre en orden hasta encontrar una pista
-  /// disponible; si ninguna está, se usa la primera que haya. Más vale una
-  /// transcripción en otro idioma que ninguna.
+  /// Los subtítulos son los del idioma en que se HABLA en el video, hechos
+  /// por una persona si los hay y si no los automáticos: nunca una
+  /// traducción teniendo el original (F22). [preferredLanguages] —los que
+  /// eligió el usuario para este elemento— pasan adelante de eso. Sin pista
+  /// en el idioma hablado, se recorren español e inglés, y si no la primera
+  /// que haya: más vale una transcripción en otro idioma que ninguna.
   Future<YouTubeVideoData> fetchVideo(
     String videoId, {
     List<String> preferredLanguages,
