@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/core/util/windows_1252.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 
 /// Lee un archivo de texto suelto o de Markdown.
@@ -94,7 +95,7 @@ String _decode(Uint8List bytes) {
   if (invalid == 0 || valid > invalid) {
     return utf8.decode(bytes, allowMalformed: true);
   }
-  return _decodeWindows1252(bytes);
+  return decodeWindows1252(bytes);
 }
 
 bool _startsWith(Uint8List bytes, List<int> prefix) {
@@ -216,27 +217,3 @@ String _decodeUtf32(Uint8List bytes, int start, {required bool littleEndian}) {
   }
   return (valid: valid, invalid: invalid);
 }
-
-/// Windows-1252: Latin-1, salvo del 0x80 al 0x9F, donde Windows puso las
-/// comillas tipográficas, la raya, el euro y compañía.
-String _decodeWindows1252(Uint8List bytes) {
-  final buffer = StringBuffer();
-  for (final byte in bytes) {
-    buffer.writeCharCode(
-      byte >= 0x80 && byte <= 0x9F ? _windows1252High[byte - 0x80] : byte,
-    );
-  }
-  return buffer.toString();
-}
-
-/// Del 0x80 al 0x9F. Los cinco que Windows-1252 deja sin definir (0x81,
-/// 0x8D, 0x8F, 0x90, 0x9D) quedan con su mismo código, como hace Windows: un
-/// byte no se pierde aunque no tenga letra.
-// dart format off
-const _windows1252High = [
-  0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
-  0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F,
-  0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
-  0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
-];
-// dart format on

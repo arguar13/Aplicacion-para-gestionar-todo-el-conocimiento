@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:sinapsis/core/util/windows_1252.dart';
+
 /// Convierte los bytes de una página en texto con la codificación que la
 /// página declara (F22).
 ///
@@ -155,7 +157,7 @@ String _decode(List<int> bytes, _Encoding encoding) => switch (encoding) {
   _Encoding.utf8 => utf8.decode(bytes, allowMalformed: true),
   _Encoding.utf16le => _utf16(bytes, bigEndian: false),
   _Encoding.utf16be => _utf16(bytes, bigEndian: true),
-  _Encoding.windows1252 => String.fromCharCodes(bytes.map(_windows1252)),
+  _Encoding.windows1252 => decodeWindows1252(bytes),
   _Encoding.iso885915 => String.fromCharCodes(bytes.map(_iso885915)),
 };
 
@@ -167,21 +169,6 @@ String _utf16(List<int> bytes, {required bool bigEndian}) =>
         else
           bytes[i + 1] << 8 | bytes[i],
     ]);
-
-/// Windows-1252 es Latin-1 salvo entre 0x80 y 0x9F, donde Latin-1 tiene
-/// caracteres de control y Windows-1252 las comillas tipográficas, las rayas,
-/// los puntos suspensivos y el euro. Los cinco lugares que Windows-1252 deja
-/// sin definir quedan como el carácter de control de Latin-1, igual que en
-/// el estándar.
-int _windows1252(int byte) =>
-    byte >= 0x80 && byte <= 0x9F ? _windows1252High[byte - 0x80] : byte;
-
-const _windows1252High = [
-  0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, //
-  0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F, //
-  0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, //
-  0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178, //
-];
 
 /// ISO-8859-15 es Latin-1 con ocho lugares cambiados: el euro, y las letras
 /// de francés y de lenguas del norte que Latin-1 no tenía.
