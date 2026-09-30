@@ -101,13 +101,23 @@ ${chapter.html}
 ///
 /// [body] es el contenido de `<w:body>`: se le pasan los párrafos ya
 /// escritos, que es lo que permite armar en cada prueba exactamente el caso
-/// que se quiere ejercitar.
-Uint8List buildDocx({String? body, String? title, String? author}) {
+/// que se quiere ejercitar. El documento declara los prefijos que usa Word
+/// —`w`, `r`, `mc`, `wp`, `wps`, `a`, `v`—, así que el cuerpo puede traer
+/// cuadros de texto y referencias sin declararlos de nuevo.
+///
+/// [parts] son las demás partes del ZIP, por nombre —`word/numbering.xml`,
+/// `word/footnotes.xml`, un encabezado—, ya escritas: ver [wordPart].
+Uint8List buildDocx({
+  String? body,
+  String? title,
+  String? author,
+  Map<String, String> parts = const {},
+}) {
   final documentXml = body == null
       ? _defaultDocumentXml
       : '''
 <?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="$wordNamespace">
+<w:document $wordNamespaces>
   <w:body>
 $body  </w:body>
 </w:document>''';
@@ -122,6 +132,9 @@ $body  </w:body>
 </Types>'''),
     )
     ..add(_textFile('word/document.xml', documentXml));
+  for (final MapEntry(key: name, value: content) in parts.entries) {
+    archive.add(_textFile(name, content));
+  }
 
   if (title != null || author != null) {
     archive.add(
@@ -142,6 +155,25 @@ $body  </w:body>
 /// El espacio de nombres del formato de Word, para armar cuerpos a mano.
 const wordNamespace =
     'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+/// Las declaraciones de los prefijos que usa Word, para la raíz de una parte.
+const wordNamespaces =
+    'xmlns:w="$wordNamespace" '
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+    'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+    'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" '
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+    'xmlns:v="urn:schemas-microsoft-com:vml"';
+
+/// Una parte de Word —`numbering.xml`, `footnotes.xml`, un encabezado—: la
+/// raíz [root] (`w:numbering`, `w:hdr`…) con [content] adentro.
+String wordPart(String root, String content) =>
+    '''
+<?xml version="1.0" encoding="UTF-8"?>
+<$root $wordNamespaces>
+$content
+</$root>''';
 
 /// Un párrafo de Word con un solo pedazo de texto.
 ///
