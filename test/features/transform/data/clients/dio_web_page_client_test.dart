@@ -6,6 +6,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
 
+import '../../../../support/silent_logger.dart';
+
+/// Un registro que se queda con los avisos, para ver que algo se registró.
+class _RecordingLogger extends SilentLogger {
+  final warnings = <String>[];
+
+  @override
+  void warning(String message, [Object? error, StackTrace? stackTrace]) =>
+      warnings.add(message);
+}
+
 /// Responde lo que diga [respond], sin salir a la red.
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.respond);
@@ -61,6 +72,27 @@ void main() {
     );
 
     expect(await client.fetchHtml(url), '<p>Año, niño y café</p>');
+  });
+
+  test('una codificación que la app no sabe leer queda registrada '
+      '(F22)', () async {
+    final logger = _RecordingLogger();
+    final client = DioWebPageClient(
+      Dio()
+        ..httpClientAdapter = _FakeAdapter(
+          (_) async => ResponseBody.fromBytes(
+            utf8.encode('<p>hola</p>'),
+            200,
+            headers: {
+              Headers.contentTypeHeader: ['text/html; charset=gb18030'],
+            },
+          ),
+        ),
+      logger: logger,
+    );
+
+    expect(await client.fetchHtml(url), '<p>hola</p>');
+    expect(logger.warnings.single, contains('gb18030'));
   });
 
   test('sin conexión: NetworkException, para guardarlo como "sin '

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:sinapsis/core/util/single_byte_encodings.dart';
 import 'package:sinapsis/core/util/windows_1252.dart';
 
 /// Convierte los bytes de una página en texto con la codificación que la
@@ -15,45 +16,90 @@ import 'package:sinapsis/core/util/windows_1252.dart';
 ///    más confiable que existe.
 /// 2. El `charset` del encabezado `Content-Type` de la respuesta.
 /// 3. Un `<meta charset>` o un `<meta http-equiv="Content-Type">` en el
-///    principio del documento. El estándar lo busca en los primeros 1024
+///    principio del documento, sin contar los que están dentro de un
+///    comentario o de un script. El estándar lo busca en los primeros 1024
 ///    bytes; acá se mira un poco más, porque hay páginas que lo ponen
 ///    después de scripts o comentarios largos.
-/// 4. Sin nada declarado, UTF-8 —lo que usa casi toda la web actual—, salvo
-///    que los bytes no sean UTF-8 válido: entonces es una página vieja sin
-///    declarar, y se lee como Windows-1252, que es lo que hacen los
-///    navegadores en español.
+/// 4. Sin nada declarado, UTF-8 —lo que usa casi toda la web actual—. Solo
+///    si los bytes no tienen ni una secuencia de UTF-8 de más de un byte y sí
+///    alguna inválida, es una página vieja sin declarar, y se lee como
+///    Windows-1252, que es lo que hacen los navegadores en español.
 ///
-/// Se entienden UTF-8, UTF-16 y las codificaciones latinas de un byte:
-/// Windows-1252, ISO-8859-1 e ISO-8859-15. Son las de las páginas en español
-/// y en inglés, y se decodifican con una tabla propia en vez de sumar un
-/// paquete. Una codificación que no está entre esas —Shift_JIS, KOI8-R— se
-/// lee como UTF-8, como antes: sale con caracteres rotos, y hace falta un
-/// paquete de codificaciones si algún día importa.
-String decodeHtmlBytes(List<int> bytes, {String? contentType}) {
+/// **Un byte suelto no manda la página entera a otra codificación.** Una
+/// página en UTF-8 con un solo byte que no lo es —un pie de página pegado
+/// de otro sistema, un carácter cortado— antes se leía entera como
+/// Windows-1252, y cada tilde del resto salía como dos letras ("aÃ±o"). Ahora
+/// se lee como UTF-8 y solo ese byte se toma como Windows-1252, que es casi
+/// siempre de donde vino: en vez de un "�" queda la letra que era.
+///
+/// Se entienden UTF-8, UTF-16, Windows-1252 (con ISO-8859-1 y ASCII, que los
+/// navegadores leen igual), ISO-8859-15, ISO-8859-2, Windows-1251 y KOI8-R:
+/// las de las páginas en español y en inglés, y las de un byte más comunes
+/// de Europa central y de Rusia, con tablas propias en vez de sumar un
+/// paquete. Una codificación que no está entre esas —Shift_JIS, GBK,
+/// EUC-KR— se avisa a [onUnsupportedCharset] con el nombre declarado, y la
+/// página se lee como si no declarara nada: UTF-8, o Windows-1252 si no lo
+/// es. El texto puede salir roto, pero queda registrado por qué.
+String decodeHtmlBytes(
+  List<int> bytes, {
+  String? contentType,
+  void Function(String charset)? onUnsupportedCharset,
+}) {
   final fromMark = _byteOrderMark(bytes);
   if (fromMark != null) {
     return _decode(bytes.sublist(fromMark.length), fromMark.encoding);
   }
 
+  _Encoding? recognized(String? label) {
+    if (label == null) return null;
+    final encoding = _encodingFor(label);
+    if (encoding == null) onUnsupportedCharset?.call(label);
+    return encoding;
+  }
+
   final declared =
-      _encodingFor(_charsetIn(contentType)) ??
+      recognized(_charsetIn(contentType)) ??
       // Un `<meta>` no puede declarar UTF-16: si pudo leerse como texto
       // latino para encontrarlo, no es UTF-16. El estándar dice leerlo como
       // UTF-8.
-      switch (_encodingFor(_metaCharset(bytes))) {
+      switch (recognized(_metaCharset(bytes))) {
         _Encoding.utf16le || _Encoding.utf16be => _Encoding.utf8,
         final other => other,
       };
   if (declared != null) return _decode(bytes, declared);
 
-  try {
-    return utf8.decode(bytes);
-  } on FormatException {
-    return _decode(bytes, _Encoding.windows1252);
+  final read = _utf8WithFallback(bytes);
+  if (read.invalid > 0 && read.multibyte == 0) {
+    return decodeWindows1252(bytes);
   }
+  return read.text;
 }
 
-enum _Encoding { utf8, utf16le, utf16be, windows1252, iso885915 }
+/// [bytes] leídos con la codificación que se llama [charset], o `null` si
+/// no es una de las que se entienden.
+///
+/// Para los archivos que declaran su codificación por su cuenta, como el
+/// `<?xml encoding="…"?>` de un capítulo de EPUB: la misma tabla de nombres
+/// y los mismos decodificadores que una página. Igual que con un `<meta>`,
+/// una declaración que pudo leerse como texto latino no puede ser UTF-16, y
+/// se lee como UTF-8.
+String? decodeDeclaredCharset(List<int> bytes, String charset) =>
+    switch (_encodingFor(charset)) {
+      null => null,
+      _Encoding.utf16le || _Encoding.utf16be => _decode(bytes, _Encoding.utf8),
+      final encoding => _decode(bytes, encoding),
+    };
+
+enum _Encoding {
+  utf8,
+  utf16le,
+  utf16be,
+  windows1252,
+  iso885915,
+  iso88592,
+  windows1251,
+  koi8r,
+}
 
 ({_Encoding encoding, int length})? _byteOrderMark(List<int> bytes) {
   if (bytes.length >= 3 &&
@@ -80,7 +126,21 @@ final _charsetParameter = RegExp(
 String? _charsetIn(String? declaration) =>
     declaration == null ? null : _charsetParameter.firstMatch(declaration)?[1];
 
-final _metaTag = RegExp('<meta[^>]*>', caseSensitive: false);
+/// Lo que no cuenta al buscar el `<meta>`: un comentario, o un script o un
+/// estilo con su contenido. Un `<meta charset>` escrito adentro de un
+/// comentario —código viejo desactivado— o de una cadena de JavaScript no
+/// declara nada; tomarlo leía la página entera con la codificación
+/// equivocada (F22).
+final _notMarkup = RegExp(
+  r'<!--[\s\S]*?(?:-->|$)|<(script|style)\b[\s\S]*?(?:</\1\s*>|$)',
+  caseSensitive: false,
+);
+
+final _metaTag = RegExp(r'<meta\b[^>]*>', caseSensitive: false);
+
+final _attribute = RegExp(
+  r'''([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?''',
+);
 
 /// Cuánto del principio del documento se mira para encontrar el `<meta>`.
 const _metaScanLength = 8 * 1024;
@@ -89,15 +149,30 @@ const _metaScanLength = 8 * 1024;
 ///
 /// Los bytes se leen como Latin-1 solo para buscar: todas las codificaciones
 /// que importan acá escriben las etiquetas en ASCII, y Latin-1 no falla con
-/// ningún byte. Sirve para las dos formas —`<meta charset="…">` y
-/// `<meta http-equiv="Content-Type" content="text/html; charset=…">`—.
+/// ningún byte. Declara una codificación el `<meta>` que tiene un atributo
+/// `charset`, o uno `http-equiv="Content-Type"` con el `charset=` en su
+/// `content`. Un "charset=" en cualquier otro atributo —la descripción de
+/// una página que habla de codificaciones— no declara nada.
 String? _metaCharset(List<int> bytes) {
-  final head = latin1.decode(
-    bytes.length > _metaScanLength ? bytes.sublist(0, _metaScanLength) : bytes,
-  );
+  final head = latin1
+      .decode(
+        bytes.length > _metaScanLength
+            ? bytes.sublist(0, _metaScanLength)
+            : bytes,
+      )
+      .replaceAll(_notMarkup, '');
   for (final tag in _metaTag.allMatches(head)) {
-    final charset = _charsetIn(tag[0]);
-    if (charset != null) return charset;
+    final attributes = {
+      for (final attribute in _attribute.allMatches(tag[0]!.substring(5)))
+        attribute[1]!.toLowerCase():
+            attribute[2] ?? attribute[3] ?? attribute[4] ?? '',
+    };
+    final charset = attributes['charset']?.trim();
+    if (charset != null && charset.isNotEmpty) return charset;
+    if (attributes['http-equiv']?.trim().toLowerCase() == 'content-type') {
+      final fromContent = _charsetIn(attributes['content']);
+      if (fromContent != null) return fromContent;
+    }
   }
   return null;
 }
@@ -110,8 +185,7 @@ String? _metaCharset(List<int> bytes) {
 /// navegadores, porque las páginas que dicen `iso-8859-1` casi siempre usan
 /// comillas tipográficas, rayas y el signo del euro de Windows-1252, que en
 /// Latin-1 estricto serían caracteres de control invisibles.
-_Encoding? _encodingFor(String? label) => switch (label?.trim().toLowerCase()) {
-  null => null,
+_Encoding? _encodingFor(String label) => switch (label.trim().toLowerCase()) {
   'utf-8' ||
   'utf8' ||
   'unicode-1-1-utf-8' ||
@@ -150,15 +224,29 @@ _Encoding? _encodingFor(String? label) => switch (label?.trim().toLowerCase()) {
   'csisolatin9' ||
   'latin9' ||
   'l9' => _Encoding.iso885915,
+  'iso-8859-2' ||
+  'iso8859-2' ||
+  'iso88592' ||
+  'iso_8859-2' ||
+  'iso_8859-2:1987' ||
+  'iso-ir-101' ||
+  'csisolatin2' ||
+  'latin2' ||
+  'l2' => _Encoding.iso88592,
+  'windows-1251' || 'cp1251' || 'x-cp1251' => _Encoding.windows1251,
+  'koi8-r' || 'koi8_r' || 'koi8' || 'koi' || 'cskoi8r' => _Encoding.koi8r,
   _ => null,
 };
 
 String _decode(List<int> bytes, _Encoding encoding) => switch (encoding) {
-  _Encoding.utf8 => utf8.decode(bytes, allowMalformed: true),
+  _Encoding.utf8 => _utf8WithFallback(bytes).text,
   _Encoding.utf16le => _utf16(bytes, bigEndian: false),
   _Encoding.utf16be => _utf16(bytes, bigEndian: true),
   _Encoding.windows1252 => decodeWindows1252(bytes),
-  _Encoding.iso885915 => String.fromCharCodes(bytes.map(_iso885915)),
+  _Encoding.iso885915 => SingleByteEncoding.iso885915.decode(bytes),
+  _Encoding.iso88592 => SingleByteEncoding.iso88592.decode(bytes),
+  _Encoding.windows1251 => SingleByteEncoding.windows1251.decode(bytes),
+  _Encoding.koi8r => SingleByteEncoding.koi8r.decode(bytes),
 };
 
 String _utf16(List<int> bytes, {required bool bigEndian}) =>
@@ -170,16 +258,66 @@ String _utf16(List<int> bytes, {required bool bigEndian}) =>
           bytes[i + 1] << 8 | bytes[i],
     ]);
 
-/// ISO-8859-15 es Latin-1 con ocho lugares cambiados: el euro, y las letras
-/// de francés y de lenguas del norte que Latin-1 no tenía.
-int _iso885915(int byte) => switch (byte) {
-  0xA4 => 0x20AC,
-  0xA6 => 0x0160,
-  0xA8 => 0x0161,
-  0xB4 => 0x017D,
-  0xB8 => 0x017E,
-  0xBC => 0x0152,
-  0xBD => 0x0153,
-  0xBE => 0x0178,
-  _ => byte,
-};
+/// [bytes] leídos como UTF-8, con cada byte que no forma una secuencia
+/// válida leído como Windows-1252 en vez de reemplazado por "�".
+///
+/// Cuenta además las secuencias de más de un byte que sí eran válidas y los
+/// bytes que no: con eso [decodeHtmlBytes] decide si la página sin declarar
+/// era UTF-8 con algún byte suelto o Windows-1252 de punta a punta.
+({String text, int multibyte, int invalid}) _utf8WithFallback(List<int> bytes) {
+  try {
+    return (text: utf8.decode(bytes), multibyte: 0, invalid: 0);
+  } on FormatException {
+    // Hay algo inválido: se recorre byte por byte.
+  }
+
+  final buffer = StringBuffer();
+  var multibyte = 0;
+  var invalid = 0;
+  var i = 0;
+  while (i < bytes.length) {
+    final lead = bytes[i];
+    if (lead < 0x80) {
+      buffer.writeCharCode(lead);
+      i++;
+      continue;
+    }
+    final length = _sequenceLength(bytes, i);
+    if (length == 0) {
+      buffer.write(decodeWindows1252([lead]));
+      invalid++;
+      i++;
+      continue;
+    }
+    buffer.write(utf8.decode(bytes.sublist(i, i + length)));
+    multibyte++;
+    i += length;
+  }
+  return (text: buffer.toString(), multibyte: multibyte, invalid: invalid);
+}
+
+/// Cuántos bytes ocupa la secuencia de UTF-8 que empieza en [start], o 0 si
+/// no es una secuencia válida: los rangos exactos del estándar, que dejan
+/// afuera las formas demasiado largas, los sustitutos y lo que pasa de
+/// U+10FFFF.
+int _sequenceLength(List<int> bytes, int start) {
+  final lead = bytes[start];
+  final (length, low, high) = switch (lead) {
+    >= 0xC2 && <= 0xDF => (2, 0x80, 0xBF),
+    0xE0 => (3, 0xA0, 0xBF),
+    0xED => (3, 0x80, 0x9F),
+    >= 0xE1 && <= 0xEF => (3, 0x80, 0xBF),
+    0xF0 => (4, 0x90, 0xBF),
+    >= 0xF1 && <= 0xF3 => (4, 0x80, 0xBF),
+    0xF4 => (4, 0x80, 0x8F),
+    _ => (0, 0, 0),
+  };
+  if (length == 0 || start + length > bytes.length) return 0;
+  final second = bytes[start + 1];
+  if (second < low || second > high) return 0;
+  for (var k = 2; k < length; k++) {
+    final next = bytes[start + k];
+    if (next < 0x80 || next > 0xBF) return 0;
+  }
+  return length;
+}

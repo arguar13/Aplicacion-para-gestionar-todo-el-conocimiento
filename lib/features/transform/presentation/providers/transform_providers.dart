@@ -55,7 +55,10 @@ final youTubeClientProvider = Provider<YouTubeClient>((ref) {
 });
 
 final webPageClientProvider = Provider<WebPageClient>((ref) {
-  return DioWebPageClient(ref.watch(dioProvider));
+  return DioWebPageClient(
+    ref.watch(dioProvider),
+    logger: ref.watch(appLoggerProvider),
+  );
 });
 
 final articleExtractorProvider = Provider<ArticleExtractor>((ref) {

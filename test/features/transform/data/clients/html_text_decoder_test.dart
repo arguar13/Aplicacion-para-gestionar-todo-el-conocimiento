@@ -110,4 +110,89 @@ void main() {
       'en Windows-1252', () {
     expect(decodeHtmlBytes(windows1252), expected);
   });
+
+  // Lo que encontró la revisión independiente de F22.
+  group('la revisión (F22)', () {
+    test('un byte suelto no manda la página entera a Windows-1252', () {
+      // Antes: "AÃ±o, niÃ±o y ño", cada tilde del resto como dos letras.
+      final page = [...utf8.encode('Año, niño y '), 0xF1, ...utf8.encode('o')];
+
+      expect(decodeHtmlBytes(page), 'Año, niño y ño');
+    });
+
+    test('Windows-1251, KOI8-R e ISO-8859-2 se leen con su tabla', () {
+      expect(
+        decodeHtmlBytes([
+          207,
+          240,
+          232,
+          226,
+          229,
+          242,
+        ], contentType: 'text/html; charset=windows-1251'),
+        'Привет',
+      );
+      expect(
+        decodeHtmlBytes([
+          240,
+          210,
+          201,
+          215,
+          197,
+          212,
+        ], contentType: 'text/html; charset=KOI8-R'),
+        'Привет',
+      );
+      expect(
+        decodeHtmlBytes([
+          0xA3,
+          0xF3,
+          0x64,
+          0xBC,
+        ], contentType: 'text/html; charset=iso-8859-2'),
+        'Łódź',
+      );
+    });
+
+    test('una codificación que no se conoce se avisa, y la página se lee '
+        'como sin declarar', () {
+      final reported = <String>[];
+
+      final text = decodeHtmlBytes(
+        utf8.encode('こんにちは'),
+        contentType: 'text/html; charset=Shift_JIS',
+        onUnsupportedCharset: reported.add,
+      );
+
+      expect(text, 'こんにちは');
+      expect(reported, ['Shift_JIS']);
+    });
+
+    test('un <meta charset> dentro de un comentario o de un script no '
+        'declara nada', () {
+      final page = [
+        ...ascii.encode(
+          [
+            '<!-- <meta charset="koi8-r"> -->',
+            '<script>var m = \'<meta charset="koi8-r">\';</script>',
+            '<meta charset="windows-1252"><p>',
+          ].join(),
+        ),
+        ...windows1252,
+      ];
+
+      expect(decodeHtmlBytes(page), endsWith('<p>$expected'));
+    });
+
+    test('un "charset=" en otro atributo del <meta> no declara nada', () {
+      final page = utf8.encode(
+        '<meta name="description" content="charset=koi8-r"><p>Año',
+      );
+
+      expect(
+        decodeHtmlBytes(page),
+        '<meta name="description" content="charset=koi8-r"><p>Año',
+      );
+    });
+  });
 }

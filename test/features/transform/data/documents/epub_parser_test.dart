@@ -155,6 +155,47 @@ void main() {
 
       expect(result.markdown, 'Año, niño y café.');
     });
+
+    test('un capítulo que declara ISO-8859-1 se lee con sus tildes', () async {
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>Año, niño y café.</p>')],
+          latin1Chapters: {'c.xhtml'},
+        ),
+      );
+
+      expect(result.markdown, 'Año, niño y café.');
+    });
+
+    test('un capítulo que no es XML válido y tiene <title/> en el head no '
+        'se pierde', () async {
+      // El <br> sin cerrar lo manda a leerse como HTML, y ahí el título
+      // vacío no se cerraba: el capítulo salía vacío y se salteaba.
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>uno<br>dos</p>')],
+          head: '<title/><script src="a.js"/>',
+        ),
+      );
+
+      expect(result.markdown, 'uno\ndos');
+    });
+
+    test('un capítulo que no dio texto no se saltea en silencio', () async {
+      final logger = _RecordingLogger();
+
+      final result = await EpubParser(logger: logger).parseBytes(
+        buildEpub(
+          chapters: const [
+            (name: 'uno.xhtml', html: '<p>El texto.</p>'),
+            (name: 'vacio.xhtml', html: '<script>var x = 1;</script>'),
+          ],
+        ),
+      );
+
+      expect(result.markdown, 'El texto.');
+      expect(logger.warnings.single, contains('vacio.xhtml'));
+    });
   });
 
   group('el orden de lectura', () {

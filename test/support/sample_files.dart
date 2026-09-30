@@ -41,6 +41,10 @@ Uint8List buildEpub({
   /// Nombres de capítulo guardados en UTF-16 con su marca al principio, como
   /// admite EPUB 2, en vez de UTF-8.
   Set<String> utf16 = const {},
+
+  /// Nombres de capítulo guardados en ISO-8859-1 y declarados así en la
+  /// primera línea, como admite EPUB 2.
+  Set<String> latin1Chapters = const {},
 }) {
   final opfPath = containerPath ?? 'OEBPS/contenido.opf';
   final folder = opfPath.contains('/')
@@ -97,7 +101,11 @@ $spine  </spine>
 
   for (final chapter in chapters) {
     if (missingFiles.contains(chapter.name)) continue;
-    final encoding = utf16.contains(chapter.name) ? 'UTF-16' : 'UTF-8';
+    final encoding = utf16.contains(chapter.name)
+        ? 'UTF-16'
+        : latin1Chapters.contains(chapter.name)
+        ? 'ISO-8859-1'
+        : 'UTF-8';
     final xhtml =
         '''
 <?xml version="1.0" encoding="$encoding"?>
@@ -107,6 +115,8 @@ ${chapter.html}
     archive.add(
       utf16.contains(chapter.name)
           ? ArchiveFile.bytes('$folder${chapter.name}', _utf16le(xhtml))
+          : latin1Chapters.contains(chapter.name)
+          ? ArchiveFile.bytes('$folder${chapter.name}', latin1.encode(xhtml))
           : _textFile('$folder${chapter.name}', xhtml),
     );
   }

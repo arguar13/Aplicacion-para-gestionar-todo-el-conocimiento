@@ -308,4 +308,344 @@ void main() {
       );
     });
   });
+
+  // Lo que encontró la revisión independiente de F22: cada caso comparado
+  // entero, carácter por carácter.
+  group('la revisión (F22)', () {
+    const prologue =
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" '
+        'xmlns:epub="http://www.idpf.org/2007/ops">';
+
+    group('un capítulo que no es XML válido', () {
+      test('con <title/> y <script/> en el head no se pierde entero', () {
+        // El <br> sin cerrar lo manda a leerse como HTML, y ahí el <title/>
+        // no se cerraba nunca: el capítulo salía "".
+        expect(
+          xhtmlToMarkdown(
+            [
+              '$prologue<head><title/><script src="a.js"/></head>',
+              '<body><p>uno<br>dos</p><p>tres</p></body></html>',
+            ].join(),
+          ),
+          'uno\ndos\n\ntres',
+        );
+      });
+
+      test('un <textarea/> o un ancla <a/> no se tragan el resto', () {
+        expect(
+          xhtmlToMarkdown(
+            [
+              '$prologue<body><p>uno<br>dos<a id="p1"/></p><textarea/>',
+              '<p><img src="f.png" alt="foto"/>tres</p></body></html>',
+            ].join(),
+          ),
+          'uno\ndos\n\n![foto](f.png)tres',
+        );
+      });
+    });
+
+    test('el código en línea conserva sus saltos, cada línea con su '
+        'código', () {
+      expect(
+        htmlToMarkdown('<p>Ver <code>linea1<br>linea2</code>.</p>'),
+        'Ver `linea1`\n`linea2`.',
+      );
+    });
+
+    group('tablas', () {
+      test('el pie va al final aunque el archivo lo escriba antes', () {
+        // XHTML 1.1 exige el <tfoot> antes del <tbody>: el total quedaba
+        // como primera fila.
+        const table =
+            '<table><thead><tr><th>Mes</th><th>Monto</th></tr></thead>'
+            '<tfoot><tr><td>Total</td><td>30</td></tr></tfoot>'
+            '<tbody><tr><td>Enero</td><td>10</td></tr>'
+            '<tr><td>Febrero</td><td>20</td></tr></tbody></table>';
+        const expected =
+            '| Mes | Monto |\n| --- | --- |\n| Enero | 10 |\n'
+            '| Febrero | 20 |\n| Total | 30 |';
+
+        expect(htmlToMarkdown(table), expected);
+        expect(
+          xhtmlToMarkdown('$prologue<body>$table</body></html>'),
+          expected,
+        );
+      });
+
+      test('el encabezado va arriba aunque venga después del cuerpo', () {
+        const table =
+            '<table><tbody><tr><td>1</td></tr></tbody>'
+            '<thead><tr><th>A</th></tr></thead></table>';
+
+        expect(
+          xhtmlToMarkdown('$prologue<body>$table</body></html>'),
+          '| A |\n| --- |\n| 1 |',
+        );
+      });
+
+      test('celdas sin <tr>, leídas como XML, forman una fila', () {
+        expect(
+          xhtmlToMarkdown(
+            '$prologue<body><table><td>x</td><td>y</td></table></body></html>',
+          ),
+          '|  |  |\n| --- | --- |\n| x | y |',
+        );
+      });
+
+      test('el texto suelto dentro de una tabla sale antes de ella, como '
+          'en un navegador', () {
+        final table = [
+          '<table>suelto<tr><td>a</td><div>en la fila</div></tr>',
+          '<p>párrafo</p></table>',
+        ].join();
+        const expected =
+            'suelto\n\nen la fila\n\npárrafo\n\n|  |\n| --- |\n| a |';
+
+        expect(
+          xhtmlToMarkdown('$prologue<body>$table</body></html>'),
+          expected,
+        );
+        expect(htmlToMarkdown(table), expected);
+      });
+    });
+
+    group('fórmulas en MathML', () {
+      final math = [
+        '<p>Si <math><msup><mi>x</mi><mn>2</mn></msup></math>, ',
+        '<math><mfrac><mn>1</mn><mn>2</mn></mfrac></math>, ',
+        '<math><mfrac><mrow><mi>a</mi><mo>+</mo><mi>b</mi></mrow>',
+        '<mn>2</mn></mfrac></math>, ',
+        '<math><msqrt><mi>x</mi></msqrt></math> y ',
+        '<math><msub><mi>H</mi><mn>2</mn></msub></math></p>',
+      ].join();
+      const mathMl = 'http://www.w3.org/1998/Math/MathML';
+      const expected = 'Si x<sup>2</sup>, 1/2, (a+b)/2, √(x) y H<sub>2</sub>';
+
+      test('se escriben como se leen, sin aplanarse', () {
+        // Antes: "Si x2, 12, a+b2, x y H2".
+        expect(htmlToMarkdown(math), expected);
+        expect(
+          xhtmlToMarkdown(
+            '$prologue<body>'
+            '${math.replaceAll('<math>', '<math xmlns="$mathMl">')}'
+            '</body></html>',
+          ),
+          expected,
+        );
+      });
+
+      test('las anotaciones no repiten la fórmula', () {
+        final annotated = [
+          '<p><math><semantics><mrow><mi>a</mi><mo>+</mo><mi>b</mi></mrow>',
+          '<annotation encoding="application/x-tex">a+b</annotation>',
+          '<annotation-xml encoding="MathML-Content"><apply><plus/>',
+          '<ci>a</ci><ci>b</ci></apply></annotation-xml>',
+          '</semantics></math></p>',
+        ].join();
+
+        expect(htmlToMarkdown(annotated), 'a+b');
+        expect(
+          xhtmlToMarkdown('$prologue<body>$annotated</body></html>'),
+          'a+b',
+        );
+      });
+    });
+
+    group('las marcas que cruzan un <br>', () {
+      test('una negrita de dos párrafos cortos se marca en cada línea', () {
+        expect(
+          htmlToMarkdown('<p><b>uno<br><br>dos</b></p>'),
+          '**uno**\n\n**dos**',
+        );
+      });
+
+      test('en un título, cada línea con su almohadilla y su negrita', () {
+        expect(
+          htmlToMarkdown('<h2><b>Capítulo 1<br>El comienzo</b></h2>'),
+          '## **Capítulo 1**\n## **El comienzo**',
+        );
+      });
+
+      test('un enlace partido es un enlace en cada línea', () {
+        expect(
+          htmlToMarkdown('<p><a href="x.html">uno<br>dos</a></p>'),
+          '[uno](x.html)\n[dos](x.html)',
+        );
+      });
+    });
+
+    group('listas', () {
+      test('un ítem con dos párrafos los separa con una línea en blanco', () {
+        expect(
+          htmlToMarkdown('<ul><li><p>a</p><p>b</p></li><li>c</li></ul>'),
+          '- a\n\n  b\n- c',
+        );
+      });
+
+      test('el texto que sigue a una sublista no se le pega', () {
+        expect(
+          htmlToMarkdown('<ul><li>a<ul><li>b</li></ul>c</li></ul>'),
+          '- a\n  - b\n\n  c',
+        );
+      });
+
+      test('lo anidado llega al ancho del marcador', () {
+        expect(
+          htmlToMarkdown('<ol><li>a<ul><li>b</li></ul></li></ol>'),
+          '1. a\n   - b',
+        );
+        // Una sublista puesta directo en la lista, sin su <li>.
+        expect(
+          htmlToMarkdown(
+            '<ol start="9"><li>a</li><li>b</li><ul><li>c</li></ul></ol>',
+          ),
+          '9. a\n10. b\n    - c',
+        );
+      });
+    });
+
+    test('el tachado queda marcado', () {
+      // Sin la marca, "Precio: 100 80 €" dice otra cosa.
+      expect(
+        htmlToMarkdown(
+          '<p>Precio: <del>100</del> 80 €, <s>viejo</s> y '
+          '<strike>antiguo</strike></p>',
+        ),
+        'Precio: ~~100~~ 80 €, ~~viejo~~ y ~~antiguo~~',
+      );
+    });
+
+    group('los bordes de una marca', () {
+      test('el espacio duro queda afuera', () {
+        expect(
+          htmlToMarkdown('<p>a<b>&nbsp;negrita&nbsp;</b>b</p>'),
+          'a\u00A0**negrita**\u00A0b',
+        );
+      });
+
+      test('la puntuación pegada a una letra de afuera queda afuera', () {
+        expect(
+          htmlToMarkdown(
+            '<p><i>hola,</i>mundo y palabra<b>¡hola!</b> y <i>dijo,</i> '
+            'nada</p>',
+          ),
+          '*hola*,mundo y palabra¡**hola!** y *dijo,* nada',
+        );
+      });
+
+      test('dos marcas iguales seguidas son una sola', () {
+        expect(
+          htmlToMarkdown('<p><i>pala</i><i>bra</i> y <b>o</b><b>tra</b></p>'),
+          '*palabra* y **otra**',
+        );
+      });
+    });
+
+    test(r'el XHTML con saltos de Windows no deja \r en el texto', () {
+      expect(
+        xhtmlToMarkdown(
+          '$prologue\r\n<body>\r\n<pre>\r\n  x\r\n  y\r\n</pre>\r\n'
+          '<p>uno\r\ndos</p></body></html>',
+        ),
+        '```\n  x\n  y\n```\n\nuno dos',
+      );
+    });
+
+    test('un atributo de otro espacio de nombres no pisa al de XHTML', () {
+      // `epub:type` pisaba al `type` de la lista, que perdía sus letras.
+      expect(
+        xhtmlToMarkdown(
+          [
+            '$prologue<body><ol type="a" epub:type="list">',
+            '<li>x</li><li>y</li></ol></body></html>',
+          ].join(),
+        ),
+        'a. x\nb. y',
+      );
+    });
+
+    group('enlaces que Markdown no puede encerrar', () {
+      test('un corchete sin pareja en el texto va como HTML en línea', () {
+        expect(
+          htmlToMarkdown(
+            [
+              '<p><a href="n.html">ver [1</a> y ',
+              '<a href="m.html">nota [2]</a></p>',
+            ].join(),
+          ),
+          '<a href="n.html">ver [1</a> y [nota [2]](m.html)',
+        );
+      });
+
+      test('una dirección con < o > va como HTML en línea', () {
+        expect(
+          htmlToMarkdown('<p><a href="a b&lt;c&gt;&amp;d">t</a></p>'),
+          '<a href="a b<c>&amp;d">t</a>',
+        );
+      });
+
+      test('los espacios de una dirección no se colapsan', () {
+        expect(
+          htmlToMarkdown('<p><a href="la  nota.html">ver</a></p>'),
+          '[ver](<la  nota.html>)',
+        );
+      });
+    });
+
+    group('formularios, ruby e imágenes en código', () {
+      test('las opciones de una lista desplegable no se pegan', () {
+        expect(
+          htmlToMarkdown(
+            '<p><select><option>Uno</option><option>Dos</option></select></p>',
+          ),
+          'Uno\nDos',
+        );
+      });
+
+      test('un campo muestra lo que tiene escrito; uno oculto, nada', () {
+        expect(
+          htmlToMarkdown(
+            '<p>Nombre: <input value="Ana"><input type="hidden" '
+            'value="x"></p>',
+          ),
+          'Nombre: Ana',
+        );
+      });
+
+      test('la lectura de un ruby va entre paréntesis, una sola vez', () {
+        expect(
+          xhtmlToMarkdown(
+            '$prologue<body><p><ruby>漢<rt>kan</rt></ruby></p></body></html>',
+          ),
+          '漢(kan)',
+        );
+        expect(
+          htmlToMarkdown(
+            '<p><ruby>漢<rp>(</rp><rt>kan</rt><rp>)</rp></ruby></p>',
+          ),
+          '漢(kan)',
+        );
+      });
+
+      test('una imagen dentro de <pre> deja su texto alternativo', () {
+        expect(
+          htmlToMarkdown('<pre>a <img src="b.png" alt="β"> c</pre>'),
+          '```\na β c\n```',
+        );
+      });
+    });
+
+    test('las entidades que declara el capítulo se expanden', () {
+      expect(
+        xhtmlToMarkdown(
+          '<?xml version="1.0" encoding="UTF-8"?>\n'
+          '<!DOCTYPE html [<!ENTITY autor "Cervantes">]>\n'
+          '<html xmlns="http://www.w3.org/1999/xhtml">\n'
+          '<body><p>Por &autor; &amp; otros&nbsp;más.</p></body></html>',
+        ),
+        'Por Cervantes & otros\u00A0más.',
+      );
+    });
+  });
 }

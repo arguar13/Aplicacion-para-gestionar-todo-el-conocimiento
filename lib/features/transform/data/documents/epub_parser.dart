@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/features/transform/data/clients/html_text_decoder.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:xml/xml.dart';
@@ -31,8 +32,9 @@ import 'package:xml/xml.dart';
 class EpubParser implements DocumentParser {
   const EpubParser({AppLogger? logger}) : _logger = logger;
 
-  /// Dónde queda registrado un capítulo que el libro nombra y no trae
-  /// (F22). `null` en las pruebas a las que no les interesa.
+  /// Dónde queda registrado un capítulo que el libro nombra y no trae, o
+  /// que trae y no dio texto (F22). `null` en las pruebas a las que no les
+  /// interesa.
   final AppLogger? _logger;
 
   @override
@@ -49,7 +51,7 @@ class EpubParser implements DocumentParser {
   }) async {
     // Un ZIP se descomprime entero: se lee entero, fuera del hilo principal.
     final bytes = await source.readAll();
-    final (document, missing) = await Isolate.run(() => _parse(bytes));
+    final (document, :missing, :empty) = await Isolate.run(() => _parse(bytes));
 
     // Un capítulo que falta no frena el libro —perderlo entero por una línea
     // sobrante del índice sería desproporcionado—, pero tampoco se saltea en
@@ -62,11 +64,22 @@ class EpubParser implements DocumentParser {
         'se guardó el libro sin él.',
       );
     }
+    // Un capítulo que está y no dio texto puede ser una página en blanco de
+    // verdad, o un capítulo que no se supo leer: antes se salteaba sin
+    // dejar rastro, y un capítulo entero perdido no se notaba (F22).
+    for (final href in empty) {
+      _logger?.warning(
+        'El capítulo "$href" del EPUB ${source.name} no está vacío y no dio '
+        'texto: si tenía, no se guardó.',
+      );
+    }
 
     return document;
   }
 
-  (ParsedDocument, List<String>) _parse(Uint8List bytes) {
+  (ParsedDocument, {List<String> missing, List<String> empty}) _parse(
+    Uint8List bytes,
+  ) {
     final archive = _decode(bytes);
 
     final opfPath = _findOpfPath(archive);
@@ -77,7 +90,7 @@ class EpubParser implements DocumentParser {
     // solo capítulo, porque ninguna ruta encuentra su archivo.
     final base = p.url.dirname(opfPath);
 
-    final (:chapters, :missing) = _readSpine(archive, opf, base);
+    final (:chapters, :missing, :empty) = _readSpine(archive, opf, base);
     if (chapters.isEmpty) {
       throw const UnreadableDocumentException(
         FileFormat.epub,
@@ -94,7 +107,8 @@ class EpubParser implements DocumentParser {
         author: metadata.author,
         pageCount: chapters.length,
       ),
-      missing,
+      missing: missing,
+      empty: empty,
     );
   }
 
@@ -135,11 +149,8 @@ class EpubParser implements DocumentParser {
   // Capítulos
   // -------------------------------------------------------------------
 
-  ({List<String> chapters, List<String> missing}) _readSpine(
-    Archive archive,
-    XmlElement opf,
-    String base,
-  ) {
+  ({List<String> chapters, List<String> missing, List<String> empty})
+  _readSpine(Archive archive, XmlElement opf, String base) {
     // El manifiesto asocia cada identificador con su archivo; el spine dice
     // en qué orden van esos identificadores.
     final hrefById = <String, String>{};
@@ -158,6 +169,7 @@ class EpubParser implements DocumentParser {
     // lectura y tampoco se pierde.
     final auxiliary = <String>[];
     final missing = <String>[];
+    final empty = <String>[];
     for (final reference in opf.findAllElements('itemref')) {
       final idref = reference.getAttribute('idref');
       final href = hrefById[idref];
@@ -172,8 +184,12 @@ class EpubParser implements DocumentParser {
         continue;
       }
 
-      final markdown = xhtmlToMarkdown(_decodeText(entry));
-      if (markdown.trim().isEmpty) continue;
+      final text = _decodeText(entry);
+      final markdown = xhtmlToMarkdown(text);
+      if (markdown.trim().isEmpty) {
+        if (text.trim().isNotEmpty) empty.add(href);
+        continue;
+      }
       if (reference.getAttribute('linear') == 'no') {
         auxiliary.add(markdown);
       } else {
@@ -181,7 +197,11 @@ class EpubParser implements DocumentParser {
       }
     }
 
-    return (chapters: [...chapters, ...auxiliary], missing: missing);
+    return (
+      chapters: [...chapters, ...auxiliary],
+      missing: missing,
+      empty: empty,
+    );
   }
 
   /// Resuelve una ruta del manifiesto contra la carpeta del OPF.
@@ -241,6 +261,11 @@ class EpubParser implements DocumentParser {
   /// capítulo en UTF-16 sale entero como caracteres rotos (F22). La marca de
   /// UTF-8, si está, se descarta: no es texto, y delante del XML hace que no
   /// se lo reconozca como XML.
+  ///
+  /// EPUB 2 admite también otras codificaciones, declaradas en la primera
+  /// línea: `<?xml version="1.0" encoding="iso-8859-1"?>`. Leído siempre
+  /// como UTF-8, un capítulo así perdía cada tilde (F22). Una codificación
+  /// declarada que no se conoce se lee como UTF-8, como antes.
   String _decodeText(List<int> bytes) {
     if (bytes.length >= 2) {
       final bigEndian = bytes[0] == 0xFE && bytes[1] == 0xFF;
@@ -261,6 +286,15 @@ class EpubParser implements DocumentParser {
         bytes[0] == 0xEF &&
         bytes[1] == 0xBB &&
         bytes[2] == 0xBF;
+    if (!hasUtf8Mark) {
+      final declared = _xmlEncoding.firstMatch(
+        latin1.decode(bytes.length > 200 ? bytes.sublist(0, 200) : bytes),
+      )?[1];
+      final decoded = declared == null
+          ? null
+          : decodeDeclaredCharset(bytes, declared);
+      if (decoded != null) return decoded;
+    }
     return utf8.decode(
       hasUtf8Mark ? bytes.sublist(3) : bytes,
       allowMalformed: true,
@@ -280,6 +314,11 @@ class EpubParser implements DocumentParser {
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 }
+
+/// El `encoding` de la declaración de XML, al principio del archivo.
+final _xmlEncoding = RegExp(
+  r'''^\s*<\?xml\s[^>]*?encoding\s*=\s*["']([^"']+)["']''',
+);
 
 /// Dublin Core, el vocabulario de los metadatos.
 const _dc = 'http://purl.org/dc/elements/1.1/';
