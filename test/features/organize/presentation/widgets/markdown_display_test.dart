@@ -4,6 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 
 void main() {
+  group('tal cual, sin interpretar (F22)', () {
+    test(
+      'lo que parece marcado se ve como está, con las mismas posiciones',
+      () {
+        const raw = '# 3 cuotas de var_uno_dos y **no** es negrita';
+        final rendered = RenderedMarkdown.plain(raw);
+
+        expect(rendered.displayText, raw);
+        expect(rendered.renderToRaw(10), 10);
+        expect(rendered.rawToRender(10), 10);
+        expect(rendered.renderToRaw(raw.length, isEnd: true), raw.length);
+      },
+    );
+
+    test('vacío', () {
+      expect(RenderedMarkdown.plain('').displayText, '');
+    });
+  });
+
   group('texto sin marcado', () {
     test('queda exactamente igual', () {
       final rendered = RenderedMarkdown.parse('Un párrafo cualquiera.');

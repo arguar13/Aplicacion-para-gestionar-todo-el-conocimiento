@@ -142,7 +142,17 @@ class DocumentTransformer implements Transformer {
         Rendition.text(
           id: _ids.next(),
           itemId: item.id,
-          kind: RenditionKind.markdown,
+          // Markdown solo lo que se convierte con esa forma —títulos, listas—:
+          // un Word, un EPUB, un `.md`. El texto de un PDF o de un `.txt` es
+          // el del original tal cual (F22).
+          kind:
+              const {
+                FileFormat.docx,
+                FileFormat.epub,
+                FileFormat.markdown,
+              }.contains(format)
+              ? RenditionKind.markdown
+              : RenditionKind.plainText,
           content: parsed.markdown,
           isPrimary: true,
           createdAt: now,

@@ -99,7 +99,8 @@ class YouTubeTranscriptTransformer implements Transformer {
         Rendition.text(
           id: _ids.next(),
           itemId: itemId,
-          kind: RenditionKind.markdown,
+          // Lo dicho, tal cual, con su minuto: no es Markdown (F22).
+          kind: RenditionKind.plainText,
           content: formatTranscript(data.transcript),
           isPrimary: true,
           createdAt: now,

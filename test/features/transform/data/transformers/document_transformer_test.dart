@@ -148,6 +148,7 @@ void main() {
       expect(result.title, 'Cien anos de soledad');
       expect(result.source.authorName, 'Gabriel Garcia');
       expect(result.searchableText, contains('El primer capítulo'));
+      expect(result.renditions.single.kind, RenditionKind.markdown);
     });
 
     test('un archivo de texto suelto tambien se lee', () async {
@@ -159,6 +160,8 @@ void main() {
       final result = await transformer.transform(item);
 
       expect(result.searchableText, contains('notas sueltas'));
+      // El texto de un `.txt` es el original tal cual, no Markdown (F22).
+      expect(result.renditions.single.kind, RenditionKind.plainText);
     });
 
     test(

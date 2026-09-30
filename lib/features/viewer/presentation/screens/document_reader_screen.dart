@@ -13,18 +13,26 @@ class DocumentReaderScreen extends StatelessWidget {
   const DocumentReaderScreen({
     required this.title,
     required this.content,
+    this.markdown = true,
     super.key,
   });
 
   final String title;
   final String content;
 
+  /// Ver `TextResolvedViewer.markdown`.
+  final bool markdown;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
       body: SafeArea(
-        child: DocumentReaderView(content: content, showFontControls: true),
+        child: DocumentReaderView(
+          content: content,
+          markdown: markdown,
+          showFontControls: true,
+        ),
       ),
     );
   }

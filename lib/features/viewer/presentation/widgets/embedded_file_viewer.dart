@@ -89,11 +89,12 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
     return switch (resolved) {
       NoResolvedViewer() => const SizedBox.shrink(),
-      TextResolvedViewer(:final content) => _EmbeddedViewerFrame(
-        tall: true,
-        onExpand: expand,
-        child: DocumentReaderView(content: content),
-      ),
+      TextResolvedViewer(:final content, :final markdown) =>
+        _EmbeddedViewerFrame(
+          tall: true,
+          onExpand: expand,
+          child: DocumentReaderView(content: content, markdown: markdown),
+        ),
       ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(
         onExpand: expand,
         child: ImageViewerView(path: path),

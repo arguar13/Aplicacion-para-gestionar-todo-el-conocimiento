@@ -5,6 +5,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
@@ -95,6 +96,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                         controller: _controller,
                         initialJump: widget.jump,
                         extractFirst: true,
+                        markdown: extractedTextIsMarkdown(item.source),
                       ),
                       if (extracted.isNotEmpty)
                         _ExtractedList(

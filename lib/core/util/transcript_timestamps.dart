@@ -14,21 +14,19 @@ final _timestampLine = RegExp(
 /// mostrar el botón sobre un artículo o una nota que nunca tuvo una.
 bool hasTimestamps(String content) => _timestampLine.hasMatch(content);
 
-/// Saca las marcas de tiempo y junta las líneas en párrafos de lectura
-/// corrida, en vez de dejarlas separadas una por una.
+/// Saca la marca de tiempo del principio de cada línea, y nada más (F22).
 ///
-/// Es una transformación con pérdida a propósito: el pedido es leer la
-/// transcripción como un texto normal, no navegarla por minuto. Quien
-/// necesite volver a un momento exacto del video todavía tiene el enlace al
-/// original, en la procedencia del elemento.
-String stripTimestamps(String content) {
-  final withoutStamps = content.replaceAll(_timestampLine, '');
-  final lines = withoutStamps
-      .split('\n')
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty);
-  return lines.join(' ');
-}
+/// Lo que el usuario pide es no ver los minutos, no que se toque lo dicho:
+/// cada línea queda como estaba, en su lugar. Antes además juntaba todas las
+/// líneas en un solo párrafo —y como se ofrecía en cualquier texto con una
+/// línea que empezara como "[12:30]", destruía los párrafos de un PDF o un
+/// Word—. Una línea que era solo su marca, sin texto, se va con ella.
+String stripTimestamps(String content) => content
+    .split('\n')
+    .map((line) => (line, line.replaceFirst(_timestampLine, '')))
+    .where((pair) => pair.$1 == pair.$2 || pair.$2.trim().isNotEmpty)
+    .map((pair) => pair.$2)
+    .join('\n');
 
 /// `2:07` para lo que dura menos de una hora, `1:02:07` para lo que dura más.
 ///

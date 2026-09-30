@@ -144,6 +144,8 @@ void main() {
 
       expect(content, contains('[0:00] Primera frase'));
       expect(content, contains('[1:05] Segunda frase'));
+      // Lo dicho, tal cual: no es Markdown (F22).
+      expect(result.renditions.single.kind, RenditionKind.plainText);
     });
 
     test('le pide al cliente el identificador correcto del video', () async {

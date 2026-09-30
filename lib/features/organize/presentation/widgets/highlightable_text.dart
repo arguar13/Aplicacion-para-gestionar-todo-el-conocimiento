@@ -102,6 +102,7 @@ class HighlightableText extends ConsumerStatefulWidget {
     this.controller,
     this.initialJump,
     this.extractFirst = false,
+    this.markdown = true,
     super.key,
   });
 
@@ -125,6 +126,10 @@ class HighlightableText extends ConsumerStatefulWidget {
   /// abrió.
   final bool extractFirst;
 
+  /// Si [content] es Markdown y se muestra con formato, o texto tal cual:
+  /// ver `extractedTextIsMarkdown` (F22).
+  final bool markdown;
+
   @override
   ConsumerState<HighlightableText> createState() => _HighlightableTextState();
 }
@@ -135,7 +140,11 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
   /// del texto original: es lo que hace posible mostrar formato de verdad
   /// sin romper los resaltados existentes, que guardan sus rangos contra
   /// [HighlightableText.content] tal cual llega, no contra lo que se ve.
-  late var _rendered = RenderedMarkdown.parse(widget.content);
+  late var _rendered = _render();
+
+  RenderedMarkdown _render() => widget.markdown
+      ? RenderedMarkdown.parse(widget.content)
+      : RenderedMarkdown.plain(widget.content);
 
   final _textKey = GlobalKey();
 
@@ -160,8 +169,9 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
   @override
   void didUpdateWidget(HighlightableText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.content != widget.content) {
-      _rendered = RenderedMarkdown.parse(widget.content);
+    if (oldWidget.content != widget.content ||
+        oldWidget.markdown != widget.markdown) {
+      _rendered = _render();
     }
     if (oldWidget.controller != widget.controller) {
       if (oldWidget.controller?._state == this) {

@@ -158,6 +158,13 @@ class FileViewerResolver {
       return const NoResolvedViewer();
     }
 
-    return TextResolvedViewer(rendition.content);
+    return TextResolvedViewer(
+      rendition.content,
+      markdown: const {
+        FileFormat.docx,
+        FileFormat.epub,
+        FileFormat.markdown,
+      }.contains(format),
+    );
   }
 }

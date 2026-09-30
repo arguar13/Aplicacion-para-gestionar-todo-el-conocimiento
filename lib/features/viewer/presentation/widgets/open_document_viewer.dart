@@ -52,10 +52,14 @@ Future<bool> openDocumentViewer(
     case WebPageResolvedViewer(:final path):
       return _push(context, WebPageViewerScreen(path: path, title: item.title));
 
-    case TextResolvedViewer(:final content):
+    case TextResolvedViewer(:final content, :final markdown):
       return _push(
         context,
-        DocumentReaderScreen(title: item.title, content: content),
+        DocumentReaderScreen(
+          title: item.title,
+          content: content,
+          markdown: markdown,
+        ),
       );
 
     // Sin pantalla propia: para YouTube, "abrir el visor a pantalla

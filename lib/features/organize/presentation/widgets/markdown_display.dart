@@ -45,6 +45,15 @@ class RenderedMarkdown {
     return RenderedMarkdown._(segments, buffer.toString());
   }
 
+  /// [raw] tal cual, sin interpretar ningún marcado: el texto de un
+  /// original que no es Markdown —una transcripción, un PDF, lo reconocido
+  /// en una foto— se muestra carácter por carácter (F22). Mismo contrato
+  /// que [RenderedMarkdown.parse]: las posiciones son las del contenido.
+  factory RenderedMarkdown.plain(String raw) => RenderedMarkdown._([
+    if (raw.isNotEmpty)
+      _Segment.kept(rawStart: 0, text: raw, style: const _RunStyle()),
+  ], raw);
+
   final List<_Segment> _segments;
 
   /// El texto tal como se ve, sin ningún `#`, `**` ni `*` de marcado. Sirve

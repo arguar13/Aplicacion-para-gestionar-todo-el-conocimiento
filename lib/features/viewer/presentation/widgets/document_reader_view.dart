@@ -40,11 +40,16 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
     required this.content,
+    this.markdown = true,
     this.showFontControls = false,
     super.key,
   });
 
   final String content;
+
+  /// Si [content] es Markdown y se muestra con formato, o texto tal cual
+  /// (F22): ver `TextResolvedViewer.markdown`.
+  final bool markdown;
   final bool showFontControls;
 
   @override
@@ -123,8 +128,11 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
             controller: _controller,
             itemCount: _pages.length,
             onPageChanged: (index) => setState(() => _pageIndex = index),
-            itemBuilder: (context, index) =>
-                _ReaderPage(content: _pages[index], fontScale: fontScale),
+            itemBuilder: (context, index) => _ReaderPage(
+              content: _pages[index],
+              fontScale: fontScale,
+              markdown: widget.markdown,
+            ),
           ),
         ),
         Padding(
@@ -161,15 +169,22 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 /// Una página del libro: el mismo formato de tarjeta que tenía la pantalla
 /// entera antes de paginarse, ahora acotado a lo que entra en una página.
 class _ReaderPage extends StatelessWidget {
-  const _ReaderPage({required this.content, required this.fontScale});
+  const _ReaderPage({
+    required this.content,
+    required this.fontScale,
+    required this.markdown,
+  });
 
   final String content;
   final double fontScale;
+  final bool markdown;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rendered = RenderedMarkdown.parse(content);
+    final rendered = markdown
+        ? RenderedMarkdown.parse(content)
+        : RenderedMarkdown.plain(content);
     final baseSize = theme.textTheme.bodyLarge?.fontSize ?? 16;
 
     return Center(

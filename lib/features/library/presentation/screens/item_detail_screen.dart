@@ -20,6 +20,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
@@ -527,7 +528,8 @@ class _TextRenditionView extends ConsumerWidget {
           child: Wrap(
             spacing: 4,
             children: [
-              if (hasTimestamps(rendition.content))
+              if (isTranscriptSource(item.source) &&
+                  hasTimestamps(rendition.content))
                 TextButton.icon(
                   icon: const Icon(Icons.timer_off_outlined, size: 18),
                   label: Text(l10n.detailRemoveTimestamps),
@@ -551,6 +553,7 @@ class _TextRenditionView extends ConsumerWidget {
           itemId: item.id,
           renditionId: rendition.id,
           content: rendition.content,
+          markdown: extractedTextIsMarkdown(item.source),
         ),
         const SizedBox(height: 8),
         NarrationPlayer(text: rendition.content),

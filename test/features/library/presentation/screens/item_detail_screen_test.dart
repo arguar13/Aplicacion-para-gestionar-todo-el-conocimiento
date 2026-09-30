@@ -10,12 +10,16 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
@@ -104,6 +108,73 @@ void main() {
   }
 
   group('contenido', () {
+    /// Guarda un elemento de [kind] ya procesado, con [content] como texto
+    /// principal, y devuelve su identificador.
+    Future<String> saveWithText(
+      SourceKind kind,
+      String content, {
+      String? file,
+    }) async {
+      final now = DateTime(2026, 9, 30, 10);
+      const id = 'f22-texto';
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(
+            KnowledgeItem(
+              id: id,
+              title: 'Con texto',
+              source: Source(
+                id: id,
+                kind: kind,
+                capturedAt: now,
+                originalFilePath: file,
+              ),
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+              renditions: [
+                Rendition.text(
+                  id: '$id-texto',
+                  itemId: id,
+                  kind: RenditionKind.plainText,
+                  content: content,
+                  isPrimary: true,
+                  createdAt: now,
+                ),
+              ],
+            ),
+          );
+      return id;
+    }
+
+    testWidgets('una transcripción se ve tal cual —nada de Markdown— y '
+        'ofrece quitar las marcas de tiempo (F22)', (tester) async {
+      final id = await saveWithText(
+        SourceKind.audio,
+        '[0:00] se llama var_uno_dos\n[0:14] # 3 no es un título',
+      );
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('var_uno_dos'), findsOneWidget);
+      expect(find.textContaining('# 3 no es un título'), findsOneWidget);
+      expect(find.text(es.detailRemoveTimestamps), findsOneWidget);
+    });
+
+    testWidgets('un PDF con una línea que empieza como una marca no ofrece '
+        'quitarla: no es una transcripción (F22)', (tester) async {
+      final id = await saveWithText(
+        SourceKind.document,
+        '[12:30] Horario de atención',
+        file: 'originales/f22/libro.pdf',
+      );
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('[12:30] Horario'), findsOneWidget);
+      expect(find.text(es.detailRemoveTimestamps), findsNothing);
+    });
+
     testWidgets('muestra el texto guardado', (tester) async {
       final id = await captureAndGetId(
         'Un título\n\nY el cuerpo con la idea completa.',
