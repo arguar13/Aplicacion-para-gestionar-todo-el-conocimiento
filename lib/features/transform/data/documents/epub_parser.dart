@@ -3,9 +3,10 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:html2md/html2md.dart' as html2md;
 import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:xml/xml.dart';
 
@@ -28,7 +29,11 @@ import 'package:xml/xml.dart';
 /// forma. Es justamente por eso que se usa ese y no el índice de navegación,
 /// que sí cambió de formato entre versiones.
 class EpubParser implements DocumentParser {
-  const EpubParser();
+  const EpubParser({AppLogger? logger}) : _logger = logger;
+
+  /// Dónde queda registrado un capítulo que el libro nombra y no trae
+  /// (F22). `null` en las pruebas a las que no les interesa.
+  final AppLogger? _logger;
 
   @override
   bool canParse(FileFormat format) => format == FileFormat.epub;
@@ -44,10 +49,24 @@ class EpubParser implements DocumentParser {
   }) async {
     // Un ZIP se descomprime entero: se lee entero, fuera del hilo principal.
     final bytes = await source.readAll();
-    return Isolate.run(() => _parse(bytes));
+    final (document, missing) = await Isolate.run(() => _parse(bytes));
+
+    // Un capítulo que falta no frena el libro —perderlo entero por una línea
+    // sobrante del índice sería desproporcionado—, pero tampoco se saltea en
+    // silencio: queda registrado, con su nombre, para saber que el texto
+    // guardado no es el libro completo (F22). Se registra acá y no adentro
+    // del isolate porque el registro de la app vive en este.
+    for (final href in missing) {
+      _logger?.warning(
+        'El EPUB ${source.name} nombra el capítulo "$href" y no lo trae: '
+        'se guardó el libro sin él.',
+      );
+    }
+
+    return document;
   }
 
-  ParsedDocument _parse(Uint8List bytes) {
+  (ParsedDocument, List<String>) _parse(Uint8List bytes) {
     final archive = _decode(bytes);
 
     final opfPath = _findOpfPath(archive);
@@ -58,7 +77,7 @@ class EpubParser implements DocumentParser {
     // solo capítulo, porque ninguna ruta encuentra su archivo.
     final base = p.url.dirname(opfPath);
 
-    final chapters = _readSpine(archive, opf, base);
+    final (:chapters, :missing) = _readSpine(archive, opf, base);
     if (chapters.isEmpty) {
       throw const UnreadableDocumentException(
         FileFormat.epub,
@@ -68,11 +87,14 @@ class EpubParser implements DocumentParser {
 
     final metadata = _readMetadata(opf);
 
-    return ParsedDocument(
-      markdown: chapters.join('\n\n---\n\n'),
-      title: metadata.title,
-      author: metadata.author,
-      pageCount: chapters.length,
+    return (
+      ParsedDocument(
+        markdown: chapters.join('\n\n---\n\n'),
+        title: metadata.title,
+        author: metadata.author,
+        pageCount: chapters.length,
+      ),
+      missing,
     );
   }
 
@@ -113,7 +135,11 @@ class EpubParser implements DocumentParser {
   // Capítulos
   // -------------------------------------------------------------------
 
-  List<String> _readSpine(Archive archive, XmlElement opf, String base) {
+  ({List<String> chapters, List<String> missing}) _readSpine(
+    Archive archive,
+    XmlElement opf,
+    String base,
+  ) {
     // El manifiesto asocia cada identificador con su archivo; el spine dice
     // en qué orden van esos identificadores.
     final hrefById = <String, String>{};
@@ -124,25 +150,38 @@ class EpubParser implements DocumentParser {
     }
 
     final chapters = <String>[];
+    // Un capítulo marcado como no lineal —notas al final, apéndices, un
+    // glosario— no va en el hilo de lectura, pero es texto del libro: los
+    // lectores lo muestran cuando se toca una nota. Antes se descartaba, y
+    // con él las notas de libros enteros (F22). Va al final, después de lo
+    // lineal, en el orden en que el spine los nombra: así no interrumpe la
+    // lectura y tampoco se pierde.
+    final auxiliary = <String>[];
+    final missing = <String>[];
     for (final reference in opf.findAllElements('itemref')) {
-      final href = hrefById[reference.getAttribute('idref')];
-      if (href == null) continue;
-
-      // Un capítulo marcado como no lineal es material auxiliar —notas al
-      // pie, publicidad de la editorial— que no forma parte del hilo de
-      // lectura. Incluirlo mezclaría el texto del libro con el que no lo es.
-      if (reference.getAttribute('linear') == 'no') continue;
+      final idref = reference.getAttribute('idref');
+      final href = hrefById[idref];
+      if (href == null) {
+        missing.add(idref ?? '(sin identificador)');
+        continue;
+      }
 
       final entry = _entryBytes(archive, _resolve(base, href));
-      if (entry == null) continue;
+      if (entry == null) {
+        missing.add(href);
+        continue;
+      }
 
-      final markdown = _htmlToMarkdown(
-        utf8.decode(entry, allowMalformed: true),
-      );
-      if (markdown.trim().isNotEmpty) chapters.add(markdown);
+      final markdown = xhtmlToMarkdown(_decodeText(entry));
+      if (markdown.trim().isEmpty) continue;
+      if (reference.getAttribute('linear') == 'no') {
+        auxiliary.add(markdown);
+      } else {
+        chapters.add(markdown);
+      }
     }
 
-    return chapters;
+    return (chapters: [...chapters, ...auxiliary], missing: missing);
   }
 
   /// Resuelve una ruta del manifiesto contra la carpeta del OPF.
@@ -154,13 +193,6 @@ class EpubParser implements DocumentParser {
     final decoded = Uri.decodeComponent(href.split('#').first);
     return base.isEmpty ? decoded : p.url.normalize(p.url.join(base, decoded));
   }
-
-  /// `headingStyle: 'atx'` por la misma razón que en el extractor de
-  /// artículos: por defecto la librería escribe los encabezados de nivel 1 y
-  /// 2 subrayados con `===` y `---`, y del 3 en adelante con almohadillas, de
-  /// modo que un mismo libro sale con dos convenciones mezcladas.
-  String _htmlToMarkdown(String html) =>
-      html2md.convert(html, styleOptions: const {'headingStyle': 'atx'}).trim();
 
   // -------------------------------------------------------------------
   // Metadatos
@@ -199,7 +231,40 @@ class EpubParser implements DocumentParser {
       throw UnreadableDocumentException(FileFormat.epub, 'falta $name');
     }
 
-    return utf8.decode(bytes, allowMalformed: true);
+    return _decodeText(bytes);
+  }
+
+  /// El texto de un archivo del libro.
+  ///
+  /// EPUB 3 exige UTF-8, pero EPUB 2 también admite UTF-16, que se reconoce
+  /// por la marca con la que empieza el archivo. Leído como UTF-8, un
+  /// capítulo en UTF-16 sale entero como caracteres rotos (F22). La marca de
+  /// UTF-8, si está, se descarta: no es texto, y delante del XML hace que no
+  /// se lo reconozca como XML.
+  String _decodeText(List<int> bytes) {
+    if (bytes.length >= 2) {
+      final bigEndian = bytes[0] == 0xFE && bytes[1] == 0xFF;
+      final littleEndian = bytes[0] == 0xFF && bytes[1] == 0xFE;
+      if (bigEndian || littleEndian) {
+        final units = <int>[
+          for (var i = 2; i + 1 < bytes.length; i += 2)
+            if (bigEndian)
+              bytes[i] << 8 | bytes[i + 1]
+            else
+              bytes[i + 1] << 8 | bytes[i],
+        ];
+        return String.fromCharCodes(units);
+      }
+    }
+    final hasUtf8Mark =
+        bytes.length >= 3 &&
+        bytes[0] == 0xEF &&
+        bytes[1] == 0xBB &&
+        bytes[2] == 0xBF;
+    return utf8.decode(
+      hasUtf8Mark ? bytes.sublist(3) : bytes,
+      allowMalformed: true,
+    );
   }
 
   XmlDocument _parseXml(String source, String name) {

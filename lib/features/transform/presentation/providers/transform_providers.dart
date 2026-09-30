@@ -163,7 +163,7 @@ final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
       ocrFileStore: ref.watch(fileStoreProvider),
     ),
     const DocxParser(),
-    const EpubParser(),
+    EpubParser(logger: ref.watch(appLoggerProvider)),
     const PlainTextParser(),
   ];
 });

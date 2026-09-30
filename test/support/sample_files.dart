@@ -29,6 +29,18 @@ Uint8List buildEpub({
   /// Un identificador de spine que no existe en el manifiesto. Pasa en
   /// libros mal armados.
   bool withDanglingSpineEntry = false,
+
+  /// Nombres de capítulo que el manifiesto y el spine nombran pero que no
+  /// están dentro del ZIP: otra forma de libro mal armado.
+  Set<String> missingFiles = const {},
+
+  /// Lo que va dentro del `<head>` de cada capítulo: el título interno, el
+  /// CSS, el JavaScript. Nada de eso es texto del libro.
+  String head = '',
+
+  /// Nombres de capítulo guardados en UTF-16 con su marca al principio, como
+  /// admite EPUB 2, en vez de UTF-8.
+  Set<String> utf16 = const {},
 }) {
   final opfPath = containerPath ?? 'OEBPS/contenido.opf';
   final folder = opfPath.contains('/')
@@ -84,12 +96,18 @@ $spine  </spine>
     );
 
   for (final chapter in chapters) {
-    archive.add(
-      _textFile('$folder${chapter.name}', '''
-<?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml"><body>
+    if (missingFiles.contains(chapter.name)) continue;
+    final encoding = utf16.contains(chapter.name) ? 'UTF-16' : 'UTF-8';
+    final xhtml =
+        '''
+<?xml version="1.0" encoding="$encoding"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head>$head</head><body>
 ${chapter.html}
-</body></html>'''),
+</body></html>''';
+    archive.add(
+      utf16.contains(chapter.name)
+          ? ArchiveFile.bytes('$folder${chapter.name}', _utf16le(xhtml))
+          : _textFile('$folder${chapter.name}', xhtml),
     );
   }
 
@@ -242,6 +260,13 @@ Uint8List buildPlainZip() {
 
 ArchiveFile _textFile(String name, String content) =>
     ArchiveFile.bytes(name, Uint8List.fromList(utf8.encode(content)));
+
+/// [text] en UTF-16 little-endian, con la marca de orden de bytes delante.
+Uint8List _utf16le(String text) => Uint8List.fromList([
+  0xFF,
+  0xFE,
+  for (final unit in text.codeUnits) ...[unit & 0xFF, unit >> 8],
+]);
 
 /// Bytes con la firma de [signature] delante y relleno detrás.
 ///

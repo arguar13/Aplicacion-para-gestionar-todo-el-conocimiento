@@ -8,6 +8,16 @@ import 'package:sinapsis/features/transform/domain/documents/document_parser.dar
 
 import '../../../../support/document_parsing.dart';
 import '../../../../support/sample_files.dart';
+import '../../../../support/silent_logger.dart';
+
+/// Un registro que se queda con los avisos, para ver que algo se registró.
+class _RecordingLogger extends SilentLogger {
+  final warnings = <String>[];
+
+  @override
+  void warning(String message, [Object? error, StackTrace? stackTrace]) =>
+      warnings.add(message);
+}
 
 void main() {
   const parser = EpubParser();
@@ -36,9 +46,9 @@ void main() {
     });
 
     test('los encabezados usan almohadillas en todos los niveles', () async {
-      // Por defecto la libreria escribe los de nivel 1 y 2 subrayados y del 3
-      // en adelante con almohadillas: un mismo libro saldria con dos
-      // convenciones mezcladas.
+      // El conversor de antes, html2md, escribia por defecto los de nivel 1 y
+      // 2 subrayados y del 3 en adelante con almohadillas: un mismo libro
+      // saldria con dos convenciones mezcladas. Queda como regresion.
       final result = await parser.parseBytes(
         buildEpub(
           chapters: const [
@@ -66,6 +76,87 @@ void main() {
     });
   });
 
+  // Cada defecto del inventario de F22, con el texto guardado comparado
+  // entero, carácter por carácter.
+  group('fidelidad (F22)', () {
+    test('el libro entero sale exactamente así', () async {
+      final result = await parser.parseBytes(buildEpub());
+
+      expect(
+        result.markdown,
+        '# Primero\n\nEl primer capítulo.\n\n---\n\n'
+        '# Segundo\n\nEl segundo capítulo.',
+      );
+    });
+
+    test('el título interno, el CSS y el JavaScript del capítulo no se '
+        'vuelcan como texto', () async {
+      // html2md convertía el documento entero, <head> incluido: cada
+      // capítulo empezaba con su título interno pegado a las reglas de CSS.
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>El texto.</p>')],
+          head: [
+            '<title>Capítulo interno</title>',
+            '<style>p { color: red }</style>',
+            '<script>var x = 1;</script>',
+          ].join(),
+        ),
+      );
+
+      expect(result.markdown, 'El texto.');
+    });
+
+    test('un <title/> vacío en el head no se come el capítulo', () async {
+      // Leído como HTML, el título vacío no se cerraba nunca y el capítulo
+      // entero quedaba adentro: se perdía.
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>El texto.</p>')],
+          head: '<title/>',
+        ),
+      );
+
+      expect(result.markdown, 'El texto.');
+    });
+
+    test('no agrega barras invertidas', () async {
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [
+            (
+              name: 'c.xhtml',
+              html: '<p>Ver [1].</p><p>1. Intro</p><p>a_b_c</p>',
+            ),
+          ],
+        ),
+      );
+
+      expect(result.markdown, 'Ver [1].\n\n1. Intro\n\na_b_c');
+    });
+
+    test('los superíndices quedan marcados, no pegados', () async {
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>10<sup>6</sup></p>')],
+        ),
+      );
+
+      expect(result.markdown, '10<sup>6</sup>');
+    });
+
+    test('un capítulo en UTF-16 se lee entero', () async {
+      final result = await parser.parseBytes(
+        buildEpub(
+          chapters: const [(name: 'c.xhtml', html: '<p>Año, niño y café.</p>')],
+          utf16: {'c.xhtml'},
+        ),
+      );
+
+      expect(result.markdown, 'Año, niño y café.');
+    });
+  });
+
   group('el orden de lectura', () {
     test('sale del spine, no del orden del ZIP', () async {
       // Dentro del archivo los capitulos pueden estar en cualquier orden y
@@ -86,22 +177,26 @@ void main() {
       );
     });
 
-    test('el material auxiliar marcado como no lineal queda afuera', () async {
-      // Notas de la editorial, publicidad: no forman parte del hilo de
-      // lectura, e incluirlas mezclaria el texto del libro con el que no lo
-      // es.
+    test('el material no lineal va al final, no se pierde (F22)', () async {
+      // Antes se descartaba: con él se iban las notas al final y los
+      // apéndices de libros enteros. Va después de lo lineal para no
+      // interrumpir la lectura, en el orden del spine.
       final result = await parser.parseBytes(
         buildEpub(
           chapters: const [
+            (name: 'notas.xhtml', html: '<p>Las notas</p>'),
             (name: 'cap.xhtml', html: '<p>El libro de verdad</p>'),
-            (name: 'aviso.xhtml', html: '<p>Publicidad de la editorial</p>'),
+            (name: 'apendice.xhtml', html: '<p>El apéndice</p>'),
           ],
-          nonLinear: {'aviso.xhtml'},
+          nonLinear: {'notas.xhtml', 'apendice.xhtml'},
         ),
       );
 
-      expect(result.markdown, contains('El libro de verdad'));
-      expect(result.markdown, isNot(contains('Publicidad')));
+      expect(
+        result.markdown,
+        'El libro de verdad\n\n---\n\nLas notas\n\n---\n\nEl apéndice',
+      );
+      expect(result.pageCount, 3);
     });
 
     test(
@@ -117,6 +212,18 @@ void main() {
         expect(result.pageCount, 2);
       },
     );
+
+    test('un capitulo que falta no se saltea en silencio: queda registrado '
+        '(F22)', () async {
+      final logger = _RecordingLogger();
+
+      final result = await EpubParser(
+        logger: logger,
+      ).parseBytes(buildEpub(missingFiles: {'cap2.xhtml'}));
+
+      expect(result.markdown, '# Primero\n\nEl primer capítulo.');
+      expect(logger.warnings.single, contains('cap2.xhtml'));
+    });
   });
 
   group('donde esta cada cosa', () {
