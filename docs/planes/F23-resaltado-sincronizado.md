@@ -1,6 +1,7 @@
 # F23 — El texto sigue al audio: resaltado palabra por palabra
 
-> **Estado: propuesto** (2026-10-01), esperando aprobación en el chat ("aprobado"). Pedido del
+> **Estado: aprobado** (2026-10-01), en el chat: A como se recomendó; B con un agregado del usuario
+> —ver la decisión B—. Pedido del
 > usuario: *"cuando está reproduciendo el audio (y ya tengo el texto transcripto) me gustaría que
 > pongas un resaltado amarillo en la palabra que va leyendo el audio, así esté sincronizado con el
 > texto y el audio […] que siempre que dé play al audio, el resaltado amarillo acompañe el dictado
@@ -59,9 +60,8 @@ voz real de tus audios.
 4. **En la pantalla del elemento**, mientras el audio suena: la palabra que se está diciendo, en
    **amarillo**, avanzando con la voz —también a 0,5× o 2×—. Además:
    - **Tocar una palabra lleva el audio a ese momento**, como en las transcripciones de YouTube.
-   - Si la palabra que suena queda fuera de la pantalla porque bajaste a leer otra cosa, aparece
-     un botón **"Volver al audio"** que lleva hasta ella. La pantalla no se mueve sola: vos
-     decidís dónde leer (decisión B).
+   - La pantalla no se mueve sola: vos decidís dónde leer. Si el reproductor sale de la vista,
+     aparece el mini reproductor flotante, con "Volver al audio" (decisión B).
 5. **Lo que ya transcribiste** no tiene tiempos por palabra: con "Volver a extraer el texto" se
    transcribe de nuevo con el modelo nuevo y los gana. Mientras tanto, esos textos se resaltan
    **renglón por renglón** con las marcas que ya tienen, que son exactas. Nunca se inventa un
@@ -81,9 +81,13 @@ YouTube), así que ahí no hay audio que seguir.
     la PC Python con PyTorch y Whisper (unos 3 GB, se borran después) y **alojarlo en una cuenta
     tuya** (GitHub o Hugging Face), porque la app tiene que bajarlo de algún lado. Más control,
     más pasos tuyos.
-- **B. Seguir el audio.** *(Recomendado)* La pantalla no se mueve sola; si la palabra que suena
-  sale de la vista aparece "Volver al audio". Alternativa: que la pantalla siga sola al resaltado
-  mientras no la toques (como las letras de Spotify).
+- **B. Seguir el audio.** *(Aprobado, con un agregado del usuario)* La pantalla no se mueve sola.
+  Y como en un texto largo habría que subir hasta el reproductor para pausar: cuando el
+  reproductor sale de la vista, aparece abajo un **mini reproductor flotante** —una pastilla, como
+  la de YouTube Music o Spotify— con reproducir/pausar, una barra fina con el avance y el tiempo,
+  la velocidad y **"Volver al audio"**, que lleva hasta la palabra que suena. Cuando el reproductor
+  vuelve a verse, la pastilla se va. Los dos manejan el **mismo** audio: la reproducción pasa a ser
+  de la pantalla del elemento, no del recuadro del reproductor.
 
 ## Orden de trabajo (cada paso compila, pasa el analizador y tiene sus pruebas)
 
@@ -92,9 +96,10 @@ YouTube), así que ahí no hay audio que seguir.
 2. El modelo nuevo: descarga fijada y verificada, reemplazo del viejo.
 3. El motor devuelve palabras con tiempos; bucles, solape y retomar los conservan.
 4. Esquema v33: guardar las palabras con su tiempo junto al texto.
-5. La pantalla: resaltado amarillo, tocar para saltar, "Volver al audio"; renglón por renglón para
-   lo viejo.
-6. Prueba de punta a punta en tu teléfono, decisión de arquitectura y cierre.
+5. La reproducción pasa a la pantalla del elemento (un solo audio para el reproductor y la
+   pastilla); el mini reproductor flotante.
+6. El resaltado amarillo, tocar para saltar, "Volver al audio"; renglón por renglón para lo viejo.
+7. Prueba de punta a punta en tu teléfono, decisión de arquitectura y cierre.
 
 ## Cómo se verifica
 
