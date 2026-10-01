@@ -4660,6 +4660,21 @@ hora de charla, unos 40 minutos—, más la conversión si el audio no es WAV. E
 diferencia que supere la variación entre corridas: el procesador tiene dos núcleos rápidos; la app
 sigue con 4.
 
+**Actualización (2026-10-01): tramos solapados.** Ya instalado, el usuario vio sus notas de voz
+"cortadas o resumidas". Se midió con sus propios audios —255 del teléfono, 4 h, en la PC con el
+mismo código; 24 convertidos en el teléfono—: la conversión no pierde nada (cada WAV dura lo que el
+original) y ninguna pantalla recorta el texto. Lo que se perdía era **la palabra donde cae cada
+corte**: en el habla de corrido no hay pausas, y Whisper deformaba o callaba lo que quedaba en el
+borde de los dos tramos —en una nota de 1:52, "no hay intervención docente ahí" salía "no hay
+intervención 2C. / de ahí", y "no es una tarea que" salía "no es una... / que"—. Este modelo no da
+tiempos por palabra (`enableTokenTimestamps` vuelve vacío), así que no se puede retomar donde
+terminó la última palabra, como hace Whisper original. Ahora cada tramo se transcribe desde 3 s
+antes de su corte, y los dos textos se unen por la tira de palabras más larga que comparten,
+cortando por su mitad (`stitchOverlappingTexts`): en la misma nota salen enteras "docente ahí" y
+"una tarea que", y en la charla con música, "mucho más" (antes "muy / más"). Los cortes y las
+marcas de tiempo son los mismos de antes; se guarda lo que dijo el motor y se une al final, así
+retomar une igual. Cuesta unos 3 s más de audio por tramo de 14,5.
+
 **Lo que F22 no hace, dicho sin adornos.** Ningún motor transcribe perfecto una canción con música:
 lo garantizado es que la app no altera, que no queda texto inventado por bucles, y que la precisión
 está medida. El OCR de fotos sigue siendo solo de alfabeto latino. Readability puede limpiar tablas y

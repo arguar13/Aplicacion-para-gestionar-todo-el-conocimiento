@@ -109,6 +109,7 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
         segmentCount: windows.length,
         session: session,
         segmentStart: (segment) => windows[segment].startTime,
+        stitch: stitchOverlappingTexts,
         transcribe: (pending) async* {
           for (final segment in pending) {
             final window = windows[segment];
@@ -117,13 +118,9 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
               window.silent
                   ? ''
                   : transcribeGuarded(
-                      Float32List.sublistView(
-                        samples,
-                        window.start,
-                        window.end,
-                      ),
+                      Float32List.sublistView(samples, window.from, window.end),
                       (samples) => transcribeWindow(recognizer, samples),
-                      offset: window.start,
+                      offset: window.from,
                     ),
             );
             await Future<void>.delayed(Duration.zero);

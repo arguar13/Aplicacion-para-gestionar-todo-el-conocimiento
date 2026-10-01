@@ -120,6 +120,7 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
         segmentCount: windows.length,
         session: session,
         segmentStart: (segment) => windows[segment].startTime,
+        stitch: stitchOverlappingTexts,
         transcribe: job.run,
       );
       return text;
@@ -302,13 +303,15 @@ void _transcribeSegments(_WorkerArgs args) {
         continue;
       }
       wav.setPositionSync(
-        SherpaOnnxAudioTranscriberIo._wavHeaderBytes + window.start * 2,
+        SherpaOnnxAudioTranscriberIo._wavHeaderBytes + window.from * 2,
       );
-      final samples = pcm16ToFloat32Samples(wav.readSync(window.length * 2));
+      final samples = pcm16ToFloat32Samples(
+        wav.readSync(window.decodeLength * 2),
+      );
       final text = transcribeGuarded(
         samples,
         (samples) => transcribeWindow(engine, samples),
-        offset: window.start,
+        offset: window.from,
       );
       out.send((segment, text));
     }

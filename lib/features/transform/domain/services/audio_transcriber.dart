@@ -90,11 +90,18 @@ class TranscriptionSession {
 /// transcripción de YouTube (F22): se puede ubicar cada frase en el audio,
 /// y la búsqueda y las citas ya entienden ese formato. Sin él, texto corrido.
 /// Un tramo sin texto —silencio, música— no deja línea.
+///
+/// Con [stitch], los textos de todos los tramos pasan por ahí antes de
+/// armar el texto: el motor transcribe tramos que se solapan, y [stitch]
+/// los une sin repetir lo que dicen los dos (F22, ver
+/// `stitchOverlappingTexts`). Se guarda lo que dijo el motor y se une al
+/// final: un tramo retomado se une igual que uno recién hecho.
 Future<String> runSegmentedTranscription({
   required int segmentCount,
   required TranscriptionSession session,
   required Stream<(int, String)> Function(List<int> pending) transcribe,
   Duration Function(int segment)? segmentStart,
+  List<String> Function(List<String> texts)? stitch,
 }) async {
   final context = session.context..throwIfCancelled();
 
@@ -128,9 +135,11 @@ Future<String> runSegmentedTranscription({
       ? text
       : '[${formatTimestamp(segmentStart(segment))}] $text';
 
+  final raw = [for (final text in texts) text?.trim() ?? ''];
+  final joined = stitch?.call(raw) ?? raw;
   final lines = [
     for (var i = 0; i < segmentCount; i++)
-      if (texts[i]?.trim() case final text? when text.isNotEmpty) line(i, text),
+      if (joined[i].trim() case final text when text.isNotEmpty) line(i, text),
   ];
   return lines.join(segmentStart == null ? ' ' : '\n');
 }

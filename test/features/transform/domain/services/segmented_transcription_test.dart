@@ -106,6 +106,23 @@ void main() {
     expect(text, '[0:00] tramo 0\n[0:14] tramo 1\n[1:02:07] tramo 3');
   });
 
+  test('con stitch, los textos se unen antes de armar las líneas, y se '
+      'guarda lo que dijo el motor, sin unir (F22)', () async {
+    final saved = <int, String>{};
+    final text = await runSegmentedTranscription(
+      segmentCount: 3,
+      session: TranscriptionSession(
+        loadSegments: () async => {1: ''},
+        saveSegment: (segment, text) async => saved[segment] = text,
+      ),
+      transcribe: engine,
+      stitch: (texts) => [for (final t in texts) t.toUpperCase()],
+    );
+
+    expect(text, 'TRAMO 0 TRAMO 2');
+    expect(saved, {0: 'tramo 0', 2: 'tramo 2'});
+  });
+
   test('cancelar corta en el acto, aunque el motor siga en un tramo, y lo '
       'suelta', () async {
     final signal = CancellationSignal();

@@ -101,8 +101,91 @@ void main() {
       expect(hiss.single.silent, isTrue);
     });
 
+    test('cada tramo, salvo el primero, se transcribe desde 3 s antes de '
+        'su corte (F22)', () {
+      final windows = planWindows(EnergyProfile.of(_audio(40)));
+
+      expect(windows.first.from, 0);
+      for (final window in windows.skip(1)) {
+        expect(window.from, window.start - overlapSamples);
+        expect(window.decodeLength, window.length + overlapSamples);
+      }
+    });
+
     test('un audio vacío no tiene tramos', () {
       expect(planWindows(EnergyProfile.of(Float32List(0))), isEmpty);
+    });
+  });
+
+  group('stitchOverlappingTexts', () {
+    test('la nota de voz del usuario: las palabras del corte salen enteras '
+        'y no se repiten', () {
+      // Lo que transcribió Whisper en dos tramos seguidos de una nota de voz
+      // de 1:52 (F22): el segundo empieza 3 s antes del corte, y cada uno
+      // dice mal lo que le queda en el borde — "2C." por "docente".
+      const first =
+          'no nos olvidemos que son un conjunto de tareas que van a '
+          'realizar los estudiantes. No hay intervención 2C.';
+      const second =
+          'que van a realizar los estudiantes. No hay intervención docente '
+          'ahí. Es decir, las tareas puntuales';
+
+      final texts = stitchOverlappingTexts([first, second]);
+
+      // Se corta por la mitad de lo que comparten ("que van a realizar los
+      // estudiantes. No hay intervención"): lejos del borde de los dos.
+      expect(
+        texts.first,
+        'no nos olvidemos que son un conjunto de tareas que van a realizar',
+      );
+      expect(
+        texts.last,
+        'los estudiantes. No hay intervención docente ahí. Es decir, las '
+        'tareas puntuales',
+      );
+    });
+
+    test('se compara sin mayúsculas ni puntuación, y cada texto conserva '
+        'sus palabras como las escribió el motor', () {
+      final texts = stitchOverlappingTexts([
+        'Hoy hablamos de la paciencia, que es',
+        'De la paciencia que es confiar en el tiempo.',
+      ]);
+
+      expect(texts, [
+        'Hoy hablamos de la',
+        'paciencia que es confiar en el tiempo.',
+      ]);
+    });
+
+    test('sin dos palabras seguidas en común, los dos textos quedan '
+        'enteros: puede repetirse algo, pero no se pierde nada', () {
+      final texts = stitchOverlappingTexts(['termina acá', '[Música] y sigue']);
+
+      expect(texts, ['termina acá', '[Música] y sigue']);
+    });
+
+    test('un tramo en silencio no se une con nada', () {
+      final texts = stitchOverlappingTexts([
+        'uno dos tres',
+        '',
+        'tres cuatro cinco',
+      ]);
+
+      expect(texts, ['uno dos tres', '', 'tres cuatro cinco']);
+    });
+
+    test('un tramo cuyo texto entero está en el solape no repite nada', () {
+      final texts = stitchOverlappingTexts([
+        'y entonces dijo que sí',
+        'dijo que sí',
+        'que sí y se fue',
+      ]);
+
+      expect(
+        texts.where((t) => t.isNotEmpty).join(' '),
+        'y entonces dijo que sí y se fue',
+      );
     });
   });
 

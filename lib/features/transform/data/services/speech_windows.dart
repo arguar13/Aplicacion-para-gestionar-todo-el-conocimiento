@@ -26,6 +26,13 @@ import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 ///   también en una pausa: en la prueba, las dos mitades salieron limpias.
 /// - **El silencio puro no llega al motor**: es donde Whisper inventa frases
 ///   enteras que nadie dijo.
+/// - **Cada tramo se transcribe desde 3 s antes de su corte**, y los textos
+///   de dos tramos seguidos se unen por las palabras que comparten: en el
+///   habla de corrido no hay pausas, el corte cae en medio de una palabra y
+///   Whisper la perdía de los dos lados — en una nota de voz de 1:52 del
+///   usuario, "no hay intervención docente ahí" salía "no hay intervención
+///   2C. / de ahí", y "no es una tarea que" salía "no es una... / que"
+///   (medido, F22). Ver [stitchOverlappingTexts].
 ///
 /// Sin nada de sherpa-onnx: el motor entra como una función, así que es la
 /// misma lógica en el dispositivo y en la web, y se prueba con uno falso.
@@ -44,23 +51,39 @@ const pauseSearchSamples = speechSampleRate * 3;
 /// Un bloque de energía: 10 ms.
 const energyBlockSamples = speechSampleRate ~/ 100;
 
+/// Cuánto antes de su corte se empieza a transcribir cada tramo —salvo el
+/// primero—: lo bastante para que la palabra que el corte parte quede
+/// entera, y con margen, en el tramo siguiente. Whisper deforma lo que
+/// queda a menos de un segundo del borde de lo que recibe.
+const overlapSamples = speechSampleRate * 3;
+
 /// Por debajo de esta energía —-50 dBFS de media cuadrática, en cada bloque
 /// de 10 ms del tramo— un tramo es silencio puro: ni la voz más baja de una
 /// grabación con el teléfono queda tan abajo en todo un tramo.
 const silenceMeanSquare = 1e-5;
 
-/// Un tramo del audio: de la muestra [start] a [end] (sin incluirla).
+/// Un tramo del audio: de la muestra [start] a [end] (sin incluirla). Los
+/// tramos se suceden sin huecos ni solapes; lo que se le manda al motor
+/// empieza antes, en [from] —ver [overlapSamples]—.
 @immutable
 class AudioWindow {
-  const AudioWindow(this.start, this.end, {this.silent = false});
+  const AudioWindow(this.start, this.end, {this.silent = false, int? from})
+    : from = from ?? start;
 
   final int start;
   final int end;
+
+  /// Desde dónde se transcribe: [overlapSamples] antes de [start], o el
+  /// principio del audio.
+  final int from;
 
   /// Silencio puro: no se transcribe.
   final bool silent;
 
   int get length => end - start;
+
+  /// Lo que se le manda al motor: de [from] a [end].
+  int get decodeLength => end - from;
 
   Duration get startTime => _time(start);
 
@@ -69,13 +92,15 @@ class AudioWindow {
       other is AudioWindow &&
       other.start == start &&
       other.end == end &&
+      other.from == from &&
       other.silent == silent;
 
   @override
-  int get hashCode => Object.hash(start, end, silent);
+  int get hashCode => Object.hash(start, end, from, silent);
 
   @override
-  String toString() => 'AudioWindow($start, $end${silent ? ', silent' : ''})';
+  String toString() =>
+      'AudioWindow($start, $end, from: $from${silent ? ', silent' : ''})';
 }
 
 /// La energía de un audio, bloque a bloque de [energyBlockSamples], armada
@@ -138,7 +163,12 @@ List<AudioWindow> planWindows(EnergyProfile profile) {
         ? total
         : _quietestPoint(profile, limit - pauseSearchSamples, limit);
     windows.add(
-      AudioWindow(start, end, silent: _isSilent(profile, start, end)),
+      AudioWindow(
+        start,
+        end,
+        silent: _isSilent(profile, start, end),
+        from: math.max(0, start - overlapSamples),
+      ),
     );
     start = end;
   }
@@ -175,6 +205,83 @@ bool _isSilent(EnergyProfile profile, int start, int end) {
     if (blocks[b] >= silenceMeanSquare) return false;
   }
   return true;
+}
+
+/// Une los textos de tramos seguidos, que se solapan —ver
+/// [overlapSamples]—: el final de un tramo y el principio del siguiente
+/// dicen lo mismo, y los dos lo dicen mal justo en su borde. Se busca la
+/// tira de palabras más larga que comparten —sin mirar mayúsculas ni
+/// puntuación— entre las últimas del uno y las primeras del otro, y se corta
+/// por la mitad de esa tira: lo que queda de cada lado es lo que ese tramo
+/// oyó lejos de su borde. Cada texto conserva sus palabras tal cual las
+/// escribió el motor.
+///
+/// Si no comparten al menos dos palabras seguidas —el solape era silencio o
+/// música, o uno de los dos es la marca de un hueco—, los dos quedan
+/// enteros: puede repetirse alguna palabra, pero no se pierde ninguna.
+///
+/// Un texto vacío —tramo en silencio— no se une con nada.
+List<String> stitchOverlappingTexts(List<String> texts) {
+  final words = [for (final text in texts) _words(text)];
+  // Qué parte de cada texto queda: de heads[i] a tails[i], en palabras.
+  final heads = List.filled(texts.length, 0);
+  final tails = [for (final w in words) w.length];
+  for (var i = 1; i < texts.length; i++) {
+    final previous = words[i - 1];
+    final next = words[i];
+    if (previous.isEmpty || next.isEmpty) continue;
+    final match = _sharedRun(previous, next);
+    if (match == null) continue;
+    final (atPrevious, atNext, length) = match;
+    final half = length ~/ 2;
+    // Nunca antes de lo que ya se le quitó al principio a ese texto.
+    tails[i - 1] = math.max(heads[i - 1], atPrevious + half);
+    heads[i] = atNext + half;
+  }
+  return [
+    for (var i = 0; i < texts.length; i++)
+      words[i].sublist(heads[i], math.max(heads[i], tails[i])).join(' '),
+  ];
+}
+
+/// Cuántas palabras del borde de cada texto se comparan: más que las que
+/// entran en [overlapSamples] de habla rápida, con margen.
+const _stitchSpan = 25;
+
+final _whitespace = RegExp(r'\s+');
+
+List<String> _words(String text) =>
+    text.split(_whitespace).where((w) => w.isNotEmpty).toList();
+
+final _notLetterOrDigit = RegExp(r'[^\p{L}\p{N}]', unicode: true);
+
+String _normalized(String word) =>
+    word.toLowerCase().replaceAll(_notLetterOrDigit, '');
+
+/// La tira más larga de palabras iguales entre el final de [previous] y el
+/// principio de [next]: (dónde empieza en [previous], dónde en [next],
+/// cuántas palabras), o `null` si no llega a dos. Ante un empate, la más
+/// tardía en [previous].
+(int, int, int)? _sharedRun(List<String> previous, List<String> next) {
+  final from = math.max(0, previous.length - _stitchSpan);
+  final a = [for (final w in previous.sublist(from)) _normalized(w)];
+  final b = [for (final w in next.take(_stitchSpan)) _normalized(w)];
+  var best = (0, 0, 0);
+  // row[j]: largo de la tira que termina en a[i - 2] y b[j - 1].
+  var row = List.filled(b.length + 1, 0);
+  for (var i = 1; i <= a.length; i++) {
+    final current = List.filled(b.length + 1, 0);
+    for (var j = 1; j <= b.length; j++) {
+      if (a[i - 1].isNotEmpty && a[i - 1] == b[j - 1]) {
+        current[j] = row[j - 1] + 1;
+        if (current[j] >= best.$3) {
+          best = (from + i - current[j], j - current[j], current[j]);
+        }
+      }
+    }
+    row = current;
+  }
+  return best.$3 >= 2 ? best : null;
 }
 
 /// Si [text] es un bucle de repetición del motor: el mismo criterio que usa
