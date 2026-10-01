@@ -263,8 +263,9 @@ void main() {
         transformer.transform(videoItem()),
         throwsA(isA<Exception>()),
       );
-      transcriber.error = null;
-      transcriber.text = 'Retomado';
+      transcriber
+        ..error = null
+        ..text = 'Retomado';
       final result = await transformer.transform(videoItem());
 
       expect(client.audioRequested, hasLength(1));
