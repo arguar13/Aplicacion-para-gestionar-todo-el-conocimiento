@@ -160,8 +160,9 @@ class _ReextractDialogState extends State<_ReextractDialog> {
 
 /// Mientras se vuelve a extraer el texto de un elemento que ya tenía: la
 /// barra de avance —"Transcribiendo… 40 %"— y, si falló, el motivo y
-/// "Reintentar", que sigue siendo volver a extraer (F22). El texto de antes
-/// sigue abajo mientras tanto: no se toca hasta que el nuevo está listo.
+/// "Reintentar", que sigue siendo volver a extraer (F22). Mientras tanto el
+/// texto de antes no se muestra, pero sigue guardado hasta que el nuevo está
+/// listo: si falla, vuelve a verse junto al motivo.
 class ReextractionStatus extends ConsumerWidget {
   const ReextractionStatus({required this.item, super.key});
 

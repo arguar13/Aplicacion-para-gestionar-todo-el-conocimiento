@@ -115,6 +115,7 @@ void main() {
       SourceKind kind,
       String content, {
       String? file,
+      ProcessingState state = ProcessingState.ready,
     }) async {
       final now = DateTime(2026, 9, 30, 10);
       const id = 'f22-texto';
@@ -130,7 +131,7 @@ void main() {
                 capturedAt: now,
                 originalFilePath: file,
               ),
-              processingState: ProcessingState.ready,
+              processingState: state,
               createdAt: now,
               updatedAt: now,
               renditions: [
@@ -190,6 +191,38 @@ void main() {
         harness.database.processingCheckpoints,
       )..where((c) => c.itemId.equals(id))).get();
       expect(marks.map((m) => m.kind), [ProcessingCheckpointKind.reextract]);
+    });
+
+    testWidgets('mientras se vuelve a extraer, el texto viejo ya no se ve: '
+        'en su lugar, el aviso de que el nuevo está en camino', (tester) async {
+      final id = await saveWithText(
+        SourceKind.audio,
+        'es tu maquillaje, es tu maquillaje',
+        file: 'originales/f22/alabanza.m4a',
+        state: ProcessingState.pending,
+      );
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('maquillaje'), findsNothing);
+      expect(find.text(es.detailReextractInProgress), findsOneWidget);
+      expect(find.text(es.detailReextract), findsNothing);
+    });
+
+    testWidgets('si volver a extraer falla, el texto de antes vuelve a verse, '
+        'con "Reintentar": no se pierde', (tester) async {
+      final id = await saveWithText(
+        SourceKind.audio,
+        'es tu maquillaje, es tu maquillaje',
+        file: 'originales/f22/alabanza.m4a',
+        state: ProcessingState.failed,
+      );
+
+      await pumpDetail(tester, id);
+
+      expect(find.textContaining('maquillaje'), findsOneWidget);
+      expect(find.text(es.detailRetry), findsOneWidget);
+      expect(find.text(es.detailReextractInProgress), findsNothing);
     });
 
     testWidgets('un PDF con una línea que empieza como una marca no ofrece '

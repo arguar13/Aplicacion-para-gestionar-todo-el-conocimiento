@@ -309,6 +309,8 @@ class _DetailBody extends StatelessWidget {
 
                 if (texts.isEmpty)
                   _NoContentYet(item: item)
+                else if (item.isBeingProcessed)
+                  _ReextractingText(item: item)
                 else if (item.source.kind == SourceKind.document)
                   _CollapsedExtractedText(item: item, texts: texts)
                 else
@@ -739,6 +741,40 @@ class _UserNote extends StatelessWidget {
 /// ya está guardado. Sin esa aclaración, una pantalla vacía se lee como "no
 /// se guardó nada" y el usuario vuelve a capturarlo, o peor, deja de confiar
 /// en la app.
+/// Mientras se vuelve a extraer el texto de un elemento que ya tenía: el
+/// avance, en vez del texto viejo, que deja de mostrarse en el acto —el
+/// usuario lo pidió así: que no quede a la vista algo que se está
+/// reemplazando—. El viejo sigue guardado hasta que el nuevo está listo:
+/// si la extracción falla, vuelve a verse con el motivo y "Reintentar"
+/// (`ReextractionStatus`), en vez de dejar el elemento sin texto.
+class _ReextractingText extends StatelessWidget {
+  const _ReextractingText({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ReextractionStatus(item: item),
+          Text(
+            l10n.detailReextractInProgress,
+            key: const Key('reextracting-text'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NoContentYet extends ConsumerWidget {
   const _NoContentYet({required this.item});
 
