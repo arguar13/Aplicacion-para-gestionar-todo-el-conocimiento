@@ -1,0 +1,9 @@
+{
+  "dispositivo": "Xiaomi 23090RA98G, Dimensity 7200 (MT6886), Android 16",
+  "formato": "pcm",
+  "hz_declarados": 16000,
+  "canales_declarados": 1,
+  "segundos_del_original": 299.305,
+  "segundos_del_wav": "299.3",
+  "ms_conversion": 627
+}

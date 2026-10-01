@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Caché de compilación de Kotlin (Gradle 8.x)
+.kotlin/

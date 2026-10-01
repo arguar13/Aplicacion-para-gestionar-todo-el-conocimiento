@@ -1,0 +1,11 @@
+{
+  "dispositivo": "Xiaomi 23090RA98G, Dimensity 7200 (MT6886), Android 16",
+  "segundos_de_audio": 180,
+  "hilos": 6,
+  "ms_total": 123265,
+  "veces_la_duracion": "0.685",
+  "extrapolado_1_hora_min": 41,
+  "tramos": 14,
+  "huecos_marcados": 0,
+  "palabras": 360
+}
