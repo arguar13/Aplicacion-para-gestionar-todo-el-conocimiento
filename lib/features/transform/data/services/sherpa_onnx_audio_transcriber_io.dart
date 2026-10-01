@@ -3,9 +3,9 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
-import 'package:audio_decoder/audio_decoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
+import 'package:sinapsis/features/transform/data/services/audio_wav_converter.dart';
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
@@ -17,12 +17,14 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 /// Dos pasos, con una frontera clara entre ellos:
 ///
 /// 1. Convertir el archivo de origen —cualquier audio, o la pista de audio
-///    de un video— a WAV de 16 kHz mono con `audio_decoder`: es el formato
-///    exacto que espera un modelo de Whisper, sea cual sea el formato de
-///    origen. Archivo a archivo, no bytes a bytes: así el origen —que puede
-///    ser un video de varios GB— nunca se carga en la memoria de Dart, solo
-///    lo lee el decodificador nativo. El WAV queda en disco hasta terminar:
-///    si la app se cierra a mitad de camino, al retomar no se reconvierte
+///    de un video— a WAV de 16 kHz mono con [AudioWavConverter]: es el
+///    formato exacto que espera un modelo de Whisper, sea cual sea el
+///    formato de origen. En Android, con el conversor propio que lee el
+///    formato real del decodificador (F22). Archivo a archivo, no bytes a
+///    bytes: así el origen —que puede ser un video de varios GB— nunca se
+///    carga en la memoria de Dart, solo lo lee el decodificador nativo. El
+///    WAV queda en disco hasta terminar: si la app se cierra a mitad de
+///    camino, al retomar no se reconvierte
 ///    (F21).
 /// 2. Transcribirlo por tramos de hasta 14,5 segundos cortados en pausas,
 ///    con protección contra los bucles del motor y sin mandarle el silencio
@@ -34,7 +36,7 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 ///    retomar, los tramos ya guardados no se repiten. Ver
 ///    `runSegmentedTranscription`.
 ///
-/// Por qué en dos pasos y no todo junto: `audio_decoder` habla con las APIs
+/// Por qué en dos pasos y no todo junto: el conversor habla con las APIs
 /// nativas de la plataforma por un canal de método, y esos canales no
 /// existen en un isolate de fondo sin configuración extra. sherpa-onnx, en
 /// cambio, son llamadas FFI directas —sin canal de por medio— pero
@@ -53,24 +55,25 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   const SherpaOnnxAudioTranscriberIo({
     required WhisperModelManager model,
     required Future<Directory> Function() temporaryDirectory,
+    AudioWavConverter converter = const PlatformAudioWavConverter(),
     int? threads,
   }) : _model = model,
        _temporaryDirectory = temporaryDirectory,
+       _converter = converter,
        _threadsOverride = threads;
 
   final WhisperModelManager _model;
   final Future<Directory> Function() _temporaryDirectory;
 
+  /// Del archivo de origen al WAV de Whisper: ver [AudioWavConverter].
+  final AudioWavConverter _converter;
+
   /// Cuántos hilos usar en vez de los de [_threads]: solo para medir en el
   /// dispositivo cuál rinde más (F22, `transcription_fidelity_test.dart`).
   final int? _threadsOverride;
 
-  /// La frecuencia con la que está entrenado Whisper. No es un ajuste: es
-  /// parte del modelo, así que no se expone como parámetro.
-  static const _sampleRate = 16000;
-
-  /// El tamaño de la cabecera RIFF/WAV que escribe `audio_decoder`: 44
-  /// bytes fijos, sin fragmentos extra.
+  /// El tamaño de la cabecera RIFF/WAV que escribe el conversor: 44 bytes
+  /// fijos, sin fragmentos extra.
   static const _wavHeaderBytes = 44;
 
   @override
@@ -85,18 +88,15 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
     final tempDirectory = await _temporaryDirectory();
     final wav = File(p.join(tempDirectory.path, _wavName(session.workKey)));
     // Marca de que la conversión terminó: un WAV sin ella quedó a medias
-    // —la app se cerró mientras se convertía— y se rehace.
-    final converted = File('${wav.path}.listo');
+    // —la app se cerró mientras se convertía— y se rehace. Con versión: un
+    // WAV que dejó a medias el conversor de antes de F22 —el que estiraba
+    // los AAC eficientes al doble— no se reaprovecha.
+    final converted = File('${wav.path}.convertido-v2');
 
     var keepForResume = false;
     try {
       if (!converted.existsSync() || !wav.existsSync()) {
-        await AudioDecoder.convertToWav(
-          path,
-          wav.path,
-          sampleRate: _sampleRate,
-          channels: 1,
-        );
+        await _converter.convert(path, wav.path);
         converted.writeAsStringSync('');
       }
       session.context.throwIfCancelled();

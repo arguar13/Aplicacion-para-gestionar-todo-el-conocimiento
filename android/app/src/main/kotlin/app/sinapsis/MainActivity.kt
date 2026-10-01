@@ -4,10 +4,13 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     // `receive_sharing_intent` 1.9.0 no envuelve en try/catch sus propias
@@ -62,7 +65,34 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // Decodificar un audio para transcribirlo (F22): en un hilo aparte
+        // —un audio de horas tarda—, con el resultado de vuelta en el
+        // principal, que es donde Flutter lo espera. Ver `AudioToPcm`.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "toRawPcm") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val input = call.argument<String>("input")
+                val output = call.argument<String>("output")
+                if (input == null || output == null) {
+                    result.error("arguments", "Faltan input y output.", null)
+                    return@setMethodCallHandler
+                }
+                audioWorker.execute {
+                    try {
+                        val segments = AudioToPcm.decode(input, output).map { it.toMap() }
+                        mainHandler.post { result.success(segments) }
+                    } catch (e: Exception) {
+                        mainHandler.post { result.error("decode", e.message ?: e.toString(), null) }
+                    }
+                }
+            }
     }
+
+    private val audioWorker = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     // Android 13 en adelante pide permiso para mostrar notificaciones. Se
     // pide la primera vez que hace falta —cuando arranca un trabajo largo—,
@@ -82,6 +112,7 @@ class MainActivity : FlutterActivity() {
     private companion object {
         const val TAG = "MainActivity"
         const val LONG_WORK_CHANNEL = "app.sinapsis/long_work"
+        const val AUDIO_CHANNEL = "app.sinapsis/audio"
         const val NOTIFICATIONS_REQUEST = 21
         var askedForNotifications = false
     }
