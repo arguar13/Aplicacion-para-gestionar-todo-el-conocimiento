@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -10,8 +11,8 @@ import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/youtube_audio_download_section.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/youtube_embed_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -21,9 +22,15 @@ void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
 
-  /// Abre el detalle de un video de YouTube ya procesado —con su
-  /// transcripción, sin audio—, con [client] como YouTube.
-  Future<void> pumpVideo(WidgetTester tester, FakeYouTubeClient client) async {
+  /// Guarda un video de YouTube ya procesado —con su transcripción, sin
+  /// audio—, con [client] como YouTube, y muestra [screen]: por defecto la
+  /// sección de descarga sola, siguiendo al elemento en la base. El detalle
+  /// ya no la muestra (pedido del usuario); la lógica sigue disponible.
+  Future<void> pumpVideo(
+    WidgetTester tester,
+    FakeYouTubeClient client, {
+    Widget? screen,
+  }) async {
     harness = await LibraryHarness.create(
       extraOverrides: [youTubeClientProvider.overrideWithValue(client)],
     );
@@ -51,10 +58,36 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      harness.wrap(const ItemDetailScreen(itemId: 'video-1')),
+      harness.wrap(
+        screen ??
+            Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  final item = ref
+                      .watch(libraryItemProvider('video-1'))
+                      .valueOrNull;
+                  return item == null
+                      ? const SizedBox.shrink()
+                      : YouTubeAudioDownloadSection(item: item);
+                },
+              ),
+            ),
+      ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('el detalle de un video no ofrece descargar el audio: el '
+      'usuario no lo usa', (tester) async {
+    await pumpVideo(
+      tester,
+      FakeYouTubeClient(),
+      screen: const ItemDetailScreen(itemId: 'video-1'),
+    );
+
+    expect(find.text(es.youtubeAudioDownloadAction), findsNothing);
+    expect(find.byType(YouTubeAudioDownloadSection), findsNothing);
+  });
 
   testWidgets('no se baja solo: se ofrece, explicando para qué', (
     tester,
@@ -88,8 +121,8 @@ void main() {
     expect(harness.files.paths, isEmpty);
   });
 
-  testWidgets('al terminar, el audio queda guardado y se escucha ahí mismo, '
-      'debajo del video', (tester) async {
+  testWidgets('al terminar, el audio queda guardado y se escucha ahí '
+      'mismo', (tester) async {
     final resume = Completer<void>();
     await pumpVideo(
       tester,
@@ -104,8 +137,6 @@ void main() {
     expect(find.text(es.youtubeAudioDownloadAction), findsNothing);
     expect(find.text(es.youtubeAudioDownloaded), findsOneWidget);
     expect(find.byType(MediaPlayerView), findsOneWidget);
-    // El video sigue siendo lo principal: su vista previa no se reemplaza.
-    expect(find.byType(YoutubeEmbedView), findsOneWidget);
     expect(harness.files.paths, hasLength(1));
   });
 

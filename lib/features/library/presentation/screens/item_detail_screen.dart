@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,7 +55,6 @@ import 'package:sinapsis/features/reference/presentation/widgets/reference_secti
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
-import 'package:sinapsis/features/transform/presentation/widgets/youtube_audio_download_section.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -297,14 +295,6 @@ class _DetailBody extends StatelessWidget {
                 if (_hasKeepableText(item)) ...[
                   const SizedBox(height: 4),
                   _DeleteOriginalFileButton(item: item),
-                ],
-
-                // El audio de un video de YouTube: se baja solo a pedido
-                // (F21) —el video ya está listo con su transcripción— y,
-                // bajado, se escucha acá. En la web no hay de dónde bajarlo.
-                if (item.source.kind == SourceKind.youtube && !kIsWeb) ...[
-                  YouTubeAudioDownloadSection(item: item),
-                  const SizedBox(height: 16),
                 ],
 
                 if (texts.isEmpty)
