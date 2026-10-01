@@ -4692,5 +4692,41 @@
   "trashUndo": "Deshacer",
   "@trashUndo": {
     "description": "Botón del aviso que devuelve a la biblioteca lo que se acaba de mandar a la papelera."
+  },
+  "mediaPlayerReplay": "Retroceder 10 segundos",
+  "@mediaPlayerReplay": {
+    "description": "Botón del reproductor que salta 10 segundos hacia atrás."
+  },
+  "mediaPlayerForward": "Avanzar 10 segundos",
+  "@mediaPlayerForward": {
+    "description": "Botón del reproductor que salta 10 segundos hacia adelante."
+  },
+  "mediaPlayerPlay": "Reproducir",
+  "@mediaPlayerPlay": {
+    "description": "Botón del reproductor para empezar a reproducir."
+  },
+  "mediaPlayerPause": "Pausar",
+  "@mediaPlayerPause": {
+    "description": "Botón del reproductor para pausar."
+  },
+  "mediaPlayerSpeed": "Velocidad de reproducción",
+  "@mediaPlayerSpeed": {
+    "description": "Título del panel de velocidad del reproductor, y descripción del botón que lo abre."
+  },
+  "mediaPlayerSpeedDown": "Más lento",
+  "@mediaPlayerSpeedDown": {
+    "description": "Botón del panel de velocidad que la baja un paso."
+  },
+  "mediaPlayerSpeedUp": "Más rápido",
+  "@mediaPlayerSpeedUp": {
+    "description": "Botón del panel de velocidad que la sube un paso."
+  },
+  "mediaPlayerSpeedNormal": "Normal",
+  "@mediaPlayerSpeedNormal": {
+    "description": "La velocidad 1× en el panel de velocidad del reproductor."
+  },
+  "detailReextractInProgress": "Extrayendo el texto de nuevo. El texto nuevo aparece acá apenas esté listo.",
+  "@detailReextractInProgress": {
+    "description": "Lo que se muestra en lugar del texto viejo mientras se vuelve a extraer."
   }
 }

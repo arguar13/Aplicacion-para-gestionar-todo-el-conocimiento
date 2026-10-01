@@ -5713,5 +5713,41 @@
   "trashUndo": "Undo",
   "@trashUndo": {
     "description": "Botón del aviso que devuelve a la biblioteca lo que se acaba de mandar a la papelera."
+  },
+  "mediaPlayerReplay": "Back 10 seconds",
+  "@mediaPlayerReplay": {
+    "description": "Botón del reproductor que salta 10 segundos hacia atrás."
+  },
+  "mediaPlayerForward": "Forward 10 seconds",
+  "@mediaPlayerForward": {
+    "description": "Botón del reproductor que salta 10 segundos hacia adelante."
+  },
+  "mediaPlayerPlay": "Play",
+  "@mediaPlayerPlay": {
+    "description": "Botón del reproductor para empezar a reproducir."
+  },
+  "mediaPlayerPause": "Pause",
+  "@mediaPlayerPause": {
+    "description": "Botón del reproductor para pausar."
+  },
+  "mediaPlayerSpeed": "Playback speed",
+  "@mediaPlayerSpeed": {
+    "description": "Título del panel de velocidad del reproductor, y descripción del botón que lo abre."
+  },
+  "mediaPlayerSpeedDown": "Slower",
+  "@mediaPlayerSpeedDown": {
+    "description": "Botón del panel de velocidad que la baja un paso."
+  },
+  "mediaPlayerSpeedUp": "Faster",
+  "@mediaPlayerSpeedUp": {
+    "description": "Botón del panel de velocidad que la sube un paso."
+  },
+  "mediaPlayerSpeedNormal": "Normal",
+  "@mediaPlayerSpeedNormal": {
+    "description": "La velocidad 1× en el panel de velocidad del reproductor."
+  },
+  "detailReextractInProgress": "Extracting the text again. The new text will appear here as soon as it is ready.",
+  "@detailReextractInProgress": {
+    "description": "Lo que se muestra en lugar del texto viejo mientras se vuelve a extraer."
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:video_player/video_player.dart';
 
 /// Reproductor de audio y video integrado, con controles propios en vez de
@@ -12,6 +14,10 @@ import 'package:video_player/video_player.dart';
 /// —una nota de voz, un podcast— el tamaño del video queda en `Size.zero` y
 /// se muestra una carátula en su lugar; cuando sí, se ve el video como
 /// cualquier reproductor.
+///
+/// Los controles son los de un reproductor de videos de internet: retroceder
+/// y avanzar [mediaSkipStep], y la velocidad —de 0,25× a 3×— en un panel
+/// con los valores de siempre a un toque y un ajuste fino.
 ///
 /// Sin `Scaffold` propio a propósito: `MediaPlayerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
@@ -28,6 +34,38 @@ class MediaPlayerView extends StatefulWidget {
   @override
   State<MediaPlayerView> createState() => _MediaPlayerViewState();
 }
+
+/// Cuánto saltan los botones de retroceder y avanzar.
+const mediaSkipStep = Duration(seconds: 10);
+
+/// Las velocidades a un toque, como en un reproductor de videos de
+/// internet.
+const mediaSpeedPresets = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0];
+
+/// La velocidad mínima y máxima, y el paso del ajuste fino.
+const mediaMinSpeed = 0.25;
+const mediaMaxSpeed = 3.0;
+const mediaSpeedStep = 0.05;
+
+/// [position] movida [delta] —hacia atrás si es negativo—, sin salirse del
+/// audio.
+Duration skipWithin(Duration position, Duration delta, Duration duration) {
+  final target = position + delta;
+  if (target < Duration.zero) return Duration.zero;
+  if (duration > Duration.zero && target > duration) return duration;
+  return target;
+}
+
+/// [speed] redondeada al paso del ajuste fino y dentro de los límites: sin
+/// esto, sumar 0,05 diez veces daría 1,4999999.
+double clampSpeed(double speed) {
+  final steps = (speed / mediaSpeedStep).round();
+  return (steps * mediaSpeedStep).clamp(mediaMinSpeed, mediaMaxSpeed);
+}
+
+/// "1,25×" en español, "1.25×" en inglés; "1×", no "1,00×".
+String formatSpeed(double speed, String locale) =>
+    '${NumberFormat('0.##', locale).format(speed)}×';
 
 class _MediaPlayerViewState extends State<MediaPlayerView> {
   late final _controller = VideoPlayerController.file(File(widget.path));
@@ -131,21 +169,45 @@ class _AudioCover extends StatelessWidget {
   }
 }
 
-class _Controls extends StatelessWidget {
+class _Controls extends StatefulWidget {
   const _Controls({required this.controller});
 
   final VideoPlayerController controller;
 
   @override
+  State<_Controls> createState() => _ControlsState();
+}
+
+class _ControlsState extends State<_Controls> {
+  /// Dónde está el dedo mientras arrastra la barra: se salta al soltar, no
+  /// en cada movimiento —cada salto le pide al motor que busque y
+  /// decodifique de nuevo—.
+  double? _dragging;
+
+  VideoPlayerController get _controller => widget.controller;
+
+  void _skip(Duration delta) {
+    final value = _controller.value;
+    _controller.seekTo(skipWithin(value.position, delta, value.duration));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+
     return ValueListenableBuilder<VideoPlayerValue>(
-      valueListenable: controller,
+      valueListenable: _controller,
       builder: (context, value, _) {
-        final position = value.position;
         final duration = value.duration;
+        final max = duration.inMilliseconds.toDouble().clamp(
+          1.0,
+          double.infinity,
+        );
+        final shown = _dragging ?? value.position.inMilliseconds.toDouble();
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -159,40 +221,85 @@ class _Controls extends StatelessWidget {
                 child: Slider(
                   activeColor: Colors.white,
                   inactiveColor: Colors.white24,
-                  max: duration.inMilliseconds.toDouble().clamp(
-                    1,
-                    double.infinity,
-                  ),
-                  value: position.inMilliseconds.toDouble().clamp(
-                    0,
-                    duration.inMilliseconds.toDouble(),
-                  ),
-                  onChanged: (value) =>
-                      controller.seekTo(Duration(milliseconds: value.round())),
+                  max: max,
+                  value: shown.clamp(0, max),
+                  onChanged: (v) => setState(() => _dragging = v),
+                  onChangeEnd: (v) {
+                    _controller.seekTo(Duration(milliseconds: v.round()));
+                    setState(() => _dragging = null);
+                  },
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _format(position),
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  IconButton(
-                    iconSize: 36,
-                    color: Colors.white,
-                    icon: Icon(
-                      value.isPlaying
-                          ? Icons.pause_circle_filled
-                          : Icons.play_circle_filled,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _format(Duration(milliseconds: shown.round())),
+                      style: const TextStyle(color: Colors.white70),
                     ),
-                    onPressed: () => value.isPlaying
-                        ? controller.pause()
-                        : controller.play(),
+                    Text(
+                      _format(duration),
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        key: const Key('media-replay'),
+                        iconSize: 30,
+                        color: Colors.white,
+                        tooltip: l10n.mediaPlayerReplay,
+                        icon: const Icon(Icons.replay_10),
+                        onPressed: () => _skip(-mediaSkipStep),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        key: const Key('media-play'),
+                        iconSize: 48,
+                        color: Colors.white,
+                        tooltip: value.isPlaying
+                            ? l10n.mediaPlayerPause
+                            : l10n.mediaPlayerPlay,
+                        icon: Icon(
+                          value.isPlaying
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_filled,
+                        ),
+                        onPressed: () => value.isPlaying
+                            ? _controller.pause()
+                            : _controller.play(),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        key: const Key('media-forward'),
+                        iconSize: 30,
+                        color: Colors.white,
+                        tooltip: l10n.mediaPlayerForward,
+                        icon: const Icon(Icons.forward_10),
+                        onPressed: () => _skip(mediaSkipStep),
+                      ),
+                    ],
                   ),
-                  Text(
-                    _format(duration),
-                    style: const TextStyle(color: Colors.white70),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _SpeedButton(
+                      label: formatSpeed(value.playbackSpeed, locale),
+                      tooltip: l10n.mediaPlayerSpeed,
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        showDragHandle: true,
+                        builder: (_) =>
+                            MediaSpeedSheet(controller: _controller),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -209,5 +316,135 @@ class _Controls extends StatelessWidget {
     return d.inHours > 0
         ? '${d.inHours}:$minutes:$seconds'
         : '$minutes:$seconds';
+  }
+}
+
+/// La velocidad actual, como una pastilla: tocarla abre el panel.
+class _SpeedButton extends StatelessWidget {
+  const _SpeedButton({
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: TextButton(
+        key: const Key('media-speed'),
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: Colors.white12,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          minimumSize: const Size(48, 32),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+/// El panel de la velocidad: el valor en grande, menos y más de a
+/// [mediaSpeedStep] con una barra entre medio, y las velocidades de siempre
+/// a un toque. Cada cambio se aplica en el acto, con el audio sonando.
+class MediaSpeedSheet extends StatelessWidget {
+  const MediaSpeedSheet({required this.controller, super.key});
+
+  final VideoPlayerController controller;
+
+  void _set(double speed) => controller.setPlaybackSpeed(clampSpeed(speed));
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final speed = value.playbackSpeed;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(l10n.mediaPlayerSpeed, style: text.titleMedium),
+                const SizedBox(height: 12),
+                Text(
+                  formatSpeed(speed, locale),
+                  key: const Key('media-speed-value'),
+                  style: text.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    IconButton.filledTonal(
+                      key: const Key('media-speed-down'),
+                      tooltip: l10n.mediaPlayerSpeedDown,
+                      onPressed: speed > mediaMinSpeed
+                          ? () => _set(speed - mediaSpeedStep)
+                          : null,
+                      icon: const Icon(Icons.remove),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        min: mediaMinSpeed,
+                        max: mediaMaxSpeed,
+                        divisions:
+                            ((mediaMaxSpeed - mediaMinSpeed) / mediaSpeedStep)
+                                .round(),
+                        value: speed.clamp(mediaMinSpeed, mediaMaxSpeed),
+                        onChanged: _set,
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      key: const Key('media-speed-up'),
+                      tooltip: l10n.mediaPlayerSpeedUp,
+                      onPressed: speed < mediaMaxSpeed
+                          ? () => _set(speed + mediaSpeedStep)
+                          : null,
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preset in mediaSpeedPresets)
+                      ChoiceChip(
+                        key: Key('media-speed-$preset'),
+                        label: Text(
+                          preset == 1.0
+                              ? l10n.mediaPlayerSpeedNormal
+                              : formatSpeed(preset, locale),
+                        ),
+                        selected: (speed - preset).abs() < 0.001,
+                        selectedColor: scheme.primaryContainer,
+                        onSelected: (_) => _set(preset),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
