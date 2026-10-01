@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:pdfrx/pdfrx.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
 
 /// El PDF, paginado y con zoom, igual que cualquier lector nativo —Adobe
 /// Reader, el visor del sistema—.
@@ -13,31 +14,52 @@ import 'package:pdfrx/pdfrx.dart';
 /// elemento sin distinguir "vista previa" de "el visor de verdad", los dos
 /// son el mismo widget.
 ///
-/// Mantener apretado sobre el texto lo selecciona, con tiradores para
-/// ajustarlo y el menú "Copiar / Seleccionar todo" —todo de `pdfrx`, con sus
-/// valores por defecto—. Ese menú solo se puede construir dentro de
+/// Mantener apretado sobre el texto lo selecciona —y, sin levantar el dedo,
+/// arrastrarlo la extiende: ver [PdfLongPressDragSelection]—, con tiradores
+/// para ajustarlo y el menú "Copiar / Seleccionar todo" de `pdfrx`. Ese menú solo se puede construir dentro de
 /// [PdfrxMaterialBridge]: ver ahí por qué.
 ///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
-class PdfViewerView extends StatelessWidget {
+class PdfViewerView extends StatefulWidget {
   const PdfViewerView({required this.path, super.key});
 
   final String path;
 
   @override
+  State<PdfViewerView> createState() => _PdfViewerViewState();
+}
+
+class _PdfViewerViewState extends State<PdfViewerView> {
+  final _controller = PdfViewerController();
+  late final _dragSelection = PdfLongPressDragSelection(_controller);
+
+  @override
   Widget build(BuildContext context) {
+    final drag = _dragSelection;
     return PdfrxMaterialBridge(
-      child: PdfViewer.file(
-        path,
-        params: PdfViewerParams(
-          // Un fondo neutro entre página y página, para que se distinga
-          // dónde termina una y empieza la otra al scrollear — lo mismo que
-          // hace cualquier lector de PDF de verdad.
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-          textSelectionParams: const PdfTextSelectionParams(
-            buildSelectionHandle: buildPdfSelectionHandle,
+      child: Listener(
+        onPointerDown: drag.onPointerDown,
+        onPointerMove: drag.onPointerMove,
+        onPointerUp: drag.onPointerUp,
+        onPointerCancel: drag.onPointerUp,
+        child: PdfViewer.file(
+          widget.path,
+          controller: _controller,
+          params: PdfViewerParams(
+            // Un fondo neutro entre página y página, para que se distinga
+            // dónde termina una y empieza la otra al scrollear — lo mismo
+            // que hace cualquier lector de PDF de verdad.
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+            onGeneralTap: drag.onGeneralTap,
+            customizeContextMenuItems: drag.hideMenuWhileDragging,
+            textSelectionParams: const PdfTextSelectionParams(
+              buildSelectionHandle: buildPdfSelectionHandle,
+              // Sin la lupa que `pdfrx` pone sobre el renglón al arrastrar
+              // un tirador: el usuario no la quiere (F22).
+              magnifier: PdfViewerSelectionMagnifierParams(enabled: false),
+            ),
           ),
         ),
       ),
