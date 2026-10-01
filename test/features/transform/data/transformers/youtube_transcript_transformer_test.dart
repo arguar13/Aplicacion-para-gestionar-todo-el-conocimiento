@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -10,6 +12,7 @@ import 'package:sinapsis/features/transform/data/transformers/youtube_transcript
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
+import '../../../../support/fake_audio_transcriber.dart';
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/transform_test_doubles.dart';
 
@@ -184,10 +187,95 @@ void main() {
   });
 
   group('videos sin subtítulos', () {
-    test('guarda la descripción en vez de dejar el elemento vacío', () async {
-      // Pasa seguido en material casero. Transcribir el audio es una fase
-      // posterior; mientras tanto la descripción es contenido real y
-      // buscable.
+    test('se transcribe su audio, en el idioma del video, y no queda '
+        'ningún archivo temporal (F22)', () async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(
+          title: 'Una prédica sin subtítulos',
+          description: 'La descripción, que ya no es lo único.',
+        ),
+      );
+      final transcriber = FakeAudioTranscriber(
+        text: '[0:00] Lo que se dijo\n[0:14] palabra por palabra',
+      );
+
+      final result = await YouTubeTranscriptTransformer(
+        client: client,
+        ids: ids,
+        clock: () => now,
+        transcriber: transcriber,
+        temporaryDirectory: () async => temp,
+      ).transform(videoItem(language: 'en'));
+
+      expect(client.audioRequested, ['dQw4w9WgXcQ']);
+      expect(transcriber.requested.single, startsWith(temp.path));
+      expect(transcriber.languages, ['en']);
+      expect(
+        result.renditions.single.searchableText,
+        '[0:00] Lo que se dijo\n[0:14] palabra por palabra',
+      );
+      expect(result.renditions.single.kind, RenditionKind.plainText);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('con subtítulos, el audio no se baja', () async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(
+          title: 'Con subtítulos',
+          transcript: [TranscriptLine(offset: Duration.zero, text: 'Hola')],
+        ),
+      );
+      final transcriber = FakeAudioTranscriber(text: 'no');
+
+      await YouTubeTranscriptTransformer(
+        client: client,
+        ids: ids,
+        clock: () => now,
+        transcriber: transcriber,
+        temporaryDirectory: () async => temp,
+      ).transform(videoItem());
+
+      expect(client.audioRequested, isEmpty);
+      expect(transcriber.requested, isEmpty);
+    });
+
+    test('si la transcripción falla, el audio bajado queda para retomar sin '
+        'volver a bajarlo', () async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(title: 'Sin subtítulos'),
+      );
+      final transcriber = FakeAudioTranscriber()..error = Exception('corte');
+      final transformer = YouTubeTranscriptTransformer(
+        client: client,
+        ids: ids,
+        clock: () => now,
+        transcriber: transcriber,
+        temporaryDirectory: () async => temp,
+      );
+
+      await expectLater(
+        transformer.transform(videoItem()),
+        throwsA(isA<Exception>()),
+      );
+      transcriber.error = null;
+      transcriber.text = 'Retomado';
+      final result = await transformer.transform(videoItem());
+
+      expect(client.audioRequested, hasLength(1));
+      expect(result.renditions.single.searchableText, 'Retomado');
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('sin con qué transcribir, guarda la descripción en vez de dejar el '
+        'elemento vacío', () async {
+      // Sin transcriptor —en la web, o acá—: la descripción es contenido
+      // real y buscable.
       final client = FakeYouTubeClient(
         data: const YouTubeVideoData(
           title: 'Un video casero',

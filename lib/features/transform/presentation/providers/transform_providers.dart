@@ -112,6 +112,9 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       client: ref.watch(youTubeClientProvider),
       ids: ids,
       clock: clock,
+      transcriber: ref.watch(audioTranscriberProvider),
+      temporaryDirectory: getTemporaryDirectory,
+      checkpoints: ref.watch(processingStateRepositoryProvider),
     ),
     SocialPostTransformer(
       client: ref.watch(socialPostClientProvider),
