@@ -4559,6 +4559,112 @@ captura de un video de varios GB en el dispositivo. El modelo "base", más rápi
 sumó: queda como opción si las cifras del teléfono lo piden. Si se cierra la app desde "recientes",
 el trabajo largo se detiene —se retoma al volver—; no sigue sin la app.
 
+### 55. F22 de fidelidad del texto: lo que se guarda es el original, carácter por carácter
+
+Nace del uso real de la versión release en el teléfono, el día después de cerrar F21: una alabanza
+transcrita con "es tu maquillaje, es tu maquillaje…" decenas de veces, un audio de tres minutos que
+tardaba mucho, y un libro PDF que se ponía gris entero al mantener apretado para copiar. Y un pedido
+general del usuario: que ninguna transcripción ni extracción cambie, borre ni altere nada. Plan:
+`docs/planes/F22-fidelidad-del-texto.md`, aprobado entero con las cuatro decisiones como se
+recomendaron.
+
+**El principio.** Lo que se guarda es el original, carácter por carácter, estructura incluida
+(párrafos, renglones, títulos, listas). Lo que necesita otra forma —la búsqueda que encuentra
+"explicaciones" aunque el libro diga "ex-⏎plicaciones"— la deriva del original sin tocarlo. Y lo que
+el motor no pudo reconocer queda marcado como hueco, nunca inventado.
+
+**El audio que llegaba estirado —la causa real de los disparates—.** Con la versión nueva instalada,
+la alabanza del usuario volvió a salir sin sentido. Medido en su teléfono: `audio_decoder`, el
+paquete que pasaba cada audio al formato de Whisper, tomaba la frecuencia que DECLARA el archivo, no
+la que ENTREGA el decodificador, e ignoraba el aviso de cambio de formato. Un AAC eficiente (HE-AAC,
+el de muchos audios de YouTube y de apps de mensajes) declara 22.050 Hz y se decodifica a 44.100: el
+WAV salía de 598,9 s para un audio de 299,4 s, estirado una octava más grave. En las pruebas no
+aparecía porque usaban WAV. Además remuestreaba por interpolación lineal sin filtrar y muestra por
+muestra en Kotlin interpretado: 113 s por cada 5 minutos de AAC. En Android ahora `AudioToPcm.kt`
+decodifica con el formato real y vuelca el PCM crudo sin tocar una muestra, y `pcm_resampler.dart`,
+en un isolate, mezcla a mono y pasa a 16 kHz con un filtro sinc polifásico (un tono de 10 kHz
+desaparece en vez de volver como ruido en 6 kHz). HE-AAC, AAC y Opus dan la duración exacta y la
+letra correcta; convertir 5 minutos de AAC pasó a unos 65 s, casi todo en el decodificador del
+sistema (5 ms por bloque, igual con el de software y leyendo de almacenamiento privado), y 2 s de
+remuestreo.
+
+**Audio de todo tipo, también sin subtítulos.** Un video de YouTube sin subtítulos ya no se queda
+con la descripción: pasa al carril largo, baja su audio a un archivo temporal y lo transcribe con
+Whisper, retomable como cualquier audio; el archivo se borra al terminar (guardarlo sigue siendo
+"Descargar el audio", a pedido).
+
+**El PDF gris.** `pdfrx` 2.6.1 arma sus widgets con `material_ui`, una copia de Material con clases
+propias; la app solo registra las traducciones de `flutter/material`. La selección funcionaba, pero
+el menú "Copiar" reventaba al pedir su etiqueta y la versión release lo reemplazaba por el recuadro
+gris de error de Flutter, del tamaño del visor. `PdfrxMaterialBridge` le da al visor, en su borde,
+las traducciones y un tema con los colores de la app. Probado en el teléfono, el usuario pidió
+tiradores más prolijos que los triángulos de `pdfrx`: ahora son una gota, como los de Material y
+Google Lens, con un área táctil de 40 px.
+
+**La transcripción, medida contra transcripciones humanas.** Con el mismo motor y versión que la app
+(sherpa-onnx 1.13.8, Whisper small int8), sobre una alabanza cantada y diez minutos de una charla
+con subtítulos hechos por personas:
+
+- El texto inventado era un **bucle** de Whisper sin ninguna defensa: "oh, oh…" 90 veces en un tramo
+  (índice de compresión 9,4; lo normal, 1 a 2), que además tardaba cinco veces más que un tramo
+  normal. Ahora un tramo cuyo texto se comprime más de 2,4 veces —el criterio de Whisper original—
+  se vuelve a transcribir en mitades, hasta en cuartos; lo que siga en bucle queda como
+  "[fragmento no reconocido 3:15–3:29]".
+- Los tramos pasaron de 29 s fijos a **hasta 14,5 s cortados en la pausa más cercana**, por energía:
+  15,0 % de diferencia con los subtítulos humanos contra 16,2 %, 64 palabras perdidas contra 79, sin
+  bucles, y en habla 18-19 % más rápido (comparación alternada en la misma PC). El silencio puro
+  (-50 dBFS) no llega al motor: es donde Whisper inventa frases.
+- Se compararon otros motores y se descartaron con cifras: Parakeet v3 empata en habla y es 4 veces
+  más rápido, pero con canto pierde versos y mete portugués; Qwen3-ASR tradujo la letra al inglés; un
+  detector de voz (Silero) descartaba 186 de 299 segundos cantados. Después, a pedido del usuario
+  —"aunque haya música, lo más perfecto posible"—, Whisper "turbo": reconoce mejor la letra cantada
+  pero inventa frases ("¡Suscríbete al canal!"), entra en más bucles y es 3 a 4 veces más lento; y
+  un limpiador de voz (GTCRN), que borra el canto como si fuera ruido. Tampoco se adoptaron.
+- **El idioma** es un dato de la fuente (`Source.language`, esquema v32): Whisper detectándolo solo
+  confunde el español con el gallego y quita las tildes, y fijado en español traduce un audio en
+  inglés. Se transcribe en el idioma elegido, o en español.
+- Una marca de tiempo por tramo, "[3:15] …", como las de YouTube.
+
+**Los lectores.** Cada uno se revisó contra el original y después pasó por una revisión
+independiente, que encontró más defectos; todos corregidos, con pruebas que comparan el texto
+guardado carácter por carácter:
+
+- *PDF*: se guardan los renglones, los guiones de corte y los espacios de las columnas (antes una
+  página quedaba como un párrafo, y "1990-⏎1995" como "19901995"). La búsqueda encuentra la palabra
+  cortada porque el índice de los chunks lee de una vista, `chunk_search_text`, que agrega la versión
+  unida —solo el índice; la app usa `MATCH` y `rank`, no `snippet()`—. Las páginas escaneadas con un
+  número de página como texto ahora se reconocen, y un reconocimiento fallido queda marcado.
+- *Word*: controles de contenido, encabezados y pies, notas al pie y comentarios, numeración real
+  (también la de listas por estilo), ecuaciones en notación lineal, campos anidados, celdas
+  combinadas, SmartArt, símbolos y cuadros de texto sin duplicar.
+- *EPUB y web*: un conversor propio de HTML a Markdown sin barras invertidas (html2md salió del
+  proyecto), sin volcar el `<head>`, con superíndices, tachados, MathML y tablas en su orden; la
+  codificación que declara la página (y Windows-1251, ISO-8859-2, KOI8-R); un artículo corto se
+  guarda en vez de descartarse.
+- *Texto plano*: su codificación, byte por byte. *YouTube*: los subtítulos del idioma en que se
+  habla, no una traducción.
+- *En pantalla*: Markdown solo donde el texto lo es; una transcripción, un PDF o una foto se ven tal
+  cual. "Quitar marcas de tiempo" solo en transcripciones, y sin juntar las líneas.
+
+**Lo que ya estaba en la bóveda.** "Volver a extraer el texto" (audio, video, documento, foto,
+YouTube) lee el original otra vez con la versión de hoy. La intención queda en la base y nada se
+borra antes: el texto nuevo toma el lugar del viejo —la misma forma, el mismo identificador—, y los
+subrayados, las tarjetas y las notas extraídas se buscan en él por su fragmento, sin mirar cómo se
+cortan los renglones. Un subrayado que ya no aparece queda en la nota del elemento, con su nota.
+
+**Cifras en el teléfono** (Xiaomi 23090RA98G, Dimensity 7200, Android 16; `docs/benchmarks/xiaomi-
+23090RA98G-android16/2026-09-30-f22/`, medido con la app de pruebas `staging`, sin tocar la bóveda
+del usuario): la charla, 11,2 % de diferencia con sus subtítulos humanos; la alabanza, sin bucles ni
+huecos. Transcribir tarda 0,36 veces la duración del audio con canto y 0,68 con habla densa —una
+hora de charla, unos 40 minutos—, más la conversión si el audio no es WAV. Entre 2 y 6 hilos no hay
+diferencia que supere la variación entre corridas: el procesador tiene dos núcleos rápidos; la app
+sigue con 4.
+
+**Lo que F22 no hace, dicho sin adornos.** Ningún motor transcribe perfecto una canción con música:
+lo garantizado es que la app no altera, que no queda texto inventado por bucles, y que la precisión
+está medida. El OCR de fotos sigue siendo solo de alfabeto latino. Readability puede limpiar tablas y
+listas que parecen navegación en artículos largos; el resguardo es la página archivada completa.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -4924,6 +5030,13 @@ el trabajo largo se detiene —se retoma al volver—; no sigue sin la app.
   videos de horas: nada entero en memoria, las páginas escaneadas y los tramos de audio se guardan
   a medida que salen (esquema v31) y se retoman, con un servicio en primer plano en Android. El
   audio de YouTube, solo a pedido. Ver la decisión 54.
+- **F22 de fidelidad del texto.** Lo que se guarda es el original, carácter por carácter: los
+  lectores de PDF, Word, EPUB, web, texto plano y YouTube dejaron de unir, borrar, escapar y
+  traducir; la búsqueda encuentra las palabras cortadas por guion desde un índice derivado. La
+  transcripción, cortada en pausas, con protección contra bucles, en el idioma elegido y con la
+  frecuencia real del audio (el conversor de antes lo estiraba al doble). YouTube sin subtítulos se
+  transcribe por su audio. Copiar del PDF funciona, y "Volver a extraer el texto" rehace lo viejo
+  conservando los subrayados (esquema v32). Ver la decisión 55.
 
 ### Por construir
 

@@ -1,6 +1,7 @@
 # F22 — Fidelidad del texto: transcribir y extraer sin cambiar nada
 
-> **Estado: aprobado** (2026-09-30), en el chat, "totalmente": las decisiones A, B, C y D como se
+> **Estado: cerrado** (2026-10-01) —ver la decisión 55 en `docs/arquitectura.md` y el cierre al
+> final—. **Aprobado** (2026-09-30), en el chat, "totalmente": las decisiones A, B, C y D como se
 > recomendaron. Nace del uso real de la
 > versión release en el teléfono (Xiaomi 23090RA98G, HyperOS), el día después de cerrar F21:
 >
@@ -269,13 +270,42 @@ En tu teléfono, con la versión release:
 
 ## Criterios de cierre
 
-- [ ] Mantener apretado en un PDF selecciona el texto, y "Copiar" lo copia.
-- [ ] Ningún bucle de repetición llega al texto guardado: la alabanza de prueba sale sin
-      repeticiones inventadas.
-- [ ] Los cortes del audio caen en pausas; pierden menos palabras que hoy, medido contra
-      subtítulos humanos.
-- [ ] La velocidad en tu teléfono está medida, con cifras antes y después.
-- [ ] Ningún lector une, borra, escapa, traduce ni reordena texto: cada uno con su prueba carácter
-      por carácter.
-- [ ] Lo que ya estaba en la bóveda se puede volver a extraer sin perder subrayados.
-- [ ] Suite completa verde antes de cada commit. Disco limpio al terminar.
+- [x] Mantener apretado en un PDF selecciona el texto, y "Copiar" lo copia. Probado por el usuario
+      en su teléfono; los tiradores, en forma de gota a su pedido.
+- [x] Ningún bucle de repetición llega al texto guardado: la alabanza de prueba sale sin
+      repeticiones inventadas, en la PC y en el teléfono.
+- [x] Los cortes del audio caen en pausas; pierden menos palabras que antes, medido contra
+      subtítulos humanos (64 contra 79 en 10 minutos; 15,0 % contra 16,2 % de diferencia).
+- [x] La velocidad en el teléfono está medida, con cifras: `docs/benchmarks/xiaomi-23090RA98G-
+      android16/2026-09-30-f22/`.
+- [x] Ningún lector une, borra, escapa, traduce ni reordena texto: cada uno con su prueba carácter
+      por carácter, y Word y EPUB/web pasaron además por una revisión independiente cuyos
+      hallazgos se corrigieron.
+- [x] Lo que ya estaba en la bóveda se puede volver a extraer sin perder subrayados.
+- [x] Suite completa verde antes de subir cada tanda; disco limpio al terminar.
+
+## Cierre
+
+Lo que quedó distinto del plan, dicho sin adornos:
+
+- **Los commits 2, 3 y 4 fueron uno solo** (`ebeb9ee`): cortes en pausas, protección contra
+  bucles y silencio tocan el mismo archivo y el mismo isolate; separarlos pedía código intermedio
+  que se tiraba.
+- **El commit 5 se hizo al final**, con el teléfono conectado: entre 2 y 6 hilos no hay diferencia
+  que supere la variación entre corridas, y la app sigue con 4.
+- **Las revisiones independientes de los lectores** de Word y de EPUB/web encontraron defectos que
+  el primer pase no vio —ecuaciones de Word que se perdían enteras, campos anidados, celdas
+  combinadas, un capítulo de EPUB que desaparecía, tablas en desorden, MathML—: se corrigieron en
+  dos commits más (`3e99120`, `0ed207a`).
+- **La causa real de los disparates apareció después de instalar**: la alabanza del usuario volvió
+  a salir sin sentido, y la medición en su teléfono mostró que `audio_decoder` entregaba a Whisper
+  el audio con el doble de duración cuando el archivo era AAC eficiente. Las pruebas no lo habían
+  visto porque usaban WAV. Se reemplazó la conversión en Android (`c39656e`): duración exacta en
+  todos los formatos, y la conversión de 113 a unos 65 s por cada 5 minutos de AAC.
+- **Fuera del plan, a pedido del usuario**: un video de YouTube sin subtítulos se transcribe por su
+  audio (`fe2fad7`), los tiradores de la selección del PDF (`14c3f4c`), y se midieron Whisper
+  "turbo" y un limpiador de voz para música de fondo —ninguno se adoptó: el primero inventa
+  frases y es 3 a 4 veces más lento, el segundo borra el canto—.
+- **No se probó en el teléfono** la transcripción completa de un video de YouTube sin subtítulos
+  (sí con pruebas); la conversión sigue tardando unos 5 ms por bloque en el decodificador del
+  sistema, que desde la app no se puede evitar sin otra tecnología de decodificación.
