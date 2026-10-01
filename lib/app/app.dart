@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/app/global_error_listener.dart';
 import 'package:sinapsis/app/router/app_router.dart';
+import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
@@ -30,6 +31,11 @@ class App extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
+      // Sin esto, cerrar un diálogo adentro de un elemento dejaba a Android
+      // creyendo que "atrás" no lo maneja la app, y lo minimizaba: ver
+      // `reportBackHandling`.
+      onNavigationNotification: (notification) =>
+          reportBackHandling(router, notification),
       // Un nivel por encima del `Navigator`, donde `MaterialApp` ya montó
       // su propio `ScaffoldMessenger` — ver el docstring de
       // GlobalErrorListener sobre por qué alcanza con este `context`.
