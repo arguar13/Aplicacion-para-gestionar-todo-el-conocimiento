@@ -86,4 +86,30 @@ void main() {
     expect(seen.colorScheme.onSurface, app.onSurface);
     expect(seen.colorScheme.primary, app.primary);
   }, variant: android);
+
+  group('los tiradores de la selección (F22)', () {
+    test('la punta de la gota toca la letra: el del principio, arriba a la '
+        'izquierda de la primera; el del final, abajo a la derecha de la '
+        'última', () {
+      expect(
+        pdfSelectionHandleTip(start: true, rightToLeft: false),
+        Alignment.bottomRight,
+      );
+      expect(
+        pdfSelectionHandleTip(start: false, rightToLeft: false),
+        Alignment.topLeft,
+      );
+    });
+
+    test('en un texto de derecha a izquierda, del lado opuesto', () {
+      expect(
+        pdfSelectionHandleTip(start: true, rightToLeft: true),
+        Alignment.bottomLeft,
+      );
+      expect(
+        pdfSelectionHandleTip(start: false, rightToLeft: true),
+        Alignment.topRight,
+      );
+    });
+  });
 }

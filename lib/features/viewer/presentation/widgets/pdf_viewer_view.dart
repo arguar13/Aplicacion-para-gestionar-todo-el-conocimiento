@@ -36,7 +36,110 @@ class PdfViewerView extends StatelessWidget {
           // dónde termina una y empieza la otra al scrollear — lo mismo que
           // hace cualquier lector de PDF de verdad.
           backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+          textSelectionParams: const PdfTextSelectionParams(
+            buildSelectionHandle: buildPdfSelectionHandle,
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// El lado del área táctil de un tirador: más grande que lo que se ve, para
+/// que se agarre con el dedo sin buscarlo.
+const pdfSelectionHandleTouchSize = 40.0;
+
+/// El diámetro de la gota que se ve.
+const _handleDiameter = 22.0;
+
+/// Los tiradores de la selección de texto del PDF: una gota —un círculo con
+/// una punta que toca la letra—, como los de Material y Google Lens, en vez
+/// del triángulo de `pdfrx` (F22, pedido del usuario).
+///
+/// `pdfrx` pone el tirador del principio arriba y a la izquierda de la
+/// primera letra —la esquina de abajo a la derecha del tirador toca la
+/// letra— y el del final abajo y a la derecha de la última —la esquina de
+/// arriba a la izquierda—. La gota se dibuja en esa esquina, con la punta
+/// ahí; el resto del área táctil es transparente.
+Widget? buildPdfSelectionHandle(
+  BuildContext context,
+  PdfTextSelectionAnchor anchor,
+  PdfViewerTextSelectionAnchorHandleState state,
+) {
+  final tip = pdfSelectionHandleTip(
+    start: anchor.type == PdfTextSelectionAnchorType.a,
+    // En un texto de derecha a izquierda, `pdfrx` los pone del lado
+    // opuesto.
+    rightToLeft:
+        anchor.direction == PdfTextDirection.rtl ||
+        anchor.direction == PdfTextDirection.vrtl,
+  );
+  final color = Theme.of(context).colorScheme.primary;
+  return SizedBox.square(
+    dimension: pdfSelectionHandleTouchSize,
+    child: ColoredBox(
+      color: Colors.transparent,
+      child: Align(
+        alignment: tip,
+        child: _Teardrop(
+          tip: tip,
+          color: state == PdfViewerTextSelectionAnchorHandleState.dragging
+              ? color
+              : color.withValues(alpha: 0.9),
+          elevated: state != PdfViewerTextSelectionAnchorHandleState.dragging,
+        ),
+      ),
+    ),
+  );
+}
+
+/// La esquina del tirador que toca la letra —donde va la punta de la
+/// gota—, según dónde lo pone `pdfrx`: ver [buildPdfSelectionHandle].
+Alignment pdfSelectionHandleTip({
+  required bool start,
+  required bool rightToLeft,
+}) => switch ((start, rightToLeft)) {
+  (true, false) => Alignment.bottomRight,
+  (true, true) => Alignment.bottomLeft,
+  (false, false) => Alignment.topLeft,
+  (false, true) => Alignment.topRight,
+};
+
+class _Teardrop extends StatelessWidget {
+  const _Teardrop({
+    required this.tip,
+    required this.color,
+    required this.elevated,
+  });
+
+  /// La esquina con punta: la que toca la letra.
+  final Alignment tip;
+  final Color color;
+  final bool elevated;
+
+  @override
+  Widget build(BuildContext context) {
+    const round = Radius.circular(_handleDiameter / 2);
+    return Container(
+      width: _handleDiameter,
+      height: _handleDiameter,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.only(
+          topLeft: tip == Alignment.topLeft ? Radius.zero : round,
+          topRight: tip == Alignment.topRight ? Radius.zero : round,
+          bottomLeft: tip == Alignment.bottomLeft ? Radius.zero : round,
+          bottomRight: tip == Alignment.bottomRight ? Radius.zero : round,
+        ),
+        boxShadow: elevated
+            ? const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ]
+            : null,
       ),
     );
   }
