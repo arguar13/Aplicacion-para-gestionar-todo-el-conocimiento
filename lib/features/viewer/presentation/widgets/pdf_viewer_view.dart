@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:pdfrx/pdfrx.dart';
+import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
 
 /// El PDF, paginado y con zoom, igual que cualquier lector nativo —Adobe
@@ -52,6 +53,13 @@ class _PdfViewerViewState extends State<PdfViewerView> {
             // dónde termina una y empieza la otra al scrollear — lo mismo
             // que hace cualquier lector de PDF de verdad.
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
+            // La física de una lista —la de la plataforma, y más enérgica al
+            // soltar con impulso—, no la de un visor con zoom: con la de
+            // pdfrx por defecto un arrastre rápido se frenaba enseguida y
+            // pasar hojas pedía un gesto por página (pedido del usuario).
+            scrollPhysics: ReadingScrollPhysics(
+              parent: PdfViewerParams.getScrollPhysics(context),
+            ),
             onGeneralTap: drag.onGeneralTap,
             customizeContextMenuItems: drag.hideMenuWhileDragging,
             textSelectionParams: const PdfTextSelectionParams(

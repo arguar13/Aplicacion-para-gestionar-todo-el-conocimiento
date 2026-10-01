@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -82,6 +83,7 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
       body: rendition == null
           ? _NoText(item: item)
           : SingleChildScrollView(
+              physics: const ReadingScrollPhysics(),
               padding: const EdgeInsets.all(24),
               child: Center(
                 child: ConstrainedBox(

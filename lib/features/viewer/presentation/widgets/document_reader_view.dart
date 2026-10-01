@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
@@ -205,6 +206,7 @@ class _ReaderPage extends StatelessWidget {
             ],
           ),
           child: SingleChildScrollView(
+            physics: const ReadingScrollPhysics(),
             child: SelectableText.rich(
               rendered.buildSpans(
                 theme,
