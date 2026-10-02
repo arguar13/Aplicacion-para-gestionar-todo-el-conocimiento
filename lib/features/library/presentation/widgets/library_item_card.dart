@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
-import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail_providers.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
@@ -16,7 +15,6 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
-import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -250,12 +248,6 @@ class _CitationLine extends StatelessWidget {
   }
 }
 
-/// Los formatos que ofrece el menú de cada fila: los de un documento para
-/// leer o seguir editando. Markdown, texto plano y BibTeX salieron a pedido
-/// del usuario —le alargaban el menú sin usarlos—; siguen en el botón
-/// Exportar del detalle de cada elemento.
-const _menuExportFormats = [ExportFormat.pdf, ExportFormat.docx];
-
 /// El menú de tres puntos de cada fila: eliminar, mover de espacio o
 /// exportar, sin tener que abrir el detalle solo para eso.
 class _ItemMenuButton extends ConsumerWidget {
@@ -280,7 +272,8 @@ class _ItemMenuButton extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        for (final format in _menuExportFormats)
+        // Ver `offeredItemExportFormats`: el mismo par que el detalle.
+        for (final format in offeredItemExportFormats)
           PopupMenuItem(
             value: _ExportAction(format),
             child: ListTile(
@@ -330,16 +323,15 @@ class _ItemMenuButton extends ConsumerWidget {
 
   Future<void> _move(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
-    final spaces = ref.read(allSpacesProvider).valueOrNull ?? const <Space>[];
 
     final chosen = await showSpacePickerSheet(
       context,
-      spaces: spaces,
       selectedSpaceId: item.spaceId,
     );
     if (chosen == null || !context.mounted) return;
 
-    final (spaceId,) = chosen;
+    final (space,) = chosen;
+    final spaceId = space?.id;
     if (spaceId == item.spaceId) return;
 
     final result = await ref
@@ -351,16 +343,15 @@ class _ItemMenuButton extends ConsumerWidget {
       (failure) => ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      (_) {
-        final spaceName =
-            spaces.where((s) => s.id == spaceId).firstOrNull?.name ??
-            l10n.detailSpaceNone;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(l10n.libraryItemMoved(spaceName))),
-          );
-      },
+      (_) => ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.libraryItemMoved(space?.name ?? l10n.detailSpaceNone),
+            ),
+          ),
+        ),
     );
   }
 

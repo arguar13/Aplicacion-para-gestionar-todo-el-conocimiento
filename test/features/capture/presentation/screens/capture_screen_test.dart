@@ -1,5 +1,5 @@
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,15 +10,19 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/services/dedup_fingerprint.dart';
 import 'package:sinapsis/features/blocks/presentation/providers/note_template_providers.dart';
+import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/camera_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
@@ -925,6 +929,306 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(TextField, es.blocksTitleHint), findsNothing);
+    });
+  });
+
+  group('el tema de lo que se guarda', () {
+    Future<Space> createSpace(String name) async =>
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .createSpace(name))
+            .getRight()
+            .toNullable()!;
+
+    Future<List<String>> spaceNames() async => [
+      for (final row
+          in await harness.database.select(harness.database.spaces).get())
+        row.name,
+    ];
+
+    /// El campo Tema del formulario de la captura —no el chip que muestra,
+    /// en la biblioteca de atrás, el tema en el que está parada—.
+    Finder spaceField() => find.ancestor(
+      of: find.text(es.captureSpaceLabel),
+      matching: find.byType(InputDecorator),
+    );
+
+    /// Lo que dice el campo Tema ahora.
+    Finder spaceFieldShowing(String name) =>
+        find.descendant(of: spaceField(), matching: find.text(name));
+
+    Future<void> openSpaceField(WidgetTester tester) async {
+      await tester.ensureVisible(spaceField());
+      await tester.pumpAndSettle();
+      await tester.tap(spaceField());
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> save(WidgetTester tester) async {
+      await tester.ensureVisible(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.captureAction));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('está en el formulario de cada tipo, sin elegir nada de '
+        'entrada', (tester) async {
+      await pumpCapture(tester);
+
+      for (final type in [
+        es.captureTypeVideo,
+        es.captureTypePost,
+        es.captureTypeWebPage,
+        es.captureTypeBook,
+        es.captureTypeImage,
+        es.captureTypeAudio,
+        es.captureTypePasteText,
+        es.captureTypeCamera,
+      ]) {
+        await selectType(tester, type);
+
+        expect(spaceField(), findsOneWidget, reason: type);
+        expect(
+          tester.widget<InputDecorator>(spaceField()).isEmpty,
+          isTrue,
+          reason: type,
+        );
+
+        await tester.tap(find.text(es.captureChangeType));
+        await tester.pumpAndSettle();
+      }
+    });
+
+    testWidgets('un video con un tema existente queda guardado en ese tema', (
+      tester,
+    ) async {
+      final historia = await createSpace('Historia');
+      await createSpace('Cocina');
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypeVideo);
+
+      await tester.enterText(mainField(), 'https://youtu.be/dQw4w9WgXcQ');
+      await openSpaceField(tester);
+      await tester.tap(find.text('Historia'));
+      await tester.pumpAndSettle();
+
+      expect(spaceFieldShowing('Historia'), findsOneWidget);
+
+      await save(tester);
+
+      expect((await savedItems()).single.spaceId, historia.id);
+    });
+
+    testWidgets('un libro con un tema nuevo: lo crea, lo elige y lo guarda '
+        'ahí, y el tema aparece enseguida en los filtros', (tester) async {
+      harness = await LibraryHarness.create(
+        chosenFile: CapturedFile(
+          name: 'Capítulo uno.pdf',
+          bytes: Uint8List.fromList('%PDF-1.7 el contenido'.codeUnits),
+        ),
+      );
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypeBook);
+
+      await openSpaceField(tester);
+      await tester.tap(find.text(es.spacesNewAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Tesis');
+      await tester.tap(find.text(es.commonCreate));
+      await tester.pumpAndSettle();
+
+      expect(spaceFieldShowing('Tesis'), findsOneWidget);
+      expect(await spaceNames(), ['Tesis']);
+
+      await save(tester);
+
+      final saved = (await savedItems()).single;
+      final tesis =
+          (await harness.database.select(harness.database.spaces).getSingle())
+              .id;
+      expect(saved.spaceId, tesis);
+
+      // De vuelta en la biblioteca, el tema ya está para filtrar por él.
+      expect(find.byType(LibraryScreen), findsOneWidget);
+      await tester.tap(find.byTooltip(es.libraryFiltersTooltip));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('library-space-filters')),
+          matching: find.text('Tesis'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('con un nombre que ya es un tema, elige el que hay en vez de '
+        'crear otro', (tester) async {
+      final filosofia = await createSpace('Filosofía');
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
+
+      await tester.enterText(mainField(), 'una idea suelta');
+      await openSpaceField(tester);
+      await tester.tap(find.text(es.spacesNewAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'filosofia');
+      await tester.tap(find.text(es.commonCreate));
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect(await spaceNames(), ['Filosofía']);
+      expect((await savedItems()).single.spaceId, filosofia.id);
+    });
+
+    testWidgets('con muchos temas, la hoja ofrece buscar, y lo buscado que '
+        'no existe se crea con ese nombre', (tester) async {
+      for (var i = 10; i < 20; i++) {
+        await createSpace('Tema $i');
+      }
+      await pumpCapture(tester);
+      await selectType(tester, es.captureTypePasteText);
+      await tester.enterText(mainField(), 'algo para un tema nuevo');
+      await openSpaceField(tester);
+
+      // El buscador de la hoja, no el campo del formulario de atrás.
+      final search = find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(TextField),
+      );
+      expect(find.text(es.spacesSearchHint), findsOneWidget);
+      await tester.enterText(search, 'tema 1');
+      await tester.pumpAndSettle();
+      expect(find.text('Tema 15'), findsOneWidget);
+
+      await tester.enterText(search, 'Arqueología');
+      await tester.pumpAndSettle();
+      expect(find.text('Tema 15'), findsNothing);
+
+      await tester.tap(find.text(es.spacesCreateNamed('Arqueología')));
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      final saved = (await savedItems()).single;
+      final arqueologia =
+          (await harness.database.select(harness.database.spaces).get())
+              .firstWhere((row) => row.name == 'Arqueología');
+      expect(saved.spaceId, arqueologia.id);
+    });
+
+    testWidgets('si la biblioteca está parada en un tema, viene elegido; '
+        'quitarlo guarda sin tema', (tester) async {
+      final historia = await createSpace('Historia');
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.container
+          .read(libraryQueryNotifierProvider.notifier)
+          .selectSpace(historia.id);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await selectType(tester, es.captureTypeWebPage);
+
+      expect(spaceFieldShowing('Historia'), findsOneWidget);
+
+      await tester.enterText(mainField(), 'https://ejemplo.org/roma');
+      await save(tester);
+      expect((await savedItems()).single.spaceId, historia.id);
+
+      // Otra vez, ahora sacándole el tema antes de guardar.
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await selectType(tester, es.captureTypeWebPage);
+      await tester.enterText(mainField(), 'https://ejemplo.org/cartago');
+      await tester.tap(find.byTooltip(es.captureSpaceClear));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<InputDecorator>(spaceField()).isEmpty, isTrue);
+
+      await save(tester);
+      final cartago = (await savedItems()).firstWhere(
+        (item) => item.source.url.toString().contains('cartago'),
+      );
+      expect(cartago.spaceId, isNull);
+    });
+
+    testWidgets('lo compartido desde otra app pasa por el mismo campo', (
+      tester,
+    ) async {
+      harness = await LibraryHarness.create(
+        initialSharedContent: [
+          const CaptureRequest.text(rawInput: 'https://ejemplo.org/compartido'),
+        ],
+      );
+      final historia = await createSpace('Historia');
+
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      expect(find.byType(CaptureScreen), findsOneWidget);
+
+      await openSpaceField(tester);
+      await tester.tap(find.text('Historia'));
+      await tester.pumpAndSettle();
+      await save(tester);
+
+      expect((await savedItems()).single.spaceId, historia.id);
+    });
+
+    testWidgets('una nota nueva elige su tema en el editor, y arranca en el '
+        'de la biblioteca', (tester) async {
+      final historia = await createSpace('Historia');
+      await createSpace('Cocina');
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.container
+          .read(libraryQueryNotifierProvider.notifier)
+          .selectSpace(historia.id);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      // Debajo de la grilla: `ListView` no lo monta hasta desplazarse —ver
+      // `tapChooseTemplate`—.
+      final noteButton = find.text(es.captureTypeNote);
+      await tester.scrollUntilVisible(
+        noteButton,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(noteButton);
+      await tester.pumpAndSettle();
+
+      final editor = find.byType(BlockEditorScreen);
+      expect(
+        find.descendant(
+          of: editor,
+          matching: find.widgetWithText(InputChip, 'Historia'),
+        ),
+        findsOneWidget,
+      );
+
+      // Se cambia a otro desde el chip.
+      await tester.tap(
+        find.descendant(of: editor, matching: find.text('Historia')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cocina'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, es.blocksTitleHint),
+        'Recetas de la abuela',
+      );
+      await tester.tap(find.byTooltip(es.detailSave));
+      await tester.pumpAndSettle();
+
+      final note = (await savedItems()).single;
+      expect(note.title, 'Recetas de la abuela');
+      final cocina =
+          (await harness.database.select(harness.database.spaces).get())
+              .firstWhere((row) => row.name == 'Cocina');
+      expect(note.spaceId, cocina.id);
     });
   });
 }

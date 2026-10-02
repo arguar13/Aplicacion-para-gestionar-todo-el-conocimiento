@@ -475,6 +475,45 @@ void main() {
     });
   });
 
+  group('el tema', () {
+    Future<void> seedSpace(String id) => db
+        .into(db.spaces)
+        .insert(SpacesCompanion.insert(id: id, name: id, createdAt: now));
+
+    Future<void> placeIn(String itemId, String spaceId) =>
+        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
+            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+
+    Future<String?> spaceOf(String itemId) async => (await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(itemId))).getSingle()).spaceId;
+
+    test('el del descartado pasa al que queda si este no tenía: es el que '
+        'se acaba de elegir al capturar', () async {
+      await seedSpace('filosofia');
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El recién capturado');
+      await placeIn(discardId, 'filosofia');
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await spaceOf(keepId), 'filosofia');
+    });
+
+    test('el del que queda no se pisa', () async {
+      await seedSpace('filosofia');
+      await seedSpace('cocina');
+      final keepId = await seedItem(title: 'El que queda');
+      final discardId = await seedItem(title: 'El descartado');
+      await placeIn(keepId, 'filosofia');
+      await placeIn(discardId, 'cocina');
+
+      await useCase(keepItemId: keepId, discardItemId: discardId);
+
+      expect(await spaceOf(keepId), 'filosofia');
+    });
+  });
+
   group('lo que lee y lo que deja al día (F10)', () {
     test('la procedencia del descartado sale de source, no de la tabla '
         'vieja', () async {

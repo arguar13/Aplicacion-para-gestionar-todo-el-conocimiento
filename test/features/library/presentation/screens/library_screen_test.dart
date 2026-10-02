@@ -15,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
@@ -65,6 +66,14 @@ void main() {
     await tester.tap(find.byTooltip(es.libraryFiltersTooltip));
     await tester.pumpAndSettle();
   }
+
+  /// El chip del tema [name] adentro del panel de filtros —y no el que
+  /// muestra el tema elegido debajo de la búsqueda, que puede llamarse
+  /// igual—.
+  Finder spaceChip(String name) => find.descendant(
+    of: find.byKey(const ValueKey('library-space-filters')),
+    matching: find.text(name),
+  );
 
   /// Cierra ese mismo panel.
   ///
@@ -417,11 +426,11 @@ void main() {
         await harness.capture('una nota sin etiquetas');
         await pumpLibrary(tester);
 
-        // La barra ya no crece ni se achica según haya o no etiquetas: tipo
-        // y etiquetas viven las dos detrás del mismo botón — ver
+        // La barra ya no crece ni se achica según haya o no etiquetas: tema,
+        // tipo y etiquetas viven detrás del mismo botón — ver
         // `_FiltersSheet`.
         final appBar = tester.widget<AppBar>(find.byType(AppBar));
-        expect(appBar.bottom!.preferredSize.height, 120);
+        expect(appBar.bottom!.preferredSize.height, 64);
 
         await openFilters(tester);
 
@@ -448,7 +457,7 @@ void main() {
       await pumpLibrary(tester);
 
       final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.bottom!.preferredSize.height, 120);
+      expect(appBar.bottom!.preferredSize.height, 64);
 
       await openFilters(tester);
 
@@ -542,27 +551,317 @@ void main() {
           .assignSpace(itemId: filosofico.id, spaceId: space.id);
 
       await pumpLibrary(tester);
-      await tester.tap(find.text('Filosofía'));
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
       await tester.pumpAndSettle();
+      await closeFilters(tester);
 
       expect(find.textContaining('filosofía'), findsOneWidget);
       expect(find.textContaining('cocina'), findsNothing);
 
       // Tocarlo de nuevo vuelve a "todos" — un espacio es una carpeta en la
       // que se entra y se sale, no un filtro que se combina con otros.
-      await tester.tap(find.text('Filosofía'));
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
       await tester.pumpAndSettle();
+      await closeFilters(tester);
 
       expect(find.textContaining('cocina'), findsOneWidget);
     });
 
-    testWidgets('el chip para crear un espacio nuevo siempre está', (
-      tester,
-    ) async {
+    testWidgets('la biblioteca ya no ofrece crear un tema suelto: se crea '
+        'donde se elige uno', (tester) async {
       await harness.capture('una nota sin espacio');
       await pumpLibrary(tester);
 
-      expect(find.text(es.spacesNewAction), findsOneWidget);
+      expect(find.text(es.spacesNewAction), findsNothing);
+
+      await openFilters(tester);
+      expect(find.text(es.spacesNewAction), findsNothing);
+    });
+  });
+
+  group('el tema en el panel de filtros', () {
+    Future<Space> createSpace(String name) async =>
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .createSpace(name))
+            .getRight()
+            .toNullable()!;
+
+    Future<void> assign(String title, Space space) async {
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpace(
+            itemId: items.firstWhere((i) => i.title == title).id,
+            spaceId: space.id,
+          );
+    }
+
+    Finder filtersBadge() => find.ancestor(
+      of: find.byTooltip(es.libraryFiltersTooltip),
+      matching: find.byType(Badge),
+    );
+
+    testWidgets('va arriba de «Tipo»', (tester) async {
+      await harness.capture('algo');
+      await createSpace('Filosofía');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+
+      final spaceY = tester
+          .getTopLeft(find.text(es.libraryFilterSpaceLabel.toUpperCase()))
+          .dy;
+      final typeY = tester
+          .getTopLeft(find.text(es.libraryFilterTypeLabel.toUpperCase()))
+          .dy;
+      expect(spaceY, lessThan(typeY));
+      expect(spaceChip('Filosofía'), findsOneWidget);
+    });
+
+    testWidgets('sin ningún tema creado, la sección no aparece', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+
+      expect(find.text(es.libraryFilterSpaceLabel.toUpperCase()), findsNothing);
+    });
+
+    testWidgets('elegir un tema cuenta en la insignia y lo muestra debajo de '
+        'la búsqueda; tocarlo de nuevo lo suelta', (tester) async {
+      await harness.capture('En el tema');
+      await harness.capture('Afuera');
+      await assign('En el tema', await createSpace('Filosofía'));
+      await pumpLibrary(tester);
+
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+
+      final badge = tester.widget<Badge>(filtersBadge());
+      expect(badge.isLabelVisible, isTrue);
+      expect((badge.label! as Text).data, '1');
+      // Sin la fila de temas, el chip de abajo de la búsqueda es lo que dice
+      // en qué tema se está parado.
+      expect(find.widgetWithText(InputChip, 'Filosofía'), findsOneWidget);
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.bottom!.preferredSize.height, 104);
+      expect(find.text('Afuera'), findsNothing);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+      expect(find.widgetWithText(InputChip, 'Filosofía'), findsNothing);
+      expect(find.text('Afuera'), findsOneWidget);
+    });
+
+    testWidgets('se elige de a uno: elegir otro reemplaza al anterior', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+      await createSpace('Filosofía');
+      await createSpace('Cocina');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
+      await tester.pumpAndSettle();
+      await tester.tap(spaceChip('Cocina'));
+      await tester.pumpAndSettle();
+
+      final selected = [
+        for (final chip in tester.widgetList<FilterChip>(
+          find.descendant(
+            of: find.byKey(const ValueKey('library-space-filters')),
+            matching: find.byType(FilterChip),
+          ),
+        ))
+          if (chip.selected) (chip.label as Text).data,
+      ];
+      expect(selected, ['Cocina']);
+    });
+
+    testWidgets('la cruz del chip de abajo de la búsqueda sale del tema', (
+      tester,
+    ) async {
+      await harness.capture('Afuera');
+      await createSpace('Filosofía');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+      await tester.tap(find.byTooltip(es.libraryLeaveSpaceTooltip));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNull,
+      );
+      expect(find.text('Afuera'), findsOneWidget);
+    });
+
+    testWidgets('«Limpiar filtros» también suelta el tema', (tester) async {
+      await harness.capture('Afuera');
+      await createSpace('Filosofía');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Filosofía'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryClearFilters).last);
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNull,
+      );
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+      expect(find.text('Afuera'), findsOneWidget);
+    });
+
+    testWidgets('un tema vacío ofrece salir con «Limpiar filtros», como '
+        'cualquier filtro que deja la lista vacía', (tester) async {
+      await harness.capture('Afuera');
+      await createSpace('Vacío');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Vacío'));
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+
+      expect(find.text(es.libraryFilterEmpty), findsOneWidget);
+
+      await tester.tap(find.text(es.libraryClearFilters));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Afuera'), findsOneWidget);
+    });
+
+    testWidgets('con pocos temas no hay barra de desplazamiento', (
+      tester,
+    ) async {
+      await harness.capture('algo');
+      await createSpace('Filosofía');
+      await createSpace('Cocina');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+
+      final scrollbar = tester.widget<RawScrollbar>(
+        find.descendant(
+          of: find.byKey(const ValueKey('library-space-filters')),
+          matching: find.byType(RawScrollbar),
+        ),
+      );
+      expect(scrollbar.thumbVisibility, isFalse);
+    });
+
+    testWidgets('con muchos temas, el área tiene un tope, se desplaza con '
+        'la barra siempre a la vista y llega hasta el último', (tester) async {
+      await harness.capture('algo');
+      // Nombres de largo parejo y con el número adelante: así se ordenan
+      // igual de alfabético que de numérico, y el último es el último.
+      for (var i = 10; i < 50; i++) {
+        await createSpace('$i Tema bastante largo');
+      }
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+
+      final area = find.byKey(const ValueKey('library-space-filters'));
+      // Unas tres filas y media de chips, no los cuarenta temas apilados.
+      expect(tester.getSize(area).height, lessThanOrEqualTo(200));
+      expect(
+        tester
+            .getTopLeft(find.text(es.libraryFilterTypeLabel.toUpperCase()))
+            .dy,
+        greaterThan(tester.getBottomLeft(area).dy),
+      );
+
+      final scrollbar = tester.widget<RawScrollbar>(
+        find.descendant(of: area, matching: find.byType(RawScrollbar)),
+      );
+      expect(scrollbar.thumbVisibility, isTrue);
+
+      final last = spaceChip('49 Tema bastante largo');
+      await tester.dragUntilVisible(
+        last,
+        find.descendant(of: area, matching: find.byType(Scrollable)),
+        const Offset(0, -60),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(last);
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNotNull,
+      );
+    });
+
+    testWidgets(
+      'el tema elegido ofrece renombrarlo o borrarlo desde su ícono',
+      (tester) async {
+        await harness.capture('algo');
+        await createSpace('Cocina');
+        await pumpLibrary(tester);
+
+        await openFilters(tester);
+        // Sin elegir, el ícono no está: mantener apretado sigue sirviendo.
+        expect(find.byTooltip(es.librarySpaceManageTooltip), findsNothing);
+
+        await tester.tap(spaceChip('Cocina'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(es.librarySpaceManageTooltip));
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.spacesRenameAction), findsOneWidget);
+        expect(find.text(es.spacesDeleteAction), findsOneWidget);
+      },
+    );
+
+    testWidgets('borrar el tema elegido sale de él', (tester) async {
+      await harness.capture('Afuera');
+      await createSpace('Cocina');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Cocina'));
+      await tester.pumpAndSettle();
+      await tester.longPress(spaceChip('Cocina'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesDeleteAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.spacesDeleteAction).last);
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNull,
+      );
+      expect(spaceChip('Cocina'), findsNothing);
+      await closeFilters(tester);
+      expect(find.text('Afuera'), findsOneWidget);
     });
   });
 
@@ -576,12 +875,18 @@ void main() {
     Future<void> createTag(String name) =>
         harness.container.read(organizeRepositoryProvider).getOrCreateTag(name);
 
+    /// Crea el tema desde "Mover a tema" de una fila: la biblioteca ya no
+    /// tiene un botón suelto para crear uno —se crea donde se elige—.
     Future<void> startCreating(WidgetTester tester, String name) async {
       await pumpLibrary(tester);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryItemMoveToSpace));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(es.spacesNewAction));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).last, name);
-      await tester.tap(find.text(es.spacesNewAction).last);
+      await tester.tap(find.text(es.commonCreate));
       await tester.pumpAndSettle();
     }
 
@@ -633,7 +938,8 @@ void main() {
           .read(organizeRepositoryProvider)
           .createSpace(from);
       await pumpLibrary(tester);
-      await tester.longPress(find.text(from));
+      await openFilters(tester);
+      await tester.longPress(spaceChip(from));
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.spacesRenameAction).last);
       await tester.pumpAndSettle();
@@ -1147,9 +1453,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(es.libraryItemMoveToSpace));
       await tester.pumpAndSettle();
-      // "Destino" también aparece como chip de filtro en la biblioteca de
-      // atrás: la fila del selector de espacio es la última en el árbol.
-      await tester.tap(find.text('Destino').last);
+      await tester.tap(find.text('Destino'));
       await tester.pumpAndSettle();
 
       expect(find.text(es.libraryItemMoved('Destino')), findsOneWidget);
@@ -1262,9 +1566,9 @@ void main() {
       await pumpLibrary(tester);
       await switchView(tester, es.libraryViewKanban);
 
-      // "Filosofía" también aparece como chip de filtro arriba: acá alcanza
-      // con confirmar que la columna del tablero está.
-      expect(find.text('Filosofía'), findsWidgets);
+      // La columna del tablero: los temas ya no se repiten como chips
+      // arriba de la lista —viven en el panel de filtros—.
+      expect(find.text('Filosofía'), findsOneWidget);
       expect(find.text(es.detailSpaceNone), findsOneWidget);
       expect(find.textContaining('Sin clasificar todavía'), findsOneWidget);
       expect(find.textContaining('Ya tiene espacio'), findsOneWidget);
@@ -1650,6 +1954,11 @@ void main() {
           matching: find.byType(Scrollable),
         ),
       );
+      // `scrollUntilVisible` termina con un salto (`Scrollable.ensureVisible`)
+      // que recién se distribuye en el próximo cuadro: sin este `pump`, el
+      // toque usaría la posición de antes del salto, y con una grilla más
+      // alta el día puede quedar justo debajo del borde de la pantalla.
+      await tester.pumpAndSettle();
       await tester.tap(finder);
       await tester.pumpAndSettle();
     }

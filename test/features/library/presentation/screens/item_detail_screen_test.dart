@@ -27,6 +27,7 @@ import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
@@ -2345,6 +2346,32 @@ void main() {
   });
 
   group('exportar', () {
+    testWidgets('el menú ofrece solo PDF y Word, igual que el de cada fila', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('Un artículo interesante');
+
+      await pumpDetail(tester, id);
+      await tester.tap(find.byIcon(Icons.ios_share));
+      await tester.pumpAndSettle();
+
+      final offered = [
+        for (final item in tester.widgetList<PopupMenuItem<ExportFormat>>(
+          find.byType(PopupMenuItem<ExportFormat>),
+        ))
+          item.value,
+      ];
+      expect(offered, [ExportFormat.pdf, ExportFormat.docx]);
+      // Markdown, texto plano y BibTeX salieron a pedido del usuario.
+      for (final removed in [
+        es.exportFormatMarkdown,
+        es.exportFormatPlainText,
+        es.exportFormatBibtex,
+      ]) {
+        expect(find.text(removed), findsNothing, reason: removed);
+      }
+    });
+
     testWidgets('elegir un formato lo exporta y se lo pasa al selector', (
       tester,
     ) async {
@@ -2353,10 +2380,10 @@ void main() {
       await pumpDetail(tester, id);
       await tester.tap(find.byIcon(Icons.ios_share));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.tap(find.text(es.exportFormatDocx));
       await tester.pumpAndSettle();
 
-      expect(harness.fileSaver.savedFileName, endsWith('.md'));
+      expect(harness.fileSaver.savedFileName, endsWith('.docx'));
       expect(harness.fileSaver.savedBytes, isNotNull);
     });
 
@@ -2381,7 +2408,7 @@ void main() {
       await pumpDetail(tester, id);
       await tester.tap(find.byIcon(Icons.ios_share));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(es.exportFormatMarkdown));
+      await tester.tap(find.text(es.exportFormatPdf));
       await tester.pumpAndSettle();
 
       expect(find.text(es.globalErrorExportFailed), findsOneWidget);

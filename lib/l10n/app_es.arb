@@ -4872,5 +4872,38 @@
   "sourcePanelFullScreenHint": "Abrir el documento original en toda la pantalla",
   "@sourcePanelFullScreenHint": {
     "description": "Línea que explica \"Ver a pantalla completa\" en la hoja \"Más\" del panel de la fuente (F26), en un documento."
+  },
+  "libraryFilterSpaceLabel": "Tema",
+  "@libraryFilterSpaceLabel": {
+    "description": "Encabezado de la sección de temas dentro del panel de filtros de la biblioteca, arriba de «Tipo»."
+  },
+  "librarySpaceManageTooltip": "Renombrar o eliminar",
+  "@librarySpaceManageTooltip": {
+    "description": "Ayuda del ícono del chip del tema elegido, en el panel de filtros, que abre renombrar o eliminar ese tema."
+  },
+  "libraryLeaveSpaceTooltip": "Salir del tema",
+  "@libraryLeaveSpaceTooltip": {
+    "description": "Ayuda de la cruz del chip que muestra, debajo de la búsqueda, el tema en el que está parada la biblioteca."
+  },
+  "captureSpaceLabel": "Tema (opcional)",
+  "@captureSpaceLabel": {
+    "description": "Etiqueta del campo para elegir o crear el tema de lo que se está por guardar, en el formulario de captura."
+  },
+  "captureSpaceClear": "Quitar tema",
+  "@captureSpaceClear": {
+    "description": "Ayuda del botón que deja sin tema lo que se está por guardar."
+  },
+  "spacesCreateNamed": "Crear el tema «{name}»",
+  "@spacesCreateNamed": {
+    "description": "Opción del selector de temas cuando lo buscado no coincide con ningún tema: lo crea con ese nombre.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "spacesSearchHint": "Buscar un tema",
+  "@spacesSearchHint": {
+    "description": "Ayuda del campo de búsqueda del selector de temas, que aparece cuando hay muchos."
   }
 }

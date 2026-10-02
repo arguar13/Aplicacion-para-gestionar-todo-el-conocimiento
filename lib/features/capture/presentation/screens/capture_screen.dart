@@ -32,7 +32,9 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_state.d
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_field.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// De qué se trata lo que se está por guardar, elegido a propósito antes de
@@ -188,9 +190,21 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   /// el borde que avisa que soltar acá va a funcionar.
   var _isDraggingFile = false;
 
+  /// El tema en el que va a quedar lo que se guarde, o `null` para "sin
+  /// clasificar".
+  ///
+  /// Arranca en el tema en el que está parada la biblioteca: quien está
+  /// mirando "Filosofía" y aprieta guardar casi siempre trae algo para
+  /// "Filosofía", y si no, cambiarlo es un toque. Se lee una sola vez, en
+  /// `initState`: lo que se elija después en el formulario no tiene por qué
+  /// volver a la biblioteca. Sobrevive a "Cambiar tipo" a propósito: el tema
+  /// no depende de si lo que se guarda es un video o un libro.
+  String? _spaceId;
+
   @override
   void initState() {
     super.initState();
+    _spaceId = ref.read(libraryQueryNotifierProvider).spaceId;
     // Lo escrito decide qué se muestra abajo, así que hay que redibujar a
     // medida que se escribe.
     _inputController.addListener(_onInputChanged);
@@ -427,11 +441,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             file: file,
             title: _titleController.text,
             note: _noteController.text,
+            spaceId: _spaceId,
           )
         : await notifier.capture(
             rawInput: _inputController.text,
             title: _titleController.text,
             note: _noteController.text,
+            spaceId: _spaceId,
           );
 
     if (!mounted || item == null) return;
@@ -503,6 +519,7 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                 child: _kind == null
                     ? _TypeSelector(
                         key: const ValueKey('selector'),
+                        spaceId: _spaceId,
                         onSelected: _selectKind,
                       )
                     : _CaptureForm(
@@ -511,6 +528,9 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                         inputController: _inputController,
                         titleController: _titleController,
                         noteController: _noteController,
+                        spaceId: _spaceId,
+                        onSpaceChanged: (spaceId) =>
+                            setState(() => _spaceId = spaceId),
                         file: _file,
                         scannedPages: _scannedPages,
                         detectedKind: _detectedKind,
@@ -538,8 +558,15 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 /// todas caben en pantalla a la vez, y tocar directamente la que corresponde
 /// es un gesto más corto que abrir un selector para después elegir adentro.
 class _TypeSelector extends ConsumerWidget {
-  const _TypeSelector({required this.onSelected, super.key});
+  const _TypeSelector({
+    required this.spaceId,
+    required this.onSelected,
+    super.key,
+  });
 
+  /// El tema con el que arranca una nota —ver `_CaptureScreenState._spaceId`—:
+  /// la nota se escribe en su propio editor, que tiene su propio campo Tema.
+  final String? spaceId;
   final ValueChanged<_CaptureKind> onSelected;
 
   @override
@@ -575,7 +602,9 @@ class _TypeSelector extends ConsumerWidget {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (context) => const BlockEditorScreen()),
+            MaterialPageRoute(
+              builder: (context) => BlockEditorScreen(initialSpaceId: spaceId),
+            ),
           ),
           icon: Icon(SourceKind.manualNote.icon),
           label: Text(l10n.captureTypeNote),
@@ -590,7 +619,10 @@ class _TypeSelector extends ConsumerWidget {
               final (template,) = chosen;
               await Navigator.of(context).push<void>(
                 MaterialPageRoute(
-                  builder: (context) => BlockEditorScreen(template: template),
+                  builder: (context) => BlockEditorScreen(
+                    template: template,
+                    initialSpaceId: spaceId,
+                  ),
                 ),
               );
             },
@@ -651,6 +683,8 @@ class _CaptureForm extends StatelessWidget {
     required this.inputController,
     required this.titleController,
     required this.noteController,
+    required this.spaceId,
+    required this.onSpaceChanged,
     required this.file,
     required this.scannedPages,
     required this.detectedKind,
@@ -667,6 +701,11 @@ class _CaptureForm extends StatelessWidget {
   final TextEditingController inputController;
   final TextEditingController titleController;
   final TextEditingController noteController;
+
+  /// El tema elegido para lo que se va a guardar —ver
+  /// `_CaptureScreenState._spaceId`—.
+  final String? spaceId;
+  final ValueChanged<String?> onSpaceChanged;
   final CapturedFile? file;
 
   /// Las fotos escaneadas hasta ahora — ver el comentario de
@@ -799,6 +838,10 @@ class _CaptureForm extends StatelessWidget {
           validator: (_) => null,
           textInputAction: TextInputAction.next,
         ),
+        const SizedBox(height: 16),
+        // En todos los tipos por igual, entre el título y la nota: es otro
+        // dato opcional sobre lo que se guarda, no parte de qué se guarda.
+        SpaceField(spaceId: spaceId, onChanged: onSpaceChanged),
         const SizedBox(height: 16),
         CustomTextField(
           label: l10n.captureOptionalNoteLabel,

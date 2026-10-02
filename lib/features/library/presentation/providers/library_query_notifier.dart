@@ -54,7 +54,8 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
 
   /// Entra o sale de un espacio, como una carpeta: elegir el que ya está
   /// activo vuelve a "todos", a diferencia de las etiquetas —que se
-  /// combinan— acá solo tiene sentido mirar un espacio a la vez.
+  /// combinan— acá solo tiene sentido mirar un espacio a la vez. `null`
+  /// sale del que haya.
   void selectSpace(String? spaceId) {
     state = state.copyWith(
       spaceId: state.spaceId == spaceId ? null : spaceId,
@@ -75,11 +76,16 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
   /// Son cosas distintas para quien las usa: el botón aparece cuando los
   /// filtros dejaron la lista vacía, y borrar de paso lo que escribió sería
   /// hacer más de lo que pidió.
+  ///
+  /// El tema también se suelta: vive en el mismo panel que el tipo y las
+  /// etiquetas, y un "Limpiar filtros" que dejara puesto uno de los que se
+  /// ven ahí no estaría limpiando lo que promete.
   void clearFilters() {
     state = state.copyWith(
       sourceKinds: const {},
       tagIds: const {},
       processingStates: const {},
+      spaceId: null,
       limit: pageSize,
     );
   }
@@ -97,7 +103,8 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
   bool get hasActiveFilters =>
       state.sourceKinds.isNotEmpty ||
       state.tagIds.isNotEmpty ||
-      state.processingStates.isNotEmpty;
+      state.processingStates.isNotEmpty ||
+      state.spaceId != null;
 
   /// Reemplaza el filtro y el orden enteros por los de una vista guardada
   /// (F16): misma consulta que se guardó, con `limit`/`offset` propios de

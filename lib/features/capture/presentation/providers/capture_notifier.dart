@@ -31,15 +31,25 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
     required String rawInput,
     String? title,
     String? note,
-  }) =>
-      _save(CaptureRequest.text(rawInput: rawInput, title: title, note: note));
+    String? spaceId,
+  }) => _save(
+    CaptureRequest.text(
+      rawInput: rawInput,
+      title: title,
+      note: note,
+      spaceId: spaceId,
+    ),
+  );
 
   /// Guarda un archivo elegido con el selector del sistema.
   Future<KnowledgeItem?> captureFile({
     required CapturedFile file,
     String? title,
     String? note,
-  }) => _save(CaptureRequest.file(file: file, title: title, note: note));
+    String? spaceId,
+  }) => _save(
+    CaptureRequest.file(file: file, title: title, note: note, spaceId: spaceId),
+  );
 
   Future<KnowledgeItem?> _save(CaptureRequest request) async {
     state = const CaptureState.saving();

@@ -81,6 +81,7 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
 
       await _db.transaction(() async {
         await _adoptFreeText(keep: keepItem, discard: discardItem);
+        await _adoptSpace(keep: keepItem, discard: discardItem);
         await _reassignRelations(keepItemId, discardItemId);
         await _reassignInlineLinks(keepItemId, discardItemId);
         await _reassignProperties(keepItemId, discardItemId);
@@ -148,6 +149,22 @@ class MergeDuplicateItemsUseCaseImpl implements MergeDuplicateItemsUseCase {
 
     if (!subtitle.present && !notes.present) return;
     await _writer.setFreeText(keep.id, subtitle: subtitle, notes: notes);
+  }
+
+  /// El tema del descartado pasa al que queda solo si este no tiene uno:
+  /// mismo criterio que el subtítulo, no se elige cuál de los dos es mejor.
+  ///
+  /// Importa sobre todo al capturar: quien guarda algo en "Filosofía" y,
+  /// ante el aviso de duplicado, elige fusionarlo con lo que ya tenía sin
+  /// clasificar, no espera que el tema que acaba de elegir se pierda con el
+  /// elemento nuevo.
+  Future<void> _adoptSpace({
+    required KnowledgeEntryRow keep,
+    required KnowledgeEntryRow discard,
+  }) async {
+    final spaceId = discard.spaceId;
+    if (keep.spaceId != null || spaceId == null) return;
+    await _writer.setSpace([keep.id], spaceId);
   }
 
   static String? _nonEmpty(String? text) {

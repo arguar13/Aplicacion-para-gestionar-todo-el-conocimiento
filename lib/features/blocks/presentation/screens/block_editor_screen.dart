@@ -19,6 +19,7 @@ import 'package:sinapsis/features/blocks/presentation/providers/note_template_pr
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warning_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_field.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
@@ -47,11 +48,25 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Lo escrito se puede escuchar con el lector flotante (F25), sin resaltado:
 /// el texto está en campos que se editan.
+///
+/// Una nota nueva elige su tema acá, debajo del título —arrancando en
+/// [initialSpaceId]—, igual que cualquier otra cosa que se guarda desde la
+/// captura. Una que ya existe no: su tema se cambia desde el detalle, y
+/// este editor solo reemplaza el título y los bloques.
 class BlockEditorScreen extends ConsumerStatefulWidget {
-  const BlockEditorScreen({this.existingItem, this.template, super.key});
+  const BlockEditorScreen({
+    this.existingItem,
+    this.template,
+    this.initialSpaceId,
+    super.key,
+  });
 
   final KnowledgeItem? existingItem;
   final NoteTemplate? template;
+
+  /// El tema con el que arranca una nota nueva; se ignora al editar una que
+  /// ya existe.
+  final String? initialSpaceId;
 
   @override
   ConsumerState<BlockEditorScreen> createState() => _BlockEditorScreenState();
@@ -119,6 +134,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     text: widget.existingItem?.title ?? '',
   );
   late final List<_BlockEntry> _blocks = _initialBlocks();
+  late String? _spaceId = widget.initialSpaceId;
   var _saving = false;
 
   Timer? _linkCheckTimer;
@@ -442,6 +458,9 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
             createdAt: now,
             updatedAt: now,
             renditions: [blocksRendition],
+            // En el mismo guardado que la nota, como en la captura: o queda
+            // con su tema, o no queda nada.
+            spaceId: _spaceId,
           )
         : existing.copyWith(
             title: title.isEmpty ? l10n.blocksUntitled : title,
@@ -655,16 +674,29 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
                           return Padding(
                             key: const ValueKey('title'),
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: TextField(
-                              controller: _titleController,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                              decoration: InputDecoration(
-                                hintText: l10n.blocksTitleHint,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                filled: false,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: _titleController,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall,
+                                  decoration: InputDecoration(
+                                    hintText: l10n.blocksTitleHint,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    filled: false,
+                                  ),
+                                ),
+                                if (widget.existingItem == null)
+                                  SpaceField.compact(
+                                    spaceId: _spaceId,
+                                    onChanged: (spaceId) =>
+                                        setState(() => _spaceId = spaceId),
+                                  ),
+                              ],
                             ),
                           );
                         }

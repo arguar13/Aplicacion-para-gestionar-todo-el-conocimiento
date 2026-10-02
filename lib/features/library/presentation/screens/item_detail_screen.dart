@@ -145,7 +145,10 @@ class _ExportButton extends ConsumerWidget {
       tooltip: l10n.detailExportTooltip,
       onSelected: (format) => _export(context, ref, format),
       itemBuilder: (context) => [
-        for (final format in ExportFormat.values)
+        // Solo PDF y Word, a pedido del usuario: Markdown, texto plano y
+        // BibTeX le alargaban el menú sin usarlos. El mismo par que el menú
+        // de cada fila —ver `offeredItemExportFormats`—.
+        for (final format in offeredItemExportFormats)
           PopupMenuItem(value: format, child: Text(format.label(l10n))),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -40,56 +41,29 @@ class SpacePicker extends ConsumerWidget {
             size: 18,
           ),
           label: Text(current?.name ?? l10n.detailSpaceNone),
-          onPressed: () => _choose(context, ref, spaces),
+          onPressed: () => _choose(context, ref),
         ),
       ],
     );
   }
 
-  Future<void> _choose(
-    BuildContext context,
-    WidgetRef ref,
-    List<Space> spaces,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final chosen = await showModalBottomSheet<String?>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text(l10n.detailSpaceChoose), dense: true),
-            ListTile(
-              leading: const Icon(Icons.folder_off_outlined),
-              title: Text(l10n.detailSpaceNone),
-              selected: item.spaceId == null,
-              onTap: () => Navigator.of(context).pop(),
-            ),
-            for (final space in spaces)
-              ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: Text(space.name),
-                selected: item.spaceId == space.id,
-                onTap: () => Navigator.of(context).pop(space.id),
-              ),
-          ],
-        ),
-      ),
+  /// Con la misma hoja que la captura y "mover a tema" —ver
+  /// `showSpacePickerSheet`—, que distingue "eligió sin clasificar" de
+  /// "cerró sin elegir": antes, con una hoja propia que devolvía el `id` a
+  /// secas, las dos llegaban como `null` y elegir "sin clasificar" no hacía
+  /// nada.
+  Future<void> _choose(BuildContext context, WidgetRef ref) async {
+    final chosen = await showSpacePickerSheet(
+      context,
+      selectedSpaceId: item.spaceId,
     );
+    if (chosen == null) return;
 
-    // `showModalBottomSheet` devuelve `null` tanto si se eligió "sin
-    // clasificar" como si se cerró sin elegir nada: no hay forma de
-    // distinguirlas con el tipo de retorno de Navigator.pop. Como mover a
-    // "sin clasificar" es una acción explícita en la lista (con su propio
-    // ListTile), y cerrar sin elegir es la interacción por defecto de un
-    // bottom sheet, se prioriza no tocar nada — perder el gesto de "cerrar
-    // sin elegir" pesa más que ganar el de "elegir explícitamente sin
-    // clasificar", que de todas formas ya es el estado más común.
-    if (chosen == item.spaceId) return;
+    final (space,) = chosen;
+    if (space?.id == item.spaceId) return;
 
     await ref
         .read(libraryRepositoryProvider)
-        .assignSpace(itemId: item.id, spaceId: chosen);
+        .assignSpace(itemId: item.id, spaceId: space?.id);
   }
 }

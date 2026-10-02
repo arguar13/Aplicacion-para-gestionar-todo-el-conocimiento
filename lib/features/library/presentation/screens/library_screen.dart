@@ -29,6 +29,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_kanban_vi
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_naming.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
@@ -156,13 +157,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       for (final hit in hits?.valueOrNull ?? const <SearchHit>[])
         if (hit.citation != null) hit.item.id: hit.citation!,
     };
-    // Se mira acá, no adentro de `_moveSelection`, aunque el único lugar que
-    // lo necesita sea ese método: `allSpacesProvider` es `autoDispose`, y en
-    // modo selección `_SearchAndFilters` —su otro mirón— ni siquiera está
-    // montado (la barra pasa a ser `_SelectionAppBar`). Sin este `watch`
-    // acá, entrar al modo de selección lo dejaría sin nadie mirándolo, se
-    // descartaría, y "mover a tema" abriría el selector siempre vacío.
+    // Se mira acá y no solo en la hoja de "mover a tema", que también lo
+    // mira: `allSpacesProvider` es `autoDispose`, y en modo selección nada
+    // más lo mantiene vivo —la barra pasa a ser `_SelectionAppBar`—. Sin
+    // este `watch`, entrar al modo de selección lo descartaría, y la hoja
+    // arrancaría vacía hasta volver a leer los temas de la base.
     final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
+    // El tema en el que se está parado, con su nombre; `null` también si el
+    // `id` elegido todavía no llegó con la lista.
+    final currentSpace = spaces
+        .where((space) => space.id == query.spaceId)
+        .firstOrNull;
 
     if (items.hasValue) {
       _lastLoadedQuery = query;
@@ -181,7 +186,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               onExport: () => _exportSelection(context, loadedItems),
               onExportBibliography: _exportBibliographySelection,
               onExportReferences: _exportReferencesSelection,
-              onMove: () => _moveSelection(context, spaces),
+              onMove: () => _moveSelection(context),
               onDelete: () => _deleteSelection(context),
             )
           : AppBar(
@@ -239,13 +244,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                         setState(() => _selectionModeActive = true),
                   ),
               ],
-              // Dos filas fijas: la búsqueda —con el botón de filtros al
-              // lado, no una fila propia— y los temas. Tipo y etiquetas se
-              // mudaron al panel que abre ese botón — ver `_FiltersSheet`—,
-              // así que esta barra ya no crece según haya o no etiquetas.
-              bottom: const PreferredSize(
-                preferredSize: Size.fromHeight(120),
-                child: _SearchAndFilters(),
+              // La búsqueda —con el botón de filtros al lado, no una fila
+              // propia— y, solo mientras se esté parado en un tema, el chip
+              // que lo dice. Tema, tipo y etiquetas viven en el panel que
+              // abre ese botón —ver `_FiltersSheet`—, así que esta barra no
+              // crece según cuántos haya de cada uno.
+              bottom: PreferredSize(
+                preferredSize: Size.fromHeight(
+                  _SearchAndFilters.heightFor(currentSpace: currentSpace),
+                ),
+                child: _SearchAndFilters(currentSpace: currentSpace),
               ),
             ),
       floatingActionButton: _selectionModeActive
@@ -391,7 +399,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     await exportReferences(context, ref, itemIds: _selectedIds.toList());
   }
 
-  Future<void> _moveSelection(BuildContext context, List<Space> spaces) async {
+  Future<void> _moveSelection(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final count = _selectedIds.length;
     if (count == 0) return;
@@ -399,13 +407,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     // Sin `selectedSpaceId`: los elementos elegidos pueden estar hoy en
     // temas distintos —o algunos sin clasificar—, así que no hay una sola
     // fila que tenga sentido resaltar como "la actual".
-    final chosen = await showSpacePickerSheet(context, spaces: spaces);
+    final chosen = await showSpacePickerSheet(context);
     if (chosen == null || !context.mounted) return;
 
-    final (spaceId,) = chosen;
+    final (space,) = chosen;
     final result = await ref
         .read(libraryRepositoryProvider)
-        .assignSpaceMany(itemIds: _selectedIds.toList(), spaceId: spaceId);
+        .assignSpaceMany(itemIds: _selectedIds.toList(), spaceId: space?.id);
     if (!context.mounted) return;
 
     result.match(
@@ -417,9 +425,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           _selectionModeActive = false;
           _selectedIds.clear();
         });
-        final spaceName =
-            spaces.where((s) => s.id == spaceId).firstOrNull?.name ??
-            l10n.detailSpaceNone;
+        final spaceName = space?.name ?? l10n.detailSpaceNone;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
@@ -520,42 +526,56 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _SearchAndFilters extends ConsumerWidget {
-  const _SearchAndFilters();
+  const _SearchAndFilters({required this.currentSpace});
+
+  /// El tema en el que está parada la biblioteca, si hay uno: se muestra
+  /// debajo de la búsqueda —ver [build]—.
+  final Space? currentSpace;
+
+  static const _searchRowHeight = 64.0;
+  static const _currentSpaceRowHeight = 40.0;
+
+  /// El alto que ocupa, que la barra de arriba necesita saber antes de
+  /// construirla (`PreferredSize`): la fila de la búsqueda siempre, y la del
+  /// tema solo mientras se esté parado en uno.
+  static double heightFor({required Space? currentSpace}) =>
+      _searchRowHeight + (currentSpace == null ? 0 : _currentSpaceRowHeight);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final query = ref.watch(libraryQueryNotifierProvider);
+    final notifier = ref.read(libraryQueryNotifierProvider.notifier);
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
-    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
+    final space = currentSpace;
 
-    // Tipo y etiquetas se combinan en un solo número: los dos son "filtros"
-    // en el sentido que le da `LibraryQueryNotifier.hasActiveFilters" —
-    // acotan qué se ve—, a diferencia del tema, que es más una carpeta en la
-    // que se está parado que algo que se "activa" o "desactiva".
-    final activeFilterCount = query.sourceKinds.length + query.tagIds.length;
+    // Tema, tipo y etiquetas en un solo número: los tres viven en el mismo
+    // panel y acotan qué se ve, así que los tres son "filtros" en el sentido
+    // que les da `LibraryQueryNotifier.hasActiveFilters`.
+    final activeFilterCount =
+        query.sourceKinds.length +
+        query.tagIds.length +
+        (query.spaceId == null ? 0 : 1);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Antes eran cuatro filas apiladas —búsqueda, temas, tipo y, si
         // había alguna, etiquetas— todas con el mismo peso visual y cada una
-        // con su propio desplazamiento horizontal: mucho para leer de una,
-        // y encima costaba distinguir cuál fila era cuál. Tipo y etiquetas
-        // —los filtros que se prenden y apagan de a varios— se mudaron a un
-        // panel aparte, detrás de un solo botón con un número que dice
-        // cuántos hay activos ahora mismo. El tema —la carpeta en la que se
-        // está— se queda arriba, visible siempre: es la forma principal de
-        // moverse por la biblioteca, no un filtro más.
+        // con su propio desplazamiento horizontal: mucho para leer de una, y
+        // encima costaba distinguir cuál fila era cuál. Tipo y etiquetas se
+        // mudaron primero a un panel aparte, detrás de un solo botón con un
+        // número que dice cuántos hay activos; después también los temas, a
+        // pedido del usuario, arriba de todo en ese mismo panel. Crear un
+        // tema ya no vive acá: se crea donde se elige uno —al guardar algo o
+        // al moverlo—, ver `showSpacePickerSheet`.
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
-                  onChanged: ref
-                      .read(libraryQueryNotifierProvider.notifier)
-                      .search,
+                  onChanged: notifier.search,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: l10n.librarySearchHint,
@@ -578,35 +598,28 @@ class _SearchAndFilters extends ConsumerWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
+        // Sin la fila de temas a la vista, esto es lo que dice en qué tema
+        // se está parado: un número en la insignia no alcanza para saber
+        // CUÁL, y mirar una lista recortada sin saber por qué desorienta.
+        // Tocarlo abre el panel —donde se cambia—; la cruz sale del tema.
+        if (space != null)
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            children: [
-              ActionChip(
-                avatar: const Icon(Icons.add, size: 18),
-                label: Text(l10n.spacesNewAction),
-                onPressed: () => _createSpace(context, ref),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: InputChip(
+                avatar: const Icon(Icons.folder_outlined, size: 18),
+                label: Text(space.name, overflow: TextOverflow.ellipsis),
+                selected: true,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onPressed: () => _showFilters(context, tags),
+                onDeleted: () => notifier.selectSpace(null),
+                deleteButtonTooltipMessage: l10n.libraryLeaveSpaceTooltip,
               ),
-              const SizedBox(width: 8),
-              for (final space in spaces) ...[
-                GestureDetector(
-                  onLongPress: () => _manageSpace(context, ref, space),
-                  child: FilterChip(
-                    avatar: const Icon(Icons.folder_outlined, size: 18),
-                    label: Text(space.name),
-                    selected: query.spaceId == space.id,
-                    onSelected: (_) => ref
-                        .read(libraryQueryNotifierProvider.notifier)
-                        .selectSpace(space.id),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -622,218 +635,129 @@ class _SearchAndFilters extends ConsumerWidget {
       builder: (context) => _FiltersSheet(tags: tags),
     );
   }
+}
 
-  Future<void> _createSpace(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
+/// Renombrar o borrar [space], desde su chip en el panel de filtros.
+Future<void> _manageSpace(
+  BuildContext context,
+  WidgetRef ref,
+  Space space,
+) async {
+  final l10n = AppLocalizations.of(context)!;
 
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => _TextPromptDialog(
-        title: l10n.spacesNewTitle,
-        hint: l10n.spacesNameHint,
-        confirmLabel: l10n.spacesNewAction,
-      ),
-    );
-    if (name == null || name.trim().isEmpty || !context.mounted) return;
-    if (!await _confirmNameNotATag(
-      context,
-      ref,
-      name,
-      action: l10n.spacesNameIsTagCreate,
-    )) {
-      return;
-    }
-    if (!context.mounted) return;
+  final action = await showDialog<_SpaceAction>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(space.name),
+      children: [
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop(_SpaceAction.rename),
+          child: Text(l10n.spacesRenameAction),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.of(context).pop(_SpaceAction.delete),
+          child: Text(l10n.spacesDeleteAction),
+        ),
+      ],
+    ),
+  );
+  if (action == null || !context.mounted) return;
 
-    final result = await ref.read(organizeRepositoryProvider).createSpace(name);
-    if (!context.mounted) return;
+  switch (action) {
+    case _SpaceAction.rename:
+      await _renameSpace(context, ref, space);
+    case _SpaceAction.delete:
+      await _deleteSpace(context, ref, space);
+  }
+}
 
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      // El tema recién creado queda elegido: quien lo crea casi siempre
-      // lo hace para empezar a usarlo enseguida, no solo para que exista.
-      //
-      // El cambio de filtro se posterga al próximo frame a propósito: acá
-      // todavía puede seguir en curso la animación de salida de la ruta del
-      // diálogo que se acaba de cerrar, y elegir el tema nuevo cambia de
-      // golpe la lista de resultados (de la biblioteca entera a "vacío,
-      // todavía no hay nada en este tema"). Mutar el árbol con esa forma
-      // distinta en el mismo cuadro en que `Navigator` está desmontando el
-      // diálogo hace que un `InheritedElement` quede con dependientes que
-      // nunca llegan a soltarlo —el error de Flutter
-      // `'_dependents.isEmpty': is not true`—, porque la reconstrucción
-      // "adelanta" a la desactivación de la ruta saliente. Esperar al
-      // siguiente frame dilata la selección lo justo para que la transición
-      // de salida ya haya terminado de verdad.
-      (space) => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        ref.read(libraryQueryNotifierProvider.notifier).selectSpace(space.id);
-      }),
-    );
+Future<void> _renameSpace(
+  BuildContext context,
+  WidgetRef ref,
+  Space space,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+
+  final name = await showDialog<String>(
+    context: context,
+    builder: (context) => SpaceNameDialog(
+      title: l10n.spacesRenameAction,
+      hint: l10n.spacesNameHint,
+      confirmLabel: l10n.detailSave,
+      initialValue: space.name,
+    ),
+  );
+  if (name == null || name.trim().isEmpty || !context.mounted) return;
+  // Quedarse con el mismo nombre no es un nombre nuevo que avisar.
+  if (normalizeVocabularyLabel(name) != normalizeVocabularyLabel(space.name) &&
+      !await confirmSpaceNameNotATag(
+        context,
+        ref,
+        name,
+        action: l10n.spacesNameIsTagRename,
+      )) {
+    return;
+  }
+  if (!context.mounted) return;
+
+  final result = await ref
+      .read(organizeRepositoryProvider)
+      .renameSpace(id: space.id, name: name);
+  if (!context.mounted) return;
+
+  result.match(
+    (failure) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+    (_) {},
+  );
+}
+
+Future<void> _deleteSpace(
+  BuildContext context,
+  WidgetRef ref,
+  Space space,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(l10n.spacesDeleteConfirm(space.name)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l10n.spacesDeleteAction),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  // Si era el tema que se estaba mirando, hay que salir de esa vista:
+  // de lo contrario la biblioteca quedaría filtrando por un tema que
+  // ya no existe, mostrando siempre una lista vacía sin decir por qué.
+  if (ref.read(libraryQueryNotifierProvider).spaceId == space.id) {
+    ref.read(libraryQueryNotifierProvider.notifier).selectSpace(null);
   }
 
-  /// Avisa si [name] ya es una etiqueta (un valor de Tema) y pregunta si se
-  /// sigue igual. Devuelve `true` si no hay nada que avisar o si se sigue.
-  ///
-  /// Un tema y una etiqueta se llaman igual y no son lo mismo —el tema es una
-  /// carpeta y un elemento está en una sola; la etiqueta se pone a muchos—: con
-  /// el mismo nombre se confunden. Avisar y dejar seguir, no impedir.
-  Future<bool> _confirmNameNotATag(
-    BuildContext context,
-    WidgetRef ref,
-    String name, {
-    required String action,
-  }) async {
-    final l10n = AppLocalizations.of(context)!;
-    final isTag =
-        (await ref.read(organizeRepositoryProvider).isTemaValueName(name))
-            .getOrElse((_) => false);
-    if (!isTag || !context.mounted) return true;
-
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.spacesNameIsTagTitle),
-        content: Text(l10n.spacesNameIsTagBody(name.trim())),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(action),
-          ),
-        ],
-      ),
-    );
-    return proceed ?? false;
-  }
-
-  Future<void> _manageSpace(
-    BuildContext context,
-    WidgetRef ref,
-    Space space,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final action = await showDialog<_SpaceAction>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(space.name),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(context).pop(_SpaceAction.rename),
-            child: Text(l10n.spacesRenameAction),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.of(context).pop(_SpaceAction.delete),
-            child: Text(l10n.spacesDeleteAction),
-          ),
-        ],
-      ),
-    );
-    if (action == null || !context.mounted) return;
-
-    switch (action) {
-      case _SpaceAction.rename:
-        await _renameSpace(context, ref, space);
-      case _SpaceAction.delete:
-        await _deleteSpace(context, ref, space);
-    }
-  }
-
-  Future<void> _renameSpace(
-    BuildContext context,
-    WidgetRef ref,
-    Space space,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => _TextPromptDialog(
-        title: l10n.spacesRenameAction,
-        hint: l10n.spacesNameHint,
-        confirmLabel: l10n.detailSave,
-        initialValue: space.name,
-      ),
-    );
-    if (name == null || name.trim().isEmpty || !context.mounted) return;
-    // Quedarse con el mismo nombre no es un nombre nuevo que avisar.
-    if (normalizeVocabularyLabel(name) !=
-            normalizeVocabularyLabel(space.name) &&
-        !await _confirmNameNotATag(
-          context,
-          ref,
-          name,
-          action: l10n.spacesNameIsTagRename,
-        )) {
-      return;
-    }
-    if (!context.mounted) return;
-
-    final result = await ref
-        .read(organizeRepositoryProvider)
-        .renameSpace(id: space.id, name: name);
-    if (!context.mounted) return;
-
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      (_) {},
-    );
-  }
-
-  Future<void> _deleteSpace(
-    BuildContext context,
-    WidgetRef ref,
-    Space space,
-  ) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.spacesDeleteConfirm(space.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.commonCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.spacesDeleteAction),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    // Si era el tema que se estaba mirando, hay que salir de esa vista:
-    // de lo contrario la biblioteca quedaría filtrando por un tema que
-    // ya no existe, mostrando siempre una lista vacía sin decir por qué.
-    final notifier = ref.read(libraryQueryNotifierProvider.notifier);
-    if (ref.read(libraryQueryNotifierProvider).spaceId == space.id) {
-      notifier.selectSpace(null);
-    }
-
-    await ref.read(organizeRepositoryProvider).deleteSpace(space.id);
-  }
+  await ref.read(organizeRepositoryProvider).deleteSpace(space.id);
 }
 
 enum _SpaceAction { rename, delete }
 
-/// El panel de filtros de tipo y etiquetas, detrás del botón con el ícono
-/// de perilla —ver `_SearchAndFilters`—.
+/// El panel de filtros de tema, tipo y etiquetas, detrás del botón con el
+/// ícono de perilla —ver `_SearchAndFilters`—.
 ///
-/// `Wrap` y no el desplazamiento horizontal que usan las filas de arriba: acá
-/// no hay una altura de una sola fila que cuidar, así que todas las opciones
-/// pueden quedar a la vista de una, en las líneas que hagan falta, en vez de
-/// esconder las últimas detrás de un scroll que nadie sabe que está ahí.
+/// `Wrap` y no un desplazamiento horizontal: acá no hay una altura de una
+/// sola fila que cuidar, así que las opciones pueden quedar a la vista de
+/// una, en las líneas que hagan falta, en vez de esconder las últimas detrás
+/// de un scroll que nadie sabe que está ahí. La excepción son los temas, que
+/// pueden ser muchos: ver `_SpaceFilterChips`.
 class _FiltersSheet extends ConsumerWidget {
   const _FiltersSheet({required this.tags});
 
@@ -845,8 +769,10 @@ class _FiltersSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final query = ref.watch(libraryQueryNotifierProvider);
     final notifier = ref.read(libraryQueryNotifierProvider.notifier);
-    final hasActiveFilters =
-        query.sourceKinds.isNotEmpty || query.tagIds.isNotEmpty;
+    // Mirados acá y no recibidos al abrir, a diferencia de las etiquetas:
+    // renombrar o borrar un tema se hace desde este mismo panel, y tiene que
+    // verse enseguida.
+    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
     // `SingleChildScrollView` y no un `Column` a secas: cuántas líneas
     // ocupan los chips de tipo y de etiquetas depende de cuántas etiquetas
@@ -869,7 +795,7 @@ class _FiltersSheet extends ConsumerWidget {
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
-                if (hasActiveFilters)
+                if (notifier.hasActiveFilters)
                   TextButton(
                     onPressed: notifier.clearFilters,
                     child: Text(l10n.libraryClearFilters),
@@ -877,6 +803,21 @@ class _FiltersSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
+            // Arriba de todo, a pedido del usuario: el tema es la forma
+            // principal de recortar la biblioteca. Sin ninguno creado, la
+            // sección no tiene qué ofrecer —mismo criterio que las
+            // etiquetas, más abajo—.
+            if (spaces.isNotEmpty) ...[
+              _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
+              const SizedBox(height: 8),
+              _SpaceFilterChips(
+                spaces: spaces,
+                selectedSpaceId: query.spaceId,
+                onSelected: notifier.selectSpace,
+                onManage: (space) => _manageSpace(context, ref, space),
+              ),
+              const SizedBox(height: 20),
+            ],
             _FilterSectionLabel(l10n.libraryFilterTypeLabel),
             const SizedBox(height: 8),
             Wrap(
@@ -921,6 +862,169 @@ class _FiltersSheet extends ConsumerWidget {
   }
 }
 
+/// Los temas del panel de filtros, de a uno: tocar uno lo elige y tocar el
+/// elegido lo suelta —es una carpeta en la que se entra y se sale, ver
+/// `LibraryQueryNotifier.selectSpace`—.
+///
+/// Con muchos temas, el área tiene un alto máximo y se desplaza adentro, en
+/// vez de volverse una pared que empuje Tipo y Etiquetas fuera de la vista.
+/// Que hay más se ve sin tener que descubrirlo: la última fila queda cortada
+/// a la mitad, la barra de desplazamiento está siempre a la vista y el borde
+/// de abajo se desvanece mientras quede algo por ver.
+///
+/// Renombrar o borrar un tema: mantener apretado su chip, o el ícono que
+/// lleva el elegido —mantener apretado no se adivina, y el ícono en todos
+/// los chips duplicaría el ancho de cada uno—.
+class _SpaceFilterChips extends StatefulWidget {
+  const _SpaceFilterChips({
+    required this.spaces,
+    required this.selectedSpaceId,
+    required this.onSelected,
+    required this.onManage,
+  });
+
+  final List<Space> spaces;
+  final String? selectedSpaceId;
+  final ValueChanged<String> onSelected;
+  final ValueChanged<Space> onManage;
+
+  @override
+  State<_SpaceFilterChips> createState() => _SpaceFilterChipsState();
+}
+
+class _SpaceFilterChipsState extends State<_SpaceFilterChips> {
+  static const _spacing = 8.0;
+
+  /// Cuántas filas se ven antes de desplazar. La media de más no es un
+  /// descuido: un chip cortado por el borde es la pista más directa de que
+  /// la lista sigue.
+  static const _visibleRows = 3.5;
+
+  /// El alto del desvanecido del borde de abajo.
+  static const _fadeExtent = 24.0;
+
+  final _controller = ScrollController();
+  var _overflows = false;
+  var _atEnd = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => _sync(_controller.position));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Si hay más de lo que se ve y si ya se llegó al final: deciden si se
+  /// muestra la barra y si se desvanece el borde.
+  void _sync(ScrollMetrics metrics) {
+    final overflows = metrics.maxScrollExtent > 0;
+    // Menos de un píxel por ver ya es el final: la posición es un
+    // `double`, y el último tramo puede no cerrar exacto.
+    final atEnd = metrics.extentAfter < 1;
+    if (overflows == _overflows && atEnd == _atEnd) return;
+    setState(() {
+      _overflows = overflows;
+      _atEnd = atEnd;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    // Un chip ocupa 48 de alto con el margen táctil de un teléfono y 32 sin
+    // él, en escritorio: el tope se calcula en filas, no en píxeles fijos,
+    // para que muestre las mismas filas en los dos.
+    final chipExtent =
+        theme.materialTapTargetSize == MaterialTapTargetSize.padded
+        ? kMinInteractiveDimension
+        : 32.0;
+    final fades = _overflows && !_atEnd;
+
+    return ConstrainedBox(
+      key: const ValueKey('library-space-filters'),
+      constraints: BoxConstraints(
+        maxHeight: (chipExtent + _spacing) * _visibleRows,
+      ),
+      // Las medidas del contenido llegan recién después de distribuirlo: es
+      // lo que dice, sin desplazar nada, si los temas desbordan el tope.
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) _sync(notification.metrics);
+          return false;
+        },
+        // Siempre puesto, aunque no desvanezca nada: sacarlo y volver a
+        // ponerlo cambiaría la forma del árbol, y la lista volvería a
+        // arrancar desde arriba a mitad de desplazarla.
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black,
+              Colors.black,
+              if (fades) Colors.transparent else Colors.black,
+            ],
+            stops: [
+              0,
+              if (bounds.height > _fadeExtent)
+                1 - _fadeExtent / bounds.height
+              else
+                0,
+              1,
+            ],
+          ).createShader(bounds),
+          child: RawScrollbar(
+            controller: _controller,
+            thumbVisibility: _overflows,
+            thickness: 4,
+            radius: const Radius.circular(2),
+            thumbColor: theme.colorScheme.primary.withValues(alpha: 0.55),
+            child: SingleChildScrollView(
+              controller: _controller,
+              // Aire del lado de la barra, para que no se monte sobre los
+              // chips. Fijo, haya o no barra: si apareciera solo al
+              // desbordar, los chips se reacomodarían en ese momento.
+              padding: const EdgeInsetsDirectional.only(end: 12),
+              child: Wrap(
+                spacing: _spacing,
+                runSpacing: _spacing,
+                children: [
+                  for (final space in widget.spaces)
+                    _buildChip(space, l10n: l10n),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(Space space, {required AppLocalizations l10n}) {
+    final selected = widget.selectedSpaceId == space.id;
+
+    return GestureDetector(
+      onLongPress: () => widget.onManage(space),
+      child: FilterChip(
+        avatar: const Icon(Icons.folder_outlined, size: 18),
+        label: Text(space.name),
+        selected: selected,
+        onSelected: (_) => widget.onSelected(space.id),
+        onDeleted: selected ? () => widget.onManage(space) : null,
+        deleteIcon: const Icon(Icons.more_horiz, size: 18),
+        deleteButtonTooltipMessage: l10n.librarySpaceManageTooltip,
+      ),
+    );
+  }
+}
+
 class _FilterSectionLabel extends StatelessWidget {
   const _FilterSectionLabel(this.text);
 
@@ -936,73 +1040,6 @@ class _FilterSectionLabel extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
         letterSpacing: 0.5,
       ),
-    );
-  }
-}
-
-/// Un diálogo con un solo campo de texto, para crear o renombrar un tema.
-///
-/// El `TextEditingController` se crea y se destruye acá adentro, atado al
-/// ciclo de vida real de este `State` — y no afuera, en la función que abre
-/// el diálogo con `showDialog` y lo destruye a mano apenas el `Future`
-/// vuelve. Esa segunda forma parece inofensiva pero no lo es: `pop()`
-/// resuelve el `Future` antes de que termine la animación de salida de la
-/// ruta, así que el `TextField` todavía sigue montado un instante más
-/// mientras se desvanece — y si el controller ya se destruyó para
-/// entonces, ese `TextField` sigue vivo intenta usar un
-/// `TextEditingController` ya destruido, lo que a su vez deja el árbol de
-/// widgets en un estado inconsistente ("`_dependents.isEmpty`: is not
-/// true"). Atar el controller al propio `State` de este widget hace que
-/// Flutter lo destruya en el momento que le corresponde: cuando termina de
-/// desmontar la ruta de verdad, no antes.
-class _TextPromptDialog extends StatefulWidget {
-  const _TextPromptDialog({
-    required this.title,
-    required this.hint,
-    required this.confirmLabel,
-    this.initialValue,
-  });
-
-  final String title;
-  final String hint;
-  final String confirmLabel;
-  final String? initialValue;
-
-  @override
-  State<_TextPromptDialog> createState() => _TextPromptDialogState();
-}
-
-class _TextPromptDialogState extends State<_TextPromptDialog> {
-  late final _controller = TextEditingController(text: widget.initialValue);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: InputDecoration(hintText: widget.hint),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: Text(widget.confirmLabel),
-        ),
-      ],
     );
   }
 }

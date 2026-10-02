@@ -250,4 +250,71 @@ void main() {
       expect(pending.single.source.kind, SourceKind.webPage);
     });
   });
+
+  group('el tema elegido al capturar', () {
+    Future<void> seedSpace(String id, String name) => db
+        .into(db.spaces)
+        .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+
+    test('lo guardado queda en ese tema, en el mismo guardado', () async {
+      await seedSpace('tema-historia', 'Historia');
+
+      final result = await captureItem(
+        const CaptureRequest.text(
+          rawInput: 'https://ejemplo.org/roma',
+          spaceId: 'tema-historia',
+        ),
+      );
+
+      expect(result.getRight().toNullable()!.spaceId, 'tema-historia');
+      final inSpace = (await repository.list(
+        const LibraryQuery(spaceId: 'tema-historia'),
+      )).getRight().toNullable()!;
+      expect(inSpace, hasLength(1));
+    });
+
+    test('un archivo también', () async {
+      await seedSpace('tema-tesis', 'Tesis');
+      final withFiles = CaptureItemUseCase(
+        registry: SourceAdapterRegistry([
+          FileAdapter(files: files, ids: ids, clock: () => now),
+        ]),
+        repository: repository,
+      );
+
+      final result = await withFiles(
+        CaptureRequest.file(
+          file: CapturedFile(
+            name: 'capitulo.pdf',
+            bytes: Uint8List.fromList(utf8.encode('%PDF-1.7 el contenido')),
+          ),
+          spaceId: 'tema-tesis',
+        ),
+      );
+
+      expect(result.getRight().toNullable()!.spaceId, 'tema-tesis');
+    });
+
+    test('sin tema, queda sin clasificar', () async {
+      final result = await captureItem(
+        const CaptureRequest.text(rawInput: 'una nota suelta'),
+      );
+
+      expect(result.getRight().toNullable()!.spaceId, isNull);
+    });
+
+    test('un tema que ya no existe no deja nada guardado a medias', () async {
+      // Asignarlo en un segundo paso podría dejar el elemento guardado sin
+      // su tema; yendo en el mismo guardado, o queda todo o no queda nada.
+      final result = await captureItem(
+        const CaptureRequest.text(
+          rawInput: 'algo para un tema borrado',
+          spaceId: 'tema-que-no-existe',
+        ),
+      );
+
+      expect(result.isLeft(), isTrue);
+      expect(await countStored(), 0);
+    });
+  });
 }

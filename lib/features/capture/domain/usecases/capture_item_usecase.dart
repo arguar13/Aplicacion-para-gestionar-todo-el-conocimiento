@@ -46,7 +46,11 @@ class CaptureItemUseCase implements UseCase<KnowledgeItem, CaptureRequest> {
     if (rejected != null) return left(rejected);
 
     final adapter = _registry.resolve(params);
-    final item = await adapter.adapt(params);
+    final adapted = await adapter.adapt(params);
+    // El tema lo elige quien guarda, no lo deduce ningún adaptador: se pone
+    // acá, una sola vez para todos, y va en el mismo `save`.
+    final spaceId = params.spaceId;
+    final item = spaceId == null ? adapted : adapted.copyWith(spaceId: spaceId);
 
     return _repository.save(item);
   }
