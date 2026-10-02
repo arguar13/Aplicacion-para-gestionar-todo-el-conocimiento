@@ -8,6 +8,7 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 import 'package:sinapsis/features/transform/data/services/audio_wav_converter.dart';
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
@@ -77,7 +78,7 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
   static const _wavHeaderBytes = 44;
 
   @override
-  Future<String> transcribe(
+  Future<Transcript> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
     String language = defaultTranscriptionLanguage,
@@ -116,14 +117,13 @@ class SherpaOnnxAudioTranscriberIo implements AudioTranscriber {
         threads: _threadsOverride ?? _threads,
         language: language,
       );
-      final text = await runSegmentedTranscription(
+      return await runSegmentedTranscription(
         segmentCount: windows.length,
         session: session,
         segmentStart: (segment) => windows[segment].startTime,
-        stitch: stitchOverlappingTexts,
+        stitch: stitchOverlapping,
         transcribe: job.run,
       );
-      return text;
     } on Object {
       // Interrumpido por un fallo que un reintento puede salvar: el WAV
       // convertido se conserva si hay dónde retomarlo. Abandonado —se borró
@@ -198,8 +198,8 @@ class _TranscriptionJob {
 
   /// Los tramos [pending], transcritos, a medida que el isolate los
   /// termina. Dejar de escuchar mata el isolate.
-  Stream<(int, String)> run(List<int> pending) {
-    late final StreamController<(int, String)> controller;
+  Stream<(int, TimedText)> run(List<int> pending) {
+    late final StreamController<(int, TimedText)> controller;
     final port = ReceivePort();
     Isolate? isolate;
 
@@ -209,12 +209,13 @@ class _TranscriptionJob {
       port.close();
     }
 
-    controller = StreamController<(int, String)>(
+    controller = StreamController<(int, TimedText)>(
       onListen: () async {
         port.listen((message) {
           switch (message) {
-            case (final int segment, final String text):
-              controller.add((segment, text));
+            // Entre isolates viaja codificado: ver `TimedText.encode`.
+            case (final int segment, final String encoded):
+              controller.add((segment, TimedText.decode(encoded)));
             case _TranscriptionFailed(:final error):
               controller.addError(TranscriptionFailedException(error));
               stop();
@@ -285,6 +286,11 @@ void _transcribeSegments(_WorkerArgs args) {
             // para este elemento, o español.
             language: job.language,
             task: 'transcribe',
+            // Cuándo se dice cada palabra (F23): con el modelo con atención
+            // —ver `WhisperModelSpec`— sale de la atención del
+            // decodificador; un modelo sin ella devuelve el texto sin
+            // tiempos, como antes. Medido: alrededor de 1 % más de tiempo.
+            enableTokenTimestamps: true,
           ),
           tokens: job.tokens,
           modelType: 'whisper',
@@ -299,7 +305,7 @@ void _transcribeSegments(_WorkerArgs args) {
     for (final segment in args.pending) {
       final window = job.windows[segment];
       if (window.silent) {
-        out.send((segment, ''));
+        out.send((segment, TimedText.empty.encode()));
         continue;
       }
       wav.setPositionSync(
@@ -313,7 +319,7 @@ void _transcribeSegments(_WorkerArgs args) {
         (samples) => transcribeWindow(engine, samples),
         offset: window.from,
       );
-      out.send((segment, text));
+      out.send((segment, text.encode()));
     }
     out.send(null);
     // Cualquier falla del motor nativo o del archivo: vuelve como un fallo

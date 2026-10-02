@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
@@ -11,10 +12,11 @@ void main() {
   /// Un motor que transcribe cada tramo como "tramo N", y anota cuáles le
   /// pidieron.
   final requested = <List<int>>[];
-  Stream<(int, String)> engine(List<int> pending) {
+  Stream<(int, TimedText)> engine(List<int> pending) {
     requested.add(pending);
     return Stream.fromIterable([
-      for (final segment in pending) (segment, 'tramo $segment'),
+      for (final segment in pending)
+        (segment, TimedText.plain('tramo $segment')),
     ]);
   }
 
@@ -23,11 +25,11 @@ void main() {
   test('transcribe todos los tramos, en orden, y avisa el avance', () async {
     final context = _RecordingContext();
 
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 3,
       session: TranscriptionSession(context: context),
       transcribe: engine,
-    );
+    )).text;
 
     expect(text, 'tramo 0 tramo 1 tramo 2');
     expect(context.progress, [(0, 3), (1, 3), (2, 3), (3, 3)]);
@@ -51,14 +53,14 @@ void main() {
       'ahí', () async {
     final context = _RecordingContext();
 
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 4,
       session: TranscriptionSession(
         context: context,
         loadSegments: () async => {0: 'de antes', 1: 'también'},
       ),
       transcribe: engine,
-    );
+    )).text;
 
     expect(requested, [
       [2, 3],
@@ -68,22 +70,22 @@ void main() {
   });
 
   test('todo hecho: no se le pide nada al motor', () async {
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 1,
       session: TranscriptionSession(loadSegments: () async => {0: 'listo'}),
       transcribe: engine,
-    );
+    )).text;
 
     expect(requested, isEmpty);
     expect(text, 'listo');
   });
 
   test('los tramos en silencio no dejan espacios de más', () async {
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 3,
       session: TranscriptionSession(loadSegments: () async => {1: '  '}),
       transcribe: engine,
-    );
+    )).text;
 
     expect(text, 'tramo 0 tramo 2');
   });
@@ -91,7 +93,7 @@ void main() {
   test('con el inicio de cada tramo, una línea por tramo con su marca de '
       'tiempo, como una transcripción de YouTube; el silencio no deja '
       'línea (F22)', () async {
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 4,
       session: TranscriptionSession(loadSegments: () async => {2: ''}),
       transcribe: engine,
@@ -101,7 +103,7 @@ void main() {
         const Duration(seconds: 28),
         const Duration(hours: 1, minutes: 2, seconds: 7),
       ][segment],
-    );
+    )).text;
 
     expect(text, '[0:00] tramo 0\n[0:14] tramo 1\n[1:02:07] tramo 3');
   });
@@ -109,18 +111,65 @@ void main() {
   test('con stitch, los textos se unen antes de armar las líneas, y se '
       'guarda lo que dijo el motor, sin unir (F22)', () async {
     final saved = <int, String>{};
-    final text = await runSegmentedTranscription(
+    final text = (await runSegmentedTranscription(
       segmentCount: 3,
       session: TranscriptionSession(
         loadSegments: () async => {1: ''},
         saveSegment: (segment, text) async => saved[segment] = text,
       ),
       transcribe: engine,
-      stitch: (texts) => [for (final t in texts) t.toUpperCase()],
-    );
+      stitch: (texts) => [
+        for (final t in texts) TimedText.plain(t.text.toUpperCase()),
+      ],
+    )).text;
 
     expect(text, 'TRAMO 0 TRAMO 2');
     expect(saved, {0: 'tramo 0', 2: 'tramo 2'});
+  });
+
+  test('los tiempos de cada palabra se guardan con su tramo, vuelven al '
+      'retomar, y el resultado los trae en orden sin las marcas de cada '
+      'renglón (F23)', () async {
+    final saved = <int, String>{};
+    Stream<(int, TimedText)> timedEngine(List<int> pending) =>
+        Stream.fromIterable([
+          for (final segment in pending)
+            (
+              segment,
+              TimedText([
+                TimedWord('tramo', segment * 14000),
+                TimedWord('$segment', segment * 14000 + 400),
+              ]),
+            ),
+        ]);
+
+    // La primera vez se corta después del tramo 0.
+    final first = runSegmentedTranscription(
+      segmentCount: 2,
+      session: TranscriptionSession(
+        saveSegment: (segment, text) async {
+          saved[segment] = text;
+          if (segment == 0) throw StateError('se cerró la app');
+        },
+      ),
+      transcribe: timedEngine,
+    );
+    await expectLater(first, throwsStateError);
+
+    final transcript = await runSegmentedTranscription(
+      segmentCount: 2,
+      session: TranscriptionSession(loadSegments: () async => saved),
+      transcribe: timedEngine,
+      segmentStart: (segment) => Duration(seconds: segment * 14),
+    );
+
+    expect(transcript.text, '[0:00] tramo 0\n[0:14] tramo 1');
+    expect(transcript.words, const [
+      TimedWord('tramo', 0),
+      TimedWord('0', 400),
+      TimedWord('tramo', 14000),
+      TimedWord('1', 14400),
+    ]);
   });
 
   test('cancelar corta en el acto, aunque el motor siga en un tramo, y lo '
@@ -134,9 +183,9 @@ void main() {
       session: TranscriptionSession(context: context),
       // Entrega el primero y se queda "trabajando" en el segundo.
       transcribe: (pending) {
-        late final StreamController<(int, String)> controller;
-        controller = StreamController<(int, String)>(
-          onListen: () => controller.add((0, 'tramo 0')),
+        late final StreamController<(int, TimedText)> controller;
+        controller = StreamController<(int, TimedText)>(
+          onListen: () => controller.add((0, TimedText.plain('tramo 0'))),
           onCancel: () => released = true,
         );
         return controller.stream;

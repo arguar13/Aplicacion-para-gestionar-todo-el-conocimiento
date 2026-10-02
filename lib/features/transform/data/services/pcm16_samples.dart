@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 
 /// Convierte PCM de 16 bits con signo, en little-endian, a las muestras
 /// normalizadas entre -1.0 y 1.0 que pide `OfflineStream.acceptWaveform()`.
@@ -41,7 +42,11 @@ const whisperChunkSamples = 16000 * 29;
 /// espectrograma de ancho **fijo**, 30 segundos, y recorta a esa ventana
 /// cualquier audio que reciba: un audio largo hay que partirlo antes —ver
 /// `planWindows` en `speech_windows.dart` (F22)—.
-String transcribeWindow(
+///
+/// Cada palabra viene con su momento, en milisegundos desde el principio de
+/// [samples], si el modelo los calcula (F23, `enableTokenTimestamps`); si
+/// no, sin tiempos.
+TimedText transcribeWindow(
   sherpa_onnx.OfflineRecognizer recognizer,
   Float32List samples, {
   int sampleRate = 16000,
@@ -50,8 +55,63 @@ String transcribeWindow(
   try {
     stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
     recognizer.decode(stream);
-    return recognizer.getResult(stream).text.trim();
+    final result = recognizer.getResult(stream);
+    return timedTextFromTokens(
+      result.tokens,
+      result.timestamps,
+      fallback: result.text,
+    );
   } finally {
     stream.free();
   }
+}
+
+/// Las palabras de lo que escribió Whisper, cada una con el momento de la
+/// primera pieza que la forma (F23).
+///
+/// Whisper escribe de a piezas —" Buenos", " días", ".", " contar",
+/// "les"—: unidas dan el texto exacto (comprobado), y sherpa-onnx da el
+/// momento en que empieza cada una, en segundos. Una palabra empieza en la
+/// pieza que trae su primer carácter después de un espacio; la puntuación
+/// queda pegada a la palabra, como en el texto.
+///
+/// Sin tiempos —un modelo que no los calcula— o si las piezas no forman
+/// [fallback], el texto de [fallback] sin tiempos: nunca un tiempo que no
+/// se midió.
+TimedText timedTextFromTokens(
+  List<String> tokens,
+  List<double> timestamps, {
+  required String fallback,
+}) {
+  if (tokens.isEmpty || timestamps.length != tokens.length) {
+    return TimedText.plain(fallback);
+  }
+  final words = <TimedWord>[];
+  final current = StringBuffer();
+  int? currentStart;
+  for (var i = 0; i < tokens.length; i++) {
+    final ms = (timestamps[i] * 1000).round();
+    for (final char in tokens[i].split('')) {
+      if (char.trim().isEmpty) {
+        if (current.isNotEmpty) {
+          words.add(TimedWord(current.toString(), currentStart));
+          current.clear();
+        }
+        continue;
+      }
+      if (current.isEmpty) currentStart = ms;
+      current.write(char);
+    }
+  }
+  if (current.isNotEmpty) {
+    words.add(TimedWord(current.toString(), currentStart));
+  }
+
+  final timed = TimedText(words);
+  // Las piezas tienen que ser el texto: si no, algo cambió en el motor y
+  // los tiempos no se pueden atribuir con certeza.
+  if (timed.text != splitWords(fallback).join(' ')) {
+    return TimedText.plain(fallback);
+  }
+  return timed;
 }

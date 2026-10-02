@@ -84,7 +84,7 @@ class AudioTranscriptTransformer implements Transformer {
     // cuenta.
     final transcriberPath = kIsWeb ? path : await _files.resolve(path);
     final checkpoints = _checkpoints;
-    final text = await _transcriber.transcribe(
+    final transcript = await _transcriber.transcribe(
       transcriberPath,
       language: item.source.language ?? defaultTranscriptionLanguage,
       session: TranscriptionSession(
@@ -110,6 +110,7 @@ class AudioTranscriptTransformer implements Transformer {
     // Sin texto transcripto no es un fallo: un video sin diálogo, música
     // instrumental, silencio. El elemento se marca listo igual, con el
     // archivo original como único contenido.
+    final text = transcript.text;
     if (text.trim().isEmpty) return item;
 
     return item.copyWith(

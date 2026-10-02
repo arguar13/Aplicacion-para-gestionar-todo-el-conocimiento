@@ -209,7 +209,10 @@ void main() {
       'extrapolado_4_horas_min': (minutesPerMinute * 240).round(),
       'ms_retomando_desde_la_mitad': resumed.elapsedMilliseconds,
       'rss_mb_pico': peakRss,
-      'comienzo_del_texto': text.substring(0, text.length.clamp(0, 200)),
+      'comienzo_del_texto': text.text.substring(
+        0,
+        text.text.length.clamp(0, 200),
+      ),
     });
   }, timeout: const Timeout(Duration(hours: 2)));
 

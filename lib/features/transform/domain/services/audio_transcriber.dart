@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
 /// Convierte el audio de un archivo en el texto que se dice en él.
@@ -22,7 +23,10 @@ abstract interface class AudioTranscriber {
   ///
   /// [language] es el idioma en que se habla, como código de dos letras:
   /// se transcribe en ese idioma, sin detectarlo ni traducir (F22).
-  Future<String> transcribe(
+  ///
+  /// Devuelve el texto y, si el motor los mide, el momento en que se dice
+  /// cada palabra (F23).
+  Future<Transcript> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
     String language = defaultTranscriptionLanguage,
@@ -94,21 +98,27 @@ class TranscriptionSession {
 /// Con [stitch], los textos de todos los tramos pasan por ahí antes de
 /// armar el texto: el motor transcribe tramos que se solapan, y [stitch]
 /// los une sin repetir lo que dicen los dos (F22, ver
-/// `stitchOverlappingTexts`). Se guarda lo que dijo el motor y se une al
+/// `stitchOverlapping`). Se guarda lo que dijo el motor y se une al
 /// final: un tramo retomado se une igual que uno recién hecho.
-Future<String> runSegmentedTranscription({
+///
+/// Cada tramo llega palabra por palabra con su momento, si el motor lo mide
+/// (F23); se guarda con él —`TimedText.encode`—, así un tramo retomado no
+/// pierde sus tiempos, y uno guardado por una versión anterior se retoma
+/// sin tiempos. Las palabras del resultado son las del texto, en orden y
+/// sin las marcas de tiempo de cada renglón.
+Future<Transcript> runSegmentedTranscription({
   required int segmentCount,
   required TranscriptionSession session,
-  required Stream<(int, String)> Function(List<int> pending) transcribe,
+  required Stream<(int, TimedText)> Function(List<int> pending) transcribe,
   Duration Function(int segment)? segmentStart,
-  List<String> Function(List<String> texts)? stitch,
+  List<TimedText> Function(List<TimedText> segments)? stitch,
 }) async {
   final context = session.context..throwIfCancelled();
 
-  final texts = List<String?>.filled(segmentCount, null);
+  final texts = List<TimedText?>.filled(segmentCount, null);
   for (final MapEntry(:key, :value)
       in (await session.transcribedSegments()).entries) {
-    if (key >= 0 && key < segmentCount) texts[key] = value;
+    if (key >= 0 && key < segmentCount) texts[key] = TimedText.decode(value);
   }
 
   final pending = [
@@ -125,7 +135,7 @@ Future<String> runSegmentedTranscription({
     );
     await for (final (segment, text) in results) {
       texts[segment] = text;
-      await session.saveSegment(segment, text);
+      await session.saveSegment(segment, text.encode());
       done++;
       context.reportProgress(done, segmentCount);
     }
@@ -135,11 +145,16 @@ Future<String> runSegmentedTranscription({
       ? text
       : '[${formatTimestamp(segmentStart(segment))}] $text';
 
-  final raw = [for (final text in texts) text?.trim() ?? ''];
+  final raw = [for (final text in texts) text ?? TimedText.empty];
   final joined = stitch?.call(raw) ?? raw;
-  final lines = [
+  final kept = [
     for (var i = 0; i < segmentCount; i++)
-      if (joined[i].trim() case final text when text.isNotEmpty) line(i, text),
+      if (!joined[i].isEmpty) (i, joined[i]),
   ];
-  return lines.join(segmentStart == null ? ' ' : '\n');
+  return Transcript(
+    [
+      for (final (i, segment) in kept) line(i, segment.text),
+    ].join(segmentStart == null ? ' ' : '\n'),
+    [for (final (_, segment) in kept) ...segment.words],
+  );
 }

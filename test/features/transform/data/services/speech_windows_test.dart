@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 
 const _sr = speechSampleRate;
 
@@ -115,6 +116,34 @@ void main() {
     test('un audio vacío no tiene tramos', () {
       expect(planWindows(EnergyProfile.of(Float32List(0))), isEmpty);
     });
+  });
+
+  test('unir tramos solapados conserva el momento de cada palabra que '
+      'queda (F23)', () {
+    final stitched = stitchOverlapping(const [
+      TimedText([
+        TimedWord('no', 10000),
+        TimedWord('hay', 10300),
+        TimedWord('intervención', 10500),
+        TimedWord('2C.', 11400),
+      ]),
+      TimedText([
+        TimedWord('hay', 10310),
+        TimedWord('intervención', 10520),
+        TimedWord('docente', 11350),
+        TimedWord('ahí.', 11900),
+      ]),
+    ]);
+
+    expect(stitched[0].words, const [
+      TimedWord('no', 10000),
+      TimedWord('hay', 10300),
+    ]);
+    expect(stitched[1].words, const [
+      TimedWord('intervención', 10520),
+      TimedWord('docente', 11350),
+      TimedWord('ahí.', 11900),
+    ]);
   });
 
   group('stitchOverlappingTexts', () {
@@ -236,8 +265,8 @@ void main() {
       var calls = 0;
       final text = transcribeGuarded(_audio(10), (samples) {
         calls++;
-        return '  Te amo Dios, tu amor nunca me falla.  ';
-      });
+        return TimedText.plain('Te amo Dios, tu amor nunca me falla.');
+      }).text;
 
       expect(text, 'Te amo Dios, tu amor nunca me falla.');
       expect(calls, 1);
@@ -249,9 +278,11 @@ void main() {
       final lengths = <int>[];
       final text = transcribeGuarded(samples, (part) {
         lengths.add(part.length);
-        if (part.length == samples.length) return loop;
-        return lengths.length == 2 ? 'de la bondad' : 'de Dios.';
-      });
+        if (part.length == samples.length) return TimedText.plain(loop);
+        return TimedText.plain(
+          lengths.length == 2 ? 'de la bondad' : 'de Dios.',
+        );
+      }).text;
 
       expect(text, 'de la bondad de Dios.');
       expect(lengths, hasLength(3));
@@ -264,9 +295,9 @@ void main() {
       // Empieza a los 3:15 del audio y dura 14 s: todo en bucle.
       final text = transcribeGuarded(
         _audio(14),
-        (_) => loop,
+        (_) => TimedText.plain(loop),
         offset: 195 * _sr,
-      );
+      ).text;
 
       expect(text, '[fragmento no reconocido 3:15–3:29]');
       expect(text, isNot(contains('maquillaje')));
@@ -275,14 +306,53 @@ void main() {
     test('si solo una parte sigue en bucle, el resto se conserva', () {
       final samples = _audio(14);
       final text = transcribeGuarded(samples, (part) {
-        if (part.length == samples.length) return loop;
+        if (part.length == samples.length) return TimedText.plain(loop);
         // La primera mitad sale bien; todo lo de la segunda, en bucle.
-        return part.offsetInBytes == 0 ? 'Te amo Dios' : loop;
-      });
+        return TimedText.plain(part.offsetInBytes == 0 ? 'Te amo Dios' : loop);
+      }).text;
 
       expect(text, startsWith('Te amo Dios [fragmento no reconocido 0:'));
       expect(text, isNot(contains('maquillaje')));
     });
+
+    test('cada palabra queda en su momento del audio entero, también '
+        'las de un tramo partido en mitades, y las de un hueco marcan dónde '
+        'empieza (F23)', () {
+      final samples = _audio(14, pauses: [(6.5, 6.8)]);
+      var call = 0;
+      final text = transcribeGuarded(
+        samples,
+        (part) {
+          call++;
+          // El motor da los momentos desde el principio de lo que recibe.
+          if (call == 1) return TimedText.plain(loop);
+          return call == 2
+              ? const TimedText([TimedWord('Te', 0), TimedWord('amo', 400)])
+              : const TimedText([TimedWord('Dios', 100)]);
+        },
+        // El tramo empieza a los 60 s del audio.
+        offset: 60 * _sr,
+      );
+
+      expect(text.words[0], const TimedWord('Te', 60000));
+      expect(text.words[1], const TimedWord('amo', 60400));
+      // La segunda mitad empieza en la pausa, entre 6,5 y 6,8 s del tramo.
+      expect(text.words[2].text, 'Dios');
+      expect(text.words[2].startMs, inInclusiveRange(66600, 66900));
+    });
+
+    test(
+      'las palabras de un hueco marcado llevan el momento en que empieza',
+      () {
+        final text = transcribeGuarded(
+          _audio(14),
+          (_) => TimedText.plain(loop),
+          offset: 195 * _sr,
+        );
+
+        expect(text.words.every((w) => w.startMs == 195000), isTrue);
+      },
+    );
 
     test('la marca da las horas en un audio largo', () {
       expect(

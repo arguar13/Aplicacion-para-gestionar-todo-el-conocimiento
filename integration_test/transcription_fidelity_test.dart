@@ -182,7 +182,9 @@ void main() {
         );
         clock.stop();
 
-        File('${folder.path}/$name.${threads}h.txt').writeAsStringSync(text);
+        File(
+          '${folder.path}/$name.${threads}h.txt',
+        ).writeAsStringSync(text.text);
         report('${name}_${threads}h', {
           'segundos_de_audio': duration.round(),
           'hilos': threads,
@@ -194,8 +196,8 @@ void main() {
           'tramos': segments.length,
           'huecos_marcados': RegExp(
             'fragmento no reconocido',
-          ).allMatches(text).length,
-          'palabras': text.split(RegExp(r'\s+')).length,
+          ).allMatches(text.text).length,
+          'palabras': text.text.split(RegExp(r'\s+')).length,
         });
       }
     }

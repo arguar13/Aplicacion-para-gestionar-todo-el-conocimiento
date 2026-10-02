@@ -2,6 +2,7 @@
 // porque `Exception` y `Error` no comparten más supertipo que ese.
 // ignore_for_file: only_throw_errors
 
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 
 /// Devuelve el texto que el test le ponga, sin ningún motor de verdad
@@ -28,7 +29,7 @@ class FakeAudioTranscriber implements AudioTranscriber {
   final languages = <String>[];
 
   @override
-  Future<String> transcribe(
+  Future<Transcript> transcribe(
     String absolutePath, {
     TranscriptionSession session = TranscriptionSession.detached,
     String language = defaultTranscriptionLanguage,
@@ -38,6 +39,6 @@ class FakeAudioTranscriber implements AudioTranscriber {
     languages.add(language);
     if (error != null) throw error!;
 
-    return text;
+    return Transcript(text);
   }
 }

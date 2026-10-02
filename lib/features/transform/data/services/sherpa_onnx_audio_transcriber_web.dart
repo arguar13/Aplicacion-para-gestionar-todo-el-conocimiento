@@ -8,6 +8,7 @@ import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
 import 'package:sinapsis/features/transform/data/services/sherpa_onnx_offline_recognizer_fix.dart';
 import 'package:sinapsis/features/transform/data/services/speech_windows.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
@@ -51,7 +52,7 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
   static const _sampleRate = 16000;
 
   @override
-  Future<String> transcribe(
+  Future<Transcript> transcribe(
     String path, {
     TranscriptionSession session = TranscriptionSession.detached,
     String language = defaultTranscriptionLanguage,
@@ -78,6 +79,9 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
             // `SherpaOnnxAudioTranscriberIo` (F22).
             language: language,
             task: 'transcribe',
+            // Cuándo se dice cada palabra (F23): ver el mismo comentario en
+            // `SherpaOnnxAudioTranscriberIo`.
+            enableTokenTimestamps: true,
           ),
           tokens: modelPaths.tokens,
           modelType: 'whisper',
@@ -109,14 +113,14 @@ class SherpaOnnxAudioTranscriberWeb implements AudioTranscriber {
         segmentCount: windows.length,
         session: session,
         segmentStart: (segment) => windows[segment].startTime,
-        stitch: stitchOverlappingTexts,
+        stitch: stitchOverlapping,
         transcribe: (pending) async* {
           for (final segment in pending) {
             final window = windows[segment];
             yield (
               segment,
               window.silent
-                  ? ''
+                  ? TimedText.empty
                   : transcribeGuarded(
                       Float32List.sublistView(samples, window.from, window.end),
                       (samples) => transcribeWindow(recognizer, samples),

@@ -156,7 +156,7 @@ class YouTubeTranscriptTransformer implements Transformer {
         marker.writeAsStringSync(audioPath);
       }
       final checkpoints = _checkpoints;
-      final text = await transcriber.transcribe(
+      final transcript = await transcriber.transcribe(
         audioPath,
         language: item.source.language ?? defaultTranscriptionLanguage,
         session: TranscriptionSession(
@@ -179,7 +179,7 @@ class YouTubeTranscriptTransformer implements Transformer {
         ),
       );
       _discard(marker, audioPath);
-      return text;
+      return transcript.text;
     } on Object {
       // Interrumpido por algo que un reintento puede salvar: el audio bajado
       // se conserva. Abandonado —se borró el elemento—, no.

@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/transform/data/services/pcm16_samples.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 
 /// Cómo se parte un audio en los tramos que Whisper transcribe de a uno, y
 /// cómo se defiende la transcripción de cada tramo de los errores groseros
@@ -221,12 +222,18 @@ bool _isSilent(EnergyProfile profile, int start, int end) {
 /// enteros: puede repetirse alguna palabra, pero no se pierde ninguna.
 ///
 /// Un texto vacío —tramo en silencio— no se une con nada.
-List<String> stitchOverlappingTexts(List<String> texts) {
-  final words = [for (final text in texts) _words(text)];
+///
+/// Cada palabra que queda conserva su momento (F23): lo que se corta son
+/// palabras enteras, con el tiempo que les midió el tramo que las oyó
+/// mejor.
+List<TimedText> stitchOverlapping(List<TimedText> segments) {
+  final words = [
+    for (final segment in segments) [for (final w in segment.words) w.text],
+  ];
   // Qué parte de cada texto queda: de heads[i] a tails[i], en palabras.
-  final heads = List.filled(texts.length, 0);
+  final heads = List.filled(segments.length, 0);
   final tails = [for (final w in words) w.length];
-  for (var i = 1; i < texts.length; i++) {
+  for (var i = 1; i < segments.length; i++) {
     final previous = words[i - 1];
     final next = words[i];
     if (previous.isEmpty || next.isEmpty) continue;
@@ -239,19 +246,22 @@ List<String> stitchOverlappingTexts(List<String> texts) {
     heads[i] = atNext + half;
   }
   return [
-    for (var i = 0; i < texts.length; i++)
-      words[i].sublist(heads[i], math.max(heads[i], tails[i])).join(' '),
+    for (var i = 0; i < segments.length; i++)
+      segments[i].sublist(heads[i], math.max(heads[i], tails[i])),
   ];
 }
+
+/// [stitchOverlapping] sobre textos sueltos, sin tiempos.
+List<String> stitchOverlappingTexts(List<String> texts) => [
+  for (final stitched in stitchOverlapping([
+    for (final text in texts) TimedText.plain(text),
+  ]))
+    stitched.text,
+];
 
 /// Cuántas palabras del borde de cada texto se comparan: más que las que
 /// entran en [overlapSamples] de habla rápida, con margen.
 const _stitchSpan = 25;
-
-final _whitespace = RegExp(r'\s+');
-
-List<String> _words(String text) =>
-    text.split(_whitespace).where((w) => w.isNotEmpty).toList();
 
 final _notLetterOrDigit = RegExp(r'[^\p{L}\p{N}]', unicode: true);
 
@@ -311,10 +321,13 @@ const maxLoopSplits = 2;
 /// honesto, no texto que nadie dijo—.
 ///
 /// [offset] es dónde empieza [samples] dentro del audio entero, en
-/// muestras: para que la marca diga en qué minuto está el hueco.
-String transcribeGuarded(
+/// muestras: para que la marca diga en qué minuto está el hueco, y para
+/// llevar el momento de cada palabra —que [decode] da desde el principio de
+/// lo que recibió— a su lugar en el audio entero (F23). Las palabras de una
+/// marca llevan el momento en que empieza el hueco.
+TimedText transcribeGuarded(
   Float32List samples,
-  String Function(Float32List samples) decode, {
+  TimedText Function(Float32List samples) decode, {
   int offset = 0,
 }) {
   final pieces = <Object>[];
@@ -331,29 +344,31 @@ String transcribeGuarded(
       merged.add(piece);
     }
   }
-  return merged
-      .map(
-        (piece) => switch (piece) {
-          (final int start, final int end) => unrecognizedMarker(start, end),
-          _ => piece as String,
-        },
-      )
-      .where((text) => text.isNotEmpty)
-      .join(' ');
+  return TimedText([
+    for (final piece in merged)
+      ...switch (piece) {
+        (final int start, final int end) => [
+          for (final word in splitWords(unrecognizedMarker(start, end)))
+            TimedWord(word, _ms(start)),
+        ],
+        _ => (piece as TimedText).words,
+      },
+  ]);
 }
 
-/// Agrega a [pieces] el texto de cada pedazo, o su hueco —`(inicio, fin)`
-/// en muestras— si no hubo forma de transcribirlo sin bucle.
+/// Agrega a [pieces] el texto de cada pedazo —ya con sus tiempos en su
+/// lugar del audio entero—, o su hueco —`(inicio, fin)` en muestras— si no
+/// hubo forma de transcribirlo sin bucle.
 void _transcribeGuarded(
   Float32List samples,
-  String Function(Float32List samples) decode,
+  TimedText Function(Float32List samples) decode,
   int offset,
   int depth,
   List<Object> pieces,
 ) {
-  final text = decode(samples).trim();
-  if (!looksLikeRepetitionLoop(text)) {
-    pieces.add(text);
+  final decoded = decode(samples);
+  if (!looksLikeRepetitionLoop(decoded.text)) {
+    pieces.add(decoded.shifted(_ms(offset)));
     return;
   }
   if (depth >= maxLoopSplits) {
@@ -390,3 +405,5 @@ String unrecognizedMarker(int start, int end) =>
 
 Duration _time(int sample) =>
     Duration(microseconds: sample * 1000000 ~/ speechSampleRate);
+
+int _ms(int sample) => sample * 1000 ~/ speechSampleRate;
