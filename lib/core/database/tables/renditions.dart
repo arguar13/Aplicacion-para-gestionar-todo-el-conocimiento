@@ -34,6 +34,12 @@ class Renditions extends Table {
   BoolColumn get isPrimary => boolean()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// En una transcripción, cuándo se dice cada palabra (F23): JSON con dos
+  /// listas paralelas, las palabras y su momento en milisegundos —ver
+  /// `encodeWordTimings`—. Nulo si no se midió: es lo que hay en todo lo
+  /// anterior a F23 y en todo lo que no es una transcripción.
+  TextColumn get wordTimings => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 

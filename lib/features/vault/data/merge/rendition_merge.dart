@@ -25,6 +25,20 @@ enum RenditionAction {
   keepBoth,
 }
 
+/// Las columnas de `renditions` que la fusión copia de la otra bóveda. Tiene
+/// que ser **todas**: una columna nueva que falte acá se pierde en silencio
+/// al fusionar —lo vigila el censo de `rendition_merge_test.dart`—.
+const kRenditionColumns = [
+  'id',
+  'item_id',
+  'kind',
+  'content',
+  'relative_path',
+  'is_primary',
+  'created_at',
+  'word_timings',
+];
+
 /// La decisión sobre una forma de la copia.
 @immutable
 class RenditionChange {
@@ -244,15 +258,7 @@ class RenditionMergeApplier {
 
   static const _incoming = kIncomingSchema;
 
-  static const _columns = [
-    'id',
-    'item_id',
-    'kind',
-    'content',
-    'relative_path',
-    'is_primary',
-    'created_at',
-  ];
+  static const _columns = kRenditionColumns;
 
   Future<RenditionMergeResult> apply(RenditionMergePlan plan) async {
     // Las formas de los elementos nuevos entran tal cual, y esos elementos hay
@@ -269,6 +275,19 @@ class RenditionMergeApplier {
       'INSERT OR IGNORE INTO ${MergeWork.touchedItems} (id) '
       'SELECT id FROM ${MergeWork.newItems}',
     );
+
+    // El mismo texto a los dos lados, y solo la copia sabe cuándo se dice
+    // cada palabra (F23): se completan. No es un cambio del texto —no hay
+    // conflicto posible—, es lo medido sobre ese mismo texto.
+    await _db.customStatement('''
+      UPDATE main.renditions SET word_timings =
+             (SELECT x.word_timings FROM $_incoming.renditions x
+               WHERE x.id = renditions.id)
+       WHERE word_timings IS NULL
+         AND id IN (SELECT x.id FROM $_incoming.renditions x
+                     WHERE x.word_timings IS NOT NULL
+                       AND x.content IS renditions.content
+                       AND x.relative_path IS renditions.relative_path)''');
 
     // Dónde quedó el texto de las formas que no entran con su identificador.
     for (final entry in plan.notPlaced.entries) {
@@ -307,7 +326,8 @@ class RenditionMergeApplier {
       '''
       INSERT INTO main.renditions (${_columns.join(', ')})
       SELECT x.id, x.item_id, x.kind, x.content, x.relative_path,
-             CASE WHEN ? THEN 0 ELSE x.is_primary END, x.created_at
+             CASE WHEN ? THEN 0 ELSE x.is_primary END, x.created_at,
+             x.word_timings
         FROM $_incoming.renditions x WHERE x.id = ?''',
       [demoted, change.incomingId],
     );
@@ -324,7 +344,9 @@ class RenditionMergeApplier {
         content = (SELECT x.content FROM $_incoming.renditions x
                     WHERE x.id = renditions.id),
         relative_path = (SELECT x.relative_path FROM $_incoming.renditions x
-                          WHERE x.id = renditions.id)
+                          WHERE x.id = renditions.id),
+        word_timings = (SELECT x.word_timings FROM $_incoming.renditions x
+                         WHERE x.id = renditions.id)
        WHERE id = ?''',
       [change.incomingId],
     );
@@ -342,7 +364,8 @@ class RenditionMergeApplier {
     await _db.customStatement(
       '''
       INSERT INTO main.renditions (${_columns.join(', ')})
-      SELECT ?, x.item_id, x.kind, x.content, x.relative_path, 0, x.created_at
+      SELECT ?, x.item_id, x.kind, x.content, x.relative_path, 0, x.created_at,
+             x.word_timings
         FROM $_incoming.renditions x WHERE x.id = ?''',
       [extraId, change.incomingId],
     );

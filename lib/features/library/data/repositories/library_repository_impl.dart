@@ -22,6 +22,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/entities/timed_word.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -800,9 +801,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
           _db.renditions.id.equals(rendition.renditionId) &
               _db.renditions.itemId.equals(item.id) &
               switch (rendition) {
-                TextRendition(:final content) => _db.renditions.content.equals(
-                  content,
-                ),
+                // Los tiempos de cada palabra cambian con el texto, pero se
+                // comparan igual: un cambio que no se marca no viaja al
+                // fusionar la bóveda con otro dispositivo (F23).
+                TextRendition(:final content, :final wordTimings) =>
+                  _db.renditions.content.equals(content) &
+                      _db.renditions.wordTimings.equalsNullable(
+                        encodeWordTimings(wordTimings),
+                      ),
                 FileRendition(:final relativePath) =>
                   _db.renditions.relativePath.equals(relativePath),
               },
@@ -844,6 +850,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         :final content,
         :final isPrimary,
         :final createdAt,
+        :final wordTimings,
       ) =>
         RenditionsCompanion.insert(
           id: id,
@@ -852,6 +859,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
           isPrimary: isPrimary,
           createdAt: createdAt,
           content: Value(content),
+          wordTimings: Value(encodeWordTimings(wordTimings)),
         ),
       FileRendition(
         :final id,
@@ -1220,6 +1228,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         content: content,
         isPrimary: row.isPrimary,
         createdAt: row.createdAt,
+        wordTimings: decodeWordTimings(row.wordTimings),
       );
     }
 

@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/timed_word.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
@@ -109,6 +111,25 @@ void main() {
       expect(result.renditions.single.kind, RenditionKind.plainText);
       expect(result.searchableText, contains('comprar leche'));
     });
+
+    test(
+      'con el momento de cada palabra, si el motor lo midió (F23)',
+      () async {
+        transcriber
+          ..text = '[0:00] Hola mundo'
+          ..words = const [TimedWord('Hola', 120), TimedWord('mundo', 480)];
+        final item = await seed();
+
+        final result = await transformer.transform(item);
+
+        final text = result.renditions.single as TextRendition;
+        expect(text.content, '[0:00] Hola mundo');
+        expect(text.wordTimings, const [
+          TimedWord('Hola', 120),
+          TimedWord('mundo', 480),
+        ]);
+      },
+    );
 
     test('sin texto transcripto, el elemento queda igual', () async {
       // Un video sin diálogo, música instrumental, silencio: no es un

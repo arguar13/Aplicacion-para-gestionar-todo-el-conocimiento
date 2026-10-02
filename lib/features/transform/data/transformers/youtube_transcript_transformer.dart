@@ -13,6 +13,7 @@ import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
@@ -94,15 +95,16 @@ class YouTubeTranscriptTransformer implements Transformer {
     var language = data.transcriptLanguage ?? item.source.language;
     if (data.transcript.isEmpty) {
       final spoken = await _transcribeAudio(videoId, item, context);
-      if (spoken != null && spoken.trim().isNotEmpty) {
+      if (spoken != null && spoken.text.trim().isNotEmpty) {
         renditions = [
           Rendition.text(
             id: _ids.next(),
             itemId: item.id,
             kind: RenditionKind.plainText,
-            content: spoken,
+            content: spoken.text,
             isPrimary: true,
             createdAt: now,
+            wordTimings: spoken.words,
           ),
         ];
         language = item.source.language ?? defaultTranscriptionLanguage;
@@ -133,7 +135,7 @@ class YouTubeTranscriptTransformer implements Transformer {
   /// archivo bajado queda hasta terminar bien: si la app se cierra, al
   /// retomar no se vuelve a bajar. Después se borra: guardarlo es
   /// "Descargar el audio", que sigue siendo a pedido (F21, decisión B).
-  Future<String?> _transcribeAudio(
+  Future<Transcript?> _transcribeAudio(
     String videoId,
     KnowledgeItem item,
     TransformContext context,
@@ -179,7 +181,7 @@ class YouTubeTranscriptTransformer implements Transformer {
         ),
       );
       _discard(marker, audioPath);
-      return transcript.text;
+      return transcript;
     } on Object {
       // Interrumpido por algo que un reintento puede salvar: el audio bajado
       // se conserva. Abandonado —se borró el elemento—, no.

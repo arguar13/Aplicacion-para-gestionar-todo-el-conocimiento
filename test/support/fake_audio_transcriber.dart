@@ -8,12 +8,16 @@ import 'package:sinapsis/features/transform/domain/services/audio_transcriber.da
 /// Devuelve el texto que el test le ponga, sin ningún motor de verdad
 /// detrás.
 class FakeAudioTranscriber implements AudioTranscriber {
-  FakeAudioTranscriber({this.text = ''});
+  FakeAudioTranscriber({this.text = '', this.words = const []});
 
   /// Lo que "transcribe" en cualquier archivo. Cadena vacía por defecto,
   /// igual que un video sin diálogo. Mutable a propósito: una prueba puede
   /// cambiarlo a mitad de camino.
   String text;
+
+  /// Las palabras con su momento que "midió" (F23). Vacío por defecto: un
+  /// motor que no los mide.
+  List<TimedWord> words;
 
   /// Si está, se lanza en vez de devolver.
   Object? error;
@@ -39,6 +43,6 @@ class FakeAudioTranscriber implements AudioTranscriber {
     languages.add(language);
     if (error != null) throw error!;
 
-    return Transcript(text);
+    return Transcript(text, words);
   }
 }

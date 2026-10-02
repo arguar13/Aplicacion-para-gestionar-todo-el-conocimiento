@@ -122,6 +122,9 @@ class AudioTranscriptTransformer implements Transformer {
           content: text,
           isPrimary: true,
           createdAt: _clock(),
+          // Cuándo se dice cada palabra, si el motor lo midió (F23): lo que
+          // permite seguir el audio en el texto.
+          wordTimings: transcript.words,
         ),
       ],
     );

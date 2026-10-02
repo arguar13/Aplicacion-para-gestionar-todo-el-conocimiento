@@ -26,6 +26,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/entities/timed_word.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -181,6 +182,28 @@ void main() {
       expect(found.source.authorUrl, item.source.authorUrl);
       expect(found.renditions, hasLength(1));
       expect(found.tags.map((t) => t.name), ['epistemología']);
+    });
+
+    test('una transcripción vuelve con el momento de cada palabra, y sin '
+        'ellos si no se midieron (F23)', () async {
+      final base = buildItem();
+      const timings = [TimedWord('Hola', 0), TimedWord('mundo.', 420)];
+      await repository.save(
+        base.copyWith(
+          renditions: [
+            (textRendition(base.id, '[0:00] Hola mundo.') as TextRendition)
+                .copyWith(wordTimings: timings),
+            textRendition(base.id, 'Sin tiempos', id: 'otra', isPrimary: false),
+          ],
+        ),
+      );
+
+      final found = (await repository.findById(
+        base.id,
+      )).getRight().toNullable()!;
+      final texts = found.renditions.cast<TextRendition>();
+      expect(texts.firstWhere((r) => r.id != 'otra').wordTimings, timings);
+      expect(texts.firstWhere((r) => r.id == 'otra').wordTimings, isEmpty);
     });
 
     test('un elemento que no existe devuelve null, no un error', () async {

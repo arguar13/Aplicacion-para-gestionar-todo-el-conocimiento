@@ -161,7 +161,11 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
     }
   }
 
-  await migrator.alterTable(TableMigration(db.renditions));
+  // Lo mismo con `renditions`: ganó `word_timings` en v33 (F23), que una
+  // base de v16 o v17 no tiene. El paso v33 la agrega solo si falta.
+  await migrator.alterTable(
+    TableMigration(db.renditions, newColumns: [db.renditions.wordTimings]),
+  );
   await migrator.alterTable(TableMigration(db.relations));
   // `alterTable` reconstruye la tabla con su definición de HOY: `flashcards`
   // ganó tres columnas en v20, una más en v27 y otra en v29, que una base de

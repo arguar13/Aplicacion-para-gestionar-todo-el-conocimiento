@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/features/vault/data/merge/rendition_merge.dart';
 
 import '../../../../support/test_vault.dart';
 
@@ -89,6 +90,58 @@ void main() {
       )).firstWhere((r) => r.id == 'rend-file');
       expect(file.relativePath, 'originales/a/doc.pdf');
       expect(file.content, isNull);
+    });
+  });
+
+  test('censo: la fusión copia TODAS las columnas de renditions —una que '
+      'faltara se perdería en silencio— (F23)', () async {
+    final columns = [
+      for (final row
+          in await tel.db.customSelect('PRAGMA table_info(renditions)').get())
+        row.read<String>('name'),
+    ];
+
+    expect(kRenditionColumns.toSet(), columns.toSet());
+  });
+
+  group('cuándo se dice cada palabra (F23)', () {
+    const timings = '{"w":["Texto","de"],"ms":[0,400]}';
+
+    test('viaja con la transcripción de un elemento nuevo', () async {
+      pc.at(3);
+      await pc.saveSource('a');
+      await pc.db.customStatement(
+        "UPDATE renditions SET word_timings = '$timings'",
+      );
+
+      await tel.mergeFrom(pc);
+
+      final row = await tel.db
+          .customSelect(
+            "SELECT word_timings FROM renditions WHERE id = 'rend-a'",
+          )
+          .getSingle();
+      expect(row.read<String?>('word_timings'), timings);
+    });
+
+    test('el mismo texto, medido solo en la copia: se completa, sin '
+        'conflicto ni otra forma', () async {
+      await shareSource();
+      await pc.db.customStatement(
+        "UPDATE renditions SET word_timings = '$timings'",
+      );
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.conflictsRecorded, 0);
+      expect(await tel.renditionsOf('a'), hasLength(1));
+      final row = await tel.db
+          .customSelect(
+            "SELECT word_timings FROM renditions WHERE id = 'rend-a'",
+          )
+          .getSingle();
+      expect(row.read<String?>('word_timings'), timings);
     });
   });
 

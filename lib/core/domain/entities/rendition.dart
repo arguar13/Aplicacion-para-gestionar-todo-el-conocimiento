@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/timed_word.dart';
 
 part 'rendition.freezed.dart';
 
@@ -26,6 +27,15 @@ sealed class Rendition with _$Rendition {
     required String content,
     required bool isPrimary,
     required DateTime createdAt,
+
+    /// En una transcripción, cada palabra de lo dicho con el momento en que
+    /// se dice, en orden —sin las marcas "[3:15]" de cada renglón— (F23):
+    /// lo que permite resaltar la palabra que suena. Vacío si no se midió:
+    /// un texto que no es una transcripción, o una transcripción hecha antes
+    /// de F23. Se ubican en `content` por las palabras mismas, no por
+    /// posición, así que siguen sirviendo después de "Quitar marcas de
+    /// tiempo".
+    @Default(<TimedWord>[]) List<TimedWord> wordTimings,
   }) = TextRendition;
 
   /// Contenido que vive como archivo: imagen, audio, PDF, la copia de una
