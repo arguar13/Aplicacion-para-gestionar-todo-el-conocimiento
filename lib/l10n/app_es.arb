@@ -4736,5 +4736,82 @@
   "failureDownloadBlocked": "YouTube no deja bajar el audio de este video a apps que no son la suya. El video y su texto siguen guardados.",
   "@failureDownloadBlocked": {
     "description": "Why a YouTube video's audio couldn't be downloaded: YouTube refuses it to apps other than its own"
+  },
+  "readAloudTooltip": "Leer en voz alta",
+  "@readAloudTooltip": {
+    "description": "Botón flotante del lector (F25) que empieza a leer en voz alta el texto de la pantalla."
+  },
+  "readAloudExpand": "Mostrar el lector",
+  "@readAloudExpand": {
+    "description": "Botón flotante del lector (F25), achicado mientras lee: lo vuelve a abrir."
+  },
+  "readAloudReading": "Leyendo en voz alta",
+  "@readAloudReading": {
+    "description": "Debajo del título en el reproductor del lector flotante (F25), mientras lee."
+  },
+  "readAloudPaused": "En pausa",
+  "@readAloudPaused": {
+    "description": "Debajo del título en el reproductor del lector flotante (F25), en pausa."
+  },
+  "readAloudReplay": "Retroceder 10 segundos",
+  "@readAloudReplay": {
+    "description": "Botón del lector flotante (F25) que vuelve 10 segundos de habla atrás."
+  },
+  "readAloudForward": "Avanzar 10 segundos",
+  "@readAloudForward": {
+    "description": "Botón del lector flotante (F25) que salta 10 segundos de habla adelante."
+  },
+  "readAloudVoice": "Voz y acento",
+  "@readAloudVoice": {
+    "description": "Botón del lector flotante (F25) que abre el panel de voz y acento, y título de ese panel."
+  },
+  "readAloudAccent": "Acento",
+  "@readAloudAccent": {
+    "description": "Sección del panel de voz del lector flotante (F25): el idioma y la región de la voz."
+  },
+  "readAloudVoiceSection": "Voz",
+  "@readAloudVoiceSection": {
+    "description": "Sección del panel de voz del lector flotante (F25): las voces del acento elegido."
+  },
+  "readAloudSystemVoice": "Voz del sistema",
+  "@readAloudSystemVoice": {
+    "description": "Opción del panel de voz del lector flotante (F25): la voz que el teléfono tiene elegida."
+  },
+  "readAloudSystemVoiceHint": "La que usa el teléfono",
+  "@readAloudSystemVoiceHint": {
+    "description": "Aclaración debajo de \"Voz del sistema\" en el panel de voz del lector flotante (F25)."
+  },
+  "readAloudVoiceNumber": "Voz {number}",
+  "@readAloudVoiceNumber": {
+    "description": "Nombre de una voz del panel del lector flotante (F25) cuando el sistema solo le da un código.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "readAloudVoiceOnDevice": "En el teléfono",
+  "@readAloudVoiceOnDevice": {
+    "description": "Debajo de una voz del lector flotante (F25) que funciona sin conexión."
+  },
+  "readAloudVoiceNeedsInternet": "Necesita internet",
+  "@readAloudVoiceNeedsInternet": {
+    "description": "Debajo de una voz del lector flotante (F25) que solo funciona con conexión."
+  },
+  "readAloudNoVoices": "Este teléfono no ofrece otras voces: se usa la del sistema.",
+  "@readAloudNoVoices": {
+    "description": "Panel de voz del lector flotante (F25) cuando el motor de voz no trae ninguna voz instalada."
+  },
+  "readAloudMinimize": "Minimizar",
+  "@readAloudMinimize": {
+    "description": "Botón del lector flotante (F25) que lo achica al botón redondo; sigue leyendo."
+  },
+  "readAloudClose": "Dejar de leer",
+  "@readAloudClose": {
+    "description": "Botón del lector flotante (F25) que deja de leer y lo cierra."
+  },
+  "readAloudFailed": "No se pudo leer en voz alta. Probá con otra voz.",
+  "@readAloudFailed": {
+    "description": "Aviso del lector flotante (F25) cuando falló el motor de voz."
   }
 }

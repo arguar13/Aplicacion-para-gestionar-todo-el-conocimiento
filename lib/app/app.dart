@@ -8,6 +8,7 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class App extends ConsumerWidget {
@@ -38,9 +39,13 @@ class App extends ConsumerWidget {
           reportBackHandling(router, notification),
       // Un nivel por encima del `Navigator`, donde `MaterialApp` ya montó
       // su propio `ScaffoldMessenger` — ver el docstring de
-      // GlobalErrorListener sobre por qué alcanza con este `context`.
-      builder: (context, child) =>
-          GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+      // GlobalErrorListener sobre por qué alcanza con este `context`. Ahí
+      // mismo, por encima de toda pantalla, el lector flotante (F25): sigue
+      // leyendo aunque se cambie de pestaña.
+      builder: (context, child) => ReadAloudOverlay(
+        router: router,
+        child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

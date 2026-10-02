@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/audio/audio_focus.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
@@ -39,10 +41,29 @@ class PlaybackSession {
 /// La sesión de reproducción del archivo en `path` —ruta absoluta—. Vive
 /// mientras algo en pantalla la use: al salir del elemento, se suelta y el
 /// audio se detiene.
+///
+/// Uno a la vez con el lector flotante (F25): al empezar a sonar toma el
+/// foco de audio —ver [AudioFocus]—, y si otro lo toma, se pausa.
 final playbackSessionProvider = Provider.autoDispose
     .family<PlaybackSession, String>((ref, path) {
       final session = PlaybackSession(VideoPlayerController.file(File(path)));
       ref.onDispose(session.controller.dispose);
+
+      final controller = session.controller;
+      final focus = ref.read(audioFocusProvider.notifier);
+      // El oyente del reproductor salta en cada avance de la posición: solo
+      // importa el paso de quieto a sonando.
+      var wasPlaying = false;
+      controller.addListener(() {
+        final playing = controller.value.isPlaying;
+        if (playing && !wasPlaying) focus.claim(session);
+        wasPlaying = playing;
+      });
+      ref.listen(audioFocusProvider, (_, owner) {
+        if (!identical(owner, session) && controller.value.isPlaying) {
+          unawaited(controller.pause());
+        }
+      });
       return session;
     });
 

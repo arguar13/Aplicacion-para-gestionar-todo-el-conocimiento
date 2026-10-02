@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mini_player.dart';
 
@@ -108,18 +109,23 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: IgnorePointer(
-              ignoring: !_visible,
-              child: AnimatedSlide(
-                offset: _visible ? Offset.zero : const Offset(0, 1.6),
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                child: AnimatedOpacity(
-                  opacity: _visible ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: MiniPlayer(
-                    controller: session.controller,
-                    onBackToAudio: _backToAudio,
+            // Mientras se ve, el botón del lector flotante se para encima de
+            // la pastilla en vez de taparle un costado (F25).
+            child: ReadAloudClearance(
+              enabled: _visible,
+              child: IgnorePointer(
+                ignoring: !_visible,
+                child: AnimatedSlide(
+                  offset: _visible ? Offset.zero : const Offset(0, 1.6),
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedOpacity(
+                    opacity: _visible ? 1 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: MiniPlayer(
+                      controller: session.controller,
+                      onBackToAudio: _backToAudio,
+                    ),
                   ),
                 ),
               ),
