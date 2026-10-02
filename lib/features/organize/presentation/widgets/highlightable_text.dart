@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -16,6 +17,8 @@ import 'package:sinapsis/features/citations/presentation/fragment_citation.dart'
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -105,7 +108,6 @@ class HighlightableText extends ConsumerStatefulWidget {
     required this.content,
     this.controller,
     this.initialJump,
-    this.extractFirst = false,
     this.markdown = true,
     this.playing,
     this.onTapOffset,
@@ -127,17 +129,13 @@ class HighlightableText extends ConsumerStatefulWidget {
   /// contenido.
   final ({int start, int end})? initialJump;
 
-  /// Si "Extraer como nota" va antes que "Resaltar" en el menú de selección: la
-  /// vista de lectura para destilar lo pone primero, porque es para lo que se
-  /// abrió.
-  final bool extractFirst;
-
   /// Si [content] es Markdown y se muestra con formato, o texto tal cual:
   /// ver `extractedTextIsMarkdown` (F22).
   final bool markdown;
 
   /// Lo que se está diciendo mientras suena el audio (F23): `[start, end)`
-  /// del contenido, en amarillo.
+  /// del contenido, en amarillo. Si el lector flotante está leyendo este
+  /// texto (F25), manda lo suyo: es lo que el usuario está escuchando.
   final ({int start, int end})? playing;
 
   /// Se tocó el texto en esta posición del contenido —sin seleccionar—: lo
@@ -332,52 +330,38 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       );
   }
 
-  /// Agrega "Resaltar" y "Extraer como nota" al menú de selección que
-  /// Flutter ya arma para Copiar/Compartir, en vez de dibujar uno propio:
-  /// mismo look nativo del resto del menú, y Flutter lo posiciona solo
+  /// El menú de selección de la app —ver [selectionMenuItems]—, con lo que
+  /// este texto agrega: leer lo seleccionado en voz alta, resaltarlo,
+  /// extraerlo como nota o hacer una tarjeta. Flutter lo posiciona solo
   /// junto a la selección activa, sea cual sea el punto de un texto largo
   /// donde el usuario esté parado.
-  Widget _buildContextMenu(
-    BuildContext context,
-    EditableTextState editableTextState,
-  ) {
-    final l10n = AppLocalizations.of(context)!;
-    final selection = editableTextState.textEditingValue.selection;
-
-    final highlight = ContextMenuButtonItem(
-      onPressed: () {
-        ContextMenuController.removeAny();
-        unawaited(_highlightSelection(selection));
-      },
-      label: l10n.detailHighlightSelection,
-    );
-    final extract = ContextMenuButtonItem(
-      onPressed: () {
-        ContextMenuController.removeAny();
-        unawaited(_extractSelection(selection));
-      },
-      label: l10n.detailExtractSelection,
-    );
-
-    final flashcard = ContextMenuButtonItem(
-      onPressed: () {
-        ContextMenuController.removeAny();
-        unawaited(_createFlashcardFromSelection(selection));
-      },
-      label: l10n.flashcardsFromSelection,
-    );
-
-    final buttonItems = [
-      if (!selection.isCollapsed)
-        ...widget.extractFirst
-            ? [extract, highlight, flashcard]
-            : [highlight, extract, flashcard],
-      ...editableTextState.contextMenuButtonItems,
-    ];
-
+  Widget _buildContextMenu(BuildContext context, EditableTextState editable) {
+    final selection = editable.textEditingValue.selection;
     return AdaptiveTextSelectionToolbar.buttonItems(
-      anchors: editableTextState.contextMenuAnchors,
-      buttonItems: buttonItems,
+      anchors: editable.contextMenuAnchors,
+      buttonItems: selectionMenuItems(
+        context,
+        editable,
+        onReadAloud: () => unawaited(_readSelectionAloud(selection)),
+        onHighlight: () => unawaited(_highlightSelection(selection)),
+        onExtract: () => unawaited(_extractSelection(selection)),
+        onCreateFlashcard: () =>
+            unawaited(_createFlashcardFromSelection(selection)),
+      ),
+    );
+  }
+
+  /// "Leer en voz alta": las líneas que toca la selección, con el resaltado
+  /// del lector flotante (F25).
+  Future<void> _readSelectionAloud(TextSelection selection) {
+    final start = _rendered.renderToRaw(selection.start);
+    final end = _rendered.renderToRaw(selection.end, isEnd: true);
+    return readSelectionAloud(
+      ref,
+      text: widget.content.substring(start, end),
+      sourceKey: widget.renditionId,
+      start: start,
+      end: end,
     );
   }
 
@@ -460,6 +444,9 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
         ?.source
         .kind;
     final isSource = kind != null && kind != SourceKind.manualNote;
+    // Lo que lee el lector flotante (F25): solo este texto se redibuja
+    // cuando cambia la línea, y solo si es suya.
+    final readAloud = ref.watch(readAloudHighlightProvider(widget.renditionId));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,10 +459,12 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
               for (final h in validHighlights) (h.startOffset, h.endOffset),
               ?_flash,
             ],
-            activeRange: switch (widget.playing) {
-              final playing? => (playing.start, playing.end),
-              null => null,
-            },
+            activeRange:
+                readAloud ??
+                switch (widget.playing) {
+                  final playing? => (playing.start, playing.end),
+                  null => null,
+                },
           ),
           contextMenuBuilder: _buildContextMenu,
           onSelectionChanged: (selection, cause) {
@@ -564,6 +553,88 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     await ref
         .read(organizeRepositoryProvider)
         .updateHighlightNote(id: highlight.id, note: result);
+  }
+}
+
+/// Un texto corto que se muestra tal cual —un mensaje del chat, una cara de
+/// una tarjeta, la nota del usuario—, con lo que está leyendo el lector
+/// flotante en amarillo (F25): el mismo amarillo que [HighlightableText] y
+/// que el audio (F23), para los textos que no se subrayan.
+///
+/// Sin nada que resaltar se dibuja igual que un `Text` —o un
+/// `SelectableText`, con [selectable]— de siempre; solo el texto que se está
+/// leyendo se redibuja cuando el lector cambia de línea.
+class ReadAloudText extends ConsumerWidget {
+  const ReadAloudText(
+    this.text, {
+    required this.sourceKey,
+    this.style,
+    this.textAlign,
+    this.selectable = false,
+    super.key,
+  });
+
+  final String text;
+
+  /// Con qué nombre lo conoce el lector: el `sourceKey` de los pedazos que
+  /// salen de [text], con sus posiciones contadas sobre [text] tal cual.
+  final String sourceKey;
+
+  final TextStyle? style;
+  final TextAlign? textAlign;
+  final bool selectable;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reading = ref.watch(readAloudHighlightProvider(sourceKey));
+    // El menú de selección de la app; "Leer en voz alta" lee las líneas que
+    // toca la selección: las posiciones de [text] son las de sus pedazos.
+    Widget menu(BuildContext context, EditableTextState editable) =>
+        buildSelectionMenu(
+          context,
+          editable,
+          onReadAloud: () {
+            final selection = editable.textEditingValue.selection;
+            unawaited(
+              readSelectionAloud(
+                ref,
+                text: selection.textInside(text),
+                sourceKey: sourceKey,
+                start: selection.start,
+                end: selection.end,
+              ),
+            );
+          },
+        );
+
+    if (reading == null) {
+      return selectable
+          ? SelectableText(
+              text,
+              style: style,
+              textAlign: textAlign,
+              contextMenuBuilder: menu,
+            )
+          : Text(text, style: style, textAlign: textAlign);
+    }
+
+    // Las mismas piezas que un texto sin formato de [HighlightableText]:
+    // así el amarillo es exactamente el mismo en toda la app. Parte del
+    // estilo que tendría el `Text` de arriba, para que resaltar una línea
+    // no le cambie la letra al resto.
+    final spans = RenderedMarkdown.plain(text).buildSpans(
+      Theme.of(context),
+      const [],
+      baseStyle: DefaultTextStyle.of(context).style.merge(style),
+      activeRange: reading,
+    );
+    return selectable
+        ? SelectableText.rich(
+            spans,
+            textAlign: textAlign,
+            contextMenuBuilder: menu,
+          )
+        : Text.rich(spans, textAlign: textAlign);
   }
 }
 

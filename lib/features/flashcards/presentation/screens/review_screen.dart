@@ -15,6 +15,9 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choic
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar las tarjetas que ya tocan, de a una: se lee la pregunta, se
@@ -223,103 +226,136 @@ class _CardView extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isMultipleChoice = card.kind == FlashcardKind.multipleChoice;
+    // back queda vacío en una tarjeta de opción múltiple
+    // (FlashcardRepositoryImpl.createMultipleChoice): la respuesta sale de
+    // sus opciones, no de acá.
+    final showsBack = revealed && !isMultipleChoice;
+    final frontKey = 'card:${card.id}:front';
+    final backKey = 'card:${card.id}:back';
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      // De opción múltiple, la pregunta + hasta cuatro opciones + los
-      // cuatro botones de calificar a la vez pueden pasarse de la altura
-      // disponible en una pantalla chica —a diferencia de la tarjeta
-      // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
-      // vez de recortarse.
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l10n.reviewRemaining(remaining),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    // Lo que se lee en voz alta (F25): la pregunta y, ya revelada, la
+    // respuesta. Revelarla es otro texto —otro `id`—: el lector vuelve a
+    // empezar por la pregunta en vez de seguir donde terminó. Dos textos
+    // cortos: armarlos acá cuesta nada, y esto se reconstruye solo al
+    // revelar o al pasar de tarjeta.
+    final readable = documentFrom(
+      showsBack ? 'review:${card.id}:answer' : 'review:${card.id}',
+      l10n.reviewTitle,
+      [
+        (
+          sourceKey: frontKey,
+          text: card.front,
+          markdown: false,
+          transcript: false,
+        ),
+        if (showsBack)
+          (
+            sourceKey: backKey,
+            text: card.back,
+            markdown: false,
+            transcript: false,
+          ),
+      ],
+    );
+
+    return ReadableRegion(
+      document: readable,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        // De opción múltiple, la pregunta + hasta cuatro opciones + los
+        // cuatro botones de calificar a la vez pueden pasarse de la altura
+        // disponible en una pantalla chica —a diferencia de la tarjeta
+        // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
+        // vez de recortarse.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.reviewRemaining(remaining),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              // De opción múltiple no se "revela" tocando la caja: se
-              // contesta tocando una opción, más abajo.
-              onTap: (revealed || isMultipleChoice) ? null : onReveal,
-              child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 200),
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.6,
+              const SizedBox(height: 24),
+              GestureDetector(
+                // De opción múltiple no se "revela" tocando la caja: se
+                // contesta tocando una opción, más abajo.
+                onTap: (revealed || isMultipleChoice) ? null : onReveal,
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 200),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
-                ),
-                alignment: Alignment.center,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      card.front,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    // back queda vacío en una tarjeta de opción múltiple
-                    // (FlashcardRepositoryImpl.createMultipleChoice): la
-                    // respuesta sale de sus opciones, no de acá.
-                    if (revealed && !isMultipleChoice) ...[
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const SizedBox(height: 16),
-                      Text(
-                        card.back,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ReadAloudText(
+                        card.front,
+                        sourceKey: frontKey,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge,
+                        style: theme.textTheme.titleLarge,
                       ),
+                      if (showsBack) ...[
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        ReadAloudText(
+                          card.back,
+                          sourceKey: backKey,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            // Con la respuesta a la vista, se puede ir a ver de dónde salió
-            // —de opción múltiple, cada opción ya trae la suya propia más
-            // abajo, `card.hasSourceRange` es siempre falso para esta
-            // forma—.
-            if (revealed && card.hasSourceRange) ...[
-              TextButton.icon(
-                icon: const Icon(Icons.menu_book_outlined, size: 18),
-                label: Text(l10n.flashcardsViewSource),
-                onPressed: () => openFlashcardSource(context, card),
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (isMultipleChoice) ...[
-              // Montado siempre, contestada o no —así conserva su propio
-              // estado de qué se tocó al revelar, en vez de perderlo
-              // cuando `revealed` cambia y esta sección se arma de
-              // nuevo—: las opciones, ya coloreadas, se quedan a la vista
-              // mientras se califica.
-              _MultipleChoiceAnswer(
-                flashcardId: card.id,
-                onAnswered: (_) => onReveal(),
-              ),
-              if (revealed) ...[
-                const SizedBox(height: 16),
-                _GradeRow(grading: grading, onGrade: onGrade),
+              const SizedBox(height: 24),
+              // Con la respuesta a la vista, se puede ir a ver de dónde salió
+              // —de opción múltiple, cada opción ya trae la suya propia más
+              // abajo, `card.hasSourceRange` es siempre falso para esta
+              // forma—.
+              if (revealed && card.hasSourceRange) ...[
+                TextButton.icon(
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  label: Text(l10n.flashcardsViewSource),
+                  onPressed: () => openFlashcardSource(context, card),
+                ),
+                const SizedBox(height: 8),
               ],
-            ] else if (!revealed)
-              OutlinedButton(
-                onPressed: onReveal,
-                child: Text(l10n.reviewShowAnswer),
-              )
-            else
-              _GradeRow(grading: grading, onGrade: onGrade),
-          ],
+              if (isMultipleChoice) ...[
+                // Montado siempre, contestada o no —así conserva su propio
+                // estado de qué se tocó al revelar, en vez de perderlo
+                // cuando `revealed` cambia y esta sección se arma de
+                // nuevo—: las opciones, ya coloreadas, se quedan a la vista
+                // mientras se califica.
+                _MultipleChoiceAnswer(
+                  flashcardId: card.id,
+                  onAnswered: (_) => onReveal(),
+                ),
+                if (revealed) ...[
+                  const SizedBox(height: 16),
+                  _GradeRow(grading: grading, onGrade: onGrade),
+                ],
+              ] else if (!revealed)
+                OutlinedButton(
+                  onPressed: onReveal,
+                  child: Text(l10n.reviewShowAnswer),
+                )
+              else
+                _GradeRow(grading: grading, onGrade: onGrade),
+            ],
+          ),
         ),
       ),
     );

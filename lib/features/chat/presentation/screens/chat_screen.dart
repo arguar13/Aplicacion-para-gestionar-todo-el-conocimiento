@@ -23,7 +23,12 @@ import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -733,12 +738,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 attachments: _pendingAttachments,
                 onRemove: _removeAttachment,
               ),
-            _Composer(
-              controller: _controller,
-              enabled: !_asking,
-              attaching: _attaching,
-              onSend: _send,
-              onAttach: _attaching ? null : _pickAttachmentKind,
+            // El lector flotante se para encima de la caja, no sobre
+            // "Enviar" (F25).
+            ReadAloudClearance(
+              child: _Composer(
+                controller: _controller,
+                enabled: !_asking,
+                attaching: _attaching,
+                onSend: _send,
+                onAttach: _attaching ? null : _pickAttachmentKind,
+              ),
             ),
           ],
         ),
@@ -970,6 +979,34 @@ class _ConversationSubtitle extends ConsumerWidget {
   }
 }
 
+/// Lo que se lee en voz alta de una conversación (F25): los mensajes, en
+/// orden —los del usuario y las respuestas—, cada uno con su resaltado. Sin
+/// los avisos de error ni los mensajes que son solo adjuntos. Se arma de
+/// nuevo solo cuando llega un mensaje.
+final _readableProvider = Provider.autoDispose
+    .family<ReadableDocument?, ({String conversationId, String title})>((
+      ref,
+      chat,
+    ) {
+      final messages = ref
+          .watch(chatMessagesProvider(chat.conversationId))
+          .valueOrNull;
+      if (messages == null) return null;
+      return documentFrom('chat:${chat.conversationId}', chat.title, [
+        for (final message in messages)
+          if (message.error == null && message.text.isNotEmpty)
+            (
+              sourceKey: _messageKey(message.id),
+              text: message.text,
+              markdown: false,
+              transcript: false,
+            ),
+      ]);
+    });
+
+/// Con qué nombre conoce el lector flotante a un mensaje (F25).
+String _messageKey(String messageId) => 'chat:$messageId';
+
 class _MessagesList extends ConsumerWidget {
   const _MessagesList({
     required this.conversationId,
@@ -1008,14 +1045,22 @@ class _MessagesList extends ConsumerWidget {
                 : l10n.chatEmptyExplanation,
           );
         }
-        return ListView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.all(16),
-          itemCount: messages.length + (asking ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index >= messages.length) return const _TypingBubble();
-            return _MessageBubble(message: messages[index]);
-          },
+        return ReadableRegion(
+          document: ref.watch(
+            _readableProvider((
+              conversationId: conversationId,
+              title: l10n.chatTitle,
+            )),
+          ),
+          child: ListView.builder(
+            controller: scrollController,
+            padding: const EdgeInsets.all(16),
+            itemCount: messages.length + (asking ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index >= messages.length) return const _TypingBubble();
+              return _MessageBubble(message: messages[index]);
+            },
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -1125,8 +1170,9 @@ class _MessageBubble extends StatelessWidget {
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Text(
+                  child: ReadAloudText(
                     message.text,
+                    sourceKey: _messageKey(message.id),
                     style: TextStyle(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
@@ -1147,7 +1193,11 @@ class _MessageBubble extends StatelessWidget {
           if (error != null)
             Text(error, style: TextStyle(color: theme.colorScheme.error))
           else if (message.text.isNotEmpty) ...[
-            Text(message.text, style: theme.textTheme.bodyLarge),
+            ReadAloudText(
+              message.text,
+              sourceKey: _messageKey(message.id),
+              style: theme.textTheme.bodyLarge,
+            ),
             if (message.sources.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final source in message.sources) _SourceCard(source: source),

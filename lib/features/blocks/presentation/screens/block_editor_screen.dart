@@ -21,6 +21,10 @@ import 'package:sinapsis/features/duplicates/presentation/widgets/duplicate_warn
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/links/presentation/widgets/broken_link_offer.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
@@ -40,6 +44,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// propiedades (F16): solo tiene sentido para una nota nueva —una que ya
 /// existe tiene sus propios bloques y sus propias propiedades, que una
 /// plantilla no debe pisar—.
+///
+/// Lo escrito se puede escuchar con el lector flotante (F25), sin resaltado:
+/// el texto está en campos que se editan.
 class BlockEditorScreen extends ConsumerStatefulWidget {
   const BlockEditorScreen({this.existingItem, this.template, super.key});
 
@@ -132,6 +139,17 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
   final _dismissedLinks = <String>{};
   var _creatingLink = false;
 
+  /// Qué es para el lector flotante (F25): la nota que se edita, o esta
+  /// pantalla si la nota todavía no existe —otra nota nueva es otra cosa—.
+  late final _readableId =
+      'editor:${widget.existingItem?.id ?? identityHashCode(this)}';
+
+  /// Las líneas de la nota tal como está escrita, para leerla en voz alta
+  /// (F25); `null` si cambió y hay que volver a armarlas. Mientras se
+  /// escribe se arman un rato después de la última letra, no con cada una.
+  List<ReadableSegment>? _readable;
+  Timer? _readableTimer;
+
   List<_BlockEntry> _initialBlocks() {
     final existing = widget.existingItem?.renditions
         .whereType<TextRendition>()
@@ -162,12 +180,15 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     _now = ref.read(clockProvider);
     // El título también cuenta: un `[[ ]]` igual al propio título de una nota
     // que aún no se guardó no es un enlace a algo que falta.
-    _titleController.addListener(_scheduleLinkCheck);
+    _titleController
+      ..addListener(_scheduleLinkCheck)
+      ..addListener(_scheduleReadable);
   }
 
   @override
   void dispose() {
     _linkCheckTimer?.cancel();
+    _readableTimer?.cancel();
     _titleController.dispose();
     for (final block in _blocks) {
       block.dispose();
@@ -175,22 +196,44 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     super.dispose();
   }
 
-  void _track(_BlockEntry entry) =>
-      entry.controller.addListener(_scheduleLinkCheck);
+  void _track(_BlockEntry entry) => entry.controller
+    ..addListener(_scheduleLinkCheck)
+    ..addListener(_scheduleReadable);
 
   void _addBlockAfter(int index) {
     final entry = _BlockEntry(_newBlock());
     _track(entry);
-    setState(() => _blocks.insert(index + 1, entry));
+    setState(() {
+      _blocks.insert(index + 1, entry);
+      _readable = null;
+    });
   }
 
   void _removeBlock(int index) {
     if (_blocks.length <= 1) return;
     setState(() {
       _blocks.removeAt(index).dispose();
+      _readable = null;
     });
     _scheduleLinkCheck();
   }
+
+  void _scheduleReadable() {
+    _readableTimer?.cancel();
+    _readableTimer = Timer(_linkCheckDelay, () {
+      if (mounted) setState(() => _readable = null);
+    });
+  }
+
+  /// Cada bloque, un texto aparte: sus posiciones son las de su campo.
+  List<ReadableSegment> _readableSegments() => [
+    for (final (index, entry) in _blocks.indexed)
+      ...buildReadableSegments(
+        entry.controller.text,
+        sourceKey: '$_readableId:$index',
+        markdown: true,
+      ),
+  ];
 
   void _scheduleLinkCheck() {
     _linkCheckTimer?.cancel();
@@ -290,6 +333,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
     setState(() {
       final entry = _blocks.removeAt(oldIndex);
       _blocks.insert(newIndex, entry);
+      _readable = null;
     });
   }
 
@@ -537,6 +581,12 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
       for (final mention in _missingLinks)
         if (!_dismissedLinks.contains(mention.normalizedTitle)) mention,
     ];
+    final title = _titleController.text.trim();
+    final readable = ReadableDocument(
+      id: _readableId,
+      title: title.isEmpty ? l10n.blocksUntitled : title,
+      segments: _readable ??= _readableSegments(),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -565,89 +615,98 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ReorderableListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                    itemCount: _blocks.length + 1,
-                    // Sacar el foco antes de que arranque el arrastre: un
-                    // `TextField` con foco activo es un `Element` que depende
-                    // de su `FocusScope` (un `InheritedWidget`).
-                    // `ReorderableListView` desmonta y remonta ese `Element`
-                    // en otra posición del árbol para animar el
-                    // reordenamiento, y si todavía tiene ese vínculo activo,
-                    // Flutter revienta con "'_dependents.isEmpty': is not
-                    // true" al desmontarlo —un bug conocido de la propia
-                    // librería cuando el ítem arrastrado tiene un campo de
-                    // texto enfocado—. Sin foco, no hay dependencia que
-                    // sobreviva al desmontaje.
-                    onReorderStart: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
-                    onReorderItem: (oldIndex, newIndex) {
-                      // El título ocupa el índice 0 y no participa del
-                      // reordenamiento: se lo trata aparte, restando uno a
-                      // cada índice de bloque real. `onReorderItem` —a
-                      // diferencia de `onReorder`, obsoleto— ya entrega
-                      // `newIndex` ajustado por la remoción del elemento en
-                      // `oldIndex`.
-                      if (oldIndex == 0 || newIndex == 0) return;
-                      _reorder(oldIndex - 1, newIndex - 1);
-                    },
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          key: const ValueKey('title'),
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: TextField(
-                            controller: _titleController,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            decoration: InputDecoration(
-                              hintText: l10n.blocksTitleHint,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              filled: false,
+      body: ReadableRegion(
+        document: readable,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                      itemCount: _blocks.length + 1,
+                      // Sacar el foco antes de que arranque el arrastre: un
+                      // `TextField` con foco activo es un `Element` que depende
+                      // de su `FocusScope` (un `InheritedWidget`).
+                      // `ReorderableListView` desmonta y remonta ese `Element`
+                      // en otra posición del árbol para animar el
+                      // reordenamiento, y si todavía tiene ese vínculo activo,
+                      // Flutter revienta con "'_dependents.isEmpty': is not
+                      // true" al desmontarlo —un bug conocido de la propia
+                      // librería cuando el ítem arrastrado tiene un campo de
+                      // texto enfocado—. Sin foco, no hay dependencia que
+                      // sobreviva al desmontaje.
+                      onReorderStart: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onReorderItem: (oldIndex, newIndex) {
+                        // El título ocupa el índice 0 y no participa del
+                        // reordenamiento: se lo trata aparte, restando uno a
+                        // cada índice de bloque real. `onReorderItem` —a
+                        // diferencia de `onReorder`, obsoleto— ya entrega
+                        // `newIndex` ajustado por la remoción del elemento en
+                        // `oldIndex`.
+                        if (oldIndex == 0 || newIndex == 0) return;
+                        _reorder(oldIndex - 1, newIndex - 1);
+                      },
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return Padding(
+                            key: const ValueKey('title'),
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: TextField(
+                              controller: _titleController,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                              decoration: InputDecoration(
+                                hintText: l10n.blocksTitleHint,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                              ),
                             ),
-                          ),
-                        );
-                      }
+                          );
+                        }
 
-                      final blockIndex = index - 1;
-                      final entry = _blocks[blockIndex];
-                      return _BlockRow(
-                        key: entry.key,
-                        entry: entry,
-                        canDelete: _blocks.length > 1,
-                        onChangeType: (build) => _changeType(blockIndex, build),
-                        onDelete: () => _removeBlock(blockIndex),
-                        onAddAfter: () => _addBlockAfter(blockIndex),
-                        onInsertLink: () => _insertLink(blockIndex),
-                      );
-                    },
-                  ),
-                ),
-                if (offered.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: BrokenLinkOffer(
-                      key: const ValueKey('brokenLinkOffer'),
-                      title: offered.first.title,
-                      moreCount: offered.length - 1,
-                      busy: _creatingLink,
-                      onCreate: (kind) =>
-                          _createLinkedNote(offered.first, kind),
-                      onDismiss: () => setState(
-                        () =>
-                            _dismissedLinks.add(offered.first.normalizedTitle),
-                      ),
+                        final blockIndex = index - 1;
+                        final entry = _blocks[blockIndex];
+                        return _BlockRow(
+                          key: entry.key,
+                          entry: entry,
+                          canDelete: _blocks.length > 1,
+                          onChangeType: (build) =>
+                              _changeType(blockIndex, build),
+                          onDelete: () => _removeBlock(blockIndex),
+                          onAddAfter: () => _addBlockAfter(blockIndex),
+                          onInsertLink: () => _insertLink(blockIndex),
+                        );
+                      },
                     ),
                   ),
-              ],
+                  // Abajo de todo, con sus botones: el lector flotante se
+                  // para encima (F25).
+                  if (offered.isNotEmpty)
+                    ReadAloudClearance(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: BrokenLinkOffer(
+                          key: const ValueKey('brokenLinkOffer'),
+                          title: offered.first.title,
+                          moreCount: offered.length - 1,
+                          busy: _creatingLink,
+                          onCreate: (kind) =>
+                              _createLinkedNote(offered.first, kind),
+                          onDismiss: () => setState(
+                            () => _dismissedLinks.add(
+                              offered.first.normalizedTitle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

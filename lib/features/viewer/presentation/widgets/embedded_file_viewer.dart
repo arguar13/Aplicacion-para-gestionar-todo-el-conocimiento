@@ -93,7 +93,11 @@ class EmbeddedFileViewer extends ConsumerWidget {
         _EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
-          child: DocumentReaderView(content: content, markdown: markdown),
+          child: DocumentReaderView(
+            title: item.title,
+            content: content,
+            markdown: markdown,
+          ),
         ),
       ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(
         onExpand: expand,

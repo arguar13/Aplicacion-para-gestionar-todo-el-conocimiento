@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -16,6 +18,8 @@ import 'package:sinapsis/features/organize/domain/repositories/organize_reposito
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+import '../../../../support/selection_menu_test_support.dart';
 
 class _MockOrganizeRepository extends Mock implements OrganizeRepository {}
 
@@ -38,7 +42,13 @@ void main() {
   late _MockOrganizeRepository repository;
   late _MockCaptureItemUseCase captureUseCase;
 
-  setUp(() {
+  /// El texto pregunta si el lector flotante lo está leyendo (F25), y el
+  /// lector arranca con la voz y la velocidad guardadas.
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
     repository = _MockOrganizeRepository();
     captureUseCase = _MockCaptureItemUseCase();
     when(
@@ -52,6 +62,7 @@ void main() {
         overrides: [
           organizeRepositoryProvider.overrideWithValue(repository),
           captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -113,10 +124,9 @@ void main() {
       // El menú de selección agrega "Highlight" junto a Copy/Share (en
       // inglés porque el `MaterialApp` de la prueba no fija un locale y el
       // entorno de test usa "en" por defecto).
-      expect(find.text('Highlight'), findsOneWidget);
+      expect(selectionMenuLabels(tester), contains('Highlight'));
 
-      await tester.tap(find.text('Highlight'));
-      await tester.pumpAndSettle();
+      await tapSelectionMenuItem(tester, 'Highlight');
 
       // Confirma la nota vacía en el diálogo.
       await tester.tap(find.text('Save'));
@@ -183,8 +193,7 @@ void main() {
 
     // En inglés, ídem "Highlight" más arriba — el entorno de test no fija
     // un locale.
-    await tester.tap(find.text('Extract as note'));
-    await tester.pumpAndSettle();
+    await tapSelectionMenuItem(tester, 'Extract as note');
 
     // Guarda de dónde de la fuente salió el fragmento: "Conocemos" son los
     // primeros nueve caracteres.
@@ -200,18 +209,16 @@ void main() {
     expect(find.textContaining('Conocemos'), findsWidgets);
   });
 
-  group('orden del menú de selección', () {
-    Future<void> pumpAndSelect(
-      WidgetTester tester, {
-      required bool extractFirst,
-    }) async {
+  group('menú de selección', () {
+    Future<void> pumpAndSelect(WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             organizeRepositoryProvider.overrideWithValue(repository),
             captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+            sharedPreferencesProvider.overrideWithValue(prefs),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
@@ -219,7 +226,6 @@ void main() {
                 itemId: 'item-1',
                 renditionId: 'rendition-1',
                 content: 'Conocemos bien el amor y las reglas del juego.',
-                extractFirst: extractFirst,
               ),
             ),
           ),
@@ -238,24 +244,29 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('por defecto Resaltar va antes que Extraer', (tester) async {
-      await pumpAndSelect(tester, extractFirst: false);
+    testWidgets('las opciones de la app, en el orden pedido', (tester) async {
+      await pumpAndSelect(tester);
 
-      final highlight = tester.getTopLeft(find.text('Highlight'));
-      final extract = tester.getTopLeft(find.text('Extract as note'));
+      final toolbar = find.byType(AdaptiveTextSelectionToolbar);
+      final context = tester.element(toolbar);
+      final labels = [
+        for (final item
+            in tester
+                .widget<AdaptiveTextSelectionToolbar>(toolbar)
+                .buttonItems!)
+          AdaptiveTextSelectionToolbar.getButtonLabel(context, item),
+      ];
 
-      expect(highlight.dx, lessThan(extract.dx));
-    });
-
-    testWidgets('con extractFirst, Extraer va antes que Resaltar', (
-      tester,
-    ) async {
-      await pumpAndSelect(tester, extractFirst: true);
-
-      final highlight = tester.getTopLeft(find.text('Highlight'));
-      final extract = tester.getTopLeft(find.text('Extract as note'));
-
-      expect(extract.dx, lessThan(highlight.dx));
+      expect(labels, [
+        'Copy',
+        'Share',
+        'Select all',
+        'Read aloud',
+        'Highlight',
+        'Extract as note',
+        'Create flashcard',
+        'Search Web',
+      ]);
     });
   });
 
@@ -266,6 +277,7 @@ void main() {
           overrides: [
             organizeRepositoryProvider.overrideWithValue(repository),
             captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+            sharedPreferencesProvider.overrideWithValue(prefs),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -340,8 +352,7 @@ void main() {
         state.showToolbar();
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Highlight'));
-        await tester.pumpAndSettle();
+        await tapSelectionMenuItem(tester, 'Highlight');
         await tester.tap(find.text('Save'));
         await tester.pumpAndSettle();
 

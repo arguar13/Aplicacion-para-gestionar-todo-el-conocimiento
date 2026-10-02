@@ -29,9 +29,11 @@ class DocumentReaderScreen extends StatelessWidget {
       appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
       body: SafeArea(
         child: DocumentReaderView(
+          title: title,
           content: content,
           markdown: markdown,
           showFontControls: true,
+          controlsAtBottom: true,
         ),
       ),
     );

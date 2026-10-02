@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -44,6 +45,9 @@ import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dar
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/derived_note_badge.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
@@ -233,6 +237,26 @@ class _DetailBodyState extends State<_DetailBody> {
   /// Para que "Volver al audio" lleve a la palabra que suena (F23).
   final _follow = PlaybackFollowLink();
 
+  /// Lo que se ofrece para leer en voz alta (F25): se arma de nuevo solo
+  /// cuando el elemento cambia, no con cada cuadro.
+  late ReadableDocument _readable = _readableOf(widget.item);
+
+  /// Lo mismo con el texto plegado de un documento, recién cuando alguien
+  /// lo despliega: ver [_CollapsedExtractedText].
+  ReadableDocument? _unfolded;
+
+  ReadableDocument _readableUnfolded() =>
+      _unfolded ??= _readableOf(widget.item, unfolded: true);
+
+  @override
+  void didUpdateWidget(_DetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _readable = _readableOf(widget.item);
+      _unfolded = null;
+    }
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -247,7 +271,10 @@ class _DetailBodyState extends State<_DetailBody> {
 
     return Stack(
       children: [
-        _scrollingContent(context, item, theme, texts),
+        ReadableRegion(
+          document: _readable,
+          child: _scrollingContent(context, item, theme, texts),
+        ),
         // Con un audio o un video: el mini reproductor, para pausar o seguir
         // el audio sin volver a subir hasta el reproductor (F23).
         Positioned.fill(
@@ -328,7 +355,7 @@ class _DetailBodyState extends State<_DetailBody> {
                 const SizedBox(height: 24),
 
                 if (item.notes?.isNotEmpty ?? false) ...[
-                  _UserNote(note: item.notes!),
+                  _UserNote(itemId: item.id, note: item.notes!),
                   const SizedBox(height: 24),
                 ],
 
@@ -370,7 +397,11 @@ class _DetailBodyState extends State<_DetailBody> {
                 else if (item.isBeingProcessed)
                   _ReextractingText(item: item)
                 else if (item.source.kind == SourceKind.document)
-                  _CollapsedExtractedText(item: item, texts: texts)
+                  _CollapsedExtractedText(
+                    item: item,
+                    texts: texts,
+                    readable: _readableUnfolded,
+                  )
                 else
                   for (final rendition in texts) ...[
                     if (rendition.kind == RenditionKind.blocks)
@@ -422,6 +453,54 @@ class _DetailBodyState extends State<_DetailBody> {
     );
   }
 }
+
+/// Lo que se lee en voz alta del detalle de [item] (F25), en el orden en que
+/// se ve: la nota del usuario, y después cada forma de texto —una nota de
+/// bloques, bloque por bloque—.
+///
+/// Solo lo que se ve: sin el texto que se está volviendo a extraer
+/// (`_ReextractingText`), y sin el de un documento mientras está plegado
+/// —con [unfolded], con él—. El original de un Word o un EPUB, en su lector
+/// embebido, lo ofrece ese lector, que va por delante.
+ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
+  final markdown = extractedTextIsMarkdown(item.source);
+  final transcript = isTranscriptSource(item.source);
+  final textsShown =
+      !item.isBeingProcessed &&
+      (unfolded || item.source.kind != SourceKind.document);
+
+  return documentFrom('item:${item.id}', item.title, [
+    if (item.notes case final notes? when notes.isNotEmpty)
+      (
+        sourceKey: _userNoteKey(item.id),
+        text: notes,
+        markdown: false,
+        transcript: false,
+      ),
+    if (textsShown)
+      for (final rendition in item.renditions.whereType<TextRendition>())
+        if (rendition.kind == RenditionKind.blocks)
+          for (final (index, block) in decodeContentBlocks(
+            rendition.content,
+          ).indexed)
+            (
+              sourceKey: BlockView.readAloudKey(rendition.id, index),
+              text: block.text,
+              markdown: true,
+              transcript: false,
+            )
+        else
+          (
+            sourceKey: rendition.id,
+            text: rendition.content,
+            markdown: markdown,
+            transcript: transcript,
+          ),
+  ]);
+}
+
+/// Con qué nombre conoce el lector flotante a la nota del usuario (F25).
+String _userNoteKey(String itemId) => 'note:$itemId';
 
 /// La madurez de una nota viva —`seed`/`developing`/`mature`—, leída del
 /// espejo `item`/`source`/`note` que F3 mantiene sincronizado. `null`
@@ -535,11 +614,22 @@ class _MapNoteToggle extends ConsumerWidget {
 /// texto extraído existe para la búsqueda, el chat, las tarjetas y el quiz,
 /// no para leerlo acá. Plegado tampoco se construye: el de un libro de
 /// cientos de páginas no se arma hasta que alguien lo abre.
+///
+/// Desplegado, se lee en voz alta (F25) —es lo que se puede leer de un PDF—:
+/// ofrece el detalle entero con este texto, por encima de lo que ofrece el
+/// resto de la pantalla, y lo retira al plegarse.
 class _CollapsedExtractedText extends StatelessWidget {
-  const _CollapsedExtractedText({required this.item, required this.texts});
+  const _CollapsedExtractedText({
+    required this.item,
+    required this.texts,
+    required this.readable,
+  });
 
   final KnowledgeItem item;
   final List<TextRendition> texts;
+
+  /// Lo que se lee desplegado; se arma recién al desplegar.
+  final ReadableDocument Function() readable;
 
   @override
   Widget build(BuildContext context) {
@@ -559,13 +649,25 @@ class _CollapsedExtractedText extends StatelessWidget {
         ),
       ),
       children: [
-        for (final rendition in texts) ...[
-          if (rendition.kind == RenditionKind.blocks)
-            _BlocksRendition(item: item, rendition: rendition)
-          else
-            _TextRenditionView(item: item, rendition: rendition),
-          const SizedBox(height: 16),
-        ],
+        // Un `Builder`: plegado, `ExpansionTile` no monta lo de adentro, y
+        // así tampoco se parte el texto en líneas.
+        Builder(
+          builder: (context) => ReadableRegion(
+            document: readable(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final rendition in texts) ...[
+                  if (rendition.kind == RenditionKind.blocks)
+                    _BlocksRendition(item: item, rendition: rendition)
+                  else
+                    _TextRenditionView(item: item, rendition: rendition),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -727,6 +829,7 @@ class _BlocksRendition extends ConsumerWidget {
         ),
         BlockView(
           blocks: blocks,
+          renditionId: rendition.id,
           onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
         ),
       ],
@@ -779,8 +882,9 @@ class _BlocksRendition extends ConsumerWidget {
 /// Va destacado y arriba: es lo único de la pantalla que no vino de afuera, y
 /// suele ser la razón por la que se guardó.
 class _UserNote extends StatelessWidget {
-  const _UserNote({required this.note});
+  const _UserNote({required this.itemId, required this.note});
 
+  final String itemId;
   final String note;
 
   @override
@@ -803,7 +907,12 @@ class _UserNote extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: SelectableText(note, style: theme.textTheme.bodyMedium),
+            child: ReadAloudText(
+              note,
+              sourceKey: _userNoteKey(itemId),
+              style: theme.textTheme.bodyMedium,
+              selectable: true,
+            ),
           ),
         ],
       ),
@@ -1187,6 +1296,7 @@ class _OriginalLink extends StatelessWidget {
           ),
           child: SelectableText(
             url,
+            contextMenuBuilder: buildSelectionMenu,
             style: theme.textTheme.bodySmall?.copyWith(
               fontFamily: 'monospace',
               color: theme.colorScheme.onSurfaceVariant,

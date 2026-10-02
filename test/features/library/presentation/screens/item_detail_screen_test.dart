@@ -44,6 +44,7 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/selection_menu_test_support.dart';
 
 void main() {
   final es = AppLocalizationsEs();
@@ -2163,7 +2164,10 @@ void main() {
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
 
-      expect(find.text(es.detailHighlightSelection), findsOneWidget);
+      expect(
+        selectionMenuLabels(tester),
+        contains(es.detailHighlightSelection),
+      );
     });
 
     testWidgets('sin nada seleccionado, no se ofrece', (tester) async {
@@ -2181,8 +2185,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tester.tap(find.text(es.detailHighlightSelection));
-      await tester.pumpAndSettle();
+      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
 
       await tester.enterText(find.byType(TextField), 'me interesa esto');
       await tester.tap(find.text(es.detailSave));
@@ -2202,8 +2205,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tester.tap(find.text(es.detailHighlightSelection));
-      await tester.pumpAndSettle();
+      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
 
       await tester.tap(find.text(es.detailSave));
       await tester.pumpAndSettle();
@@ -2218,8 +2220,7 @@ void main() {
 
       await pumpDetail(tester, id);
       await selectFirstWord(tester);
-      await tester.tap(find.text(es.detailHighlightSelection));
-      await tester.pumpAndSettle();
+      await tapSelectionMenuItem(tester, es.detailHighlightSelection);
 
       await tester.tap(find.text(es.commonCancel));
       await tester.pumpAndSettle();

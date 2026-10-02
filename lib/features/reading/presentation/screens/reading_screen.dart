@@ -8,6 +8,10 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
@@ -21,6 +25,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// selección nativo la deja en segundo lugar y a merced de que el sistema lo
 /// muestre bien—. Arriba se cuenta cuántas notas salieron ya de esta fuente, y
 /// abajo se listan, cada una con un botón que lleva al fragmento del que salió.
+///
+/// Se lee en voz alta con el lector flotante (F25): el texto entero, con la
+/// línea que se lee en amarillo.
 ///
 /// Puede abrirse ya parada en un fragmento —desde una nota extraída—: [jump] es
 /// `[start, end)` del texto, y ahí baja la vista y lo marca un momento.
@@ -82,32 +89,34 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
       ),
       body: rendition == null
           ? _NoText(item: item)
-          : SingleChildScrollView(
-              physics: const ReadingScrollPhysics(),
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      HighlightableText(
-                        itemId: item.id,
-                        renditionId: rendition.id,
-                        content: rendition.content,
-                        controller: _controller,
-                        initialJump: widget.jump,
-                        extractFirst: true,
-                        markdown: extractedTextIsMarkdown(item.source),
-                      ),
-                      if (extracted.isNotEmpty)
-                        _ExtractedList(
-                          relations: extracted,
+          : ReadableRegion(
+              document: ref.watch(_readableProvider(item.id)),
+              child: SingleChildScrollView(
+                physics: const ReadingScrollPhysics(),
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HighlightableText(
+                          itemId: item.id,
+                          renditionId: rendition.id,
                           content: rendition.content,
-                          onGoTo: (start, end) =>
-                              _controller.jumpTo(start: start, end: end),
+                          controller: _controller,
+                          initialJump: widget.jump,
+                          markdown: extractedTextIsMarkdown(item.source),
                         ),
-                    ],
+                        if (extracted.isNotEmpty)
+                          _ExtractedList(
+                            relations: extracted,
+                            content: rendition.content,
+                            onGoTo: (start, end) =>
+                                _controller.jumpTo(start: start, end: end),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -115,12 +124,32 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
       // Barra de abajo del Scaffold y no un hijo más del cuerpo: los avisos —
       // "Nota creada" con su "Ver"— se apoyan encima de ella en vez de tapar
       // el botón, y extraer varios fragmentos seguidos no se traba.
+      // El lector flotante se para encima de la barra, sin tapar sus
+      // botones (F25).
       bottomNavigationBar: rendition == null
           ? null
-          : _SelectionBar(controller: _controller),
+          : ReadAloudClearance(child: _SelectionBar(controller: _controller)),
     );
   }
 }
+
+/// Lo que se lee en voz alta en la vista de lectura de un elemento (F25): su
+/// texto para extraer. Se arma de nuevo solo cuando el elemento cambia.
+final _readableProvider = Provider.autoDispose
+    .family<ReadableDocument?, String>((ref, itemId) {
+      final item = ref.watch(libraryItemProvider(itemId)).valueOrNull;
+      if (item == null) return null;
+      final rendition = extractableRendition(item);
+      if (rendition == null) return null;
+      return documentFrom('reading:$itemId', item.title, [
+        (
+          sourceKey: rendition.id,
+          text: rendition.content,
+          markdown: extractedTextIsMarkdown(item.source),
+          transcript: isTranscriptSource(item.source),
+        ),
+      ]);
+    });
 
 /// La barra fija de abajo: con un fragmento seleccionado, las acciones; sin
 /// selección, cómo empezar.

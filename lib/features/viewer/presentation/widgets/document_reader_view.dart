@@ -1,7 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
+import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_clearance.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
@@ -37,13 +46,22 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// cual dentro de un marco acotado en el detalle del elemento, sin esos
 /// controles: ajustar la letra es algo que se hace leyendo de corrido, no
 /// mirando de pasada un fragmento embebido.
+///
+/// **Se lee en voz alta (F25).** Ofrece al lector flotante la página que se
+/// ve y las que siguen; mientras lee, la línea va en amarillo y, cuando
+/// pasa a otra página, el lector la da vuelta solo.
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
+    required this.title,
     required this.content,
     this.markdown = true,
     this.showFontControls = false,
+    this.controlsAtBottom = false,
     super.key,
   });
+
+  /// El nombre del documento: lo que muestra el lector flotante (F25).
+  final String title;
 
   final String content;
 
@@ -52,14 +70,88 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   final bool markdown;
   final bool showFontControls;
 
+  /// Si los controles de abajo —resumir, pasar de página— quedan contra el
+  /// borde de abajo de la pantalla, como a pantalla completa: el lector
+  /// flotante se para encima de ellos en vez de tapar "siguiente" (F25).
+  /// Embebido en el detalle se desplazan con el resto, y no hay nada que
+  /// esquivar.
+  final bool controlsAtBottom;
+
   @override
   ConsumerState<DocumentReaderView> createState() => _DocumentReaderViewState();
 }
 
 class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
+  /// Cuántas páginas, contando la que se ve, se ofrecen para leer de una vez
+  /// (F25): cerca de una hora de lectura. Partir el libro entero en líneas al
+  /// abrirlo costaría, en uno de mil páginas, lo que no cuesta mostrarlo —ver
+  /// [splitIntoReaderPages]—; así cuesta lo mismo que unas pocas páginas.
+  static const _readAheadPages = 20;
+
   late final _pages = splitIntoReaderPages(widget.content);
   late final _controller = PageController();
   var _pageIndex = 0;
+
+  /// El libro, para el lector flotante: el mismo contenido en el detalle y a
+  /// pantalla completa es el mismo libro, y cada uno resalta y da vuelta la
+  /// página de lo que el otro empezó a leer.
+  late final _book = 'reader:${widget.content.hashCode}';
+
+  /// Las líneas de cada página, armadas la primera vez que hacen falta: pasar
+  /// de página no vuelve a preparar lo que ya se preparó.
+  final _pageSegments = <int, List<ReadableSegment>>{};
+
+  /// Lo que se ofrece ahora, y desde qué página.
+  (int, ReadableDocument)? _readable;
+
+  String _pageKey(int page) => '$_book:page:$page';
+
+  /// La página de [sourceKey], si es una de este libro.
+  int? _pageOf(String? sourceKey) {
+    final prefix = '$_book:page:';
+    if (sourceKey == null || !sourceKey.startsWith(prefix)) return null;
+    return int.tryParse(sourceKey.substring(prefix.length));
+  }
+
+  /// La página [from] y las que le siguen: el lector empieza por la que se
+  /// ve. Empezar por otra página es leer otra cosa —otro
+  /// [ReadableDocument.id]—, pero las líneas se llaman igual desde cualquier
+  /// página —[_pageKey]—, así que lo que se está leyendo se resalta y se
+  /// sigue aunque la página de la que se partió ya no sea la que se ve.
+  ReadableDocument _readableFrom(int from) {
+    final cached = _readable;
+    if (cached != null && cached.$1 == from) return cached.$2;
+    final until = (from + _readAheadPages).clamp(0, _pages.length);
+    final document = ReadableDocument(
+      id: '$_book:from:$from',
+      title: widget.title,
+      segments: [
+        for (var page = from; page < until; page++)
+          ...(_pageSegments[page] ??= buildReadableSegments(
+            _pages[page],
+            sourceKey: _pageKey(page),
+            markdown: widget.markdown,
+          )),
+      ],
+    );
+    _readable = (from, document);
+    return document;
+  }
+
+  /// El lector pasó a otra página de este documento: se la da vuelta, para
+  /// que lo que se oye sea lo que se ve. A la de al lado, con la animación de
+  /// siempre; más lejos —se retrocedió diez segundos hasta la anterior a la
+  /// anterior—, de un salto, sin armar las del medio.
+  void _followReader(String? sourceKey) {
+    final page = _pageOf(sourceKey);
+    if (page == null || page == _pageIndex || page >= _pages.length) return;
+    if (!_controller.hasClients) return;
+    if ((page - _pageIndex).abs() == 1) {
+      _goTo(page);
+    } else {
+      _controller.jumpToPage(page);
+    }
+  }
 
   @override
   void dispose() {
@@ -88,9 +180,24 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final fontScale = ref.watch(readerFontScaleNotifierProvider);
+    ref.listen(
+      readAloudControllerProvider.select(
+        (s) => s.panel == ReadAloudPanel.hidden
+            ? null
+            : s.currentSegment?.sourceKey,
+      ),
+      (previous, next) => _followReader(next),
+    );
 
     if (_pages.isEmpty) return const SizedBox.shrink();
 
+    return ReadableRegion(
+      document: _readableFrom(_pageIndex),
+      child: _buildReader(l10n, fontScale),
+    );
+  }
+
+  Widget _buildReader(AppLocalizations l10n, double fontScale) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -132,25 +239,39 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
               content: _pages[index],
               fontScale: fontScale,
               markdown: widget.markdown,
+              sourceKey: _pageKey(index),
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [SummarizeButton(content: _pages[_pageIndex])],
+        ReadAloudClearance(
+          enabled: widget.controlsAtBottom,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [SummarizeButton(content: _pages[_pageIndex])],
+                ),
+              ),
+              if (_pages.length > 1)
+                _PageControls(
+                  label: l10n.documentReaderPageOf(
+                    _pageIndex + 1,
+                    _pages.length,
+                  ),
+                  onLabelTap: () => _openPagePicker(l10n),
+                  onPrevious: _pageIndex > 0
+                      ? () => _goTo(_pageIndex - 1)
+                      : null,
+                  onNext: _pageIndex < _pages.length - 1
+                      ? () => _goTo(_pageIndex + 1)
+                      : null,
+                ),
+            ],
           ),
         ),
-        if (_pages.length > 1)
-          _PageControls(
-            label: l10n.documentReaderPageOf(_pageIndex + 1, _pages.length),
-            onLabelTap: () => _openPagePicker(l10n),
-            onPrevious: _pageIndex > 0 ? () => _goTo(_pageIndex - 1) : null,
-            onNext: _pageIndex < _pages.length - 1
-                ? () => _goTo(_pageIndex + 1)
-                : null,
-          ),
       ],
     );
   }
@@ -158,20 +279,27 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 
 /// Una página del libro: el mismo formato de tarjeta que tenía la pantalla
 /// entera antes de paginarse, ahora acotado a lo que entra en una página.
-class _ReaderPage extends StatelessWidget {
+/// Lo que lee el lector flotante, en amarillo (F25).
+class _ReaderPage extends ConsumerWidget {
   const _ReaderPage({
     required this.content,
     required this.fontScale,
     required this.markdown,
+    required this.sourceKey,
   });
 
   final String content;
   final double fontScale;
   final bool markdown;
 
+  /// Con qué nombre la conoce el lector flotante: las posiciones de lo que
+  /// lee son de [content].
+  final String sourceKey;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final reading = ref.watch(readAloudHighlightProvider(sourceKey));
     final rendered = markdown
         ? RenderedMarkdown.parse(content)
         : RenderedMarkdown.plain(content);
@@ -204,6 +332,28 @@ class _ReaderPage extends StatelessWidget {
                   height: 1.6,
                   fontSize: baseSize * fontScale,
                 ),
+                activeRange: reading,
+              ),
+              // El menú de selección de la app; "Leer en voz alta" lee las
+              // líneas que toca la selección, en las posiciones de
+              // [content].
+              contextMenuBuilder: (context, editable) => buildSelectionMenu(
+                context,
+                editable,
+                onReadAloud: () {
+                  final selection = editable.textEditingValue.selection;
+                  final start = rendered.renderToRaw(selection.start);
+                  final end = rendered.renderToRaw(selection.end, isEnd: true);
+                  unawaited(
+                    readSelectionAloud(
+                      ref,
+                      text: content.substring(start, end),
+                      sourceKey: sourceKey,
+                      start: start,
+                      end: end,
+                    ),
+                  );
+                },
               ),
             ),
           ),
