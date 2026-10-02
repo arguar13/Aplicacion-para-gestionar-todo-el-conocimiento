@@ -551,10 +551,6 @@
   "@citationGapLink": {
     "description": "Name of the missing link, in the missing-data line of a citation"
   },
-  "citationCopyMarkdownAction": "Copy with formatting",
-  "@citationCopyMarkdownAction": {
-    "description": "Button that copies the citation as Markdown, keeping the italics"
-  },
   "settingsCitationsSection": "Citations",
   "@settingsCitationsSection": {
     "description": "Title of the citations group in Settings"

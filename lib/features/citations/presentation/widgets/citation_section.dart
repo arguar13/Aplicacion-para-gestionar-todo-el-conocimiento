@@ -17,8 +17,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Sale de los datos de la referencia con lo que cada estilo pide. Lo que falta
 /// se ve resaltado, con el nombre de cada dato, en lugar de inventarse o de
-/// callarse. Se copia como texto plano o con las cursivas —Markdown—: el
-/// portapapeles de Flutter solo lleva texto plano.
+/// callarse. Se copia como texto plano.
 ///
 /// El estilo y el idioma parten de lo que Ajustes recuerda; elegir otro acá
 /// vale para esta vista y no cambia lo predeterminado. La página o el minuto
@@ -163,22 +162,13 @@ class _CitationSectionState extends ConsumerState<CitationSection> {
           ),
         ],
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            TextButton.icon(
-              key: const Key('citation-copy'),
-              onPressed: () => _copy(context, citation.toPlainText()),
-              icon: const Icon(Icons.copy, size: 18),
-              label: Text(l10n.citationCopyAction),
-            ),
-            TextButton.icon(
-              key: const Key('citation-copy-markdown'),
-              onPressed: () => _copy(context, citation.toMarkdown()),
-              icon: const Icon(Icons.format_italic, size: 18),
-              label: Text(l10n.citationCopyMarkdownAction),
-            ),
-          ],
+        // "Copiar con formato" —con las cursivas en Markdown— se quitó a
+        // pedido del usuario: queda solo la cita en texto plano.
+        TextButton.icon(
+          key: const Key('citation-copy'),
+          onPressed: () => _copy(context, citation.toPlainText()),
+          icon: const Icon(Icons.copy, size: 18),
+          label: Text(l10n.citationCopyAction),
         ),
       ],
     );

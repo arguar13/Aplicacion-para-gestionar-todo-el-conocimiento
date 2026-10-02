@@ -460,20 +460,19 @@ void main() {
       expect(find.text(es.citationCopied), findsOneWidget);
     });
 
-    testWidgets('con formato, en Markdown, con las cursivas', (tester) async {
+    testWidgets('solo se copia como texto plano: sin "Copiar con formato"', (
+      tester,
+    ) async {
       final item = await source(
         'libro',
         reference: book,
         publishedAt: DateTime(1967),
       );
-      final copied = await pumpSection(tester, item);
+      await pumpSection(tester, item);
 
-      await tester.tap(find.byKey(const Key('citation-copy-markdown')));
-      await tester.pumpAndSettle();
-
-      expect(copied, [
-        'García Márquez, G. (1967). *Cien años de soledad*. Sudamericana.',
-      ]);
+      expect(find.byKey(const Key('citation-copy')), findsOneWidget);
+      expect(find.byKey(const Key('citation-copy-markdown')), findsNothing);
+      expect(find.text('Copiar con formato'), findsNothing);
     });
 
     testWidgets('lo que se copia es lo que se ve: estilo, forma y página', (

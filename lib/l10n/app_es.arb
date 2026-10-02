@@ -208,7 +208,6 @@
   "citationMissingData": "Faltan datos: {fields}",
   "citationGapTitle": "Título",
   "citationGapLink": "Enlace",
-  "citationCopyMarkdownAction": "Copiar con formato",
   "settingsCitationsSection": "Citas",
   "settingsCitationStyle": "Estilo de cita",
   "settingsCitationLanguage": "Idioma de la cita",
