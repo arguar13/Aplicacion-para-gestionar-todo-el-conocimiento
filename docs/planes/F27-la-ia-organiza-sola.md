@@ -1,6 +1,9 @@
 # F27 — La IA organiza sola, y todo se puede corregir
 
-> **Estado: propuesto** (2026-10-02), esperando "aprobado" en el chat. Pedido del usuario: *"que las
+> **Estado: aprobado** (2026-10-02), en el chat, con las recomendadas: **A** —aplica sola todo
+> salvo la madurez, que se sugiere, y los duplicados, que siguen como aviso—, **B** —lo dudoso va a
+> "Para revisar"—, **C** —la biblioteca existente, con el teléfono cargando— y **D** —de 3 a 12
+> tarjetas según el largo—. Pedido del usuario: *"que las
 > tarjetas, las relaciones o vínculos o grafos, además de hacerse manualmente, se hagan con IA
 > automáticamente, así me ahorro mucho trabajo, de manera inteligente y automática, pero que si veo
 > un error me deje después borrar o editar esa relación"*, y *"al atlas y demás cosas, que además

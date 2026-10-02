@@ -1,6 +1,7 @@
 # F26 — El panel de la fuente: los botones ordenados
 
-> **Estado: propuesto** (2026-10-02), esperando "aprobado" en el chat. Pedido del usuario: *"entre
+> **Estado: aprobado** (2026-10-02), en el chat, con las recomendadas: **A** —cuatro mosaicos,
+> Leer, Resumir, Copiar y Más— y **B** —el reproductor del audio dentro del panel—. Pedido del usuario: *"entre
 > el video, o audio o documento y el texto transcripto hay una serie de botones que están
 > desalineados y ubicados como aleatoriamente: ordénalos en un panel muy elegante, interactivo y
 > atractivo"*.
