@@ -4680,6 +4680,42 @@ lo garantizado es que la app no altera, que no queda texto inventado por bucles,
 está medida. El OCR de fotos sigue siendo solo de alfabeto latino. Readability puede limpiar tablas y
 listas que parecen navegación en artículos largos; el resguardo es la página archivada completa.
 
+### 56. F23: el texto sigue al audio, palabra por palabra, con tiempos medidos
+
+Pedido del usuario: que mientras suena un audio la palabra que se dice se vea en amarillo en su
+transcripción, y —ante la primera idea de repartir el tiempo de cada renglón entre sus palabras—
+"hazmelo profesionalmente". Plan: `docs/planes/F23-resaltado-sincronizado.md`, aprobado con la
+decisión A como se recomendó y la B con un agregado del usuario (el mini reproductor flotante).
+
+**Los tiempos los mide Whisper.** sherpa-onnx calcula cuándo se dice cada pieza del texto con la
+técnica de OpenAI —los cabezales de atención del decodificador y DTW—, pero solo con una exportación
+que conserve esa salida; la de quien mantiene sherpa-onnx no la trae (`enableTokenTimestamps`
+volvía vacío). Se adoptó la de `clairemcw/sherpa-onnx-whisper-small-attention`: los mismos pesos y
+el mismo texto, comprobado tramo por tramo. Es de un tercero, así que va **fijada a un commit** y
+cada archivo se comprueba por su tamaño y su huella SHA-256 antes de usarse (`WhisperModelSpec`);
+el modelo anterior se borra recién cuando el nuevo quedó entero. Medido contra una voz con los
+tiempos reales de sus 160 palabras: error mediano de 60 ms, el 90 % a menos de 155 ms, todas a menos
+de medio segundo; en el teléfono cuesta alrededor de 1 % más de tiempo
+(`docs/benchmarks/xiaomi-23090RA98G-android16/2026-10-01-f23/`).
+
+**Los tiempos no se pierden en el camino.** Las piezas de Whisper unidas dan el texto exacto, y cada
+palabra toma el momento de la que la empieza (`timedTextFromTokens`); si las piezas no forman el
+texto, sale sin tiempos —nunca uno inventado—. La guardia contra bucles los lleva a su lugar al
+partir un tramo, el cosido de los tramos solapados conserva el de cada palabra que queda, y un tramo
+guardado para retomar se guarda con ellos. Se guardan junto al texto (`renditions.word_timings`,
+esquema v33): el paso v18, que reconstruye la tabla, la nombra en `newColumns`, y la fusión de
+bóvedas la copia —con un censo que compara su lista de columnas contra la tabla real, que antes no
+existía—.
+
+**En pantalla.** Un solo reproductor por archivo (`playbackSessionProvider`) para el del detalle,
+el mini reproductor, el texto y la pantalla completa. El texto ubica cada palabra medida por sí
+misma, sin las marcas de cada renglón, así que sigue sirviendo después de "Quitar marcas de tiempo"
+(`TranscriptSync`); una transcripción de antes de F23 se sigue renglón por renglón, con sus marcas.
+Tocar una palabra con el audio en marcha lo lleva ahí. La pantalla no se mueve sola; cuando el
+reproductor sale de la vista aparece el mini reproductor flotante, con "Volver al audio".
+
+**Lo pendiente.** La prueba del usuario en su teléfono, que pidió dejar para el final.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5052,6 +5088,9 @@ listas que parecen navegación en artículos largos; el resguardo es la página 
   frecuencia real del audio (el conversor de antes lo estiraba al doble). YouTube sin subtítulos se
   transcribe por su audio. Copiar del PDF funciona, y "Volver a extraer el texto" rehace lo viejo
   conservando los subrayados (esquema v32). Ver la decisión 55.
+- **F23, el texto sigue al audio.** Mientras suena, la palabra que se dice se ve en amarillo, con
+  tiempos medidos por Whisper (60 ms de error mediano) y guardados junto al texto (esquema v33);
+  un mini reproductor flotante para pausar o volver a lo que suena sin subir. Ver la decisión 56.
 
 ### Por construir
 
