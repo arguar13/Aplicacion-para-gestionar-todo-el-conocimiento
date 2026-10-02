@@ -279,15 +279,20 @@ class RenditionMergeApplier {
     // El mismo texto a los dos lados, y solo la copia sabe cuándo se dice
     // cada palabra (F23): se completan. No es un cambio del texto —no hay
     // conflicto posible—, es lo medido sobre ese mismo texto.
+    // El `IN` no depende de cada fila —se arma una sola vez— y la búsqueda
+    // es por identificador: una consulta que comparara cada forma con todas
+    // las de la copia crecería al cuadrado con el tamaño de la bóveda. Si
+    // el texto no es el mismo, el SELECT no trae nada y queda nulo, como
+    // estaba.
     await _db.customStatement('''
       UPDATE main.renditions SET word_timings =
              (SELECT x.word_timings FROM $_incoming.renditions x
-               WHERE x.id = renditions.id)
+               WHERE x.id = renditions.id
+                 AND x.content IS renditions.content
+                 AND x.relative_path IS renditions.relative_path)
        WHERE word_timings IS NULL
-         AND id IN (SELECT x.id FROM $_incoming.renditions x
-                     WHERE x.word_timings IS NOT NULL
-                       AND x.content IS renditions.content
-                       AND x.relative_path IS renditions.relative_path)''');
+         AND id IN (SELECT id FROM $_incoming.renditions
+                     WHERE word_timings IS NOT NULL)''');
 
     // Dónde quedó el texto de las formas que no entran con su identificador.
     for (final entry in plan.notPlaced.entries) {
