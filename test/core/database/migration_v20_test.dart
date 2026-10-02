@@ -357,7 +357,8 @@ void main() {
       expect(await targets('field_version'), {'item'});
       expect(await targets('merge_conflict'), {'item', 'renditions'});
       expect(await targets('review_log'), {'flashcards'});
-      expect(await targets('flashcards'), {'item', 'chunks'});
+      // Y, desde v34 (F27), a la pasada de la IA que la hizo.
+      expect(await targets('flashcards'), {'item', 'chunks', 'ai_runs'});
     });
   });
 

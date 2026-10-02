@@ -166,11 +166,23 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
   await migrator.alterTable(
     TableMigration(db.renditions, newColumns: [db.renditions.wordTimings]),
   );
-  await migrator.alterTable(TableMigration(db.relations));
+  // `relations` ganó en v34 (F27) quién la hizo, con qué confianza y en qué
+  // pasada de la IA; el paso v34 las agrega solo si faltan.
+  await migrator.alterTable(
+    TableMigration(
+      db.relations,
+      newColumns: [
+        db.relations.origin,
+        db.relations.confidence,
+        db.relations.aiRunId,
+      ],
+    ),
+  );
   // `alterTable` reconstruye la tabla con su definición de HOY: `flashcards`
-  // ganó tres columnas en v20, una más en v27 y otra en v29, que una base de
-  // v16 o v17 todavía no tiene ninguna. Sin `newColumns` intentaría copiarlas
-  // desde una tabla que no las trae. Cada paso las agrega solo si faltan.
+  // ganó tres columnas en v20, una más en v27, otra en v29 y dos en v34, que
+  // una base de v16 o v17 todavía no tiene ninguna. Sin `newColumns`
+  // intentaría copiarlas desde una tabla que no las trae. Cada paso las agrega
+  // solo si faltan.
   await migrator.alterTable(
     TableMigration(
       db.flashcards,
@@ -180,11 +192,19 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
         db.flashcards.sourceCharEnd,
         db.flashcards.lastExportedAt,
         db.flashcards.kind,
+        db.flashcards.origin,
+        db.flashcards.aiRunId,
       ],
     ),
   );
   await migrator.alterTable(TableMigration(db.inlineLinks));
-  await migrator.alterTable(TableMigration(db.itemPropertyValues));
+  // La pasada de la IA que puso cada propiedad (F27, v34).
+  await migrator.alterTable(
+    TableMigration(
+      db.itemPropertyValues,
+      newColumns: [db.itemPropertyValues.aiRunId],
+    ),
+  );
 
   final violations = await db.customSelect('PRAGMA foreign_key_check').get();
   if (violations.isNotEmpty) {

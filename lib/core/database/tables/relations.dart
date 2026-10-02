@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/tables/ai_runs.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 
 /// Los vínculos entre elementos: lo que convierte una pila de recortes en una
@@ -7,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 @DataClassName('RelationRow')
 @TableIndex(name: 'idx_relations_from', columns: {#fromItemId})
 @TableIndex(name: 'idx_relations_to', columns: {#toItemId})
+@TableIndex(name: 'idx_relations_ai_run', columns: {#aiRunId})
 class Relations extends Table {
   TextColumn get id => text()();
 
@@ -31,6 +34,20 @@ class Relations extends Table {
   /// el timestamp o la página de una cita. `null` = no se sabe dónde.
   IntColumn get sourceCharStart => integer().nullable()();
   IntColumn get sourceCharEnd => integer().nullable()();
+
+  /// Quién lo hizo (F27): la persona —todo lo de antes— o la IA. Uno de la IA
+  /// que la persona edita pasa a ser suyo. El motivo que da la IA va en
+  /// [note], como el de cualquier vínculo.
+  TextColumn get origin =>
+      textEnum<ContentOrigin>().withDefault(const Constant('user'))();
+
+  /// Qué tan segura estaba la IA, de 0 a 1. `null` en los de la persona.
+  RealColumn get confidence => real().nullable()();
+
+  /// La pasada de la IA que lo creó (F27): con ella se deshace entera. `null`
+  /// en los de la persona y en los que la persona adoptó.
+  TextColumn get aiRunId =>
+      text().nullable().references(AiRuns, #id, onDelete: KeyAction.setNull)();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

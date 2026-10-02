@@ -58,6 +58,10 @@ void main() {
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de colgarle un vínculo, una tarjeta o una procedencia: no hay '
         'pantalla que lo muestre',
+    'lib/features/vault/data/merge/ai_provenance_merge.dart':
+        'solo comprueba que el elemento exista —vivo o en la papelera— antes '
+        'de colgarle una pasada de la IA o lo que «no era» (F27): lo de un '
+        'elemento borrado se conserva para cuando se restaure',
     'lib/features/vault/data/merge/vocabulary_merge.dart':
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de asignarle un valor: la asignación de un elemento borrado se '

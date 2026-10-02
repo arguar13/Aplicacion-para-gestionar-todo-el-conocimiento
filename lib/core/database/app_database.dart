@@ -11,6 +11,7 @@ import 'package:sinapsis/core/database/pre_migration_backup.dart';
 import 'package:sinapsis/core/database/reference_triggers.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/database/tables/ai_runs.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
@@ -46,7 +47,9 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // tablas donde cada enum se declara. Sin esto, `app_database.g.dart` no
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
+import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
@@ -111,6 +114,8 @@ part 'app_database.g.dart';
     NotebookItems,
     HabitEvents,
     ProcessingCheckpoints,
+    AiRuns,
+    AiRejections,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -155,7 +160,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 33;
+  static const currentSchemaVersion = 34;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -638,6 +643,53 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(renditions, renditions.wordTimings);
           }
           await _requireSameCounts(before, step: 'v33', tables: tables);
+        }
+
+        // La IA organiza sola, y todo se puede corregir (F27): quién hizo cada
+        // vínculo, tarjeta y propiedad —la persona o la IA—, con qué pasada,
+        // para poder deshacerla entera, y la memoria de lo que la persona dijo
+        // que «no era». Aditiva: dos tablas nuevas y vacías, y columnas que, en
+        // lo que ya había, dicen «lo hizo la persona» (`origin` en `user`,
+        // `ai_run_id` nulo). Los conteos de todo lo anterior son compuerta.
+        //
+        // Las columnas pueden existir ya: el paso v18 reconstruye `relations`,
+        // `flashcards` e `item_property_values` con su definición de hoy.
+        if (from < 34) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(aiRuns);
+          await migrator.createIndex(idxAiRunsItem);
+          await migrator.createIndex(idxAiRunsStarted);
+          await migrator.createTable(aiRejections);
+          final provenanceColumns =
+              <(TableInfo<Table, Object?>, List<GeneratedColumn>)>[
+                (
+                  relations,
+                  [relations.origin, relations.confidence, relations.aiRunId],
+                ),
+                (flashcards, [flashcards.origin, flashcards.aiRunId]),
+                (itemPropertyValues, [itemPropertyValues.aiRunId]),
+              ];
+          for (final (table, columns) in provenanceColumns) {
+            for (final column in columns) {
+              if (!await _columnExists(table.actualTableName, column.name)) {
+                await migrator.addColumn(table, column);
+              }
+            }
+          }
+          await migrator.createIndex(idxRelationsAiRun);
+          await migrator.createIndex(idxFlashcardsAiRun);
+          await migrator.createIndex(idxItemPropertyValuesAiRun);
+          await _requireSameCounts(before, step: 'v34', tables: tables);
         }
       });
     },

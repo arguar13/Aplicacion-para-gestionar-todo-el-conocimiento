@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/bulk_write_scope.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/derived_rebuild.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_applier.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
@@ -190,6 +191,9 @@ class VaultMerger {
     };
     await entries.bumpItems(changedItems);
     await entries.recordConflicts(fields);
+    // Las pasadas de la IA y lo que «no era» (F27), antes que lo que cuelga
+    // de ellas: el vocabulario y la unión las leen.
+    final ai = await AiProvenanceMerge(_db).apply();
     final vocabulary = await VocabularyMerge(database: _db, ids: _ids).apply();
     // Los datos bibliográficos llevan a las personas, que ya están fusionadas.
     await entries.updateReferences(fields);
@@ -220,6 +224,8 @@ class VaultMerger {
       valueParentsAdopted: vocabulary.parentsAdopted,
       valueParentsIgnored: vocabulary.parentsIgnored,
       habitEventsAdded: unions.habitEvents,
+      aiRunsAdded: ai.runs,
+      aiRejectionsAdded: ai.rejections,
     );
   }
 }

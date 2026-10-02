@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
+import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
 
 import '../../../../support/test_vault.dart';
 
@@ -541,6 +543,14 @@ void main() {
       expect(kConversationColumns.toSet(), await columnsOf('conversations'));
       expect(kChatMessageColumns.toSet(), await columnsOf('chat_messages'));
       expect(kHabitEventColumns.toSet(), await columnsOf('habit_event'));
+      // Las pasadas de la IA, lo que «no era» y las asignaciones de
+      // propiedades, que ahora llevan su pasada (F27).
+      expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));
+      expect(kAiRejectionColumns.toSet(), await columnsOf('ai_rejections'));
+      expect(
+        kItemPropertyValueColumns.toSet(),
+        await columnsOf('item_property_values'),
+      );
     });
   });
 

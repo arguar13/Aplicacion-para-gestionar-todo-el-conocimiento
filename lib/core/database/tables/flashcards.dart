@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/tables/ai_runs.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 
 /// Una tarjeta de repaso: una pregunta, una respuesta, y el estado de
@@ -13,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 @DataClassName('FlashcardRow')
 @TableIndex(name: 'idx_flashcards_item', columns: {#itemId})
 @TableIndex(name: 'idx_flashcards_due_at', columns: {#dueAt})
+@TableIndex(name: 'idx_flashcards_ai_run', columns: {#aiRunId})
 class Flashcards extends Table {
   TextColumn get id => text()();
 
@@ -71,6 +74,16 @@ class Flashcards extends Table {
   /// exportación exitosa: una exportación incremental filtra por esto, y
   /// «exportar todo» es la opción aparte que la ignora.
   DateTimeColumn get lastExportedAt => dateTime().nullable()();
+
+  /// Quién la hizo (F27): la persona —todo lo de antes— o la IA. Una de la IA
+  /// que la persona edita pasa a ser suya: editarla es adoptarla.
+  TextColumn get origin =>
+      textEnum<ContentOrigin>().withDefault(const Constant('user'))();
+
+  /// La pasada de la IA que la creó (F27): con ella se deshace entera. `null`
+  /// en las de la persona y en las que la persona adoptó.
+  TextColumn get aiRunId =>
+      text().nullable().references(AiRuns, #id, onDelete: KeyAction.setNull)();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

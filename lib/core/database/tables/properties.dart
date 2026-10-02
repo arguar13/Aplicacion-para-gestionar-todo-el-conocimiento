@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/tables/ai_runs.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -184,6 +185,7 @@ class PropertyAliases extends Table {
 /// video).
 @DataClassName('ItemPropertyValueRow')
 @TableIndex(name: 'idx_item_property_values_value', columns: {#propertyValueId})
+@TableIndex(name: 'idx_item_property_values_ai_run', columns: {#aiRunId})
 class ItemPropertyValues extends Table {
   TextColumn get itemId =>
       text().references(KnowledgeEntries, #id, onDelete: KeyAction.cascade)();
@@ -196,6 +198,11 @@ class ItemPropertyValues extends Table {
   /// `ItemPropertyOrigin`.
   TextColumn get origin =>
       textEnum<ItemPropertyOrigin>().withDefault(const Constant('manual'))();
+
+  /// La pasada de la IA que la puso (F27), solo con `origin` en `ai`: con
+  /// ella se deshace entera. `null` en cualquier otro origen.
+  TextColumn get aiRunId =>
+      text().nullable().references(AiRuns, #id, onDelete: KeyAction.setNull)();
 
   @override
   Set<Column<Object>> get primaryKey => {itemId, propertyValueId};

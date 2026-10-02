@@ -75,6 +75,10 @@ sealed class VaultMergeResult with _$VaultMergeResult {
     /// El rastro mínimo de la racha (F17, D6): triar la Bandeja, resolver
     /// algo en Vocabulario.
     @Default(0) int habitEventsAdded,
+
+    /// Las pasadas de la IA y lo que la persona dijo que «no era» (F27).
+    @Default(0) int aiRunsAdded,
+    @Default(0) int aiRejectionsAdded,
   }) = _VaultMergeResult;
 
   const VaultMergeResult._();
@@ -103,5 +107,7 @@ sealed class VaultMergeResult with _$VaultMergeResult {
       valueParentsAdopted == 0 &&
       sourcesChunked == 0 &&
       filesCopied == 0 &&
-      habitEventsAdded == 0;
+      habitEventsAdded == 0 &&
+      aiRunsAdded == 0 &&
+      aiRejectionsAdded == 0;
 }

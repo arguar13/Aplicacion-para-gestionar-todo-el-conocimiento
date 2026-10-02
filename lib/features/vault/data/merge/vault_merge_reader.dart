@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
@@ -94,9 +95,11 @@ class VaultMergeReader {
       newRenditions: texts.toAdd + texts.conflicts,
       // Un vínculo es el mismo si tiene el mismo id o si une lo mismo con el
       // mismo tipo: dos bóvedas pudieron crearlo por separado.
+      // Uno de la IA que la persona dijo que «no era» no entra (F27).
       newRelations: await _scalar('''
         SELECT COUNT(*) FROM $_incoming.relations r
-         WHERE NOT EXISTS (
+         WHERE NOT ${AiProvenanceMerge.rejectedRelation('r')}
+           AND NOT EXISTS (
            SELECT 1 FROM main.relations m
             WHERE m.id = r.id
                OR (m.from_item_id = r.from_item_id
@@ -110,7 +113,8 @@ class VaultMergeReader {
       newFlashcards: await _scalar(
         '''
         SELECT COUNT(*) FROM $_incoming.flashcards f
-         WHERE NOT EXISTS (SELECT 1 FROM main.flashcards m WHERE m.id = f.id)''',
+         WHERE NOT ${AiProvenanceMerge.rejectedFlashcard('f')}
+           AND NOT EXISTS (SELECT 1 FROM main.flashcards m WHERE m.id = f.id)''',
       ),
       // Un espacio es el mismo si tiene el mismo id o el mismo nombre sin
       // distinguir mayúsculas: dos con el mismo nombre no pueden convivir.

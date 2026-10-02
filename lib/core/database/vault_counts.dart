@@ -79,6 +79,11 @@ class VaultCounts {
   /// lista, y esta tabla todavía no existía cuando corrían.
   static const quizTables = <String>['flashcard_options'];
 
+  /// Las pasadas de la IA y la memoria de lo que «no era» (F27). Tampoco
+  /// están en [userDataTables]: los pasos de migración anteriores a v34
+  /// cuentan esa lista, y estas tablas todavía no existían cuando corrían.
+  static const aiTables = <String>['ai_runs', 'ai_rejections'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

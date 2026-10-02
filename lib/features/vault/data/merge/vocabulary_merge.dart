@@ -3,8 +3,25 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/vocabulary_tree_rows.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_tree.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
+
+/// Las columnas de una asignación de propiedad, en el orden en que se copian.
+/// Un test comprueba que cubren la tabla entera: una columna nueva que no esté
+/// acá no viajaría en la fusión.
+const kItemPropertyValueColumns = [
+  'item_id',
+  'property_value_id',
+  'origin',
+  'ai_run_id',
+];
+
+/// Una asignación de la IA que acá alguien dijo que «no era» no vuelve (F27).
+final _rejectedAssignment = AiProvenanceMerge.rejectedProperty(
+  'x',
+  localValueId: 'vm.local_id',
+);
 
 /// Cuánto entró del vocabulario.
 class VocabularyResult {
@@ -96,11 +113,13 @@ class VocabularyMerge {
     final assignments = await _db.customUpdate(
       '''
       INSERT OR IGNORE INTO main.item_property_values
-        (item_id, property_value_id, origin)
-      SELECT x.item_id, vm.local_id, x.origin
+        (${kItemPropertyValueColumns.join(', ')})
+      SELECT x.item_id, vm.local_id, x.origin,
+             ${AiProvenanceMerge.runOrNull('x.ai_run_id')}
         FROM $_incoming.item_property_values x
         JOIN ${MergeWork.valueMap} vm ON vm.incoming_id = x.property_value_id
        WHERE x.origin <> 'reference'
+         AND NOT $_rejectedAssignment
          AND EXISTS (SELECT 1 FROM main.item i WHERE i.id = x.item_id)''',
       updates: {_db.itemPropertyValues},
     );

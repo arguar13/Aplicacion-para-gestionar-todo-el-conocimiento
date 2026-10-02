@@ -370,13 +370,16 @@ void main() {
         };
 
         expect(await targets('renditions'), {'item'});
-        expect(await targets('relations'), {'item'});
+        // Desde v34 (F27) un vínculo, una tarjeta y una propiedad también
+        // pueden apuntar a la pasada de la IA que los hizo.
+        expect(await targets('relations'), {'item', 'ai_runs'});
         // Desde v20 una tarjeta también puede apuntar al chunk del que salió.
-        expect(await targets('flashcards'), {'item', 'chunks'});
+        expect(await targets('flashcards'), {'item', 'chunks', 'ai_runs'});
         expect(await targets('inline_link'), {'item'});
         expect(await targets('item_property_values'), {
           'item',
           'property_values',
+          'ai_runs',
         });
         expect(await targets('highlights'), {'renditions'});
       },

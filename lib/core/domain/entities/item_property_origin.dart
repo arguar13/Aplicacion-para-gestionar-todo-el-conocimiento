@@ -24,4 +24,9 @@ enum ItemPropertyOrigin {
   /// personas. Se va sola si la persona deja de figurar en la obra; una
   /// asignación `manual` de la misma persona nunca se toca.
   reference,
+
+  /// La puso la IA sola (F27), sin que nadie la revisara: lleva la pasada
+  /// (`ai_run_id`) con la que se deshace. Distinta de [suggestedAccepted], que
+  /// es una propuesta que alguien sí aceptó.
+  ai,
 }

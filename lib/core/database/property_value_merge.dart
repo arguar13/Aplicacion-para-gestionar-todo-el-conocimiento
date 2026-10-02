@@ -31,13 +31,15 @@ class PropertyValueMergeUndo {
   /// La fila completa del valor descartado, para volver a crearla igual.
   final PropertyValueRow discard;
 
-  /// Asignaciones (elemento, origin) que pasaron del descartado al que se
-  /// conserva.
-  final List<({String itemId, ItemPropertyOrigin origin})> movedAssignments;
+  /// Asignaciones (elemento, origin y la pasada de la IA, si la puso ella)
+  /// que pasaron del descartado al que se conserva.
+  final List<({String itemId, ItemPropertyOrigin origin, String? aiRunId})>
+  movedAssignments;
 
   /// Asignaciones del descartado que sobraban porque el elemento ya tenía el
   /// valor que se conserva: se borraron, y deshacer las vuelve a poner.
-  final List<({String itemId, ItemPropertyOrigin origin})> droppedAssignments;
+  final List<({String itemId, ItemPropertyOrigin origin, String? aiRunId})>
+  droppedAssignments;
 
   /// Alias que apuntaban al descartado y pasaron al que se conserva.
   final List<String> movedAliasIds;
@@ -99,8 +101,10 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
   final assignments = await (db.select(
     db.itemPropertyValues,
   )..where((t) => t.propertyValueId.equals(discard.id))).get();
-  final moved = <({String itemId, ItemPropertyOrigin origin})>[];
-  final dropped = <({String itemId, ItemPropertyOrigin origin})>[];
+  final moved =
+      <({String itemId, ItemPropertyOrigin origin, String? aiRunId})>[];
+  final dropped =
+      <({String itemId, ItemPropertyOrigin origin, String? aiRunId})>[];
   for (final assignment in assignments) {
     final alreadyHasKeep =
         await (db.select(db.itemPropertyValues)..where(
@@ -110,7 +114,11 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
             ))
             .getSingleOrNull();
     if (alreadyHasKeep != null) {
-      dropped.add((itemId: assignment.itemId, origin: assignment.origin));
+      dropped.add((
+        itemId: assignment.itemId,
+        origin: assignment.origin,
+        aiRunId: assignment.aiRunId,
+      ));
       await (db.delete(db.itemPropertyValues)..where(
             (t) =>
                 t.itemId.equals(assignment.itemId) &
@@ -118,7 +126,11 @@ Future<PropertyValueMergeUndo> mergePropertyValueRows(
           ))
           .go();
     } else {
-      moved.add((itemId: assignment.itemId, origin: assignment.origin));
+      moved.add((
+        itemId: assignment.itemId,
+        origin: assignment.origin,
+        aiRunId: assignment.aiRunId,
+      ));
     }
   }
 
@@ -378,6 +390,9 @@ Future<void> undoPropertyValueMerge(
             itemId: dropped.itemId,
             propertyValueId: undo.discard.id,
             origin: Value(dropped.origin),
+            // La pasada de la IA que la había puesto (F27): sin ella, deshacer
+            // la fusión dejaría una asignación de la IA que ya no se deshace.
+            aiRunId: Value(dropped.aiRunId),
           ),
         );
   }

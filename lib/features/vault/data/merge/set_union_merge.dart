@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show TableInfo;
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_work.dart';
 
@@ -50,6 +51,10 @@ const kRelationColumns = [
   'reviewed_at',
   'source_char_start',
   'source_char_end',
+  // Quién lo hizo y en qué pasada de la IA (F27).
+  'origin',
+  'confidence',
+  'ai_run_id',
 ];
 const kHighlightColumns = [
   'id',
@@ -76,6 +81,9 @@ const kFlashcardColumns = [
   'source_char_start',
   'source_char_end',
   'last_exported_at',
+  // Quién la hizo y en qué pasada de la IA (F27).
+  'origin',
+  'ai_run_id',
 ];
 const kFlashcardOptionColumns = [
   'id',
@@ -152,7 +160,8 @@ class SetUnionMerge {
   Future<SetUnionResult> apply() async {
     // Un vínculo es el mismo por su id o por unir lo mismo con el mismo tipo:
     // dos bóvedas pudieron crearlo cada una por su cuenta. Sus dos extremos
-    // tienen que existir.
+    // tienen que existir. Uno de la IA que acá alguien dijo que «no era» no
+    // vuelve (F27), y su pasada se conserva solo si llegó con él.
     final relations = await _union(
       _db.relations,
       'relations',
@@ -160,11 +169,28 @@ class SetUnionMerge {
       '''
       FROM $_incoming.relations x
      WHERE ${_itemExists('x.from_item_id')} AND ${_itemExists('x.to_item_id')}
+       AND NOT ${AiProvenanceMerge.rejectedRelation('x')}
        AND NOT EXISTS (
          SELECT 1 FROM main.relations m
           WHERE m.id = x.id
              OR (m.from_item_id = x.from_item_id
                  AND m.to_item_id = x.to_item_id AND m.kind = x.kind))''',
+      select: {'ai_run_id': AiProvenanceMerge.runOrNull('x.ai_run_id')},
+    );
+
+    // Uno de la IA que en la copia la persona adoptó —lo editó, y pasó a ser
+    // suyo (F27)— es suyo también acá: si no, «deshacer todo» se lo llevaría
+    // en este dispositivo. Solo la procedencia: el vínculo en sí no se toca,
+    // como en toda la unión.
+    await _db.customUpdate(
+      '''
+      UPDATE main.relations
+         SET origin = 'user', confidence = NULL, ai_run_id = NULL
+        FROM $_incoming.relations x
+       WHERE x.id = relations.id
+         AND x.origin = 'user' AND relations.origin = 'ai'
+      ''',
+      updates: {_db.relations},
     );
 
     // Las posiciones de un resaltado son de UN texto: si la forma de la copia
@@ -193,6 +219,7 @@ class SetUnionMerge {
     // otra bóveda nunca se exportó desde acá, así que entra en null y no con
     // lo que diga la incoming, o la próxima exportación incremental la
     // saltearía creyendo que ya está en el Anki de este dispositivo.
+    // Una de la IA que acá alguien dijo que «no era» no vuelve (F27).
     final flashcards = await _union(
       _db.flashcards,
       'flashcards',
@@ -200,13 +227,27 @@ class SetUnionMerge {
       '''
       FROM $_incoming.flashcards x
      WHERE ${_itemExists('x.item_id')}
+       AND NOT ${AiProvenanceMerge.rejectedFlashcard('x')}
        AND NOT EXISTS (SELECT 1 FROM main.flashcards m WHERE m.id = x.id)''',
       select: {
         'source_chunk_id':
             'CASE WHEN EXISTS (SELECT 1 FROM main.chunks c '
             'WHERE c.id = x.source_chunk_id) THEN x.source_chunk_id END',
         'last_exported_at': 'NULL',
+        'ai_run_id': AiProvenanceMerge.runOrNull('x.ai_run_id'),
       },
+    );
+
+    // Una de la IA que en la copia la persona adoptó es suya también acá,
+    // mismo motivo que los vínculos (F27). El texto de la tarjeta no se toca.
+    await _db.customUpdate(
+      '''
+      UPDATE main.flashcards SET origin = 'user', ai_run_id = NULL
+        FROM $_incoming.flashcards x
+       WHERE x.id = flashcards.id
+         AND x.origin = 'user' AND flashcards.origin = 'ai'
+      ''',
+      updates: {_db.flashcards},
     );
 
     // Una tarjeta que las dos tienen: el calendario es el del repaso más
