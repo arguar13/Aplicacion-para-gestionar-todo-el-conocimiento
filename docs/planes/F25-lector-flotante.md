@@ -1,6 +1,7 @@
 # F25 — El lector flotante: la app lee en voz alta cualquier texto
 
-> **Estado: propuesto** (2026-10-02), esperando aprobación en el chat ("aprobado"). Pedido del
+> **Estado: aprobado** (2026-10-02), en el chat: **A como se recomendó** (10 s de habla) y **B con la
+> alternativa** (también en el chat y en el repaso de tarjetas). Pedido del
 > usuario: *"en todas las pestañas haya un icono flotante en la esquina inferior derecha donde al
 > apretarlo aparezca un mini reproductor de audio pero que sirva para leer el texto, únicamente
 > leer el texto; tendrá controles para elegir la voz, el acento, la velocidad, adelantar 10
@@ -45,12 +46,12 @@ pantalla y se apaga al salir.
 
 ## Decisiones que necesito que confirmes
 
-- **A. Qué significa "10 segundos".**
+- **A. Qué significa "10 segundos".** *Elegida: la recomendada.*
   - *(Recomendado)* **10 segundos de habla**, medidos sobre la voz y la velocidad elegidas (arriba,
     punto 4): se siente igual que en un reproductor de audio.
   - Alternativa: **una línea** para atrás o para adelante. Más simple, pero una línea puede durar 2
     segundos o 40.
-- **B. Dónde aparece el botón.**
+- **B. Dónde aparece el botón.** *Elegida: la alternativa —también el chat y el repaso—.*
   - *(Recomendado)* Donde se lee texto de un elemento: **el detalle de un elemento** (su texto, sus
     notas de bloques, la nota del usuario), **el modo lectura**, **el lector de libros y
     documentos** (lee la página que se ve y sigue con la siguiente), y **el editor de notas**.
