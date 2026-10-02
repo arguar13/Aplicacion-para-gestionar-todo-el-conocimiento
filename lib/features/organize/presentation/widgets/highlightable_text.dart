@@ -62,6 +62,10 @@ class HighlightableTextController extends ChangeNotifier {
   void jumpTo({required int start, required int end}) =>
       _state?._jumpTo(start, end);
 
+  /// Lleva la vista hasta la posición [start] del contenido, sin marcar
+  /// nada: lo que está sonando ya se ve resaltado (F23).
+  void reveal(int start) => _state?._scrollTo(start);
+
   void _setSelection(TextSelection selection) {
     if (selection == _selection) return;
     _selection = selection;
@@ -103,6 +107,8 @@ class HighlightableText extends ConsumerStatefulWidget {
     this.initialJump,
     this.extractFirst = false,
     this.markdown = true,
+    this.playing,
+    this.onTapOffset,
     super.key,
   });
 
@@ -129,6 +135,14 @@ class HighlightableText extends ConsumerStatefulWidget {
   /// Si [content] es Markdown y se muestra con formato, o texto tal cual:
   /// ver `extractedTextIsMarkdown` (F22).
   final bool markdown;
+
+  /// Lo que se está diciendo mientras suena el audio (F23): `[start, end)`
+  /// del contenido, en amarillo.
+  final ({int start, int end})? playing;
+
+  /// Se tocó el texto en esta posición del contenido —sin seleccionar—: lo
+  /// que lleva el audio a la palabra tocada (F23).
+  final ValueChanged<int>? onTapOffset;
 
   @override
   ConsumerState<HighlightableText> createState() => _HighlightableTextState();
@@ -452,13 +466,28 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
       children: [
         SelectableText.rich(
           key: _textKey,
-          _rendered.buildSpans(theme, [
-            for (final h in validHighlights) (h.startOffset, h.endOffset),
-            ?_flash,
-          ]),
+          _rendered.buildSpans(
+            theme,
+            [
+              for (final h in validHighlights) (h.startOffset, h.endOffset),
+              ?_flash,
+            ],
+            activeRange: switch (widget.playing) {
+              final playing? => (playing.start, playing.end),
+              null => null,
+            },
+          ),
           contextMenuBuilder: _buildContextMenu,
-          onSelectionChanged: (selection, _) =>
-              widget.controller?._setSelection(selection),
+          onSelectionChanged: (selection, cause) {
+            widget.controller?._setSelection(selection);
+            final onTap = widget.onTapOffset;
+            if (onTap != null &&
+                cause == SelectionChangedCause.tap &&
+                selection.isCollapsed &&
+                selection.baseOffset >= 0) {
+              onTap(_rendered.renderToRaw(selection.baseOffset));
+            }
+          },
         ),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 16),

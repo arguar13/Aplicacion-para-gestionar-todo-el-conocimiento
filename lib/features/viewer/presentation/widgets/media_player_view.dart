@@ -1,7 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:video_player/video_player.dart';
 
@@ -22,7 +22,7 @@ import 'package:video_player/video_player.dart';
 /// Sin `Scaffold` propio a propósito: `MediaPlayerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
-class MediaPlayerView extends StatefulWidget {
+class MediaPlayerView extends ConsumerStatefulWidget {
   const MediaPlayerView({required this.path, required this.isVideo, super.key});
 
   final String path;
@@ -32,7 +32,7 @@ class MediaPlayerView extends StatefulWidget {
   final bool isVideo;
 
   @override
-  State<MediaPlayerView> createState() => _MediaPlayerViewState();
+  ConsumerState<MediaPlayerView> createState() => _MediaPlayerViewState();
 }
 
 /// Cuánto saltan los botones de retroceder y avanzar.
@@ -67,32 +67,19 @@ double clampSpeed(double speed) {
 String formatSpeed(double speed, String locale) =>
     '${NumberFormat('0.##', locale).format(speed)}×';
 
-class _MediaPlayerViewState extends State<MediaPlayerView> {
-  late final _controller = VideoPlayerController.file(File(widget.path));
-
-  /// `Either`-a-mano con un booleano de error en vez de dejar que
-  /// `initialize()` rechace la `Future` sin más: un archivo movido o
-  /// corrompido después de guardarse no debería tumbar el `FutureBuilder`
-  /// con una excepción sin atrapar, sino mostrar un aviso con sentido.
-  late final Future<bool> _initialization = _controller
-      .initialize()
-      .then((_) => true)
-      .catchError((_) => false);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
+class _MediaPlayerViewState extends ConsumerState<MediaPlayerView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // El mismo reproductor que siguen el mini reproductor y el texto (F23):
+    // ver `playbackSessionProvider`.
+    final session = ref.watch(playbackSessionProvider(widget.path));
+    final controller = session.controller;
 
     return ColoredBox(
       color: Colors.black,
       child: FutureBuilder<bool>(
-        future: _initialization,
+        future: session.initialized,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(
@@ -106,7 +93,10 @@ class _MediaPlayerViewState extends State<MediaPlayerView> {
             );
           }
 
-          final hasVideo = _controller.value.size.width > 0;
+          final hasVideo = controller.value.size.width > 0;
+          void togglePlay() => setState(() {
+            controller.value.isPlaying ? controller.pause() : controller.play();
+          });
 
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -115,27 +105,21 @@ class _MediaPlayerViewState extends State<MediaPlayerView> {
                 child: Center(
                   child: hasVideo
                       ? AspectRatio(
-                          aspectRatio: _controller.value.aspectRatio,
+                          aspectRatio: controller.value.aspectRatio,
                           child: GestureDetector(
-                            onTap: _togglePlay,
-                            child: VideoPlayer(_controller),
+                            onTap: togglePlay,
+                            child: VideoPlayer(controller),
                           ),
                         )
-                      : _AudioCover(theme: theme, onTap: _togglePlay),
+                      : _AudioCover(theme: theme, onTap: togglePlay),
                 ),
               ),
-              _Controls(controller: _controller),
+              _Controls(controller: controller),
             ],
           );
         },
       ),
     );
-  }
-
-  void _togglePlay() {
-    setState(() {
-      _controller.value.isPlaying ? _controller.pause() : _controller.play();
-    });
   }
 }
 

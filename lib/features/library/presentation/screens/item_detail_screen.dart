@@ -38,7 +38,9 @@ import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.d
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/library/presentation/widgets/floating_mini_player.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
+import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
@@ -211,20 +213,65 @@ class _BibliographyButton extends ConsumerWidget {
   }
 }
 
-class _DetailBody extends StatelessWidget {
+class _DetailBody extends StatefulWidget {
   const _DetailBody({required this.item});
 
   final KnowledgeItem item;
 
   @override
+  State<_DetailBody> createState() => _DetailBodyState();
+}
+
+class _DetailBodyState extends State<_DetailBody> {
+  final _scroll = ScrollController();
+
+  /// Dónde está el reproductor del archivo: el mini reproductor aparece
+  /// cuando sale de la pantalla (F23).
+  final _playerKey = GlobalKey();
+
+  /// Para que "Volver al audio" lleve a la palabra que suena (F23).
+  final _follow = PlaybackFollowLink();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final theme = Theme.of(context);
     final texts = item.renditions.whereType<TextRendition>().toList();
 
+    return Stack(
+      children: [
+        _scrollingContent(context, item, theme, texts),
+        // Con un audio o un video: el mini reproductor, para pausar o seguir
+        // el audio sin volver a subir hasta el reproductor (F23).
+        Positioned.fill(
+          child: FloatingMiniPlayer(
+            item: item,
+            scrollController: _scroll,
+            playerKey: _playerKey,
+            link: _follow,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scrollingContent(
+    BuildContext context,
+    KnowledgeItem item,
+    ThemeData theme,
+    List<TextRendition> texts,
+  ) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: Scrollbar(
+          controller: _scroll,
           thumbVisibility: true,
           // `SingleChildScrollView` con una `Column`, no un `ListView`: un
           // `ListView` arma un `SliverList`, que construye —y mide— sus
@@ -241,7 +288,10 @@ class _DetailBody extends StatelessWidget {
           // pantalla nunca tiene miles de hijos, solo unos pocos, uno de
           // ellos largo.
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            controller: _scroll,
+            // Lugar abajo para el mini reproductor: que no tape el final del
+            // texto.
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -286,7 +336,10 @@ class _DetailBody extends StatelessWidget {
                 // ya extraído: una foto, un video, un PDF con su maquetación,
                 // la página archivada. Sin botón "Ver" de por medio: si hay
                 // algo que mostrar, ya se está mostrando.
-                EmbeddedFileViewer(item: item),
+                KeyedSubtree(
+                  key: _playerKey,
+                  child: EmbeddedFileViewer(item: item),
+                ),
 
                 // Justo debajo de donde se está viendo o escuchando el
                 // archivo, no perdido al final de la procedencia: es la
@@ -308,7 +361,11 @@ class _DetailBody extends StatelessWidget {
                     if (rendition.kind == RenditionKind.blocks)
                       _BlocksRendition(item: item, rendition: rendition)
                     else
-                      _TextRenditionView(item: item, rendition: rendition),
+                      _TextRenditionView(
+                        item: item,
+                        rendition: rendition,
+                        link: _follow,
+                      ),
                     const SizedBox(height: 16),
                   ],
 
@@ -500,10 +557,18 @@ class _CollapsedExtractedText extends StatelessWidget {
 }
 
 class _TextRenditionView extends ConsumerWidget {
-  const _TextRenditionView({required this.item, required this.rendition});
+  const _TextRenditionView({
+    required this.item,
+    required this.rendition,
+    this.link,
+  });
 
   final KnowledgeItem item;
   final TextRendition rendition;
+
+  /// Con el mini reproductor: "Volver al audio" muestra lo que suena en
+  /// este texto (F23).
+  final PlaybackFollowLink? link;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -544,12 +609,22 @@ class _TextRenditionView extends ConsumerWidget {
             ],
           ),
         ),
-        HighlightableText(
-          itemId: item.id,
-          renditionId: rendition.id,
-          content: rendition.content,
-          markdown: extractedTextIsMarkdown(item.source),
-        ),
+        // La transcripción de un audio o un video sigue al audio mientras
+        // suena: la palabra que se dice, en amarillo (F23).
+        if (isTranscriptSource(item.source) && rendition.isPrimary)
+          PlaybackSyncedText(
+            item: item,
+            rendition: rendition,
+            markdown: extractedTextIsMarkdown(item.source),
+            link: link,
+          )
+        else
+          HighlightableText(
+            itemId: item.id,
+            renditionId: rendition.id,
+            content: rendition.content,
+            markdown: extractedTextIsMarkdown(item.source),
+          ),
         const SizedBox(height: 8),
         NarrationPlayer(text: rendition.content),
       ],

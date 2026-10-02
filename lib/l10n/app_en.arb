@@ -5749,5 +5749,9 @@
   "detailReextractInProgress": "Extracting the text again. The new text will appear here as soon as it is ready.",
   "@detailReextractInProgress": {
     "description": "Lo que se muestra en lugar del texto viejo mientras se vuelve a extraer."
+  },
+  "mediaPlayerBackToAudio": "Back to audio",
+  "@mediaPlayerBackToAudio": {
+    "description": "Botón del mini reproductor flotante que lleva a lo que está sonando."
   }
 }

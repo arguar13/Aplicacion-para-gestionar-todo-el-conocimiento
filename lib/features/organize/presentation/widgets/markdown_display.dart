@@ -116,11 +116,15 @@ class RenderedMarkdown {
   /// cursiva y compañía. `bodyLarge` por defecto, pero un bloque que ya es
   /// un título o una cita —ver `BlockView`— necesita partir del suyo propio
   /// en vez de perderlo.
+  ///
+  /// [activeRange] es lo que se está diciendo mientras suena el audio (F23):
+  /// se pinta en amarillo, por encima de cualquier resaltado.
   TextSpan buildSpans(
     ThemeData theme,
     List<(int startOffset, int endOffset)> highlightRanges, {
     TextStyle? baseStyle,
     ValueChanged<String>? onLinkTap,
+    (int startOffset, int endOffset)? activeRange,
   }) {
     final resolvedBaseStyle =
         baseStyle ??
@@ -128,13 +132,19 @@ class RenderedMarkdown {
     final highlightColor = theme.colorScheme.tertiaryContainer;
 
     // Los resaltados llegan en offsets del contenido crudo: se traducen una
-    // sola vez acá, no en cada segmento.
-    final ranges =
-        highlightRanges
-            .map((r) => (rawToRender(r.$1), rawToRender(r.$2)))
-            .where((r) => r.$2 > r.$1)
-            .toList()
-          ..sort((a, b) => a.$1.compareTo(b.$1));
+    // sola vez acá, no en cada segmento. Lo que suena (F23) va encima: los
+    // resaltados que lo pisan se recortan alrededor.
+    final active = activeRange == null
+        ? null
+        : (rawToRender(activeRange.$1), rawToRender(activeRange.$2));
+    final ranges = <(int, int, bool)>[
+      for (final r in highlightRanges)
+        ..._without((
+          rawToRender(r.$1),
+          rawToRender(r.$2),
+        ), active).map((r) => (r.$1, r.$2, false)),
+      if (active != null && active.$2 > active.$1) (active.$1, active.$2, true),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
 
     // Un `[[Título]]` puede quedar partido en dos o tres `TextSpan` si un
     // resaltado cae encima de él —ver el bucle de abajo—; cada trozo
@@ -146,9 +156,21 @@ class RenderedMarkdown {
       return TapGestureRecognizer()..onTap = () => onLinkTap(segment.text);
     }
 
-    TextStyle? styleFor(_Segment segment, {bool highlighted = false}) {
+    TextStyle? styleFor(
+      _Segment segment, {
+      bool highlighted = false,
+      bool playing = false,
+    }) {
       var style = segment.style.toTextStyle(theme, resolvedBaseStyle);
       if (highlighted) style = style?.copyWith(backgroundColor: highlightColor);
+      // Amarillo, con el texto oscuro también en modo oscuro: tiene que
+      // leerse de un vistazo mientras se escucha.
+      if (playing) {
+        style = style?.copyWith(
+          backgroundColor: playingColor,
+          color: Colors.black87,
+        );
+      }
       if (segment.style.link) {
         style = style?.copyWith(
           color: theme.colorScheme.primary,
@@ -167,7 +189,7 @@ class RenderedMarkdown {
       final segEnd = segStart + segment.text.length;
       var cursor = segStart;
 
-      for (final (hlStart, hlEnd) in ranges) {
+      for (final (hlStart, hlEnd, isPlaying) in ranges) {
         final start = hlStart.clamp(segStart, segEnd);
         final end = hlEnd.clamp(segStart, segEnd);
         if (end <= start || start < cursor) continue;
@@ -184,7 +206,11 @@ class RenderedMarkdown {
         spans.add(
           TextSpan(
             text: segment.text.substring(start - segStart, end - segStart),
-            style: styleFor(segment, highlighted: true),
+            style: styleFor(
+              segment,
+              highlighted: !isPlaying,
+              playing: isPlaying,
+            ),
             recognizer: recognizerFor(segment),
           ),
         );
@@ -203,6 +229,20 @@ class RenderedMarkdown {
     }
 
     return TextSpan(style: resolvedBaseStyle, children: spans);
+  }
+
+  /// El amarillo de lo que suena (F23).
+  static const playingColor = Color(0xFFFFE066);
+
+  /// [range] sin lo que cae dentro de [cut]: cero, uno o dos pedazos.
+  static List<(int, int)> _without((int, int) range, (int, int)? cut) {
+    if (cut == null || cut.$2 <= range.$1 || cut.$1 >= range.$2) {
+      return range.$2 > range.$1 ? [range] : const [];
+    }
+    return [
+      if (cut.$1 > range.$1) (range.$1, cut.$1),
+      if (cut.$2 < range.$2) (cut.$2, range.$2),
+    ];
   }
 
   static List<_Segment> _parse(String raw) {
