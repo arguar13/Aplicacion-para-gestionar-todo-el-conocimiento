@@ -1,6 +1,7 @@
 # F25 — El lector flotante: la app lee en voz alta cualquier texto
 
-> **Estado: aprobado** (2026-10-02), en el chat: **A como se recomendó** (10 s de habla) y **B con la
+> **Estado: construido** (2026-10-02; falta la prueba en el teléfono, que el usuario dejó para el
+> final) —ver la decisión 58 en `docs/arquitectura.md`—. **Aprobado** (2026-10-02), en el chat: **A como se recomendó** (10 s de habla) y **B con la
 > alternativa** (también en el chat y en el repaso de tarjetas). Pedido del
 > usuario: *"en todas las pestañas haya un icono flotante en la esquina inferior derecha donde al
 > apretarlo aparezca un mini reproductor de audio pero que sirva para leer el texto, únicamente

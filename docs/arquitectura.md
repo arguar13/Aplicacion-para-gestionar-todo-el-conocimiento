@@ -4743,6 +4743,54 @@ Al medir la fusión de bóvedas con esto apareció un defecto de F23: la consult
 tiempos por palabra comparaba cada forma con todas las de la copia. Se reescribió para buscar por
 identificador.
 
+### 58. F25: el lector flotante lee en voz alta cualquier texto
+
+Pedido del usuario: un botón flotante abajo a la derecha que abra un mini reproductor para leer el
+texto en voz alta —voz, acento, velocidad, ±10 s, pausa, minimizar y cerrar—, con la línea que lee
+en amarillo, en todas las pantallas con texto y no en ajustes, papelera ni biblioteca. Plan:
+`docs/planes/F25-lector-flotante.md`, aprobado con **A como se recomendó** (10 s de habla) y **B
+con la alternativa** (también el chat y el repaso de tarjetas). Reemplaza al botón "Escuchar" que
+había debajo de cada texto, que se quitó a pedido.
+
+- **Cada pantalla declara su texto** (`ReadableRegion`): un documento partido en pedazos —una
+  línea, o una oración si la línea pasa de 280 caracteres—, cada uno con **dónde está en
+  pantalla** (qué texto y entre qué posiciones) y con lo que se dice, sin las marcas "[3:15]" de
+  las transcripciones ni los símbolos de Markdown. Lo ofrece solo mientras se ve (`TickerMode`):
+  una pestaña de atrás o una pantalla tapada retiran lo suyo, y el botón aparece solo donde hay
+  texto. Lo ofrecen el detalle de un elemento (la nota del usuario, cada forma de texto, cada
+  bloque de una nota de bloques), el modo lectura, el lector de libros y documentos (la página que
+  se ve y las 19 siguientes; da vuelta la página solo), el editor de notas (sin resaltado: son
+  campos que se editan), el chat y el repaso de tarjetas.
+- **Un solo lector para toda la app** (`ReadAloudController`), que sigue leyendo al cambiar de
+  pantalla hasta que se cierra. Le pasa al motor de voz un pedazo por vez —nunca el texto entero— y
+  la pantalla se redibuja solo cuando cambia de pedazo; el anillo y el hilo de avance, por palabra.
+- **Pausa de verdad y ±10 s de habla.** Android avisa qué palabra dice (`setProgressHandler`,
+  desde Android 8): pausar es cortar y retomar en esa palabra. Los saltos usan los caracteres por
+  segundo **medidos** con esa voz y esa velocidad (promedio con decaimiento, descartando pausas de
+  más de 3 s); antes de medir, una estimación de 14 caracteres por segundo a velocidad 1. Siempre
+  caen al comienzo de una palabra. Avisos atrasados de una lectura ya cortada se descartan por
+  generación.
+- **El reproductor** sigue el diseño del de audio (F23): una tarjeta con título, estado, avance,
+  velocidad (0,5× a 2×, el mismo panel), ±10 s, reproducir/pausar y el panel de voz. El acento es
+  el idioma y la región de las voces instaladas, cada uno con su nombre en su idioma ("Español
+  (Argentina)", "English (United States)"); las voces con nombre-código de Android se muestran como
+  "Voz N", locales primero. Minimizado queda el botón redondo con un anillo de avance. El botón se
+  corre por encima de la barra de navegación, del teclado y de las barras fijas de abajo
+  (`ReadAloudClearance`: el campo del chat, el mini reproductor de audio) y se esconde bajo un
+  diálogo o un panel.
+- **Uno a la vez con el audio** (`audioFocusProvider`): si se empieza a leer, el audio o video que
+  suena se pausa, y al revés.
+- **El menú de selección de texto** quedó igual en toda la app y en el orden pedido por el usuario:
+  Copiar, Compartir, Seleccionar todo, Leer en voz alta, Resaltar, Extraer como nota, Crear tarjeta
+  y Buscar en la Web (`selectionMenuItems`). Fuera quedan las opciones que Android le suma por cada
+  app instalada que acepta texto (ChatGPT, Gemini…). "Leer en voz alta" lee las líneas que toca la
+  selección, con su resaltado, y se detiene; "Buscar en la Web" la hace la app, porque Flutter la
+  ofrece solo en iOS.
+
+Al construirlo aparecieron dos defectos viejos de la narración, corregidos de raíz: volver a "Voz
+del sistema" no cambiaba la voz (`setVoice(null)` no hacía nada) y borraba la voz guardada pero no
+la del estado.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5121,6 +5169,9 @@ identificador.
 - **F24, el audio de cada video.** El de YouTube se baja solo en la mejor calidad y se escucha
   debajo de su vista previa; TikTok y reels transcriben lo dicho; todo video tiene debajo un
   reproductor solo de audio. Ver la decisión 57.
+- **F25, el lector flotante.** Un botón abajo a la derecha, en las pantallas con texto, lee en voz
+  alta con pausa real, ±10 s de habla medidos, voz, acento y velocidad, y la línea que lee en
+  amarillo; el menú de selección, limpio y en el orden pedido. Ver la decisión 58.
 
 ### Por construir
 
