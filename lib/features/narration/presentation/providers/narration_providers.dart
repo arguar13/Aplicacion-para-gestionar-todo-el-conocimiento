@@ -15,10 +15,20 @@ final textToSpeechServiceProvider = Provider<TextToSpeechService>((ref) {
   return service;
 });
 
-/// Las voces instaladas en este dispositivo, para el panel de ajustes de
-/// [NarrationPlayer]. `autoDispose`: no tiene sentido mantenerlas en
-/// memoria cuando no hay ningún panel de ajustes abierto.
+/// Las voces instaladas en este dispositivo, para el panel de voz y acento
+/// del lector flotante (F25). `autoDispose`: no tiene sentido mantenerlas
+/// en memoria cuando no hay ningún panel de ajustes abierto.
 final narrationVoicesProvider =
     FutureProvider.autoDispose<List<NarrationVoice>>((ref) {
       return ref.watch(textToSpeechServiceProvider).getVoices();
     });
+
+/// Un reloj que solo avanza —el tiempo desde que arrancó la app—, para medir
+/// a qué ritmo habla la voz elegida (F25): los ±10 s del lector flotante se
+/// cuentan con eso. No `DateTime.now`: un cambio de hora del sistema a mitad
+/// de lectura daría un ritmo absurdo. Un provider para que las pruebas lo
+/// manejen a mano.
+final narrationClockProvider = Provider<Duration Function()>((ref) {
+  final stopwatch = Stopwatch()..start();
+  return () => stopwatch.elapsed;
+});

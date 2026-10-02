@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart'
+    show MissingPluginException, PlatformException;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:sinapsis/features/narration/domain/entities/narration_voice.dart';
 import 'package:sinapsis/features/narration/domain/services/text_to_speech_service.dart';
@@ -18,13 +20,30 @@ class FlutterTtsService implements TextToSpeechService {
     _tts.setCompletionHandler(() => _emit(NarrationEvent.completed));
     _tts.setErrorHandler((dynamic message) => _emit(NarrationEvent.error));
     _tts.setCancelHandler(() {});
+    _tts.setProgressHandler(_onProgress);
   }
 
   final FlutterTts _tts;
   final _events = StreamController<NarrationEvent>.broadcast();
+  final _progress = StreamController<int>.broadcast();
+
+  /// El texto del último [speak], para reconocer de qué lectura es cada
+  /// aviso de progreso (F25).
+  String? _speaking;
 
   void _emit(NarrationEvent event) {
     if (!_events.isClosed) _events.add(event);
+  }
+
+  /// El motor dice en qué palabra va de **la lectura que la dijo**: el
+  /// aviso trae el texto entero de esa lectura. Uno que llega tarde de una
+  /// lectura ya cortada —el canal con la plataforma es asincrónico, y en
+  /// Android el aviso sale de otro hilo— trae un texto que no es el del
+  /// último [speak]: se descarta acá, para que su posición nunca se lea
+  /// como la de la lectura nueva.
+  void _onProgress(String text, int start, int end, String word) {
+    if (text != _speaking || _progress.isClosed) return;
+    _progress.add(start);
   }
 
   @override
@@ -55,8 +74,22 @@ class FlutterTtsService implements TextToSpeechService {
 
   @override
   Future<void> setVoice(NarrationVoice? voice) async {
-    if (voice == null) return;
-    await _tts.setVoice({'name': voice.name, 'locale': voice.locale});
+    if (voice != null) {
+      await _tts.setVoice({'name': voice.name, 'locale': voice.locale});
+      return;
+    }
+    // Volver a la voz del sistema: antes no se hacía nada, y quedaba sonando
+    // la última voz elegida aunque se hubiera pedido la del sistema (F25).
+    // Windows y la web no implementan `clearVoice` en flutter_tts 4.2.5
+    // —uno contesta "no implementado", la otra tira `Unimplemented`—; ahí
+    // la voz vuelve a la del sistema recién con la app reiniciada.
+    try {
+      await _tts.clearVoice();
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      return;
+    }
   }
 
   @override
@@ -67,6 +100,7 @@ class FlutterTtsService implements TextToSpeechService {
 
   @override
   Future<void> speak(String text) async {
+    _speaking = text;
     await _tts.speak(text);
   }
 
@@ -79,8 +113,12 @@ class FlutterTtsService implements TextToSpeechService {
   Stream<NarrationEvent> get events => _events.stream;
 
   @override
+  Stream<int> get progress => _progress.stream;
+
+  @override
   Future<void> dispose() async {
     await _tts.stop();
     await _events.close();
+    await _progress.close();
   }
 }

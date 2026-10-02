@@ -8,8 +8,9 @@ import 'package:sinapsis/features/narration/domain/services/text_to_speech_servi
 ///
 /// `flutter_tts` habla con un canal de plataforma que no existe en un
 /// test —mismo motivo que `FakeFileChooser`—, y hace falta poder disparar
-/// el evento de "terminó" a mano para probar que [NarrationPlayer]
-/// encadena el próximo fragmento solo.
+/// a mano el evento de "terminó" y el aviso de qué palabra va diciendo
+/// (F25), para probar que quien lo usa encadena el próximo fragmento solo y
+/// sabe dónde retomar.
 class FakeTextToSpeechService implements TextToSpeechService {
   FakeTextToSpeechService({this.voices = const []});
 
@@ -23,21 +24,26 @@ class FakeTextToSpeechService implements TextToSpeechService {
   /// indistinguible de "se eligió la voz del sistema" — los tests que
   /// necesiten esa distinción comprueban [voiceSetCount] aparte.
   NarrationVoice? lastVoice;
-  var voiceSetCount = 0;
+  int voiceSetCount = 0;
 
   /// La última velocidad elegida con [setSpeed].
   double? lastSpeed;
 
-  var stopCount = 0;
-  var disposed = false;
+  int stopCount = 0;
+  bool disposed = false;
 
   final _events = StreamController<NarrationEvent>.broadcast();
+  final _progress = StreamController<int>.broadcast();
 
   /// Simula que el motor terminó de leer lo último que se le pidió.
   void completeCurrent() => _events.add(NarrationEvent.completed);
 
   /// Simula que el motor falló a mitad de lectura.
   void failCurrent() => _events.add(NarrationEvent.error);
+
+  /// Simula que el motor empezó a decir la palabra que arranca en [start]
+  /// del último texto pedido.
+  void emitProgress(int start) => _progress.add(start);
 
   @override
   Future<List<NarrationVoice>> getVoices() async => voices;
@@ -67,8 +73,12 @@ class FakeTextToSpeechService implements TextToSpeechService {
   Stream<NarrationEvent> get events => _events.stream;
 
   @override
+  Stream<int> get progress => _progress.stream;
+
+  @override
   Future<void> dispose() async {
     disposed = true;
     await _events.close();
+    await _progress.close();
   }
 }

@@ -1,6 +1,6 @@
 /// Cuánto puede medir un fragmento antes de cortarse a la fuerza —ver
 /// [_hardSplit]—. Un motor de voz sintetiza de a poco de todos modos, pero
-/// [NarrationPlayer] necesita fragmentos cortos para que "retroceder" y
+/// `NarrationPlayer` necesita fragmentos cortos para que "retroceder" y
 /// "adelantar" (ver `TextToSpeechService`) se sientan como controles de
 /// verdad y no como saltos de varios minutos.
 const _kMaxSegmentLength = 400;
@@ -11,7 +11,7 @@ const _kMaxSegmentLength = 400;
 final _sentenceBoundary = RegExp(r'(?<=[.!?…])\s+');
 
 /// Corta [text] en fragmentos cortos para leerlos en voz alta de a uno,
-/// pensados para [TextToSpeechService.speak].
+/// pensados para `TextToSpeechService.speak`.
 ///
 /// Por oración y no por párrafo —a diferencia de `splitIntoReaderPages`,
 /// que arma páginas para leer con los ojos—: una oración es la unidad más
