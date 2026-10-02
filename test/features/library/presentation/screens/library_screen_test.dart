@@ -1163,6 +1163,30 @@ void main() {
       expect(items.firstWhere((i) => i.title == 'Por mover').spaceId, space.id);
     });
 
+    testWidgets('el menú ofrece exportar solo como PDF o Word', (tester) async {
+      await harness.capture('Para exportar');
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.libraryItemExportAs(es.exportFormatPdf)),
+        findsOneWidget,
+      );
+      expect(
+        find.text(es.libraryItemExportAs(es.exportFormatDocx)),
+        findsOneWidget,
+      );
+      for (final removed in [
+        es.exportFormatMarkdown,
+        es.exportFormatPlainText,
+        es.exportFormatBibtex,
+      ]) {
+        expect(find.text(es.libraryItemExportAs(removed)), findsNothing);
+      }
+    });
+
     testWidgets('exportar pasa por el mismo selector de guardado', (
       tester,
     ) async {
@@ -1171,9 +1195,7 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.text(es.libraryItemExportAs(es.exportFormatMarkdown)),
-      );
+      await tester.tap(find.text(es.libraryItemExportAs(es.exportFormatDocx)));
       await tester.pumpAndSettle();
 
       expect(harness.fileSaver.savedFileName, isNotNull);

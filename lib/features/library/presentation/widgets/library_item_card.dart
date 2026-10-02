@@ -250,6 +250,12 @@ class _CitationLine extends StatelessWidget {
   }
 }
 
+/// Los formatos que ofrece el menú de cada fila: los de un documento para
+/// leer o seguir editando. Markdown, texto plano y BibTeX salieron a pedido
+/// del usuario —le alargaban el menú sin usarlos—; siguen en el botón
+/// Exportar del detalle de cada elemento.
+const _menuExportFormats = [ExportFormat.pdf, ExportFormat.docx];
+
 /// El menú de tres puntos de cada fila: eliminar, mover de espacio o
 /// exportar, sin tener que abrir el detalle solo para eso.
 class _ItemMenuButton extends ConsumerWidget {
@@ -274,7 +280,7 @@ class _ItemMenuButton extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        for (final format in ExportFormat.values)
+        for (final format in _menuExportFormats)
           PopupMenuItem(
             value: _ExportAction(format),
             child: ListTile(
