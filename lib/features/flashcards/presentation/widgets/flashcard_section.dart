@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
@@ -14,6 +16,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Las tarjetas de repaso de un elemento: la lista, agregar una a mano, y
 /// generarlas con el modelo de lenguaje a partir del contenido.
+///
+/// Desde F27 cada tarjeta se edita, y las que hizo la IA llevan la marca ✨ y
+/// se les puede decir que «no era».
 class FlashcardSection extends ConsumerStatefulWidget {
   const FlashcardSection({required this.item, super.key});
 
@@ -41,6 +46,64 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
       (failure) => _showMessage(failure.localizedMessage(l10n)),
       (_) {},
     );
+  }
+
+  /// Edita [card]: guardar la adopta si era de la IA (F27). Sin cambios no se
+  /// escribe nada.
+  Future<void> _edit(Flashcard card) async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await showFlashcardEditDialog(context, card: card);
+    if (result == null || !mounted) return;
+
+    final (front, back) = result;
+    if (front.trim() == card.front && back.trim() == card.back) return;
+    final saved = await ref
+        .read(flashcardRepositoryProvider)
+        .update(id: card.id, front: front, back: back);
+    if (!mounted) return;
+
+    saved.match(
+      (failure) => _showMessage(failure.localizedMessage(l10n)),
+      (_) {},
+    );
+  }
+
+  /// «No era» (F27): la borra, la IA no la vuelve a proponer, y el aviso
+  /// ofrece deshacerlo.
+  Future<void> _reject(Flashcard card) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final repository = ref.read(flashcardRepositoryProvider);
+    final result = await repository.rejectAiFlashcard(card.id);
+    if (!mounted) return;
+
+    result.match((failure) => _showMessage(failure.localizedMessage(l10n)), (
+      receipt,
+    ) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.flashcardRejected),
+            action: SnackBarAction(
+              label: l10n.aiRejectionUndo,
+              // El aviso puede seguir a la vista después de que esta sección
+              // se fue: el repositorio y el mensajero se tomaron antes.
+              onPressed: () async {
+                final undone = await repository.restoreRejectedFlashcard(
+                  receipt,
+                );
+                undone.match(
+                  (failure) => messenger.showSnackBar(
+                    SnackBar(content: Text(failure.localizedMessage(l10n))),
+                  ),
+                  (_) {},
+                );
+              },
+            ),
+          ),
+        );
+    });
   }
 
   Future<void> _generateWithAi() async {
@@ -160,6 +223,8 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
                     for (final card in list)
                       _FlashcardTile(
                         card: card,
+                        onEdit: () => _edit(card),
+                        onReject: () => _reject(card),
                         onDelete: () => ref
                             .read(flashcardRepositoryProvider)
                             .delete(card.id),
@@ -172,19 +237,42 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   }
 }
 
+/// Lo que se puede hacer con una tarjeta desde su menú.
+enum _CardAction { reject, delete }
+
 class _FlashcardTile extends StatelessWidget {
-  const _FlashcardTile({required this.card, required this.onDelete});
+  const _FlashcardTile({
+    required this.card,
+    required this.onEdit,
+    required this.onReject,
+    required this.onDelete,
+  });
 
   final Flashcard card;
+  final VoidCallback onEdit;
+  final VoidCallback onReject;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final front = Text(
+      card.front,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(card.front, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: card.isFromAi
+          ? Row(
+              children: [
+                Flexible(child: front),
+                const SizedBox(width: 6),
+                AiBadge(tooltip: l10n.flashcardMadeByAi),
+              ],
+            )
+          : front,
       subtitle: Text(card.back, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -196,14 +284,62 @@ class _FlashcardTile extends StatelessWidget {
               tooltip: l10n.flashcardsViewSource,
               onPressed: () => openFlashcardSource(context, card),
             ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
-            onPressed: onDelete,
+          // Una de opción múltiple no se edita acá: su respuesta son las
+          // opciones, y este diálogo solo tiene pregunta y respuesta.
+          if (card.kind != FlashcardKind.multipleChoice)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: l10n.flashcardsEditAction,
+              onPressed: onEdit,
+            ),
+          // Borrar y «no era» van juntos en un menú: más íconos no entran en
+          // la fila de un teléfono junto a la pregunta.
+          PopupMenuButton<_CardAction>(
+            icon: const Icon(Icons.more_vert, size: 20),
+            onSelected: (action) => switch (action) {
+              _CardAction.reject => onReject(),
+              _CardAction.delete => onDelete(),
+            },
+            itemBuilder: (context) => [
+              if (card.isFromAi)
+                PopupMenuItem(
+                  value: _CardAction.reject,
+                  child: _MenuRow(
+                    icon: Icons.thumb_down_alt_outlined,
+                    label: l10n.aiNotRight,
+                  ),
+                ),
+              PopupMenuItem(
+                value: _CardAction.delete,
+                child: _MenuRow(
+                  icon: Icons.delete_outline,
+                  label: l10n.flashcardsDeleteAction,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+/// Una opción del menú de una tarjeta: ícono y texto, sin `ListTile` —el
+/// detalle cuenta filas por ese widget—.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 20),
+      const SizedBox(width: 12),
+      Flexible(child: Text(label)),
+    ],
+  );
 }
 
 /// Revisar lo que propuso la IA antes de guardar nada: cada borrador se

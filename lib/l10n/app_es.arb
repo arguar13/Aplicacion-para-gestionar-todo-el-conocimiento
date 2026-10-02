@@ -4905,5 +4905,61 @@
   "spacesSearchHint": "Buscar un tema",
   "@spacesSearchHint": {
     "description": "Ayuda del campo de búsqueda del selector de temas, que aparece cuando hay muchos."
+  },
+  "relationMadeByAi": "Vínculo creado por la IA",
+  "@relationMadeByAi": {
+    "description": "Tooltip de la marca ✨ en un vínculo que hizo la IA sola (F27)."
+  },
+  "relationEditTooltip": "Editar el vínculo",
+  "@relationEditTooltip": {
+    "description": "Botón de cada vínculo del detalle que abre la hoja para editarlo (F27)."
+  },
+  "relationEditTitle": "El vínculo",
+  "@relationEditTitle": {
+    "description": "Título de la hoja que edita un vínculo: cambiar el tipo, la frase, borrarlo o decir que no era (F27)."
+  },
+  "relationEditKindLabel": "Qué relación es",
+  "@relationEditKindLabel": {
+    "description": "Rótulo de los tipos de vínculo en la hoja de edición (F27)."
+  },
+  "relationEditKindFixed": "Una extracción o un índice no cambian de tipo: los pone la nota que los crea.",
+  "@relationEditKindFixed": {
+    "description": "Aclaración en la hoja de edición cuando el vínculo es estructural y el tipo no se puede cambiar (F27)."
+  },
+  "relationEditMerged": "Ya había un vínculo así entre los dos: quedaron unidos.",
+  "@relationEditMerged": {
+    "description": "Aviso después de editar un vínculo cuando ya existía otro del mismo tipo y se fundieron (F27)."
+  },
+  "relationRejected": "Listo: la IA no va a volver a proponer este vínculo.",
+  "@relationRejected": {
+    "description": "Aviso después de decir que un vínculo de la IA no era (F27)."
+  },
+  "aiNotRight": "No era",
+  "@aiNotRight": {
+    "description": "Botón para decir que algo que hizo la IA está mal: lo borra y la IA no lo vuelve a proponer (F27)."
+  },
+  "aiNotRightHint": "Lo borra y la IA no lo vuelve a proponer",
+  "@aiNotRightHint": {
+    "description": "Explicación debajo del botón «No era» (F27)."
+  },
+  "aiRejectionUndo": "Deshacer",
+  "@aiRejectionUndo": {
+    "description": "Acción del aviso que deshace un «No era» (F27)."
+  },
+  "flashcardMadeByAi": "Tarjeta creada por la IA",
+  "@flashcardMadeByAi": {
+    "description": "Tooltip de la marca ✨ en una tarjeta que hizo la IA sola (F27)."
+  },
+  "flashcardsEditAction": "Editar la tarjeta",
+  "@flashcardsEditAction": {
+    "description": "Botón de cada tarjeta para editarla, y título del diálogo de edición (F27)."
+  },
+  "flashcardsDeleteAction": "Borrar la tarjeta",
+  "@flashcardsDeleteAction": {
+    "description": "Botón de cada tarjeta para borrarla (F27)."
+  },
+  "flashcardRejected": "Listo: la IA no va a volver a proponer esta tarjeta.",
+  "@flashcardRejected": {
+    "description": "Aviso después de decir que una tarjeta de la IA no era (F27)."
   }
 }

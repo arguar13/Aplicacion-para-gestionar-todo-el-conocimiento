@@ -6,10 +6,12 @@ import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_relation_dialog.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/relation_edit_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Con qué otros elementos está vinculado este, y la forma de agregar uno
@@ -109,6 +111,12 @@ Future<void> addRelationFlow(
 /// correcto según desde dónde se mire, la nota si tiene, y un botón para
 /// borrarlo. Tocarla navega al otro elemento.
 ///
+/// Desde F27, uno que hizo la IA lleva la marca ✨ y su motivo como nota, y
+/// cualquiera se corrige desde el lápiz —o manteniéndolo apretado—: cambiar
+/// el tipo, la frase, borrarlo o decir que «no era»
+/// ([showRelationEditSheet]). Sigue siendo UNA fila con un solo `ListTile`:
+/// el detalle cuenta filas por ese widget.
+///
 /// Aparte de [RelationsSection] para que `MapNoteLinksSection` (ver la
 /// decisión sobre F6) pinte cada fila igual, sin duplicar el `ListTile`.
 class RelationTile extends StatelessWidget {
@@ -133,16 +141,26 @@ class RelationTile extends StatelessWidget {
         ? relation.sourceCharEnd
         : null;
 
+    final description = Text(
+      relation.kind.describe(
+        l10n,
+        direction: relation.direction,
+        otherItemTitle: relation.otherItemTitle,
+      ),
+    );
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(relation.kind.icon),
-      title: Text(
-        relation.kind.describe(
-          l10n,
-          direction: relation.direction,
-          otherItemTitle: relation.otherItemTitle,
-        ),
-      ),
+      title: relation.isFromAi
+          ? Row(
+              children: [
+                Flexible(child: description),
+                const SizedBox(width: 6),
+                AiBadge(tooltip: l10n.relationMadeByAi),
+              ],
+            )
+          : description,
       subtitle: relation.note == null ? null : Text(relation.note!),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -162,6 +180,11 @@ class RelationTile extends StatelessWidget {
               ),
             ),
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: l10n.relationEditTooltip,
+            onPressed: () => showRelationEditSheet(context, relation: relation),
+          ),
+          IconButton(
             icon: const Icon(Icons.link_off),
             tooltip: l10n.detailRemoveRelation,
             onPressed: onDelete,
@@ -169,6 +192,7 @@ class RelationTile extends StatelessWidget {
         ],
       ),
       onTap: () => context.push(RoutePaths.itemDetail(relation.otherItemId)),
+      onLongPress: () => showRelationEditSheet(context, relation: relation),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -19,6 +20,8 @@ void main() {
     RelationKind kind = RelationKind.extractedFrom,
     int? start,
     int? end,
+    ContentOrigin origin = ContentOrigin.user,
+    String? note,
   }) => ItemRelation(
     relationId: 'rel-1',
     direction: direction,
@@ -29,6 +32,8 @@ void main() {
     otherItemSourceKind: SourceKind.webPage,
     sourceCharStart: start,
     sourceCharEnd: end,
+    origin: origin,
+    note: note,
   );
 
   Future<void> pumpTile(
@@ -137,5 +142,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('detalle de fuente'), findsOneWidget);
+  });
+
+  group('lo que hizo la IA (F27)', () {
+    testWidgets('lleva la marca ✨ y su motivo debajo', (tester) async {
+      await pumpTile(
+        tester,
+        relation(
+          kind: RelationKind.relatedTo,
+          origin: ContentOrigin.ai,
+          note: 'Los dos hablan de la caída de Roma',
+        ),
+      );
+
+      expect(find.byTooltip(es.relationMadeByAi), findsOneWidget);
+      expect(find.text('Los dos hablan de la caída de Roma'), findsOneWidget);
+      // La frase del vínculo sigue siendo un texto que se encuentra igual.
+      expect(find.text(es.relationKindRelatedTo('La fuente')), findsOneWidget);
+    });
+
+    testWidgets('uno de la persona no lleva la marca', (tester) async {
+      await pumpTile(tester, relation(kind: RelationKind.relatedTo));
+
+      expect(find.byTooltip(es.relationMadeByAi), findsNothing);
+    });
+
+    testWidgets('cualquiera se puede editar, y sigue siendo una sola fila', (
+      tester,
+    ) async {
+      await pumpTile(tester, relation(origin: ContentOrigin.ai));
+
+      expect(find.byTooltip(es.relationEditTooltip), findsOneWidget);
+      expect(find.byType(ListTile), findsOneWidget);
+    });
   });
 }
