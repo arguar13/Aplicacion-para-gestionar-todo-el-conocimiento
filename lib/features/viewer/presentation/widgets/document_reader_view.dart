@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
-import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
@@ -141,16 +140,6 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [SummarizeButton(content: _pages[_pageIndex])],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-          // La clave por página cierra el lector de voz si estaba abierto
-          // al cambiar de página: seguir leyendo la página anterior
-          // mientras se ve otra distinta confundiría más de lo que ayuda.
-          child: NarrationPlayer(
-            key: ValueKey(_pageIndex),
-            text: _pages[_pageIndex],
           ),
         ),
         if (_pages.length > 1)

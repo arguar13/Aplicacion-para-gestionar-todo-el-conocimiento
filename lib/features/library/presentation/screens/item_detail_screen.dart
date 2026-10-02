@@ -44,7 +44,6 @@ import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dar
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
-import 'package:sinapsis/features/narration/presentation/widgets/narration_player.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/cited_sources_section.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/derived_note_badge.dart';
 import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
@@ -641,8 +640,6 @@ class _TextRenditionView extends ConsumerWidget {
             content: rendition.content,
             markdown: extractedTextIsMarkdown(item.source),
           ),
-        const SizedBox(height: 8),
-        NarrationPlayer(text: rendition.content),
       ],
     );
   }
@@ -732,8 +729,6 @@ class _BlocksRendition extends ConsumerWidget {
           blocks: blocks,
           onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
         ),
-        const SizedBox(height: 8),
-        NarrationPlayer(text: plainText),
       ],
     );
   }
