@@ -37,6 +37,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/features/transform/data/services/audio_wav_converter.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/sherpa_onnx_audio_transcriber_io.dart';
+import 'package:sinapsis/features/transform/data/services/whisper_model_spec.dart';
 import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
 
 const _deviceInfo = String.fromEnvironment(
@@ -111,14 +112,15 @@ void main() {
     );
     // El modelo, si se empujó con los audios (`fidelidad/modelo/`): así la
     // prueba corre sin internet y en modo profile, donde no se puede copiar
-    // nada adentro de la app.
+    // nada adentro de la app. Tiene que ser el modelo con atención (F23):
+    // `isReady` exige sus tamaños exactos.
     final pushed = Directory('${folder.path}/modelo');
     if (!await model.isReady() && pushed.existsSync()) {
       final target = Directory(
         p.join(
           (await getApplicationDocumentsDirectory()).path,
           'modelos',
-          'whisper-small',
+          WhisperModelSpec.smallWithAttention.folder,
         ),
       )..createSync(recursive: true);
       for (final file in pushed.listSync().whereType<File>()) {

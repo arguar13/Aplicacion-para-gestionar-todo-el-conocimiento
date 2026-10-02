@@ -3,16 +3,22 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:sinapsis/features/transform/data/services/whisper_model_spec.dart';
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:web/web.dart' as web;
 
 /// `WhisperModelManager` para la web: el modelo se guarda en el Origin
 /// Private File System (OPFS), igual que `OpfsFileStore`, pero en su propia
-/// carpeta —`modelos/whisper-small/`—, separada de `originales/`: un modelo
+/// carpeta —`modelos/<carpeta del modelo>/`—, separada de `originales/`: un modelo
 /// de reconocimiento de voz no es un archivo original de ningún elemento de
 /// la biblioteca, y mezclar los dos en la misma carpeta confundiría a
 /// cualquiera que la mirara.
+///
+/// Qué se baja lo dice [WhisperModelSpec], igual que en el dispositivo, y
+/// cada archivo se comprueba por su tamaño y su huella antes de guardarlo
+/// (F23).
 ///
 /// Ver la decisión 10 en docs/arquitectura.md. `paths()` no devuelve rutas
 /// reales —OPFS no las tiene— sino las que entiende el propio sistema de
@@ -27,19 +33,14 @@ import 'package:web/web.dart' as web;
 /// Verificado a mano en un Chromium real (ver la fase 8 en
 /// docs/arquitectura.md).
 class OpfsWhisperModelManager implements WhisperModelManager {
-  OpfsWhisperModelManager({required Dio dio}) : _dio = dio;
+  OpfsWhisperModelManager({
+    required Dio dio,
+    WhisperModelSpec spec = WhisperModelSpec.smallWithAttention,
+  }) : _dio = dio,
+       _spec = spec;
 
   final Dio _dio;
-
-  static const _baseUrl =
-      'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main';
-
-  static const _encoderFile = 'small-encoder.int8.onnx';
-  static const _decoderFile = 'small-decoder.int8.onnx';
-  static const _tokensFile = 'small-tokens.txt';
-  static const _files = [_encoderFile, _decoderFile, _tokensFile];
-
-  static const _folder = ['modelos', 'whisper-small'];
+  final WhisperModelSpec _spec;
 
   /// Rutas sin ningún significado fuera del sistema de archivos virtual de
   /// sherpa-onnx: no hace falta que coincidan con nada de OPFS, alcanza con
@@ -48,27 +49,35 @@ class OpfsWhisperModelManager implements WhisperModelManager {
   static const _virtualDecoderPath = '/sinapsis-whisper-decoder.onnx';
   static const _virtualTokensPath = '/sinapsis-whisper-tokens.txt';
 
-  Future<web.FileSystemDirectoryHandle> _modelDirectory({
+  Future<web.FileSystemDirectoryHandle> _modelsDirectory({
     bool create = false,
   }) async {
-    var current = await web.window.navigator.storage.getDirectory().toDart;
-    for (final segment in _folder) {
-      current = await current
-          .getDirectoryHandle(
-            segment,
-            web.FileSystemGetDirectoryOptions(create: create),
-          )
-          .toDart;
-    }
-    return current;
+    final root = await web.window.navigator.storage.getDirectory().toDart;
+    return root
+        .getDirectoryHandle(
+          'modelos',
+          web.FileSystemGetDirectoryOptions(create: create),
+        )
+        .toDart;
   }
+
+  Future<web.FileSystemDirectoryHandle> _modelDirectory({
+    bool create = false,
+  }) async => (await _modelsDirectory(create: create))
+      .getDirectoryHandle(
+        _spec.folder,
+        web.FileSystemGetDirectoryOptions(create: create),
+      )
+      .toDart;
 
   @override
   Future<bool> isReady() async {
     try {
       final dir = await _modelDirectory();
-      for (final name in _files) {
-        await dir.getFileHandle(name).toDart;
+      for (final spec in _spec.files) {
+        final handle = await dir.getFileHandle(spec.name).toDart;
+        final file = await handle.getFile().toDart;
+        if (file.size != spec.bytes) return false;
       }
       return true;
       // La carpeta o alguno de los archivos no existen todavía: OPFS no
@@ -88,30 +97,9 @@ class OpfsWhisperModelManager implements WhisperModelManager {
     );
   }
 
+  /// Se sabe de antemano —los tamaños están verificados—.
   @override
-  Future<int?> downloadSizeInBytes() async {
-    try {
-      final sizes = await _fileSizes();
-      // Un tamaño en 0 significa que el servidor no contestó con
-      // Content-Length para ese archivo: mejor no mostrar ningún número que
-      // mostrar uno incompleto.
-      if (sizes.any((size) => size <= 0)) return null;
-
-      return sizes.fold<int>(0, (total, size) => total + size);
-    } on DioException {
-      return null;
-    }
-  }
-
-  Future<List<int>> _fileSizes() async {
-    final sizes = <int>[];
-    for (final name in _files) {
-      final response = await _dio.head<void>('$_baseUrl/$name');
-      final length = response.headers.value(Headers.contentLengthHeader);
-      sizes.add(length == null ? 0 : (int.tryParse(length) ?? 0));
-    }
-    return sizes;
-  }
+  Future<int?> downloadSizeInBytes() async => _spec.totalBytes;
 
   @override
   Stream<double> download() {
@@ -126,32 +114,48 @@ class OpfsWhisperModelManager implements WhisperModelManager {
 
       // El total de los tres archivos juntos, para que el progreso avance
       // parejo en vez de saltar de golpe entre uno y el siguiente.
-      final sizes = await _fileSizes();
-      final total = sizes.fold(0, (sum, size) => sum + size);
+      final total = _spec.totalBytes;
 
       var completedBytes = 0;
-      for (var i = 0; i < _files.length; i++) {
-        final name = _files[i];
-        final expectedSize = sizes[i];
+      for (final spec in _spec.files) {
         final bytesBeforeThisFile = completedBytes;
 
         final response = await _dio.get<List<int>>(
-          '$_baseUrl/$name',
+          _spec.urlOf(spec),
           options: Options(responseType: ResponseType.bytes),
-          onReceiveProgress: (received, _) {
-            if (total <= 0) return;
-            controller.add((bytesBeforeThisFile + received) / total);
-          },
+          onReceiveProgress: (received, _) =>
+              controller.add((bytesBeforeThisFile + received) / total),
         );
+        final bytes = Uint8List.fromList(response.data!);
+        // Antes de guardarlo: lo que no coincide no llega a OPFS.
+        if (bytes.length != spec.bytes ||
+            sha256.convert(bytes).toString() != spec.sha256) {
+          throw WhisperModelIntegrityException(spec.name);
+        }
 
         final fileHandle = await dir
-            .getFileHandle(name, web.FileSystemGetFileOptions(create: true))
+            .getFileHandle(
+              spec.name,
+              web.FileSystemGetFileOptions(create: true),
+            )
             .toDart;
         final writable = await fileHandle.createWritable().toDart;
-        await writable.write(Uint8List.fromList(response.data!).toJS).toDart;
+        await writable.write(bytes.toJS).toDart;
         await writable.close().toDart;
 
-        completedBytes += expectedSize;
+        completedBytes += spec.bytes;
+      }
+
+      // El modelo de antes, ya reemplazado por uno entero y verificado.
+      final models = await _modelsDirectory();
+      for (final folder in _spec.replaces) {
+        try {
+          await models
+              .removeEntry(folder, web.FileSystemRemoveOptions(recursive: true))
+              .toDart;
+          // No estaba: nada que borrar.
+          // ignore: avoid_catches_without_on_clauses
+        } catch (_) {}
       }
 
       controller.add(1);
@@ -178,10 +182,10 @@ class OpfsWhisperModelManager implements WhisperModelManager {
     final writeFile = fs.getProperty<JSFunction>('writeFile'.toJS);
 
     final dir = await _modelDirectory();
-    for (final (name, virtualPath) in const [
-      (_encoderFile, _virtualEncoderPath),
-      (_decoderFile, _virtualDecoderPath),
-      (_tokensFile, _virtualTokensPath),
+    for (final (name, virtualPath) in [
+      (_spec.encoder.name, _virtualEncoderPath),
+      (_spec.decoder.name, _virtualDecoderPath),
+      (_spec.tokens.name, _virtualTokensPath),
     ]) {
       final fileHandle = await dir.getFileHandle(name).toDart;
       final file = await fileHandle.getFile().toDart;
