@@ -4716,6 +4716,33 @@ reproductor sale de la vista aparece el mini reproductor flotante, con "Volver a
 
 **Lo pendiente.** La prueba del usuario en su teléfono, que pidió dejar para el final.
 
+### 57. F24: el audio de cada video, siempre a mano
+
+Pedido del usuario: que debajo de la vista previa de un video, un short, un TikTok o un reel esté
+siempre el mismo reproductor que el de un audio del teléfono, con el audio bajado sin que haya que
+pedirlo. Plan: `docs/planes/F24-audio-de-los-videos.md`, aprobado con las **alternativas** de las
+dos decisiones: el audio de YouTube en la mejor calidad que ofrece (~72 MB por hora), y además del
+video un reproductor solo de audio debajo de él.
+
+- **YouTube:** el audio se baja solo, sin botón —el que había se quitó a pedido—, apenas el video
+  queda listo (la cola avisa lo que terminó bien, `onProcessed`), o al abrirlo si todavía no lo
+  tiene. No entra en el procesamiento: el video sigue quedando listo en segundos, como en F21; la
+  bajada es aparte, directo a disco y con avance. Un video sin subtítulos ya bajaba su audio para
+  transcribirlo: ese archivo se conserva como el audio del video, aunque no se haya dicho nada, en
+  vez de bajarlo dos veces. Debajo de la miniatura, el mismo reproductor, el mini reproductor y el
+  texto que sigue al audio (renglón por renglón con los subtítulos, que traen su momento).
+- **TikTok y reels:** su video ya se guardaba entero; ahora su audio se transcribe, y lo dicho pasa
+  a ser el texto principal —la descripción queda al lado, buscable—, con sus tiempos por palabra.
+- **Videos (del teléfono, TikTok, reels):** debajo del video, un segundo reproductor solo con su
+  audio (`MediaPlayerView.audioOnly`). Los dos manejan el mismo audio: un solo reproductor por
+  archivo (decisión 56).
+- Cuál es el archivo que suena en un elemento lo dice un solo lugar (`itemPlaybackPathProvider`):
+  el audio o el video mismo, o el audio bajado de un video de YouTube.
+
+Al medir la fusión de bóvedas con esto apareció un defecto de F23: la consulta que completa los
+tiempos por palabra comparaba cada forma con todas las de la copia. Se reescribió para buscar por
+identificador.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5091,6 +5118,9 @@ reproductor sale de la vista aparece el mini reproductor flotante, con "Volver a
 - **F23, el texto sigue al audio.** Mientras suena, la palabra que se dice se ve en amarillo, con
   tiempos medidos por Whisper (60 ms de error mediano) y guardados junto al texto (esquema v33);
   un mini reproductor flotante para pausar o volver a lo que suena sin subir. Ver la decisión 56.
+- **F24, el audio de cada video.** El de YouTube se baja solo en la mejor calidad y se escucha
+  debajo de su vista previa; TikTok y reels transcriben lo dicho; todo video tiene debajo un
+  reproductor solo de audio. Ver la decisión 57.
 
 ### Por construir
 

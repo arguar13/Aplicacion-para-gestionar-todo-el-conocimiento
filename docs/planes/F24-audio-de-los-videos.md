@@ -1,6 +1,7 @@
 # F24 — El audio de cada video, siempre a mano
 
-> **Estado: aprobado** (2026-10-01), en el chat: **las alternativas de A y de B** —el audio de
+> **Estado: construido** (2026-10-02; falta la prueba en el teléfono, que el usuario dejó para el
+> final) —ver la decisión 57 en `docs/arquitectura.md`—. **Aprobado** (2026-10-01), en el chat: **las alternativas de A y de B** —el audio de
 > YouTube en la mejor calidad; y en TikTok, reels y videos del teléfono, un reproductor solo de
 > audio debajo del video, además del video—. Pedido del
 > usuario: *"cuando se trate siempre de un audio, un short, TikTok o video, que siempre debajo de la
