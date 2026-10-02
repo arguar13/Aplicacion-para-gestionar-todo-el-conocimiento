@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cuántos caracteres de [content] se le mandan al modelo para resumir. Un
@@ -112,6 +116,19 @@ class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
           child: SelectableText(
             summary,
             style: Theme.of(context).textTheme.bodyMedium,
+            // El menú de la app; el resumen no es parte de lo que la
+            // pantalla ofrece para leer, así que se lee lo seleccionado tal
+            // cual (F25).
+            contextMenuBuilder: (context, editable) => buildSelectionMenu(
+              context,
+              editable,
+              onReadAloud: () => unawaited(
+                readSelectionAloud(
+                  ref,
+                  text: editable.textEditingValue.selection.textInside(summary),
+                ),
+              ),
+            ),
           ),
         ),
         actions: [

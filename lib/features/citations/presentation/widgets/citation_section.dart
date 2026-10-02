@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/citation_source_of.dart';
@@ -145,6 +146,7 @@ class _CitationSectionState extends ConsumerState<CitationSection> {
           ),
           child: SelectableText.rich(
             key: const Key('citation-text'),
+            contextMenuBuilder: buildSelectionMenu,
             citationTextSpan(citation, theme),
           ),
         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
@@ -381,6 +382,7 @@ class _LinkText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: SelectableText.rich(
+        contextMenuBuilder: buildSelectionMenu,
         TextSpan(
           children: [
             TextSpan(text: '$label: ', style: theme.textTheme.bodySmall),

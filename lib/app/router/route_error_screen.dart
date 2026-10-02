@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Lo que ve el usuario cuando la URL no corresponde a ninguna ruta: el
@@ -98,6 +99,7 @@ class _FailedAddress extends StatelessWidget {
       ),
       child: SelectableText(
         uri.toString(),
+        contextMenuBuilder: buildSelectionMenu,
         style: theme.textTheme.bodySmall?.copyWith(
           fontFamily: 'monospace',
           color: theme.colorScheme.onSurfaceVariant,

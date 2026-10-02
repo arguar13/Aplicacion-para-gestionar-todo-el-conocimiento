@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
@@ -277,6 +278,7 @@ class _LinkText extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: SelectableText.rich(
+        contextMenuBuilder: buildSelectionMenu,
         TextSpan(
           children: [
             TextSpan(text: '$label: ', style: theme.textTheme.bodySmall),
