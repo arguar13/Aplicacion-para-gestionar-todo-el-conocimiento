@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,17 +12,12 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
-import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
-import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
-import 'package:sinapsis/core/util/transcript_timestamps.dart';
-import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
@@ -43,8 +37,7 @@ import 'package:sinapsis/features/library/presentation/widgets/entity_presentati
 import 'package:sinapsis/features/library/presentation/widgets/floating_mini_player.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
-import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
-import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
@@ -58,10 +51,6 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
-import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
-import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
-import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
-import 'package:sinapsis/features/transform/presentation/widgets/youtube_audio_download_section.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -364,56 +353,47 @@ class _DetailBodyState extends State<_DetailBody> {
                 // ya extraído: una foto, un video, un PDF con su maquetación,
                 // la página archivada. Sin botón "Ver" de por medio: si hay
                 // algo que mostrar, ya se está mostrando.
+                //
+                // Debajo, el panel de la fuente (F26): el audio, lo que está
+                // pasando y las acciones, en una sola tarjeta. Los dos juntos
+                // son "el reproductor" para el mini reproductor (F23): el
+                // audio se maneja desde la vista previa —un audio— o desde el
+                // panel —un video, YouTube—, y mientras se vea un tercio del
+                // conjunto no hace falta el mini reproductor.
                 KeyedSubtree(
                   key: _playerKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      EmbeddedFileViewer(item: item),
-                      // El audio de un video de YouTube, debajo de su vista
-                      // previa: se baja solo y se escucha acá, en el mismo
-                      // reproductor que un audio del teléfono (F24).
-                      if (item.source.kind == SourceKind.youtube &&
-                          !kIsWeb) ...[
-                        const SizedBox(height: 12),
-                        YouTubeAudioDownloadSection(item: item),
-                        const SizedBox(height: 4),
-                      ],
+                      EmbeddedFileViewer(item: item, gapBelow: 12),
+                      SourcePanel(item: item),
                     ],
                   ),
                 ),
 
-                // Justo debajo de donde se está viendo o escuchando el
-                // archivo, no perdido al final de la procedencia: es la
-                // acción que sigue naturalmente a mirarlo, no algo que se
-                // decide desde una lista de metadatos.
-                if (_hasKeepableText(item)) ...[
-                  const SizedBox(height: 4),
-                  _DeleteOriginalFileButton(item: item),
+                // El texto, salvo mientras se vuelve a extraer: ahí el panel
+                // cuenta cómo va, y el viejo deja de verse.
+                if (texts.isNotEmpty && !item.isBeingProcessed) ...[
+                  const SizedBox(height: 16),
+                  if (item.source.kind == SourceKind.document)
+                    _CollapsedExtractedText(
+                      item: item,
+                      texts: texts,
+                      readable: _readableUnfolded,
+                    )
+                  else
+                    for (final rendition in texts) ...[
+                      if (rendition.kind == RenditionKind.blocks)
+                        _BlocksRendition(item: item, rendition: rendition)
+                      else
+                        _TextRenditionView(
+                          item: item,
+                          rendition: rendition,
+                          link: _follow,
+                        ),
+                      const SizedBox(height: 16),
+                    ],
                 ],
-
-                if (texts.isEmpty)
-                  _NoContentYet(item: item)
-                else if (item.isBeingProcessed)
-                  _ReextractingText(item: item)
-                else if (item.source.kind == SourceKind.document)
-                  _CollapsedExtractedText(
-                    item: item,
-                    texts: texts,
-                    readable: _readableUnfolded,
-                  )
-                else
-                  for (final rendition in texts) ...[
-                    if (rendition.kind == RenditionKind.blocks)
-                      _BlocksRendition(item: item, rendition: rendition)
-                    else
-                      _TextRenditionView(
-                        item: item,
-                        rendition: rendition,
-                        link: _follow,
-                      ),
-                    const SizedBox(height: 16),
-                  ],
 
                 const SizedBox(height: 16),
                 FlashcardSection(item: item),
@@ -458,8 +438,9 @@ class _DetailBodyState extends State<_DetailBody> {
 /// se ve: la nota del usuario, y después cada forma de texto —una nota de
 /// bloques, bloque por bloque—.
 ///
-/// Solo lo que se ve: sin el texto que se está volviendo a extraer
-/// (`_ReextractingText`), y sin el de un documento mientras está plegado
+/// Solo lo que se ve: sin el texto que se está volviendo a extraer —en su
+/// lugar, el panel de la fuente cuenta cómo va—, y sin el de un documento
+/// mientras está plegado
 /// —con [unfolded], con él—. El original de un Word o un EPUB, en su lector
 /// embebido, lo ofrece ese lector, que va por delante.
 ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
@@ -603,17 +584,14 @@ class _MapNoteToggle extends ConsumerWidget {
   }
 }
 
-/// Una rendition de texto plano, Markdown o la transcripción de un video o
-/// audio: se muestra con [HighlightableText] y, si tiene marcas de tiempo
-/// —`[mm:ss]` al principio de cada línea, las pone `formatTranscript` en
-/// `youtube_transcript_transformer.dart`—, con un botón para quitarlas y
-/// dejar el texto corrido.
 /// El texto que se sacó de un documento, plegado (F21, decisión A).
 ///
 /// En un documento lo principal es el original, arriba, en su visor: el
 /// texto extraído existe para la búsqueda, el chat, las tarjetas y el quiz,
 /// no para leerlo acá. Plegado tampoco se construye: el de un libro de
-/// cientos de páginas no se arma hasta que alguien lo abre.
+/// cientos de páginas no se arma hasta que alguien lo abre. Sus acciones
+/// —leer, resumir, copiar— quedan a la vista igual, en el panel de la
+/// fuente (F26).
 ///
 /// Desplegado, se lee en voz alta (F25) —es lo que se puede leer de un PDF—:
 /// ofrece el detalle entero con este texto, por encima de lo que ofrece el
@@ -673,7 +651,12 @@ class _CollapsedExtractedText extends StatelessWidget {
   }
 }
 
-class _TextRenditionView extends ConsumerWidget {
+/// Una forma de texto plano, Markdown o la transcripción de un video o un
+/// audio, para leer, subrayar y seguir al audio. Lo que se hace con ella
+/// —leer para destilar, resumir, copiar, quitar las marcas de tiempo— está
+/// en el panel de la fuente (F26), una sola vez por elemento y no repetido
+/// encima de cada texto.
+class _TextRenditionView extends StatelessWidget {
   const _TextRenditionView({
     required this.item,
     required this.rendition,
@@ -688,104 +671,28 @@ class _TextRenditionView extends ConsumerWidget {
   final PlaybackFollowLink? link;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    // Este texto viene de un DOCX, un EPUB o similar cuando ese es el
-    // primario: ahí "Modo lectura" abre el mismo contenido, paginado y con
-    // tipografía grande, en vez de repetirlo embebido en el detalle como sí
-    // vale la pena para una foto, un video o un PDF — ver
-    // `EmbeddedFileViewer`.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ReextractionStatus(item: item),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            spacing: 4,
-            children: [
-              if (canReextractText(item)) ReextractTextButton(item: item),
-              if (isTranscriptSource(item.source) &&
-                  hasTimestamps(rendition.content))
-                TextButton.icon(
-                  icon: const Icon(Icons.timer_off_outlined, size: 18),
-                  label: Text(l10n.detailRemoveTimestamps),
-                  onPressed: () => _removeTimestamps(context, ref),
-                ),
-              TextButton.icon(
-                icon: const Icon(Icons.menu_book_outlined, size: 18),
-                label: Text(l10n.readingOpenAction),
-                onPressed: () => context.push(RoutePaths.reading(item.id)),
-              ),
-              SummarizeButton(content: rendition.content),
-              TextButton.icon(
-                icon: const Icon(Icons.copy_outlined, size: 18),
-                label: Text(l10n.detailCopyContent),
-                onPressed: () => _copyContent(context),
-              ),
-            ],
-          ),
-        ),
-        // La transcripción de un audio o un video sigue al audio mientras
-        // suena: la palabra que se dice, en amarillo (F23).
-        if (isTranscriptSource(item.source) && rendition.isPrimary)
-          PlaybackSyncedText(
-            item: item,
-            rendition: rendition,
-            markdown: extractedTextIsMarkdown(item.source),
-            link: link,
-          )
-        else
-          HighlightableText(
-            itemId: item.id,
-            renditionId: rendition.id,
-            content: rendition.content,
-            markdown: extractedTextIsMarkdown(item.source),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _copyContent(BuildContext context) async {
-    final l10n = AppLocalizations.of(context)!;
-    await Clipboard.setData(ClipboardData(text: rendition.content));
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.detailContentCopied)));
-  }
-
-  Future<void> _removeTimestamps(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-    final cleaned = stripTimestamps(rendition.content);
-
-    final updated = item.copyWith(
-      renditions: [
-        for (final r in item.renditions)
-          if (r.id == rendition.id && r is TextRendition)
-            r.copyWith(content: cleaned)
-          else
-            r,
-      ],
-    );
-
-    final result = await ref.read(libraryRepositoryProvider).save(updated);
-    if (!context.mounted) return;
-
-    result.match(
-      (failure) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-      (_) => ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.detailTimestampsRemoved))),
+  Widget build(BuildContext context) {
+    // La transcripción de un audio o un video sigue al audio mientras
+    // suena: la palabra que se dice, en amarillo (F23).
+    if (isTranscriptSource(item.source) && rendition.isPrimary) {
+      return PlaybackSyncedText(
+        item: item,
+        rendition: rendition,
+        markdown: extractedTextIsMarkdown(item.source),
+        link: link,
+      );
+    }
+    return HighlightableText(
+      itemId: item.id,
+      renditionId: rendition.id,
+      content: rendition.content,
+      markdown: extractedTextIsMarkdown(item.source),
     );
   }
 }
 
-/// Una nota de bloques dentro del detalle: la muestra de solo lectura, con
-/// un botón para abrir el editor y cambiarla.
+/// Una nota de bloques dentro del detalle: la muestra de solo lectura. Para
+/// cambiarla, "Editar" en el panel de la fuente (F26).
 ///
 /// Aparte del resto de las formas de texto —que se muestran directo con
 /// `HighlightableText`— porque el contenido guardado es JSON, no texto para
@@ -798,41 +705,10 @@ class _BlocksRendition extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final blocks = decodeContentBlocks(rendition.content);
-    // Un resumen o una lectura en voz alta no distinguen encabezados de
-    // párrafos: unir el texto de cada bloque con un punto y aparte es
-    // suficiente para las dos cosas, sin tener que enseñarles nada sobre
-    // la estructura de una nota de bloques.
-    final plainText = blocks.map((b) => b.text).join('\n\n');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            spacing: 4,
-            children: [
-              SummarizeButton(content: plainText),
-              TextButton.icon(
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: Text(l10n.blocksEditAction),
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (context) => BlockEditorScreen(existingItem: item),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        BlockView(
-          blocks: blocks,
-          renditionId: rendition.id,
-          onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
-        ),
-      ],
+    return BlockView(
+      blocks: decodeContentBlocks(rendition.content),
+      renditionId: rendition.id,
+      onLinkTap: (title) => unawaited(_openLink(context, ref, title)),
     );
   }
 
@@ -916,133 +792,6 @@ class _UserNote extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// El aviso de que el contenido todavía no llegó.
-///
-/// En los dos casos —esperando o fallido— dice explícitamente que el enlace
-/// ya está guardado. Sin esa aclaración, una pantalla vacía se lee como "no
-/// se guardó nada" y el usuario vuelve a capturarlo, o peor, deja de confiar
-/// en la app.
-/// Mientras se vuelve a extraer el texto de un elemento que ya tenía: el
-/// avance, en vez del texto viejo, que deja de mostrarse en el acto —el
-/// usuario lo pidió así: que no quede a la vista algo que se está
-/// reemplazando—. El viejo sigue guardado hasta que el nuevo está listo:
-/// si la extracción falla, vuelve a verse con el motivo y "Reintentar"
-/// (`ReextractionStatus`), en vez de dejar el elemento sin texto.
-class _ReextractingText extends StatelessWidget {
-  const _ReextractingText({required this.item});
-
-  final KnowledgeItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ReextractionStatus(item: item),
-          Text(
-            l10n.detailReextractInProgress,
-            key: const Key('reextracting-text'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoContentYet extends ConsumerWidget {
-  const _NoContentYet({required this.item});
-
-  final KnowledgeItem item;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final failed = item.processingState == ProcessingState.failed;
-    // Los dos se escuchan siempre y se usan según el estado. Escucharlos
-    // solo cuando corresponde suscribía y desuscribía la consulta en medio
-    // de un cuadro cada vez que el elemento cambiaba de estado —al tocar
-    // "Reintentar", por ejemplo—.
-    final activeProgress = ref.watch(processingProgressProvider(item.id));
-    final failure = ref.watch(processingFailureProvider(item.id)).valueOrNull;
-    final progress = failed ? null : activeProgress;
-    // La causa real del fallo, no un "no se pudo" genérico (F21): lo que
-    // falta —un modelo, la conexión— dice también qué hacer.
-    final reason = failed ? failure : null;
-    final needsTranscriptionModel =
-        reason == ProcessingFailureReason.transcriptionModelMissing;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              switch (item.processingState) {
-                ProcessingState.pending => Icons.schedule,
-                ProcessingState.processing => Icons.hourglass_empty,
-                ProcessingState.failed => Icons.error_outline,
-                ProcessingState.ready => Icons.info_outline,
-              },
-              size: 20,
-              color: failed
-                  ? theme.colorScheme.error
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                failureMessage(l10n, reason) ??
-                    _emptyStateMessage(l10n, item: item, failed: failed),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-        // Un libro de cientos de páginas o un video de horas: la barra dice
-        // cuánto va, y el original se puede abrir y leer mientras tanto.
-        if (progress != null) ...[
-          const SizedBox(height: 12),
-          ProcessingProgressBar(progress: progress, kind: item.source.kind),
-        ],
-        if (needsTranscriptionModel) ...[
-          const SizedBox(height: 12),
-          // Reintentar sin el modelo volvería a fallar igual: lo que resuelve
-          // es descargarlo, y al terminar este elemento se retoma solo.
-          FilledButton.tonalIcon(
-            onPressed: () => context.push(RoutePaths.transcriptionModel),
-            icon: const Icon(Icons.download, size: 18),
-            label: Text(l10n.failureTranscriptionModelAction),
-          ),
-        ] else if (failed) ...[
-          const SizedBox(height: 12),
-          // Reintentar es a pedido y no automático en cada arranque: un fallo
-          // puede ser permanente —un video borrado, una página que ya no
-          // existe— y volver a intentarlo solo gastaría batería y datos para
-          // fallar de nuevo. Quien sabe si vale la pena es el usuario.
-          FilledButton.tonalIcon(
-            onPressed: () => unawaited(
-              ref.read(processingQueueProvider.notifier).retry(item.id),
-            ),
-            icon: const Icon(Icons.refresh, size: 18),
-            label: Text(l10n.detailRetry),
-          ),
-        ],
-      ],
     );
   }
 }
@@ -1144,98 +893,6 @@ class _MergedProvenanceRow extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
-///
-/// Hace falta que el original sea video o audio —los formatos pesados,
-/// donde soltar el archivo cambia algo— y que ya haya una forma de texto
-/// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
-/// el contenido del elemento.
-bool _hasKeepableText(KnowledgeItem item) {
-  const keepable = {
-    SourceKind.youtube,
-    SourceKind.audio,
-    SourceKind.video,
-    SourceKind.socialPost,
-  };
-  if (!keepable.contains(item.source.kind)) return false;
-  // Sin archivo no hay nada que soltar: un video de YouTube cuyo audio no se
-  // bajó —ya no se baja solo (F21)— tiene transcripción pero ningún archivo.
-  if (item.source.originalFilePath == null) return false;
-
-  return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
-}
-
-/// El botón para soltar el archivo pesado y quedarse solo con el texto ya
-/// extraído.
-///
-/// Vive justo debajo de donde ese archivo se está viendo o escuchando —ver
-/// `EmbeddedFileViewer` en `_DetailBody`—, no al final de la procedencia:
-/// es la acción que sigue naturalmente a mirarlo, no un dato más en una
-/// lista de metadatos.
-class _DeleteOriginalFileButton extends ConsumerWidget {
-  const _DeleteOriginalFileButton({required this.item});
-
-  final KnowledgeItem item;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Align(
-      alignment: Alignment.centerRight,
-      child: TextButton.icon(
-        onPressed: () => _deleteOriginalFile(context, ref, item),
-        icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-        label: Text(l10n.detailDeleteOriginalFile),
-      ),
-    );
-  }
-}
-
-Future<void> _deleteOriginalFile(
-  BuildContext context,
-  WidgetRef ref,
-  KnowledgeItem item,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      content: Text(l10n.detailDeleteOriginalFileConfirm),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.detailDelete),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return;
-
-  final relativePath = item.source.originalFilePath!;
-  await ref.read(fileStoreProvider).delete(relativePath);
-
-  final updated = item.copyWith(
-    source: item.source.copyWith(originalFilePath: null),
-  );
-  final result = await ref.read(libraryRepositoryProvider).save(updated);
-  if (!context.mounted) return;
-
-  result.match(
-    (failure) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-    (_) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
-  );
 }
 
 class _ProvenanceRow extends StatelessWidget {
@@ -1348,29 +1005,6 @@ class _DetailError extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Qué decir cuando todavía no hay contenido.
-///
-/// El mensaje cambia según de dónde vino el elemento, y no es un matiz: a
-/// quien guardó un enlace le importa saber que el enlace está a salvo, y a
-/// quien guardó un PDF le importa saber que el archivo está a salvo. Decirle
-/// "el enlace sigue guardado" a alguien que nunca guardó un enlace suena a
-/// mensaje equivocado, y hace dudar de si su documento sigue ahí.
-String _emptyStateMessage(
-  AppLocalizations l10n, {
-  required KnowledgeItem item,
-  required bool failed,
-}) {
-  final fromFile = item.source.originalFilePath != null;
-
-  if (failed) {
-    return fromFile
-        ? l10n.detailExtractionFailedFile
-        : l10n.detailExtractionFailed;
-  }
-
-  return fromFile ? l10n.detailNoContentYetFile : l10n.detailNoContentYet;
 }
 
 /// El nombre con el que el usuario reconoce su archivo.

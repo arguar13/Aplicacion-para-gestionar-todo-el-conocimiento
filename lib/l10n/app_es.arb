@@ -4812,5 +4812,65 @@
   "readAloudFailed": "No se pudo leer en voz alta. Probá con otra voz.",
   "@readAloudFailed": {
     "description": "Aviso del lector flotante (F25) cuando falló el motor de voz."
+  },
+  "sourcePanelRead": "Leer",
+  "@sourcePanelRead": {
+    "description": "Mosaico del panel de la fuente (F26) que abre la vista de lectura para destilar. Corto: entran cuatro mosaicos en un teléfono."
+  },
+  "sourcePanelSummarize": "Resumir",
+  "@sourcePanelSummarize": {
+    "description": "Mosaico del panel de la fuente (F26) que resume el texto con IA. Corto: entran cuatro mosaicos en un teléfono."
+  },
+  "sourcePanelCopy": "Copiar",
+  "@sourcePanelCopy": {
+    "description": "Mosaico del panel de la fuente (F26) que copia el texto entero. Corto: entran cuatro mosaicos en un teléfono."
+  },
+  "sourcePanelMore": "Más",
+  "@sourcePanelMore": {
+    "description": "Mosaico del panel de la fuente (F26) que abre la hoja con las acciones de vez en cuando. Corto: entran cuatro mosaicos en un teléfono."
+  },
+  "sourcePanelMoreTitle": "Más acciones",
+  "@sourcePanelMoreTitle": {
+    "description": "Título de la hoja que abre el mosaico \"Más\" del panel de la fuente (F26), y su descripción para el lector de pantalla."
+  },
+  "sourcePanelNothingMore": "No hay más acciones para este elemento",
+  "@sourcePanelNothingMore": {
+    "description": "Ayuda del mosaico \"Más\" del panel de la fuente (F26) cuando no hay nada que ofrecer en la hoja: una página web o una nota."
+  },
+  "sourcePanelNeedsText": "Disponible cuando el texto esté listo",
+  "@sourcePanelNeedsText": {
+    "description": "Ayuda de un mosaico apagado del panel de la fuente (F26) mientras el elemento todavía no tiene texto, o se está volviendo a extraer."
+  },
+  "sourcePanelReadNeedsSource": "Leer para destilar es para el texto de una fuente",
+  "@sourcePanelReadNeedsSource": {
+    "description": "Ayuda del mosaico \"Leer\" apagado en una nota de bloques (F26): la vista de lectura trabaja sobre el texto de una fuente."
+  },
+  "sourcePanelEditTooltip": "Abrir la nota en el editor",
+  "@sourcePanelEditTooltip": {
+    "description": "Ayuda del mosaico \"Editar\" del panel de la fuente en una nota de bloques (F26)."
+  },
+  "sourcePanelAudioTitle": "Audio del video",
+  "@sourcePanelAudioTitle": {
+    "description": "Encabezado del reproductor del audio dentro del panel de la fuente (F26), en un video, un TikTok o un video de YouTube."
+  },
+  "sourcePanelReextractFailed": "No se pudo volver a extraer el texto. El de antes sigue guardado.",
+  "@sourcePanelReextractFailed": {
+    "description": "Franja de estado del panel de la fuente (F26) cuando volver a extraer el texto falló por un motivo desconocido."
+  },
+  "sourcePanelReextractHint": "Leer el original otra vez, con la versión actual de la app",
+  "@sourcePanelReextractHint": {
+    "description": "Línea que explica \"Volver a extraer el texto\" en la hoja \"Más\" del panel de la fuente (F26)."
+  },
+  "sourcePanelRemoveTimestampsHint": "Dejar el texto sin los minutos al principio de cada línea",
+  "@sourcePanelRemoveTimestampsHint": {
+    "description": "Línea que explica \"Quitar marcas de tiempo\" en la hoja \"Más\" del panel de la fuente (F26)."
+  },
+  "sourcePanelDeleteFileHint": "Libera espacio: el texto ya extraído queda guardado",
+  "@sourcePanelDeleteFileHint": {
+    "description": "Línea que explica \"Borrar archivo, quedarme con el texto\" en la hoja \"Más\" del panel de la fuente (F26)."
+  },
+  "sourcePanelFullScreenHint": "Abrir el documento original en toda la pantalla",
+  "@sourcePanelFullScreenHint": {
+    "description": "Línea que explica \"Ver a pantalla completa\" en la hoja \"Más\" del panel de la fuente (F26), en un documento."
   }
 }

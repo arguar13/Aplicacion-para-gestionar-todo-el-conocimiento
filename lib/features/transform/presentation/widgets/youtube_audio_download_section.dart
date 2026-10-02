@@ -5,19 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/transform/presentation/providers/youtube_audio_download.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
-import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El audio de un video de YouTube, debajo de su vista previa, en el mismo
-/// reproductor que un audio del teléfono (F24): ±10 s, velocidad, el mini
-/// reproductor y el texto que sigue al audio en amarillo.
+/// El audio de un video de YouTube, en el panel de la fuente debajo de su
+/// vista previa (F26, decisión B), en el mismo reproductor que un audio del
+/// teléfono (F24): ±10 s, velocidad, el mini reproductor y el texto que
+/// sigue al audio en amarillo.
 ///
 /// Se baja **solo**, sin botón —apenas el video queda listo, o al abrirlo
 /// si todavía no lo tiene— y en la mejor calidad que ofrece YouTube
-/// (decisión A de F24). Mientras baja se ve cuánto va; si no se pudo, el
-/// motivo y "Reintentar".
+/// (decisión A de F24). Mientras baja, el panel muestra cuánto va en su
+/// franja de estado; si no se pudo, el motivo y "Reintentar"; ya bajado, el
+/// reproductor.
 ///
 /// Debajo de la vista previa del video, no en su lugar: el video es el
 /// original, y lo principal del detalle es el original.
@@ -53,103 +55,75 @@ class _YouTubeAudioDownloadSectionState
   Widget build(BuildContext context) {
     final item = widget.item;
     final downloaded = item.source.originalFilePath;
-    if (downloaded != null) return _DownloadedAudio(relativePath: downloaded);
 
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final itemId = item.id;
-    final state = ref.watch(youTubeAudioDownloadProvider(itemId));
-    final notifier = ref.read(youTubeAudioDownloadProvider(itemId).notifier);
-
-    return switch (state) {
-      AudioDownloadFailed(:final reason) => Row(
-        children: [
-          Expanded(
-            child: Text(
-              failureMessage(l10n, reason) ?? l10n.youtubeAudioFailed,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ),
-          // Un bloqueo de YouTube no se arregla reintentando.
-          if (reason != ProcessingFailureReason.downloadBlocked)
-            TextButton(
-              onPressed: () => unawaited(notifier.start()),
-              child: Text(l10n.detailRetry),
-            ),
-        ],
-      ),
-      // Bajando, o por empezar: lo mismo, sin un botón de por medio.
-      AudioDownloading(:final fraction) => _Progress(fraction: fraction),
-      AudioDownloadIdle() => const _Progress(fraction: null),
-    };
-  }
-}
-
-class _Progress extends StatelessWidget {
-  const _Progress({required this.fraction});
-
-  final double? fraction;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final fraction = this.fraction;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(value: fraction, minHeight: 6),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          fraction == null
-              ? l10n.youtubeAudioDownloadingUnknown
-              : l10n.youtubeAudioDownloading((fraction * 100).floor()),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+    // Del avance al reproductor con un fundido: es la misma sección del
+    // panel que cambia de estado, no algo nuevo que aparece.
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      child: downloaded != null
+          ? _DownloadedAudio(
+              key: const ValueKey('downloaded'),
+              relativePath: downloaded,
+            )
+          : _Downloading(key: const ValueKey('downloading'), itemId: item.id),
     );
   }
 }
 
+/// Bajando, por empezar o fallido: la franja de estado del panel.
+class _Downloading extends ConsumerWidget {
+  const _Downloading({required this.itemId, super.key});
+
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final state = ref.watch(youTubeAudioDownloadProvider(itemId));
+    final notifier = ref.read(youTubeAudioDownloadProvider(itemId).notifier);
+
+    return switch (state) {
+      AudioDownloadFailed(:final reason) => SourcePanelStatus(
+        icon: Icons.music_off_outlined,
+        tone: SourcePanelTone.error,
+        message: failureMessage(l10n, reason) ?? l10n.youtubeAudioFailed,
+        // Un bloqueo de YouTube no se arregla reintentando.
+        action: reason == ProcessingFailureReason.downloadBlocked
+            ? null
+            : SourcePanelStatusButton(
+                icon: Icons.refresh,
+                label: l10n.detailRetry,
+                onPressed: () => unawaited(notifier.start()),
+              ),
+      ),
+      // Bajando, o por empezar: lo mismo, sin un botón de por medio.
+      AudioDownloading(:final fraction) => _progress(l10n, fraction),
+      AudioDownloadIdle() => _progress(l10n, null),
+    };
+  }
+
+  Widget _progress(AppLocalizations l10n, double? fraction) =>
+      SourcePanelStatus(
+        icon: Icons.downloading,
+        message: fraction == null
+            ? l10n.youtubeAudioDownloadingUnknown
+            : l10n.youtubeAudioDownloading((fraction * 100).floor()),
+        progress: SourcePanelProgressBar(value: fraction),
+      );
+}
+
 /// El reproductor del audio ya bajado.
 class _DownloadedAudio extends ConsumerWidget {
-  const _DownloadedAudio({required this.relativePath});
+  const _DownloadedAudio({required this.relativePath, super.key});
 
   final String relativePath;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final path = ref.watch(_resolvedPathProvider(relativePath));
+    final path = ref.watch(_resolvedPathProvider(relativePath)).valueOrNull;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.youtubeAudioDownloaded,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (path case AsyncData(:final value))
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 220,
-              child: MediaPlayerView(path: value, isVideo: false),
-            ),
-          ),
-      ],
-    );
+    return SourcePanelAudio(path: path, subtitle: l10n.youtubeAudioDownloaded);
   }
 }
 

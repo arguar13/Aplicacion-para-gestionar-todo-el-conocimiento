@@ -5,8 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
@@ -16,6 +21,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+
+import '../../../../support/library_harness.dart';
 
 /// El motor nativo, falso: un archivo de [size] —cero si es solo audio—
 /// que anota qué le pidieron.
@@ -90,35 +97,53 @@ KnowledgeItem _item(SourceKind kind, String file) => KnowledgeItem(
   processingState: ProcessingState.ready,
   createdAt: DateTime(2026, 10),
   updatedAt: DateTime(2026, 10),
+  renditions: [
+    Rendition.text(
+      id: 'item-1-texto',
+      itemId: 'item-1',
+      kind: RenditionKind.plainText,
+      content: '[0:00] lo que se dice',
+      isPrimary: true,
+      createdAt: DateTime(2026, 10),
+    ),
+  ],
 );
 
-/// Un video en el detalle: el video, y debajo el mismo reproductor que un
-/// audio, solo con su audio (F24, decisión B). Los dos manejan **un** solo
-/// reproductor.
+/// Un video en el detalle: el video arriba, y en el panel de la fuente el
+/// mismo reproductor que un audio, solo con su audio (F24, decisión B; F26,
+/// decisión B). Los dos manejan **un** solo reproductor.
 void main() {
   final es = AppLocalizationsEs();
   late _FakePlayer player;
 
   /// Muestra el archivo de [item], resuelto como audio o video según
-  /// [isVideo], en `path`.
+  /// [isVideo], en `path`: solo el visor, o con [detail] el detalle entero.
   Future<ProviderContainer> pump(
     WidgetTester tester, {
     required KnowledgeItem item,
     required String path,
     required bool isVideo,
+    bool detail = false,
   }) async {
-    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    final resolved = resolvedFileViewerProvider.overrideWith(
+      (ref, item) async => MediaResolvedViewer(path: path, isVideo: isVideo),
+    );
+
+    if (detail) {
+      final harness = await LibraryHarness.create(extraOverrides: [resolved]);
+      await harness.container.read(libraryRepositoryProvider).save(item);
+      await tester.pumpWidget(harness.wrap(ItemDetailScreen(itemId: item.id)));
+      await tester.pumpAndSettle();
+      return harness.container;
+    }
+
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          resolvedFileViewerProvider.overrideWith(
-            (ref, item) async =>
-                MediaResolvedViewer(path: path, isVideo: isVideo),
-          ),
-        ],
+        overrides: [resolved],
         child: MaterialApp(
           locale: const Locale('es'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -139,6 +164,7 @@ void main() {
   final videoPlayer = find.byWidgetPredicate(
     (widget) => widget is MediaPlayerView && !widget.audioOnly,
   );
+  final panel = find.byType(SourcePanel);
 
   Finder inside(Finder player, Finder finder) =>
       find.descendant(of: player, matching: finder);
@@ -151,8 +177,8 @@ void main() {
       VideoPlayerPlatform.instance = player;
     });
 
-    testWidgets('se ve el video y, debajo, un reproductor solo con su '
-        'audio', (tester) async {
+    testWidgets('el visor muestra solo el video: su audio va en el panel de '
+        'la fuente', (tester) async {
       await pump(
         tester,
         item: _item(SourceKind.video, 'src-1.mp4'),
@@ -160,21 +186,38 @@ void main() {
         isVideo: true,
       );
 
+      expect(find.byType(MediaPlayerView), findsOneWidget);
+      expect(videoPlayer, findsOneWidget);
+      expect(audioPlayer, findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('en el detalle se ve el video y, en el panel debajo, un '
+        'reproductor solo con su audio', (tester) async {
+      await pump(
+        tester,
+        item: _item(SourceKind.video, 'src-1.mp4'),
+        path: path,
+        isVideo: true,
+        detail: true,
+      );
+
       expect(find.byType(MediaPlayerView), findsNWidgets(2));
       final audio = tester.widget<MediaPlayerView>(audioPlayer);
       expect(audio.audioOnly, isTrue);
+      expect(audio.compact, isTrue);
       expect(audio.path, path);
       final video = tester.widget<MediaPlayerView>(videoPlayer);
       expect(video.isVideo, isTrue);
       expect(video.path, path);
 
-      // La imagen, una sola vez: arriba. Abajo, la carátula del audio.
+      // La imagen, una sola vez: arriba. En el panel, solo los controles,
+      // con su encabezado.
       expect(inside(videoPlayer, find.byType(VideoPlayer)), findsOneWidget);
       expect(inside(audioPlayer, find.byType(VideoPlayer)), findsNothing);
-      expect(
-        inside(audioPlayer, find.byIcon(Icons.graphic_eq)),
-        findsOneWidget,
-      );
+      expect(inside(panel, audioPlayer), findsOneWidget);
+      expect(inside(panel, find.text(es.sourcePanelAudioTitle)), findsOne);
       // Debajo, no encima: el video es lo principal.
       expect(
         tester.getTopLeft(audioPlayer).dy,
@@ -193,6 +236,7 @@ void main() {
         item: _item(SourceKind.video, 'src-1.mp4'),
         path: path,
         isVideo: true,
+        detail: true,
       );
       final controller = container
           .read(playbackSessionProvider(path))
@@ -235,17 +279,19 @@ void main() {
       VideoPlayerPlatform.instance = player;
     });
 
-    testWidgets('tiene un solo reproductor: no hay un video que '
-        'acompañar', (tester) async {
+    testWidgets('tiene un solo reproductor —la vista previa—: no hay un '
+        'video que acompañar, y el panel no lo repite', (tester) async {
       await pump(
         tester,
         item: _item(SourceKind.audio, 'src-1.opus'),
         path: '/boveda/archivos/clase.opus',
         isVideo: false,
+        detail: true,
       );
 
       expect(find.byType(MediaPlayerView), findsOneWidget);
       expect(audioPlayer, findsNothing);
+      expect(inside(panel, find.byType(MediaPlayerView)), findsNothing);
       expect(
         tester.widget<MediaPlayerView>(find.byType(MediaPlayerView)).audioOnly,
         isFalse,

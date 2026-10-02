@@ -37,10 +37,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// paginado por dentro. Quien quiera más lugar toca el botón de expandir,
 /// que lleva a la misma pantalla completa que abriría el viejo botón "Ver"
 /// — ver `openDocumentViewer`.
+///
+/// El audio de un video —el reproductor solo con su audio de F24— ya no va
+/// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
+/// B), junto a las acciones. Acá queda solo el original.
 class EmbeddedFileViewer extends ConsumerWidget {
-  const EmbeddedFileViewer({required this.item, super.key});
+  const EmbeddedFileViewer({required this.item, this.gapBelow = 0, super.key});
 
   final KnowledgeItem item;
+
+  /// El aire entre el visor y lo que sigue, solo si hay un visor: sin nada
+  /// que mostrar —una nota, un enlace sin archivo— no deja un hueco (F26).
+  final double gapBelow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -71,16 +79,23 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
     final resolved = ref.watch(resolvedFileViewerProvider(item));
 
-    return switch (resolved) {
+    final frame = switch (resolved) {
       AsyncData(:final value) => _buildFrame(context, ref, value),
-      AsyncError() => const SizedBox.shrink(),
+      AsyncError() => null,
       _ => const _EmbeddedViewerFrame(
         child: Center(child: CircularProgressIndicator()),
       ),
     };
+    if (frame == null) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(bottom: gapBelow),
+      child: frame,
+    );
   }
 
-  Widget _buildFrame(
+  /// El marco con el visor que le toca a [resolved], o `null` si no hay
+  /// nada que mostrar.
+  Widget? _buildFrame(
     BuildContext context,
     WidgetRef ref,
     ResolvedViewer resolved,
@@ -88,7 +103,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
     void expand() => openDocumentViewer(context, ref, item);
 
     return switch (resolved) {
-      NoResolvedViewer() => const SizedBox.shrink(),
+      NoResolvedViewer() => null,
       TextResolvedViewer(:final content, :final markdown) =>
         _EmbeddedViewerFrame(
           tall: true,
@@ -103,35 +118,13 @@ class EmbeddedFileViewer extends ConsumerWidget {
         onExpand: expand,
         child: ImageViewerView(path: path),
       ),
-      MediaResolvedViewer(:final path, isVideo: false) => _EmbeddedViewerFrame(
-        onExpand: expand,
-        child: MediaPlayerView(path: path, isVideo: false),
-      ),
-      // Un video —uno del teléfono, un TikTok, un reel—: el video, y debajo
-      // el mismo reproductor que un audio del teléfono, solo con su audio
-      // (F24, decisión B del usuario). Los dos manejan el mismo audio: ver
+      // Un audio o un video —uno del teléfono, un TikTok, un reel—. El
+      // reproductor solo con el audio de un video va en el panel de la
+      // fuente (F26); los dos manejan el mismo audio: ver
       // `playbackSessionProvider`.
-      MediaResolvedViewer(:final path, isVideo: true) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _EmbeddedViewerFrame(
-            onExpand: expand,
-            child: MediaPlayerView(path: path, isVideo: true),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 220,
-              child: MediaPlayerView(
-                key: const Key('video-audio-player'),
-                path: path,
-                isVideo: false,
-                audioOnly: true,
-              ),
-            ),
-          ),
-        ],
+      MediaResolvedViewer(:final path, :final isVideo) => _EmbeddedViewerFrame(
+        onExpand: expand,
+        child: MediaPlayerView(path: path, isVideo: isVideo),
       ),
       PdfResolvedViewer(:final path) => _EmbeddedViewerFrame(
         tall: true,

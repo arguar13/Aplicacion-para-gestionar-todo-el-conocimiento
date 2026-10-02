@@ -10,7 +10,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Cuántos caracteres de [content] se le mandan al modelo para resumir. Un
+/// Cuántos caracteres de lo que se resume se le mandan al modelo. Un
 /// libro entero desbordaría la ventana de contexto antes de llegar a
 /// redactar nada; con un tope, el resumen sale de lo que alcanza a leer,
 /// que para el propósito de "dame la idea general" es más que suficiente
@@ -20,12 +20,8 @@ const _kSummarizeContentBudget = 8000;
 
 /// El botón "Resumir con IA": pide un resumen de [content] al modelo de
 /// lenguaje ya cargado y lo muestra en un diálogo, con su propio botón de
-/// copiar.
-///
-/// Sin el modelo descargado, no hay nada que resumir —a diferencia del
-/// chat en modo bóveda, acá no hay una versión "solo buscador" de un
-/// resumen—, así que se avisa y se ofrece ir a descargarlo, en vez de
-/// deshabilitar el botón sin explicar por qué.
+/// copiar. Lo que hace está en [SummarizeOnDemand]: el mosaico "Resumir" del
+/// panel de la fuente (F26) hace exactamente lo mismo con otra forma.
 class SummarizeButton extends ConsumerStatefulWidget {
   const SummarizeButton({required this.content, super.key});
 
@@ -35,15 +31,14 @@ class SummarizeButton extends ConsumerStatefulWidget {
   ConsumerState<SummarizeButton> createState() => _SummarizeButtonState();
 }
 
-class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
-  var _loading = false;
-
+class _SummarizeButtonState extends ConsumerState<SummarizeButton>
+    with SummarizeOnDemand {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
     return TextButton.icon(
-      icon: _loading
+      icon: summarizing
           ? const SizedBox(
               width: 16,
               height: 16,
@@ -51,11 +46,31 @@ class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
             )
           : const Icon(Icons.auto_awesome_outlined, size: 18),
       label: Text(l10n.summarizeAction),
-      onPressed: _loading ? null : _summarize,
+      onPressed: summarizing ? null : () => summarize(widget.content),
     );
   }
+}
 
-  Future<void> _summarize() async {
+/// Resumir con IA, para cualquier botón que lo ofrezca: [summarize] pide el
+/// resumen y lo muestra en su diálogo, y [summarizing] dice si está en eso
+/// —para que el botón muestre que trabaja y no se pueda pedir dos veces—.
+///
+/// Un mixin y no un widget: el botón de texto de siempre y el mosaico del
+/// panel de la fuente (F26) se ven distinto pero tienen que comportarse
+/// igual —el aviso sin el modelo, el error, el diálogo—, y así hay una sola
+/// copia de eso.
+///
+/// Sin el modelo descargado, no hay nada que resumir —a diferencia del
+/// chat en modo bóveda, acá no hay una versión "solo buscador" de un
+/// resumen—, así que se avisa y se ofrece ir a descargarlo, en vez de
+/// deshabilitar el botón sin explicar por qué.
+mixin SummarizeOnDemand<T extends ConsumerStatefulWidget> on ConsumerState<T> {
+  var _summarizing = false;
+
+  /// Si está esperando el resumen.
+  bool get summarizing => _summarizing;
+
+  Future<void> summarize(String content) async {
     final l10n = AppLocalizations.of(context)!;
     final ready = await ref.read(chatModelManagerProvider).isReady();
     if (!mounted) return;
@@ -75,10 +90,10 @@ class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
       return;
     }
 
-    setState(() => _loading = true);
-    final truncated = widget.content.length > _kSummarizeContentBudget
-        ? widget.content.substring(0, _kSummarizeContentBudget)
-        : widget.content;
+    setState(() => _summarizing = true);
+    final truncated = content.length > _kSummarizeContentBudget
+        ? content.substring(0, _kSummarizeContentBudget)
+        : content;
 
     String? summary;
     try {
@@ -90,7 +105,7 @@ class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() => _summarizing = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.summarizeError)));
@@ -101,7 +116,7 @@ class _SummarizeButtonState extends ConsumerState<SummarizeButton> {
     // El diálogo se cierra recién cuando la persona lo cierra: el ícono de
     // "cargando" tiene que apagarse antes de abrirlo, no cuando el diálogo
     // se cierre — si no, quedaría girando por detrás todo ese tiempo.
-    setState(() => _loading = false);
+    setState(() => _summarizing = false);
     await _showSummary(context, summary);
   }
 

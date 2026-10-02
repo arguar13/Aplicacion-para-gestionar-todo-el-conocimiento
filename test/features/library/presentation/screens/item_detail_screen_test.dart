@@ -35,6 +35,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
@@ -95,6 +96,17 @@ void main() {
     await tester.pumpWidget(harness.wrap(ItemDetailScreen(itemId: id)));
     await tester.pumpAndSettle();
   }
+
+  /// Abre la hoja "Más" del panel de la fuente (F26): lo que se usa de vez
+  /// en cuando —volver a extraer, quitar las marcas de tiempo— vive ahí.
+  Future<void> openMore(WidgetTester tester) async {
+    await tester.tap(find.byKey(const Key('source-panel-more')));
+    await tester.pumpAndSettle();
+  }
+
+  /// El mosaico [key] del panel de la fuente (F26).
+  SourcePanelTile tile(WidgetTester tester, String key) =>
+      tester.widget<SourcePanelTile>(find.byKey(Key(key)));
 
   /// Deja un elemento como si traerle el contenido hubiera fallado.
   ///
@@ -161,6 +173,7 @@ void main() {
 
       expect(find.textContaining('var_uno_dos'), findsOneWidget);
       expect(find.textContaining('# 3 no es un título'), findsOneWidget);
+      await openMore(tester);
       expect(find.text(es.detailRemoveTimestamps), findsOneWidget);
     });
 
@@ -173,6 +186,7 @@ void main() {
       );
 
       await pumpDetail(tester, id);
+      await openMore(tester);
       await tester.tap(find.text(es.detailReextract));
       await tester.pumpAndSettle();
 
@@ -237,6 +251,8 @@ void main() {
       await pumpDetail(tester, id);
 
       expect(find.textContaining('[12:30] Horario'), findsOneWidget);
+      await openMore(tester);
+      expect(find.text(es.detailReextract), findsOneWidget);
       expect(find.text(es.detailRemoveTimestamps), findsNothing);
     });
 
@@ -259,15 +275,19 @@ void main() {
 
       await pumpDetail(tester, id);
 
-      expect(find.text(es.readingOpenAction), findsOneWidget);
+      expect(find.byTooltip(es.readingOpenAction), findsOneWidget);
+      expect(tile(tester, 'source-panel-read').onTap, isNotNull);
     });
 
-    testWidgets('sin texto todavía, no ofrece leer', (tester) async {
+    testWidgets('sin texto todavía, "Leer" se ve apagado y dice por qué', (
+      tester,
+    ) async {
       final id = await captureAndGetId('https://ejemplo.org/un-articulo');
 
       await pumpDetail(tester, id);
 
-      expect(find.text(es.readingOpenAction), findsNothing);
+      expect(tile(tester, 'source-panel-read').onTap, isNull);
+      expect(find.byTooltip(es.sourcePanelNeedsText), findsNWidgets(3));
     });
 
     testWidgets('la nota del usuario se ve aparte del contenido', (
@@ -318,7 +338,7 @@ void main() {
       );
 
       await pumpDetail(tester, id);
-      await tester.tap(find.text(es.detailCopyContent));
+      await tester.tap(find.byKey(const Key('source-panel-copy')));
       await tester.pumpAndSettle();
 
       expect(copied, 'Un título\n\nY el cuerpo con la idea completa.');

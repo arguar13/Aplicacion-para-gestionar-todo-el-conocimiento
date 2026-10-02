@@ -1,0 +1,262 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
+import 'package:sinapsis/core/util/transcript_timestamps.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
+import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+/// Lo que se usa de vez en cuando con una fuente, en la hoja "Más" del
+/// panel de la fuente (F26, decisión A): a la vista solo lo de todos los
+/// días —leer, resumir, copiar—, y esto a un toque más.
+enum SourceMoreAction {
+  /// Volver a extraer el texto, con el idioma (F22).
+  reextract,
+
+  /// Quitar las marcas de tiempo de una transcripción (F22).
+  removeTimestamps,
+
+  /// Borrar el archivo pesado y quedarse con el texto.
+  deleteOriginalFile,
+
+  /// El documento original a pantalla completa.
+  fullScreen,
+}
+
+/// Las opciones de "Más" que aplican a [item], en el orden de la hoja: solo
+/// las que se pueden hacer ahora. Vacía para una página web o una nota —no
+/// hay nada de esto que hacerles—.
+List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
+  final hasText = item.renditions.whereType<TextRendition>().isNotEmpty;
+  return [
+    if (hasText && canReextractText(item)) SourceMoreAction.reextract,
+    // Mientras se vuelve a extraer, el texto no se ve y va a ser
+    // reemplazado: ni quitarle las marcas ni soltar el archivo que se está
+    // leyendo de nuevo.
+    if (!item.isBeingProcessed && _timestamped(item).isNotEmpty)
+      SourceMoreAction.removeTimestamps,
+    if (!item.isBeingProcessed && canKeepOnlyText(item))
+      SourceMoreAction.deleteOriginalFile,
+    if (item.source.kind == SourceKind.document &&
+        item.source.originalFilePath != null)
+      SourceMoreAction.fullScreen,
+  ];
+}
+
+/// Las formas de texto de una transcripción que todavía tienen marcas de
+/// tiempo —`[mm:ss]` al principio de cada línea, las pone
+/// `formatTranscript`—. Solo en una transcripción: un PDF con una línea que
+/// empieza con "[12:30]" no tiene marcas que quitar (F22).
+List<TextRendition> _timestamped(KnowledgeItem item) {
+  if (!isTranscriptSource(item.source)) return const [];
+  return [
+    for (final rendition in item.renditions.whereType<TextRendition>())
+      if (rendition.kind != RenditionKind.blocks &&
+          hasTimestamps(rendition.content))
+        rendition,
+  ];
+}
+
+/// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
+///
+/// Hace falta que el original sea video o audio —los formatos pesados,
+/// donde soltar el archivo cambia algo— y que ya haya una forma de texto
+/// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
+/// el contenido del elemento.
+bool canKeepOnlyText(KnowledgeItem item) {
+  const keepable = {
+    SourceKind.youtube,
+    SourceKind.audio,
+    SourceKind.video,
+    SourceKind.socialPost,
+  };
+  if (!keepable.contains(item.source.kind)) return false;
+  // Sin archivo no hay nada que soltar: un video de YouTube cuyo audio no se
+  // bajó —ya no se baja solo (F21)— tiene transcripción pero ningún archivo.
+  if (item.source.originalFilePath == null) return false;
+
+  return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
+}
+
+/// Abre la hoja "Más" con [actions] y hace la que se elija.
+///
+/// La hoja se cierra antes de hacerla: volver a extraer y borrar el archivo
+/// abren su propio diálogo, que no tiene que quedar encima de la hoja.
+Future<void> showSourceMoreSheet(
+  BuildContext context,
+  WidgetRef ref,
+  KnowledgeItem item,
+  List<SourceMoreAction> actions,
+) async {
+  final chosen = await showModalBottomSheet<SourceMoreAction>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => _SourceMoreSheet(actions: actions),
+  );
+  if (chosen == null || !context.mounted) return;
+
+  switch (chosen) {
+    case SourceMoreAction.reextract:
+      await reextractText(context, ref, item);
+    case SourceMoreAction.removeTimestamps:
+      await _removeTimestamps(context, ref, item);
+    case SourceMoreAction.deleteOriginalFile:
+      await _deleteOriginalFile(context, ref, item);
+    case SourceMoreAction.fullScreen:
+      await openDocumentViewer(context, ref, item);
+  }
+}
+
+class _SourceMoreSheet extends StatelessWidget {
+  const _SourceMoreSheet({required this.actions});
+
+  final List<SourceMoreAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l10n.sourcePanelMoreTitle,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            for (final action in actions)
+              ListTile(
+                key: Key('source-more-${action.name}'),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                leading: SourcePanelIconCircle(
+                  icon: action.icon,
+                  tone: action == SourceMoreAction.deleteOriginalFile
+                      ? SourcePanelTone.error
+                      : SourcePanelTone.neutral,
+                ),
+                title: Text(action.title(l10n)),
+                subtitle: Text(action.hint(l10n)),
+                onTap: () => Navigator.of(context).pop(action),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+extension on SourceMoreAction {
+  IconData get icon => switch (this) {
+    SourceMoreAction.reextract => Icons.refresh,
+    SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
+    SourceMoreAction.deleteOriginalFile => Icons.delete_sweep_outlined,
+    SourceMoreAction.fullScreen => Icons.open_in_full,
+  };
+
+  String title(AppLocalizations l10n) => switch (this) {
+    SourceMoreAction.reextract => l10n.detailReextract,
+    SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
+    SourceMoreAction.deleteOriginalFile => l10n.detailDeleteOriginalFile,
+    SourceMoreAction.fullScreen => l10n.detailExpandViewer,
+  };
+
+  String hint(AppLocalizations l10n) => switch (this) {
+    SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
+    SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
+    SourceMoreAction.deleteOriginalFile => l10n.sourcePanelDeleteFileHint,
+    SourceMoreAction.fullScreen => l10n.sourcePanelFullScreenHint,
+  };
+}
+
+/// Lo que el usuario pide es no ver los minutos, no que se toque lo dicho:
+/// ver `stripTimestamps`.
+Future<void> _removeTimestamps(
+  BuildContext context,
+  WidgetRef ref,
+  KnowledgeItem item,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+  final timestamped = {for (final r in _timestamped(item)) r.id};
+
+  final updated = item.copyWith(
+    renditions: [
+      for (final r in item.renditions)
+        if (r is TextRendition && timestamped.contains(r.id))
+          r.copyWith(content: stripTimestamps(r.content))
+        else
+          r,
+    ],
+  );
+
+  final result = await ref.read(libraryRepositoryProvider).save(updated);
+  if (!context.mounted) return;
+
+  result.match(
+    (failure) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+    (_) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.detailTimestampsRemoved))),
+  );
+}
+
+/// Suelta el archivo pesado y se queda solo con el texto ya extraído, con
+/// una confirmación antes: no se puede deshacer.
+Future<void> _deleteOriginalFile(
+  BuildContext context,
+  WidgetRef ref,
+  KnowledgeItem item,
+) async {
+  final l10n = AppLocalizations.of(context)!;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      content: Text(l10n.detailDeleteOriginalFileConfirm),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(l10n.detailDelete),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  final relativePath = item.source.originalFilePath!;
+  await ref.read(fileStoreProvider).delete(relativePath);
+
+  final updated = item.copyWith(
+    source: item.source.copyWith(originalFilePath: null),
+  );
+  final result = await ref.read(libraryRepositoryProvider).save(updated);
+  if (!context.mounted) return;
+
+  result.match(
+    (failure) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
+    (_) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
+  );
+}

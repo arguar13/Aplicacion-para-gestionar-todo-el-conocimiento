@@ -21,12 +21,14 @@ import 'package:video_player/video_player.dart';
 ///
 /// Sin `Scaffold` propio a propósito: `MediaPlayerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
-/// dentro de un marco acotado en el detalle del elemento.
+/// dentro de un marco acotado en el detalle del elemento. Con [compact], solo
+/// los controles, para el panel de la fuente (F26).
 class MediaPlayerView extends ConsumerStatefulWidget {
   const MediaPlayerView({
     required this.path,
     required this.isVideo,
     this.audioOnly = false,
+    this.compact = false,
     super.key,
   });
 
@@ -40,6 +42,13 @@ class MediaPlayerView extends ConsumerStatefulWidget {
   /// reproductor de audio que va debajo de un video (F24, decisión B). Maneja
   /// el mismo audio que el video de arriba.
   final bool audioOnly;
+
+  /// Solo los controles —la barra, ±10 s, reproducir y la velocidad—, con
+  /// los colores del tema y del alto que necesitan: el reproductor del audio
+  /// dentro del panel de la fuente (F26, decisión B). Sin el fondo negro ni
+  /// la carátula, que en una tarjeta clara ocupaban 220 px para mostrar un
+  /// ícono; el video, si lo hay, ya se ve arriba. Implica [audioOnly].
+  final bool compact;
 
   @override
   ConsumerState<MediaPlayerView> createState() => _MediaPlayerViewState();
@@ -86,6 +95,8 @@ class _MediaPlayerViewState extends ConsumerState<MediaPlayerView> {
     final session = ref.watch(playbackSessionProvider(widget.path));
     final controller = session.controller;
 
+    if (widget.compact) return _compact(session, theme);
+
     return ColoredBox(
       color: Colors.black,
       child: FutureBuilder<bool>(
@@ -131,7 +142,46 @@ class _MediaPlayerViewState extends ConsumerState<MediaPlayerView> {
       ),
     );
   }
+
+  /// Los controles solos, sobre la tarjeta que los contiene. Mientras abre
+  /// el archivo ocupan el mismo alto que van a tener, para que el panel no
+  /// salte al aparecer.
+  Widget _compact(PlaybackSession session, ThemeData theme) {
+    return FutureBuilder<bool>(
+      future: session.initialized,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: _compactControlsHeight,
+            child: Center(
+              child: SizedBox.square(
+                dimension: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ),
+          );
+        }
+        if (snapshot.data != true) {
+          return SizedBox(
+            height: _compactControlsHeight,
+            child: Center(
+              child: Icon(
+                Icons.error_outline,
+                size: 32,
+                color: theme.colorScheme.error,
+              ),
+            ),
+          );
+        }
+        return _Controls(controller: session.controller, compact: true);
+      },
+    );
+  }
 }
+
+/// Lo que miden más o menos los controles compactos —la barra, los tiempos
+/// y la fila de botones—: el lugar que se guarda mientras abren.
+const _compactControlsHeight = 100.0;
 
 /// La carátula que se muestra en vez del video cuando el archivo es solo
 /// audio: un ícono grande, tocable, en vez de una pantalla negra vacía que
@@ -164,9 +214,13 @@ class _AudioCover extends StatelessWidget {
 }
 
 class _Controls extends StatefulWidget {
-  const _Controls({required this.controller});
+  const _Controls({required this.controller, this.compact = false});
 
   final VideoPlayerController controller;
+
+  /// Con los colores del tema sobre una tarjeta, en vez de blanco sobre el
+  /// negro del reproductor (F26).
+  final bool compact;
 
   @override
   State<_Controls> createState() => _ControlsState();
@@ -189,6 +243,17 @@ class _ControlsState extends State<_Controls> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final locale = Localizations.localeOf(context).toString();
+    final theme = Theme.of(context);
+    final compact = widget.compact;
+    final palette = compact
+        ? _ControlsPalette.of(theme.colorScheme)
+        : _ControlsPalette.overVideo;
+    final timeStyle = compact
+        ? theme.textTheme.labelSmall?.copyWith(
+            color: palette.muted,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          )
+        : TextStyle(color: palette.muted);
 
     return ValueListenableBuilder<VideoPlayerValue>(
       valueListenable: _controller,
@@ -199,9 +264,16 @@ class _ControlsState extends State<_Controls> {
           double.infinity,
         );
         final shown = _dragging ?? value.position.inMilliseconds.toDouble();
+        final playTooltip = value.isPlaying
+            ? l10n.mediaPlayerPause
+            : l10n.mediaPlayerPlay;
+        void togglePlay() =>
+            value.isPlaying ? _controller.pause() : _controller.play();
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+          padding: compact
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(8, 0, 8, 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -213,8 +285,8 @@ class _ControlsState extends State<_Controls> {
                   ),
                 ),
                 child: Slider(
-                  activeColor: Colors.white,
-                  inactiveColor: Colors.white24,
+                  activeColor: palette.track,
+                  inactiveColor: palette.trackInactive,
                   max: max,
                   value: shown.clamp(0, max),
                   onChanged: (v) => setState(() => _dragging = v),
@@ -225,18 +297,15 @@ class _ControlsState extends State<_Controls> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 24 : 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       _format(Duration(milliseconds: shown.round())),
-                      style: const TextStyle(color: Colors.white70),
+                      style: timeStyle,
                     ),
-                    Text(
-                      _format(duration),
-                      style: const TextStyle(color: Colors.white70),
-                    ),
+                    Text(_format(duration), style: timeStyle),
                   ],
                 ),
               ),
@@ -248,34 +317,47 @@ class _ControlsState extends State<_Controls> {
                     children: [
                       IconButton(
                         key: const Key('media-replay'),
-                        iconSize: 30,
-                        color: Colors.white,
+                        iconSize: compact ? 26 : 30,
+                        color: palette.foreground,
                         tooltip: l10n.mediaPlayerReplay,
                         icon: const Icon(Icons.replay_10),
                         onPressed: () => _skip(-mediaSkipStep),
                       ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        key: const Key('media-play'),
-                        iconSize: 48,
-                        color: Colors.white,
-                        tooltip: value.isPlaying
-                            ? l10n.mediaPlayerPause
-                            : l10n.mediaPlayerPlay,
-                        icon: Icon(
-                          value.isPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_filled,
+                      SizedBox(width: compact ? 8 : 12),
+                      if (compact)
+                        // Sobre la tarjeta, el botón principal se distingue
+                        // por el relleno del color de la app —como un botón
+                        // de acción—, no por el tamaño: un círculo de 48 px
+                        // en blanco no se vería sobre un fondo claro.
+                        IconButton.filled(
+                          key: const Key('media-play'),
+                          iconSize: 28,
+                          tooltip: playTooltip,
+                          icon: Icon(
+                            value.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
+                          onPressed: togglePlay,
+                        )
+                      else
+                        IconButton(
+                          key: const Key('media-play'),
+                          iconSize: 48,
+                          color: palette.foreground,
+                          tooltip: playTooltip,
+                          icon: Icon(
+                            value.isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_filled,
+                          ),
+                          onPressed: togglePlay,
                         ),
-                        onPressed: () => value.isPlaying
-                            ? _controller.pause()
-                            : _controller.play(),
-                      ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: compact ? 8 : 12),
                       IconButton(
                         key: const Key('media-forward'),
-                        iconSize: 30,
-                        color: Colors.white,
+                        iconSize: compact ? 26 : 30,
+                        color: palette.foreground,
                         tooltip: l10n.mediaPlayerForward,
                         icon: const Icon(Icons.forward_10),
                         onPressed: () => _skip(mediaSkipStep),
@@ -284,14 +366,19 @@ class _ControlsState extends State<_Controls> {
                   ),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: _SpeedButton(
-                      label: formatSpeed(value.playbackSpeed, locale),
-                      tooltip: l10n.mediaPlayerSpeed,
-                      onPressed: () => showModalBottomSheet<void>(
-                        context: context,
-                        showDragHandle: true,
-                        builder: (_) =>
-                            MediaSpeedSheet(controller: _controller),
+                    child: Padding(
+                      padding: EdgeInsets.only(right: compact ? 16 : 0),
+                      child: _SpeedButton(
+                        label: formatSpeed(value.playbackSpeed, locale),
+                        tooltip: l10n.mediaPlayerSpeed,
+                        foreground: palette.speedForeground,
+                        background: palette.speedBackground,
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          builder: (_) =>
+                              MediaSpeedSheet(controller: _controller),
+                        ),
                       ),
                     ),
                   ),
@@ -313,16 +400,60 @@ class _ControlsState extends State<_Controls> {
   }
 }
 
+/// Los colores de los controles: blanco sobre el negro del reproductor, o
+/// los del tema sobre la tarjeta del panel de la fuente (F26) —claro u
+/// oscuro, según el tema—.
+class _ControlsPalette {
+  const _ControlsPalette({
+    required this.foreground,
+    required this.muted,
+    required this.track,
+    required this.trackInactive,
+    required this.speedForeground,
+    required this.speedBackground,
+  });
+
+  _ControlsPalette.of(ColorScheme scheme)
+    : this(
+        foreground: scheme.onSurfaceVariant,
+        muted: scheme.onSurfaceVariant,
+        track: scheme.primary,
+        trackInactive: scheme.primary.withValues(alpha: 0.2),
+        speedForeground: scheme.onSecondaryContainer,
+        speedBackground: scheme.secondaryContainer,
+      );
+
+  static const overVideo = _ControlsPalette(
+    foreground: Colors.white,
+    muted: Colors.white70,
+    track: Colors.white,
+    trackInactive: Colors.white24,
+    speedForeground: Colors.white,
+    speedBackground: Colors.white12,
+  );
+
+  final Color foreground;
+  final Color muted;
+  final Color track;
+  final Color trackInactive;
+  final Color speedForeground;
+  final Color speedBackground;
+}
+
 /// La velocidad actual, como una pastilla: tocarla abre el panel.
 class _SpeedButton extends StatelessWidget {
   const _SpeedButton({
     required this.label,
     required this.tooltip,
+    required this.foreground,
+    required this.background,
     required this.onPressed,
   });
 
   final String label;
   final String tooltip;
+  final Color foreground;
+  final Color background;
   final VoidCallback onPressed;
 
   @override
@@ -332,8 +463,8 @@ class _SpeedButton extends StatelessWidget {
       child: TextButton(
         key: const Key('media-speed'),
         style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
-          backgroundColor: Colors.white12,
+          foregroundColor: foreground,
+          backgroundColor: background,
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           minimumSize: const Size(48, 32),
