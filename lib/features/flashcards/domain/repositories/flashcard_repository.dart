@@ -1,4 +1,6 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
@@ -25,6 +27,11 @@ abstract interface class FlashcardRepository {
   /// no hace falta [createMultipleChoice] para esta forma. `multipleChoice`
   /// no se crea acá: usa [createMultipleChoice], que además necesita sus
   /// opciones.
+  ///
+  /// Con [ai] la crea la IA (F27): queda marcada como suya, con su pasada. Se
+  /// rechaza, sin escribir nada, si la persona ya dijo que esa pregunta
+  /// —normalizada: sin mayúsculas, acentos ni signos— «no era» en este
+  /// elemento.
   Future<Either<Failure, Flashcard>> create({
     required String itemId,
     required String front,
@@ -32,6 +39,7 @@ abstract interface class FlashcardRepository {
     int? sourceCharStart,
     int? sourceCharEnd,
     FlashcardKind kind = FlashcardKind.freeRecall,
+    AiProvenance? ai,
   });
 
   /// Crea una tarjeta de opción múltiple (F20) para [itemId]: [front] es la
@@ -42,16 +50,24 @@ abstract interface class FlashcardRepository {
   /// —o más de una— está marcada correcta, o si alguna llega con el texto
   /// vacío. La tarjeta y sus opciones se guardan en UNA transacción
   /// (decisión D, F20): todo o nada.
+  ///
+  /// [ai], igual que en [create] (F27).
   Future<Either<Failure, Flashcard>> createMultipleChoice({
     required String itemId,
     required String front,
     required List<FlashcardOptionDraft> options,
+    AiProvenance? ai,
   });
 
   /// Las opciones de la tarjeta [flashcardId], en el orden en que se
   /// guardaron. Vacío si la tarjeta no es de opción múltiple.
   Future<Either<Failure, List<FlashcardOption>>> optionsFor(String flashcardId);
 
+  /// Cambia la pregunta y la respuesta de la tarjeta [id]. El calendario de
+  /// repaso no cambia: es la misma tarjeta, mejor escrita.
+  ///
+  /// Editar es adoptar (F27): una que hizo la IA pasa a ser de la persona, sin
+  /// pasada, y «deshacer todo» ya no se la lleva.
   Future<Either<Failure, Flashcard>> update({
     required String id,
     required String front,
@@ -59,6 +75,19 @@ abstract interface class FlashcardRepository {
   });
 
   Future<Either<Failure, Unit>> delete(String id);
+
+  /// «No era» (F27): borra la tarjeta que hizo la IA y recuerda su pregunta
+  /// en ese elemento, para que no la vuelva a proponer. El comprobante sirve
+  /// para [restoreRejectedFlashcard]. Se rechaza si la tarjeta es de la
+  /// persona: eso se borra, no se le dice a la IA que no.
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiFlashcard(String id);
+
+  /// Deshace un [rejectAiFlashcard]: la tarjeta vuelve entera —su
+  /// calendario, sus opciones y sus repasos— y la IA la puede volver a
+  /// proponer.
+  Future<Either<Failure, Unit>> restoreRejectedFlashcard(
+    AiRejectionReceipt receipt,
+  );
 
   /// Aplica [grade] a la tarjeta [id] con el algoritmo SM-2 y guarda el
   /// resultado. Devuelve la tarjeta ya actualizada, con su próxima fecha de

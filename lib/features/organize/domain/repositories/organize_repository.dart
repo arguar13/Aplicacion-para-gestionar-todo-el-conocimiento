@@ -1,4 +1,6 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -9,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/relation_update_outcome.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -76,6 +79,11 @@ abstract interface class OrganizeRepository {
   /// (`extractedFrom`): de dónde a dónde del texto de la fuente salió el
   /// fragmento. Van los dos o ninguno, con `0 <= start < end`; con eso la
   /// nota extraída puede llevar de vuelta al lugar exacto de la fuente.
+  ///
+  /// Con [ai] lo crea la IA (F27): queda marcado como suyo, con su pasada y su
+  /// confianza, y [note] es el motivo que dio. Se rechaza, sin escribir nada,
+  /// si la persona ya dijo que ese vínculo —ese par, ese tipo, en cualquier
+  /// sentido— «no era».
   Future<Either<Failure, Unit>> createRelation({
     required String fromItemId,
     required String toItemId,
@@ -83,10 +91,43 @@ abstract interface class OrganizeRepository {
     String? note,
     int? sourceCharStart,
     int? sourceCharEnd,
+    AiProvenance? ai,
+  });
+
+  /// Cambia el tipo y la frase del vínculo [id] (F27). [note] vacío o nulo la
+  /// quita.
+  ///
+  /// Editar es adoptar: uno que hizo la IA pasa a ser de la persona —sin
+  /// pasada ni confianza—, y «deshacer todo» ya no se lo lleva.
+  ///
+  /// Si ya hay otro vínculo de ese tipo entre los mismos dos elementos, en el
+  /// mismo sentido, los dos se funden en ese otro —con esta frase, o la suya
+  /// si esta queda vacía— y se devuelve [RelationUpdateOutcome.merged]: dos
+  /// líneas iguales no pueden convivir, y lo que la persona pidió igual queda.
+  ///
+  /// Una extracción que sabe de qué fragmento de la fuente salió no cambia de
+  /// tipo: el fragmento solo dice algo en una extracción. Se rechaza sin tocar
+  /// nada.
+  Future<Either<Failure, RelationUpdateOutcome>> updateRelation(
+    String id, {
+    required RelationKind kind,
+    String? note,
   });
 
   /// Deshace un vínculo.
   Future<Either<Failure, Unit>> deleteRelation(String id);
+
+  /// «No era» (F27): borra el vínculo que hizo la IA y recuerda que no va
+  /// —el par, sin sentido, y el tipo—, para que no lo vuelva a proponer. El
+  /// comprobante sirve para [restoreRejectedRelation]. Se rechaza si el
+  /// vínculo es de la persona: eso se borra, no se le dice a la IA que no.
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiRelation(String id);
+
+  /// Deshace un [rejectAiRelation]: el vínculo vuelve tal como estaba —de la
+  /// IA, con su pasada— y la IA lo puede volver a proponer.
+  Future<Either<Failure, Unit>> restoreRejectedRelation(
+    AiRejectionReceipt receipt,
+  );
 
   /// Marca el vínculo [relationId] como revisado —con la fecha de ahora— o, con
   /// [reviewed] en `false`, le quita la marca.
@@ -231,12 +272,32 @@ abstract interface class OrganizeRepository {
   /// [origin] queda en la asignación tal cual —`manual` si no se
   /// especifica, el único caso que usa `PropertyEditor` hoy—. Llamarlo
   /// dos veces sobre el mismo par con distinto `origin` deja el último.
+  ///
+  /// [aiRunId] es la pasada de la IA que la pone (F27), y va solo con
+  /// [origin] en `ai`. Una que la persona ya dijo que «no era» en este
+  /// elemento se rechaza sin escribir nada; y la IA nunca pisa una que ya
+  /// estaba puesta por otro origen.
   Future<Either<Failure, Unit>> assignProperty({
     required String itemId,
     required String definitionId,
     required String value,
     ItemPropertyOrigin origin = ItemPropertyOrigin.manual,
+    String? aiRunId,
   });
+
+  /// «No era» (F27): saca del elemento [itemId] el valor [propertyValueId] que
+  /// puso la IA y recuerda que no va en ese elemento. El comprobante sirve
+  /// para [restoreRejectedProperty]. Se rechaza si la asignación no es de la
+  /// IA.
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiProperty({
+    required String itemId,
+    required String propertyValueId,
+  });
+
+  /// Deshace un [rejectAiProperty]: la asignación vuelve como estaba.
+  Future<Either<Failure, Unit>> restoreRejectedProperty(
+    AiRejectionReceipt receipt,
+  );
 
   /// Saca un valor de propiedad de un elemento. El valor en sí sigue
   /// existiendo para los demás elementos que lo tengan puesto.

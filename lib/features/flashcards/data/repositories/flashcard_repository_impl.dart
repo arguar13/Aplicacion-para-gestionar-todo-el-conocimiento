@@ -1,11 +1,17 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
+import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -39,6 +45,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     int? sourceCharStart,
     int? sourceCharEnd,
     FlashcardKind kind = FlashcardKind.freeRecall,
+    AiProvenance? ai,
   }) async {
     final trimmedFront = front.trim();
     final trimmedBack = back.trim();
@@ -72,6 +79,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     }
 
     try {
+      if (ai != null && await _isRejectedQuestion(itemId, trimmedFront)) {
+        return left(_rejectedQuestion);
+      }
       final now = _clock();
       final chunkId = hasStart
           ? await _chunkContaining(itemId, sourceCharStart)
@@ -87,6 +97,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         sourceChunkId: chunkId,
         sourceCharStart: sourceCharStart,
         sourceCharEnd: sourceCharEnd,
+        origin: ai == null ? ContentOrigin.user : ContentOrigin.ai,
+        aiRunId: ai?.runId,
       );
 
       await _db
@@ -103,6 +115,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
               sourceChunkId: Value(card.sourceChunkId),
               sourceCharStart: Value(card.sourceCharStart),
               sourceCharEnd: Value(card.sourceCharEnd),
+              origin: Value(card.origin),
+              aiRunId: Value(card.aiRunId),
             ),
           );
 
@@ -119,6 +133,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     required String itemId,
     required String front,
     required List<FlashcardOptionDraft> options,
+    AiProvenance? ai,
   }) async {
     final trimmedFront = front.trim();
     if (trimmedFront.isEmpty) {
@@ -162,6 +177,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     }
 
     try {
+      if (ai != null && await _isRejectedQuestion(itemId, trimmedFront)) {
+        return left(_rejectedQuestion);
+      }
       final now = _clock();
       final card = Flashcard(
         id: _ids.next(),
@@ -171,6 +189,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         dueAt: now,
         createdAt: now,
         kind: FlashcardKind.multipleChoice,
+        origin: ai == null ? ContentOrigin.user : ContentOrigin.ai,
+        aiRunId: ai?.runId,
       );
 
       await _db.transaction(() async {
@@ -185,6 +205,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
                 dueAt: card.dueAt,
                 createdAt: card.createdAt,
                 kind: Value(card.kind),
+                origin: Value(card.origin),
+                aiRunId: Value(card.aiRunId),
               ),
             );
 
@@ -272,6 +294,9 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
             FlashcardsCompanion(
               front: Value(trimmedFront),
               back: Value(trimmedBack),
+              // Editar es adoptar (F27): deja de ser de la IA.
+              origin: const Value(ContentOrigin.user),
+              aiRunId: const Value(null),
             ),
           );
 
@@ -303,6 +328,127 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
       return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.delete'));
     }
   }
+
+  @override
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiFlashcard(
+    String id,
+  ) async {
+    try {
+      return await _db.transaction(() async {
+        final card = await (_db.select(
+          _db.flashcards,
+        )..where((f) => f.id.equals(id))).getSingleOrNull();
+        if (card == null) {
+          return left(
+            const Failure.unexpected(
+              message: 'La tarjeta ya no existe; puede que se haya borrado.',
+            ),
+          );
+        }
+        if (card.origin != ContentOrigin.ai) {
+          return left(
+            const Failure.validation(
+              message:
+                  'Esa tarjeta la hizo la persona: se borra, no se le '
+                  'dice a la IA que no era.',
+            ),
+          );
+        }
+
+        // Lo que se va con la tarjeta en cascada también se guarda: deshacer
+        // tiene que devolverla entera, con sus opciones y sus repasos.
+        final removed = _RemovedFlashcard(
+          card: card,
+          options: await (_db.select(
+            _db.flashcardOptions,
+          )..where((o) => o.flashcardId.equals(id))).get(),
+          reviews: await (_db.select(
+            _db.reviewLogs,
+          )..where((r) => r.flashcardId.equals(id))).get(),
+        );
+        final rejectionId = await rememberAiRejection(
+          _db,
+          ids: _ids,
+          now: _clock(),
+          kind: AiRejectionKind.flashcard,
+          itemId: card.itemId,
+          fingerprint: flashcardRejectionFingerprint(card.front),
+          subjectId: card.id,
+        );
+        await (_db.delete(_db.flashcards)..where((f) => f.id.equals(id))).go();
+        return right(
+          AiRejectionReceipt(
+            kind: AiRejectionKind.flashcard,
+            rejectionId: rejectionId,
+            removed: removed,
+          ),
+        );
+      });
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.rejectAiFlashcard'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> restoreRejectedFlashcard(
+    AiRejectionReceipt receipt,
+  ) async {
+    final removed = receipt.removed;
+    if (receipt.kind != AiRejectionKind.flashcard ||
+        removed is! _RemovedFlashcard) {
+      return left(
+        const Failure.validation(
+          message: 'Ese comprobante no es el de una tarjeta.',
+        ),
+      );
+    }
+    try {
+      await _db.transaction(() async {
+        await _db
+            .into(_db.flashcards)
+            .insert(removed.card, mode: InsertMode.insertOrIgnore);
+        for (final option in removed.options) {
+          await _db
+              .into(_db.flashcardOptions)
+              .insert(option, mode: InsertMode.insertOrIgnore);
+        }
+        for (final review in removed.reviews) {
+          await _db
+              .into(_db.reviewLogs)
+              .insert(review, mode: InsertMode.insertOrIgnore);
+        }
+        await forgetAiRejection(_db, receipt.rejectionId);
+      });
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'FlashcardRepositoryImpl.restoreRejectedFlashcard',
+        ),
+      );
+    }
+  }
+
+  /// Si la persona ya dijo que esta pregunta «no era» en [itemId] (F27).
+  Future<bool> _isRejectedQuestion(String itemId, String question) =>
+      isAiRejected(
+        _db,
+        kind: AiRejectionKind.flashcard,
+        itemId: itemId,
+        fingerprint: flashcardRejectionFingerprint(question),
+      );
+
+  static const _rejectedQuestion = Failure.validation(
+    message: 'La persona ya dijo que esa tarjeta no era.',
+  );
 
   @override
   Future<Either<Failure, Flashcard>> review({
@@ -505,6 +651,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     sourceCharStart: row.sourceCharStart,
     sourceCharEnd: row.sourceCharEnd,
     lastExportedAt: row.lastExportedAt,
+    origin: row.origin,
+    aiRunId: row.aiRunId,
   );
 
   FlashcardOption _toOptionEntity(FlashcardOptionRow row) => FlashcardOption(
@@ -527,4 +675,19 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     _telemetry.recordError(e, stackTrace, hint: hint);
     return Failure.unexpected(message: e.toString());
   }
+}
+
+/// Lo que se borra con una tarjeta de la IA al decir que «no era» (F27): la
+/// fila y lo que se va con ella en cascada. Lo lleva el comprobante, y solo
+/// este repositorio lo lee.
+class _RemovedFlashcard {
+  const _RemovedFlashcard({
+    required this.card,
+    required this.options,
+    required this.reviews,
+  });
+
+  final FlashcardRow card;
+  final List<FlashcardOptionRow> options;
+  final List<ReviewLogRow> reviews;
 }

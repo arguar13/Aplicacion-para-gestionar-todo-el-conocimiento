@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 
 part 'flashcard.freezed.dart';
@@ -45,12 +46,22 @@ sealed class Flashcard with _$Flashcard {
     /// `null` en una tarjeta que nunca entró en una exportación: es lo que
     /// el camino incremental usa para decidir qué es «nuevo».
     DateTime? lastExportedAt,
+
+    /// Quién la hizo (F27). Una de la IA que la persona edita pasa a ser
+    /// suya: editarla es adoptarla, y «deshacer todo» ya no se la lleva.
+    @Default(ContentOrigin.user) ContentOrigin origin,
+
+    /// La pasada de la IA que la creó. `null` en las de la persona.
+    String? aiRunId,
   }) = _Flashcard;
 
   const Flashcard._();
 
   /// Si se sabe de qué fragmento de la fuente salió.
   bool get hasSourceRange => sourceCharStart != null && sourceCharEnd != null;
+
+  /// Si sigue siendo de la IA.
+  bool get isFromAi => origin == ContentOrigin.ai;
 
   /// Si ya toca repasarla.
   bool isDue(DateTime now) => !dueAt.isAfter(now);

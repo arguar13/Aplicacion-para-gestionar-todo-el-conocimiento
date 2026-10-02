@@ -33,3 +33,14 @@ enum RelationKind {
   /// distinguirla de un «se parecen».
   indexes,
 }
+
+/// Lo que se puede hacer con cada tipo al editar un vínculo (F27).
+extension RelationKindEditing on RelationKind {
+  /// Si el tipo es ESTRUCTURA y no una opinión sobre dos elementos: una
+  /// extracción (la nota salió de un fragmento de la fuente) o un índice (la
+  /// nota mapa ordena lo que señala). Los pone el flujo que crea esa nota, con
+  /// lo que eso trae —el subtipo de la nota, las propiedades heredadas, el
+  /// fragmento—, y editar un vínculo no los pone ni los saca.
+  bool get isStructural =>
+      this == RelationKind.extractedFrom || this == RelationKind.indexes;
+}

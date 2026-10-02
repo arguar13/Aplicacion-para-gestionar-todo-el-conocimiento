@@ -32,5 +32,11 @@ sealed class ItemProperty with _$ItemProperty {
     /// lista: si `origin` no estuviera acá, cualquier edición
     /// posterior del elemento lo devolvería en silencio a `manual`.
     @Default(ItemPropertyOrigin.manual) ItemPropertyOrigin origin,
+
+    /// La pasada de la IA que la puso (F27), solo con [origin] en `ai`. Viaja
+    /// acá por lo mismo que [origin]: `save()` reescribe las asignaciones a
+    /// partir de esta lista, y sin ella la pasada se perdería en silencio y
+    /// «deshacer todo» ya no la encontraría.
+    String? aiRunId,
   }) = _ItemProperty;
 }

@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
@@ -45,5 +46,20 @@ sealed class ItemRelation with _$ItemRelation {
     /// guardara.
     int? sourceCharStart,
     int? sourceCharEnd,
+
+    /// Quién lo hizo (F27): uno de la IA lleva la marca ✨ y se puede decir
+    /// que «no era». [note] es, en ese caso, el motivo que dio.
+    @Default(ContentOrigin.user) ContentOrigin origin,
+
+    /// Qué tan segura estaba la IA, de 0 a 1. `null` en los de la persona.
+    double? confidence,
+
+    /// La pasada de la IA que lo creó. `null` en los de la persona.
+    String? aiRunId,
   }) = _ItemRelation;
+
+  const ItemRelation._();
+
+  /// Si sigue siendo de la IA.
+  bool get isFromAi => origin == ContentOrigin.ai;
 }

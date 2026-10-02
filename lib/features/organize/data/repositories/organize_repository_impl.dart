@@ -3,12 +3,17 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/property_value_merge.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_rejection_receipt.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/highlight.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -20,9 +25,11 @@ import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_edge.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/relation_update_outcome.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
+import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -178,6 +185,7 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     String? note,
     int? sourceCharStart,
     int? sourceCharEnd,
+    AiProvenance? ai,
   }) async {
     if (fromItemId == toItemId) {
       return left(
@@ -223,6 +231,29 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         );
       }
 
+      // Lo que la persona dijo que «no era», la IA no lo vuelve a poner
+      // (F27). Se comprueba acá además de en quien propone: es la última
+      // puerta antes de la base, y ninguna pasada la saltea.
+      if (ai != null) {
+        final key = relationRejectionKey(
+          fromItemId: fromItemId,
+          toItemId: toItemId,
+          kind: kind,
+        );
+        if (await isAiRejected(
+          _db,
+          kind: AiRejectionKind.relation,
+          itemId: key.itemId,
+          fingerprint: key.fingerprint,
+        )) {
+          return left(
+            const Failure.validation(
+              message: 'La persona ya dijo que ese vínculo no era.',
+            ),
+          );
+        }
+      }
+
       await _db
           .into(_db.relations)
           .insert(
@@ -235,6 +266,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
               sourceCharStart: Value(sourceCharStart),
               sourceCharEnd: Value(sourceCharEnd),
               createdAt: _clock(),
+              origin: Value(ai == null ? ContentOrigin.user : ContentOrigin.ai),
+              confidence: Value(ai?.confidence),
+              aiRunId: Value(ai?.runId),
             ),
           );
 
@@ -293,6 +327,174 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     } catch (e, stackTrace) {
       return left(
         _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.deleteRelation'),
+      );
+    }
+  }
+
+  /// Lo que escribe editar algo que hizo la IA (F27): pasa a ser de la
+  /// persona, sin pasada ni confianza. Editar es adoptar.
+  static const _adopted = RelationsCompanion(
+    origin: Value(ContentOrigin.user),
+    confidence: Value(null),
+    aiRunId: Value(null),
+  );
+
+  @override
+  Future<Either<Failure, RelationUpdateOutcome>> updateRelation(
+    String id, {
+    required RelationKind kind,
+    String? note,
+  }) async {
+    try {
+      return await _db.transaction(() async {
+        final row = await (_db.select(
+          _db.relations,
+        )..where((r) => r.id.equals(id))).getSingleOrNull();
+        if (row == null) {
+          return left(
+            const Failure.unexpected(
+              message: 'El vínculo ya no existe; puede que se haya borrado.',
+            ),
+          );
+        }
+        if (kind != row.kind && (kind.isStructural || row.kind.isStructural)) {
+          return left(
+            const Failure.validation(
+              message:
+                  'Una extracción o un índice no cambian de tipo al editar el '
+                  'vínculo: los pone el flujo que crea esa nota.',
+            ),
+          );
+        }
+
+        final cleaned = _nonEmpty(note);
+        if (kind != row.kind) {
+          final twin =
+              await (_db.select(_db.relations)..where(
+                    (r) =>
+                        r.fromItemId.equals(row.fromItemId) &
+                        r.toItemId.equals(row.toItemId) &
+                        r.kind.equalsValue(kind),
+                  ))
+                  .getSingleOrNull();
+          if (twin != null) {
+            // El esquema no deja dos iguales (UNIQUE): queda el que ya tenía
+            // ese tipo, con la frase nueva —o la suya, si esta quedó vacía—,
+            // y de la persona, porque la persona lo acaba de decidir.
+            await (_db.update(_db.relations)
+                  ..where((r) => r.id.equals(twin.id)))
+                .write(_adopted.copyWith(note: Value(cleaned ?? twin.note)));
+            await (_db.delete(
+              _db.relations,
+            )..where((r) => r.id.equals(id))).go();
+            return right(RelationUpdateOutcome.merged);
+          }
+        }
+
+        await (_db.update(_db.relations)..where((r) => r.id.equals(id))).write(
+          _adopted.copyWith(kind: Value(kind), note: Value(cleaned)),
+        );
+        return right(RelationUpdateOutcome.updated);
+      });
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.updateRelation'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiRelation(
+    String id,
+  ) async {
+    try {
+      return await _db.transaction(() async {
+        final row = await (_db.select(
+          _db.relations,
+        )..where((r) => r.id.equals(id))).getSingleOrNull();
+        if (row == null) {
+          return left(
+            const Failure.unexpected(
+              message: 'El vínculo ya no existe; puede que se haya borrado.',
+            ),
+          );
+        }
+        if (row.origin != ContentOrigin.ai) {
+          return left(
+            const Failure.validation(
+              message:
+                  'Ese vínculo lo hizo la persona: se borra, no se '
+                  'le dice a la IA que no era.',
+            ),
+          );
+        }
+
+        final key = relationRejectionKey(
+          fromItemId: row.fromItemId,
+          toItemId: row.toItemId,
+          kind: row.kind,
+        );
+        final rejectionId = await rememberAiRejection(
+          _db,
+          ids: _ids,
+          now: _clock(),
+          kind: AiRejectionKind.relation,
+          itemId: key.itemId,
+          otherItemId: key.otherItemId,
+          fingerprint: key.fingerprint,
+          subjectId: row.id,
+        );
+        await (_db.delete(_db.relations)..where((r) => r.id.equals(id))).go();
+        return right(
+          AiRejectionReceipt(
+            kind: AiRejectionKind.relation,
+            rejectionId: rejectionId,
+            removed: row,
+          ),
+        );
+      });
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.rejectAiRelation'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> restoreRejectedRelation(
+    AiRejectionReceipt receipt,
+  ) async {
+    final row = receipt.removed;
+    if (receipt.kind != AiRejectionKind.relation || row is! RelationRow) {
+      return left(
+        const Failure.validation(
+          message: 'Ese comprobante no es el de un vínculo.',
+        ),
+      );
+    }
+    try {
+      await _db.transaction(() async {
+        // Si mientras tanto alguien creó el mismo vínculo, ese queda: el
+        // vínculo ya está, que es lo que deshacer quería.
+        await _db
+            .into(_db.relations)
+            .insert(row, mode: InsertMode.insertOrIgnore);
+        await forgetAiRejection(_db, receipt.rejectionId);
+      });
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.restoreRejectedRelation',
+        ),
       );
     }
   }
@@ -407,6 +609,9 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
         otherItemSourceKind: otherSource?.sourceType ?? SourceKind.manualNote,
         sourceCharStart: relation.sourceCharStart,
         sourceCharEnd: relation.sourceCharEnd,
+        origin: relation.origin,
+        confidence: relation.confidence,
+        aiRunId: relation.aiRunId,
       );
     }).toList();
   }
@@ -938,11 +1143,22 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     required String definitionId,
     required String value,
     ItemPropertyOrigin origin = ItemPropertyOrigin.manual,
+    String? aiRunId,
   }) async {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
       return left(
         const Failure.validation(message: 'El valor no puede quedar vacío.'),
+      );
+    }
+    final byAi = origin == ItemPropertyOrigin.ai;
+    if (byAi != (aiRunId != null)) {
+      return left(
+        const Failure.validation(
+          message:
+              'La pasada de la IA va con el origen `ai`, y el origen `ai` '
+              'con su pasada.',
+        ),
       );
     }
 
@@ -969,6 +1185,26 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
       // crear un valor duplicado.
       final existing = await _findValueByLabelOrAlias(definitionId, trimmed);
 
+      // Lo que la persona dijo que «no era» en este elemento, la IA no lo
+      // vuelve a poner (F27).
+      if (byAi &&
+          definition != null &&
+          await isAiRejected(
+            _db,
+            kind: AiRejectionKind.property,
+            itemId: itemId,
+            fingerprint: propertyRejectionFingerprint(
+              definitionName: definition.name,
+              value: existing?.value ?? trimmed,
+            ),
+          )) {
+        return left(
+          const Failure.validation(
+            message: 'La persona ya dijo que esa propiedad no era.',
+          ),
+        );
+      }
+
       final propertyValueId = existing?.id ?? _ids.next();
       if (existing == null) {
         await _db
@@ -983,15 +1219,23 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
             );
       }
 
-      await _db
-          .into(_db.itemPropertyValues)
-          .insertOnConflictUpdate(
-            ItemPropertyValuesCompanion.insert(
-              itemId: itemId,
-              propertyValueId: propertyValueId,
-              origin: Value(origin),
-            ),
-          );
+      final assignment = ItemPropertyValuesCompanion.insert(
+        itemId: itemId,
+        propertyValueId: propertyValueId,
+        origin: Value(origin),
+        aiRunId: Value(aiRunId),
+      );
+      // La IA nunca pisa una asignación que ya estaba —de la persona, de la
+      // herencia o de otra pasada—: solo agrega lo que falta (F27).
+      if (byAi) {
+        await _db
+            .into(_db.itemPropertyValues)
+            .insert(assignment, mode: InsertMode.insertOrIgnore);
+      } else {
+        await _db
+            .into(_db.itemPropertyValues)
+            .insertOnConflictUpdate(assignment);
+      }
 
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -1021,6 +1265,112 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     } catch (e, stackTrace) {
       return left(
         _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.removeItemProperty'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, AiRejectionReceipt>> rejectAiProperty({
+    required String itemId,
+    required String propertyValueId,
+  }) async {
+    try {
+      return await _db.transaction(() async {
+        final assignment =
+            await (_db.select(_db.itemPropertyValues)..where(
+                  (a) =>
+                      a.itemId.equals(itemId) &
+                      a.propertyValueId.equals(propertyValueId),
+                ))
+                .getSingleOrNull();
+        if (assignment == null) {
+          return left(
+            const Failure.unexpected(
+              message: 'El elemento ya no tiene esa propiedad.',
+            ),
+          );
+        }
+        if (assignment.origin != ItemPropertyOrigin.ai) {
+          return left(
+            const Failure.validation(
+              message:
+                  'Esa propiedad no la puso la IA: se quita, no se le '
+                  'dice que no era.',
+            ),
+          );
+        }
+
+        final value = await (_db.select(
+          _db.propertyValues,
+        )..where((v) => v.id.equals(propertyValueId))).getSingle();
+        final definition = await (_db.select(
+          _db.propertyDefinitions,
+        )..where((d) => d.id.equals(value.definitionId))).getSingle();
+        final rejectionId = await rememberAiRejection(
+          _db,
+          ids: _ids,
+          now: _clock(),
+          kind: AiRejectionKind.property,
+          itemId: itemId,
+          fingerprint: propertyRejectionFingerprint(
+            definitionName: definition.name,
+            value: value.value,
+          ),
+          subjectId: propertyValueId,
+        );
+        await (_db.delete(_db.itemPropertyValues)..where(
+              (a) =>
+                  a.itemId.equals(itemId) &
+                  a.propertyValueId.equals(propertyValueId),
+            ))
+            .go();
+        return right(
+          AiRejectionReceipt(
+            kind: AiRejectionKind.property,
+            rejectionId: rejectionId,
+            removed: assignment,
+          ),
+        );
+      });
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'OrganizeRepositoryImpl.rejectAiProperty'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> restoreRejectedProperty(
+    AiRejectionReceipt receipt,
+  ) async {
+    final row = receipt.removed;
+    if (receipt.kind != AiRejectionKind.property ||
+        row is! ItemPropertyValueRow) {
+      return left(
+        const Failure.validation(
+          message: 'Ese comprobante no es el de una propiedad.',
+        ),
+      );
+    }
+    try {
+      await _db.transaction(() async {
+        await _db
+            .into(_db.itemPropertyValues)
+            .insert(row, mode: InsertMode.insertOrIgnore);
+        await forgetAiRejection(_db, receipt.rejectionId);
+      });
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.restoreRejectedProperty',
+        ),
       );
     }
   }

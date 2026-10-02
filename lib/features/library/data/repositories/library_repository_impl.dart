@@ -896,10 +896,12 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// como etiqueta: una entidad bien armada no la trae —`_assemble` separa
   /// las dos cosas—, pero perderla en silencio sería peor que reinterpretarla.
   Future<void> _syncTags(KnowledgeItem item, String temaId) async {
-    final desired = <String, ItemPropertyOrigin>{
+    // Con su pasada de la IA (F27), por lo mismo que con su origen.
+    final desired = <String, (ItemPropertyOrigin, String?)>{
       for (final property in item.properties)
-        if (property.definitionId == temaId) property.valueId: property.origin,
-      for (final tag in item.tags) tag.id: ItemPropertyOrigin.manual,
+        if (property.definitionId == temaId)
+          property.valueId: (property.origin, property.aiRunId),
+      for (final tag in item.tags) tag.id: (ItemPropertyOrigin.manual, null),
     };
 
     for (final tag in item.tags) {
@@ -952,7 +954,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
             ItemPropertyValuesCompanion.insert(
               itemId: item.id,
               propertyValueId: entry.key,
-              origin: Value(entry.value),
+              origin: Value(entry.value.$1),
+              aiRunId: Value(entry.value.$2),
             ),
           );
     }
@@ -1029,6 +1032,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
               itemId: item.id,
               propertyValueId: property.valueId,
               origin: Value(property.origin),
+              aiRunId: Value(property.aiRunId),
             ),
           );
     }
@@ -1190,6 +1194,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
           value: valueRow.value,
           createdAt: valueRow.createdAt,
           origin: assignmentRow.origin,
+          aiRunId: assignmentRow.aiRunId,
         ),
       );
     }
