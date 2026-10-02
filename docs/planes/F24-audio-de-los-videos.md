@@ -1,6 +1,8 @@
 # F24 — El audio de cada video, siempre a mano
 
-> **Estado: propuesto** (2026-10-01), esperando aprobación en el chat ("aprobado"). Pedido del
+> **Estado: aprobado** (2026-10-01), en el chat: **las alternativas de A y de B** —el audio de
+> YouTube en la mejor calidad; y en TikTok, reels y videos del teléfono, un reproductor solo de
+> audio debajo del video, además del video—. Pedido del
 > usuario: *"cuando se trate siempre de un audio, un short, TikTok o video, que siempre debajo de la
 > vista previa del video aparezca un reproductor con el audio del video (el mismo reproductor que
 > usa la app cuando se importa un audio de mi móvil), ese mismo reproductor usa para reproducir el
@@ -34,13 +36,15 @@ devuelve. El audio se baja solo, sin botón.
 
 ## Decisiones que necesito que confirmes
 
-- **A. Calidad del audio de YouTube** (lo que ocupa en el teléfono):
+- **A. Calidad del audio de YouTube** (lo que ocupa en el teléfono). *Elegida: la alternativa, la
+  de mejor calidad.*
   - *(Recomendado)* **La pista más liviana**, Opus de ~50 kbps: **~22 MB por hora** —un video de 10
     minutos, ~4 MB; uno de 4 horas, ~90 MB—. Opus a esa tasa se escucha bien para voz y aceptable
     para música.
   - Alternativa: **la de mejor calidad**, la que se bajaba con el botón, ~160 kbps: **~72 MB por
     hora** —4 horas, ~290 MB—.
-- **B. TikTok, reels y videos del teléfono:**
+- **B. TikTok, reels y videos del teléfono.** *Elegida: la alternativa, un segundo reproductor
+  solo de audio, además del video.*
   - *(Recomendado)* **No duplicar el reproductor**: el que se ve ya es el reproductor de la app, con
     el audio y los mismos controles. Se agrega la transcripción de TikTok y reels (punto 2).
   - Alternativa: además, un segundo reproductor solo de audio debajo del video, sobre el mismo
