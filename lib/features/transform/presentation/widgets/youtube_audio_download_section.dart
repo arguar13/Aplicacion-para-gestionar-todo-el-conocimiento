@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/youtube_audio_download.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
@@ -71,10 +72,12 @@ class _YouTubeAudioDownloadSectionState
               ),
             ),
           ),
-          TextButton(
-            onPressed: () => unawaited(notifier.start()),
-            child: Text(l10n.detailRetry),
-          ),
+          // Un bloqueo de YouTube no se arregla reintentando.
+          if (reason != ProcessingFailureReason.downloadBlocked)
+            TextButton(
+              onPressed: () => unawaited(notifier.start()),
+              child: Text(l10n.detailRetry),
+            ),
         ],
       ),
       // Bajando, o por empezar: lo mismo, sin un botón de por medio.

@@ -13,6 +13,18 @@ class NetworkException implements Exception {
   final String message;
 }
 
+/// El servidor de un video no deja bajar su audio desde esta app: YouTube
+/// responde "prohibido" a lo que no es su propia app (F24). Reintentar no lo
+/// cambia.
+class DownloadBlockedException implements Exception {
+  const DownloadBlockedException({required this.message});
+
+  final String message;
+
+  @override
+  String toString() => 'Bajada bloqueada: $message';
+}
+
 class UnauthorizedException implements Exception {
   const UnauthorizedException({required this.message});
 

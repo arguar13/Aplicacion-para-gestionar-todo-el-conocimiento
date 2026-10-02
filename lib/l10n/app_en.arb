@@ -5753,5 +5753,9 @@
   "mediaPlayerBackToAudio": "Back to audio",
   "@mediaPlayerBackToAudio": {
     "description": "Botón del mini reproductor flotante que lleva a lo que está sonando."
+  },
+  "failureDownloadBlocked": "YouTube doesn't let apps other than its own download this video's audio. The video and its text are still saved.",
+  "@failureDownloadBlocked": {
+    "description": "Why a YouTube video's audio couldn't be downloaded: YouTube refuses it to apps other than its own"
   }
 }

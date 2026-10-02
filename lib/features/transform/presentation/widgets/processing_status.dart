@@ -32,6 +32,7 @@ String? failureMessage(
     l10n.failureTranscriptionModelMissing,
   ProcessingFailureReason.timedOut => l10n.failureTimedOut,
   ProcessingFailureReason.network => l10n.failureNetwork,
+  ProcessingFailureReason.downloadBlocked => l10n.failureDownloadBlocked,
   ProcessingFailureReason.unavailable => l10n.failureUnavailable,
   ProcessingFailureReason.noArticle => l10n.failureNoArticle,
   ProcessingFailureReason.unreadableDocument => l10n.failureUnreadableDocument,

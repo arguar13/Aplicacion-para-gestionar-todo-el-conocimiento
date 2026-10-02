@@ -26,6 +26,8 @@ void main() {
       TimeoutException('tardó'): ProcessingFailureReason.timedOut,
       const NetworkException(message: 'sin red'):
           ProcessingFailureReason.network,
+      const DownloadBlockedException(message: '403'):
+          ProcessingFailureReason.downloadBlocked,
       const ServerException(message: 'no está', statusCode: 404):
           ProcessingFailureReason.unavailable,
       const ServerException(message: 'se fue', statusCode: 410):

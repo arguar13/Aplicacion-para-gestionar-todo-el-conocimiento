@@ -30,6 +30,9 @@ enum ProcessingFailureReason {
   /// Sin conexión, o el servidor no respondió.
   network,
 
+  /// El servidor no deja bajar el audio de este video desde la app (F24).
+  downloadBlocked,
+
   /// Cualquier otra cosa.
   unknown;
 

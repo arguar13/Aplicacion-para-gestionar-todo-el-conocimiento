@@ -25,6 +25,7 @@ ProcessingFailureReason processingFailureReasonFor(
   MissingOriginalFileException() => ProcessingFailureReason.missingOriginalFile,
   TimeoutException() => ProcessingFailureReason.timedOut,
   NetworkException() => ProcessingFailureReason.network,
+  DownloadBlockedException() => ProcessingFailureReason.downloadBlocked,
   // La página respondió que ya no está, o que no deja leerla: reintentar no
   // lo va a cambiar.
   ServerException(statusCode: 404 || 410) ||

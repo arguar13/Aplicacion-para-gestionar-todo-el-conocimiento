@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
+import 'package:sinapsis/features/transform/data/clients/youtube_clients.dart';
 import 'package:sinapsis/features/transform/data/clients/youtube_explode_client.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_api;
 
@@ -14,6 +16,10 @@ class _MockVideos extends Mock implements yt_api.VideoClient {}
 class _MockCaptions extends Mock implements yt_api.ClosedCaptionClient {}
 
 class _MockStreams extends Mock implements yt_api.StreamClient {}
+
+class _MockManifest extends Mock implements yt_api.StreamManifest {}
+
+class _MockAudio extends Mock implements yt_api.AudioOnlyStreamInfo {}
 
 /// El cliente contra un YouTube falso: lo que se prueba acá son los límites
 /// de tiempo y la traducción de los cortes de red (F21), no el paquete.
@@ -58,15 +64,27 @@ void main() {
       verify(() => youtube.close()).called(1);
     });
 
-    test('la lista de pistas de audio', () async {
+    test('la lista de pistas de audio, después de reintentarla', () async {
+      var calls = 0;
       when(
-        () => streams.getManifest(any<dynamic>()),
-      ).thenAnswer((_) => Completer<yt_api.StreamManifest>().future);
+        () => streams.getManifest(
+          any<dynamic>(),
+          ytClients: any(named: 'ytClients'),
+        ),
+      ).thenAnswer((_) {
+        calls++;
+        return Completer<yt_api.StreamManifest>().future;
+      });
 
       await expectLater(
-        client().openAudio('abc'),
+        YoutubeExplodeClient(
+          create: () => youtube,
+          callTimeout: const Duration(milliseconds: 50),
+          resumeBackoff: const Duration(milliseconds: 1),
+        ).openAudio('abc'),
         throwsA(isA<TimeoutException>()),
       );
+      expect(calls, 3);
     });
   });
 
@@ -83,6 +101,251 @@ void main() {
       client().fetchVideo('abc'),
       throwsA(isA<NetworkException>()),
     );
+  });
+
+  group('bajar el audio retoma desde donde quedó (F24)', () {
+    late _MockAudio audio;
+    // Cada intento: desde qué byte se pidió.
+    late List<int> requestedFrom;
+
+    setUp(() {
+      audio = _MockAudio();
+      when(() => audio.size).thenReturn(const yt_api.FileSize(10));
+      when(() => audio.tag).thenReturn(251);
+      when(() => audio.audioTrack).thenReturn(null);
+      when(() => audio.bitrate).thenReturn(const yt_api.Bitrate(160000));
+      when(() => audio.container).thenReturn(yt_api.StreamContainer.webM);
+      final manifest = _MockManifest();
+      when(() => manifest.audioOnly).thenReturn(UnmodifiableListView([audio]));
+      when(
+        () => streams.getManifest(
+          any<dynamic>(),
+          ytClients: any(named: 'ytClients'),
+        ),
+      ).thenAnswer((_) async => manifest);
+      requestedFrom = [];
+    });
+
+    /// Un cliente cuyo YouTube responde cada pedido con [attempts], en
+    /// orden: los bytes que manda y si después se traba (no manda más).
+    YoutubeExplodeClient resuming(List<(List<int>, bool)> attempts) {
+      var call = 0;
+      return YoutubeExplodeClient(
+        create: () => youtube,
+        stallTimeout: const Duration(milliseconds: 40),
+        resumeBackoff: const Duration(milliseconds: 1),
+        maxResumeAttempts: 3,
+        fetchRange: (_, _, start) async* {
+          requestedFrom.add(start);
+          final (bytes, stalls) =
+              attempts[call < attempts.length ? call : attempts.length - 1];
+          call++;
+          if (bytes.isNotEmpty) yield bytes;
+          if (stalls) await Completer<void>().future;
+        },
+      );
+    }
+
+    Future<List<int>> drain(YoutubeExplodeClient client) async {
+      final opened = await client.openAudio('abc');
+      return [for (final chunk in await opened.bytes.toList()) ...chunk];
+    }
+
+    test('una conexión que se traba a mitad de camino se retoma desde el '
+        'byte siguiente, sin perder ni repetir nada', () async {
+      final bytes = await drain(
+        resuming([
+          ([0, 1, 2, 3], true),
+          ([4, 5, 6], true),
+          ([7, 8, 9], false),
+        ]),
+      );
+
+      expect(bytes, List.generate(10, (i) => i));
+      expect(requestedFrom, [0, 4, 7]);
+      verify(() => youtube.close()).called(1);
+    });
+
+    test('mientras avance no se rinde nunca, aunque se trabe más veces que '
+        'el máximo de intentos', () async {
+      final bytes = await drain(
+        resuming([
+          for (var i = 0; i < 10; i++) ([i], i < 9),
+        ]),
+      );
+
+      expect(bytes, List.generate(10, (i) => i));
+    });
+
+    test('si deja de avanzar del todo, se rinde con "tardó demasiado" '
+        'después de los intentos, no antes', () async {
+      await expectLater(
+        drain(
+          resuming([
+            ([0, 1], true),
+            (const <int>[], true),
+          ]),
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+      // El primero, y 4 más sin avance: el último que se rinde.
+      expect(requestedFrom, [0, 2, 2, 2, 2]);
+    });
+
+    test('la lista de pistas que tarda la primera vez se pide de nuevo, '
+        'y la bajada sigue', () async {
+      final manifest = _MockManifest();
+      when(() => manifest.audioOnly).thenReturn(UnmodifiableListView([audio]));
+      var calls = 0;
+      when(
+        () => streams.getManifest(
+          any<dynamic>(),
+          ytClients: any(named: 'ytClients'),
+        ),
+      ).thenAnswer((_) {
+        if (calls++ == 0) return Completer<yt_api.StreamManifest>().future;
+        return Future.value(manifest);
+      });
+
+      final bytes = await drain(
+        YoutubeExplodeClient(
+          create: () => youtube,
+          callTimeout: const Duration(milliseconds: 50),
+          resumeBackoff: const Duration(milliseconds: 1),
+          fetchRange: (_, _, start) async* {
+            yield List.generate(10, (i) => i);
+          },
+        ),
+      );
+
+      expect(bytes, hasLength(10));
+    });
+
+    test('mientras quien lee está en pausa —el disco escribiendo— no cuenta '
+        'como traba', () async {
+      final source = StreamController<List<int>>();
+      final guarded = stallGuarded(
+        source.stream,
+        const Duration(milliseconds: 40),
+      );
+      final received = <int>[];
+      final subscription = guarded.listen(received.addAll)..pause();
+      source.add([1]);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      subscription.resume();
+      source.add([2]);
+      await source.close();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(received, [1, 2]);
+      await subscription.cancel();
+    });
+
+    test(
+      'un 403 una vez —la dirección venció a mitad de un video de '
+      'horas— se resuelve pidiendo una nueva y siguiendo desde ahí',
+      () async {
+        var call = 0;
+        final client = YoutubeExplodeClient(
+          create: () => youtube,
+          resumeBackoff: const Duration(milliseconds: 1),
+          fetchRange: (_, _, start) async* {
+            requestedFrom.add(start);
+            if (call++ == 0) {
+              yield [0, 1, 2, 3, 4, 5];
+              throw const DownloadBlockedException(message: '403');
+            }
+            yield [6, 7, 8, 9];
+          },
+        );
+
+        expect(await drain(client), List.generate(10, (i) => i));
+        expect(requestedFrom, [0, 6]);
+        // Se pidió la lista de nuevo: la de abrir, y la de la dirección nueva.
+        verify(
+          () => streams.getManifest(
+            any<dynamic>(),
+            ytClients: any(named: 'ytClients'),
+          ),
+        ).called(2);
+      },
+    );
+
+    test('un 403 que sigue desde el mismo byte es un bloqueo: se informa en '
+        'el acto, sin agotar los intentos', () async {
+      final client = YoutubeExplodeClient(
+        create: () => youtube,
+        resumeBackoff: const Duration(seconds: 30),
+        fetchRange: (_, _, start) async* {
+          requestedFrom.add(start);
+          if (start == 0) yield [0, 1];
+          throw const DownloadBlockedException(message: '403');
+        },
+      );
+
+      await expectLater(
+        drain(client),
+        throwsA(isA<DownloadBlockedException>()),
+      );
+      expect(requestedFrom, [0, 2]);
+    });
+
+    test('las pistas se piden primero por la vía de visionOS —la que hoy '
+        'deja bajarlas enteras—, y si el video no está por ahí, por las del '
+        'paquete', () async {
+      final manifest = _MockManifest();
+      when(() => manifest.audioOnly).thenReturn(UnmodifiableListView([audio]));
+      final asked = <List<yt_api.YoutubeApiClient>?>[];
+      when(
+        () => streams.getManifest(
+          any<dynamic>(),
+          ytClients: any(named: 'ytClients'),
+        ),
+      ).thenAnswer((invocation) async {
+        final clients =
+            invocation.namedArguments[#ytClients]
+                as List<yt_api.YoutubeApiClient>?;
+        asked.add(clients);
+        if (clients != null) {
+          throw yt_api.VideoUnplayableException('hecho para chicos');
+        }
+        return manifest;
+      });
+
+      final bytes = await drain(
+        YoutubeExplodeClient(
+          create: () => youtube,
+          fetchRange: (_, _, _) async* {
+            yield List.generate(10, (i) => i);
+          },
+        ),
+      );
+
+      expect(bytes, hasLength(10));
+      expect(asked, [
+        [youTubeVisionOsClient],
+        null,
+      ]);
+    });
+
+    test('un corte de red también se retoma', () async {
+      var call = 0;
+      final client = YoutubeExplodeClient(
+        create: () => youtube,
+        resumeBackoff: const Duration(milliseconds: 1),
+        fetchRange: (_, _, start) async* {
+          requestedFrom.add(start);
+          if (call++ == 0) {
+            yield [0, 1, 2, 3, 4];
+            throw http.ClientException('socket cerrado');
+          }
+          yield [5, 6, 7, 8, 9];
+        },
+      );
+
+      expect(await drain(client), List.generate(10, (i) => i));
+      expect(requestedFrom, [0, 5]);
+    });
   });
 
   group('qué subtítulos se bajan (F22)', () {
