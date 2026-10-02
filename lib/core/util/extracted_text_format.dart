@@ -28,8 +28,16 @@ bool extractedTextIsMarkdown(Source source) => switch (source.kind) {
 /// línea: lo único a lo que tiene sentido ofrecerle "Quitar marcas de
 /// tiempo" (F22). Antes se ofrecía en cualquier texto con una línea que
 /// empezara como "[12:30]", un PDF o un Word incluidos.
-bool isTranscriptSource(Source source) => const {
-  SourceKind.youtube,
-  SourceKind.audio,
-  SourceKind.video,
-}.contains(source.kind);
+///
+/// Una publicación —un TikTok, un reel— lo es cuando se guardó su video: lo
+/// dicho en él se transcribe (F24); una que solo trae su foto, no.
+bool isTranscriptSource(Source source) => switch (source.kind) {
+  SourceKind.youtube || SourceKind.audio || SourceKind.video => true,
+  SourceKind.socialPost => const {
+    '.mp4',
+    '.m4v',
+    '.mov',
+    '.webm',
+  }.contains(p.extension(source.originalFilePath ?? '').toLowerCase()),
+  _ => false,
+};

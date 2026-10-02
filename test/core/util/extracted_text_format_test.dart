@@ -47,7 +47,20 @@ void main() {
   });
 
   group('isTranscriptSource', () {
-    test('solo YouTube, audio y video', () {
+    test('un TikTok o un reel lo es si se guardó su video; con solo su '
+        'foto, no (F24)', () {
+      expect(
+        isTranscriptSource(source(SourceKind.socialPost, 'originales/a/r.mp4')),
+        isTrue,
+      );
+      expect(
+        isTranscriptSource(source(SourceKind.socialPost, 'originales/a/f.jpg')),
+        isFalse,
+      );
+      expect(isTranscriptSource(source(SourceKind.socialPost)), isFalse);
+    });
+
+    test('además, solo YouTube, audio y video', () {
       expect(isTranscriptSource(source(SourceKind.youtube)), isTrue);
       expect(isTranscriptSource(source(SourceKind.audio)), isTrue);
       expect(isTranscriptSource(source(SourceKind.video)), isTrue);

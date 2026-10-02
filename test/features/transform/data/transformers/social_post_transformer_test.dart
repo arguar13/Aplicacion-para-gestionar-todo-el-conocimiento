@@ -1,15 +1,22 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/timed_word.dart';
 import 'package:sinapsis/features/transform/data/transformers/social_post_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/social_post_client.dart';
+import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
+import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
+import '../../../../support/fake_audio_transcriber.dart';
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
@@ -42,6 +49,8 @@ void main() {
   SocialPostTransformer build({
     FakeSocialPostClient? client,
     FakeResourceFetcher? fetcher,
+    FakeAudioTranscriber? transcriber,
+    ProcessingCheckpoints? checkpoints,
   }) => SocialPostTransformer(
     client: client ?? FakeSocialPostClient(),
     fetcher: fetcher ?? FakeResourceFetcher(),
@@ -49,6 +58,8 @@ void main() {
     ids: ids,
     clock: () => now,
     logger: const SilentLogger(),
+    transcriber: transcriber,
+    checkpoints: checkpoints,
   );
 
   group('a qué se aplica', () {
@@ -241,4 +252,279 @@ void main() {
       },
     );
   });
+
+  group('el audio del video (F24)', () {
+    final videoUrl = Uri.parse('https://v16.tiktokcdn.com/video.mp4');
+    final imageUrl = Uri.parse('https://p16.tiktokcdn.com/portada.jpg');
+
+    FakeResourceFetcher withVideo() => FakeResourceFetcher(
+      byUrl: {
+        videoUrl.toString(): Uint8List.fromList([1, 2, 3]),
+      },
+    );
+
+    FakeSocialPostClient reel({String? caption = 'Mirá esto #ciencia'}) =>
+        FakeSocialPostClient(
+          data: SocialPostData(caption: caption, videoUrl: videoUrl),
+        );
+
+    test('transcribe el video bajado: lo dicho, con el momento de cada '
+        'palabra, es el texto principal, y la descripción queda al '
+        'lado', () async {
+      final transcriber = FakeAudioTranscriber(
+        text: 'Hola a todos',
+        words: const [
+          TimedWord('Hola', 0),
+          TimedWord('a', 400),
+          TimedWord('todos', 600),
+        ],
+      );
+
+      final result = await build(
+        client: reel(),
+        fetcher: withVideo(),
+        transcriber: transcriber,
+      ).transform(postItem());
+
+      final texts = result.renditions.whereType<TextRendition>().toList();
+      expect(texts, hasLength(2));
+      final spoken = texts.singleWhere((r) => r.isPrimary);
+      expect(spoken.content, 'Hola a todos');
+      expect(spoken.kind, RenditionKind.plainText);
+      expect(spoken.wordTimings, transcriber.words);
+      // La descripción no se pierde: sigue guardada, y buscable.
+      final caption = texts.singleWhere((r) => !r.isPrimary);
+      expect(caption.content, 'Mirá esto #ciencia');
+      expect(result.searchableText, contains('#ciencia'));
+      expect(result.source.originalFilePath, endsWith('.mp4'));
+    });
+
+    test('pide la ruta absoluta del video guardado, en el idioma de la '
+        'publicación o en español si no se sabe', () async {
+      final transcriber = FakeAudioTranscriber(text: 'algo');
+      final transformer = build(
+        client: reel(),
+        fetcher: withVideo(),
+        transcriber: transcriber,
+      );
+
+      final result = await transformer.transform(postItem());
+      final english = postItem();
+      await transformer.transform(
+        english.copyWith(source: english.source.copyWith(language: 'en')),
+      );
+
+      expect(
+        transcriber.requested.first,
+        '/memoria/${result.source.originalFilePath}',
+      );
+      expect(transcriber.languages, ['es', 'en']);
+      expect(result.source.language, 'es');
+    });
+
+    test('lo transcribe en el carril largo, retomando los tramos de este '
+        'elemento (F21)', () async {
+      final checkpoints = _MemoryCheckpoints();
+      await checkpoints.save(
+        'item-1',
+        ProcessingCheckpointKind.transcriptWindow,
+        position: 0,
+        content: 'de antes',
+      );
+      final transcriber = FakeAudioTranscriber(text: 'algo');
+      final context = _RecordingContext();
+
+      await build(
+        client: reel(),
+        fetcher: withVideo(),
+        transcriber: transcriber,
+        checkpoints: checkpoints,
+      ).transform(postItem(), context: context);
+
+      expect(context.enteredLongLane, isTrue);
+      final session = transcriber.sessions.single;
+      expect(session.workKey, 'item-1');
+      expect(identical(session.context, context), isTrue);
+      expect(await session.transcribedSegments(), {0: 'de antes'});
+      await session.saveSegment(1, 'nuevo');
+      expect(
+        await checkpoints.load(
+          'item-1',
+          ProcessingCheckpointKind.transcriptWindow,
+        ),
+        {0: 'de antes', 1: 'nuevo'},
+      );
+    });
+
+    test('sin con qué transcribir, queda como antes: solo la '
+        'descripción', () async {
+      final context = _RecordingContext();
+
+      final result = await build(
+        client: reel(),
+        fetcher: withVideo(),
+      ).transform(postItem(), context: context);
+
+      expect(
+        result.renditions.whereType<TextRendition>().single,
+        isA<TextRendition>()
+            .having((r) => r.content, 'content', 'Mirá esto #ciencia')
+            .having((r) => r.isPrimary, 'isPrimary', isTrue),
+      );
+      expect(result.source.language, isNull);
+      // Sin nada largo que hacer, ni pasa al carril largo.
+      expect(context.enteredLongLane, isFalse);
+    });
+
+    test('sin nada dicho —música sola, silencio—, no agrega texto y el '
+        'elemento queda igual de listo', () async {
+      final transcriber = FakeAudioTranscriber(text: '  ');
+
+      final result = await build(
+        client: reel(),
+        fetcher: withVideo(),
+        transcriber: transcriber,
+      ).transform(postItem());
+
+      expect(transcriber.requested, hasLength(1));
+      final caption = result.renditions.whereType<TextRendition>().single;
+      expect(caption.content, 'Mirá esto #ciencia');
+      expect(caption.isPrimary, isTrue);
+      expect(result.source.language, isNull);
+    });
+
+    test('sin nada dicho ni descripción: sin texto, pero con el '
+        'video', () async {
+      final result = await build(
+        client: reel(caption: null),
+        fetcher: withVideo(),
+        transcriber: FakeAudioTranscriber(),
+      ).transform(postItem());
+
+      expect(result.renditions, isEmpty);
+      expect(result.source.originalFilePath, endsWith('.mp4'));
+    });
+
+    test('lo dicho sin descripción: es el único texto, y el '
+        'principal', () async {
+      final result = await build(
+        client: reel(caption: null),
+        fetcher: withVideo(),
+        transcriber: FakeAudioTranscriber(text: 'Hola'),
+      ).transform(postItem());
+
+      final spoken = result.renditions.whereType<TextRendition>().single;
+      expect(spoken.content, 'Hola');
+      expect(spoken.isPrimary, isTrue);
+    });
+
+    test('una publicación con foto y sin video no transcribe nada', () async {
+      final transcriber = FakeAudioTranscriber(text: 'no');
+      final context = _RecordingContext();
+
+      final result = await build(
+        client: FakeSocialPostClient(
+          data: SocialPostData(caption: 'Algo', imageUrl: imageUrl),
+        ),
+        fetcher: FakeResourceFetcher(
+          byUrl: {
+            imageUrl.toString(): Uint8List.fromList([1, 2, 3]),
+          },
+        ),
+        transcriber: transcriber,
+      ).transform(postItem(), context: context);
+
+      expect(transcriber.requested, isEmpty);
+      expect(context.enteredLongLane, isFalse);
+      expect(result.renditions.single.searchableText, 'Algo');
+    });
+
+    test('si el video no se pudo bajar, no hay nada que transcribir y el '
+        'texto se guarda igual', () async {
+      final transcriber = FakeAudioTranscriber(text: 'no');
+
+      final result = await build(
+        client: reel(),
+        // Sin nada en `byUrl`: el CDN no lo dio.
+        fetcher: FakeResourceFetcher(),
+        transcriber: transcriber,
+      ).transform(postItem());
+
+      expect(transcriber.requested, isEmpty);
+      expect(result.renditions.single.searchableText, 'Mirá esto #ciencia');
+    });
+
+    test('si la transcripción falla, el elemento falla para reintentar, y '
+        'el video queda donde el reintento lo vuelve a bajar', () async {
+      final transcriber = FakeAudioTranscriber()..error = Exception('corte');
+
+      await expectLater(
+        build(
+          client: reel(),
+          fetcher: withVideo(),
+          transcriber: transcriber,
+        ).transform(postItem()),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(files.deleted, isEmpty);
+    });
+
+    test('si se abandona porque el elemento se borró, se propaga y el video '
+        'bajado no queda huérfano', () async {
+      final signal = CancellationSignal()..cancel();
+      final transcriber = FakeAudioTranscriber()
+        ..error = const ProcessingCancelledException();
+
+      await expectLater(
+        build(
+          client: reel(),
+          fetcher: withVideo(),
+          transcriber: transcriber,
+        ).transform(postItem(), context: CancellableTransformContext(signal)),
+        throwsA(isA<ProcessingCancelledException>()),
+      );
+
+      expect(files.deleted.single, endsWith('.mp4'));
+    });
+  });
+}
+
+/// El avance guardado, en memoria.
+class _MemoryCheckpoints implements ProcessingCheckpoints {
+  final _saved = <(String, ProcessingCheckpointKind), Map<int, String>>{};
+
+  @override
+  Future<Map<int, String>> load(
+    String itemId,
+    ProcessingCheckpointKind kind,
+  ) async => {...?_saved[(itemId, kind)]};
+
+  @override
+  Future<void> save(
+    String itemId,
+    ProcessingCheckpointKind kind, {
+    required int position,
+    required String content,
+  }) async => (_saved[(itemId, kind)] ??= {})[position] = content;
+}
+
+/// Una cola que anota si se pasó al carril largo.
+class _RecordingContext implements TransformContext {
+  bool enteredLongLane = false;
+
+  @override
+  bool get isCancelled => false;
+
+  @override
+  Future<void> get whenCancelled => Completer<void>().future;
+
+  @override
+  void throwIfCancelled() {}
+
+  @override
+  Future<void> enterLongLane() async => enteredLongLane = true;
+
+  @override
+  void reportProgress(int done, int total) {}
 }

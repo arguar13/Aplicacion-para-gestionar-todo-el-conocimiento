@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/features/transform/domain/transformers/transform_contex
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/transform/presentation/providers/youtube_audio_download.dart';
 
 /// Va trayendo el contenido de lo que quedó pendiente, por **dos carriles**,
 /// cada uno de a un elemento por vez.
@@ -41,10 +43,12 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     required ProcessingStateRepository Function() processingStates,
     required AppLogger logger,
     LongWorkKeeper Function()? longWork,
+    void Function(KnowledgeItem processed)? onProcessed,
   }) : _processItem = processItem,
        _processingStates = processingStates,
        _logger = logger,
        _longWork = longWork,
+       _onProcessed = onProcessed,
        super(const ProcessingQueueState());
 
   /// Cuántas veces se retoma algo que quedó a medias porque la app se cerró,
@@ -56,6 +60,11 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   final ProcessItemUseCase Function() _processItem;
   final ProcessingStateRepository Function() _processingStates;
   final AppLogger _logger;
+
+  /// Lo que sigue a un elemento procesado: bajar el audio de un video de
+  /// YouTube (F24). No forma parte del procesamiento —el elemento ya está
+  /// listo—, ni ocupa un carril.
+  final void Function(KnowledgeItem processed)? _onProcessed;
 
   /// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
   /// C). `null` en las pruebas que no lo miran.
@@ -258,7 +267,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
       final result = await _processItem().process(itemId, context: context);
       result.match(
         (failure) => _logger.warning('Quedó pendiente $itemId: $failure'),
-        (_) {},
+        (processed) => _onProcessed?.call(processed),
       );
       // Red de seguridad por si algo lanza igual —armar el caso de uso, por
       // ejemplo—: un solo elemento nunca puede cortar la cola.
@@ -442,6 +451,15 @@ final processingQueueProvider =
         processingStates: () => ref.read(processingStateRepositoryProvider),
         logger: ref.read(appLoggerProvider),
         longWork: () => ref.read(longWorkKeeperProvider),
+        // El audio de un video de YouTube se baja siempre, solo, apenas el
+        // video queda listo (F24): sin esperar a que alguien lo abra.
+        onProcessed: (item) {
+          if (needsYouTubeAudio(item)) {
+            unawaited(
+              ref.read(youTubeAudioDownloadProvider(item.id).notifier).start(),
+            );
+          }
+        },
       );
     });
 

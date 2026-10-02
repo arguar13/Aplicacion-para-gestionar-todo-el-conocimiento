@@ -23,13 +23,23 @@ import 'package:video_player/video_player.dart';
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
 class MediaPlayerView extends ConsumerStatefulWidget {
-  const MediaPlayerView({required this.path, required this.isVideo, super.key});
+  const MediaPlayerView({
+    required this.path,
+    required this.isVideo,
+    this.audioOnly = false,
+    super.key,
+  });
 
   final String path;
 
   /// Solo decide el ícono de la carátula mientras no hay video real que
   /// mostrar: si el archivo sí trae una pista de video, igual se ve.
   final bool isVideo;
+
+  /// Solo el audio, con la carátula, aunque el archivo traiga video: el
+  /// reproductor de audio que va debajo de un video (F24, decisión B). Maneja
+  /// el mismo audio que el video de arriba.
+  final bool audioOnly;
 
   @override
   ConsumerState<MediaPlayerView> createState() => _MediaPlayerViewState();
@@ -93,7 +103,7 @@ class _MediaPlayerViewState extends ConsumerState<MediaPlayerView> {
             );
           }
 
-          final hasVideo = controller.value.size.width > 0;
+          final hasVideo = !widget.audioOnly && controller.value.size.width > 0;
           void togglePlay() => setState(() {
             controller.value.isPlaying ? controller.pause() : controller.play();
           });

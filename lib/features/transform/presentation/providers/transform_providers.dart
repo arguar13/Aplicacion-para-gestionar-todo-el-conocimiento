@@ -115,6 +115,7 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       transcriber: ref.watch(audioTranscriberProvider),
       temporaryDirectory: getTemporaryDirectory,
       checkpoints: ref.watch(processingStateRepositoryProvider),
+      files: ref.watch(fileStoreProvider),
     ),
     SocialPostTransformer(
       client: ref.watch(socialPostClientProvider),
@@ -123,6 +124,8 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       ids: ids,
       clock: clock,
       logger: ref.watch(appLoggerProvider),
+      transcriber: ref.watch(audioTranscriberProvider),
+      checkpoints: ref.watch(processingStateRepositoryProvider),
     ),
     WebArticleTransformer(
       client: ref.watch(webPageClientProvider),

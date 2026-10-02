@@ -6,13 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
+import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 /// El motor nativo, falso: un audio de [duration] que anota qué le pidieron.
+/// Con [size] distinto de cero, el archivo trae también una pista de video.
 class _FakePlayer extends VideoPlayerPlatform {
-  _FakePlayer(this.duration);
+  _FakePlayer(this.duration, {this.size = Size.zero});
 
   final Duration duration;
+  final Size size;
   Duration position = Duration.zero;
   double speed = 1;
   final seeks = <Duration>[];
@@ -31,7 +34,7 @@ class _FakePlayer extends VideoPlayerPlatform {
         VideoEvent(
           eventType: VideoEventType.initialized,
           duration: duration,
-          size: Size.zero,
+          size: size,
         ),
       ),
     );
@@ -193,6 +196,62 @@ void main() {
       expect(find.text('0,5×'), findsOneWidget);
 
       // Sin el reproductor, sin el temporizador que sigue la posición.
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+  group('solo el audio (F24)', () {
+    setUp(() {
+      // Un video de verdad: el motor informa el tamaño de su imagen.
+      VideoPlayerPlatform.instance = _FakePlayer(
+        const Duration(minutes: 1, seconds: 51),
+        size: const Size(1280, 720),
+      );
+    });
+
+    Future<void> pump(WidgetTester tester, {required bool audioOnly}) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            locale: const Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: SizedBox(
+                height: 400,
+                child: MediaPlayerView(
+                  path: 'video.mp4',
+                  isVideo: true,
+                  audioOnly: audioOnly,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('un archivo con video se ve como video', (tester) async {
+      await pump(tester, audioOnly: false);
+
+      expect(find.byType(VideoPlayer), findsOneWidget);
+      expect(find.byIcon(Icons.graphic_eq), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('con audioOnly muestra la carátula aunque el archivo traiga '
+        'video, con los mismos controles', (tester) async {
+      await pump(tester, audioOnly: true);
+
+      expect(find.byType(VideoPlayer), findsNothing);
+      expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+      expect(find.byKey(const Key('media-play')), findsOneWidget);
+      expect(find.byKey(const Key('media-speed')), findsOneWidget);
+
       await tester.pumpWidget(const SizedBox());
     });
   });

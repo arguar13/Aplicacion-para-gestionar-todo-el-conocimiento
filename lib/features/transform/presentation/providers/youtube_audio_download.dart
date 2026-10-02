@@ -1,9 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/usecases/download_youtube_audio_usecase.dart';
 import 'package:sinapsis/features/transform/domain/usecases/processing_failure_classifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+
+/// Si a [item] le falta el audio para escucharlo en la app: un video de
+/// YouTube sin archivo propio todavía (F24). En la web no hay dónde
+/// guardarlo como archivo.
+bool needsYouTubeAudio(KnowledgeItem item) =>
+    !kIsWeb &&
+    item.source.kind == SourceKind.youtube &&
+    item.source.originalFilePath == null &&
+    item.source.url != null;
 
 /// En qué va la descarga del audio de un video de YouTube.
 sealed class YouTubeAudioDownloadState {
@@ -29,7 +41,9 @@ class AudioDownloadFailed extends YouTubeAudioDownloadState {
   final ProcessingFailureReason reason;
 }
 
-/// La descarga del audio de un video, a pedido del usuario (F21, decisión B).
+/// La descarga del audio de un video de YouTube. Desde F24 se hace sola
+/// —apenas el video queda listo, o al abrirlo si todavía no la tiene—, sin
+/// que nadie la pida; antes era a pedido (F21, decisión B).
 ///
 /// Vive aparte de la pantalla: salir del detalle no corta la descarga, y
 /// volver muestra cuánto va.

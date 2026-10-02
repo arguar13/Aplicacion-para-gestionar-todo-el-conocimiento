@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
@@ -40,12 +41,14 @@ class YouTubeTranscriptTransformer implements Transformer {
     AudioTranscriber? transcriber,
     Future<Directory> Function()? temporaryDirectory,
     ProcessingCheckpoints? checkpoints,
+    FileStore? files,
   }) : _client = client,
        _ids = ids,
        _clock = clock,
        _transcriber = transcriber,
        _temporaryDirectory = temporaryDirectory,
-       _checkpoints = checkpoints;
+       _checkpoints = checkpoints,
+       _files = files;
 
   final YouTubeClient _client;
   final IdGenerator _ids;
@@ -57,6 +60,10 @@ class YouTubeTranscriptTransformer implements Transformer {
   final AudioTranscriber? _transcriber;
   final Future<Directory> Function()? _temporaryDirectory;
   final ProcessingCheckpoints? _checkpoints;
+
+  /// Dónde se guarda el audio que se bajó para transcribir, como el audio
+  /// del video (F24): así no se baja dos veces. Sin él, se borra.
+  final FileStore? _files;
 
   /// Trabajo corto: los datos del video y sus subtítulos.
   @override
@@ -93,8 +100,16 @@ class YouTubeTranscriptTransformer implements Transformer {
     // Sin subtítulos de ninguna clase: lo dicho se saca del audio (F22).
     var renditions = _renditionsFor(item.id, data, now);
     var language = data.transcriptLanguage ?? item.source.language;
+    String? audioPath;
     if (data.transcript.isEmpty) {
-      final spoken = await _transcribeAudio(videoId, item, context);
+      final transcribed = await _transcribeAudio(
+        videoId,
+        item,
+        context,
+        title: data.title,
+      );
+      audioPath = transcribed?.audioPath;
+      final spoken = transcribed?.transcript;
       if (spoken != null && spoken.text.trim().isNotEmpty) {
         renditions = [
           Rendition.text(
@@ -121,6 +136,7 @@ class YouTubeTranscriptTransformer implements Transformer {
         authorUrl: data.authorChannelUrl ?? item.source.authorUrl,
         publishedAt: data.publishedAt ?? item.source.publishedAt,
         language: language,
+        originalFilePath: audioPath ?? item.source.originalFilePath,
       ),
       renditions: renditions,
     );
@@ -133,13 +149,15 @@ class YouTubeTranscriptTransformer implements Transformer {
   /// temporal —directo a disco, el de un video de horas pesa cientos de
   /// MB— y lo transcribe por tramos, retomable como cualquier audio. El
   /// archivo bajado queda hasta terminar bien: si la app se cierra, al
-  /// retomar no se vuelve a bajar. Después se borra: guardarlo es
-  /// "Descargar el audio", que sigue siendo a pedido (F21, decisión B).
-  Future<Transcript?> _transcribeAudio(
+  /// retomar no se vuelve a bajar. Al terminar bien se guarda como el audio
+  /// del video —el que se escucha debajo de su vista previa (F24)— en vez
+  /// de borrarse: así no se baja dos veces, aunque no se haya dicho nada.
+  Future<({Transcript transcript, String? audioPath})?> _transcribeAudio(
     String videoId,
     KnowledgeItem item,
-    TransformContext context,
-  ) async {
+    TransformContext context, {
+    required String title,
+  }) async {
     final transcriber = _transcriber;
     final temporaryDirectory = _temporaryDirectory;
     if (kIsWeb || transcriber == null || temporaryDirectory == null) {
@@ -180,8 +198,9 @@ class YouTubeTranscriptTransformer implements Transformer {
                 ),
         ),
       );
+      final kept = await _keep(audioPath, item, title);
       _discard(marker, audioPath);
-      return transcript;
+      return (transcript: transcript, audioPath: kept);
     } on Object {
       // Interrumpido por algo que un reintento puede salvar: el audio bajado
       // se conserva. Abandonado —se borró el elemento—, no.
@@ -220,6 +239,27 @@ class YouTubeTranscriptTransformer implements Transformer {
       await sink.close();
     }
     return file.path;
+  }
+
+  /// Guarda el audio bajado como el del video; su ruta relativa, o `null`
+  /// si no hay dónde o no se pudo —el audio se vuelve a bajar solo después:
+  /// la transcripción ya hecha no se pierde por esto—.
+  Future<String?> _keep(
+    String audioPath,
+    KnowledgeItem item,
+    String title,
+  ) async {
+    final files = _files;
+    if (files == null) return null;
+    try {
+      return await files.saveStream(
+        bytes: File(audioPath).openRead(),
+        suggestedName: '$title${p.extension(audioPath)}',
+        id: item.source.id,
+      );
+    } on Exception {
+      return null;
+    }
   }
 
   void _discard(File marker, String audioPath) {

@@ -14,6 +14,7 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 
 import '../../../../support/fake_audio_transcriber.dart';
 import '../../../../support/fake_id_generator.dart';
+import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/transform_test_doubles.dart';
 
 void main() {
@@ -218,6 +219,53 @@ void main() {
       );
       expect(result.renditions.single.kind, RenditionKind.plainText);
       expect(temp.listSync(), isEmpty);
+    });
+
+    test('el audio bajado para transcribir queda como el audio del video, '
+        'para escucharlo debajo de su vista previa sin bajarlo de nuevo '
+        '(F24)', () async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final files = InMemoryFileStore();
+      final client = FakeYouTubeClient(
+        data: const YouTubeVideoData(title: 'Una prédica sin subtítulos'),
+      );
+
+      final result = await YouTubeTranscriptTransformer(
+        client: client,
+        ids: ids,
+        clock: () => now,
+        transcriber: FakeAudioTranscriber(text: '[0:00] Lo que se dijo'),
+        temporaryDirectory: () async => temp,
+        files: files,
+      ).transform(videoItem());
+
+      expect(result.source.originalFilePath, isNotNull);
+      expect(files.paths, [result.source.originalFilePath]);
+      expect(client.audioRequested, hasLength(1));
+      // Y ningún temporal queda tirado.
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('aunque no se haya dicho nada —solo música—, el audio se conserva: '
+        'es lo que se escucha (F24)', () async {
+      final temp = Directory.systemTemp.createTempSync('yt_audio');
+      addTearDown(() => temp.deleteSync(recursive: true));
+      final files = InMemoryFileStore();
+
+      final result = await YouTubeTranscriptTransformer(
+        client: FakeYouTubeClient(
+          data: const YouTubeVideoData(title: 'Solo música'),
+        ),
+        ids: ids,
+        clock: () => now,
+        transcriber: FakeAudioTranscriber(),
+        temporaryDirectory: () async => temp,
+        files: files,
+      ).transform(videoItem());
+
+      expect(result.source.originalFilePath, isNotNull);
+      expect(files.paths, hasLength(1));
     });
 
     test('con subtítulos, el audio no se baja', () async {

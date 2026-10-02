@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/library/presentation/widgets/playback_synced_text.dart';
-import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
-import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/mini_player.dart';
 
 /// El mini reproductor del detalle de un audio o un video (F23, decisión
@@ -95,12 +93,10 @@ class _FloatingMiniPlayerState extends ConsumerState<FloatingMiniPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = ref
-        .watch(resolvedFileViewerProvider(widget.item))
-        .valueOrNull;
-    final session = resolved is MediaResolvedViewer
-        ? ref.watch(playbackSessionProvider(resolved.path))
-        : null;
+    final path = ref.watch(itemPlaybackPathProvider(widget.item)).valueOrNull;
+    final session = path == null
+        ? null
+        : ref.watch(playbackSessionProvider(path));
     _follow(session);
     if (session == null) return const SizedBox.shrink();
 

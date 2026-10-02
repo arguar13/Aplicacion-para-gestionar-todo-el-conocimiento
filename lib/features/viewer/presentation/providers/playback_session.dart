@@ -1,6 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:video_player/video_player.dart';
 
 /// Lo que suena de un archivo: **un** reproductor, compartido por todo lo
@@ -38,4 +44,19 @@ final playbackSessionProvider = Provider.autoDispose
       final session = PlaybackSession(VideoPlayerController.file(File(path)));
       ref.onDispose(session.controller.dispose);
       return session;
+    });
+
+/// Qué archivo suena en el detalle de un elemento —su ruta absoluta—, o
+/// `null` si no hay nada que escuchar: el audio o el video mismo, o el audio
+/// ya bajado de un video de YouTube (F24). Es lo que comparten el
+/// reproductor, el mini reproductor y el texto que sigue al audio.
+final itemPlaybackPathProvider = FutureProvider.autoDispose
+    .family<String?, KnowledgeItem>((ref, item) async {
+      if (item.source.kind == SourceKind.youtube) {
+        final downloaded = item.source.originalFilePath;
+        if (downloaded == null || kIsWeb) return null;
+        return ref.read(fileStoreProvider).resolve(downloaded);
+      }
+      final resolved = await ref.watch(resolvedFileViewerProvider(item).future);
+      return resolved is MediaResolvedViewer ? resolved.path : null;
     });

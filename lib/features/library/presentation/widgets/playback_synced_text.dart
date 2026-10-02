@@ -5,9 +5,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/util/transcript_sync.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
-import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
-import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 
 /// Lo que une el texto que sigue al audio con el mini reproductor (F23):
 /// "Volver al audio" le pide al texto que muestre lo que suena.
@@ -132,12 +130,10 @@ class _PlaybackSyncedTextState extends ConsumerState<PlaybackSyncedText> {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = ref
-        .watch(resolvedFileViewerProvider(widget.item))
-        .valueOrNull;
+    final path = ref.watch(itemPlaybackPathProvider(widget.item)).valueOrNull;
     _follow(
-      resolved is MediaResolvedViewer && !_sync.isEmpty
-          ? ref.watch(playbackSessionProvider(resolved.path))
+      path != null && !_sync.isEmpty
+          ? ref.watch(playbackSessionProvider(path))
           : null,
     );
     final playing = _playing;

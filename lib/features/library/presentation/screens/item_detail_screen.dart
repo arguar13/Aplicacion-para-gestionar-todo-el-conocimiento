@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +58,7 @@ import 'package:sinapsis/features/reference/presentation/widgets/reference_secti
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/transform/presentation/widgets/processing_status.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/youtube_audio_download_section.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -338,7 +340,21 @@ class _DetailBodyState extends State<_DetailBody> {
                 // algo que mostrar, ya se está mostrando.
                 KeyedSubtree(
                   key: _playerKey,
-                  child: EmbeddedFileViewer(item: item),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      EmbeddedFileViewer(item: item),
+                      // El audio de un video de YouTube, debajo de su vista
+                      // previa: se baja solo y se escucha acá, en el mismo
+                      // reproductor que un audio del teléfono (F24).
+                      if (item.source.kind == SourceKind.youtube &&
+                          !kIsWeb) ...[
+                        const SizedBox(height: 12),
+                        YouTubeAudioDownloadSection(item: item),
+                        const SizedBox(height: 4),
+                      ],
+                    ],
+                  ),
                 ),
 
                 // Justo debajo de donde se está viendo o escuchando el

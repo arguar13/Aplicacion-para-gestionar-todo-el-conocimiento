@@ -99,9 +99,35 @@ class EmbeddedFileViewer extends ConsumerWidget {
         onExpand: expand,
         child: ImageViewerView(path: path),
       ),
-      MediaResolvedViewer(:final path, :final isVideo) => _EmbeddedViewerFrame(
+      MediaResolvedViewer(:final path, isVideo: false) => _EmbeddedViewerFrame(
         onExpand: expand,
-        child: MediaPlayerView(path: path, isVideo: isVideo),
+        child: MediaPlayerView(path: path, isVideo: false),
+      ),
+      // Un video —uno del teléfono, un TikTok, un reel—: el video, y debajo
+      // el mismo reproductor que un audio del teléfono, solo con su audio
+      // (F24, decisión B del usuario). Los dos manejan el mismo audio: ver
+      // `playbackSessionProvider`.
+      MediaResolvedViewer(:final path, isVideo: true) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _EmbeddedViewerFrame(
+            onExpand: expand,
+            child: MediaPlayerView(path: path, isVideo: true),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 220,
+              child: MediaPlayerView(
+                key: const Key('video-audio-player'),
+                path: path,
+                isVideo: false,
+                audioOnly: true,
+              ),
+            ),
+          ),
+        ],
       ),
       PdfResolvedViewer(:final path) => _EmbeddedViewerFrame(
         tall: true,

@@ -9,14 +9,15 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/transform/domain/clients/youtube_client.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 
-/// Baja el audio de un video de YouTube a pedido del usuario, para
-/// escucharlo sin conexión (F21, decisión B).
+/// Baja el audio de un video de YouTube, para escucharlo en la app debajo
+/// de su vista previa (F24).
 ///
-/// Antes se bajaba solo, al procesar el video, y el video no quedaba listo
-/// hasta terminar: cientos de MB en uno de cuatro horas. Ahora el video
-/// queda listo con su transcripción en segundos, y el audio es un pedido
-/// aparte: por partes, directo a disco —nunca entero en memoria—, con
-/// avance y cancelable.
+/// Hasta F21 se bajaba dentro del procesamiento, y el video no quedaba
+/// listo hasta terminar: cientos de MB en uno de cuatro horas, enteros en
+/// memoria. Desde F21 el video queda listo con su transcripción en
+/// segundos, y el audio es un trabajo aparte: por partes, directo a disco
+/// —nunca entero en memoria—, con avance y cancelable. En F21 era a pedido;
+/// desde F24 se lanza solo, apenas el video queda listo o al abrirlo.
 ///
 /// Lanza si no puede: el motivo lo traduce quien lo llama, con el mismo
 /// criterio que un procesamiento fallido (`processingFailureReasonFor`).

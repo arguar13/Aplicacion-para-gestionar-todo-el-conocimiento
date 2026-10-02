@@ -9,19 +9,48 @@ import 'package:sinapsis/features/transform/presentation/widgets/processing_stat
 import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El audio de un video de YouTube, para escucharlo sin conexión: se baja
-/// solo si el usuario lo pide (F21, decisión B) —el video ya está listo con
-/// su transcripción—, y una vez bajado se escucha acá.
+/// El audio de un video de YouTube, debajo de su vista previa, en el mismo
+/// reproductor que un audio del teléfono (F24): ±10 s, velocidad, el mini
+/// reproductor y el texto que sigue al audio en amarillo.
+///
+/// Se baja **solo**, sin botón —apenas el video queda listo, o al abrirlo
+/// si todavía no lo tiene— y en la mejor calidad que ofrece YouTube
+/// (decisión A de F24). Mientras baja se ve cuánto va; si no se pudo, el
+/// motivo y "Reintentar".
 ///
 /// Debajo de la vista previa del video, no en su lugar: el video es el
 /// original, y lo principal del detalle es el original.
-class YouTubeAudioDownloadSection extends ConsumerWidget {
+class YouTubeAudioDownloadSection extends ConsumerStatefulWidget {
   const YouTubeAudioDownloadSection({required this.item, super.key});
 
   final KnowledgeItem item;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<YouTubeAudioDownloadSection> createState() =>
+      _YouTubeAudioDownloadSectionState();
+}
+
+class _YouTubeAudioDownloadSectionState
+    extends ConsumerState<YouTubeAudioDownloadSection> {
+  @override
+  void initState() {
+    super.initState();
+    // Un video que todavía no tiene su audio —procesado antes de F24, o
+    // cuya descarga se cortó al cerrarse la app— lo baja al abrirse.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !needsYouTubeAudio(widget.item)) return;
+      final itemId = widget.item.id;
+      if (ref.read(youTubeAudioDownloadProvider(itemId)) is AudioDownloadIdle) {
+        unawaited(
+          ref.read(youTubeAudioDownloadProvider(itemId).notifier).start(),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
     final downloaded = item.source.originalFilePath;
     if (downloaded != null) return _DownloadedAudio(relativePath: downloaded);
 
@@ -32,61 +61,57 @@ class YouTubeAudioDownloadSection extends ConsumerWidget {
     final notifier = ref.read(youTubeAudioDownloadProvider(itemId).notifier);
 
     return switch (state) {
-      AudioDownloading(:final fraction) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      AudioDownloadFailed(:final reason) => Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(value: fraction, minHeight: 6),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  fraction == null
-                      ? l10n.youtubeAudioDownloadingUnknown
-                      : l10n.youtubeAudioDownloading((fraction * 100).floor()),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+          Expanded(
+            child: Text(
+              failureMessage(l10n, reason) ?? l10n.youtubeAudioFailed,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
               ),
-              TextButton(
-                onPressed: notifier.cancel,
-                child: Text(l10n.youtubeAudioCancel),
-              ),
-            ],
-          ),
-        ],
-      ),
-      AudioDownloadFailed(:final reason) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            failureMessage(l10n, reason) ?? l10n.youtubeAudioFailed,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
             ),
           ),
-          const SizedBox(height: 8),
-          _DownloadButton(onPressed: () => unawaited(notifier.start())),
-        ],
-      ),
-      AudioDownloadIdle() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DownloadButton(onPressed: () => unawaited(notifier.start())),
-          const SizedBox(height: 4),
-          Text(
-            l10n.youtubeAudioDownloadHint,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          TextButton(
+            onPressed: () => unawaited(notifier.start()),
+            child: Text(l10n.detailRetry),
           ),
         ],
       ),
+      // Bajando, o por empezar: lo mismo, sin un botón de por medio.
+      AudioDownloading(:final fraction) => _Progress(fraction: fraction),
+      AudioDownloadIdle() => const _Progress(fraction: null),
     };
+  }
+}
+
+class _Progress extends StatelessWidget {
+  const _Progress({required this.fraction});
+
+  final double? fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final fraction = this.fraction;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(value: fraction, minHeight: 6),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          fraction == null
+              ? l10n.youtubeAudioDownloadingUnknown
+              : l10n.youtubeAudioDownloading((fraction * 100).floor()),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -128,19 +153,3 @@ class _DownloadedAudio extends ConsumerWidget {
 final _resolvedPathProvider = FutureProvider.autoDispose.family<String, String>(
   (ref, relativePath) => ref.read(fileStoreProvider).resolve(relativePath),
 );
-
-class _DownloadButton extends StatelessWidget {
-  const _DownloadButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return FilledButton.tonalIcon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.headphones, size: 18),
-      label: Text(l10n.youtubeAudioDownloadAction),
-    );
-  }
-}

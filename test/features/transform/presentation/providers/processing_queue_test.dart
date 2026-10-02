@@ -172,6 +172,7 @@ void main() {
     Transformer transformer, {
     ProcessItemUseCase Function()? resolveProcessItem,
     LongWorkKeeper? longWork,
+    void Function(KnowledgeItem processed)? onProcessed,
   }) {
     final useCase = buildUseCase(transformer);
     final queue = ProcessingQueueNotifier(
@@ -179,6 +180,7 @@ void main() {
       processingStates: () => ProcessingStateRepositoryImpl(db),
       logger: const SilentLogger(),
       longWork: longWork == null ? null : () => longWork,
+      onProcessed: onProcessed,
     );
     // Tolerante a propósito: una de las pruebas descarta la cola a mano, y
     // descartar dos veces revienta.
@@ -310,6 +312,24 @@ void main() {
         expect(transformer.processed, ['a']);
       },
     );
+  });
+
+  test('avisa cada elemento que terminó bien —lo que arranca la bajada del '
+      'audio de un video de YouTube (F24)—, y no los que fallaron', () async {
+    await seed('sano');
+    await seed('roto');
+    final processed = <String>[];
+
+    final queue =
+        buildQueue(
+            _ScriptedTransformer(failOn: {'roto'}),
+            onProcessed: (item) => processed.add(item.id),
+          )
+          ..enqueue('sano')
+          ..enqueue('roto');
+    await whenIdle(queue);
+
+    expect(processed, ['sano']);
   });
 
   group('cuando algo falla', () {
