@@ -162,6 +162,11 @@ void main() {
       'A',
       'B',
     ]);
+    // Los dos son nuevos, y el estado lo dice.
+    expect(
+      statuses.whereType<AiOrganizeWorking>().map((s) => s.source).toSet(),
+      {AiWorkSource.fresh},
+    );
     expect(statuses.last, isA<AiOrganizeIdle>());
   });
 
@@ -249,6 +254,10 @@ void main() {
       await ai.settled;
 
       expect(relations.organized, ['viejo']);
+      expect(
+        statuses.whereType<AiOrganizeWorking>().single.source,
+        AiWorkSource.existingLibrary,
+      );
     });
 
     test(
@@ -323,6 +332,10 @@ void main() {
       ai.organizeNow('a');
       await ai.settled;
       expect(relations.organized, ['a', 'a']);
+      expect(
+        statuses.whereType<AiOrganizeWorking>().last.source,
+        AiWorkSource.requested,
+      );
     },
   );
 
@@ -401,6 +414,10 @@ void main() {
       vault.now = vault.now.add(const Duration(seconds: 20));
       await ai.wake();
       expect(relations.organized, ['n', 'n']);
+      expect(
+        statuses.whereType<AiOrganizeWorking>().map((s) => s.source),
+        [AiWorkSource.fresh, AiWorkSource.changedNote],
+      );
     });
 
     test('se despierta sola cuando una nota termina de escribirse', () async {

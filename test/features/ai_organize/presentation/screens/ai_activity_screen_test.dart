@@ -64,7 +64,13 @@ void main() {
 
     testWidgets('organizando: qué y cuántos esperan', (tester) async {
       await pumpScreen(tester);
-      setStatus(const AiOrganizeWorking(itemTitle: 'Roma', pending: 3));
+      setStatus(
+        const AiOrganizeWorking(
+          itemTitle: 'Roma',
+          pending: 3,
+          source: AiWorkSource.fresh,
+        ),
+      );
       // La barra de la cola es indeterminada y anima siempre: alcanza con
       // dejar pasar la transición.
       await tester.pump();

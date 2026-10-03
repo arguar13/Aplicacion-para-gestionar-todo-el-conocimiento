@@ -212,8 +212,14 @@ class AiBackfillProgress extends ConsumerWidget {
     final on = settings.enabled && settings.backfillWhileCharging;
 
     final existing = count?.existing ?? 0;
+    // Lo dice la cola, no se deduce: un elemento pedido a mano o una nota
+    // que creció también la ponen a trabajar, sin ser de la biblioteca de
+    // antes.
     final working =
-        on && existing > 0 && count?.fresh == 0 && status is AiOrganizeWorking;
+        on &&
+        existing > 0 &&
+        status is AiOrganizeWorking &&
+        status.source == AiWorkSource.existingLibrary;
     final waitingForCharger =
         status is AiOrganizePaused && status.waitingForCharger;
     final text = switch (count) {

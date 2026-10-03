@@ -286,8 +286,13 @@ void main() {
       await pumpSettings(tester);
       expect(find.text(es.aiStatusIdleTitle), findsOneWidget);
 
-      harness.container.read(aiOrganizeStatusProvider.notifier).state =
-          const AiOrganizeWorking(itemTitle: 'Roma', pending: 3);
+      harness.container
+          .read(aiOrganizeStatusProvider.notifier)
+          .state = const AiOrganizeWorking(
+        itemTitle: 'Roma',
+        pending: 3,
+        source: AiWorkSource.fresh,
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -391,7 +396,13 @@ void main() {
         await seedExisting(2);
         await pumpSettings(tester);
 
-        setStatus(const AiOrganizeWorking(itemTitle: 'De antes 1', pending: 1));
+        setStatus(
+          const AiOrganizeWorking(
+            itemTitle: 'De antes 1',
+            pending: 1,
+            source: AiWorkSource.existingLibrary,
+          ),
+        );
         // La barra es indeterminada y anima siempre: alcanza con dejar pasar
         // la cuenta nueva y el cambio de alto.
         await tester.pump();
@@ -401,13 +412,42 @@ void main() {
         expect(bar, findsOneWidget);
       });
 
+      testWidgets('si organiza algo pedido a mano, no dice que ordena la '
+          'biblioteca de antes, aunque queden elementos viejos', (
+        tester,
+      ) async {
+        await seedExisting(2);
+        await pumpSettings(tester);
+
+        // Antes se deducía —trabajando, sin nada nuevo y con elementos de
+        // antes—, y esto mostraba la barra sin que fuera la biblioteca.
+        setStatus(
+          const AiOrganizeWorking(
+            itemTitle: 'De antes 1',
+            pending: 1,
+            source: AiWorkSource.requested,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(progressText(tester), es.settingsAiBackfillRemaining(2));
+        expect(bar, findsNothing);
+      });
+
       testWidgets('si está con algo nuevo, no dice que la ordena: lo nuevo '
           'va primero', (tester) async {
         await seedExisting(2);
         await insertItemRows(harness.database, id: 'nuevo', title: 'Nuevo');
         await pumpSettings(tester);
 
-        setStatus(const AiOrganizeWorking(itemTitle: 'Nuevo', pending: 2));
+        setStatus(
+          const AiOrganizeWorking(
+            itemTitle: 'Nuevo',
+            pending: 2,
+            source: AiWorkSource.fresh,
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(progressText(tester), es.settingsAiBackfillRemaining(2));

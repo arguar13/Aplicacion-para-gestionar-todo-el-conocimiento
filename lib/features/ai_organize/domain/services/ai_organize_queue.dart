@@ -237,7 +237,7 @@ class AiOrganizeQueue {
         _wakeAgain = false;
         final next = await _next();
         if (next != null) {
-          await _organize(next);
+          await _organize(next.itemId, next.source);
           continue;
         }
         if (!_wakeAgain) break;
@@ -252,9 +252,9 @@ class AiOrganizeQueue {
     }
   }
 
-  /// El próximo elemento por organizar, o `null` si no hay nada que se pueda
-  /// hacer ahora; en ese caso deja publicado por qué.
-  Future<String?> _next() async {
+  /// El próximo elemento por organizar y de dónde salió, o `null` si no hay
+  /// nada que se pueda hacer ahora; en ese caso deja publicado por qué.
+  Future<_Next?> _next() async {
     final epoch = await _memory.epoch();
     final quietBefore = _clock().subtract(_noteQuietPeriod);
 
@@ -278,17 +278,21 @@ class AiOrganizeQueue {
       return null;
     }
 
-    if (_requested.isNotEmpty) return _requested.removeFirst();
+    if (_requested.isNotEmpty) {
+      return (itemId: _requested.removeFirst(), source: AiWorkSource.requested);
+    }
 
     final fresh = await _backlog.nextFresh(
       since: epoch,
       notesQuietBefore: quietBefore,
       skip: _skip,
     );
-    if (fresh != null) return fresh;
+    if (fresh != null) return (itemId: fresh, source: AiWorkSource.fresh);
 
     final grown = await _grownNote(quietBefore);
-    if (grown != null) return grown;
+    if (grown != null) {
+      return (itemId: grown, source: AiWorkSource.changedNote);
+    }
 
     if (_settings.backfillWhileCharging) {
       final existing = await _backlog.nextExisting(
@@ -297,7 +301,9 @@ class AiOrganizeQueue {
         skip: _skip,
       );
       if (existing != null) {
-        if (await _charging.isCharging()) return existing;
+        if (await _charging.isCharging()) {
+          return (itemId: existing, source: AiWorkSource.existingLibrary);
+        }
         _onStatus(
           AiOrganizePaused(
             pending: (await _backlog.count(
@@ -349,7 +355,7 @@ class AiOrganizeQueue {
         (_settings.backfillWhileCharging ? count.existing : 0);
   }
 
-  Future<void> _organize(String itemId) async {
+  Future<void> _organize(String itemId, AiWorkSource source) async {
     final item = await _find(itemId);
     if (item == null) {
       _skip.add(itemId);
@@ -361,6 +367,7 @@ class AiOrganizeQueue {
     _onStatus(
       AiOrganizeWorking(
         itemTitle: item.title,
+        source: source,
         // Este ya no espera.
         pending: math.max(0, await _pending(epoch, quietBefore) - 1),
       ),
@@ -417,3 +424,6 @@ class AiOrganizeQueue {
   static bool _isNote(KnowledgeItem item) =>
       item.source.kind == SourceKind.manualNote;
 }
+
+/// Lo próximo que toma la cola: qué elemento y de dónde salió.
+typedef _Next = ({String itemId, AiWorkSource source});

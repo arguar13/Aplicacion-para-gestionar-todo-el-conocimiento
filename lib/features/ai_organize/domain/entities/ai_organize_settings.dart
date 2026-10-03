@@ -140,13 +140,36 @@ final class AiOrganizeIdle extends AiOrganizeStatus {
   const AiOrganizeIdle();
 }
 
-/// Organizando [itemTitle]; [pending] cuántos esperan detrás, contando
-/// la pasada por la biblioteca existente.
+/// De dónde salió el elemento que la IA está organizando: lo que la cola
+/// toma, en su orden.
+enum AiWorkSource {
+  /// Lo pidió la persona, desde el elemento.
+  requested,
+
+  /// Es nuevo: una fuente que terminó de procesarse o una nota que se dejó
+  /// de escribir.
+  fresh,
+
+  /// Una nota ya organizada que cambió mucho.
+  changedNote,
+
+  /// La pasada por la biblioteca que ya existía, con el cargador (decisión
+  /// C).
+  existingLibrary,
+}
+
+/// Organizando [itemTitle], que salió de [source]; [pending] cuántos esperan
+/// detrás, contando la pasada por la biblioteca existente.
 final class AiOrganizeWorking extends AiOrganizeStatus {
-  const AiOrganizeWorking({required this.itemTitle, required this.pending});
+  const AiOrganizeWorking({
+    required this.itemTitle,
+    required this.pending,
+    required this.source,
+  });
 
   final String itemTitle;
   final int pending;
+  final AiWorkSource source;
 }
 
 /// Pausada: por el interruptor general, o esperando el cargador para la
