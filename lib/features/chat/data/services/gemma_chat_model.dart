@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
@@ -197,12 +198,40 @@ class GemmaChatModel
         PropertySuggestionService,
         DerivedNoteGenerator,
         QuizQuestionGenerator {
-  GemmaChatModel();
+  /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
+  /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
+  /// cola de la IA.
+  GemmaChatModel({required LanguageModelGate gate})
+    : this._(gate, _LoadedGemma(), inBackground: false);
 
-  InferenceModel? _model;
+  GemmaChatModel._(this._gate, this._loaded, {required bool inBackground})
+    : _inBackground = inBackground;
+
+  final LanguageModelGate _gate;
+
+  /// El modelo cargado, compartido con [background]: son los mismos pesos.
+  final _LoadedGemma _loaded;
+
+  final bool _inBackground;
+
+  /// El mismo modelo ya cargado, pero con el turno de la cola de la IA (F27):
+  /// espera a que la persona no lo esté usando y le cede el paso. Es lo que
+  /// reciben los pasos de la IA que organiza sola; nunca la interfaz.
+  late final GemmaChatModel background = _inBackground
+      ? this
+      : GemmaChatModel._(_gate, _loaded, inBackground: true);
+
+  /// Corre [work] con el modelo cargado, en el turno que le toca a esta
+  /// instancia. Todo método que abre una sesión pasa por acá: dos sesiones a
+  /// la vez se pisan la única que tiene `flutter_gemma` (ver
+  /// `LanguageModelGate`).
+  Future<T> _withTurn<T>(Future<T> Function(InferenceModel model) work) {
+    Future<T> run() async => work(await _activeModel());
+    return _inBackground ? _gate.runInBackground(run) : _gate.runForUser(run);
+  }
 
   Future<InferenceModel> _activeModel() async {
-    final cached = _model;
+    final cached = _loaded.model;
     if (cached != null) return cached;
 
     if (!FlutterGemma.hasActiveModel()) {
@@ -210,7 +239,7 @@ class GemmaChatModel
     }
 
     final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
-    _model = model;
+    _loaded.model = model;
     return model;
   }
 
@@ -218,130 +247,153 @@ class GemmaChatModel
   Future<String> answer({
     required String question,
     required List<ChatSource> sources,
-  }) async {
-    final model = await _activeModel();
-    final chat = await model.createChat(systemInstruction: _systemInstruction);
-
-    try {
-      await chat.addQueryChunk(
-        Message.text(text: _buildVaultPrompt(question, sources), isUser: true),
+  }) {
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _systemInstruction,
       );
-      final response = await chat.generateChatResponse();
 
-      return switch (response) {
-        TextResponse(:final token) => token,
-        // Un vínculo o pensamiento sin texto: no debería pasar sin
-        // herramientas configuradas, pero una cadena vacía es una
-        // respuesta honesta —"no contestó nada"— antes que un `null` que
-        // obligaría a la pantalla a inventar un mensaje de error para algo
-        // que no fue un error.
-        _ => '',
-      };
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text: _buildVaultPrompt(question, sources),
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
+
+        return switch (response) {
+          TextResponse(:final token) => token,
+          // Un vínculo o pensamiento sin texto: no debería pasar sin
+          // herramientas configuradas, pero una cadena vacía es una
+          // respuesta honesta —"no contestó nada"— antes que un `null` que
+          // obligaría a la pantalla a inventar un mensaje de error para algo
+          // que no fue un error.
+          _ => '',
+        };
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  @override
+  Future<FreeConversation> startConversation() => _openConversation(
+    _freeConversationSystemInstruction,
+    (chat, hold) => _GemmaFreeConversation(chat, _gate, hold),
+  );
+
+  @override
+  Future<VaultConversation> startVaultConversation() => _openConversation(
+    _vaultConversationSystemInstruction,
+    (chat, hold) => _GemmaVaultConversation(chat, _gate, hold),
+  );
+
+  /// Abre una charla que deja su sesión abierta entre mensajes. Desde antes de
+  /// abrirla hasta que se cierre, la cola de la IA no usa el modelo (F27): le
+  /// cerraría la sesión a la charla. Si abrirla falla, el turno se suelta.
+  Future<T> _openConversation<T>(
+    String systemInstruction,
+    T Function(InferenceChat chat, LanguageModelHold hold) wrap,
+  ) async {
+    final hold = _gate.holdForUser();
+    var opened = false;
+    try {
+      final chat = await _withTurn(
+        (model) => model.createChat(systemInstruction: systemInstruction),
+      );
+      opened = true;
+      return wrap(chat, hold);
     } finally {
-      await chat.close();
+      if (!opened) hold.release();
     }
-  }
-
-  @override
-  Future<FreeConversation> startConversation() async {
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _freeConversationSystemInstruction,
-    );
-    return _GemmaFreeConversation(chat);
-  }
-
-  @override
-  Future<VaultConversation> startVaultConversation() async {
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _vaultConversationSystemInstruction,
-    );
-    return _GemmaVaultConversation(chat);
   }
 
   @override
   Future<List<FlashcardDraft>> generate({
     required String content,
     int count = 5,
-  }) async {
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _flashcardSystemInstruction,
-    );
-
-    try {
-      await chat.addQueryChunk(
-        Message.text(
-          text:
-              'Generá hasta $count tarjetas a partir de este contenido:\n\n'
-              '$content',
-          isUser: true,
-        ),
+  }) {
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _flashcardSystemInstruction,
       );
-      final response = await chat.generateChatResponse();
 
-      final text = switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text:
+                'Generá hasta $count tarjetas a partir de este contenido:\n\n'
+                '$content',
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
 
-      return parseFlashcardDrafts(text).take(count).toList();
-    } finally {
-      await chat.close();
-    }
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+
+        return parseFlashcardDrafts(text).take(count).toList();
+      } finally {
+        await chat.close();
+      }
+    });
   }
 
   @override
   Future<List<FlashcardDraft>> generateQuizQuestions({
     required String content,
     int count = 5,
-  }) async {
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _quizQuestionSystemInstruction,
-    );
-
-    try {
-      await chat.addQueryChunk(
-        Message.text(
-          text:
-              'Generá hasta $count preguntas de opción múltiple a partir '
-              'de este contenido:\n\n$content',
-          isUser: true,
-        ),
+  }) {
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _quizQuestionSystemInstruction,
       );
-      final response = await chat.generateChatResponse();
 
-      final text = switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text:
+                'Generá hasta $count preguntas de opción múltiple a partir '
+                'de este contenido:\n\n$content',
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
 
-      return parseFlashcardDrafts(text).take(count).toList();
-    } finally {
-      await chat.close();
-    }
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+
+        return parseFlashcardDrafts(text).take(count).toList();
+      } finally {
+        await chat.close();
+      }
+    });
   }
 
   @override
-  Future<String> summarize({required String content}) async {
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _summarizationSystemInstruction,
-    );
+  Future<String> summarize({required String content}) {
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _summarizationSystemInstruction,
+      );
 
-    try {
-      await chat.addQueryChunk(Message.text(text: content, isUser: true));
-      final response = await chat.generateChatResponse();
+      try {
+        await chat.addQueryChunk(Message.text(text: content, isUser: true));
+        final response = await chat.generateChatResponse();
 
-      return switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
-    } finally {
-      await chat.close();
-    }
+        return switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+      } finally {
+        await chat.close();
+      }
+    });
   }
 
   @override
@@ -352,50 +404,51 @@ class GemmaChatModel
   }) async {
     if (candidates.isEmpty) return const [];
 
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _relationSuggestionSystemInstruction,
-    );
-
-    try {
-      final list = [
-        for (var i = 0; i < candidates.length; i++)
-          '${i + 1}. ${candidates[i].title}\n${candidates[i].excerpt}',
-      ].join('\n\n');
-
-      await chat.addQueryChunk(
-        Message.text(
-          text:
-              'Elemento semilla: $seedTitle\n$seedExcerpt\n\n'
-              'Lista de candidatos:\n$list',
-          isUser: true,
-        ),
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _relationSuggestionSystemInstruction,
       );
-      final response = await chat.generateChatResponse();
 
-      final text = switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
+      try {
+        final list = [
+          for (var i = 0; i < candidates.length; i++)
+            '${i + 1}. ${candidates[i].title}\n${candidates[i].excerpt}',
+        ].join('\n\n');
 
-      final suggestions = <RelationSuggestion>[];
-      for (final line in parseRelationSuggestions(text)) {
-        if (line.candidateIndex < 0 ||
-            line.candidateIndex >= candidates.length) {
-          continue;
-        }
-        suggestions.add(
-          RelationSuggestion(
-            itemId: candidates[line.candidateIndex].itemId,
-            kind: line.kind,
-            reason: line.reason,
+        await chat.addQueryChunk(
+          Message.text(
+            text:
+                'Elemento semilla: $seedTitle\n$seedExcerpt\n\n'
+                'Lista de candidatos:\n$list',
+            isUser: true,
           ),
         );
+        final response = await chat.generateChatResponse();
+
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+
+        final suggestions = <RelationSuggestion>[];
+        for (final line in parseRelationSuggestions(text)) {
+          if (line.candidateIndex < 0 ||
+              line.candidateIndex >= candidates.length) {
+            continue;
+          }
+          suggestions.add(
+            RelationSuggestion(
+              itemId: candidates[line.candidateIndex].itemId,
+              kind: line.kind,
+              reason: line.reason,
+            ),
+          );
+        }
+        return suggestions;
+      } finally {
+        await chat.close();
       }
-      return suggestions;
-    } finally {
-      await chat.close();
-    }
+    });
   }
 
   @override
@@ -406,50 +459,53 @@ class GemmaChatModel
   }) async {
     if (categories.isEmpty) return const [];
 
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _propertySuggestionSystemInstruction,
-    );
-
-    try {
-      final list = [
-        for (final category in categories) _describeCategory(category),
-      ].join('\n');
-
-      await chat.addQueryChunk(
-        Message.text(
-          text:
-              'Categorías existentes:\n$list\n\n'
-              'Elemento: $itemTitle\n$itemContent',
-          isUser: true,
-        ),
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _propertySuggestionSystemInstruction,
       );
-      final response = await chat.generateChatResponse();
 
-      final text = switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
+      try {
+        final list = [
+          for (final category in categories) _describeCategory(category),
+        ].join('\n');
 
-      final knownCategories = categories.map((c) => c.name).toList();
-      final drafts = <PropertyDraft>[];
-      for (final line in parsePropertySuggestions(
-        text,
-        knownCategories: knownCategories,
-      )) {
-        final category = categories.firstWhere((c) => c.name == line.category);
-        drafts.add(
-          PropertyDraft(
-            definitionId: category.definitionId,
-            definitionName: category.name,
-            value: line.value,
+        await chat.addQueryChunk(
+          Message.text(
+            text:
+                'Categorías existentes:\n$list\n\n'
+                'Elemento: $itemTitle\n$itemContent',
+            isUser: true,
           ),
         );
+        final response = await chat.generateChatResponse();
+
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+
+        final knownCategories = categories.map((c) => c.name).toList();
+        final drafts = <PropertyDraft>[];
+        for (final line in parsePropertySuggestions(
+          text,
+          knownCategories: knownCategories,
+        )) {
+          final category = categories.firstWhere(
+            (c) => c.name == line.category,
+          );
+          drafts.add(
+            PropertyDraft(
+              definitionId: category.definitionId,
+              definitionName: category.name,
+              value: line.value,
+            ),
+          );
+        }
+        return drafts;
+      } finally {
+        await chat.close();
       }
-      return drafts;
-    } finally {
-      await chat.close();
-    }
+    });
   }
 
   @override
@@ -461,28 +517,29 @@ class GemmaChatModel
       return DerivedNoteDraft(type: type, sections: const []);
     }
 
-    final model = await _activeModel();
-    final chat = await model.createChat(
-      systemInstruction: _derivedSystemInstructionFor(type),
-    );
-
-    try {
-      await chat.addQueryChunk(
-        Message.text(text: _buildDerivedPrompt(sources), isUser: true),
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _derivedSystemInstructionFor(type),
       );
-      final response = await chat.generateChatResponse();
 
-      final text = switch (response) {
-        TextResponse(:final token) => token,
-        _ => '',
-      };
+      try {
+        await chat.addQueryChunk(
+          Message.text(text: _buildDerivedPrompt(sources), isUser: true),
+        );
+        final response = await chat.generateChatResponse();
 
-      final raw = parseDerivedNoteResponse(text);
-      final sections = anchorDerivedClaims(raw, sources);
-      return DerivedNoteDraft(type: type, sections: sections);
-    } finally {
-      await chat.close();
-    }
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+
+        final raw = parseDerivedNoteResponse(text);
+        final sections = anchorDerivedClaims(raw, sources);
+        return DerivedNoteDraft(type: type, sections: sections);
+      } finally {
+        await chat.close();
+      }
+    });
   }
 }
 
@@ -492,30 +549,42 @@ class GemmaChatModel
 /// diferencia de `GemmaChatModel.answer`, que abre y cierra una sesión
 /// nueva por pregunta.
 class _GemmaFreeConversation implements FreeConversation {
-  _GemmaFreeConversation(this._chat);
+  _GemmaFreeConversation(this._chat, this._gate, this._hold);
 
   final InferenceChat _chat;
+  final LanguageModelGate _gate;
+
+  /// Retiene el modelo para la persona mientras la charla siga abierta (F27).
+  final LanguageModelHold _hold;
 
   @override
-  Future<String> send(
-    String message, {
-    List<Uint8List> images = const [],
-  }) async {
-    await _chat.addQueryChunk(
-      images.isEmpty
-          ? Message.text(text: message, isUser: true)
-          : Message.withImages(text: message, imageBytes: images, isUser: true),
-    );
-    final response = await _chat.generateChatResponse();
+  Future<String> send(String message, {List<Uint8List> images = const []}) =>
+      _gate.runForUser(() async {
+        await _chat.addQueryChunk(
+          images.isEmpty
+              ? Message.text(text: message, isUser: true)
+              : Message.withImages(
+                  text: message,
+                  imageBytes: images,
+                  isUser: true,
+                ),
+        );
+        final response = await _chat.generateChatResponse();
 
-    return switch (response) {
-      TextResponse(:final token) => token,
-      _ => '',
-    };
+        return switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+      });
+
+  @override
+  Future<void> close() async {
+    try {
+      await _chat.close();
+    } finally {
+      _hold.release();
+    }
   }
-
-  @override
-  Future<void> close() => _chat.close();
 }
 
 /// [VaultConversation] sobre la sesión de `flutter_gemma`: igual que
@@ -525,16 +594,20 @@ class _GemmaFreeConversation implements FreeConversation {
 /// formato que ya arma [_buildVaultPrompt]—, así el modelo ve tanto lo
 /// conversado antes como lo nuevo que se encontró en la bóveda.
 class _GemmaVaultConversation implements VaultConversation {
-  _GemmaVaultConversation(this._chat);
+  _GemmaVaultConversation(this._chat, this._gate, this._hold);
 
   final InferenceChat _chat;
+  final LanguageModelGate _gate;
+
+  /// Ver `_GemmaFreeConversation._hold`.
+  final LanguageModelHold _hold;
 
   @override
   Future<String> send({
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],
-  }) async {
+  }) => _gate.runForUser(() async {
     final prompt = _buildVaultPrompt(message, sources);
     await _chat.addQueryChunk(
       images.isEmpty
@@ -547,10 +620,16 @@ class _GemmaVaultConversation implements VaultConversation {
       TextResponse(:final token) => token,
       _ => '',
     };
-  }
+  });
 
   @override
-  Future<void> close() => _chat.close();
+  Future<void> close() async {
+    try {
+      await _chat.close();
+    } finally {
+      _hold.release();
+    }
+  }
 }
 
 /// El mensaje que de verdad se le manda al modelo: la pregunta o el pedido
@@ -601,4 +680,10 @@ String _describeCategory(PropertyVocabularyCategory category) {
 
   final aliases = category.aliases.join(', ');
   return '${category.name}: $values (alias: $aliases)';
+}
+
+/// El modelo de Gemma cargado, compartido entre [GemmaChatModel] y su
+/// `background`: los mismos pesos, cargados una sola vez.
+class _LoadedGemma {
+  InferenceModel? model;
 }

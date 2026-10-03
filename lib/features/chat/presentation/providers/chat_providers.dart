@@ -18,6 +18,7 @@ import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dar
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
@@ -62,7 +63,22 @@ final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
 /// recargar varios cientos de megas la próxima vez. Una sola instancia
 /// compartida entre el chat y el generador de tarjetas, para que las dos
 /// funciones usen el mismo modelo ya cargado en vez de cada una el suyo.
-final _gemmaModelProvider = Provider<GemmaChatModel>((ref) => GemmaChatModel());
+final _gemmaModelProvider = Provider<GemmaChatModel>(
+  (ref) => GemmaChatModel(gate: ref.watch(languageModelGateProvider)),
+);
+
+/// El turno para usar el modelo de lenguaje (F27): uno a la vez, la persona
+/// antes que la cola de la IA. Uno solo en toda la app, como el modelo.
+final languageModelGateProvider = Provider<LanguageModelGate>(
+  (ref) => LanguageModelGate(),
+);
+
+/// El mismo modelo ya cargado, con el turno de la cola de la IA (F27): espera
+/// a que la persona no lo esté usando. Solo para los pasos de la IA que
+/// organiza sola; la interfaz usa los de arriba.
+final backgroundLanguageModelProvider = Provider<GemmaChatModel>(
+  (ref) => ref.watch(_gemmaModelProvider).background,
+);
 
 final chatModelProvider = Provider<ChatModel>((ref) {
   return ref.watch(_gemmaModelProvider);
