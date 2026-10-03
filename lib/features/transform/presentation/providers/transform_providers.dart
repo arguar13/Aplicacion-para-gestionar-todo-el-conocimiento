@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -45,6 +47,7 @@ import 'package:sinapsis/features/transform/domain/services/whisper_model_manage
 import 'package:sinapsis/features/transform/domain/transformers/transformer_registry.dart';
 import 'package:sinapsis/features/transform/domain/usecases/download_youtube_audio_usecase.dart';
 import 'package:sinapsis/features/transform/domain/usecases/process_item_usecase.dart';
+import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/platform_audio_transcriber.dart';
 import 'package:sinapsis/features/transform/presentation/providers/platform_image_text_extractor.dart';
 import 'package:sinapsis/features/transform/presentation/providers/platform_whisper_model_manager.dart';
@@ -89,6 +92,31 @@ final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
     rootDirectory: getApplicationDocumentsDirectory,
   );
 });
+
+/// La descarga del modelo de transcripción, viva aparte de su pantalla (ver
+/// [ModelDownloadNotifier]). NO autoDispose: tiene que seguir aunque nadie
+/// la mire.
+final transcriptionModelDownloadProvider =
+    StateNotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
+      (ref) => ModelDownloadNotifier(
+        keeper: () => ref
+            .read(longWorkCoordinatorProvider)
+            .keeperFor(LongWorkOwner.modelDownload),
+        detail: LongWorkDetail.transcriptionModel,
+        // Lo que falló porque faltaba este modelo vuelve a quedar en espera,
+        // y la cola —que sigue a la base— lo retoma sola: nadie tiene que ir
+        // audio por audio a tocar "Reintentar" (F21). Aunque la descarga
+        // termine con la pantalla cerrada.
+        onFinished: () => unawaited(
+          ref
+              .read(processingStateRepositoryProvider)
+              .requeueFailedWith(
+                ProcessingFailureReason.transcriptionModelMissing,
+              )
+              .catchError((Object _) => 0),
+        ),
+      ),
+    );
 
 final audioTranscriberProvider = Provider<AudioTranscriber>((ref) {
   return createAudioTranscriber(

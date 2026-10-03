@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 
+import 'fake_model_download.dart';
+
 /// Un modelo de chat de mentira: dice que está listo o no, sin tocar
 /// `flutter_gemma` —que no tiene con qué hablar en un test—.
 class FakeChatModelManager implements ChatModelManager {
@@ -31,6 +33,6 @@ class FakeChatModelManager implements ChatModelManager {
   Stream<double> download({String? huggingFaceToken}) {
     final controller = StreamController<double>();
     lastDownload = controller;
-    return controller.stream;
+    return readyWhenDone(controller, () => ready = true);
   }
 }

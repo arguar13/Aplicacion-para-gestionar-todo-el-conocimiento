@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -122,5 +123,27 @@ void main() {
 
       expect(find.text(es.transcriptionModelReady), findsOneWidget);
     });
+  });
+
+  testWidgets('salir de la pantalla no corta la descarga, y al volver se ve '
+      'cuánto va en vez de ofrecer bajarlo otra vez', (tester) async {
+    await pumpScreen(tester);
+    await tester.tap(find.text(es.transcriptionModelDownloadAction));
+    await tester.pump();
+    final download = harness.whisperModel.lastDownload!..add(0.3);
+    await tester.pump();
+
+    harness.container.read(goRouterProvider).pop();
+    await tester.pumpAndSettle();
+    download.add(0.47);
+    harness.pushTo(RoutePaths.transcriptionModel);
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.transcriptionModelDownloading('47')), findsOneWidget);
+    expect(find.text(es.transcriptionModelDownloadAction), findsNothing);
+
+    await download.close();
+    await tester.pumpAndSettle();
+    expect(find.text(es.transcriptionModelReady), findsOneWidget);
   });
 }

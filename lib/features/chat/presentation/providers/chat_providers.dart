@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
@@ -29,6 +31,9 @@ import 'package:sinapsis/features/library/domain/services/summarization_service.
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
+import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
 /// Deliberadamente NO autoDispose, mismo motivo que
 /// `whisperModelManagerProvider`: descartarlo al cerrar la pantalla de
@@ -45,6 +50,24 @@ final chatModelManagerProvider = Provider<ChatModelManager>((ref) {
     downloader: ref.watch(gemmaModelDownloaderProvider),
   );
 });
+
+/// La descarga del modelo de lenguaje, viva aparte de su pantalla (ver
+/// [ModelDownloadNotifier]): una sola a la vez, de la opción que estaba
+/// elegida al empezarla —la pantalla no deja cambiar de opción mientras
+/// tanto—. NO autoDispose: tiene que seguir aunque nadie la mire.
+final chatModelDownloadProvider =
+    StateNotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
+      (ref) => ModelDownloadNotifier(
+        keeper: () => ref
+            .read(longWorkCoordinatorProvider)
+            .keeperFor(LongWorkOwner.modelDownload),
+        detail: LongWorkDetail.languageModel,
+        // La IA que organiza sola esperaba este modelo (F27): sin el aviso
+        // seguiría diciendo que falta hasta que otra cosa la despertara —un
+        // elemento nuevo, el cargador—.
+        onFinished: () => unawaited(ref.read(aiOrganizeQueueProvider).wake()),
+      ),
+    );
 
 /// El que de verdad baja el modelo — ver `HttpGemmaModelDownloader` para el
 /// motivo por el que esto no se le deja a `flutter_gemma`. NO autoDispose,

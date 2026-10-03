@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 
+import 'fake_model_download.dart';
+
 /// Un modelo de mentira: dice que está listo o no, y deja que la prueba
 /// controle a mano el progreso de "la" descarga en curso.
 class FakeWhisperModelManager implements WhisperModelManager {
@@ -42,6 +44,6 @@ class FakeWhisperModelManager implements WhisperModelManager {
   Stream<double> download() {
     final controller = StreamController<double>();
     lastDownload = controller;
-    return controller.stream;
+    return readyWhenDone(controller, () => ready = true);
   }
 }

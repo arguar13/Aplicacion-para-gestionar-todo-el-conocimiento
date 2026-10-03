@@ -24,6 +24,7 @@ import 'package:sinapsis/features/export/presentation/providers/export_providers
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -290,6 +291,16 @@ class LibraryHarness {
         // test no responde: sin esto, guardar un archivo se quedaba
         // esperando para siempre. `null` es "no se sabe": no frena nada.
         captureFreeBytesProvider.overrideWithValue(() async => null),
+        // El servicio en primer plano lo prueba `long_work_coordinator_test`.
+        // Acá no hay servicio que prender, y soltar sin margen hace que una
+        // descarga terminada no deje un temporizador de 15 s pendiente al
+        // final de la prueba.
+        longWorkCoordinatorProvider.overrideWithValue(
+          LongWorkCoordinator(
+            platform: const NoLongWorkPlatform(),
+            releaseDelay: Duration.zero,
+          ),
+        ),
         // La cola no procesa en los tests que no la están probando. Sin
         // esto, abrir la biblioteca dispararía descargas reales y el estado
         // de cada elemento cambiaría bajo los pies de las aserciones.

@@ -7,10 +7,10 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
-import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
+import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 const _modelPageUrl =
@@ -38,10 +38,10 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
   var _isReady = false;
   int? _downloadSizeInBytes;
 
-  double? _downloadProgress;
-  EmbeddingModelDownloadError? _error;
-
-  StreamSubscription<double>? _downloadSubscription;
+  // La descarga en sí —su avance, su error— no vive acá sino en
+  // `embeddingModelDownloadProvider`: sigue aunque se salga de esta
+  // pantalla, y al volver se ve cuánto va en vez de ofrecer bajarlo de
+  // nuevo.
 
   /// Inicializado en [initState], no como `late final` perezoso: si el
   /// modelo ya está listo desde el primer build, `_body()` nunca visita
@@ -60,7 +60,6 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
 
   @override
   void dispose() {
-    unawaited(_downloadSubscription?.cancel());
     _tokenController.dispose();
     super.dispose();
   }
@@ -94,50 +93,30 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
           .setToken(_tokenController.text),
     );
 
-    setState(() {
-      _downloadProgress = 0;
-      _error = null;
-    });
-
-    _downloadSubscription = ref
-        .read(embeddingModelManagerProvider)
-        .download(huggingFaceToken: ref.read(huggingFaceTokenNotifierProvider))
-        .listen(
-          (progress) {
-            if (!mounted) return;
-            setState(() => _downloadProgress = progress);
-          },
-          onError: (Object error) {
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _error = error is EmbeddingModelDownloadError
-                  ? error
-                  : EmbeddingModelDownloadFailed(error.toString());
-            });
-          },
-          onDone: () {
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _isReady = true;
-            });
-            // La IA que organiza sola esperaba este modelo (F27): sin el
-            // aviso seguiría diciendo que falta hasta que otra cosa la
-            // despertara —un elemento nuevo, el cargador—.
-            unawaited(ref.read(aiOrganizeQueueProvider).wake());
-          },
-          // Sin esto, `onDone` igual llega después de un error —cerrar el
-          // stream tras `addError` no lo salta, ver `HttpGemmaModelDownloader.
-          // _run`, que siempre cierra al final, haya fallado o no— y
-          // pisaría el error recién puesto con "listo".
-          cancelOnError: true,
+    // Si ya hay una en curso, no arranca otra: dos descargas escribiendo
+    // el mismo archivo lo dejarían corrupto.
+    ref
+        .read(embeddingModelDownloadProvider.notifier)
+        .start(
+          () => ref
+              .read(embeddingModelManagerProvider)
+              .download(
+                huggingFaceToken: ref.read(huggingFaceTokenNotifierProvider),
+              ),
         );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final download = ref.watch(embeddingModelDownloadProvider);
+    // Terminó —con esta pantalla abierta o no—: se vuelve a mirar si el
+    // modelo quedó listo.
+    ref.listen(embeddingModelDownloadProvider, (previous, next) {
+      if (previous is ModelDownloadRunning && next is ModelDownloadIdle) {
+        unawaited(_checkStatus());
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.embeddingModelTitle)),
@@ -149,7 +128,7 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
               padding: const EdgeInsets.all(24),
               child: _checkingStatus
                   ? const Center(child: CircularProgressIndicator())
-                  : _body(l10n),
+                  : _body(l10n, download),
             ),
           ),
         ),
@@ -157,7 +136,7 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
     );
   }
 
-  Widget _body(AppLocalizations l10n) {
+  Widget _body(AppLocalizations l10n, ModelDownloadState download) {
     if (_isReady) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -172,8 +151,7 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
       );
     }
 
-    final progress = _downloadProgress;
-    if (progress != null) {
+    if (download case ModelDownloadRunning(:final progress)) {
       return _DownloadingView(
         progress: progress,
         label: l10n.embeddingModelDownloading(
@@ -182,7 +160,14 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
       );
     }
 
-    final error = _error;
+    final error = switch (download) {
+      ModelDownloadFailed(error: final EmbeddingModelDownloadError error) =>
+        error,
+      ModelDownloadFailed(:final error) => EmbeddingModelDownloadFailed(
+        '$error',
+      ),
+      _ => null,
+    };
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

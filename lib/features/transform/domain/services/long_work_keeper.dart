@@ -223,6 +223,11 @@ class LongWorkCoordinator {
   /// entonces: no se le pide nada a la plataforma.
   var _stoppedUntilResumed = false;
 
+  /// Ya se descartó: lo que suelten después los trabajos —que se descartan
+  /// junto con él, en cualquier orden— no arma un temporizador que nadie va
+  /// a cancelar.
+  var _disposed = false;
+
   /// El guardián de un trabajo de [owner]. Uno por trabajo: dos descargas a
   /// la vez piden cada una el suyo.
   LongWorkKeeper keeperFor(LongWorkOwner owner) => _OwnedKeeper(this, owner);
@@ -241,7 +246,9 @@ class LongWorkCoordinator {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     _release?.cancel();
+    _release = null;
     await _systemStops.cancel();
   }
 
@@ -263,7 +270,7 @@ class LongWorkCoordinator {
   }
 
   void _publish() {
-    if (_stoppedUntilResumed) return;
+    if (_disposed || _stoppedUntilResumed) return;
     if (_working.isEmpty) {
       if (_shown == null || _release != null) return;
       _release = Timer(releaseDelay, () {

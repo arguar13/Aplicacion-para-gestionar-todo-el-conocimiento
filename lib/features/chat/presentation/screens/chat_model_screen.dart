@@ -11,6 +11,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
+import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La página del modelo en Hugging Face, para aceptar su licencia, según
@@ -67,23 +68,28 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
   var _isReady = false;
   int? _downloadSizeInBytes;
 
-  double? _downloadProgress;
-  ChatModelDownloadError? _error;
+  // La descarga en sí —su avance, su error— no vive acá sino en
+  // `chatModelDownloadProvider`: sigue aunque se salga de esta pantalla, y
+  // al volver se ve cuánto va en vez de ofrecer bajarlo de nuevo.
 
-  StreamSubscription<double>? _downloadSubscription;
-  late final _tokenController = TextEditingController(
-    text: ref.read(huggingFaceTokenNotifierProvider) ?? '',
-  );
+  /// Inicializado en [initState], no como `late final` perezoso: con una
+  /// descarga en curso al abrir, `_body()` nunca visita la rama que lo usa,
+  /// y un campo perezoso que recién se evalúa en [dispose] intenta leer
+  /// `ref` justo cuando el widget ya no puede. Mismo arreglo que la pantalla
+  /// del modelo de relaciones.
+  late final TextEditingController _tokenController;
 
   @override
   void initState() {
     super.initState();
+    _tokenController = TextEditingController(
+      text: ref.read(huggingFaceTokenNotifierProvider) ?? '',
+    );
     unawaited(_checkStatus());
   }
 
   @override
   void dispose() {
-    unawaited(_downloadSubscription?.cancel());
     _tokenController.dispose();
     super.dispose();
   }
@@ -115,8 +121,8 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
   Future<void> _selectOption(ChatModelOption option) async {
     if (option == ref.read(chatModelOptionNotifierProvider)) return;
 
-    await _downloadSubscription?.cancel();
-    _downloadSubscription = null;
+    // El error de la descarga de otra opción no es de esta.
+    ref.read(chatModelDownloadProvider.notifier).clearError();
     await ref.read(chatModelOptionNotifierProvider.notifier).select(option);
     if (!mounted) return;
 
@@ -124,8 +130,6 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
       _checkingStatus = true;
       _isReady = false;
       _downloadSizeInBytes = null;
-      _downloadProgress = null;
-      _error = null;
     });
     await _checkStatus();
     // Elegir una variante que ya estaba bajada también cambia si la IA que
@@ -142,44 +146,16 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
           .setToken(_tokenController.text),
     );
 
-    setState(() {
-      _downloadProgress = 0;
-      _error = null;
-    });
-
-    _downloadSubscription = ref
-        .read(chatModelManagerProvider)
-        .download(huggingFaceToken: ref.read(huggingFaceTokenNotifierProvider))
-        .listen(
-          (progress) {
-            if (!mounted) return;
-            setState(() => _downloadProgress = progress);
-          },
-          onError: (Object error) {
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _error = error is ChatModelDownloadError
-                  ? error
-                  : ChatModelDownloadFailed(error.toString());
-            });
-          },
-          onDone: () {
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _isReady = true;
-            });
-            // La IA que organiza sola esperaba este modelo (F27): sin el
-            // aviso seguiría diciendo que falta hasta que otra cosa la
-            // despertara —un elemento nuevo, el cargador—.
-            unawaited(ref.read(aiOrganizeQueueProvider).wake());
-          },
-          // Sin esto, `onDone` llega igual después de un error —el
-          // descargador cierra el stream al final, haya fallado o no— y
-          // pisaba el error recién puesto con "listo": el mismo defecto que
-          // ya se había corregido en la pantalla del modelo de relaciones.
-          cancelOnError: true,
+    // Si ya hay una en curso, no arranca otra: dos descargas escribiendo
+    // el mismo archivo lo dejarían corrupto.
+    ref
+        .read(chatModelDownloadProvider.notifier)
+        .start(
+          () => ref
+              .read(chatModelManagerProvider)
+              .download(
+                huggingFaceToken: ref.read(huggingFaceTokenNotifierProvider),
+              ),
         );
   }
 
@@ -187,6 +163,14 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final selectedOption = ref.watch(chatModelOptionNotifierProvider);
+    final download = ref.watch(chatModelDownloadProvider);
+    // Terminó —con esta pantalla abierta o no—: se vuelve a mirar si el
+    // modelo quedó listo.
+    ref.listen(chatModelDownloadProvider, (previous, next) {
+      if (previous is ModelDownloadRunning && next is ModelDownloadIdle) {
+        unawaited(_checkStatus());
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.chatModelTitle)),
@@ -205,15 +189,15 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
                     // cancela (ver `_selectOption`), así que se
                     // deshabilita mientras hay una en curso: elegirla por
                     // accidente ahí perdería el progreso sin avisar.
-                    onSelected: _downloadProgress == null
-                        ? _selectOption
-                        : null,
+                    onSelected: download is ModelDownloadRunning
+                        ? null
+                        : _selectOption,
                   ),
                   const SizedBox(height: 24),
                   if (_checkingStatus)
                     const Center(child: CircularProgressIndicator())
                   else
-                    _body(l10n, selectedOption),
+                    _body(l10n, selectedOption, download),
                 ],
               ),
             ),
@@ -223,18 +207,25 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
     );
   }
 
-  Widget _body(AppLocalizations l10n, ChatModelOption option) {
+  Widget _body(
+    AppLocalizations l10n,
+    ChatModelOption option,
+    ModelDownloadState download,
+  ) {
     if (_isReady) return _ReadyView(message: l10n.chatModelReady);
 
-    final progress = _downloadProgress;
-    if (progress != null) {
+    if (download case ModelDownloadRunning(:final progress)) {
       return _DownloadingView(
         progress: progress,
         label: l10n.chatModelDownloading((progress * 100).round().toString()),
       );
     }
 
-    final error = _error;
+    final error = switch (download) {
+      ModelDownloadFailed(error: final ChatModelDownloadError error) => error,
+      ModelDownloadFailed(:final error) => ChatModelDownloadFailed('$error'),
+      _ => null,
+    };
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

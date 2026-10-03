@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
@@ -129,5 +130,26 @@ void main() {
 
     expect(find.text(es.embeddingModelError), findsOneWidget);
     expect(find.text(es.embeddingModelRetryAction), findsOneWidget);
+  });
+
+  testWidgets('salir de la pantalla no corta la descarga, y al volver se ve '
+      'cuánto va en vez de ofrecer bajarlo otra vez', (tester) async {
+    await pumpScreen(tester);
+    await tapDownload(tester);
+    final download = harness.embeddingModelManager.lastDownload!..add(0.3);
+    await tester.pump();
+
+    harness.container.read(goRouterProvider).pop();
+    await tester.pumpAndSettle();
+    download.add(0.47);
+    harness.pushTo(RoutePaths.embeddingModel);
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.embeddingModelDownloading('47')), findsOneWidget);
+    expect(find.text(es.embeddingModelDownloadAction), findsNothing);
+
+    await download.close();
+    await tester.pumpAndSettle();
+    expect(find.text(es.embeddingModelReady), findsOneWidget);
   });
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 
+import 'fake_model_download.dart';
+
 /// Un modelo de embeddings de mentira: dice que está listo o no, sin tocar
 /// `flutter_gemma` —que no tiene con qué hablar en un test—. Mismo patrón
 /// que `FakeChatModelManager`.
@@ -29,6 +31,6 @@ class FakeEmbeddingModelManager implements EmbeddingModelManager {
   Stream<double> download({String? huggingFaceToken}) {
     final controller = StreamController<double>();
     lastDownload = controller;
-    return controller.stream;
+    return readyWhenDone(controller, () => ready = true);
   }
 }

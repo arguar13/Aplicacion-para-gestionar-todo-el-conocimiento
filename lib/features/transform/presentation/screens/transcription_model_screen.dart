@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -12,8 +13,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Una pantalla propia y no un diálogo, a propósito: son cientos de megas, la
 /// descarga puede tardar, y quien la mira tiene que poder navegar a otro
-/// lado sin perder el progreso —el manager sigue vivo aparte de la pantalla,
-/// ver `whisperModelManagerProvider`—.
+/// lado sin perder el progreso —la descarga sigue viva aparte de la
+/// pantalla, ver `transcriptionModelDownloadProvider`, y al volver se ve
+/// cuánto va—.
 ///
 /// Nada se descarga solo. El principio 1 de la arquitectura es tajante: las
 /// únicas conexiones salientes son las que el usuario pide explícitamente, y
@@ -32,22 +34,10 @@ class _TranscriptionModelScreenState
   var _isReady = false;
   int? _downloadSizeInBytes;
 
-  /// `null` mientras no hay una descarga en curso.
-  double? _downloadProgress;
-  Object? _error;
-
-  StreamSubscription<double>? _downloadSubscription;
-
   @override
   void initState() {
     super.initState();
     unawaited(_checkStatus());
-  }
-
-  @override
-  void dispose() {
-    unawaited(_downloadSubscription?.cancel());
-    super.dispose();
   }
 
   Future<void> _checkStatus() async {
@@ -76,35 +66,12 @@ class _TranscriptionModelScreenState
   }
 
   void _startDownload() {
-    setState(() {
-      _downloadProgress = 0;
-      _error = null;
-    });
-
-    _downloadSubscription = ref
-        .read(whisperModelManagerProvider)
-        .download()
-        .listen(
-          (progress) {
-            if (!mounted) return;
-            setState(() => _downloadProgress = progress);
-          },
-          onError: (Object error) {
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _error = error;
-            });
-          },
-          onDone: () {
-            _resumeWaitingForModel();
-            if (!mounted) return;
-            setState(() {
-              _downloadProgress = null;
-              _isReady = true;
-            });
-          },
-        );
+    // Si ya hay una en curso, no arranca otra. Al terminar, lo que esperaba
+    // el modelo vuelve a la cola desde el proveedor, aunque esta pantalla ya
+    // no esté.
+    ref
+        .read(transcriptionModelDownloadProvider.notifier)
+        .start(() => ref.read(whisperModelManagerProvider).download());
   }
 
   /// Lo que falló porque faltaba este modelo vuelve a quedar en espera, y la
@@ -122,6 +89,14 @@ class _TranscriptionModelScreenState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final download = ref.watch(transcriptionModelDownloadProvider);
+    // Terminó —con esta pantalla abierta o no—: se vuelve a mirar si el
+    // modelo quedó listo.
+    ref.listen(transcriptionModelDownloadProvider, (previous, next) {
+      if (previous is ModelDownloadRunning && next is ModelDownloadIdle) {
+        unawaited(_checkStatus());
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.transcriptionModelTitle)),
@@ -133,7 +108,7 @@ class _TranscriptionModelScreenState
               padding: const EdgeInsets.all(24),
               child: _checkingStatus
                   ? const Center(child: CircularProgressIndicator())
-                  : _body(l10n),
+                  : _body(l10n, download),
             ),
           ),
         ),
@@ -141,11 +116,10 @@ class _TranscriptionModelScreenState
     );
   }
 
-  Widget _body(AppLocalizations l10n) {
+  Widget _body(AppLocalizations l10n, ModelDownloadState download) {
     if (_isReady) return _ReadyView(message: l10n.transcriptionModelReady);
 
-    final progress = _downloadProgress;
-    if (progress != null) {
+    if (download case ModelDownloadRunning(:final progress)) {
       return _DownloadingView(
         progress: progress,
         label: l10n.transcriptionModelDownloading(
@@ -154,8 +128,7 @@ class _TranscriptionModelScreenState
       );
     }
 
-    final error = _error;
-    if (error != null) {
+    if (download is ModelDownloadFailed) {
       return _ErrorView(
         message: l10n.transcriptionModelError,
         onRetry: _startDownload,

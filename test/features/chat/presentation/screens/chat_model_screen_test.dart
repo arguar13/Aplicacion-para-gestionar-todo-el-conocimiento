@@ -1,8 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
@@ -167,7 +166,10 @@ void main() {
     expect(harness.chatModelManagerGemma3n.lastDownload, isNull);
     expect(find.text(es.chatModelDownloading('0')), findsOneWidget);
 
-    unawaited(harness.chatModelManager.lastDownload!.close());
+    // Termina dentro de la prueba: lo que la descarga suelta al terminar
+    // —el servicio en primer plano— no queda pendiente.
+    await harness.chatModelManager.lastDownload!.close();
+    await tester.pumpAndSettle();
   });
 
   group('Gemma 4 12B, la opción de escritorio', () {
@@ -190,5 +192,42 @@ void main() {
       expect(find.text(es.chatModelReady), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     });
+  });
+
+  testWidgets('salir de la pantalla no corta la descarga, y al volver se ve '
+      'cuánto va en vez de ofrecer bajarlo otra vez', (tester) async {
+    await pumpScreen(tester);
+    await tapDownload(tester);
+    final download = harness.chatModelManager.lastDownload!..add(0.3);
+    await tester.pump();
+
+    harness.container.read(goRouterProvider).pop();
+    await tester.pumpAndSettle();
+    download.add(0.47);
+    harness.pushTo(RoutePaths.chatModel);
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.chatModelDownloading('47')), findsOneWidget);
+    expect(find.text(es.chatModelDownloadAction), findsNothing);
+
+    await download.close();
+    await tester.pumpAndSettle();
+    expect(find.text(es.chatModelReady), findsOneWidget);
+  });
+
+  testWidgets('una descarga que termina con la pantalla cerrada deja el '
+      'modelo listo al volver', (tester) async {
+    await pumpScreen(tester);
+    await tapDownload(tester);
+    final download = harness.chatModelManager.lastDownload!;
+
+    harness.container.read(goRouterProvider).pop();
+    await tester.pumpAndSettle();
+    await download.close();
+    await tester.pumpAndSettle();
+    harness.pushTo(RoutePaths.chatModel);
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.chatModelReady), findsOneWidget);
   });
 }
