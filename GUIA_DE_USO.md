@@ -15,27 +15,28 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 6. [La Biblioteca](#la-biblioteca)
 7. [El detalle de un elemento](#el-detalle-de-un-elemento)
 8. [Modo lectura: leer para destilar](#modo-lectura-leer-para-destilar)
-9. [Ver los archivos originales](#ver-los-archivos-originales)
-10. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
-11. [El Explorador](#el-explorador)
-12. [Cuadernos](#cuadernos)
-13. [Línea de tiempo](#línea-de-tiempo)
-14. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
-15. [El Atlas](#el-atlas)
-16. [El Mapa](#el-mapa)
-17. [Grafo local de un elemento](#grafo-local-de-un-elemento)
-18. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
-19. [Chat con la IA](#chat-con-la-ia)
-20. [Citas bibliográficas](#citas-bibliográficas)
-21. [Escuchar (narración de texto)](#escuchar-narración-de-texto)
-22. [Notas generadas por IA](#notas-generadas-por-ia)
-23. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
-24. [Tu hábito de repaso](#tu-hábito-de-repaso)
-25. [Exportar a Anki](#exportar-a-anki)
-26. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
-27. [Ajustes](#ajustes)
-28. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-29. [Preguntas frecuentes](#preguntas-frecuentes)
+9. [Seleccionar texto: el menú](#seleccionar-texto-el-menú)
+10. [Ver los archivos originales](#ver-los-archivos-originales)
+11. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
+12. [El Explorador](#el-explorador)
+13. [Cuadernos](#cuadernos)
+14. [Línea de tiempo](#línea-de-tiempo)
+15. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
+16. [El Atlas](#el-atlas)
+17. [El Mapa](#el-mapa)
+18. [Grafo local de un elemento](#grafo-local-de-un-elemento)
+19. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
+20. [Chat con la IA](#chat-con-la-ia)
+21. [Citas bibliográficas](#citas-bibliográficas)
+22. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
+23. [Notas generadas por IA](#notas-generadas-por-ia)
+24. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
+25. [Tu hábito de repaso](#tu-hábito-de-repaso)
+26. [Exportar a Anki](#exportar-a-anki)
+27. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
+28. [Ajustes](#ajustes)
+29. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
+30. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -191,9 +192,17 @@ Solo se muestra el campo que hace falta según lo que elegiste:
 Arriba del formulario siempre hay un botón **"Cambiar tipo"**, por si te
 arrepentiste de la elección del paso 1.
 
-Debajo de cualquiera de estos campos hay dos casilleros opcionales: **"Título
-(opcional)"** y **"Tu nota (opcional)"**, para escribir por qué guardás esto
-o alguna aclaración personal.
+Debajo de cualquiera de estos campos hay tres casilleros opcionales:
+
+- **"Título (opcional)"**.
+- **"Tema (opcional)"**: para dejarlo guardado directamente en uno de tus
+  Temas. Al tocarlo se abre una lista con tus Temas, con **"Nuevo tema"**
+  arriba para crear uno en el momento. Si tenés muchos, aparece un buscador;
+  si buscás un nombre que no existe, te ofrece **"Crear el tema «…»"** ahí
+  mismo. Si estabas mirando un Tema en la Biblioteca, ya viene elegido; la
+  "X" lo quita.
+- **"Tu nota (opcional)"**, para escribir por qué guardás esto o alguna
+  aclaración personal.
 
 ### Paso 3: guardar
 
@@ -264,21 +273,40 @@ resultado; tocarlo te lleva directo a ese lugar exacto.
 
 ### Filtrar
 
-El botón con forma de perilla abre un panel con dos secciones: **"Tipo"**
-(Video, Página web, Publicación, Documento, Imagen, Audio, Nota, Referencia)
-y **"Etiquetas"**. Podés marcar varios a la vez. Si hay algún filtro puesto,
-aparece un botón **"Limpiar filtros"**.
+El botón con forma de perilla, al lado del buscador, abre el panel
+**"Filtros"**, con tres secciones:
+
+1. **"Tema"**: tus Temas. Se elige uno a la vez; tocarlo de nuevo lo suelta.
+   Si tenés muchos, la sección tiene un alto fijo con una barra de
+   desplazamiento fina y un desvanecido abajo que avisa que hay más.
+2. **"Tipo"** (Video, Página web, Publicación, Documento, Imagen, Audio,
+   Nota, Referencia).
+3. **"Etiquetas"**.
+
+En Tipo y Etiquetas podés marcar varios a la vez. El número sobre el botón
+dice cuántos filtros hay puestos, y **"Limpiar filtros"** los saca todos,
+también el Tema.
 
 ### Temas (tus "carpetas")
 
-Debajo del buscador hay una fila de chips: primero **"+ Nuevo tema"**, y
-después uno por cada Tema que ya creaste. Tocar un chip filtra la Biblioteca
-por ese Tema. Si mantenés apretado un chip, se abre un menú para
-**"Renombrar"** o **"Eliminar"** ese Tema (al eliminarlo, sus elementos NO se
-borran, solo quedan sin clasificar).
+Cada elemento puede estar en un Tema. Para ver solo los de un Tema, elegilo
+en **Filtros → "Tema"**. Mientras estás parado en un Tema, su nombre se ve
+como un chip debajo del buscador: tocarlo abre los filtros, y su "X" te saca
+del Tema.
 
-Para crear un Tema nuevo: tocá **"+ Nuevo tema"**, escribí un nombre y
-confirmá.
+- **Crear un Tema:** al guardar algo, desde el campo **"Tema"** del
+  formulario; o desde **"Mover a tema"** (en el menú de tres puntos de una
+  tarjeta, en la selección múltiple o en el detalle), con la opción **"Nuevo
+  tema"**.
+- **Renombrar o eliminar un Tema:** en Filtros, mantené apretado su chip (o
+  tocá el ícono "⋯" del Tema elegido). Al eliminarlo, sus elementos NO se
+  borran: solo quedan sin clasificar.
+
+### El menú de tres puntos de cada elemento
+
+Cada tarjeta tiene, a la derecha, un botón de tres puntos con: **"Mover a
+tema"**, **"Exportar como PDF"**, **"Exportar como Word"** y **"Eliminar"**
+(lo manda a la papelera).
 
 ### Seleccionar varios elementos a la vez
 
@@ -310,8 +338,8 @@ lo clasificás, lo vinculás con otros y lo repasás.
 
 De arriba hacia abajo, vas a encontrar:
 
-1. **Barra superior**, con botones para exportar (Markdown, Texto plano,
-   PDF, BibTeX o Word), armar su bibliografía, generar una nota derivada con
+1. **Barra superior**, con botones para exportar (PDF o Word), armar su
+   bibliografía, generar una nota derivada con
    IA, generar un cuestionario, y eliminarlo (se manda a la papelera, no se
    borra directo).
 2. **Título** y, si tiene, un subtítulo.
@@ -325,17 +353,50 @@ De arriba hacia abajo, vas a encontrar:
    "Época: Siglo I a.C."), agrupados por categoría.
 7. **Tu nota personal**, si escribiste una al guardarlo.
 8. El **archivo original** (foto, video, PDF), si lo tiene, se ve incrustado
-   ahí mismo.
-9. El **contenido/texto** extraído, con botones para quitar marcas de
-   tiempo, entrar al modo lectura, resumir o copiar todo.
-10. Sus **tarjetas de repaso**, si generaste alguna.
-11. Un **grafo local** con sus vínculos más cercanos.
-12. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
+   ahí mismo (ver [Ver los archivos originales](#ver-los-archivos-originales)).
+9. **El panel del elemento**, justo debajo: una tarjeta con todo lo que se
+   puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
+10. El **contenido/texto** extraído. En un PDF, un libro o un Word está
+    plegado bajo **"Texto extraído"**: tocalo para verlo.
+11. Sus **tarjetas de repaso**, si generaste alguna.
+12. Un **grafo local** con sus vínculos más cercanos.
+13. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
-    Relacionado, Contradice, Continúa, Cita, Resume, etc.).
-13. Sus **datos bibliográficos**, si corresponde.
-14. **"De dónde salió"**: el tipo de fuente, el autor si lo tiene, cuándo lo
+    Relacionado, Contradice, Continúa, Cita, Resume, etc.; y corregir o
+    borrar los que ya hay).
+14. Sus **datos bibliográficos**, si corresponde.
+15. **"De dónde salió"**: el tipo de fuente, el autor si lo tiene, cuándo lo
     guardaste, y el enlace o archivo original.
+
+### El panel del elemento
+
+Es la tarjeta que está entre el archivo original y el texto. Tiene todo
+ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
+
+1. **El audio** (en videos, TikTok, reels y YouTube): un reproductor solo
+   con el audio, con retroceder y avanzar 10 segundos y la velocidad. En
+   YouTube el audio se baja solo, en la mejor calidad, apenas el video queda
+   guardado; mientras se baja ves el avance.
+2. **Lo que está pasando**, si pasa algo: bajando el audio, transcribiendo,
+   volviendo a extraer el texto, o un problema, con un único botón
+   **"Reintentar"** (o **"Descargar el modelo"** si falta el de
+   transcripción).
+3. **Cuatro botones grandes**:
+   - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
+   - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
+     copiarlo.
+   - **Copiar**: copia todo el texto.
+   - **Más**: abre una lista con lo que se usa de vez en cuando, cada
+     opción con una línea que explica qué hace:
+     - **Volver a extraer el texto**: vuelve a leer el original (podés
+       elegir el idioma en que se habla, si es un audio o video).
+     - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
+       transcripción.
+     - **Borrar archivo, quedarme con el texto**: libera espacio en un
+       audio o video largo, conservando lo transcripto.
+     - **Ver a pantalla completa**, en los documentos.
+
+   En una nota de bloques, en vez de **Más** aparece **Editar**.
 
 ### Cómo organizar un elemento desde acá
 
@@ -352,6 +413,8 @@ De arriba hacia abajo, vas a encontrar:
   clasificar") y elegí uno nuevo.
 - **Vincular con otro elemento:** tocá el ícono de cadena en "Relacionado",
   buscá el otro elemento, y elegí qué tipo de vínculo tienen.
+- **Corregir un vínculo:** tocá el lápiz de un vínculo (o mantenelo
+  apretado) para cambiarle el tipo, editar su frase, o borrarlo.
 
 ---
 
@@ -379,6 +442,34 @@ audio que todavía se está transcribiendo), la pantalla te lo avisa.
 
 ---
 
+## Seleccionar texto: el menú
+
+En cualquier texto de la app (una transcripción, un documento, el modo
+lectura, una nota) podés mantener apretada una palabra y arrastrar para
+seleccionar. Aparece un menú, siempre con las mismas opciones y en este
+orden:
+
+1. **Copiar**
+2. **Compartir**
+3. **Seleccionar todo**
+4. **Leer en voz alta**: lee las líneas que seleccionaste, resaltándolas en
+   amarillo, y se detiene ahí (ver
+   [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)).
+5. **Resaltar**: lo marca en el texto, con una nota si querés.
+6. **Extraer como nota**: crea una nota nueva con ese fragmento, vinculada
+   a su fuente.
+7. **Crear tarjeta**: arma una tarjeta de repaso con la selección.
+8. **Buscar en la Web**: lo busca en el navegador del teléfono.
+
+Las que no tienen sentido en un texto (por ejemplo, Resaltar en un texto que
+no se resalta) no aparecen. En el teléfono, las primeras se ven en la barra y
+el resto queda detrás de los tres puntos.
+
+En un PDF, el menú trae **Copiar** y **Seleccionar todo**; para elegir más
+texto, mantené apretado y arrastrá: la selección sigue al dedo.
+
+---
+
 ## Ver los archivos originales
 
 Si un elemento tiene un archivo asociado (una foto, un PDF, un video, una
@@ -389,7 +480,24 @@ de página y hacer zoom, un audio o video trae su propio reproductor. Un botón
 en la esquina del recuadro lo abre a pantalla completa.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
-verdad, no un reproductor propio dentro de la app.
+verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí
+se escucha dentro de la app: se baja solo y queda en el
+[panel del elemento](#el-panel-del-elemento), para escucharlo sin conexión.
+Los videos de TikTok y los reels transcriben lo que se dice, y ese texto
+pasa a ser el principal del elemento.
+
+### El texto sigue al audio
+
+Mientras suena un audio o un video que tiene su texto transcripto, **la
+palabra que se está diciendo se ve resaltada en amarillo**. Tocar una
+palabra lleva el audio a ese momento. Si bajás leyendo y el reproductor
+queda fuera de la pantalla, aparece abajo un **mini reproductor** flotante
+para pausar, cambiar la velocidad o **"Volver al audio"**.
+
+Para que esto funcione con lo que ya tenías guardado de antes, bajá el
+modelo de transcripción nuevo (Ajustes → IA y modelos) y usá **Más → Volver
+a extraer el texto** en ese elemento: así se guardan los tiempos de cada
+palabra.
 
 ---
 
@@ -417,15 +525,19 @@ elemento aparezca en la Línea de tiempo). Se agregan desde la sección
 
 Es como una carpeta: cada elemento pertenece, como mucho, a un solo Tema (a
 diferencia de las etiquetas, de las que puede tener varias). Es la forma
-principal de moverse por la Biblioteca. Se crea con **"+ Nuevo tema"** desde
-la fila de chips de la Biblioteca, y se le asigna a un elemento desde su
-detalle o desde el menú de tres puntos de su tarjeta ("Mover a tema").
+principal de moverse por la Biblioteca. Se le asigna a un elemento al
+guardarlo (campo **"Tema"** del formulario), desde su detalle, o desde el
+menú de tres puntos de su tarjeta (**"Mover a tema"**); en cualquiera de esos
+lugares podés crear uno nuevo con **"Nuevo tema"**. Para ver solo los de un
+Tema, usá **Filtros → "Tema"** en la Biblioteca.
 
 ### Relaciones entre elementos
 
 Conectan un elemento con otro, con un tipo específico: Relacionado,
 Contradice, Continúa, Cita, Resume, etc. Se crean desde la sección
 "Relacionado" del detalle de cualquier elemento, tocando el ícono de cadena.
+Con el lápiz de cada vínculo (o manteniéndolo apretado) podés cambiarle el
+tipo, editar su frase o borrarlo.
 
 ### Vistas guardadas
 
@@ -643,23 +755,44 @@ bibliográfica lista para copiar.
 2. Elegí la forma: "Entrada de la lista", "En el texto", "Nota al pie" o
    "Nota corta" (varía según el estilo elegido).
 3. Si hace falta, completá **"Página o minuto (opcional)"**.
-4. La cita ya armada se ve en un recuadro, con botones **"Copiar cita"** y
-   **"Copiar con formato"** (con cursivas incluidas).
+4. La cita ya armada se ve en un recuadro, con el botón **"Copiar cita"**.
 
 Si a un elemento le falta algún dato para la cita, la app lo marca
 claramente en vez de inventarlo.
 
 ---
 
-## Escuchar (narración de texto)
+## Escuchar: el lector en voz alta
 
-Cualquier bloque de texto largo (el lector de documentos, el contenido de un
-elemento) tiene, al pie, un botón **"Escuchar"** que lo lee en voz alta.
+En las pantallas que muestran texto aparece, abajo a la derecha, un **botón
+redondo con el ícono de una voz**. Está en el detalle de un elemento, el
+modo lectura, el lector de libros y documentos, el editor de notas, el chat
+y el repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
+el Atlas, Ajustes ni la Papelera.
 
-Al tocarlo se despliega una barra de controles: volver al principio,
-fragmento anterior, reproducir/pausar, fragmento siguiente, un contador
-"Fragmento X de Y", y un ícono de ajustes que abre "Voz y velocidad" (control
-deslizante de 0.5x a 2x, y una lista de voces disponibles).
+1. **Tocalo** y la app empieza a leer el texto de esa pantalla en voz alta.
+   La **línea que está leyendo se ve en amarillo**. Lee el texto tal cual se
+   ve, sin las marcas "[3:15]" ni los símbolos de formato.
+2. Se abre el **mini reproductor de lectura**, con:
+   - **Reproducir / pausar**: la pausa es de verdad; al seguir, retoma en
+     la misma palabra.
+   - **Retroceder y avanzar 10 segundos**, medidos con la voz y la
+     velocidad que elegiste.
+   - **La velocidad**, de 0,5× a 2×.
+   - **Voz y acento**: el acento es el idioma y la región (Español de
+     Argentina, de España, inglés de Estados Unidos…), según las voces
+     instaladas en tu teléfono.
+   - **Minimizar**: vuelve al botón redondo, que muestra con un anillo
+     cuánto leyó, y sigue leyendo aunque cambies de pantalla.
+   - **Cerrar**: deja de leer.
+3. En el lector de libros, lee la página que ves y sigue con las
+   siguientes, pasando de página solo.
+
+Si suena un audio o un video y empezás a leer, el audio se pausa, y al
+revés: nunca suenan los dos a la vez.
+
+También podés leer solo un pedazo: seleccionalo y elegí **"Leer en voz
+alta"** en el menú (ver [Seleccionar texto: el menú](#seleccionar-texto-el-menú)).
 
 ---
 
@@ -703,6 +836,8 @@ repaso":
   confirmarlas — nada se guarda sin que lo revises.
 - Botón "+" "Agregar tarjeta": para escribir una pregunta y respuesta vos
   mismo, a mano.
+- **Corregir una tarjeta:** el lápiz de cada tarjeta la abre para editar la
+  pregunta y la respuesta. El menú "⋮" tiene **"Borrar"**.
 
 ### Generar un cuestionario (quiz de opción múltiple)
 
@@ -809,8 +944,8 @@ modelo, para que también quede buscado por relaciones.
 
 ### Modelo de lenguaje (el que redacta las respuestas del Chat)
 
-Se descarga desde dentro del Chat, no desde Ajustes (ícono de robot arriba a
-la derecha del Chat). Hay tres variantes para elegir, con distinto tamaño y
+Se descarga desde Ajustes → IA → **"Modelo de lenguaje"**, o desde dentro
+del Chat (ícono de robot arriba a la derecha). Hay tres variantes para elegir, con distinto tamaño y
 calidad de respuesta — la pantalla te explica el peso y las características
 de cada una antes de descargar. Pide el mismo token de Hugging Face que el
 modelo de relaciones.
