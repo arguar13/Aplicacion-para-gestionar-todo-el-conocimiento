@@ -598,7 +598,8 @@ sola.
 - **El Atlas.** Ubica cada tema nuevo debajo de su tema padre en el árbol
   (por ejemplo, "Roma" debajo de "Historia antigua") y, cuando un tema junta
   material suficiente, le arma su **nota mapa**: el índice del tema, con los
-  enlaces a lo que hay. La **madurez** de tus notas no la cambia: como mucho
+  enlaces a lo que hay, en el idioma de la app. Si editás una nota mapa, es
+  tuya y la IA ya no la toca. La **madurez** de tus notas no la cambia: como mucho
   te sugiere subirla cuando una nota crece, porque es tu juicio.
 
 Lo que no hace sola es fusionar duplicados: fusionar borra uno de los dos,
@@ -641,9 +642,11 @@ falta un modelo. Debajo:
   línea del elemento) hace lo mismo con todo lo de un elemento. Antes te
   pregunta y te dice qué se va a borrar. También vuelve atrás lo que la IA
   completó en el elemento: el Tema que le puso y los datos de la referencia
-  que llenó vuelven a quedar como estaban. Lo que editaste o cambiaste
-  después queda como lo dejaste, y la IA no vuelve a organizar ese elemento
-  sola.
+  que llenó vuelven a quedar como estaban, los temas que ubicó en el árbol
+  del Atlas vuelven a donde estaban, y una nota mapa que hizo la IA va a la
+  [Papelera](#papelera) (de donde la podés recuperar). Lo que editaste o
+  cambiaste después queda como lo dejaste, y la IA no vuelve a organizar ese
+  elemento sola.
 - **"No era"**, en un vínculo (desde su lápiz) o en una tarjeta (desde su
   menú ⋮) de la IA, lo borra y hace que no lo vuelva a proponer. Durante
   unos segundos podés **"Deshacer"**.

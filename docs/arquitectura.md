@@ -4854,7 +4854,8 @@ revise"): ahora la IA guarda sola, pero nada queda sin dueño ni sin vuelta atr�
   solo con certeza alta y si no tenía. Los datos vacíos de la referencia. En el Atlas: los temas
   nuevos se ubican en el árbol (los viejos solo se proponen: pudieron quedar en la raíz a
   propósito) y cada tema con cinco elementos o más recibe su nota mapa, con los enlaces sacados de
-  la base, nunca del modelo; editada, es de la persona. La madurez solo se sugiere.
+  la base, nunca del modelo, y sus títulos en el idioma de la app; editada, es de la persona, y
+  deshacer su pasada la manda a la papelera. La madurez solo se sugiere.
 - **Lo que se ve**: la marca ✨ en lo de la IA; "Lo que hizo la IA" (el estado de la cola, "Para
   revisar" y la actividad con deshacer); la línea "La IA organizó esto…" en cada elemento;
   "Organizar con IA" en la hoja Más; Ajustes › IA con un interruptor general, uno por tipo y el
@@ -4868,7 +4869,9 @@ la fusión de bóvedas, así que otro dispositivo no sabe lo que la IA ya propus
 Al construirlo se corrigieron de raíz: un lote de "Para revisar" que nunca se aplicaba (en
 Flutter 3.47 un aviso con acción no se cierra solo), la pantalla del modelo de lenguaje que
 mostraba "listo" después de una descarga fallida, una obra marcada "sin fecha" que podía recibir
-una fecha de la IA, y las pruebas de memoria de la copia y la fusión, que medían la memoria
+una fecha de la IA, aceptar a mano los datos de una referencia —borraba la edición, la clave de
+cita, la fecha de consulta y la exactitud de la fecha: ahora usa la misma regla que la IA, solo
+lo vacío—, y las pruebas de memoria de la copia y la fusión, que medían la memoria
 residente —el sistema la recorta con la máquina cargada— en vez de la comprometida.
 
 ## Estado y orden de construcción
