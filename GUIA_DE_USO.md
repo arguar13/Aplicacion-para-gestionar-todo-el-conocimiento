@@ -572,7 +572,8 @@ vista, marcado como suyo, y se puede corregir o deshacer.
 Necesita **los dos modelos descargados**: el de lenguaje y el del motor de
 relaciones (ver [Los modelos de IA descargables](#los-modelos-de-ia-descargables)).
 Mientras falte alguno no hace nada, y en "Lo que hizo la IA" te avisa cuál
-falta, con un botón para bajarlo.
+falta, con un botón para bajarlo. Apenas termina de bajarse, la IA arranca
+sola.
 
 ### Qué hace sola
 
@@ -638,8 +639,11 @@ falta un modelo. Debajo:
 - **"Deshacer"**, en cada pasada de la actividad, borra lo que esa pasada
   hizo y sigue siendo de la IA; **"Deshacer todo"** (en la actividad o en la
   línea del elemento) hace lo mismo con todo lo de un elemento. Antes te
-  pregunta y te dice qué se va a borrar. Lo que editaste queda, y la IA no
-  vuelve a organizar ese elemento sola.
+  pregunta y te dice qué se va a borrar. También vuelve atrás lo que la IA
+  completó en el elemento: el Tema que le puso y los datos de la referencia
+  que llenó vuelven a quedar como estaban. Lo que editaste o cambiaste
+  después queda como lo dejaste, y la IA no vuelve a organizar ese elemento
+  sola.
 - **"No era"**, en un vínculo (desde su lápiz) o en una tarjeta (desde su
   menú ⋮) de la IA, lo borra y hace que no lo vuelva a proponer. Durante
   unos segundos podés **"Deshacer"**.

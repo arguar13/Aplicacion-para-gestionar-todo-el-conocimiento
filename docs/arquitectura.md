@@ -4791,6 +4791,86 @@ Al construirlo aparecieron dos defectos viejos de la narración, corregidos de r
 del sistema" no cambiaba la voz (`setVoice(null)` no hacía nada) y borraba la voz guardada pero no
 la del estado.
 
+### 59. F26: el panel de la fuente, y la Biblioteca más simple
+
+Pedidos del usuario: ordenar en un panel "elegante, interactivo y atractivo" los botones sueltos
+entre la vista previa y el texto; elegir el tema al guardar en vez de desde la Biblioteca; filtrar
+por tema; y sacar opciones que no usa. Plan: `docs/planes/F26-panel-de-la-fuente.md`, aprobado con
+las recomendadas (cuatro mosaicos; el audio dentro del panel).
+
+- **Un solo panel por elemento** (`SourcePanel`), con el lenguaje del marco del visor (radio 16,
+  borde suave): arriba el audio del video —el reproductor compacto, el mismo audio que el de
+  arriba—; después lo que está pasando, siempre con la misma forma (ícono, texto, barra y un único
+  botón tonal: "Reintentar" o "Descargar el modelo"); abajo cuatro mosaicos iguales —Leer,
+  Resumir, Copiar, Más— que nunca pasan a dos renglones. "Más" abre una hoja con lo de vez en
+  cuando (volver a extraer, quitar marcas de tiempo, borrar el archivo, organizar con IA), solo con
+  lo que aplica. Antes eran hasta ocho controles de cinco estilos distintos, alineados a uno y
+  otro lado, y en los documentos escondidos bajo el texto plegado; con varias formas de texto la
+  fila se repetía.
+- **El tema se elige al guardar**: cada formulario de captura tiene "Tema (opcional)", con crear
+  uno nuevo y buscar; se asigna en la misma transacción del guardado (`CaptureRequest.spaceId`).
+  La fila de temas de la Biblioteca pasa a ser la sección "Tema" de Filtros, arriba de "Tipo", con
+  una barra de desplazamiento cuando son muchos; el tema elegido se ve debajo de la búsqueda.
+- **Menos opciones**: exportar un elemento ofrece solo PDF y Word (`offeredItemExportFormats`; los
+  exportadores siguen para la bibliografía y NotebookLM); la cita se copia solo como texto plano.
+- **El menú de selección de texto** quedó en la decisión 58.
+
+Al construirlo se corrigió que elegir "Sin clasificar" en el selector de tema del detalle no
+hiciera nada.
+
+### 60. F27: la IA organiza sola, y todo se puede corregir
+
+Pedido del usuario: que las tarjetas, los vínculos, el Atlas "y demás cosas", además de a mano, los
+haga la IA automáticamente, "de manera inteligente", pero que si ve un error pueda borrarlo o
+editarlo. Plan: `docs/planes/F27-la-ia-organiza-sola.md`, aprobado con las recomendadas: A —aplica
+sola todo salvo la madurez, que se sugiere, y los duplicados, que siguen como aviso—; B —lo seguro
+se aplica y lo dudoso va a "Para revisar"—; C —la biblioteca existente se recorre solo con el
+cargador—; D —de 3 a 12 tarjetas según el largo—.
+
+**Esto revisa a propósito las decisiones 21, 38 y 53** ("nunca se guarda nada sin que la persona lo
+revise"): ahora la IA guarda sola, pero nada queda sin dueño ni sin vuelta atrás.
+
+- **Procedencia** (esquemas v34 y v35): cada vínculo, tarjeta y propiedad sabe si lo hizo la persona
+  o la IA, con la confianza, el motivo y la pasada (`ai_runs`); lo que la IA completó en columnas del
+  elemento —el tema, los datos de la referencia— queda en `ai_field_changes` con su valor anterior.
+  Deshacer una pasada devuelve todo a como estaba, salvo lo que la persona cambió o adoptó después:
+  **editar algo de la IA lo vuelve de la persona**. "No era" borra y recuerda (`ai_rejections`,
+  por huella: un vínculo como par sin orden más el tipo, una propiedad sin mayúsculas ni acentos,
+  una tarjeta por su pregunta normalizada), para que no vuelva.
+- **La cola de la IA** (`AiOrganizeQueue`) es aparte de la de procesamiento: el elemento queda listo
+  como antes y la IA trabaja después, de a uno. Lo pendiente sale de la base, no de una lista en
+  memoria, así que se retoma tras reiniciar; lo deshecho no se vuelve a organizar solo. Toma, en
+  orden, lo pedido a mano, lo nuevo, las notas que cambiaron de contenido (simhash de la decisión
+  40, 16 bits) y la biblioteca existente con el cargador, pidiendo el servicio en primer plano
+  —ahora de varios dueños— para seguir con la pantalla apagada.
+- **El modelo es uno solo** (Gemma, en el teléfono) y lo usan el chat, resumir y la cola: un turno
+  (`LanguageModelGate`) que da prioridad a la persona; una charla retiene el modelo mientras se usa
+  y lo suelta a los 2 minutos sin uso. Nada le llega entero: los textos van por partes y el
+  vocabulario, acotado a lo pertinente por vectores y uso (2000 caracteres).
+- **Qué hace sola**: vínculos —también entre notas, que ahora tienen vectores— con confianza
+  = 0,6 × la certeza que declara el modelo + 0,4 × el coseno normalizado; desde 0,75 se crea, entre
+  0,45 y 0,75 va a "Para revisar". Tarjetas ancladas a una cita textual (lo que no ancla se
+  descarta). Valores del vocabulario existente; uno nuevo, a revisar. El tema de cada elemento,
+  solo con certeza alta y si no tenía. Los datos vacíos de la referencia. En el Atlas: los temas
+  nuevos se ubican en el árbol (los viejos solo se proponen: pudieron quedar en la raíz a
+  propósito) y cada tema con cinco elementos o más recibe su nota mapa, con los enlaces sacados de
+  la base, nunca del modelo; editada, es de la persona. La madurez solo se sugiere.
+- **Lo que se ve**: la marca ✨ en lo de la IA; "Lo que hizo la IA" (el estado de la cola, "Para
+  revisar" y la actividad con deshacer); la línea "La IA organizó esto…" en cada elemento;
+  "Organizar con IA" en la hoja Más; Ajustes › IA con un interruptor general, uno por tipo y el
+  avance de la biblioteca existente. Sin los dos modelos descargados, la IA no hace nada y lo dice.
+
+Los umbrales son un punto de partida medido en escritorio: se calibran con la prueba en el
+teléfono. Android 12 o más no deja arrancar el servicio en primer plano desde segundo plano: si se
+enchufa el cargador con la app cerrada, la pasada sigue al abrirla. Las sugerencias no viajan en
+la fusión de bóvedas, así que otro dispositivo no sabe lo que la IA ya propuso sobre un tema.
+
+Al construirlo se corrigieron de raíz: un lote de "Para revisar" que nunca se aplicaba (en
+Flutter 3.47 un aviso con acción no se cierra solo), la pantalla del modelo de lenguaje que
+mostraba "listo" después de una descarga fallida, una obra marcada "sin fecha" que podía recibir
+una fecha de la IA, y las pruebas de memoria de la copia y la fusión, que medían la memoria
+residente —el sistema la recorta con la máquina cargada— en vez de la comprometida.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5172,6 +5252,12 @@ la del estado.
 - **F25, el lector flotante.** Un botón abajo a la derecha, en las pantallas con texto, lee en voz
   alta con pausa real, ±10 s de habla medidos, voz, acento y velocidad, y la línea que lee en
   amarillo; el menú de selección, limpio y en el orden pedido. Ver la decisión 58.
+- **F26, el panel de la fuente.** Los botones entre la vista previa y el texto, en un solo panel
+  con cuatro mosaicos; el tema se elige al guardar y se filtra; exportar en PDF o Word. Ver la
+  decisión 59.
+- **F27, la IA organiza sola.** Vínculos, tarjetas, temas, propiedades, el tema de cada elemento,
+  la referencia y el Atlas, en segundo plano; todo marcado, editable y reversible, con "Para
+  revisar" y "Lo que hizo la IA". Ver la decisión 60.
 
 ### Por construir
 

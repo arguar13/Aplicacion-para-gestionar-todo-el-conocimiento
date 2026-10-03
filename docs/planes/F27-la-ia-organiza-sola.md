@@ -1,6 +1,7 @@
 # F27 — La IA organiza sola, y todo se puede corregir
 
-> **Estado: aprobado** (2026-10-02), en el chat, con las recomendadas: **A** —aplica sola todo
+> **Estado: construido** (2026-10-03; falta la prueba en el teléfono, que el usuario dejó para el
+> final) —ver la decisión 60 en `docs/arquitectura.md`—. **Aprobado** (2026-10-02), en el chat, con las recomendadas: **A** —aplica sola todo
 > salvo la madurez, que se sugiere, y los duplicados, que siguen como aviso—, **B** —lo dudoso va a
 > "Para revisar"—, **C** —la biblioteca existente, con el teléfono cargando— y **D** —de 3 a 12
 > tarjetas según el largo—. Pedido del usuario: *"que las
