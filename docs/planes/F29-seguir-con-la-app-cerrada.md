@@ -1,6 +1,9 @@
 # F29 — Que siga trabajando con la app cerrada
 
-> **Estado: propuesto** (2026-10-03), esperando "aprobado" en el chat. Pedido del usuario: *"haz que
+> **Estado: aprobado** (2026-10-03), en el chat («Aprobado todos los planes»), con la recomendada:
+> las descargas de los modelos con el gestor del sistema, el procesamiento y la IA siguen mientras
+> Android no mate la app, y una ayuda para «Inicio automático» y «Sin restricciones». Pedido del
+> usuario: *"haz que
 > el contenido se siga descargando o procesando los documentos en segundo plano si minimizo la app o,
 > si se puede, si la cierro"*.
 >

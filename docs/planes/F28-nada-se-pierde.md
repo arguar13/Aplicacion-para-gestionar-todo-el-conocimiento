@@ -1,6 +1,9 @@
 # F28 — Nada se pierde: la Bandeja, el Mapa y un solo «tema»
 
-> **Estado: propuesto** (2026-10-03), esperando "aprobado" en el chat. Pedido del usuario: *"cuando
+> **Estado: aprobado** (2026-10-03), en el chat («Aprobado todos los planes»), con las recomendadas:
+> **A** —«Tema» es lo que elegís al guardar, y el Mapa y el Atlas se arman también con tus temas;
+> lo que hoy llaman «Tema» pasa a «Etiquetas»— y **B** —lo procesado se reencuentra en la
+> Biblioteca: sección «Bandeja» en Filtros y chip en el detalle—. Pedido del usuario: *"cuando
 > pongo «Triado» en las tarjetas o cuando agrego las relaciones con otros documentos luego no
 > aparece nada en grafos ni en mapa conceptual, y es como que no pasa nada. Además en la pestaña de
 > tarjetas arriba dice «33 pendientes» pero no me deja ver qué queda pendiente cuando hago click ahí
