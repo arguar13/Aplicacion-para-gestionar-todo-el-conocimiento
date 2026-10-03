@@ -24,6 +24,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/core/domain/services/reference_completion.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -747,6 +748,12 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   /// un `.bib` (D9): nunca pisa lo que el usuario tocó, ni antes ni después
   /// de generarse la sugerencia—. Las personas no se mezclan: si ya había
   /// alguna cargada, las que trae la sugerencia se descartan enteras.
+  ///
+  /// Es la misma regla con la que la IA completa sola (F27,
+  /// `completeEmptyReference`): lo que la sugerencia no trae —la edición si
+  /// no la leyó, la clave de cita, cuándo se consultó, la exactitud de la
+  /// fecha— queda como estaba: armar la referencia de nuevo con
+  /// `mergeExtractedMetadata`, que no conoce esos datos, los borraría.
   Future<Either<Failure, Unit>> _applyMetadata(SuggestionRow row) async {
     final extracted = _extractedMetadataOf(
       jsonDecode(row.payloadJson) as Map<String, dynamic>,
@@ -764,23 +771,19 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       );
     }
 
-    final merged = mergeExtractedMetadata([
-      ExtractedMetadata(
-        publishedAt: source.publishedAt,
-        publicationPrecision: current.publicationPrecision,
-        reference: current,
-      ),
-      extracted,
-    ]);
-
-    await _writer.setReference(row.targetItemId, merged.reference);
-    if (merged.publishedAt != source.publishedAt) {
+    final completed = completeEmptyReference(
+      current: current,
+      publishedAt: source.publishedAt,
+      found: extracted,
+    );
+    if (completed.reference != current) {
+      await _writer.setReference(row.targetItemId, completed.reference);
+    }
+    if (completed.publishedAt != source.publishedAt) {
       await _writer.setFieldFromText(
         row.targetItemId,
         EntryField.publishedAt,
-        merged.publishedAt == null
-            ? null
-            : '${merged.publishedAt!.millisecondsSinceEpoch ~/ 1000}',
+        '${completed.publishedAt!.millisecondsSinceEpoch ~/ 1000}',
       );
     }
     return right(unit);

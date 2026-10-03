@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/core/domain/services/reference_completion.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -86,25 +87,20 @@ class AiFieldLedger {
     if (await _referenceCompletedBefore(itemId, exceptRun: runId)) return 0;
 
     final before = await ReferenceReader(_db).read(itemId);
-    final wanted = _fillEmpty(before, extracted.reference);
-    // La fecha, solo si nadie dijo nada de ella: «sin fecha» (`undated`)
-    // también es algo que la persona escribió.
-    final datesFilled =
-        source.publishedAt == null &&
-        before.publicationPrecision == null &&
-        extracted.publishedAt != null;
-    final reference = datesFilled
-        ? _withPrecision(wanted, extracted.publicationPrecision)
-        : wanted;
-
-    if (reference != before) {
-      await _writer.setReference(itemId, reference);
+    // La misma regla que aceptar los datos a mano: solo lo vacío.
+    final wanted = completeEmptyReference(
+      current: before,
+      publishedAt: source.publishedAt,
+      found: extracted,
+    );
+    if (wanted.reference != before) {
+      await _writer.setReference(itemId, wanted.reference);
     }
-    if (datesFilled) {
+    if (wanted.publishedAt != source.publishedAt) {
       await _writer.setFieldFromText(
         itemId,
         EntryField.publishedAt,
-        '${extracted.publishedAt!.millisecondsSinceEpoch ~/ 1000}',
+        '${wanted.publishedAt!.millisecondsSinceEpoch ~/ 1000}',
       );
     }
 
@@ -335,45 +331,6 @@ class _Current {
   final ReferenceData reference;
   final DateTime? publishedAt;
 }
-
-/// [current] con cada dato vacío completado con el de [found]. Las personas
-/// van enteras o no van: mezclar dos elencos daría uno que nadie propuso.
-ReferenceData _fillEmpty(ReferenceData current, ReferenceData found) =>
-    ReferenceData(
-      type: current.type ?? found.type,
-      contributors: current.contributors.isEmpty
-          ? found.contributors
-          : current.contributors,
-      containerTitle: _blank(current.containerTitle)
-          ? found.containerTitle
-          : current.containerTitle,
-      publisher: _blank(current.publisher)
-          ? found.publisher
-          : current.publisher,
-      publisherPlace: _blank(current.publisherPlace)
-          ? found.publisherPlace
-          : current.publisherPlace,
-      edition: _blank(current.edition) ? found.edition : current.edition,
-      volume: _blank(current.volume) ? found.volume : current.volume,
-      issue: _blank(current.issue) ? found.issue : current.issue,
-      pages: _blank(current.pages) ? found.pages : current.pages,
-      isbn: _blank(current.isbn) ? found.isbn : current.isbn,
-      issn: _blank(current.issn) ? found.issn : current.issn,
-      doi: _blank(current.doi) ? found.doi : current.doi,
-      // Lo que la lectura de un archivo no trae se conserva tal cual.
-      accessedAt: current.accessedAt,
-      citationKey: current.citationKey,
-      publicationPrecision: current.publicationPrecision,
-    );
-
-bool _blank(String? text) => text == null || text.trim().isEmpty;
-
-/// [reference] con la exactitud de la fecha [precision]: va con la fecha que
-/// la IA completó.
-ReferenceData _withPrecision(
-  ReferenceData reference,
-  PublicationPrecision? precision,
-) => _rebuild(reference, AiChangedField.publishedAt, precision: precision);
 
 /// [reference] con [field] vacío —o, en la fecha, con [precision]—. Hace
 /// falta armarla de nuevo: en `copyWith`, un `null` es «dejalo como estaba».

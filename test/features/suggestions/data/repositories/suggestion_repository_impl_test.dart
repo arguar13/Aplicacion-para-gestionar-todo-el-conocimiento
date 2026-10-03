@@ -498,6 +498,100 @@ void main() {
         expect(reloaded.source.publishedAt, DateTime(1999));
       },
     );
+
+    test('metadata: no borra lo que la sugerencia no trae —la edición, la '
+        'clave de cita, la consulta, la exactitud de la fecha— '
+        '(F27)', () async {
+      final item = await seedItem();
+      final writer = KnowledgeEntryWriter(db, clock: () => now);
+      await writer.setReference(
+        item.id,
+        ReferenceData(
+          edition: '2.ª ed.',
+          citationKey: 'garcia2020',
+          accessedAt: DateTime(2024, 1, 2),
+          publicationPrecision: PublicationPrecision.year,
+        ),
+      );
+      await writer.setFieldFromText(
+        item.id,
+        EntryField.publishedAt,
+        '${DateTime(2020).millisecondsSinceEpoch ~/ 1000}',
+      );
+      final suggestion = (await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: ExtractedMetadata(
+          publishedAt: DateTime(2021, 3, 14),
+          publicationPrecision: PublicationPrecision.day,
+          reference: const ReferenceData(
+            edition: '3.ª ed.',
+            doi: '10.1000/xyz123',
+          ),
+        ),
+      )).getRight().toNullable()!;
+
+      expect((await repository.accept(suggestion.id)).isRight(), isTrue);
+
+      final reference = await ReferenceReader(db).read(item.id);
+      expect(reference.edition, '2.ª ed.');
+      expect(reference.citationKey, 'garcia2020');
+      expect(reference.accessedAt, DateTime(2024, 1, 2));
+      expect(reference.publicationPrecision, PublicationPrecision.year);
+      // Lo vacío sí se completa.
+      expect(reference.doi, '10.1000/xyz123');
+      final reloaded = (await libraryRepository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      expect(reloaded.source.publishedAt, DateTime(2020));
+    });
+
+    test('metadata: completa la edición vacía, y la fecha con su exactitud '
+        '(F27)', () async {
+      final item = await seedItem();
+      final suggestion = (await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: ExtractedMetadata(
+          publishedAt: DateTime(2021, 3),
+          publicationPrecision: PublicationPrecision.month,
+          reference: const ReferenceData(edition: '3.ª ed.'),
+        ),
+      )).getRight().toNullable()!;
+
+      await repository.accept(suggestion.id);
+
+      final reference = await ReferenceReader(db).read(item.id);
+      expect(reference.edition, '3.ª ed.');
+      expect(reference.publicationPrecision, PublicationPrecision.month);
+      final reloaded = (await libraryRepository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      expect(reloaded.source.publishedAt, DateTime(2021, 3));
+    });
+
+    test('metadata: una obra marcada «sin fecha» no recibe la fecha de la '
+        'sugerencia (F27)', () async {
+      final item = await seedItem();
+      await KnowledgeEntryWriter(db, clock: () => now).setReference(
+        item.id,
+        const ReferenceData(publicationPrecision: PublicationPrecision.undated),
+      );
+      final suggestion = (await repository.createMetadataSuggestion(
+        targetItemId: item.id,
+        extracted: ExtractedMetadata(
+          publishedAt: DateTime(2021, 3, 14),
+          publicationPrecision: PublicationPrecision.day,
+        ),
+      )).getRight().toNullable()!;
+
+      await repository.accept(suggestion.id);
+
+      final reference = await ReferenceReader(db).read(item.id);
+      expect(reference.publicationPrecision, PublicationPrecision.undated);
+      final reloaded = (await libraryRepository.findById(
+        item.id,
+      )).getRight().toNullable()!;
+      expect(reloaded.source.publishedAt, isNull);
+    });
   });
 
   group('reject', () {
