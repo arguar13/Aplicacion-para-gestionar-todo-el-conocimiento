@@ -2779,7 +2779,7 @@
   "@chatModelOptionGemma4Title": {
     "description": "Nombre corto de la opción de modelo por defecto, en el selector."
   },
-  "chatModelOptionGemma4Description": "Rápida de instalar y con buena calidad de respuesta. Pesa 3.7 GB, ~4.000 millones de parámetros efectivos.",
+  "chatModelOptionGemma4Description": "Rápida de instalar y con buena calidad de respuesta. Pesa 3,7 GB, ~4.000 millones de parámetros efectivos.",
   "@chatModelOptionGemma4Description": {
     "description": "Descripción de la opción de modelo Gemma 4 E4B, debajo del selector."
   },
@@ -2787,7 +2787,7 @@
   "@chatModelOptionGemma3nTitle": {
     "description": "Nombre corto de la opción de modelo Gemma 3n E4B, en el selector."
   },
-  "chatModelOptionGemma3nDescription": "De la familia anterior de Gemma, con mejor redacción en algunos casos. Pesa unos 4.9 GB, ~4.000 millones de parámetros efectivos.",
+  "chatModelOptionGemma3nDescription": "De la familia anterior de Gemma, con mejor redacción en algunos casos. Pesa unos 4,9 GB, ~4.000 millones de parámetros efectivos.",
   "@chatModelOptionGemma3nDescription": {
     "description": "Descripción de la opción de modelo Gemma 3n E4B, debajo del selector."
   },
@@ -2795,7 +2795,7 @@
   "@chatModelOptionGemma412bTitle": {
     "description": "Nombre corto de la opción de modelo más pesada e inteligente, en el selector."
   },
-  "chatModelOptionGemma412bDescription": "La opción más inteligente de las tres, sin activación selectiva: el modelo entero cargado. Pesa 6.9 GB, 12.000 millones de parámetros. Solo disponible en Windows, macOS y Linux — el modelo no se publica para Android ni iOS.",
+  "chatModelOptionGemma412bDescription": "La opción más inteligente de las tres, sin activación selectiva: el modelo entero cargado. Pesa 6,9 GB, 12.000 millones de parámetros. Solo disponible en Windows, macOS y Linux — el modelo no se publica para Android ni iOS.",
   "@chatModelOptionGemma412bDescription": {
     "description": "Descripción de la opción de modelo más pesada, debajo del selector. Explica por qué no aparece fuera de escritorio."
   },
