@@ -9,6 +9,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_atlas_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dart';
@@ -19,6 +20,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
@@ -55,8 +57,9 @@ final aiOrganizeBacklogProvider = Provider<AiOrganizeBacklog>(
 );
 
 /// Lo que hace la IA con cada elemento, en orden (F27): primero lo barato
-/// —la referencia, que no usa el modelo—, y al final lo que más tarda —las
-/// tarjetas, varias llamadas al modelo en un texto largo—. Todo con el modelo
+/// —la referencia, que no usa el modelo—, después lo que más tarda —las
+/// tarjetas, varias llamadas al modelo en un texto largo— y al final el
+/// Atlas, que necesita los temas ya puestos. Todo con el modelo
 /// en el turno de la cola (`backgroundLanguageModelProvider`): le cede el
 /// paso a la persona.
 final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
@@ -96,6 +99,17 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       generator: model,
       flashcards: ref.watch(flashcardRepositoryProvider),
       runs: runs,
+    ),
+    // El Atlas, al final: trabaja con los temas que dejaron los de arriba.
+    AutoAtlasStep(
+      atlas: ref.watch(aiAtlasRepositoryProvider),
+      library: ref.watch(libraryRepositoryProvider),
+      suggestions: suggestions,
+      chooseParent: model.chooseTopicParent,
+      writeIntro: model.writeMapIntroduction,
+      epoch: ref.watch(aiOrganizeMemoryProvider).epoch,
+      modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+      clock: ref.watch(clockProvider),
     ),
   ];
 });
