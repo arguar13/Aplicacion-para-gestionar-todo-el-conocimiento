@@ -23,7 +23,9 @@ void main() {
             args == null
                 ? call.method
                 : '${call.method} ${args['kind']} '
-                      '${args['done']}/${args['total']}',
+                      '${args['done']}/${args['total']}'
+                      '${args['detail'] == null ? '' : ' ${args['detail']}'} '
+                      '${args['types']}',
           );
           if (fail) throw PlatformException(code: 'no');
           return null;
@@ -58,9 +60,9 @@ void main() {
     await platform.stop();
 
     expect(calls, [
-      'working processing 1/4',
-      'working organizing 3/120',
-      'working sample_library 7/80',
+      'working processing 1/4 [data_sync]',
+      'working organizing 3/120 [data_sync]',
+      'working sample_library 7/80 [data_sync]',
       'idle',
     ]);
   });
@@ -72,6 +74,56 @@ void main() {
       const LongWorkNotice(owner: LongWorkOwner.aiOrganize, done: 0, total: 0),
     );
 
-    expect(calls, ['working organizing 0/0']);
+    expect(calls, ['working organizing 0/0 [data_sync]']);
+  });
+
+  test('una descarga dice qué modelo se baja, y una transcripción, que es '
+      'procesar medios', () async {
+    await platform.show(
+      const LongWorkNotice(
+        owner: LongWorkOwner.modelDownload,
+        done: 470,
+        total: 1000,
+        detail: LongWorkDetail.languageModel,
+      ),
+    );
+    await platform.show(
+      const LongWorkNotice(
+        owner: LongWorkOwner.processing,
+        done: 1,
+        total: 4,
+        kinds: {LongWorkKind.mediaProcessing, LongWorkKind.dataSync},
+      ),
+    );
+    await platform.show(
+      const LongWorkNotice(
+        owner: LongWorkOwner.audioDownload,
+        done: 0,
+        total: 0,
+      ),
+    );
+
+    expect(calls, [
+      'working model_download 470/1000 language_model [data_sync]',
+      'working processing 1/4 [media_processing, data_sync]',
+      'working audio_download 0/0 [data_sync]',
+    ]);
+  });
+
+  test('cuando Android corta el servicio, se entera quien escucha', () async {
+    final stops = <void>[];
+    final subscription = platform.stoppedBySystem.listen(stops.add);
+
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(
+            const MethodCall('timedOut', {'type': 'data_sync'}),
+          ),
+          (_) {},
+        );
+    await subscription.cancel();
+
+    expect(stops, hasLength(1));
   });
 }

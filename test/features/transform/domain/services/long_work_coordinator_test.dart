@@ -1,16 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 /// Lo que se le pidió a la plataforma, en orden.
 class _FakePlatform implements LongWorkPlatform {
   final calls = <String>[];
+  final notices = <LongWorkNotice>[];
+
+  /// Android cortando el servicio por su cuenta.
+  final systemStops = StreamController<void>.broadcast();
 
   @override
-  Future<void> show(LongWorkNotice notice) async =>
-      calls.add('mostrar ${notice.owner.name} ${notice.done}/${notice.total}');
+  Future<void> show(LongWorkNotice notice) async {
+    notices.add(notice);
+    calls.add('mostrar ${notice.owner.name} ${notice.done}/${notice.total}');
+  }
 
   @override
   Future<void> stop() async => calls.add('apagar');
+
+  @override
+  Stream<void> get stoppedBySystem => systemStops.stream;
 }
 
 /// El servicio en primer plano, compartido por varios dueños (F21, F27),
@@ -159,5 +170,117 @@ void main() {
       'mostrar sampleLibrary 2/80',
       'apagar',
     ]);
+  });
+
+  group('varios trabajos del mismo dueño', () {
+    testWidgets('dos descargas a la vez: soltar una no apaga la de la '
+        'otra', (tester) async {
+      final language = coordinator.keeperFor(LongWorkOwner.modelDownload)
+        ..working(done: 10, total: 100, detail: LongWorkDetail.languageModel);
+      final relations = coordinator.keeperFor(LongWorkOwner.modelDownload)
+        ..working(done: 1, total: 100, detail: LongWorkDetail.relationsModel);
+      await tester.pump();
+      // Se ve la que empezó antes.
+      expect(coordinator.shown?.detail, LongWorkDetail.languageModel);
+
+      language.idle();
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(coordinator.shown?.detail, LongWorkDetail.relationsModel);
+      expect(platform.calls, isNot(contains('apagar')));
+
+      relations.idle();
+      await tester.pump(const Duration(seconds: 16));
+      expect(platform.calls.last, 'apagar');
+    });
+  });
+
+  group('los tipos del servicio', () {
+    testWidgets('corre con los tipos de todos los trabajos en curso, no solo '
+        'del que se ve', (tester) async {
+      processing.working(done: 1, total: 4, kind: LongWorkKind.mediaProcessing);
+      coordinator
+          .keeperFor(LongWorkOwner.modelDownload)
+          .working(done: 0, total: 100);
+      await tester.pump();
+
+      expect(coordinator.shown?.owner, LongWorkOwner.processing);
+      expect(coordinator.shown?.kinds, {
+        LongWorkKind.mediaProcessing,
+        LongWorkKind.dataSync,
+      });
+    });
+
+    testWidgets('cambiar de clase de trabajo se avisa aunque el porcentaje '
+        'sea el mismo', (tester) async {
+      processing.working(done: 0, total: 0);
+      await tester.pump();
+      processing.working(done: 0, total: 0, kind: LongWorkKind.mediaProcessing);
+      await tester.pump();
+
+      expect(platform.notices.map((n) => n.kinds), [
+        {LongWorkKind.dataSync},
+        {LongWorkKind.mediaProcessing},
+      ]);
+    });
+  });
+
+  group('si Android corta el servicio (Android 15: el tope de horas)', () {
+    testWidgets('no se le insiste desde segundo plano: lo que siga avanzando '
+        'no le habla a la plataforma', (tester) async {
+      processing.working(done: 1, total: 100);
+      await tester.pump();
+
+      platform.systemStops.add(null);
+      await tester.pump();
+      processing.working(done: 50, total: 100);
+      await tester.pump(const Duration(minutes: 1));
+
+      expect(platform.calls, ['mostrar processing 1/100']);
+      expect(coordinator.shown, isNull);
+    });
+
+    testWidgets('al volver al frente, el servicio vuelve con lo que siga en '
+        'curso', (tester) async {
+      processing.working(done: 1, total: 100);
+      await tester.pump();
+      platform.systemStops.add(null);
+      await tester.pump();
+      processing.working(done: 50, total: 100);
+
+      coordinator.appResumed();
+      await tester.pump();
+
+      expect(platform.calls, [
+        'mostrar processing 1/100',
+        'mostrar processing 50/100',
+      ]);
+    });
+
+    testWidgets('si al volver ya no hay nada en curso, no se prende', (
+      tester,
+    ) async {
+      processing.working(done: 1, total: 100);
+      await tester.pump();
+      platform.systemStops.add(null);
+      await tester.pump();
+      processing.idle();
+
+      coordinator.appResumed();
+      await tester.pump(const Duration(seconds: 16));
+
+      expect(platform.calls, ['mostrar processing 1/100']);
+    });
+
+    testWidgets('volver al frente sin que Android haya cortado nada no repite '
+        'el aviso', (tester) async {
+      processing.working(done: 1, total: 100);
+      await tester.pump();
+
+      coordinator.appResumed();
+      await tester.pump();
+
+      expect(platform.calls, ['mostrar processing 1/100']);
+    });
   });
 }

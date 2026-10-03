@@ -62,7 +62,12 @@ class _Keeper implements LongWorkKeeper {
   final calls = <String>[];
 
   @override
-  void working({required int done, required int total}) =>
+  void working({
+    required int done,
+    required int total,
+    LongWorkKind kind = LongWorkKind.dataSync,
+    String? detail,
+  }) =>
       calls.add('trabajando $done/$total');
 
   @override

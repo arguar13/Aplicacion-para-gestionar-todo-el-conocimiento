@@ -12,4 +12,17 @@
     <!-- Loading the sample library, development only. -->
     <string name="long_work_sample_library_title">Sinapsis is loading the sample library</string>
     <string name="long_work_sample_library_progress">%1$d of %2$d loaded. You can keep using your phone.</string>
+    <!-- Downloading a model: the model name goes in the text. -->
+    <string name="long_work_model_title">Sinapsis is downloading a model</string>
+    <string name="long_work_model_language">the language model</string>
+    <string name="long_work_model_relations">the relations model</string>
+    <string name="long_work_model_transcription">the transcription model</string>
+    <string name="long_work_model_starting">Downloading %1$s…</string>
+    <string name="long_work_model_progress">Downloading %1$s · %2$d%%</string>
+    <!-- Downloading the audio of a YouTube video (F24). -->
+    <string name="long_work_audio_title">Sinapsis is downloading an audio</string>
+    <string name="long_work_audio_starting">Downloading the audio of a video…</string>
+    <string name="long_work_audio_progress">Downloading the audio of a video · %1$d%%</string>
+    <!-- The AI organizes new items, requests or notes, charging or not. -->
+    <string name="long_work_organizing_new_progress">%1$d of %2$d organized. You can keep using your phone.</string>
 </resources>

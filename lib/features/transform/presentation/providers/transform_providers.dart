@@ -180,16 +180,18 @@ final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
 /// El servicio en primer plano que mantiene viva la app mientras hay trabajo
 /// largo (F21, decisión C), compartido por sus dueños (F27): en Android, el
 /// de verdad; en el resto, nada. Uno solo para toda la sesión: junta lo que
-/// piden la cola de procesamiento y la de la IA.
+/// piden el procesamiento, las descargas y la IA.
+///
+/// Lo que lo devuelve después de que Android lo cortó —`appResumed`— lo
+/// llama la app al volver al frente (ver `App`).
 final longWorkCoordinatorProvider = Provider<LongWorkCoordinator>((ref) {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-    return LongWorkCoordinator(platform: const NoLongWorkPlatform());
-  }
-  return LongWorkCoordinator(
-    platform: MethodChannelLongWorkPlatform(
-      logger: ref.watch(appLoggerProvider),
-    ),
+  final coordinator = LongWorkCoordinator(
+    platform: kIsWeb || defaultTargetPlatform != TargetPlatform.android
+        ? const NoLongWorkPlatform()
+        : MethodChannelLongWorkPlatform(logger: ref.watch(appLoggerProvider)),
   );
+  ref.onDispose(coordinator.dispose);
+  return coordinator;
 });
 
 /// Lo que pide la cola de procesamiento para mantener viva la app.

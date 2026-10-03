@@ -7,8 +7,10 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <!-- El trabajo largo —transcribir horas de audio, reconocer las páginas
-         de un libro escaneado— en un servicio en primer plano con su
-         notificación (F21, decisión C): ver `LongWorkService`. -->
+         de un libro escaneado, bajar un modelo de gigas— en un servicio en
+         primer plano con su notificación (F21, decisión C): ver
+         `LongWorkService`. `mediaProcessing` para transcribir y reconocer,
+         `dataSync` para las descargas y la IA. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING"/>

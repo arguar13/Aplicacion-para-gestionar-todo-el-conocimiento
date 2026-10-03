@@ -817,8 +817,12 @@ class _RecordingKeeper implements LongWorkKeeper {
   final calls = <String>[];
 
   @override
-  void working({required int done, required int total}) =>
-      calls.add('working $done/$total');
+  void working({
+    required int done,
+    required int total,
+    LongWorkKind kind = LongWorkKind.dataSync,
+    String? detail,
+  }) => calls.add('working $done/$total');
 
   @override
   void idle() => calls.add('idle');

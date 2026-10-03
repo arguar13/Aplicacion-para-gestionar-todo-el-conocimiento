@@ -42,30 +42,38 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // El canal del trabajo largo (F21): la cola de Dart avisa cuándo hay
-    // trabajo largo en curso y cuánto va; ver `LongWorkService`.
+    // El canal del trabajo largo (F21): Dart avisa cuándo hay trabajo largo
+    // en curso, de qué clase y cuánto va; Android le avisa si cortó el
+    // servicio por su cuenta. Ver `LongWorkService`.
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LONG_WORK_CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "working" -> {
-                        askForNotificationsOnce()
-                        LongWorkService.working(
-                            this,
-                            call.argument<String>("kind"),
-                            call.argument<Int>("done") ?: 0,
-                            call.argument<Int>("total") ?: 0,
-                        )
-                        result.success(null)
-                    }
-                    "idle" -> {
-                        LongWorkService.idle(this)
-                        result.success(null)
-                    }
-                    else -> result.notImplemented()
+        val longWork = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LONG_WORK_CHANNEL)
+        longWork.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "working" -> {
+                    askForNotificationsOnce()
+                    LongWorkService.working(
+                        this,
+                        call.argument<String>("kind"),
+                        call.argument<String>("detail"),
+                        call.argument<Int>("done") ?: 0,
+                        call.argument<Int>("total") ?: 0,
+                        call.argument<List<String>>("types"),
+                    )
+                    result.success(null)
                 }
+                "idle" -> {
+                    LongWorkService.idle(this)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
+        }
+        // `onTimeout` llega en el hilo principal, el mismo donde el canal
+        // espera que se lo use.
+        LongWorkService.onStoppedBySystem = { type ->
+            longWork.invokeMethod("timedOut", mapOf("type" to type))
+        }
         // Decodificar un audio para transcribirlo (F22): en un hilo aparte
         // —un audio de horas tarda—, con el resultado de vuelta en el
         // principal, que es donde Flutter lo espera. Ver `AudioToPcm`.
@@ -90,6 +98,12 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        // Sin motor no hay Dart a quien avisarle.
+        LongWorkService.onStoppedBySystem = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     private val audioWorker = Executors.newSingleThreadExecutor()
