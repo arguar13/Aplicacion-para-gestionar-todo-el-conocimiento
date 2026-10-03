@@ -701,6 +701,20 @@ class TestVault {
     afterFiles: afterFiles,
   );
 
+  /// Solo la fusión de [incoming] en esta bóveda, ya armada y desempaquetada
+  /// la copia: lo que hay que cronometrar cuando se mide la fusión —armar el
+  /// `.zip` y abrirlo cuestan lo mismo cambie lo que cambie—. Quien la llama
+  /// libera [incoming].
+  Future<VaultMergeResult> mergeIncoming(IncomingVault incoming) => VaultMerger(
+    database: db,
+    documentsDirectory: docs,
+    clock: () => _now,
+  ).merge(incoming);
+
+  /// La copia de [other], armada y abierta, lista para [mergeIncoming].
+  Future<IncomingVault> incomingFrom(TestVault other) async =>
+      IncomingVault.open(await other.zip());
+
   /// Fusiona la copia [zipBytes] en esta bóveda.
   Future<VaultMergeResult> mergeZip(
     Uint8List zipBytes, {

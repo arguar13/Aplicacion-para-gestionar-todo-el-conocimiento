@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/chunk_invariant_verifier.dart';
+import 'package:sinapsis/features/vault/domain/entities/vault_merge_result.dart';
 
 import '../../../../support/test_vault.dart';
 
@@ -38,12 +39,27 @@ void main() {
     () async {
       pc.at(1);
       await pc.bulk(sources: 1200, notes: 300);
-      final stopwatch = Stopwatch()..start();
+      // Se cronometra solo la fusión: armar el `.zip` de la otra copia y
+      // desempaquetarlo cuestan lo mismo cambie lo que cambie, y con la
+      // máquina cargada pesaban más que la fusión misma —una vez, la misma
+      // copia otra vez "tardó" 3,5 s contra 2,8 de la primera—.
+      final stopwatch = Stopwatch();
+      Future<(VaultMergeResult, int)> timedMerge() async {
+        final incoming = await tel.incomingFrom(pc);
+        try {
+          stopwatch
+            ..reset()
+            ..start();
+          final result = await tel.mergeIncoming(incoming);
+          return (result, stopwatch.elapsedMilliseconds);
+        } finally {
+          await incoming.dispose();
+        }
+      }
 
       // La primera: todo es nuevo.
       tel.at(2);
-      final first = await tel.mergeFrom(pc);
-      final firstMs = stopwatch.elapsedMilliseconds;
+      final (first, firstMs) = await timedMerge();
 
       expect(first.itemsAdded, 1500);
       expect(first.renditionsAdded, 1500);
@@ -63,12 +79,8 @@ void main() {
       expect(report.sourcesChecked, 1200);
 
       // La misma copia otra vez: no hay nada que hacer, y cuesta casi nada.
-      stopwatch
-        ..reset()
-        ..start();
       tel.at(3);
-      final again = await tel.mergeFrom(pc);
-      final againMs = stopwatch.elapsedMilliseconds;
+      final (again, againMs) = await timedMerge();
       expect(again.changedNothing, isTrue);
 
       // Una variante: 100 títulos editados más recientemente y 50 fuentes
@@ -81,12 +93,8 @@ void main() {
         'ORDER BY id LIMIT 100)',
       );
       await pc.bulk(sources: 50, from: 1200);
-      stopwatch
-        ..reset()
-        ..start();
       tel.at(31);
-      final variant = await tel.mergeFrom(pc);
-      final variantMs = stopwatch.elapsedMilliseconds;
+      final (variant, variantMs) = await timedMerge();
 
       expect(variant.itemsAdded, 50);
       expect(variant.itemsUpdated, 100);
