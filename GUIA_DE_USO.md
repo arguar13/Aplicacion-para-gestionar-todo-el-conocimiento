@@ -1125,6 +1125,18 @@ organiza nada.
 
 **Cómo llegar:** Ajustes → sección "IA y modelos".
 
+**Se bajan una sola vez.** Un modelo descargado queda guardado en el
+teléfono: cerrar la app, reiniciar el teléfono o volver a entrar no lo borra
+ni te pide bajarlo de nuevo, y la IA que organiza sola sigue donde estaba. Lo
+que bajaste con una versión anterior de la app se reconoce solo. Si tocás
+**"Descargar"** con el modelo ya bajado, no se vuelve a bajar.
+
+**Mientras se baja** podés salir de la pantalla, usar otra parte de la app o
+minimizarla: la descarga sigue, con una notificación que dice qué modelo se
+baja y cuánto va (por ejemplo *"Bajando el modelo de lenguaje · 47 %"*). Al
+volver a la pantalla ves el avance, sin que te ofrezca bajarlo otra vez. Si
+la conexión se corta, retoma desde donde quedó.
+
 ### Transcripción de audio y video
 
 Para que la app entienda el audio y el video que guardás y los convierta en
@@ -1304,6 +1316,15 @@ sale de tu dispositivo. Guardala en un lugar seguro.
 No, salvo para descargar los modelos de IA la primera vez (y para pegar
 enlaces de video/web que la app tiene que ir a buscar). Una vez descargado lo
 que necesitás, todo funciona sin conexión, incluida la IA.
+
+**¿Sigue trabajando si minimizo la app?**
+Sí. Traer lo que guardaste, transcribir audio y video, reconocer páginas
+escaneadas, bajar un modelo o el audio de un video, y la IA que organiza sola
+siguen con la app minimizada o la pantalla apagada, con una notificación que
+dice qué se está haciendo. Si cerrás la app desde "recientes", se detiene, y
+lo que quedó a medias sigue al volver a abrirla. En Android 15 o más nuevo, el
+sistema deja trabajar así hasta unas 6 horas por día: si se llega al límite,
+la notificación desaparece y vuelve sola cuando abrís la app.
 
 **¿Cómo uso la misma información en el celular y en la computadora?**
 No hay sincronización automática. Hacé una copia de seguridad desde un
