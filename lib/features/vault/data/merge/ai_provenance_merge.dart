@@ -3,10 +3,17 @@ import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 
 /// Cuánto entró de las pasadas de la IA y de lo que «no era» (F27).
 class AiProvenanceResult {
-  const AiProvenanceResult({this.runs = 0, this.rejections = 0});
+  const AiProvenanceResult({
+    this.runs = 0,
+    this.rejections = 0,
+    this.fieldChanges = 0,
+  });
 
   final int runs;
   final int rejections;
+
+  /// Los temas y datos de la referencia que completaron esas pasadas (v35).
+  final int fieldChanges;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -22,6 +29,14 @@ const kAiRunColumns = [
   'relations_created',
   'flashcards_created',
   'properties_created',
+  'content_simhash',
+];
+const kAiFieldChangeColumns = [
+  'id',
+  'ai_run_id',
+  'field',
+  'before_value',
+  'after_value',
 ];
 const kAiRejectionColumns = [
   'id',
@@ -33,7 +48,8 @@ const kAiRejectionColumns = [
   'created_at',
 ];
 
-/// Une las pasadas de la IA y la memoria de lo que «no era» (F27).
+/// Une las pasadas de la IA, lo que completaron del tema y la referencia, y la
+/// memoria de lo que «no era» (F27).
 ///
 /// Corre ANTES del vocabulario y de lo que se une por conjuntos: los vínculos,
 /// las tarjetas y las propiedades de la copia apuntan a sus pasadas, y esas
@@ -81,7 +97,27 @@ class AiProvenanceMerge {
       updates: {_db.aiRejections},
     );
 
-    return AiProvenanceResult(runs: runs, rejections: rejections);
+    // El tema y los datos de la referencia que completó cada pasada (v35):
+    // con su pasada, que ya está acá, para que deshacerla en este dispositivo
+    // también los devuelva a como estaban. La comparación con el valor de hoy
+    // la hace quien deshace: si la fusión trajo otro valor, ya no es el de la
+    // IA y no se toca.
+    final fieldChanges = await _db.customUpdate(
+      '''
+      INSERT INTO main.ai_field_changes (${kAiFieldChangeColumns.join(', ')})
+      SELECT ${kAiFieldChangeColumns.map((c) => 'x.$c').join(', ')}
+        FROM $_incoming.ai_field_changes x
+       WHERE EXISTS (SELECT 1 FROM main.ai_runs r WHERE r.id = x.ai_run_id)
+         AND NOT EXISTS (
+           SELECT 1 FROM main.ai_field_changes m WHERE m.id = x.id)''',
+      updates: {_db.aiFieldChanges},
+    );
+
+    return AiProvenanceResult(
+      runs: runs,
+      rejections: rejections,
+      fieldChanges: fieldChanges,
+    );
   }
 
   /// La pasada [column] de la copia, si existe acá; si no, nula. Lo que la IA

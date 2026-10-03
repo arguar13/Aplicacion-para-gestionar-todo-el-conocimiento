@@ -47,6 +47,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // tablas donde cada enum se declara. Sin esto, `app_database.g.dart` no
 // compila — y `flutter analyze` NO lo detecta, porque analysis_options
 // excluye los archivos generados. Solo se ve al compilar.
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
@@ -116,6 +117,9 @@ part 'app_database.g.dart';
     ProcessingCheckpoints,
     AiRuns,
     AiRejections,
+    AiFieldChanges,
+    NoteEmbeddings,
+    PropertyValueEmbeddings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -160,7 +164,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 34;
+  static const currentSchemaVersion = 35;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -690,6 +694,41 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createIndex(idxFlashcardsAiRun);
           await migrator.createIndex(idxItemPropertyValuesAiRun);
           await _requireSameCounts(before, step: 'v34', tables: tables);
+        }
+
+        // Lo que dejó pendiente el motor de F27: que deshacer una pasada se
+        // lleve también el tema y los datos de la referencia que completó
+        // (`ai_field_changes`), que la cola sepa si una nota cambió de
+        // contenido y no solo de largo (`ai_runs.content_simhash`), que las
+        // notas tengan vectores para ser destino de un vínculo
+        // (`note_embedding`) y que el vocabulario que ve el modelo se elija
+        // por cercanía (`property_value_embedding`). Aditiva: tablas nuevas y
+        // vacías, y una columna nula en las pasadas que ya había. Los conteos
+        // de todo lo anterior son compuerta.
+        //
+        // La columna puede existir ya: el paso v34 crea `ai_runs` con su
+        // definición de hoy.
+        if (from < 35) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists('ai_runs', aiRuns.contentSimhash.name)) {
+            await migrator.addColumn(aiRuns, aiRuns.contentSimhash);
+          }
+          await migrator.createTable(aiFieldChanges);
+          await migrator.createIndex(idxAiFieldChangesRun);
+          await migrator.createTable(noteEmbeddings);
+          await migrator.createTable(propertyValueEmbeddings);
+          await _requireSameCounts(before, step: 'v35', tables: tables);
         }
       });
     },

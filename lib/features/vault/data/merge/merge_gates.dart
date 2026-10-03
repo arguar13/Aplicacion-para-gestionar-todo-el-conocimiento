@@ -58,6 +58,7 @@ class MergeGates {
     ...VaultCounts.habitTables,
     // Las pasadas de la IA y lo que «no era» (F27): una fusión solo suma.
     ...VaultCounts.aiTables,
+    ...VaultCounts.aiFieldChangeTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.
@@ -86,6 +87,8 @@ class MergeGates {
     // Las pasadas de la IA y lo que «no era» (F27).
     'ai_runs',
     'ai_rejections',
+    // Lo que cada pasada completó del tema y la referencia (v35).
+    'ai_field_changes',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las

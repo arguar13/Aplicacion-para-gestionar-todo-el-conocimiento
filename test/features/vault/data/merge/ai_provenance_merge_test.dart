@@ -99,6 +99,48 @@ void main() {
       expect(again.aiRunsAdded, 0);
       expect(again.changedNothing, isTrue);
     });
+
+    test('llegan con lo que completaron del tema y la referencia, y con la '
+        'huella del texto que vieron (v35)', () async {
+      await shareItems();
+      await addRun(pc, 'pasada', 'a');
+      await pc.db.customStatement(
+        "UPDATE ai_runs SET content_simhash = '00ff' WHERE id = 'pasada'",
+      );
+      await pc.db.customStatement(
+        'INSERT INTO ai_field_changes (id, ai_run_id, field, before_value, '
+        "after_value) VALUES ('c1', 'pasada', 'publisher', NULL, 'Gredos')",
+      );
+
+      await tel.mergeFrom(pc);
+      await tel.mergeFrom(pc);
+
+      expect(
+        await rowOf(
+          tel,
+          "SELECT content_simhash FROM ai_runs WHERE id = 'pasada'",
+        ),
+        {'content_simhash': '00ff'},
+      );
+      // Una sola vez, aunque se fusione dos veces.
+      expect(
+        (await tel.db
+                .customSelect(
+                  'SELECT ai_run_id, field, before_value, after_value '
+                  'FROM ai_field_changes',
+                )
+                .get())
+            .map((r) => r.data),
+        [
+          {
+            'ai_run_id': 'pasada',
+            'field': 'publisher',
+            'before_value': null,
+            'after_value': 'Gredos',
+          },
+        ],
+      );
+    });
   });
 
   group('lo adoptado', () {

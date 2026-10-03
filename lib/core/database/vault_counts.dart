@@ -84,6 +84,11 @@ class VaultCounts {
   /// cuentan esa lista, y estas tablas todavía no existían cuando corrían.
   static const aiTables = <String>['ai_runs', 'ai_rejections'];
 
+  /// El tema y los datos de la referencia que completó cada pasada de la IA
+  /// (F27, v35). Aparte de [aiTables] por lo mismo: el paso v35 cuenta esa
+  /// lista, y esta tabla todavía no existía cuando corría.
+  static const aiFieldChangeTables = <String>['ai_field_changes'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 
 /// Una pasada de la IA sobre un elemento (F27): todo lo que aplicó sola en esa
@@ -43,6 +44,54 @@ class AiRuns extends Table {
   IntColumn get relationsCreated => integer().withDefault(const Constant(0))();
   IntColumn get flashcardsCreated => integer().withDefault(const Constant(0))();
   IntColumn get propertiesCreated => integer().withDefault(const Constant(0))();
+
+  /// La huella del texto que la pasada vio (`simhashOf`, la de los
+  /// casi-duplicados de la decisión 40), en hexadecimal (v35). Con ella la
+  /// cola sabe si una nota ya organizada cambió de verdad: dos textos del
+  /// mismo largo y distinto contenido tienen huellas lejanas, y una coma de
+  /// más casi no la mueve (`kNoteRegrowHammingBits`). `null` en las pasadas
+  /// de antes de v35, que no la guardaban.
+  ///
+  /// Viaja con la pasada: una nota organizada en otro dispositivo también
+  /// sabe cómo era cuando la IA la vio.
+  TextColumn get contentSimhash => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Un dato del elemento que la IA completó en una pasada (F27, v35): el tema
+/// de la biblioteca o un campo de la referencia, con el valor que tenía antes
+/// y el que puso.
+///
+/// Los vínculos, las tarjetas y las propiedades son filas propias y llevan su
+/// pasada en `ai_run_id`; el tema y la referencia son columnas del elemento,
+/// que no tienen dónde llevarla. Esta tabla es esa marca: lo que permite que
+/// deshacer la pasada devuelva el elemento a como estaba —el tema anterior,
+/// el campo vacío— **solo si sigue con lo que puso la IA**. Si la persona lo
+/// cambió después, ya es suyo, y deshacer no lo toca.
+///
+/// Es la historia: no se borra al deshacer. Lo que la pasada completó es
+/// cuántas filas tiene; lo que todavía es de la IA se mira contra el valor
+/// de hoy. Se va con su pasada, y viaja con ella en la fusión de bóvedas.
+@DataClassName('AiFieldChangeRow')
+@TableIndex(name: 'idx_ai_field_changes_run', columns: {#aiRunId})
+class AiFieldChanges extends Table {
+  TextColumn get id => text()();
+
+  /// La pasada que lo completó. El elemento es el de la pasada.
+  TextColumn get aiRunId =>
+      text().references(AiRuns, #id, onDelete: KeyAction.cascade)();
+
+  TextColumn get field => textEnum<AiChangedField>()();
+
+  /// Lo que había antes, como texto (`AiFieldValues`); `null` si estaba
+  /// vacío.
+  TextColumn get beforeValue => text().nullable()();
+
+  /// Lo que puso la IA, como texto (`AiFieldValues`). Si el valor de hoy es
+  /// otro, lo cambió la persona.
+  TextColumn get afterValue => text()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

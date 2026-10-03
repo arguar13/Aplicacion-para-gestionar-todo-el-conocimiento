@@ -547,6 +547,11 @@ void main() {
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));
       expect(kAiRejectionColumns.toSet(), await columnsOf('ai_rejections'));
+      // Lo que cada pasada completó del tema y la referencia (v35).
+      expect(
+        kAiFieldChangeColumns.toSet(),
+        await columnsOf('ai_field_changes'),
+      );
       expect(
         kItemPropertyValueColumns.toSet(),
         await columnsOf('item_property_values'),
