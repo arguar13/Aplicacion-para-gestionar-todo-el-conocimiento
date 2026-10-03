@@ -18,6 +18,7 @@ import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 /// Cuánto tiene que estar quieta una nota antes de que la IA la organice:
 /// mientras se escribe, cada guardado la cambia, y organizarla a mitad sería
@@ -55,8 +56,14 @@ const kAiNoteQuietPeriod = Duration(seconds: 15);
 /// con el turno de la cola (`GemmaChatModel.background`), que espera a que la
 /// persona no lo esté usando.
 ///
-/// No mantiene viva la app en segundo plano: el servicio en primer plano de
-/// F21 es de la cola de procesamiento, con su propia notificación. Si el
+/// **Mantiene viva la app mientras recorre la biblioteca existente**: son
+/// horas con el cargador, y el sistema congelaba la app a los pocos minutos
+/// de apagarse la pantalla. Pide el servicio en primer plano de F21, que
+/// comparte con la cola de procesamiento (`LongWorkCoordinator`), desde que
+/// toma el primer elemento de esa pasada hasta que no queda nada que pueda
+/// hacer —terminó, se pausó, se desenchufó el cargador, falta un modelo—; lo
+/// nuevo que se cuela en el medio la mantiene pedida. Lo nuevo solo, que es
+/// de a uno y de segundos a un par de minutos, no la pide. Si igual el
 /// sistema congela la app, la cola sigue al volver.
 class AiOrganizeQueue {
   AiOrganizeQueue({
@@ -75,6 +82,7 @@ class AiOrganizeQueue {
     AiOrganizeSettings settings = const AiOrganizeSettings(),
     String? Function()? modelName,
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
+    LongWorkKeeper longWork = const NoLongWorkKeeper(),
   }) : _backlog = backlog,
        _runs = runs,
        _library = library,
@@ -89,7 +97,8 @@ class AiOrganizeQueue {
        _onStatus = onStatus,
        _settings = settings,
        _modelName = modelName,
-       _noteQuietPeriod = noteQuietPeriod;
+       _noteQuietPeriod = noteQuietPeriod,
+       _longWork = longWork;
 
   final AiOrganizeBacklog _backlog;
   final AiRunRepository _runs;
@@ -117,6 +126,14 @@ class AiOrganizeQueue {
   final Duration _noteQuietPeriod;
 
   AiOrganizeSettings _settings;
+
+  /// El servicio en primer plano, del lado de la IA (ver la clase).
+  final LongWorkKeeper _longWork;
+
+  /// Si la cola lo tiene pedido ahora, y cuántos de la biblioteca existente
+  /// organizó desde que lo pidió: el avance de la notificación.
+  var _keepingAlive = false;
+  var _existingDone = 0;
 
   /// Lo que se pidió organizar a mano, en orden.
   final _requested = Queue<String>();
@@ -221,6 +238,7 @@ class AiOrganizeQueue {
   Future<void> dispose() async {
     _disposed = true;
     _noteTimer?.cancel();
+    _letGo();
     // Las dos bajas se piden juntas, antes de esperar ninguna: un aviso que
     // llegara entre una y otra encontraría la cola descartada y no haría nada,
     // pero así ni siquiera llega.
@@ -238,8 +256,12 @@ class AiOrganizeQueue {
         final next = await _next();
         if (next != null) {
           await _organize(next.itemId, next.source);
+          if (next.source == AiWorkSource.existingLibrary) _existingDone++;
           continue;
         }
+        // Nada que pueda hacer ahora: terminó, se pausó, falta el cargador o
+        // un modelo. El servicio se suelta.
+        _letGo();
         if (!_wakeAgain) break;
       }
       // Ningún error de una consulta puede dejar la cola trabada en
@@ -247,6 +269,7 @@ class AiOrganizeQueue {
     } on Object catch (e, stackTrace) {
       _telemetry.recordError(e, stackTrace, hint: 'AiOrganizeQueue._drain');
       _onStatus(const AiOrganizeIdle());
+      _letGo();
     } finally {
       _running = false;
     }
@@ -391,14 +414,16 @@ class AiOrganizeQueue {
 
     final epoch = await _epoch();
     final quietBefore = _clock().subtract(_noteQuietPeriod);
+    // Este ya no espera.
+    final pending = math.max(0, await _pending(epoch, quietBefore) - 1);
     _onStatus(
       AiOrganizeWorking(
         itemTitle: item.title,
         source: source,
-        // Este ya no espera.
-        pending: math.max(0, await _pending(epoch, quietBefore) - 1),
+        pending: pending,
       ),
     );
+    _keepAlive(source, pending);
 
     // La huella del texto que ve esta pasada, para saber después si la nota
     // cambió. Solo de las notas: una fuente no se vuelve a organizar por
@@ -450,6 +475,22 @@ class AiOrganizeQueue {
         hint: 'AiOrganizeQueue: no se pudo cerrar la pasada',
       );
     }, (_) {});
+  }
+
+  /// Pide el servicio en primer plano al tomar un elemento de la biblioteca
+  /// existente, y lo mantiene —con el avance— mientras siga trabajando.
+  void _keepAlive(AiWorkSource source, int pending) {
+    if (source == AiWorkSource.existingLibrary) _keepingAlive = true;
+    if (!_keepingAlive) return;
+    _longWork.working(done: _existingDone, total: _existingDone + pending + 1);
+  }
+
+  /// Suelta el servicio, si lo tenía pedido.
+  void _letGo() {
+    if (!_keepingAlive) return;
+    _keepingAlive = false;
+    _existingDone = 0;
+    _longWork.idle();
   }
 
   Future<KnowledgeItem?> _find(String itemId) async =>

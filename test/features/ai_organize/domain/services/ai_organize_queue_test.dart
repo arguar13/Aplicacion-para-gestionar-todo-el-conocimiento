@@ -13,6 +13,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dar
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 import '../../../../support/ai_organize_harness.dart';
 import '../../../../support/fake_chat_model_manager.dart';
@@ -54,6 +55,18 @@ class _Vectors implements ChunkEmbeddingIndexer {
     notes.add(itemId);
     return 1;
   }
+}
+
+/// El servicio en primer plano de mentira: anota lo que la cola pide.
+class _Keeper implements LongWorkKeeper {
+  final calls = <String>[];
+
+  @override
+  void working({required int done, required int total}) =>
+      calls.add('trabajando $done/$total');
+
+  @override
+  void idle() => calls.add('suelta');
 }
 
 class _Charging implements ChargingProbe {
@@ -106,6 +119,7 @@ void main() {
   AiOrganizeQueue queue({
     AiOrganizeSettings settings = const AiOrganizeSettings(),
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
+    LongWorkKeeper longWork = const NoLongWorkKeeper(),
   }) {
     final queue = AiOrganizeQueue(
       backlog: AiOrganizeBacklogImpl(vault.db),
@@ -123,6 +137,7 @@ void main() {
       settings: settings,
       modelName: () => 'gemma',
       noteQuietPeriod: noteQuietPeriod,
+      longWork: longWork,
     );
     addTearDown(queue.dispose);
     return queue;
@@ -279,6 +294,103 @@ void main() {
         expect(statuses.last, isA<AiOrganizeIdle>());
       },
     );
+
+    test('mantiene viva la app mientras la recorre, con el avance, y la '
+        'suelta al terminar', () async {
+      for (final id in ['v1', 'v2', 'v3']) {
+        await vault.source(
+          id,
+          title: id,
+          content: 'Texto.',
+          createdAt: DateTime(2026, 9),
+        );
+      }
+      charging.charging = true;
+      final keeper = _Keeper();
+
+      await queue(longWork: keeper).start();
+
+      expect(relations.organized, hasLength(3));
+      expect(keeper.calls, [
+        'trabajando 0/3',
+        'trabajando 1/3',
+        'trabajando 2/3',
+        'suelta',
+      ]);
+    });
+
+    test('la suelta si se pausa o se desenchufa, y la vuelve a pedir al '
+        'seguir', () async {
+      for (final id in ['v1', 'v2']) {
+        await vault.source(
+          id,
+          title: id,
+          content: 'Texto.',
+          createdAt: DateTime(2026, 9),
+        );
+      }
+      charging.charging = true;
+      final keeper = _Keeper();
+      late AiOrganizeQueue ai;
+      steps = [
+        _Step(
+          AiOrganizeToggle.relations,
+          work: (item, _) async {
+            // Después del primero, se pausa.
+            if (item.id == 'v2') {
+              ai.updateSettings(const AiOrganizeSettings(enabled: false));
+            }
+          },
+        ),
+      ];
+      ai = queue(longWork: keeper);
+
+      await ai.start();
+      await ai.settled;
+      expect(keeper.calls.last, 'suelta');
+      expect(statuses.last, isA<AiOrganizePaused>());
+
+      // Sin el cargador, reanudar no la pide: no hay nada que pueda hacer.
+      charging.charging = false;
+      keeper.calls.clear();
+      ai.updateSettings(const AiOrganizeSettings());
+      await ai.settled;
+      expect(keeper.calls, isEmpty);
+    });
+
+    test('lo nuevo solo no la pide; lo nuevo que se cuela en la pasada la '
+        'mantiene', () async {
+      await vault.source('nuevo', title: 'Nuevo', content: 'Texto.');
+      final keeper = _Keeper();
+      final ai = queue(longWork: keeper);
+
+      await ai.start();
+      expect(relations.organized, ['nuevo']);
+      expect(keeper.calls, isEmpty);
+
+      await vault.source(
+        'viejo',
+        title: 'Viejo',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 9),
+      );
+      final later = _Step(
+        AiOrganizeToggle.relations,
+        work: (item, _) async {
+          if (item.id == 'viejo') {
+            await vault.source('otro', title: 'Otro', content: 'Texto.');
+          }
+        },
+      );
+      steps = [later];
+      charging.plug();
+      await pumpEventQueue();
+      await ai.settled;
+
+      // El que se coló suma al total: uno hecho de dos.
+      expect(keeper.calls, ['trabajando 0/1', 'trabajando 1/2', 'suelta']);
+      expect(later.organized, ['viejo', 'otro']);
+    });
 
     test('lo nuevo pasa antes que lo viejo', () async {
       await vault.source(

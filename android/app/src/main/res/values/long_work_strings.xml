@@ -5,4 +5,8 @@
     <string name="long_work_title">Sinapsis está procesando</string>
     <string name="long_work_starting">Empezando…</string>
     <string name="long_work_progress">%1$d %% hecho. Podés seguir usando el teléfono.</string>
+    <!-- La IA organiza la biblioteca que ya existía, con el cargador (F27). -->
+    <string name="long_work_organizing_title">Sinapsis está ordenando tu biblioteca</string>
+    <string name="long_work_organizing_starting">La IA trabaja mientras el teléfono carga.</string>
+    <string name="long_work_organizing_progress">%1$d de %2$d organizados. Sigue mientras el teléfono carga.</string>
 </resources>

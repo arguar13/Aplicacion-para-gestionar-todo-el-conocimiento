@@ -53,6 +53,7 @@ class MainActivity : FlutterActivity() {
                         askForNotificationsOnce()
                         LongWorkService.working(
                             this,
+                            call.argument<String>("kind"),
                             call.argument<Int>("done") ?: 0,
                             call.argument<Int>("total") ?: 0,
                         )

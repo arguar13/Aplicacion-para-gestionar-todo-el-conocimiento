@@ -24,7 +24,7 @@ import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/text_anchor_relocator_impl.dart';
-import 'package:sinapsis/features/transform/data/services/platform_long_work_keeper.dart';
+import 'package:sinapsis/features/transform/data/services/method_channel_long_work_platform.dart';
 import 'package:sinapsis/features/transform/data/transformers/audio_transcript_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/document_transformer.dart';
 import 'package:sinapsis/features/transform/data/transformers/image_transformer.dart';
@@ -177,14 +177,27 @@ final documentParsersProvider = Provider<List<DocumentParser>>((ref) {
   ];
 });
 
-/// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
-/// C): el servicio en primer plano en Android; nada en el resto.
-final longWorkKeeperProvider = Provider<LongWorkKeeper>((ref) {
+/// El servicio en primer plano que mantiene viva la app mientras hay trabajo
+/// largo (F21, decisión C), compartido por sus dueños (F27): en Android, el
+/// de verdad; en el resto, nada. Uno solo para toda la sesión: junta lo que
+/// piden la cola de procesamiento y la de la IA.
+final longWorkCoordinatorProvider = Provider<LongWorkCoordinator>((ref) {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-    return const NoLongWorkKeeper();
+    return LongWorkCoordinator(platform: const NoLongWorkPlatform());
   }
-  return PlatformLongWorkKeeper(logger: ref.watch(appLoggerProvider));
+  return LongWorkCoordinator(
+    platform: MethodChannelLongWorkPlatform(
+      logger: ref.watch(appLoggerProvider),
+    ),
+  );
 });
+
+/// Lo que pide la cola de procesamiento para mantener viva la app.
+final longWorkKeeperProvider = Provider<LongWorkKeeper>(
+  (ref) => ref
+      .watch(longWorkCoordinatorProvider)
+      .keeperFor(LongWorkOwner.processing),
+);
 
 final processingStateRepositoryProvider = Provider<ProcessingStateRepository>((
   ref,

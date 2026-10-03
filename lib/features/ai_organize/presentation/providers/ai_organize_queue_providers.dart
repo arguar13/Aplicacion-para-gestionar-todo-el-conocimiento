@@ -30,6 +30,8 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
+import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 
 /// Si el dispositivo está enchufado (F27, decisión C). En una computadora de
 /// escritorio, «no se sabe» es que no tiene batería: está enchufada.
@@ -141,6 +143,9 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
         ref.read(aiOrganizeStatusProvider.notifier).state = status,
     settings: ref.read(aiOrganizeSettingsProvider),
     modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+    longWork: ref
+        .read(longWorkCoordinatorProvider)
+        .keeperFor(LongWorkOwner.aiOrganize),
   );
   ref
     ..listen(
