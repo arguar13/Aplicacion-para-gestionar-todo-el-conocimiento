@@ -16,6 +16,7 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_atlas.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_atlas_rules.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 
 import '../../../../support/ai_organize_harness.dart';
@@ -67,6 +68,9 @@ void main() {
   late AutoAtlasStep step;
   late String historia;
 
+  /// El idioma de la app: la prueba lo cambia como lo haría la persona.
+  var language = MapNoteLanguage.es;
+
   /// Desde cuándo organiza la IA: los temas de antes son «viejos».
   final epoch = DateTime(2026, 10);
 
@@ -92,8 +96,10 @@ void main() {
       writeIntro: writer.call,
       epoch: () async => epoch,
       modelName: () => 'gemma-prueba',
+      language: () => language,
       clock: vault.clock,
     );
+    language = MapNoteLanguage.es;
     // El árbol que armó la persona.
     historia = await topics.add('Historia antigua', createdAt: DateTime(2026));
     await topics.add('Grecia', parentId: historia, createdAt: DateTime(2026));
@@ -386,6 +392,43 @@ void main() {
       expect(
         linkedTitlesOf((await mapNotesOf(historia)).single.blocksContent),
         contains('fuente f6'),
+      );
+    });
+
+    test('sale en el idioma de la app al escribirla, y no cambia de idioma '
+        'sola: la IA rehace el índice en el idioma nuevo solo si entra '
+        'material, sin cambiarle el título', () async {
+      language = MapNoteLanguage.en;
+      for (var i = 1; i <= 5; i++) {
+        await sourceIn('f$i', historia);
+      }
+      await organize('f5');
+      final map = (await mapNotesOf(historia)).single;
+      expect(map.title, 'Map of Historia antigua');
+      expect(
+        decodeContentBlocks(
+          map.blocksContent!,
+        ).whereType<HeadingBlock>().map((b) => b.text),
+        ['Sources'],
+      );
+
+      // La persona vuelve al español: la nota escrita no cambia.
+      language = MapNoteLanguage.es;
+      expect(await organize('f4'), AiStepReport.nothing);
+      expect(
+        (await mapNotesOf(historia)).single.blocksContent,
+        map.blocksContent,
+      );
+
+      await sourceIn('f6', historia);
+      await organize('f6');
+      final updated = (await mapNotesOf(historia)).single;
+      expect(updated.title, 'Map of Historia antigua');
+      expect(
+        decodeContentBlocks(
+          updated.blocksContent!,
+        ).whereType<HeadingBlock>().map((b) => b.text),
+        ['Fuentes'],
       );
     });
 

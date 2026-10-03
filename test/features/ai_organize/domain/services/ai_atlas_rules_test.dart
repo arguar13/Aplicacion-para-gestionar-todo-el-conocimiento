@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_atlas.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_atlas_rules.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 
 /// Las reglas del Atlas de la IA (F27), sin base ni modelo.
 void main() {
@@ -108,6 +109,7 @@ void main() {
       final plan = planMapNote(
         tree: tree,
         topicId: 'Roma',
+        language: MapNoteLanguage.es,
         material: [
           entry('Zeta', values: {'Roma'}),
           entry('Atómica', values: {'Roma'}, noteKind: NoteKind.atomic),
@@ -140,6 +142,7 @@ void main() {
       final plan = planMapNote(
         tree: tree,
         topicId: 'Roma',
+        language: MapNoteLanguage.es,
         material: [
           entry('Octavio', values: {'Augusto'}),
           entry('Senado', values: {'República', 'Imperio'}),
@@ -172,6 +175,7 @@ void main() {
       final plan = planMapNote(
         tree: tree,
         topicId: 'Roma',
+        language: MapNoteLanguage.es,
         material: material,
         maxLinks: 3,
       );
@@ -194,6 +198,7 @@ void main() {
       final plan = planMapNote(
         tree: tree,
         topicId: 'Roma',
+        language: MapNoteLanguage.es,
         material: [
           entry('Uno', values: {'Roma'}),
           entry('uno ', values: {'Roma'}),
@@ -212,6 +217,7 @@ void main() {
       final plan = planMapNote(
         tree: tree,
         topicId: 'Roma',
+        language: MapNoteLanguage.es,
         material: [
           entry('Las legiones', values: {'Roma'}),
           entry('Mi nota', values: {'Roma'}, noteKind: NoteKind.living),
@@ -231,6 +237,69 @@ void main() {
       expect(plan.linkedTitles, {'las legiones', 'mi nota'});
       expect(linkedTitlesOf(null), isEmpty);
       expect(linkedTitlesOf('no es json'), isEmpty);
+    });
+
+    test('en inglés, los textos fijos salen en inglés: los títulos de lo que '
+        'enlaza no se traducen', () {
+      final tree = treeOf({'Roma': null, 'Imperio': 'Roma'});
+      final flat = planMapNote(
+        tree: tree,
+        topicId: 'Imperio',
+        material: [
+          entry('Las legiones', values: {'Imperio'}),
+          entry('Mi nota', values: {'Imperio'}, noteKind: NoteKind.living),
+          entry('Otra', values: {'Imperio'}),
+        ],
+        language: MapNoteLanguage.en,
+        maxLinks: 2,
+      );
+      final nested = planMapNote(
+        tree: tree,
+        topicId: 'Roma',
+        material: [
+          entry('Augusto', values: {'Imperio'}),
+          entry('Panorama', values: {'Roma'}),
+        ],
+        language: MapNoteLanguage.en,
+      );
+
+      expect(mapNoteBlocks(flat), const [
+        ContentBlock.heading(text: 'Notes', level: 2),
+        ContentBlock.bulletItem(text: '[[Mi nota]]'),
+        ContentBlock.heading(text: 'Sources', level: 2),
+        ContentBlock.bulletItem(text: '[[Las legiones]]'),
+        ContentBlock.paragraph(text: 'There is 1 more item in this topic.'),
+      ]);
+      expect(
+        [for (final s in nested.sections) s.heading],
+        ['Imperio', 'General'],
+      );
+    });
+  });
+
+  group('el idioma de la nota mapa', () {
+    test('el de la app; cualquier otro, inglés, como la app', () {
+      expect(MapNoteLanguage.of('es'), MapNoteLanguage.es);
+      expect(MapNoteLanguage.of('en'), MapNoteLanguage.en);
+      expect(MapNoteLanguage.of('fr'), MapNoteLanguage.en);
+    });
+
+    test('cada idioma dice todo', () {
+      for (final language in MapNoteLanguage.values) {
+        expect(language.title('Roma'), contains('Roma'));
+        for (final text in [
+          language.notesHeading,
+          language.sourcesHeading,
+          language.generalHeading,
+          language.omitted(1),
+          language.omitted(4),
+        ]) {
+          expect(text.trim(), isNotEmpty);
+        }
+        expect(language.omitted(4), contains('4'));
+      }
+      expect(MapNoteLanguage.es.title('Roma'), 'Mapa de Roma');
+      expect(MapNoteLanguage.en.title('Roma'), 'Map of Roma');
     });
   });
 

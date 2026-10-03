@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
+import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -20,6 +21,7 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_ba
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
@@ -110,6 +112,10 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       writeIntro: model.writeMapIntroduction,
       epoch: ref.watch(aiOrganizeMemoryProvider).epoch,
       modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+      // Se lee al escribir, no al armar los pasos: la cola vive toda la
+      // sesión, y la persona puede cambiar el idioma en el medio.
+      language: () =>
+          MapNoteLanguage.of(ref.read(effectiveLocaleProvider).languageCode),
       clock: ref.watch(clockProvider),
     ),
   ];

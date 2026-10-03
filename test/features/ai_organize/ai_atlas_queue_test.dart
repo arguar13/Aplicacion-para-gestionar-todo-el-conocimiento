@@ -9,6 +9,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 
@@ -106,6 +107,7 @@ void main() {
               }) async => 'Lo reunido sobre $topic.',
           epoch: _epoch,
           modelName: () => 'gemma-prueba',
+          language: () => MapNoteLanguage.es,
           clock: vault.clock,
         ),
       ],

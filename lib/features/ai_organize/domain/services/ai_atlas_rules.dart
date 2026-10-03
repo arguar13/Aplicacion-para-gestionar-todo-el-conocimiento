@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/domain/services/inline_link_parser.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_atlas.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 
 /// Las reglas del Atlas de la IA (F27), sin base ni modelo: a qué temas se le
 /// pregunta al modelo, cómo se arma una nota mapa y cuándo una nota viva
@@ -126,15 +127,6 @@ const kAiMapNotesPerItem = 3;
 /// fragmento: los primeros del índice, que ya están ordenados.
 const kAiMapIntroEntries = 20;
 
-/// El título de la nota mapa de la IA del tema [topic].
-String aiMapNoteTitle(String topic) => 'Mapa de $topic';
-
-/// Lo que la nota mapa lista sin subtemas, o lo que va directo en el tema
-/// cuando tiene subtemas.
-const kAiMapNotesHeading = 'Notas';
-const kAiMapSourcesHeading = 'Fuentes';
-const kAiMapGeneralHeading = 'General';
-
 /// Una sección del índice: un encabezado y lo que va debajo.
 @immutable
 class MapNoteSection {
@@ -147,12 +139,20 @@ class MapNoteSection {
 /// Cómo queda el índice de un tema, antes de la introducción.
 @immutable
 class MapNotePlan {
-  const MapNotePlan({required this.sections, required this.omitted});
+  const MapNotePlan({
+    required this.sections,
+    required this.omitted,
+    required this.language,
+  });
 
   final List<MapNoteSection> sections;
 
   /// Cuántos elementos del tema no entraron.
   final int omitted;
+
+  /// En qué idioma están sus textos fijos: los encabezados y cuántos
+  /// quedaron afuera.
+  final MapNoteLanguage language;
 
   /// Lo que lista, en el orden en que aparece.
   List<TopicMaterial> get entries => [
@@ -188,11 +188,13 @@ bool isLinkableTitle(String title) {
 /// Dentro de cada sección, las notas vivas, después las otras notas y al
 /// final las fuentes, cada grupo por título. Un título que no se puede
 /// enlazar, o que repite el de otro —los dos enlaces irían al mismo—, no se
-/// lista.
+/// lista. Los encabezados fijos —«Notas», «Fuentes», «General»— salen en
+/// [language].
 MapNotePlan planMapNote({
   required AtlasTopicTree tree,
   required String topicId,
   required List<TopicMaterial> material,
+  required MapNoteLanguage language,
   int maxLinks = kAiMapNoteMaxLinks,
 }) {
   final seen = <String>{};
@@ -254,10 +256,13 @@ MapNotePlan planMapNote({
     ];
     sections = [
       if (notes.isNotEmpty)
-        MapNoteSection(heading: kAiMapNotesHeading, entries: _ordered(notes)),
+        MapNoteSection(
+          heading: language.notesHeading,
+          entries: _ordered(notes),
+        ),
       if (sources.isNotEmpty)
         MapNoteSection(
-          heading: kAiMapSourcesHeading,
+          heading: language.sourcesHeading,
           entries: _ordered(sources),
         ),
     ];
@@ -271,12 +276,12 @@ MapNotePlan planMapNote({
           ),
       if (general.isNotEmpty)
         MapNoteSection(
-          heading: kAiMapGeneralHeading,
+          heading: language.generalHeading,
           entries: _ordered(general),
         ),
     ];
   }
-  return MapNotePlan(sections: sections, omitted: omitted);
+  return MapNotePlan(sections: sections, omitted: omitted, language: language);
 }
 
 /// Las notas vivas primero —son lo que la persona trabajó—, después las otras
@@ -298,8 +303,8 @@ List<TopicMaterial> _ordered(List<TopicMaterial> entries) =>
 
 /// Los bloques de la nota mapa: la introducción —si el modelo escribió
 /// algo—, cada sección con su encabezado y un `[[enlace]]` por elemento, y
-/// cuántos quedaron afuera. Los enlaces salen de [plan], es decir de la
-/// bóveda: nunca del modelo.
+/// cuántos quedaron afuera, en el idioma del plan. Los enlaces salen de
+/// [plan], es decir de la bóveda: nunca del modelo.
 List<ContentBlock> mapNoteBlocks(MapNotePlan plan, {String intro = ''}) => [
   if (intro.trim().isNotEmpty) ContentBlock.paragraph(text: intro.trim()),
   for (final section in plan.sections) ...[
@@ -307,12 +312,8 @@ List<ContentBlock> mapNoteBlocks(MapNotePlan plan, {String intro = ''}) => [
     for (final entry in section.entries)
       ContentBlock.bulletItem(text: '[[${entry.title.trim()}]]'),
   ],
-  if (plan.omitted == 1)
-    const ContentBlock.paragraph(text: 'Hay 1 elemento más en este tema.')
-  else if (plan.omitted > 1)
-    ContentBlock.paragraph(
-      text: 'Hay ${plan.omitted} elementos más en este tema.',
-    ),
+  if (plan.omitted > 0)
+    ContentBlock.paragraph(text: plan.language.omitted(plan.omitted)),
 ];
 
 /// Los destinos de los enlaces de una nota guardada en bloques, normalizados;

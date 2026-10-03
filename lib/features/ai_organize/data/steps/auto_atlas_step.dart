@@ -12,6 +12,7 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_atlas_repos
 import 'package:sinapsis/features/ai_organize/domain/services/ai_atlas_rules.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
@@ -33,7 +34,9 @@ import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_rep
 ///    reciben una de la IA: el índice con enlaces a lo que hay y una
 ///    introducción del modelo. La de la IA se actualiza cuando entra o sale
 ///    material, mientras nadie la edite; editada, es de la persona. Lo que la
-///    persona le sacó a un tema no vuelve.
+///    persona le sacó a un tema no vuelve. Sus textos fijos —el título, los
+///    encabezados— salen en el idioma de la app de ese momento
+///    ([MapNoteLanguage]).
 /// 3. **La madurez.** Si el elemento es una nota viva que creció
 ///    (`grownMaturity`), queda en «Para revisar» subirle la madurez. Nunca la
 ///    cambia: es el juicio de la persona.
@@ -50,6 +53,7 @@ class AutoAtlasStep implements AiOrganizeStep {
     required MapIntroWriter writeIntro,
     required Future<DateTime> Function() epoch,
     required String Function() modelName,
+    required MapNoteLanguage Function() language,
     required Clock clock,
   }) : _atlas = atlas,
        _library = library,
@@ -58,6 +62,7 @@ class AutoAtlasStep implements AiOrganizeStep {
        _writeIntro = writeIntro,
        _epoch = epoch,
        _modelName = modelName,
+       _language = language,
        _clock = clock;
 
   final AiAtlasRepository _atlas;
@@ -72,6 +77,10 @@ class AutoAtlasStep implements AiOrganizeStep {
 
   /// Qué modelo escribe: queda en la nota mapa, como en un derivado de F16.
   final String Function() _modelName;
+
+  /// El idioma de la app, que se lee al escribir cada nota mapa: si la
+  /// persona lo cambia, lo próximo que escriba la IA sale en el nuevo.
+  final MapNoteLanguage Function() _language;
   final Clock _clock;
 
   /// Los temas para los que el modelo no eligió ningún padre en esta sesión:
@@ -194,6 +203,7 @@ class AutoAtlasStep implements AiOrganizeStep {
     };
     var applied = 0;
     var written = 0;
+    final language = _language();
     for (final topicId in targets) {
       if (written >= kAiMapNotesPerItem) break;
       final topic = tree[topicId]!;
@@ -207,6 +217,7 @@ class AutoAtlasStep implements AiOrganizeStep {
         tree: tree,
         topicId: topicId,
         material: material,
+        language: language,
       );
       final maps = (await _atlas.mapNotesOf(
         topicId,
@@ -220,7 +231,7 @@ class AutoAtlasStep implements AiOrganizeStep {
         written++;
         final created = (await _atlas.createMapNote(
           valueId: topicId,
-          title: aiMapNoteTitle(topic.label),
+          title: language.title(topic.label),
           blocks: mapNoteBlocks(plan, intro: await _intro(topic, plan)),
           model: _modelName(),
         )).orThrowStep('crear la nota mapa');
