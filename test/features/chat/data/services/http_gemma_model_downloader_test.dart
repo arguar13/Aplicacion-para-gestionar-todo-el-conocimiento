@@ -1,165 +1,163 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 
-class MockDio extends Mock implements Dio {}
+import '../../../../support/fake_file_server.dart';
 
 void main() {
-  late MockDio dio;
-  late Directory tempDir;
-  late HttpGemmaModelDownloader downloader;
-
   const url = 'https://huggingface.co/org/repo/resolve/main/model.litertlm';
+  const fileName = 'modelo.litertlm';
+  final content = List<int>.generate(10, (i) => i + 1);
 
-  setUp(() {
-    dio = MockDio();
+  late Directory tempDir;
+  late FakeFileServer server;
+  late HttpGemmaModelDownloader downloader;
+  late File target;
+
+  File sibling(String suffix) => File('${target.path}$suffix');
+
+  setUp(() async {
     tempDir = Directory.systemTemp.createTempSync('sinapsis_gemma_');
+    server = FakeFileServer({url: content});
     downloader = HttpGemmaModelDownloader(
-      dio: dio,
+      dio: Dio()..httpClientAdapter = server,
       rootDirectory: () async => tempDir,
+      retryDelay: (_) => Duration.zero,
+    );
+    target = await downloader.targetFile(fileName);
+  });
+
+  tearDown(() {
+    server.close();
+    tempDir.deleteSync(recursive: true);
+  });
+
+  Future<List<double>> download({int? publishedBytes}) => downloader
+      .download(url: url, fileName: fileName, publishedBytes: publishedBytes)
+      .toList();
+
+  group('al bajar', () {
+    test('baja a un archivo aparte y recién entero lo pasa a su nombre, con '
+        'la marca de terminado', () async {
+      final progress = await download();
+
+      expect(target.readAsBytesSync(), content);
+      expect(sibling('.descargando').existsSync(), isFalse);
+      expect(sibling('.completo').readAsStringSync(), '10');
+      expect(progress.last, 1);
+      expect(await downloader.isComplete(fileName), isTrue);
+    });
+
+    test('retoma lo que quedó a medias de la misma dirección', () async {
+      target.parent.createSync(recursive: true);
+      sibling('.descargando').writeAsBytesSync(content.take(4).toList());
+      sibling('.source').writeAsStringSync(url);
+
+      await download();
+
+      expect(target.readAsBytesSync(), content);
+      expect(server.ranges, ['bytes=4-']);
+    });
+
+    test('si lo que está a medias es de otra dirección, empieza de cero en '
+        'vez de agregarle bytes', () async {
+      target.parent.createSync(recursive: true);
+      sibling('.descargando').writeAsBytesSync([9, 9]);
+      sibling(
+        '.source',
+      ).writeAsStringSync('https://huggingface.co/otra/url.litertlm');
+
+      await download();
+
+      expect(target.readAsBytesSync(), content);
+      expect(server.ranges, [null]);
+    });
+
+    test('mientras está a medias, el modelo no cuenta como bajado', () async {
+      target.parent.createSync(recursive: true);
+      sibling('.descargando').writeAsBytesSync(content);
+
+      expect(await downloader.isComplete(fileName), isFalse);
+    });
+
+    test('un 403 —repositorio protegido— se avisa sin reintentar', () async {
+      server.misbehaviors.add(const Misbehavior.status(403));
+
+      await expectLater(
+        downloader.download(url: url, fileName: fileName),
+        emitsError(isA<DioException>()),
+      );
+      expect(server.requests, hasLength(1));
+      expect(target.existsSync(), isFalse);
+    });
+  });
+
+  group('con el modelo ya en el dispositivo', () {
+    test('volver a pedirlo no toca la red: ya está', () async {
+      await download();
+      server.requests.clear();
+
+      final progress = await download();
+
+      expect(progress, [1]);
+      expect(server.requests, isEmpty);
+    });
+
+    test(
+      'una marca que no coincide con el archivo no lo da por entero',
+      () async {
+        await download();
+        sibling('.completo').writeAsStringSync('99');
+
+        expect(await downloader.isComplete(fileName), isFalse);
+      },
     );
   });
 
-  tearDown(() => tempDir.deleteSync(recursive: true));
+  group('lo bajado antes de que existiera la marca', () {
+    // Esas versiones escribían directo sobre el nombre definitivo y dejaban
+    // `.source` con la dirección.
+    void legacyFile(List<int> bytes) {
+      target.parent.createSync(recursive: true);
+      target.writeAsBytesSync(bytes);
+      sibling('.source').writeAsStringSync(url);
+    }
 
-  Response<ResponseBody> fullResponse(List<int> bytes) => Response(
-    requestOptions: RequestOptions(),
-    statusCode: 200,
-    data: ResponseBody.fromBytes(bytes, 200),
-  );
+    test('si mide lo que publica Hugging Face, está entero: se reconoce sin '
+        'red y no se vuelve a bajar', () async {
+      legacyFile(content);
 
-  Response<ResponseBody> partialResponse(List<int> bytes) => Response(
-    requestOptions: RequestOptions(),
-    statusCode: 206,
-    data: ResponseBody.fromBytes(bytes, 206),
-  );
-
-  test('sin nada bajado todavía, escribe el archivo entero de una', () async {
-    when(
-      () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-    ).thenAnswer((_) async => fullResponse([1, 2, 3, 4]));
-
-    await downloader
-        .download(url: url, fileName: 'modelo.litertlm')
-        .drain<void>();
-
-    final file = await downloader.targetFile('modelo.litertlm');
-    expect(file.readAsBytesSync(), Uint8List.fromList([1, 2, 3, 4]));
-  });
-
-  test('con un archivo a medias de la misma fuente, pide el resto con Range '
-      'y lo agrega', () async {
-    final file = await downloader.targetFile('modelo.litertlm')
-      ..createSync(recursive: true)
-      ..writeAsBytesSync([1, 2]);
-    await File('${file.path}.source').writeAsString(url);
-
-    when(
-      () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-    ).thenAnswer((invocation) async {
-      final options = invocation.namedArguments[#options] as Options;
-      expect(options.headers?['range'], 'bytes=2-');
-      return partialResponse([3, 4]);
+      expect(await downloader.isComplete(fileName, publishedBytes: 10), isTrue);
+      expect(sibling('.completo').readAsStringSync(), '10');
+      expect(await download(publishedBytes: 10), [1]);
+      expect(server.requests, isEmpty);
     });
 
-    await downloader
-        .download(url: url, fileName: 'modelo.litertlm')
-        .drain<void>();
-
-    expect(file.readAsBytesSync(), Uint8List.fromList([1, 2, 3, 4]));
-  });
-
-  test('si la fuente resuelta cambió desde el intento anterior, empieza de '
-      'cero en vez de agregarle a lo que ya había', () async {
-    final file = await downloader.targetFile('modelo.litertlm')
-      ..createSync(recursive: true)
-      ..writeAsBytesSync([9, 9]);
-    await File(
-      '${file.path}.source',
-    ).writeAsString('https://huggingface.co/otra/url.litertlm');
-
-    when(
-      () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-    ).thenAnswer((invocation) async {
-      final options = invocation.namedArguments[#options] as Options;
-      // Sin bytes previos que valgan, no se pide ningún rango.
-      expect(options.headers?.containsKey('range'), isFalse);
-      return fullResponse([1, 2, 3]);
-    });
-
-    await downloader
-        .download(url: url, fileName: 'modelo.litertlm')
-        .drain<void>();
-
-    expect(file.readAsBytesSync(), Uint8List.fromList([1, 2, 3]));
-  });
-
-  test('si el servidor no soporta reanudar y contesta 200 en vez de 206, '
-      'reemplaza el archivo entero en vez de duplicar bytes', () async {
-    final file = await downloader.targetFile('modelo.litertlm')
-      ..createSync(recursive: true)
-      ..writeAsBytesSync([9, 9]);
-    await File('${file.path}.source').writeAsString(url);
-
-    when(
-      () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-    ).thenAnswer((_) async => fullResponse([1, 2, 3]));
-
-    await downloader
-        .download(url: url, fileName: 'modelo.litertlm')
-        .drain<void>();
-
-    expect(file.readAsBytesSync(), Uint8List.fromList([1, 2, 3]));
-  });
-
-  test(
-    'un 403 —repositorio protegido— no se reintenta, se avisa directo',
-    () async {
-      var attempts = 0;
-      when(
-        () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-      ).thenAnswer((_) async {
-        attempts++;
-        throw DioException(
-          requestOptions: RequestOptions(),
-          response: Response(requestOptions: RequestOptions(), statusCode: 403),
-        );
-      });
-
-      await expectLater(
-        downloader.download(url: url, fileName: 'modelo.litertlm'),
-        emitsError(isA<DioException>()),
+    test('si mide otra cosa no se da por bueno; bajarlo lo retoma, y si ya '
+        'estaba entero el servidor lo dice sin mandar nada', () async {
+      legacyFile(content);
+      // El tamaño publicado cambió desde que se bajó.
+      expect(
+        await downloader.isComplete(fileName, publishedBytes: 11),
+        isFalse,
       );
-      expect(attempts, 1);
-    },
-  );
 
-  test(
-    'un corte transitorio se reintenta solo hasta que se completa',
-    () async {
-      var attempts = 0;
-      when(
-        () => dio.get<ResponseBody>(any(), options: any(named: 'options')),
-      ).thenAnswer((_) async {
-        attempts++;
-        if (attempts < 3) {
-          throw DioException(requestOptions: RequestOptions());
-        }
-        return fullResponse([1, 2, 3]);
-      });
+      await download(publishedBytes: 11);
 
-      final errors = <Object>[];
-      await downloader
-          .download(url: url, fileName: 'modelo.litertlm')
-          .handleError(errors.add)
-          .drain<void>();
+      expect(server.ranges, ['bytes=10-']);
+      expect(target.readAsBytesSync(), content);
+      expect(await downloader.isComplete(fileName), isTrue);
+    });
 
-      expect(errors, isEmpty);
-      expect(attempts, 3);
-    },
-  );
+    test('si quedó cortado, bajarlo trae solo lo que falta', () async {
+      legacyFile(content.take(6).toList());
+
+      await download(publishedBytes: 10);
+
+      expect(server.ranges, ['bytes=6-']);
+      expect(target.readAsBytesSync(), content);
+    });
+  });
 }

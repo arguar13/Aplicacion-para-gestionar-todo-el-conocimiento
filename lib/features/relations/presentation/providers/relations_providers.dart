@@ -30,7 +30,9 @@ final embeddingModelManagerProvider = Provider<EmbeddingModelManager>((ref) {
 /// `GemmaEmbeddingService`—, así que tampoco es `autoDispose`: perderlo
 /// forzaría a resolverlo de nuevo en cada indexación.
 final embeddingServiceProvider = Provider<EmbeddingService>((ref) {
-  return GemmaEmbeddingService();
+  return GemmaEmbeddingService(
+    ensureReady: () => ref.read(embeddingModelManagerProvider).isReady(),
+  );
 });
 
 final chunkEmbeddingIndexerProvider = Provider<ChunkEmbeddingIndexer>((ref) {

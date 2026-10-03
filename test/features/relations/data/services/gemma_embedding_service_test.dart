@@ -9,10 +9,29 @@ import 'package:sinapsis/features/relations/domain/services/embedding_service.da
 /// antes de que `EmbeddingModelManager.isReady()` diera `true`.
 void main() {
   late GemmaEmbeddingService service;
+  late int checks;
 
   setUp(() {
-    service = GemmaEmbeddingService();
+    checks = 0;
+    service = GemmaEmbeddingService(
+      ensureReady: () async {
+        checks++;
+        return false;
+      },
+    );
   });
+
+  test(
+    'antes de usar el modelo le pregunta al gestor, que lo registra si '
+    'su archivo está entero: flutter_gemma no lo recuerda al reabrir',
+    () async {
+      await expectLater(
+        service.embed('texto'),
+        throwsA(isA<EmbeddingModelNotReadyException>()),
+      );
+      expect(checks, 1);
+    },
+  );
 
   test('embed sin modelo activo lanza EmbeddingModelNotReadyException', () {
     expect(

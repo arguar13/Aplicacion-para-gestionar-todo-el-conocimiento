@@ -2,30 +2,21 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:path/path.dart' as p;
+import 'package:sinapsis/features/chat/data/services/gemma_runtime.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart'
     as domain;
 
-/// Qué repositorio de Hugging Face y qué [ModelType] le corresponde a cada
-/// [ChatModelOption], y cómo reconocer que el modelo activo en el
-/// dispositivo es justo ese y no otro.
-///
-/// [nameContains] hace falta porque [ModelType] por sí solo no siempre
-/// alcanza: tanto la Gemma 3 1B que esta pantalla usaba antes de la
-/// decisión 20 como la Gemma 3n E4B nueva comparten `ModelType.gemmaIt` —es
-/// el tipo genérico "familia Gemma 3", no una por modelo—, así que hace
-/// falta mirar también el nombre del archivo activo para no confundir una
-/// con la otra. Lo mismo pasa ahora con `ModelType.gemma4`: Gemma 4 E4B y
-/// Gemma 4 12B (decisión 27) son dos repositorios y dos archivos
-/// distintos, pero comparten el mismo `ModelType`, así que las dos
-/// necesitan su propio [nameContains].
+/// Qué repositorio de Hugging Face, qué archivo y qué [ModelType] le
+/// corresponde a cada [ChatModelOption].
 class _ModelSpec {
   const _ModelSpec({
     required this.modelType,
     required this.repo,
     required this.file,
-    this.nameContains,
+    required this.publishedBytes,
   });
 
   final ModelType modelType;
@@ -42,7 +33,11 @@ class _ModelSpec {
   /// forma de que la descarga no dependa de un archivo que no está.
   final String file;
 
-  final String? nameContains;
+  /// Lo que pesa [file] según Hugging Face (`/api/models/<repo>/tree/main`,
+  /// consultado el 2026-10-03). Solo sirve para reconocer lo que se bajó
+  /// antes de que la descarga dejara su marca de terminada: ver
+  /// `HttpGemmaModelDownloader.isComplete`.
+  final int publishedBytes;
 }
 
 const _specs = {
@@ -53,23 +48,20 @@ const _specs = {
     // el procesador y con la GPU. Las variantes `-gpu` y `-web` son para
     // escritorio y para el navegador.
     file: 'gemma-4-E4B-it.litertlm',
-    // Ahora que `ModelType.gemma4` también es de Gemma 4 12B (ver más
-    // abajo), hace falta el mismo desambiguador por nombre de archivo que
-    // ya usaba Gemma 3n E4B.
-    nameContains: 'e4b',
+    publishedBytes: 3659530240,
   ),
   ChatModelOption.gemma3nE4b: _ModelSpec(
     modelType: ModelType.gemmaIt,
     repo: 'google/gemma-3n-E4B-it-litert-lm',
     file: 'gemma-3n-E4B-it-int4.litertlm',
-    nameContains: 'gemma-3n',
+    publishedBytes: 4919541760,
   ),
   ChatModelOption.gemma412b: _ModelSpec(
     modelType: ModelType.gemma4,
     repo: 'litert-community/gemma-4-12B-it-litert-lm',
     // Ídem: el general, 6,9 GB.
     file: 'gemma-4-12B-it.litertlm',
-    nameContains: '12b',
+    publishedBytes: 6883278368,
   ),
 };
 
@@ -86,7 +78,11 @@ const _specs = {
 /// que ya está entero en el disco, con `fromFile`. Qué archivo bajar lo dice
 /// [_ModelSpec.file].
 class GemmaChatModelManager implements domain.ChatModelManager {
-  const GemmaChatModelManager({required this.option, required this.downloader});
+  GemmaChatModelManager({
+    required this.option,
+    required this.downloader,
+    GemmaRuntime runtime = const FlutterGemmaRuntime(),
+  }) : _runtime = runtime;
 
   /// Qué modelo gestiona esta instancia. La pantalla de descarga crea una
   /// instancia distinta por cada opción que muestra, no una que cambie de
@@ -94,31 +90,71 @@ class GemmaChatModelManager implements domain.ChatModelManager {
   final ChatModelOption option;
 
   final HttpGemmaModelDownloader downloader;
+  final GemmaRuntime _runtime;
+
+  /// La comprobación en curso: varias a la vez —la cola de la IA y una
+  /// pantalla, al abrir la app— registran el modelo una sola vez.
+  Future<bool>? _checking;
 
   _ModelSpec get _spec => _specs[option]!;
 
-  @override
-  Future<bool> isReady() async {
-    // `FlutterGemma.hasActiveModel()` no alcanza: solo dice "hay algún
-    // modelo activo", sin importar cuál. Comparar el tipo de modelo, y —para
-    // las opciones donde el tipo no alcanza, ver el comentario de
-    // `_ModelSpec`— también el nombre del archivo activo, es lo que
-    // distingue "ya tengo la opción que elegiste" de "tengo alguna, pero no
-    // esta".
-    final active = FlutterGemma.activeModelSpec;
-    if (active == null || active.modelType != _spec.modelType) return false;
+  /// Cómo se llama el archivo en el dispositivo.
+  String get _fileName => '${option.name}.litertlm';
 
-    final marker = _spec.nameContains;
-    return marker == null || active.name.toLowerCase().contains(marker);
+  /// Si el modelo de [option] está en el dispositivo, listo para responder;
+  /// si su archivo está entero pero `flutter_gemma` no lo tiene activo, lo
+  /// registra en el acto.
+  ///
+  /// Hace falta porque `flutter_gemma` 1.8.3 no recuerda un modelo instalado
+  /// con `fromFile` entre una sesión y la siguiente: al arrancar busca el
+  /// archivo en la raíz de sus documentos (`<documentos>/<nombre>`), no en
+  /// `modelos/gemma/` donde está, lo da por borrado («active model restore:
+  /// file … missing — skipping») y arranca sin modelo activo. Sin esto, cada
+  /// vez que se abría la app pedía bajarlo de nuevo y la IA que organiza
+  /// sola se frenaba. Registrarlo no baja ni copia nada.
+  @override
+  Future<bool> isReady() =>
+      _checking ??= _ensureReady().whenComplete(() => _checking = null);
+
+  Future<bool> _ensureReady() async {
+    if (_isActive()) return true;
+    if (!await downloader.isComplete(
+      _fileName,
+      publishedBytes: _spec.publishedBytes,
+    )) {
+      return false;
+    }
+    await _install();
+    return _isActive();
+  }
+
+  /// Si el modelo activo es el de [option]: mismo tipo y el nombre con que
+  /// queda registrado su archivo.
+  ///
+  /// Por nombre exacto y no por un pedazo: `flutter_gemma` registra el
+  /// archivo sin la extensión —`gemma3nE4b` para Gemma 3n—, así que buscar
+  /// `gemma-3n` adentro no coincidía nunca y Gemma 3n no se daba por lista
+  /// ni recién bajada. El tipo solo no alcanza: Gemma 4 E4B y Gemma 4 12B
+  /// comparten `ModelType.gemma4`. También vale el nombre del archivo de
+  /// Hugging Face, el que dejaba instalado la descarga de `flutter_gemma`
+  /// que se usaba antes de la propia.
+  bool _isActive() {
+    final active = _runtime.activeModel;
+    if (active == null || active.type != _spec.modelType) return false;
+    final name = active.name.toLowerCase();
+    return name == option.name.toLowerCase() ||
+        name == p.basenameWithoutExtension(_spec.file).toLowerCase();
+  }
+
+  Future<void> _install() async {
+    final file = await downloader.targetFile(_fileName);
+    await _runtime.installModelFile(type: _spec.modelType, path: file.path);
   }
 
   @override
   Future<int?> downloadSizeInBytes() async {
-    // El tamaño exacto solo se sabe resolviendo el manifiesto —o, para el
-    // archivo fijo de Gemma 3n, pidiéndoselo al servidor—, y las dos cosas
-    // valen la pena solo cuando la descarga arranca de verdad. El tamaño
-    // aproximado que sí ve quien elige la opción está en el texto de la
-    // pantalla, no acá.
+    // El tamaño aproximado que ve quien elige la opción está en el texto de
+    // la pantalla, no acá.
     return null;
   }
 
@@ -134,30 +170,25 @@ class GemmaChatModelManager implements domain.ChatModelManager {
     String? token,
   ) async {
     try {
-      final spec = _spec;
-      // El tamaño no se sabe de antemano: lo dice el servidor al empezar.
+      // Si ya está entero no se baja: el descargador lo dice sin tocar la
+      // red, y solo queda registrarlo.
       final progress = downloader.download(
         url: downloadUrlOf(option),
-        fileName: '${option.name}.litertlm',
+        fileName: _fileName,
         token: token,
+        publishedBytes: _spec.publishedBytes,
       );
 
       await for (final value in progress) {
         if (!controller.isClosed) controller.add(value);
       }
 
-      final file = await downloader.targetFile('${option.name}.litertlm');
-      await FlutterGemma.installModel(
-        modelType: spec.modelType,
-        fileType: ModelFileType.litertlm,
-      ).fromFile(file.path).install();
-
+      await _install();
       if (!controller.isClosed) await controller.close();
-      // Catch-all deliberado: la resolución del manifiesto, la descarga y
-      // la instalación pueden fallar cada una por su cuenta, y las tres
-      // tienen que llegar como el mismo tipo de error a la pantalla.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
+      // La descarga y la instalación pueden fallar cada una por su cuenta,
+      // y las dos tienen que llegar como el mismo tipo de error a la
+      // pantalla.
       if (!controller.isClosed) {
         controller.addError(_toDomainError(e), stackTrace);
       }

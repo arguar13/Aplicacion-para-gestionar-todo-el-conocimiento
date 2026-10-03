@@ -64,7 +64,12 @@ final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
 /// compartida entre el chat y el generador de tarjetas, para que las dos
 /// funciones usen el mismo modelo ya cargado en vez de cada una el suyo.
 final _gemmaModelProvider = Provider<GemmaChatModel>(
-  (ref) => GemmaChatModel(gate: ref.watch(languageModelGateProvider)),
+  (ref) => GemmaChatModel(
+    gate: ref.watch(languageModelGateProvider),
+    // Leído al usarlo, no observado: elegir otra opción no tiene por qué
+    // descartar el modelo ya cargado de la sesión.
+    ensureReady: () => ref.read(chatModelManagerProvider).isReady(),
+  ),
 );
 
 /// El turno para usar el modelo de lenguaje (F27): uno a la vez, la persona

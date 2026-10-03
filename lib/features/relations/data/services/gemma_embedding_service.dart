@@ -11,8 +11,15 @@ import 'package:sinapsis/features/relations/domain/services/embedding_service.da
 /// sí necesita `GemmaEmbeddingModelManager` — cada uno importa solo lo que
 /// usa, sin el `hide`/`show` que hace falta cuando conviven los dos en el
 /// mismo archivo.
+///
+/// `ensureReady` es `EmbeddingModelManager.isReady`: registra el modelo si
+/// sus archivos están enteros y `flutter_gemma` no lo recuerda —al reabrir la
+/// app—, mismo motivo que `GemmaChatModel`.
 class GemmaEmbeddingService implements EmbeddingService {
-  GemmaEmbeddingService();
+  GemmaEmbeddingService({required Future<bool> Function() ensureReady})
+    : _ensureReady = ensureReady;
+
+  final Future<bool> Function() _ensureReady;
 
   EmbeddingModel? _model;
 
@@ -20,7 +27,7 @@ class GemmaEmbeddingService implements EmbeddingService {
     final cached = _model;
     if (cached != null) return cached;
 
-    if (!FlutterGemma.hasActiveEmbedder()) {
+    if (!await _ensureReady()) {
       throw const EmbeddingModelNotReadyException();
     }
 

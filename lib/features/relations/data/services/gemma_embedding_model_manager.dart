@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_runtime.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart'
     as domain;
@@ -33,6 +33,13 @@ const _tokenizerUrl =
     'main/sentencepiece.model';
 const _tokenizerFilename = 'embeddinggemma-sentencepiece.model';
 
+/// Lo que pesa cada archivo según Hugging Face
+/// (`/api/models/litert-community/embeddinggemma-300m/tree/main`, consultado
+/// el 2026-10-03): para reconocer lo que se bajó antes de que la descarga
+/// dejara su marca de terminada (ver `HttpGemmaModelDownloader.isComplete`).
+const _modelPublishedBytes = 183329528;
+const _tokenizerPublishedBytes = 4683319;
+
 /// [domain.EmbeddingModelManager] sobre `flutter_gemma`, con la descarga
 /// bajada a mano vía [HttpGemmaModelDownloader] —reusado tal cual del
 /// feature `chat`, sin nada específico del modelo de chat— por el mismo
@@ -43,12 +50,52 @@ const _tokenizerFilename = 'embeddinggemma-sentencepiece.model';
 /// progreso reportado es el combinado de ambas descargas: 0-90% el modelo
 /// (el más pesado con diferencia), 90-100% el tokenizador.
 class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
-  const GemmaEmbeddingModelManager({required this.downloader});
+  GemmaEmbeddingModelManager({
+    required this.downloader,
+    GemmaRuntime runtime = const FlutterGemmaRuntime(),
+  }) : _runtime = runtime;
 
   final HttpGemmaModelDownloader downloader;
+  final GemmaRuntime _runtime;
 
+  /// La comprobación en curso: ver `GemmaChatModelManager`.
+  Future<bool>? _checking;
+
+  /// Si el modelo está en el dispositivo, listo para calcular vectores; si
+  /// sus dos archivos están enteros pero `flutter_gemma` no lo tiene activo,
+  /// lo registra en el acto.
+  ///
+  /// Mismo motivo que `GemmaChatModelManager.isReady`: `flutter_gemma`
+  /// 1.8.3 no recuerda entre sesiones un modelo instalado desde un archivo
+  /// fuera de la raíz de sus documentos.
   @override
-  Future<bool> isReady() async => FlutterGemma.hasActiveEmbedder();
+  Future<bool> isReady() =>
+      _checking ??= _ensureReady().whenComplete(() => _checking = null);
+
+  Future<bool> _ensureReady() async {
+    if (_runtime.hasActiveEmbedder) return true;
+    final complete =
+        await downloader.isComplete(
+          _modelFilename,
+          publishedBytes: _modelPublishedBytes,
+        ) &&
+        await downloader.isComplete(
+          _tokenizerFilename,
+          publishedBytes: _tokenizerPublishedBytes,
+        );
+    if (!complete) return false;
+    await _install();
+    return _runtime.hasActiveEmbedder;
+  }
+
+  Future<void> _install() async {
+    final modelFile = await downloader.targetFile(_modelFilename);
+    final tokenizerFile = await downloader.targetFile(_tokenizerFilename);
+    await _runtime.installEmbedderFiles(
+      modelPath: modelFile.path,
+      tokenizerPath: tokenizerFile.path,
+    );
+  }
 
   @override
   Future<int?> downloadSizeInBytes() async {
@@ -73,6 +120,7 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
         url: _modelUrl,
         fileName: _modelFilename,
         token: token,
+        publishedBytes: _modelPublishedBytes,
       );
       await for (final value in modelProgress) {
         if (!controller.isClosed) controller.add(value * 0.9);
@@ -82,24 +130,18 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
         url: _tokenizerUrl,
         fileName: _tokenizerFilename,
         token: token,
+        publishedBytes: _tokenizerPublishedBytes,
       );
       await for (final value in tokenizerProgress) {
         if (!controller.isClosed) controller.add(0.9 + value * 0.1);
       }
 
-      final modelFile = await downloader.targetFile(_modelFilename);
-      final tokenizerFile = await downloader.targetFile(_tokenizerFilename);
-      await FlutterGemma.installEmbedder()
-          .modelFromFile(modelFile.path)
-          .tokenizerFromFile(tokenizerFile.path)
-          .install();
-
+      await _install();
       if (!controller.isClosed) await controller.close();
-      // Catch-all deliberado, mismo motivo que `GemmaChatModelManager`: la
-      // descarga y la instalación pueden fallar cada una por su cuenta, y
-      // las dos tienen que llegar como el mismo tipo de error.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
+      // Mismo criterio que `GemmaChatModelManager`: la descarga y la
+      // instalación pueden fallar cada una por su cuenta, y las dos tienen
+      // que llegar como el mismo tipo de error.
       if (!controller.isClosed) {
         controller.addError(_toDomainError(e), stackTrace);
       }

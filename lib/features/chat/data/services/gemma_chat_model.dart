@@ -249,8 +249,17 @@ class GemmaChatModel
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA.
-  GemmaChatModel({required LanguageModelGate gate})
-    : this._(gate, _LoadedGemma(), inBackground: false);
+  ///
+  /// [ensureReady] es `ChatModelManager.isReady` del modelo elegido: antes
+  /// de cargarlo por primera vez en la sesión, lo registra si su archivo
+  /// está entero —`flutter_gemma` no lo recuerda al reabrir la app; ver
+  /// `GemmaChatModelManager.isReady`—. Sin esto, quien usara el modelo sin
+  /// haber preguntado antes encontraba «no está descargado» con el archivo
+  /// ahí.
+  GemmaChatModel({
+    required LanguageModelGate gate,
+    required Future<bool> Function() ensureReady,
+  }) : this._(gate, _LoadedGemma(ensureReady), inBackground: false);
 
   GemmaChatModel._(this._gate, this._loaded, {required bool inBackground})
     : _inBackground = inBackground;
@@ -282,7 +291,7 @@ class GemmaChatModel
     final cached = _loaded.model;
     if (cached != null) return cached;
 
-    if (!FlutterGemma.hasActiveModel()) {
+    if (!await _loaded.ensureReady()) {
       throw const ChatModelNotReadyException();
     }
 
@@ -786,5 +795,10 @@ String _buildDerivedPrompt(List<ChatSource> sources) {
 /// El modelo de Gemma cargado, compartido entre [GemmaChatModel] y su
 /// `background`: los mismos pesos, cargados una sola vez.
 class _LoadedGemma {
+  _LoadedGemma(this.ensureReady);
+
+  /// Ver el constructor de [GemmaChatModel].
+  final Future<bool> Function() ensureReady;
+
   InferenceModel? model;
 }

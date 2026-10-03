@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/network/resumable_download.dart';
 
-/// Baja el archivo de un modelo de Hugging Face ya resuelto —ver
-/// `FlutterGemma.resolveHuggingFace`— con reanudación de verdad, en vez de
-/// dejar la descarga en manos de `background_downloader` (lo que usa
-/// `flutter_gemma` por dentro para `fromHuggingFace`/`fromNetwork`).
+/// Baja el archivo de un modelo de Hugging Face con reanudación de verdad,
+/// en vez de dejar la descarga en manos de `background_downloader` (lo que
+/// usa `flutter_gemma` por dentro para `fromHuggingFace`/`fromNetwork`).
 ///
 /// Ese camino pasa por WorkManager en Android, que corta cualquier tarea a
 /// los ~9 minutos; retoma sola si el servidor lo permite, pero Hugging Face
@@ -15,65 +15,85 @@ import 'package:path/path.dart' as p;
 /// para confiar en una reanudación, así que ahí la tarea "falla derecho" en
 /// vez de pausarse. En una conexión que no alcance a bajar el archivo
 /// entero —varios cientos de megas, a veces unos pocos gigas— en esos 9
-/// minutos, la descarga nunca llega a terminar por más reintentos que haga:
-/// cada intento vuelve a arrancar de cero y se corta en el mismo punto.
+/// minutos, la descarga nunca llega a terminar por más reintentos que haga.
 ///
-/// Acá, en cambio, la descarga corre en el propio proceso de la app, sin
-/// ningún límite de tiempo por intento, y si se corta retoma desde el byte
-/// donde se quedó con un pedido HTTP Range — no desde cero. El costo es el
-/// de siempre para una descarga así: la app tiene que seguir abierta
-/// mientras dura, igual que ya le pasa a la del modelo de transcripción
-/// (`HttpWhisperModelManager`). A cambio, una conexión lenta ya no es un
-/// techo de tiempo que la descarga nunca puede cruzar: es, como corresponde,
-/// solo una cuestión de paciencia.
+/// Acá, en cambio, la descarga corre en el propio proceso de la app —con el
+/// servicio en primer plano mientras dura, para que siga con la app
+/// minimizada—, sin ningún límite de tiempo por intento, y si se corta
+/// retoma desde el byte donde se quedó (`ResumableDownload`).
+///
+/// **Qué hay en el disco**, dentro de `modelos/gemma/`:
+///
+/// - `<nombre>.descargando`: lo bajado hasta ahora. El nombre definitivo
+///   nunca es un archivo cortado.
+/// - `<nombre>.source`: de qué dirección es lo que está a medias, y cuánto
+///   dijo el servidor que pesa entero; si cambió, se empieza de cero.
+/// - `<nombre>`: el archivo entero.
+/// - `<nombre>.completo`: la marca de que `<nombre>` quedó entero, con su
+///   tamaño. Es lo que mira [isComplete] —sin red— cada vez que la app
+///   arranca, para saber si el modelo está en el dispositivo.
 class HttpGemmaModelDownloader {
   HttpGemmaModelDownloader({
     required Dio dio,
     required Future<Directory> Function() rootDirectory,
-  }) : _dio = dio,
+    Duration Function(int attempt)? retryDelay,
+  }) : _download = ResumableDownload(dio: dio, retryDelay: retryDelay),
        _rootDirectory = rootDirectory;
 
-  final Dio _dio;
+  final ResumableDownload _download;
   final Future<Directory> Function() _rootDirectory;
 
-  /// Cuántas veces se reintenta un corte transitorio —la conexión se cae un
-  /// instante, el servidor contesta 5xx— antes de rendirse. Más alto que el
-  /// de Whisper a propósito: acá cada intento retoma desde donde se quedó
-  /// —ver la clase—, así que un reintento de más no vuelve a pagar el costo
-  /// de lo ya bajado, y una conexión inestable se beneficia de insistir.
-  static const _maxAttempts = 8;
-
-  /// Dónde queda el archivo bajado, sin depender de que la descarga haya
-  /// terminado — para poder instalarlo con `fromFile()` una vez que sí lo
-  /// esté.
+  /// Dónde queda el archivo entero, para instalarlo con `fromFile()`.
   Future<File> targetFile(String fileName) async {
     final root = await _rootDirectory();
     return File(p.join(root.path, 'modelos', 'gemma', fileName));
   }
 
-  /// El archivo donde queda anotada la URL con la que se bajó —o se está
-  /// bajando— [targetFile]. Antes de retomar una descarga a medias se
-  /// compara contra la URL pedida ahora: si el modelo resolvió a una
-  /// variante distinta desde la última vez —el dispositivo cambió, el
-  /// manifiesto se actualizó—, seguir agregándole bytes de la URL nueva a
-  /// un archivo que empezó con la vieja produciría un archivo corrupto en
-  /// vez de, como acá, empezar de nuevo.
-  Future<File> _sourceMarkerFile(String fileName) async {
+  static File _partialOf(File target) => File('${target.path}.descargando');
+  static File _sourceOf(File target) => File('${target.path}.source');
+  static File _markOf(File target) => File('${target.path}.completo');
+
+  /// Si [fileName] está entero en el dispositivo. Sin red: lo dice la marca
+  /// que deja la descarga al terminar.
+  ///
+  /// [publishedBytes] es para lo que se bajó **antes** de que existiera la
+  /// marca: esas versiones escribían directo sobre el nombre definitivo, así
+  /// que un archivo con ese nombre podía estar entero o cortado. Si mide
+  /// exactamente lo que Hugging Face publica para ese archivo, está entero:
+  /// se marca y no se vuelve a bajar. Si mide otra cosa, no se da por bueno
+  /// —la próxima descarga lo retoma, y si ya estaba entero el servidor lo
+  /// dice con un 416 sin mandar un byte—.
+  Future<bool> isComplete(String fileName, {int? publishedBytes}) async {
     final target = await targetFile(fileName);
-    return File('${target.path}.source');
+    if (!target.existsSync()) return false;
+    final length = target.lengthSync();
+
+    final mark = _markOf(target);
+    if (mark.existsSync()) {
+      return int.tryParse(mark.readAsStringSync().trim()) == length;
+    }
+    if (publishedBytes != null && length == publishedBytes) {
+      await mark.writeAsString('$length');
+      return true;
+    }
+    return false;
   }
 
-  /// Baja [url] a un archivo local y reporta el progreso como una fracción
-  /// de 0 a 1. Emite un error del stream si se agotan los reintentos —nunca
-  /// una excepción sin dueño— y cierra el stream al terminar.
+  /// Baja [url] a [targetFile]`(fileName)` y reporta el progreso como una
+  /// fracción de 0 a 1. Emite un error del stream si se agotan los
+  /// reintentos —nunca una excepción sin dueño— y cierra el stream al
+  /// terminar.
+  ///
+  /// Si el archivo ya está entero ([isComplete]) no se baja de nuevo: el
+  /// stream emite 1 y cierra, sin tocar la red.
   Stream<double> download({
     required String url,
     required String fileName,
     String? token,
-    int? expectedSizeBytes,
+    int? publishedBytes,
   }) {
     final controller = StreamController<double>();
-    unawaited(_run(controller, url, fileName, token, expectedSizeBytes));
+    unawaited(_run(controller, url, fileName, token, publishedBytes));
     return controller.stream;
   }
 
@@ -82,115 +102,99 @@ class HttpGemmaModelDownloader {
     String url,
     String fileName,
     String? token,
-    int? expectedSizeBytes,
+    int? publishedBytes,
   ) async {
     try {
-      final file = await targetFile(fileName);
-      await file.parent.create(recursive: true);
-      await _discardIfSourceChanged(file, fileName, url);
-
-      for (var attempt = 1; ; attempt++) {
-        try {
-          await _attempt(file, url, token, expectedSizeBytes, controller);
-          break;
-          // Un 401/403 —repositorio protegido, token vencido— o un 404 —el
-          // archivo ya no está ahí— no se arreglan solos reintentando: es
-          // el mismo motivo por el que `SmartDownloader` (el que usa
-          // `flutter_gemma` por dentro) tampoco los reintenta.
-        } on DioException catch (e) {
-          final status = e.response?.statusCode;
-          if (status == 401 || status == 403 || status == 404) rethrow;
-          if (attempt >= _maxAttempts) rethrow;
-          await Future<void>.delayed(Duration(seconds: attempt * 3));
-        }
+      if (!await isComplete(fileName, publishedBytes: publishedBytes)) {
+        await _fetch(controller, url, fileName, token);
       }
-
       controller.add(1);
       await controller.close();
-      // Catch-all deliberado, mismo motivo que en `HttpWhisperModelManager`:
-      // cualquier fallo tiene que llegar como error del stream, nunca como
-      // una excepción sin dueño que tumbe la pantalla de descarga.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (e, stackTrace) {
+    } on Object catch (e, stackTrace) {
+      // Cualquier fallo —la red, el disco— llega como error del stream,
+      // nunca como una excepción sin dueño que tumbe la pantalla.
       controller.addError(e, stackTrace);
       await controller.close();
     }
   }
 
-  Future<void> _discardIfSourceChanged(
-    File file,
-    String fileName,
-    String url,
-  ) async {
-    final marker = await _sourceMarkerFile(fileName);
-    final previousUrl = marker.existsSync() ? marker.readAsStringSync() : null;
-
-    if (previousUrl != null && previousUrl != url && file.existsSync()) {
-      await file.delete();
-    }
-    await marker.writeAsString(url);
-  }
-
-  Future<void> _attempt(
-    File file,
-    String url,
-    String? token,
-    int? expectedSizeBytes,
+  Future<void> _fetch(
     StreamController<double> controller,
+    String url,
+    String fileName,
+    String? token,
   ) async {
-    final existingBytes = file.existsSync() ? file.lengthSync() : 0;
+    final target = await targetFile(fileName);
+    await target.parent.create(recursive: true);
+    final partial = _partialOf(target);
+    final source = _sourceOf(target);
 
-    final response = await _dio.get<ResponseBody>(
-      url,
-      options: Options(
-        responseType: ResponseType.stream,
-        headers: {
-          if (existingBytes > 0) 'range': 'bytes=$existingBytes-',
-          if (token != null && token.isNotEmpty)
-            'authorization': 'Bearer $token',
-        },
-      ),
-    );
+    // Lo que dejó con el nombre definitivo una versión anterior, sin marca y
+    // sin el tamaño publicado: entero o cortado, no se sabe. Pasa a ser lo
+    // que está a medias —su `.source`, si lo tiene, ya decía de dónde
+    // salió— y la descarga lo retoma: si estaba entero, el servidor contesta
+    // 416 y no se baja nada.
+    if (target.existsSync()) {
+      if (partial.existsSync()) await partial.delete();
+      final mark = _markOf(target);
+      if (mark.existsSync()) await mark.delete();
+      await target.rename(partial.path);
+    }
 
-    // Un servidor que no soporta reanudar contesta 200 igual —el archivo
-    // entero, desde el principio— en vez de 206: ahí hay que empezar de
-    // cero, no agregarle el archivo nuevo al que ya había a medias.
-    final resumed = existingBytes > 0 && response.statusCode == 206;
-    final total =
-        expectedSizeBytes ?? _contentLengthOf(response, resumed, existingBytes);
+    final previous = _SourceRecord.read(source);
+    if (previous != null && previous.url != url && partial.existsSync()) {
+      // Lo que hay a medias es de otra dirección: seguir agregándole bytes
+      // de esta produciría un archivo corrupto.
+      await partial.delete();
+    }
+    final knownTotal = previous?.url == url ? previous?.totalBytes : null;
+    _SourceRecord(url: url, totalBytes: knownTotal).write(source);
 
-    final sink = file.openWrite(
-      mode: resumed ? FileMode.append : FileMode.write,
-    );
-    var received = resumed ? existingBytes : 0;
-
-    try {
-      await for (final chunk in response.data!.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (total != null && total > 0) {
+    final total = await _download.fetch(
+      url: url,
+      partial: partial,
+      headers: {
+        if (token != null && token.isNotEmpty) 'authorization': 'Bearer $token',
+      },
+      expectedBytes: knownTotal,
+      // Se anota apenas el servidor lo dice: si la app se cierra a mitad, el
+      // próximo intento sabe cuánto tiene que pesar lo que retoma.
+      onTotal: (total) =>
+          _SourceRecord(url: url, totalBytes: total).write(source),
+      onProgress: (received, total) {
+        if (total != null && total > 0 && !controller.isClosed) {
           controller.add((received / total).clamp(0, 1));
         }
-      }
-      await sink.flush();
-    } finally {
-      await sink.close();
-    }
+      },
+    );
+
+    await partial.rename(target.path);
+    await _markOf(target).writeAsString('$total');
+    if (source.existsSync()) await source.delete();
+  }
+}
+
+/// Lo que dice `<nombre>.source`: la dirección de lo que está a medias y,
+/// si el servidor ya lo dijo, cuánto pesa entero. Las versiones anteriores
+/// escribían solo la dirección.
+class _SourceRecord {
+  const _SourceRecord({required this.url, this.totalBytes});
+
+  final String url;
+  final int? totalBytes;
+
+  static _SourceRecord? read(File file) {
+    if (!file.existsSync()) return null;
+    final lines = file.readAsLinesSync();
+    if (lines.isEmpty) return null;
+    return _SourceRecord(
+      url: lines.first.trim(),
+      totalBytes: lines.length > 1 ? int.tryParse(lines[1].trim()) : null,
+    );
   }
 
-  /// El tamaño total, a partir de la cabecera de la respuesta cuando el
-  /// manifiesto no lo trajo de antemano. Un 206 informa en
-  /// `Content-Length` solo lo que falta —no el archivo entero—, así que
-  /// hay que sumarle lo que ya se tenía para que el progreso no arranque
-  /// mintiendo un total más chico que el real.
-  int? _contentLengthOf(
-    Response<ResponseBody> response,
-    bool resumed,
-    int existingBytes,
-  ) {
-    final header = response.headers.value(Headers.contentLengthHeader);
-    final length = header == null ? null : int.tryParse(header);
-    if (length == null) return null;
-    return resumed ? length + existingBytes : length;
-  }
+  /// Sincrónico: son unos pocos bytes, y [HttpGemmaModelDownloader] lo
+  /// escribe también desde el aviso del total, que no espera nada.
+  void write(File file) =>
+      file.writeAsStringSync(totalBytes == null ? url : '$url\n$totalBytes');
 }
