@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
@@ -117,6 +118,19 @@ const _vaultConversationSystemInstruction =
     'hay contexto relevante para lo que preguntan, decilo con honestidad, '
     'pero seguí la conversación con naturalidad en vez de negarte a '
     'contestar.';
+
+/// Mismo criterio que `_relationSuggestionSystemInstruction` (F27): elegir
+/// en una lista numerada, con la certeza, en una sola línea de formato
+/// exacto, y nunca inventar un tema nuevo —los temas los arma la persona—.
+const _spaceChoiceSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es elegir en cuál de los '
+    'temas de una lista numerada va un elemento, basándote ÚNICAMENTE en su '
+    'título y su fragmento. Respondé UNA sola línea con este formato exacto, '
+    'sin Markdown:\nTEMA: <número> | <certeza>\ndonde <número> es el número '
+    'del tema elegido y <certeza> es alta si el elemento claramente es de '
+    'ese tema o media si es probable pero no seguro. Si no va en ninguno, '
+    'respondé exactamente: TEMA: ninguno. Nunca inventes un tema que no esté '
+    'en la lista. No respondas nada más.';
 
 /// Mismo criterio que el resto de las instrucciones de sistema: nada de
 /// agregar datos que no estén en el contenido, y una redacción corrida —sin
@@ -505,6 +519,43 @@ class GemmaChatModel
           );
         }
         return drafts;
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  /// Un `SpaceChooser` (F27): en cuál de [spaces] va el elemento.
+  Future<SpaceChoice?> chooseSpace({
+    required String itemTitle,
+    required String excerpt,
+    required List<String> spaces,
+  }) {
+    if (spaces.isEmpty) return Future.value();
+
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _spaceChoiceSystemInstruction,
+      );
+
+      try {
+        final list = [
+          for (var i = 0; i < spaces.length; i++) '${i + 1}. ${spaces[i]}',
+        ].join('\n');
+
+        await chat.addQueryChunk(
+          Message.text(
+            text: 'Temas:\n$list\n\nElemento: $itemTitle\n$excerpt',
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
+
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+        return parseSpaceChoice(text, spaceCount: spaces.length);
       } finally {
         await chat.close();
       }

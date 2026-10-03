@@ -85,6 +85,8 @@ class AiOrganizeHarness {
     required String content,
     SourceKind kind = SourceKind.webPage,
     DateTime? createdAt,
+    String? originalFilePath,
+    ProcessingState processingState = ProcessingState.ready,
   }) => _save(
     id,
     title: title,
@@ -92,6 +94,8 @@ class AiOrganizeHarness {
     kind: kind,
     renditionKind: RenditionKind.plainText,
     createdAt: createdAt,
+    originalFilePath: originalFilePath,
+    processingState: processingState,
   );
 
   /// Guarda una nota con [content] como su texto.
@@ -116,13 +120,20 @@ class AiOrganizeHarness {
     required SourceKind kind,
     required RenditionKind renditionKind,
     DateTime? createdAt,
+    String? originalFilePath,
+    ProcessingState processingState = ProcessingState.ready,
   }) async {
     final at = createdAt ?? now;
     final item = KnowledgeItem(
       id: id,
       title: title,
-      source: Source(id: 'src-$id', kind: kind, capturedAt: at),
-      processingState: ProcessingState.ready,
+      source: Source(
+        id: 'src-$id',
+        kind: kind,
+        capturedAt: at,
+        originalFilePath: originalFilePath,
+      ),
+      processingState: processingState,
       createdAt: at,
       updatedAt: at,
       renditions: [
