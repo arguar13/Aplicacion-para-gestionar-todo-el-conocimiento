@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
@@ -131,6 +133,34 @@ const _spaceChoiceSystemInstruction =
     'ese tema o media si es probable pero no seguro. Si no va en ninguno, '
     'respondé exactamente: TEMA: ninguno. Nunca inventes un tema que no esté '
     'en la lista. No respondas nada más.';
+
+/// Mismo criterio que `_spaceChoiceSystemInstruction` (F27, el Atlas): elegir
+/// en una lista numerada, con la certeza, sin inventar un tema. «Alta» es que
+/// el tema es claramente una parte o un caso del elegido —«Roma» de «Historia
+/// antigua»—, no solo que se parecen.
+const _topicParentSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es elegir bajo cuál de los '
+    'temas de una lista numerada va otro tema, como un subtema dentro de un '
+    'árbol, basándote ÚNICAMENTE en los nombres de los temas y en el título '
+    'del elemento donde aparece. Respondé UNA sola línea con este formato '
+    'exacto, sin Markdown:\nPADRE: <número> | <certeza>\ndonde <número> es '
+    'el número del tema elegido y <certeza> es alta si el tema claramente es '
+    'una parte o un caso del elegido, o media si es probable pero no seguro. '
+    'Si no va bajo ninguno, respondé exactamente: PADRE: ninguno. Nunca '
+    'inventes un tema que no esté en la lista. No respondas nada más.';
+
+/// La introducción de una nota mapa (F27, el Atlas): lo mismo que
+/// `_summarizationSystemInstruction` —nada que no esté en lo que se le da,
+/// texto corrido— pero sobre títulos y fragmentos, y sin corchetes: los
+/// enlaces de la nota los arma la app, nunca el modelo.
+const _mapIntroSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es escribir una '
+    'introducción breve, de dos o tres oraciones, para el índice de un tema, '
+    'basándote ÚNICAMENTE en los títulos y fragmentos de los elementos que se '
+    'te dan: nunca agregues datos, fechas, nombres ni afirmaciones que no '
+    'estén ahí. Decí de qué trata el material reunido, sin enumerar los '
+    'elementos uno por uno. Texto corrido, sin viñetas, sin títulos, sin '
+    'Markdown y sin corchetes.';
 
 /// Mismo criterio que el resto de las instrucciones de sistema: nada de
 /// agregar datos que no estén en el contenido, y una redacción corrida —sin
@@ -556,6 +586,79 @@ class GemmaChatModel
           _ => '',
         };
         return parseSpaceChoice(text, spaceCount: spaces.length);
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  /// Un `TopicParentChooser` (F27, el Atlas): bajo cuál de [candidates] va
+  /// [topic].
+  Future<TopicParentChoice?> chooseTopicParent({
+    required String topic,
+    required String itemTitle,
+    required List<String> candidates,
+  }) {
+    if (candidates.isEmpty) return Future.value();
+
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _topicParentSystemInstruction,
+      );
+
+      try {
+        final list = [
+          for (var i = 0; i < candidates.length; i++)
+            '${i + 1}. ${candidates[i]}',
+        ].join('\n');
+
+        await chat.addQueryChunk(
+          Message.text(
+            text:
+                'Temas del árbol:\n$list\n\nTema por ubicar: $topic\n'
+                'Aparece en: $itemTitle',
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
+
+        final text = switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
+        return parseTopicParentChoice(text, candidateCount: candidates.length);
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  /// Un `MapIntroWriter` (F27, el Atlas): la introducción de la nota mapa de
+  /// [topic], con un pedido acotado por `buildMapIntroPrompt`.
+  Future<String> writeMapIntroduction({
+    required String topic,
+    required List<MapIntroEntry> entries,
+  }) {
+    if (entries.isEmpty) return Future.value('');
+
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _mapIntroSystemInstruction,
+      );
+
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text: buildMapIntroPrompt(topic: topic, entries: entries),
+            isUser: true,
+          ),
+        );
+        final response = await chat.generateChatResponse();
+
+        return switch (response) {
+          TextResponse(:final token) => token,
+          _ => '',
+        };
       } finally {
         await chat.close();
       }
