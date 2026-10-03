@@ -93,37 +93,41 @@ final resourceFetchDioProvider = Provider<Dio>((ref) {
 /// muestra su propio estado de error con un botón para reintentar, y el
 /// aviso global duplicaría el mensaje sin agregar nada.
 ///
-/// Sin límite de tiempo de recepción: son cientos de megas y una conexión
-/// lenta no es un error, es exactamente el caso para el que existe la barra
-/// de progreso.
+/// Con los límites de [modelDownloadBaseOptions]: los de una descarga de
+/// cientos de megas, que no puede cortar una conexión lenta pero tiene que
+/// cortar una muerta.
 final whisperModelDioProvider = Provider<Dio>((ref) {
   final logger = ref.watch(appLoggerProvider);
 
-  return Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      headers: const {
-        'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)',
-      },
-    ),
-  )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
+  return Dio(modelDownloadBaseOptions())
+    ..interceptors.add(NetworkLoggingInterceptor(logger: logger));
 });
 
-/// Cliente HTTP para descargar el modelo de chat — mismo criterio que
-/// [whisperModelDioProvider], separado nomás porque son dos descargas que no
-/// tienen por qué compartir el mismo cliente. Sin límite de tiempo de
-/// recepción: estos modelos pesan de varios cientos de megas a unos pocos
-/// gigas, y una conexión lenta no es un error — ver
-/// `HttpGemmaModelDownloader`.
+/// Los límites de tiempo de las descargas de modelos —cientos de megas a
+/// varios gigas—: que una conexión lenta pero viva siga, y que una muerta
+/// se corte y se retome.
+///
+/// - `connectTimeout`, 15 s: lo que tarda en abrirse la conexión.
+/// - `receiveTimeout`, 30 s: en dio 5.11 cubre solo la espera de las
+///   **cabeceras** de la respuesta (`io_adapter.dart`, el `timeout` sobre
+///   `request.close()`), no el cuerpo; por eso no corta una descarga lenta
+///   de horas. Sin él, un servidor que acepta la conexión y no contesta
+///   dejaba la descarga esperando para siempre.
+/// - El cuerpo lo vigila `ResumableDownload.stallTimeout`: un minuto sin
+///   recibir un solo byte.
+BaseOptions modelDownloadBaseOptions() => BaseOptions(
+  connectTimeout: const Duration(seconds: 15),
+  receiveTimeout: const Duration(seconds: 30),
+  headers: const {'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)'},
+);
+
+/// Cliente HTTP para descargar los modelos de Gemma —el de lenguaje y el de
+/// relaciones—: mismo criterio que [whisperModelDioProvider], separado nomás
+/// porque son descargas que no tienen por qué compartir el mismo cliente.
+/// Ver `HttpGemmaModelDownloader`.
 final gemmaModelDioProvider = Provider<Dio>((ref) {
   final logger = ref.watch(appLoggerProvider);
 
-  return Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      headers: const {
-        'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)',
-      },
-    ),
-  )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
+  return Dio(modelDownloadBaseOptions())
+    ..interceptors.add(NetworkLoggingInterceptor(logger: logger));
 });
