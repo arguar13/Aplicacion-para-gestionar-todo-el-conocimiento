@@ -97,4 +97,131 @@ void main() {
 
     expect(await gate.runInBackground(() async => 'sigue'), 'sigue');
   });
+
+  group('una charla que deja de usarse suelta el modelo (F27)', () {
+    late List<String> log;
+
+    setUp(() => log = []);
+
+    /// Una charla abierta que anota cuándo cierra su sesión por falta de uso.
+    LanguageModelHold chat(LanguageModelGate gate) =>
+        gate.holdForUser(onIdle: () async => log.add('cierra su sesión'));
+
+    testWidgets('pasado el rato sin uso y sin la pantalla a la vista, cierra '
+        'su sesión y la cola sigue', (tester) async {
+      final gate = LanguageModelGate();
+      final hold = chat(gate);
+      final background = gate.runInBackground(() async => log.add('IA'));
+
+      await tester.pump(kChatIdleRelease - const Duration(seconds: 1));
+      expect(log, isEmpty);
+      expect(gate.isUserActive, isTrue);
+
+      await tester.pump(const Duration(seconds: 2));
+      await background;
+      expect(log, ['cierra su sesión', 'IA']);
+      expect(hold.isIdle, isTrue);
+      expect(gate.isUserActive, isFalse);
+    });
+
+    testWidgets('con la pantalla a la vista no se suelta nunca; al dejar de '
+        'verse, el rato cuenta desde ahí', (tester) async {
+      final gate = LanguageModelGate()..chatVisible = true;
+      chat(gate);
+      final background = gate.runInBackground(() async => log.add('IA'));
+
+      await tester.pump(const Duration(hours: 3));
+      expect(log, isEmpty);
+
+      gate.chatVisible = false;
+      await tester.pump(kChatIdleRelease - const Duration(seconds: 1));
+      expect(log, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
+      await background;
+      expect(log, ['cierra su sesión', 'IA']);
+    });
+
+    testWidgets('cada mensaje vuelve a empezar el rato', (tester) async {
+      final gate = LanguageModelGate();
+      final hold = chat(gate);
+
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(kChatIdleRelease - const Duration(seconds: 10));
+        hold.touch();
+      }
+      expect(log, isEmpty);
+      expect(gate.isUserActive, isTrue);
+      hold.release();
+    });
+
+    testWidgets('volver a escribir retiene el modelo otra vez', (tester) async {
+      final gate = LanguageModelGate();
+      final hold = chat(gate);
+      await tester.pump(kChatIdleRelease + const Duration(seconds: 1));
+      expect(hold.isIdle, isTrue);
+
+      hold.touch();
+      expect(hold.isIdle, isFalse);
+      final background = gate.runInBackground(() async => log.add('IA'));
+      await tester.pump(const Duration(seconds: 30));
+      expect(log, ['cierra su sesión']);
+
+      hold.release();
+      await background;
+      expect(log, ['cierra su sesión', 'IA']);
+    });
+
+    testWidgets('un mensaje que llega mientras la sesión se cierra espera el '
+        'cierre, y la charla sigue en uso', (tester) async {
+      final gate = LanguageModelGate();
+      final closing = Completer<void>();
+      final hold = gate.holdForUser(
+        onIdle: () async {
+          log.add('empieza a cerrar');
+          await closing.future;
+          log.add('cerrada');
+        },
+      );
+      await tester.pump(kChatIdleRelease + const Duration(seconds: 1));
+      expect(log, ['empieza a cerrar']);
+
+      hold.touch();
+      final message = gate.runForUser(() async => log.add('mensaje'));
+      final background = gate.runInBackground(() async => log.add('IA'));
+      closing.complete();
+      await message;
+      await tester.pump();
+      expect(log, ['empieza a cerrar', 'cerrada', 'mensaje']);
+      expect(hold.isIdle, isFalse);
+
+      hold.release();
+      await background;
+      expect(log.last, 'IA');
+    });
+
+    testWidgets('si cerrar falla, se registra y el modelo se suelta igual', (
+      tester,
+    ) async {
+      final errors = <Object>[];
+      final gate = LanguageModelGate(onError: (e, _) => errors.add(e))
+        ..holdForUser(onIdle: () async => throw StateError('no cerró'));
+      final background = gate.runInBackground(() async => log.add('IA'));
+
+      await tester.pump(kChatIdleRelease + const Duration(seconds: 1));
+      await background;
+
+      expect(errors.single, isA<StateError>());
+      expect(log, ['IA']);
+    });
+
+    testWidgets('cerrada a mano, no hay nada que soltar después', (
+      tester,
+    ) async {
+      final gate = LanguageModelGate();
+      chat(gate).release();
+
+      await tester.pump(kChatIdleRelease * 2);
+      expect(log, isEmpty);
+    });
+  });
 }

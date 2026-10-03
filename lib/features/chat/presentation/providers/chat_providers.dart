@@ -70,7 +70,15 @@ final _gemmaModelProvider = Provider<GemmaChatModel>(
 /// El turno para usar el modelo de lenguaje (F27): uno a la vez, la persona
 /// antes que la cola de la IA. Uno solo en toda la app, como el modelo.
 final languageModelGateProvider = Provider<LanguageModelGate>(
-  (ref) => LanguageModelGate(),
+  (ref) => LanguageModelGate(
+    onError: (error, stackTrace) => ref
+        .read(telemetryServiceProvider)
+        .recordError(
+          error,
+          stackTrace,
+          hint: 'LanguageModelGate: cerrar una charla sin uso',
+        ),
+  ),
 );
 
 /// El mismo modelo ya cargado, con el turno de la cola de la IA (F27): espera

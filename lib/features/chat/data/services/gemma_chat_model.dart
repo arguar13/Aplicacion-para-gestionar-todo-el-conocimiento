@@ -6,6 +6,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dar
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_chat_session.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
@@ -325,35 +326,29 @@ class GemmaChatModel
   }
 
   @override
-  Future<FreeConversation> startConversation() => _openConversation(
-    _freeConversationSystemInstruction,
-    (chat, hold) => _GemmaFreeConversation(chat, _gate, hold),
+  Future<FreeConversation> startConversation() async => _GemmaFreeConversation(
+    await _openConversation(_freeConversationSystemInstruction),
   );
 
   @override
-  Future<VaultConversation> startVaultConversation() => _openConversation(
-    _vaultConversationSystemInstruction,
-    (chat, hold) => _GemmaVaultConversation(chat, _gate, hold),
-  );
+  Future<VaultConversation> startVaultConversation() async =>
+      _GemmaVaultConversation(
+        await _openConversation(_vaultConversationSystemInstruction),
+      );
 
   /// Abre una charla que deja su sesión abierta entre mensajes. Desde antes de
-  /// abrirla hasta que se cierre, la cola de la IA no usa el modelo (F27): le
-  /// cerraría la sesión a la charla. Si abrirla falla, el turno se suelta.
-  Future<T> _openConversation<T>(
-    String systemInstruction,
-    T Function(InferenceChat chat, LanguageModelHold hold) wrap,
-  ) async {
-    final hold = _gate.holdForUser();
-    var opened = false;
-    try {
-      final chat = await _withTurn(
-        (model) => model.createChat(systemInstruction: systemInstruction),
-      );
-      opened = true;
-      return wrap(chat, hold);
-    } finally {
-      if (!opened) hold.release();
-    }
+  /// abrirla, y mientras esté en uso, la cola de la IA no usa el modelo
+  /// (F27): le cerraría la sesión a la charla. Si abrirla falla, el modelo se
+  /// suelta.
+  Future<GemmaChatSession> _openConversation(String systemInstruction) async {
+    final session = GemmaChatSession(
+      _gate,
+      () async => (await _activeModel()).createChat(
+        systemInstruction: systemInstruction,
+      ),
+    );
+    await session.openFirst();
+    return session;
   }
 
   @override
@@ -707,44 +702,19 @@ class GemmaChatModel
 /// agrega el mensaje y pide una respuesta sin cerrar la sesión, así que el
 /// modelo sigue viendo todo lo dicho antes en esta misma conversación —a
 /// diferencia de `GemmaChatModel.answer`, que abre y cierra una sesión
-/// nueva por pregunta.
+/// nueva por pregunta—. Si se cerró por falta de uso, la retoma
+/// ([GemmaChatSession]).
 class _GemmaFreeConversation implements FreeConversation {
-  _GemmaFreeConversation(this._chat, this._gate, this._hold);
+  _GemmaFreeConversation(this._session);
 
-  final InferenceChat _chat;
-  final LanguageModelGate _gate;
-
-  /// Retiene el modelo para la persona mientras la charla siga abierta (F27).
-  final LanguageModelHold _hold;
+  final GemmaChatSession _session;
 
   @override
   Future<String> send(String message, {List<Uint8List> images = const []}) =>
-      _gate.runForUser(() async {
-        await _chat.addQueryChunk(
-          images.isEmpty
-              ? Message.text(text: message, isUser: true)
-              : Message.withImages(
-                  text: message,
-                  imageBytes: images,
-                  isUser: true,
-                ),
-        );
-        final response = await _chat.generateChatResponse();
-
-        return switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
-      });
+      _session.send(prompt: message, said: message, images: images);
 
   @override
-  Future<void> close() async {
-    try {
-      await _chat.close();
-    } finally {
-      _hold.release();
-    }
-  }
+  Future<void> close() => _session.close();
 }
 
 /// [VaultConversation] sobre la sesión de `flutter_gemma`: igual que
@@ -754,42 +724,23 @@ class _GemmaFreeConversation implements FreeConversation {
 /// formato que ya arma [_buildVaultPrompt]—, así el modelo ve tanto lo
 /// conversado antes como lo nuevo que se encontró en la bóveda.
 class _GemmaVaultConversation implements VaultConversation {
-  _GemmaVaultConversation(this._chat, this._gate, this._hold);
+  _GemmaVaultConversation(this._session);
 
-  final InferenceChat _chat;
-  final LanguageModelGate _gate;
-
-  /// Ver `_GemmaFreeConversation._hold`.
-  final LanguageModelHold _hold;
+  final GemmaChatSession _session;
 
   @override
   Future<String> send({
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],
-  }) => _gate.runForUser(() async {
-    final prompt = _buildVaultPrompt(message, sources);
-    await _chat.addQueryChunk(
-      images.isEmpty
-          ? Message.text(text: prompt, isUser: true)
-          : Message.withImages(text: prompt, imageBytes: images, isUser: true),
-    );
-    final response = await _chat.generateChatResponse();
-
-    return switch (response) {
-      TextResponse(:final token) => token,
-      _ => '',
-    };
-  });
+  }) => _session.send(
+    prompt: _buildVaultPrompt(message, sources),
+    said: message,
+    images: images,
+  );
 
   @override
-  Future<void> close() async {
-    try {
-      await _chat.close();
-    } finally {
-      _hold.release();
-    }
-  }
+  Future<void> close() => _session.close();
 }
 
 /// El mensaje que de verdad se le manda al modelo: la pregunta o el pedido

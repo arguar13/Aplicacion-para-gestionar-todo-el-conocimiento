@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -57,6 +59,54 @@ void main() {
   /// texto o tooltip que un elemento del propio panel.
   Finder inDrawer(Finder matching) =>
       find.descendant(of: find.byType(Drawer), matching: matching);
+
+  group('la pantalla a la vista retiene el modelo para la charla (F27)', () {
+    testWidgets('lo dice mientras se ve, deja de decirlo si otra pantalla la '
+        'tapa o la app pasa a segundo plano, y al cerrarse', (tester) async {
+      await pumpChat(tester);
+      final gate = harness.container.read(languageModelGateProvider);
+      expect(gate.chatVisible, isTrue);
+
+      final navigator = tester.state<NavigatorState>(
+        find.byType(Navigator).last,
+      );
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const Text('Encima')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(gate.chatVisible, isFalse);
+
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(gate.chatVisible, isTrue);
+
+      // Como lo hace el sistema: de a un paso.
+      Future<void> go(List<AppLifecycleState> states) async {
+        for (final state in states) {
+          tester.binding.handleAppLifecycleStateChanged(state);
+        }
+        await tester.pump();
+      }
+
+      await go(const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+      ]);
+      expect(gate.chatVisible, isFalse);
+      await go(const [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]);
+      expect(gate.chatVisible, isTrue);
+
+      await tester.pumpWidget(harness.wrap(const SizedBox()));
+      expect(gate.chatVisible, isFalse);
+    });
+  });
 
   group('modo con mi bóveda (por defecto)', () {
     testWidgets('arranca en este modo, con su explicación propia', (

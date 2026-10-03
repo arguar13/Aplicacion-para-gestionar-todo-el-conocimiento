@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,7 @@ import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -113,14 +115,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ChatConversationMode.free => _freeConversationId,
   };
 
+  /// El turno del modelo, al que la pantalla le avisa si está a la vista
+  /// (F27): mientras lo esté, una charla abierta no suelta el modelo.
+  late final LanguageModelGate _gate;
+  late final AppLifecycleListener _lifecycle;
+
+  /// Si la ruta del chat se ve: el `Navigator` apaga el `TickerMode` de las
+  /// pantallas tapadas por otra.
+  ValueListenable<TickerModeData>? _routeVisible;
+
   @override
   void initState() {
     super.initState();
+    _gate = ref.read(languageModelGateProvider);
+    _lifecycle = AppLifecycleListener(onStateChange: (_) => _tellPresence());
     _refreshModelStatus();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = TickerMode.getValuesNotifier(context);
+    if (visible != _routeVisible) {
+      _routeVisible?.removeListener(_tellPresence);
+      _routeVisible = visible..addListener(_tellPresence);
+    }
+    _tellPresence();
+  }
+
+  /// Le dice al turno del modelo si el chat está a la vista: la ruta sin
+  /// otra encima y la app en primer plano. Con la pantalla apagada, o en
+  /// otra pantalla, una charla sin mensajes suelta el modelo pasado
+  /// `kChatIdleRelease`, y la cola de la IA sigue.
+  void _tellPresence() {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _gate.chatVisible =
+        mounted &&
+        (_routeVisible?.value.enabled ?? false) &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+  }
+
+  @override
   void dispose() {
+    _routeVisible?.removeListener(_tellPresence);
+    _lifecycle.dispose();
+    _gate.chatVisible = false;
     _controller.dispose();
     _scrollController.dispose();
     unawaited(_conversation?.close());
