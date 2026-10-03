@@ -102,4 +102,31 @@ void main() {
       emitsError(isA<EmbeddingModelDownloadFailed>()),
     );
   });
+
+  test('baja el modelo y el tokenizador del repositorio cuya licencia pide '
+      'aceptar la pantalla, no del que trae fijo el paquete', () async {
+    final urls = <String>[];
+    when(
+      () => downloader.download(
+        url: any(named: 'url'),
+        fileName: any(named: 'fileName'),
+        token: any(named: 'token'),
+        expectedSizeBytes: any(named: 'expectedSizeBytes'),
+      ),
+    ).thenAnswer((invocation) {
+      urls.add(invocation.namedArguments[#url] as String);
+      return Stream.fromIterable([1.0]);
+    });
+
+    // Lo que sigue a las dos bajadas es instalar con el plugin real, que acá
+    // no corre: alcanza con escuchar hasta que se pidieron las dos.
+    final subscription = manager.download().listen((_) {}, onError: (_) {});
+    await pumpEventQueue();
+    await subscription.cancel();
+
+    expect(urls, [
+      'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+      'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
+    ]);
+  });
 }

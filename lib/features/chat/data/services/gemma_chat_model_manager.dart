@@ -24,20 +24,23 @@ class _ModelSpec {
   const _ModelSpec({
     required this.modelType,
     required this.repo,
-    this.file,
+    required this.file,
     this.nameContains,
   });
 
   final ModelType modelType;
   final String repo;
 
-  /// `null` cuando el repositorio publica un manifiesto de despliegue y
-  /// conviene resolver la variante exacta con `FlutterGemma.
-  /// resolveHuggingFace` —ver el comentario de Gemma 4 en `_specs`—. Cuando
-  /// el repositorio expone un único archivo fijo sin manifiesto —como el de
-  /// Gemma 3n— va nombrado acá, porque no hay ningún manifiesto que
-  /// resolver.
-  final String? file;
+  /// El archivo exacto a bajar del repositorio.
+  ///
+  /// Antes, para Gemma 4, se dejaba en blanco y se le pedía a
+  /// `FlutterGemma.resolveHuggingFace` que eligiera la variante leyendo el
+  /// `litertlm_manifest.json` del repositorio. Ninguno de los dos
+  /// repositorios de Gemma 4 publica ese archivo (comprobado el 2026-10-03),
+  /// así que la resolución terminaba en un 404 y la pantalla decía
+  /// «comprobá tu conexión» en cualquier teléfono. Nombrarlo es la única
+  /// forma de que la descarga no dependa de un archivo que no está.
+  final String file;
 
   final String? nameContains;
 }
@@ -46,6 +49,10 @@ const _specs = {
   ChatModelOption.gemma4E4b: _ModelSpec(
     modelType: ModelType.gemma4,
     repo: 'litert-community/gemma-4-E4B-it-litert-lm',
+    // El general —3,7 GB—, el que el propio repositorio mide en Android con
+    // el procesador y con la GPU. Las variantes `-gpu` y `-web` son para
+    // escritorio y para el navegador.
+    file: 'gemma-4-E4B-it.litertlm',
     // Ahora que `ModelType.gemma4` también es de Gemma 4 12B (ver más
     // abajo), hace falta el mismo desambiguador por nombre de archivo que
     // ya usaba Gemma 3n E4B.
@@ -60,6 +67,8 @@ const _specs = {
   ChatModelOption.gemma412b: _ModelSpec(
     modelType: ModelType.gemma4,
     repo: 'litert-community/gemma-4-12B-it-litert-lm',
+    // Ídem: el general, 6,9 GB.
+    file: 'gemma-4-12B-it.litertlm',
     nameContains: '12b',
   ),
 };
@@ -73,11 +82,9 @@ const _specs = {
 /// que una conexión que no llegue a bajarlos enteros en esos 9 minutos
 /// nunca termina, sin importar cuántas veces se reintente.
 ///
-/// Lo único que sigue viniendo de `flutter_gemma` es **resolver** qué
-/// archivo exacto le corresponde a este dispositivo —`resolveHuggingFace`,
-/// para las dos opciones que publican un manifiesto— e **instalarlo** una
-/// vez que ya está entero en el disco, con `fromFile`. La parte que de
-/// verdad necesitaba ser propia era la descarga en sí.
+/// Lo único que sigue viniendo de `flutter_gemma` es **instalarlo** una vez
+/// que ya está entero en el disco, con `fromFile`. Qué archivo bajar lo dice
+/// [_ModelSpec.file].
 class GemmaChatModelManager implements domain.ChatModelManager {
   const GemmaChatModelManager({required this.option, required this.downloader});
 
@@ -128,13 +135,11 @@ class GemmaChatModelManager implements domain.ChatModelManager {
   ) async {
     try {
       final spec = _spec;
-      final resolved = await _resolve(spec, token);
-
+      // El tamaño no se sabe de antemano: lo dice el servidor al empezar.
       final progress = downloader.download(
-        url: resolved.url,
+        url: downloadUrlOf(option),
         fileName: '${option.name}.litertlm',
         token: token,
-        expectedSizeBytes: resolved.sizeBytes,
       );
 
       await for (final value in progress) {
@@ -160,35 +165,13 @@ class GemmaChatModelManager implements domain.ChatModelManager {
     }
   }
 
-  /// La URL exacta a bajar, y —cuando se sabe de antemano— su tamaño.
-  ///
-  /// Con [_ModelSpec.file] puesto no hay ningún manifiesto que resolver: la
-  /// URL sale de armar la ruta a mano, igual que lo haría `flutter_gemma`
-  /// puesto a resolver un archivo explícito. Sin él, hace falta
-  /// `resolveHuggingFace` para saber qué variante le corresponde a este
-  /// dispositivo.
-  Future<({String url, int? sizeBytes})> _resolve(
-    _ModelSpec spec,
-    String? token,
-  ) async {
-    final explicitFile = spec.file;
-    if (explicitFile != null) {
-      final encodedPath = explicitFile
-          .split('/')
-          .map(Uri.encodeComponent)
-          .join('/');
-      return (
-        url: 'https://huggingface.co/${spec.repo}/resolve/main/$encodedPath',
-        sizeBytes: null,
-      );
-    }
-
-    final resolved = await FlutterGemma.resolveHuggingFace(
-      spec.repo,
-      fileType: ModelFileType.litertlm,
-      token: token,
-    );
-    return (url: resolved.url, sizeBytes: resolved.sizeBytes);
+  /// La dirección que baja [option]: la ruta del archivo dentro de su
+  /// repositorio, armada a mano —lo mismo que haría `flutter_gemma` con un
+  /// archivo explícito—.
+  static String downloadUrlOf(ChatModelOption option) {
+    final spec = _specs[option]!;
+    final encodedPath = spec.file.split('/').map(Uri.encodeComponent).join('/');
+    return 'https://huggingface.co/${spec.repo}/resolve/main/$encodedPath';
   }
 
   /// Traduce lo que salga mal —resolviendo el manifiesto, bajando el
