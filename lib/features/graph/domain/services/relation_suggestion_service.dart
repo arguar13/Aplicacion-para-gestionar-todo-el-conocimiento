@@ -1,3 +1,4 @@
+import 'package:sinapsis/core/domain/entities/ai_certainty.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 
 /// Un candidato a vincular con el elemento semilla: lo mínimo que necesita
@@ -25,11 +26,17 @@ class RelationSuggestion {
     required this.itemId,
     required this.kind,
     required this.reason,
+    this.certainty,
   });
 
   final String itemId;
   final RelationKind kind;
   final String reason;
+
+  /// Qué tan seguro dijo estar el modelo (F27); `null` si no lo dijo. La IA
+  /// que vincula sola la combina con el parecido de los embeddings para
+  /// decidir qué aplica y qué deja para revisar.
+  final AiCertainty? certainty;
 }
 
 /// Propone vínculos entre un elemento semilla y una lista de candidatos,

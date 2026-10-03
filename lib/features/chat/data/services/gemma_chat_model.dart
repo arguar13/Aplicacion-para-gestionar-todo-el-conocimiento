@@ -66,9 +66,11 @@ const _relationSuggestionSystemInstruction =
     'semilla, basándote ÚNICAMENTE en los títulos y fragmentos que se te '
     'dan. Para cada elemento relacionado, respondé UNA línea con este '
     'formato exacto, sin Markdown ni numeración propia:\n'
-    'SUGERENCIA: <número> | <clave> | <motivo breve>\n'
-    'donde <número> es el número de la lista y <clave> es exactamente una '
-    'de estas palabras: relacionado, continua, contradice, cita, resume. '
+    'SUGERENCIA: <número> | <clave> | <certeza> | <motivo breve>\n'
+    'donde <número> es el número de la lista, <clave> es exactamente una '
+    'de estas palabras: relacionado, continua, contradice, cita, resume, y '
+    '<certeza> es alta si los fragmentos muestran el vínculo con claridad o '
+    'media si es probable pero no seguro. '
     'Si ningún elemento está relacionado, no respondas ninguna línea '
     'SUGERENCIA. No respondas nada más aparte de esas líneas.';
 
@@ -441,6 +443,7 @@ class GemmaChatModel
               itemId: candidates[line.candidateIndex].itemId,
               kind: line.kind,
               reason: line.reason,
+              certainty: line.certainty,
             ),
           );
         }

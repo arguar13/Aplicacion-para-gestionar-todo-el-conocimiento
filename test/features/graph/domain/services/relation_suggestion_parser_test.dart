@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/ai_certainty.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 
@@ -13,8 +14,40 @@ void main() {
         candidateIndex: 1,
         kind: RelationKind.relatedTo,
         reason: 'Hablan del mismo tema',
+        certainty: null,
       ),
     ]);
+  });
+
+  test(
+    'lee la certeza que dice el modelo, entre la clave y el motivo (F27)',
+    () {
+      final result = parseRelationSuggestions('''
+SUGERENCIA: 1 | relacionado | alta | Los dos hablan del Senado
+SUGERENCIA: 2 | cita | Media | Lo menciona de pasada
+SUGERENCIA: 3 | resume | baja | Puede ser un resumen
+''');
+
+      expect(result.map((r) => r.certainty), [
+        AiCertainty.high,
+        AiCertainty.medium,
+        AiCertainty.low,
+      ]);
+      expect(result.map((r) => r.reason), [
+        'Los dos hablan del Senado',
+        'Lo menciona de pasada',
+        'Puede ser un resumen',
+      ]);
+    },
+  );
+
+  test('una barra dentro del motivo no se toma por certeza', () {
+    final result = parseRelationSuggestions(
+      'SUGERENCIA: 1 | relacionado | Roma | el Senado y sus leyes',
+    );
+
+    expect(result.single.certainty, isNull);
+    expect(result.single.reason, 'Roma | el Senado y sus leyes');
   });
 
   test('interpreta varias líneas, cada una con su tipo', () {
