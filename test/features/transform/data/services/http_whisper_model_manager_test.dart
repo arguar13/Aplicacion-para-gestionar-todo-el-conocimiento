@@ -4,11 +4,10 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/whisper_model_spec.dart';
 
-class MockDio extends Mock implements Dio {}
+import '../../../../support/fake_file_server.dart';
 
 /// Lo que "publica el servidor" para cada archivo del modelo de prueba.
 const _contents = {
@@ -17,6 +16,8 @@ const _contents = {
   'tokens.txt': 'las fichas',
 };
 
+const _baseUrl = 'https://modelos.test/fijado';
+
 WhisperModelFile _file(String name) => WhisperModelFile(
   name,
   bytes: utf8.encode(_contents[name]!).length,
@@ -24,7 +25,7 @@ WhisperModelFile _file(String name) => WhisperModelFile(
 );
 
 final _spec = WhisperModelSpec(
-  baseUrl: 'https://modelos.test/fijado',
+  baseUrl: _baseUrl,
   folder: 'nuevo',
   encoder: _file('encoder.onnx'),
   decoder: _file('decoder.onnx'),
@@ -33,52 +34,45 @@ final _spec = WhisperModelSpec(
 );
 
 void main() {
-  late MockDio dio;
+  late FakeFileServer server;
   late Directory tempDir;
   late HttpWhisperModelManager manager;
 
+  /// El servidor sirve cada archivo con [serve] (por defecto, el contenido
+  /// verificado).
+  void serveFiles([String Function(String name)? serve]) {
+    server.files
+      ..clear()
+      ..addAll({
+        for (final name in _contents.keys)
+          '$_baseUrl/$name': utf8.encode(serve?.call(name) ?? _contents[name]!),
+      });
+  }
+
   setUp(() {
-    dio = MockDio();
+    server = FakeFileServer({});
     tempDir = Directory.systemTemp.createTempSync('sinapsis_whisper_');
     manager = HttpWhisperModelManager(
-      dio: dio,
+      dio: Dio()..httpClientAdapter = server,
       rootDirectory: () async => tempDir,
       spec: _spec,
+      retryDelay: (_) => Duration.zero,
     );
   });
 
-  tearDown(() => tempDir.deleteSync(recursive: true));
+  tearDown(() {
+    server.close();
+    tempDir.deleteSync(recursive: true);
+  });
 
   Directory modelDir(String folder) => Directory(
     '${tempDir.path}${Platform.pathSeparator}modelos'
     '${Platform.pathSeparator}$folder',
   );
 
-  /// El servidor contesta cada archivo con [serve] (por defecto, el
-  /// contenido verificado).
-  void serveFiles([String Function(String name)? serve]) {
-    when(
-      () => dio.download(
-        any<String>(),
-        any<dynamic>(),
-        onReceiveProgress: any(named: 'onReceiveProgress'),
-      ),
-    ).thenAnswer((invocation) async {
-      final url = invocation.positionalArguments[0] as String;
-      final name = url.split('/').last;
-      final path = invocation.positionalArguments[1] as String;
-      File(path).writeAsStringSync(serve?.call(name) ?? _contents[name]!);
-      return Response(requestOptions: RequestOptions());
-    });
-  }
-
-  List<String> requestedUrls() => verify(
-    () => dio.download(
-      captureAny<String>(),
-      any<dynamic>(),
-      onReceiveProgress: any(named: 'onReceiveProgress'),
-    ),
-  ).captured.cast<String>();
+  List<String> requestedUrls() => [
+    for (final request in server.requests) request.uri.toString(),
+  ];
 
   test('baja los tres archivos de la versión fijada y queda listo', () async {
     serveFiles();
@@ -99,7 +93,7 @@ void main() {
           .map((c) => utf8.encode(c).length)
           .reduce((a, b) => a + b),
     );
-    verifyNever(() => dio.head<void>(any()));
+    expect(server.requests, isEmpty);
   });
 
   test('un archivo que llega distinto de lo verificado se descarta: la '
@@ -172,48 +166,67 @@ void main() {
     expect(requested.any((url) => url.endsWith('encoder.onnx')), isFalse);
   });
 
-  test(
-    'un corte transitorio se reintenta solo, sin avisar de ningún error',
-    () async {
-      var attempts = 0;
-      when(
-        () => dio.download(
-          any<String>(),
-          any<dynamic>(),
-          onReceiveProgress: any(named: 'onReceiveProgress'),
-        ),
-      ).thenAnswer((invocation) async {
-        attempts++;
-        // Los dos primeros intentos de cada archivo fallan; el tercero pasa.
-        if (attempts % 3 != 0) {
-          throw DioException(requestOptions: RequestOptions());
-        }
-        final name = (invocation.positionalArguments[0] as String)
-            .split('/')
-            .last;
-        final path = invocation.positionalArguments[1] as String;
-        File(path).writeAsStringSync(_contents[name]!);
-        return Response(requestOptions: RequestOptions());
-      });
+  test('un corte transitorio se reintenta solo, sin avisar de ningún '
+      'error', () async {
+    serveFiles();
+    server.misbehaviors.addAll([
+      const Misbehavior.status(503),
+      const Misbehavior.status(503),
+    ]);
 
-      final errors = <Object>[];
-      await manager.download().handleError(errors.add).drain<void>();
+    final errors = <Object>[];
+    await manager.download().handleError(errors.add).drain<void>();
 
-      expect(errors, isEmpty);
-      expect(await manager.isReady(), isTrue);
-    },
-  );
+    expect(errors, isEmpty);
+    expect(await manager.isReady(), isTrue);
+  });
+
+  test('un archivo cortado a mitad se retoma desde donde quedó, no desde '
+      'cero', () async {
+    serveFiles();
+    server.misbehaviors.add(const Misbehavior.cut(6));
+
+    await manager.download().drain<void>();
+
+    expect(await manager.isReady(), isTrue);
+    expect(server.ranges.take(2), [null, 'bytes=6-']);
+  });
+
+  test('lo que quedó a medias de una sesión anterior se retoma por '
+      'rango', () async {
+    serveFiles();
+    final dir = modelDir('nuevo')..createSync(recursive: true);
+    File(
+      '${dir.path}${Platform.pathSeparator}.encoder.onnx.descargando',
+    ).writeAsStringSync(_contents['encoder.onnx']!.substring(0, 4));
+
+    await manager.download().drain<void>();
+
+    expect(await manager.isReady(), isTrue);
+    expect(server.ranges.first, 'bytes=4-');
+  });
+
+  test('lo que quedó a medias y se completa con bytes que no son los '
+      'verificados se descarta: la huella lo delata', () async {
+    serveFiles();
+    final dir = modelDir('nuevo')..createSync(recursive: true);
+    File(
+      '${dir.path}${Platform.pathSeparator}.encoder.onnx.descargando',
+    ).writeAsStringSync('XXXX');
+
+    await expectLater(
+      manager.download(),
+      emitsThrough(emitsError(isA<WhisperModelIntegrityException>())),
+    );
+    final left = dir.listSync().map((e) => e.uri.pathSegments.last);
+    expect(left.where((n) => n.contains('encoder')), isEmpty);
+  });
 
   test(
     'agotados los reintentos de un archivo, el error llega al stream',
     () async {
-      when(
-        () => dio.download(
-          any<String>(),
-          any<dynamic>(),
-          onReceiveProgress: any(named: 'onReceiveProgress'),
-        ),
-      ).thenThrow(DioException(requestOptions: RequestOptions()));
+      serveFiles();
+      server.misbehaviors.addAll(List.filled(8, const Misbehavior.status(500)));
 
       await expectLater(
         manager.download(),
