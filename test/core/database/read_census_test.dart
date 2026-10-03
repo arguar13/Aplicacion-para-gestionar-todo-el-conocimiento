@@ -62,6 +62,11 @@ void main() {
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de colgarle una pasada de la IA o lo que «no era» (F27): lo de un '
         'elemento borrado se conserva para cuando se restaure',
+    'lib/features/ai_organize/data/repositories/ai_field_ledger.dart':
+        'lee el tema de UN elemento por su clave para ponérselo o devolverlo '
+        'a como estaba cuando se deshace la pasada de la IA (F27): vivo o en '
+        'la papelera, deshacer deja el dato como estaba; no lista ni muestra '
+        'nada',
     'lib/features/vault/data/merge/vocabulary_merge.dart':
         'solo comprueba que el elemento exista —vivo o en la papelera— antes '
         'de asignarle un valor: la asignación de un elemento borrado se '

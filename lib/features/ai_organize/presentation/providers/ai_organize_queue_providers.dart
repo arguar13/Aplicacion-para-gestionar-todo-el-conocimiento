@@ -71,6 +71,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
     AutoReferenceStep(
       files: ref.watch(fileStoreProvider),
       suggestions: suggestions,
+      runs: runs,
     ),
     AutoPropertiesStep(
       database: ref.watch(appDatabaseProvider),
@@ -79,11 +80,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       suggestions: suggestions,
       runs: runs,
     ),
-    AutoSpaceStep(
-      chooser: model.chooseSpace,
-      organize: organize,
-      library: ref.watch(libraryRepositoryProvider),
-    ),
+    AutoSpaceStep(chooser: model.chooseSpace, organize: organize, runs: runs),
     AutoRelateStep(
       database: ref.watch(appDatabaseProvider),
       ids: ref.watch(idGeneratorProvider),

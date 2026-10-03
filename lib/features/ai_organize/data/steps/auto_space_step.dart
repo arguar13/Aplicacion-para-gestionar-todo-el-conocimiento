@@ -1,9 +1,9 @@
 import 'package:sinapsis/core/domain/entities/ai_certainty.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
-import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 
 /// Cuánto del elemento ve el modelo para elegir su tema: el título y el
@@ -18,22 +18,21 @@ const kSpaceExcerptChars = 600;
 /// vista, y no hay dónde dejar un tema «para revisar» —las sugerencias no
 /// tienen esa forma—, así que lo dudoso no se aplica.
 ///
-/// Lo que no hace: quedar en la pasada. `ai_runs` cuenta vínculos, tarjetas y
-/// propiedades; el espacio es una columna del elemento, sin origen ni
-/// pasada, y registrarlo pide cambiar el esquema (v35). Por eso deshacer la
-/// pasada no lo saca; se cambia a mano, con un toque, como siempre.
+/// Queda en la pasada (`AiRunRepository.applySpace`, v35): deshacerla saca
+/// al elemento del tema, si sigue en el que puso la IA. Si la persona lo
+/// movió después, ya es suyo.
 class AutoSpaceStep implements AiOrganizeStep {
   const AutoSpaceStep({
     required SpaceChooser chooser,
     required OrganizeRepository organize,
-    required LibraryRepository library,
+    required AiRunRepository runs,
   }) : _chooser = chooser,
        _organize = organize,
-       _library = library;
+       _runs = runs;
 
   final SpaceChooser _chooser;
   final OrganizeRepository _organize;
-  final LibraryRepository _library;
+  final AiRunRepository _runs;
 
   @override
   AiOrganizeToggle get toggle => AiOrganizeToggle.space;
@@ -59,17 +58,13 @@ class AutoSpaceStep implements AiOrganizeStep {
       return AiStepReport.nothing;
     }
 
-    // El modelo tarda: la persona pudo elegirle un tema mientras tanto.
-    final current = (await _library.findById(
-      item.id,
-    )).orThrowStep('releer el elemento');
-    if (current == null || current.spaceId != null) {
-      return AiStepReport.nothing;
-    }
-    (await _library.assignSpace(
+    // El modelo tarda: la persona pudo elegirle un tema mientras tanto. Lo
+    // mira `applySpace`, en la misma transacción en que se lo pone.
+    final placed = (await _runs.applySpace(
+      runId: runId,
       itemId: item.id,
       spaceId: spaces[choice.index].id,
     )).orThrowStep('ponerle el tema');
-    return const AiStepReport(applied: 1);
+    return placed ? const AiStepReport(applied: 1) : AiStepReport.nothing;
   }
 }

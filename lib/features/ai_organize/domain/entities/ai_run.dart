@@ -2,18 +2,27 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'ai_run.freezed.dart';
 
-/// Cuánto de cada cosa (F27): vínculos, tarjetas y propiedades.
+/// Cuánto de cada cosa (F27): vínculos, tarjetas, propiedades, el tema de la
+/// biblioteca y los datos de la referencia.
 @freezed
 sealed class AiRunTally with _$AiRunTally {
   const factory AiRunTally({
     @Default(0) int relations,
     @Default(0) int flashcards,
     @Default(0) int properties,
+
+    /// El tema de la biblioteca —el espacio— que puso: 0 o 1 por pasada.
+    @Default(0) int spaces,
+
+    /// Los datos de la referencia que completó: autor, editorial, año…, de a
+    /// uno.
+    @Default(0) int referenceFields,
   }) = _AiRunTally;
 
   const AiRunTally._();
 
-  int get total => relations + flashcards + properties;
+  int get total =>
+      relations + flashcards + properties + spaces + referenceFields;
 
   bool get isEmpty => total == 0;
 
@@ -21,6 +30,8 @@ sealed class AiRunTally with _$AiRunTally {
     relations: relations + other.relations,
     flashcards: flashcards + other.flashcards,
     properties: properties + other.properties,
+    spaces: spaces + other.spaces,
+    referenceFields: referenceFields + other.referenceFields,
   );
 }
 

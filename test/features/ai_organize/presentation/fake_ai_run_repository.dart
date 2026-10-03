@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -91,8 +92,25 @@ class FakeAiRunRepository implements AiRunRepository {
   }
 
   @override
-  Future<Either<Failure, String>> startRun(String itemId, {String? model}) =>
-      throw UnimplementedError('Las pantallas no abren pasadas.');
+  Future<Either<Failure, String>> startRun(
+    String itemId, {
+    String? model,
+    String? contentSimhash,
+  }) => throw UnimplementedError('Las pantallas no abren pasadas.');
+
+  @override
+  Future<Either<Failure, bool>> applySpace({
+    required String runId,
+    required String itemId,
+    required String spaceId,
+  }) => throw UnimplementedError('Lo hace la cola, no las pantallas.');
+
+  @override
+  Future<Either<Failure, int>> completeReference({
+    required String runId,
+    required String itemId,
+    required ExtractedMetadata extracted,
+  }) => throw UnimplementedError('Lo hace la cola, no las pantallas.');
 
   @override
   Future<Either<Failure, AiRunTally>> finishRun(String runId) =>

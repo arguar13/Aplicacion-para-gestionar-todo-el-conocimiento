@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
@@ -13,6 +14,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 
@@ -32,10 +34,14 @@ class AiRunRepositoryImpl implements AiRunRepository {
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// El tema y los datos de la referencia de cada pasada (v35).
+  AiFieldLedger get _fields => AiFieldLedger(_db, ids: _ids, clock: _clock);
+
   @override
   Future<Either<Failure, String>> startRun(
     String itemId, {
     String? model,
+    String? contentSimhash,
   }) async {
     try {
       final id = _ids.next();
@@ -47,6 +53,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
               itemId: itemId,
               model: Value(model),
               startedAt: _clock(),
+              contentSimhash: Value(contentSimhash),
             ),
           );
       return right(id);
@@ -58,10 +65,62 @@ class AiRunRepositoryImpl implements AiRunRepository {
   }
 
   @override
+  Future<Either<Failure, bool>> applySpace({
+    required String runId,
+    required String itemId,
+    required String spaceId,
+  }) async {
+    try {
+      // Mirar si ya tiene tema y ponérselo, en la misma transacción: la
+      // persona pudo elegirle uno mientras el modelo pensaba.
+      return right(
+        await _db.transaction(
+          () => _fields.applySpace(
+            runId: runId,
+            itemId: itemId,
+            spaceId: spaceId,
+          ),
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'AiRunRepositoryImpl.applySpace'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> completeReference({
+    required String runId,
+    required String itemId,
+    required ExtractedMetadata extracted,
+  }) async {
+    try {
+      return right(
+        await _db.transaction(
+          () => _fields.completeReference(
+            runId: runId,
+            itemId: itemId,
+            extracted: extracted,
+          ),
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'AiRunRepositoryImpl.completeReference'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, AiRunTally>> finishRun(String runId) async {
     try {
       return await _db.transaction(() async {
-        final tally = await _remainingOf(runId);
+        final tally =
+            await _remainingOf(runId) +
+            ((await _fields.remaining([runId]))[runId] ?? const AiRunTally());
         final updated =
             await (_db.update(
               _db.aiRuns,
@@ -133,6 +192,12 @@ class AiRunRepositoryImpl implements AiRunRepository {
           )
           .get();
 
+      // El tema y la referencia se cuentan aparte: lo que todavía es de la IA
+      // se mira contra el valor de hoy, de a una página.
+      final runIds = [for (final row in rows) row.read<String>('id')];
+      final fieldsCreated = await _fields.created(runIds);
+      final fieldsLeft = await _fields.remaining(runIds);
+
       return right([
         for (final row in rows)
           AiRun(
@@ -143,16 +208,20 @@ class AiRunRepositoryImpl implements AiRunRepository {
             startedAt: row.read<DateTime>('started_at'),
             finishedAt: row.readNullable<DateTime>('finished_at'),
             undoneAt: row.readNullable<DateTime>('undone_at'),
-            created: AiRunTally(
-              relations: row.read<int>('relations_created'),
-              flashcards: row.read<int>('flashcards_created'),
-              properties: row.read<int>('properties_created'),
-            ),
-            remaining: AiRunTally(
-              relations: row.read<int>('relations_left'),
-              flashcards: row.read<int>('flashcards_left'),
-              properties: row.read<int>('properties_left'),
-            ),
+            created:
+                AiRunTally(
+                  relations: row.read<int>('relations_created'),
+                  flashcards: row.read<int>('flashcards_created'),
+                  properties: row.read<int>('properties_created'),
+                ) +
+                (fieldsCreated[row.read<String>('id')] ?? const AiRunTally()),
+            remaining:
+                AiRunTally(
+                  relations: row.read<int>('relations_left'),
+                  flashcards: row.read<int>('flashcards_left'),
+                  properties: row.read<int>('properties_left'),
+                ) +
+                (fieldsLeft[row.read<String>('id')] ?? const AiRunTally()),
           ),
       ]);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -296,11 +365,18 @@ class AiRunRepositoryImpl implements AiRunRepository {
     }
   }
 
-  /// Borra lo que de [run] sigue siendo de la IA y la marca deshecha. Corre
-  /// dentro de la transacción de quien llama: o se va todo, o nada.
+  /// Borra lo que de [run] sigue siendo de la IA, devuelve el tema y la
+  /// referencia a como estaban y la marca deshecha. Corre dentro de la
+  /// transacción de quien llama: o se va todo, o nada.
   ///
-  /// Las opciones y los repasos de una tarjeta se van con ella en cascada.
+  /// Las opciones y los repasos de una tarjeta se van con ella en cascada. El
+  /// tema y la referencia, solo la primera vez: una pasada ya deshecha no
+  /// tiene nada suyo, y si hoy el elemento tiene el mismo valor es porque
+  /// alguien lo volvió a poner.
   Future<AiRunTally> _undo(AiRunRow run) async {
+    final fields = run.undoneAt == null
+        ? await _fields.undo(run.id)
+        : const AiRunTally();
     final relations =
         await (_db.delete(_db.relations)..where(
               (r) =>
@@ -332,10 +408,11 @@ class AiRunRepositoryImpl implements AiRunRepository {
       );
     }
     return AiRunTally(
-      relations: relations,
-      flashcards: flashcards,
-      properties: properties,
-    );
+          relations: relations,
+          flashcards: flashcards,
+          properties: properties,
+        ) +
+        fields;
   }
 
   /// Lo que de [runId] sigue siendo de la IA, contado ahora.

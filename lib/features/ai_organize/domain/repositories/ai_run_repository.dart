@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -6,18 +7,46 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 /// Lo que la IA hizo sola y lo que no tiene que volver a hacer (F27).
 ///
 /// Una pasada se abre con [startRun] antes de aplicar nada; cada vínculo,
-/// tarjeta o propiedad que la IA crea lleva su id (`AiProvenance`), y por eso
-/// se puede deshacer entera ([undoRun]) o todo lo de un elemento
-/// ([undoItem]). Deshacer se lleva solo lo que sigue siendo de la IA: lo que
-/// la persona editó ya es suyo y no se toca.
+/// tarjeta o propiedad que la IA crea lleva su id (`AiProvenance`), y el tema
+/// y los datos de la referencia que completa quedan anotados con ella
+/// ([applySpace], [completeReference]). Por eso se puede deshacer entera
+/// ([undoRun]) o todo lo de un elemento ([undoItem]). Deshacer se lleva solo
+/// lo que sigue siendo de la IA: lo que la persona editó ya es suyo y no se
+/// toca.
 ///
 /// La memoria de lo que «no era» la escriben los repositorios que borran
 /// —`OrganizeRepository.rejectAiRelation`, `FlashcardRepository.
 /// rejectAiFlashcard`…—; acá se consulta antes de proponer nada.
 abstract interface class AiRunRepository {
   /// Abre una pasada de la IA sobre [itemId] y devuelve su id. [model] es el
-  /// modelo que trabaja, si se sabe.
-  Future<Either<Failure, String>> startRun(String itemId, {String? model});
+  /// modelo que trabaja, si se sabe; [contentSimhash], la huella del texto que
+  /// la pasada va a ver (`simhashOf`), con la que después se sabe si cambió.
+  Future<Either<Failure, String>> startRun(
+    String itemId, {
+    String? model,
+    String? contentSimhash,
+  });
+
+  /// Pone a [itemId] en el tema [spaceId] dentro de la pasada [runId], si
+  /// todavía no tiene ninguno —lo que eligió la persona, también mientras el
+  /// modelo pensaba, no se toca—. Devuelve si lo puso. Deshacer la pasada lo
+  /// saca, si sigue en ese tema.
+  Future<Either<Failure, bool>> applySpace({
+    required String runId,
+    required String itemId,
+    required String spaceId,
+  });
+
+  /// Completa, dentro de la pasada [runId], **solo los datos vacíos** de la
+  /// referencia de [itemId] con [extracted] —nunca pisa lo que escribió la
+  /// persona— y da por aceptada la sugerencia de datos que estuviera
+  /// pendiente. Devuelve cuántos datos completó. Deshacer la pasada vacía de
+  /// nuevo los que siguen con lo que puso la IA.
+  Future<Either<Failure, int>> completeReference({
+    required String runId,
+    required String itemId,
+    required ExtractedMetadata extracted,
+  });
 
   /// Cierra la pasada [runId]: cuenta lo que creó —lo que lleva su id y sigue
   /// siendo de la IA— y lo deja como su historia. Devuelve esa cuenta.
@@ -34,9 +63,10 @@ abstract interface class AiRunRepository {
   });
 
   /// Deshace la pasada [runId]: borra, en una sola transacción, todo lo que
-  /// lleva su id y sigue siendo de la IA, y la marca como deshecha. Lo que la
-  /// persona adoptó queda. Devuelve cuánto se borró; deshacer dos veces no
-  /// borra nada la segunda.
+  /// lleva su id y sigue siendo de la IA, devuelve el tema y los datos de la
+  /// referencia que completó a como estaban —si siguen con lo que puso la
+  /// IA—, y la marca como deshecha. Lo que la persona adoptó o cambió queda.
+  /// Devuelve cuánto se deshizo; deshacer dos veces no toca nada la segunda.
   ///
   /// Deshacer no es «no era»: no recuerda nada, porque la persona no dijo que
   /// esté mal, dijo que no lo quiere ahora. La pasada deshecha queda, y es la
