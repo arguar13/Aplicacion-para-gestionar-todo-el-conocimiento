@@ -5,6 +5,7 @@ import 'package:sinapsis/features/dev_seed/domain/entities/sample_library_progre
 import 'package:sinapsis/features/dev_seed/domain/entities/sample_resource.dart';
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_state.dart';
+import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_confirmation.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La fila de Ajustes que carga la biblioteca de ejemplo (solo en dev y
@@ -102,9 +103,13 @@ class _IdleTile extends ConsumerWidget {
       ),
       SampleLibraryFailed(:final message) => l10n.sampleLibraryFailed(message),
       _ when pending.isEmpty => l10n.sampleLibraryAllLoaded(total),
+      // Solo quedan notas, que se escriben en el teléfono: no hay nada que
+      // bajar, y «unos 0 B» no le dice nada a nadie.
+      _ when sampleLibraryBytes(pending) == 0 =>
+        l10n.sampleLibrarySubtitleNothingToDownload(pending.length),
       _ => l10n.sampleLibrarySubtitle(
         pending.length,
-        formatFileSize(_bytes(pending), l10n.localeName),
+        formatFileSize(sampleLibraryBytes(pending), l10n.localeName),
       ),
     };
 
@@ -132,20 +137,12 @@ class _IdleTile extends ConsumerWidget {
     List<SampleResource> pending,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final files = pending.whereType<SampleFile>();
-    final links = pending.whereType<SampleLink>();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.sampleLibraryConfirmTitle),
-        content: Text(
-          l10n.sampleLibraryConfirmBody(
-            pending.length,
-            formatFileSize(_bytes(files), l10n.localeName),
-            formatFileSize(_bytes(links), l10n.localeName),
-          ),
-        ),
+        content: Text(sampleLibraryConfirmSentences(l10n, pending).join(' ')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -163,9 +160,6 @@ class _IdleTile extends ConsumerWidget {
     // Sin esperar: la carga sigue aunque se salga de Ajustes.
     ref.read(sampleLibraryProvider.notifier).start().ignore();
   }
-
-  static int _bytes(Iterable<SampleResource> resources) =>
-      resources.fold(0, (sum, resource) => sum + resource.approxBytes);
 }
 
 /// Cuánto va, con una barra: «23 de 80 · tanda 3 de 8» y lo que se está

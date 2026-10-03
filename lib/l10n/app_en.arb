@@ -6453,7 +6453,7 @@
   "@sampleLibraryTitle": {
     "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: el título de la fila en Ajustes."
   },
-  "sampleLibrarySubtitle": "{count} real resources to explore the whole app · about {size}",
+  "sampleLibrarySubtitle": "{count, plural, =1{1 real resource to explore the whole app · about {size}} other{{count} real resources to explore the whole app · about {size}}}",
   "@sampleLibrarySubtitle": {
     "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: lo que falta cargar y cuánto se baja.",
     "placeholders": {
@@ -6465,7 +6465,16 @@
       }
     }
   },
-  "sampleLibraryAllLoaded": "Already fully loaded ({count} resources)",
+  "sampleLibrarySubtitleNothingToDownload": "{count, plural, =1{1 real resource to explore the whole app} other{{count} real resources to explore the whole app}}",
+  "@sampleLibrarySubtitleNothingToDownload": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: lo que falta cargar, cuando no hay nada que bajar (solo quedan notas, que se escriben en el teléfono).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryAllLoaded": "{count, plural, =1{Already fully loaded (1 resource)} other{Already fully loaded ({count} resources)}}",
   "@sampleLibraryAllLoaded": {
     "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: no queda nada por cargar.",
     "placeholders": {
@@ -6478,17 +6487,161 @@
   "@sampleLibraryConfirmTitle": {
     "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la confirmación."
   },
-  "sampleLibraryConfirmBody": "This saves {count} sample resources —articles, videos, PDFs, books, audio, images and notes— downloading about {filesSize} now, plus about {linksSize} while they are processed (the pages and the audio of the videos). They load in batches, in the background: you can keep using the app and cancel at any time.",
-  "@sampleLibraryConfirmBody": {
-    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuerpo de la confirmación, con cuánto se baja.",
+  "sampleLibraryConfirmSaves": "{count, plural, =1{This saves {kinds} from the sample library.} other{This saves {kinds} from the sample library.}}",
+  "@sampleLibraryConfirmSaves": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: primera oración de la confirmación: qué se va a guardar. {kinds} es la enumeración de lo que falta, por tipo y con cuántos de cada uno (sampleLibraryKind*, unidos con sampleLibraryListJoin); {count} es el total, para la concordancia.",
     "placeholders": {
       "count": {
         "type": "int"
       },
-      "filesSize": {
+      "kinds": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryConfirmDownloadNowAndLater": "It downloads about {now} now and, while processing, about {later} more: {laterWhat}.",
+  "@sampleLibraryConfirmDownloadNowAndLater": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: confirmación, cuánto se baja: archivos ahora, y páginas o audio de videos al procesarse. {laterWhat} es sampleLibraryLaterPages y/o sampleLibraryLaterVideoAudio.",
+    "placeholders": {
+      "now": {
         "type": "String"
       },
-      "linksSize": {
+      "later": {
+        "type": "String"
+      },
+      "laterWhat": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryConfirmDownloadNow": "It downloads about {now} now.",
+  "@sampleLibraryConfirmDownloadNow": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: confirmación, cuánto se baja, cuando solo quedan archivos (nada que bajar al procesarse).",
+    "placeholders": {
+      "now": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryConfirmDownloadLater": "While processing, it downloads about {later}: {laterWhat}.",
+  "@sampleLibraryConfirmDownloadLater": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: confirmación, cuánto se baja, cuando no quedan archivos (nada que bajar ahora). {laterWhat} es sampleLibraryLaterPages y/o sampleLibraryLaterVideoAudio.",
+    "placeholders": {
+      "later": {
+        "type": "String"
+      },
+      "laterWhat": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryConfirmBackground": "{count, plural, =1{It loads in the background: you can keep using the app and cancel at any time.} other{They load in batches, in the background: you can keep using the app and cancel at any time.}}",
+  "@sampleLibraryConfirmBackground": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: última oración de la confirmación: cómo se carga. {count} es cuántos faltan.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindArticles": "{count, plural, =1{1 article} other{{count} articles}}",
+  "@sampleLibraryKindArticles": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos páginas web faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindVideos": "{count, plural, =1{1 video} other{{count} videos}}",
+  "@sampleLibraryKindVideos": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos videos de YouTube faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindPdfs": "{count, plural, =1{1 PDF} other{{count} PDFs}}",
+  "@sampleLibraryKindPdfs": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos documentos PDF faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindBooks": "{count, plural, =1{1 book} other{{count} books}}",
+  "@sampleLibraryKindBooks": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos libros EPUB faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindTexts": "{count, plural, =1{1 text file} other{{count} text files}}",
+  "@sampleLibraryKindTexts": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos archivos de texto plano o Markdown faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindAudios": "{count, plural, =1{1 audio file} other{{count} audio files}}",
+  "@sampleLibraryKindAudios": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos archivos de audio faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindImages": "{count, plural, =1{1 image} other{{count} images}}",
+  "@sampleLibraryKindImages": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos imágenes faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryKindNotes": "{count, plural, =1{1 note} other{{count} notes}}",
+  "@sampleLibraryKindNotes": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuántos notas escritas para el ejemplo faltan, en la enumeración de la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryLaterPages": "{count, plural, =1{the page} other{the pages}}",
+  "@sampleLibraryLaterPages": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: lo que se baja al procesar las páginas web, en la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryLaterVideoAudio": "{count, plural, =1{the video's audio} other{the videos' audio}}",
+  "@sampleLibraryLaterVideoAudio": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: lo que se baja al procesar los videos, en la confirmación.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryListJoin": "{head} and {last}",
+  "@sampleLibraryListJoin": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: une el último elemento de una enumeración de la confirmación con los anteriores, que ya van separados por comas.",
+    "placeholders": {
+      "head": {
+        "type": "String"
+      },
+      "last": {
         "type": "String"
       }
     }

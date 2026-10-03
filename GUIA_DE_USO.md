@@ -1132,9 +1132,12 @@ modelo de relaciones.
   de dos horas, PDF, libros EPUB, textos, audios, imágenes con texto y notas
   enlazadas— sobre santos, la Biblia, Roma, la Edad Media, la Revolución
   francesa, filosofía y ciencia, para recorrer toda la app sin cargar nada a
-  mano. Al tocarla te dice cuánto se baja (unos 80 MB de archivos al
-  cargarlos, y unos 600 MB más mientras se procesan, casi todo el audio de
-  los videos) y, si aceptás, carga por tandas en segundo plano: podés salir
+  mano. Al tocarla te dice qué se va a guardar —solo lo que falta, por tipo
+  y cuántos de cada uno, por ejemplo «1 PDF y 1 nota»— y cuánto se baja (la
+  primera vez, unos 80 MB de archivos al cargarlos y unos 600 MB más
+  mientras se procesan, casi todo el audio de los videos; si ya no queda
+  nada por bajar, no lo menciona) y, si aceptás, carga por tandas en
+  segundo plano: podés salir
   de Ajustes y seguir usando el teléfono, con una notificación que dice
   cuántos van. La fila muestra el avance y un botón **Cancelar**. Al
   terminar avisa cuántos se cargaron y, si alguno falló, **"Ver qué falló"**

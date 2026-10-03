@@ -48,6 +48,13 @@ const _pdf = SampleFile(
   approxBytes: 3 * 1024 * 1024,
 );
 
+const _note = SampleNote(
+  id: 'nota-nicea',
+  title: 'Nicea',
+  why: 'Una nota.',
+  blocks: [],
+);
+
 const _audio = SampleFile(
   id: 'audio-apologia',
   title: 'Apología de Sócrates',
@@ -192,6 +199,26 @@ void main() {
       expect(find.text(es.sampleLibrarySubtitle(3, '10,0 MB')), findsOneWidget);
     });
 
+    testWidgets('con uno solo, en singular', (tester) async {
+      await pumpTile(tester, resources: const [_pdf]);
+
+      expect(
+        find.text('1 recurso real para explorar toda la app · unos 3,0 MB'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('si solo quedan notas, no dice que se baja nada', (
+      tester,
+    ) async {
+      await pumpTile(tester, resources: const [_note]);
+
+      expect(
+        find.text('1 recurso real para explorar toda la app'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('pide confirmación con lo que se baja, y cancelar no carga '
         'nada', (tester) async {
       await pumpTile(tester);
@@ -200,8 +227,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(es.sampleLibraryConfirmTitle), findsOneWidget);
+      // Lo que falta de verdad: un artículo, un PDF y un audio; los archivos
+      // ahora, la página al procesarse.
       expect(
-        find.text(es.sampleLibraryConfirmBody(3, '8,0 MB', '2,0 MB')),
+        find.text(
+          'Se van a guardar 1 artículo, 1 PDF y 1 audio de la biblioteca de '
+          'ejemplo. Se bajan de internet unos 8,0 MB ahora y, al procesarse, '
+          'unos 2,0 MB más: la página. Se cargan por tandas, en segundo '
+          'plano: podés seguir usando la app y cancelar cuando quieras.',
+        ),
         findsOneWidget,
       );
 
