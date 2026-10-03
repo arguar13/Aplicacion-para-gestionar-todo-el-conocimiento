@@ -4793,6 +4793,11 @@ texto ya se escucha con la voz original y se resalta solo (F23), y el lector era
 de lo mismo. Sigue ofreciéndose donde no hay qué escuchar, también en un YouTube cuyo audio no se
 pudo bajar.
 
+**Retiro (2026-10-03):** el reproductor de narración anterior (`NarrationPlayer`, el botón
+"Escuchar" de cada texto) se borró con sus 15 textos: ya no lo usaba ninguna pantalla desde que
+el lector flotante lo reemplazó. El corte en oraciones (`speech_segmentation.dart`) sigue: lo usa
+el lector.
+
 Al construirlo aparecieron dos defectos viejos de la narración, corregidos de raíz: volver a "Voz
 del sistema" no cambiaba la voz (`setVoice(null)` no hacía nada) y borraba la voz guardada pero no
 la del estado.

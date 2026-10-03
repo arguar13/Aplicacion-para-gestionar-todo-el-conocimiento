@@ -1,8 +1,8 @@
 /// Cuánto puede medir un fragmento antes de cortarse a la fuerza —ver
 /// [_hardSplit]—. Un motor de voz sintetiza de a poco de todos modos, pero
-/// `NarrationPlayer` necesita fragmentos cortos para que "retroceder" y
-/// "adelantar" (ver `TextToSpeechService`) se sientan como controles de
-/// verdad y no como saltos de varios minutos.
+/// el lector en voz alta (F25, `buildReadableSegments`) necesita pedazos
+/// cortos: cada uno es lo que se resalta y lo que se le pasa al motor de una
+/// vez.
 const _kMaxSegmentLength = 400;
 
 /// Separa oraciones seguidas de un espacio o un salto de línea. El

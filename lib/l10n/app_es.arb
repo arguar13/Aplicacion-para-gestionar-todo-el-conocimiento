@@ -3030,79 +3030,6 @@
       }
     }
   },
-  "narrationListenAction": "Escuchar",
-  "@narrationListenAction": {
-    "description": "Botón que empieza a leer el contenido en voz alta."
-  },
-  "narrationRestartTooltip": "Volver al principio",
-  "@narrationRestartTooltip": {
-    "description": "Tooltip del botón que reinicia la lectura desde el primer fragmento."
-  },
-  "narrationRewindTooltip": "Fragmento anterior",
-  "@narrationRewindTooltip": {
-    "description": "Tooltip del botón que retrocede un fragmento de la lectura."
-  },
-  "narrationPlayTooltip": "Reproducir",
-  "@narrationPlayTooltip": {
-    "description": "Tooltip del botón de reproducir, cuando la lectura está pausada."
-  },
-  "narrationPauseTooltip": "Pausar",
-  "@narrationPauseTooltip": {
-    "description": "Tooltip del botón de pausar, mientras se está leyendo."
-  },
-  "narrationForwardTooltip": "Fragmento siguiente",
-  "@narrationForwardTooltip": {
-    "description": "Tooltip del botón que adelanta un fragmento de la lectura."
-  },
-  "narrationSettingsTooltip": "Voz y velocidad",
-  "@narrationSettingsTooltip": {
-    "description": "Tooltip del botón que abre los ajustes de voz y velocidad."
-  },
-  "narrationCloseTooltip": "Cerrar el lector",
-  "@narrationCloseTooltip": {
-    "description": "Tooltip del botón que corta la lectura y cierra el reproductor."
-  },
-  "narrationProgress": "Fragmento {current} de {total}",
-  "@narrationProgress": {
-    "description": "Indicador de en qué fragmento de la lectura va.",
-    "placeholders": {
-      "current": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "narrationSettingsTitle": "Voz y velocidad",
-  "@narrationSettingsTitle": {
-    "description": "Título del panel de ajustes de la lectura en voz alta."
-  },
-  "narrationVoiceSectionTitle": "Voz",
-  "@narrationVoiceSectionTitle": {
-    "description": "Encabezado de la lista de voces disponibles."
-  },
-  "narrationSystemDefaultVoice": "Voz del sistema (por defecto)",
-  "@narrationSystemDefaultVoice": {
-    "description": "Opción para usar la voz que el sistema tenga configurada, sin elegir ninguna en particular."
-  },
-  "narrationNoVoicesAvailable": "Este dispositivo no ofrece voces adicionales: se usa la del sistema.",
-  "@narrationNoVoicesAvailable": {
-    "description": "Mensaje cuando el motor de voz no reporta ninguna voz instalada."
-  },
-  "narrationSpeedSectionTitle": "Velocidad",
-  "@narrationSpeedSectionTitle": {
-    "description": "Encabezado del control deslizante de velocidad de lectura."
-  },
-  "narrationSpeedValue": "{speed}x",
-  "@narrationSpeedValue": {
-    "description": "Valor de la velocidad de lectura, ya formateado.",
-    "placeholders": {
-      "speed": {
-        "type": "String"
-      }
-    }
-  },
   "summarizeAction": "Resumir con IA",
   "@summarizeAction": {
     "description": "Botón que pide un resumen del contenido al modelo de lenguaje."
@@ -3674,10 +3601,6 @@
   "timelineBranchFilterTooltip": "Quitar el filtro por tema",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
-  },
-  "navSettings": "Ajustes",
-  "@navSettings": {
-    "description": "Etiqueta corta del destino de ajustes en la navegación principal."
   },
   "explorerTitle": "Explorador",
   "@explorerTitle": {
