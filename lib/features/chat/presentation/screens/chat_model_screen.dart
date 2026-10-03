@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
@@ -127,6 +128,11 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
       _error = null;
     });
     await _checkStatus();
+    // Elegir una variante que ya estaba bajada también cambia si la IA que
+    // organiza sola puede trabajar (F27).
+    if (mounted && _isReady) {
+      unawaited(ref.read(aiOrganizeQueueProvider).wake());
+    }
   }
 
   void _startDownload() {
@@ -164,7 +170,16 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
               _downloadProgress = null;
               _isReady = true;
             });
+            // La IA que organiza sola esperaba este modelo (F27): sin el
+            // aviso seguiría diciendo que falta hasta que otra cosa la
+            // despertara —un elemento nuevo, el cargador—.
+            unawaited(ref.read(aiOrganizeQueueProvider).wake());
           },
+          // Sin esto, `onDone` llega igual después de un error —el
+          // descargador cierra el stream al final, haya fallado o no— y
+          // pisaba el error recién puesto con "listo": el mismo defecto que
+          // ya se había corregido en la pantalla del modelo de relaciones.
+          cancelOnError: true,
         );
   }
 

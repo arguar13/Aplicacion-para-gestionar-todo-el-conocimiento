@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -21,8 +25,12 @@ void main() {
     WidgetTester tester, {
     bool gemma4Ready = false,
     bool gemma3nReady = false,
+    bool embeddingModelReady = false,
   }) async {
-    harness = await LibraryHarness.create(chatModelReady: gemma4Ready);
+    harness = await LibraryHarness.create(
+      chatModelReady: gemma4Ready,
+      embeddingModelReady: embeddingModelReady,
+    );
     harness.chatModelManagerGemma3n.ready = gemma3nReady;
 
     await tester.pumpWidget(harness.wrapWithAppRouter());
@@ -31,6 +39,61 @@ void main() {
     harness.pushTo(RoutePaths.chatModel);
     await tester.pumpAndSettle();
   }
+
+  Future<void> tapDownload(WidgetTester tester) async {
+    final downloadButton = find.text(es.chatModelDownloadAction);
+    await tester.scrollUntilVisible(
+      downloadButton,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(downloadButton);
+    await tester.pump();
+  }
+
+  testWidgets('un error al bajar se ve como error, no como «listo», aunque '
+      'el stream se cierre después', (tester) async {
+    await pumpScreen(tester);
+    await tapDownload(tester);
+
+    // El descargador de verdad cierra el stream al final, haya fallado o
+    // no: antes, ese cierre pisaba el error con «listo».
+    final download = harness.chatModelManager.lastDownload!
+      ..addError(const ChatModelDownloadFailed('sin red'));
+    await download.close();
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.chatModelError), findsOneWidget);
+    expect(find.text(es.chatModelReady), findsNothing);
+  });
+
+  testWidgets('al terminar, despierta a la IA que esperaba este modelo '
+      '(F27)', (tester) async {
+    await pumpScreen(tester, embeddingModelReady: true);
+    final queue = harness.container.read(aiOrganizeQueueProvider);
+    await queue.wake();
+    expect(
+      harness.container.read(aiOrganizeStatusProvider),
+      isA<AiOrganizeModelMissing>().having(
+        (s) => s.chatModelMissing,
+        'chatModelMissing',
+        isTrue,
+      ),
+    );
+
+    await tapDownload(tester);
+    harness.chatModelManager.ready = true;
+    final download = harness.chatModelManager.lastDownload!..add(1);
+    await download.close();
+    await tester.pumpAndSettle();
+    await queue.settled;
+
+    // Sin nada guardado, despierta y queda al día: ya no falta nada.
+    expect(
+      harness.container.read(aiOrganizeStatusProvider),
+      isA<AiOrganizeIdle>(),
+    );
+  });
 
   testWidgets('la opción por defecto es Gemma 4 E4B', (tester) async {
     await pumpScreen(tester);

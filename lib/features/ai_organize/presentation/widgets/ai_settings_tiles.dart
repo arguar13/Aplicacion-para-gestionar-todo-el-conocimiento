@@ -67,7 +67,8 @@ class AiActivitySettingsTile extends ConsumerWidget {
 }
 
 /// El interruptor general «Organizar con IA» y, debajo, uno por cada cosa que
-/// organiza, con una línea que dice qué hace (F27).
+/// organiza, con una línea que dice qué hace (F27). El de la biblioteca
+/// existente lleva además cuánto le falta —ver [AiBackfillProgress]—.
 ///
 /// Los de cada tipo cuelgan del general —sangrados, más chicos— y se apagan
 /// con él: apagado el general, la cola no toma nada nuevo y elegir tipos no
@@ -103,15 +104,15 @@ class AiOrganizeSwitches extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               children: [
-                for (final (toggle, icon, title, subtitle) in _types(l10n))
+                for (final (toggle, icon, title, subtitle) in _types(l10n)) ...[
                   SwitchListTile(
                     key: Key('ai-toggle-${toggle.name}'),
                     contentPadding: const EdgeInsetsDirectional.only(
-                      start: 40,
+                      start: _typeStart,
                       end: 16,
                     ),
                     visualDensity: VisualDensity.compact,
-                    secondary: Icon(icon, size: 20),
+                    secondary: Icon(icon, size: _typeIconSize),
                     title: Text(title, style: theme.textTheme.bodyLarge),
                     subtitle: Text(subtitle),
                     value: toggle.valueIn(settings),
@@ -119,6 +120,9 @@ class AiOrganizeSwitches extends ConsumerWidget {
                         ? (on) => notifier.set(toggle, on: on)
                         : null,
                   ),
+                  if (toggle == AiOrganizeToggle.backfillWhileCharging)
+                    const AiBackfillProgress(),
+                ],
               ],
             ),
           ),
@@ -126,6 +130,11 @@ class AiOrganizeSwitches extends ConsumerWidget {
       ],
     );
   }
+
+  /// Cuánto se sangran los de cada tipo y el tamaño de su ícono: la línea de
+  /// la biblioteca existente se alinea con sus textos a partir de esto.
+  static const _typeStart = 40.0;
+  static const _typeIconSize = 20.0;
 
   static List<(AiOrganizeToggle, IconData, String, String)> _types(
     AppLocalizations l10n,
@@ -173,4 +182,97 @@ class AiOrganizeSwitches extends ConsumerWidget {
       l10n.settingsAiBackfillSubtitle,
     ),
   ];
+}
+
+/// Cuánto le falta a la IA de la biblioteca que ya existía (F27), debajo de
+/// su interruptor y alineado con su texto: cuántos quedan, si espera el
+/// cargador para seguir y, mientras la recorre, una barra fina.
+///
+/// La cola no dice de dónde salió el elemento en curso. Lo nuevo va siempre
+/// primero, así que si está organizando, no queda nada nuevo y sí queda de
+/// antes, está con la biblioteca existente. Lo pedido a mano y las notas que
+/// crecieron también pasan sin nada nuevo en la cola, pero de a uno: la barra
+/// diría «ordenándola» durante esa sola pasada.
+class AiBackfillProgress extends ConsumerWidget {
+  const AiBackfillProgress({super.key});
+
+  /// Donde empieza el texto de las filas de cada tipo: el sangrado, el ícono
+  /// y el espacio que `ListTile` deja entre el ícono y el texto.
+  static const _textStart =
+      AiOrganizeSwitches._typeStart + AiOrganizeSwitches._typeIconSize + 16;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final count = ref.watch(aiBacklogCountProvider).valueOrNull;
+    final status = ref.watch(aiOrganizeStatusProvider);
+    final settings = ref.watch(aiOrganizeSettingsProvider);
+    final on = settings.enabled && settings.backfillWhileCharging;
+
+    final existing = count?.existing ?? 0;
+    final working =
+        on && existing > 0 && count?.fresh == 0 && status is AiOrganizeWorking;
+    final waitingForCharger =
+        status is AiOrganizePaused && status.waitingForCharger;
+    final text = switch (count) {
+      null => null,
+      _ when existing == 0 => l10n.settingsAiBackfillDone,
+      _ when !on => l10n.settingsAiBackfillOff(existing),
+      _ when working => l10n.settingsAiBackfillWorking(existing),
+      _ when waitingForCharger => l10n.settingsAiBackfillCharger(existing),
+      _ => l10n.settingsAiBackfillRemaining(existing),
+    };
+
+    // Aparece cuando llega el número y crece o se achica con la barra, sin
+    // saltos: la primera cuenta tarda lo que una consulta.
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: text == null
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              key: const Key('ai-backfill-progress'),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                _textStart,
+                0,
+                24,
+                12,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    text,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      // Apagado, como el interruptor de arriba: es un dato,
+                      // no una invitación.
+                      color: on
+                          ? scheme.onSurfaceVariant
+                          : scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  if (working) ...[
+                    const SizedBox(height: 6),
+                    // Indeterminada, como la de la cola: el total de la
+                    // biblioteca de antes no se sabe, solo lo que falta.
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        key: const Key('ai-backfill-progress-bar'),
+                        minHeight: 3,
+                        color: scheme.tertiary,
+                        backgroundColor: scheme.tertiaryContainer.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
 }

@@ -5,11 +5,13 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../fake_ai_run_repository.dart';
@@ -19,13 +21,18 @@ void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
   late FakeAiRunRepository runs;
+  late FakeAiOrganizeQueue queue;
 
   const line = Key('ai-organized-line');
 
   Future<void> setUpWith(List<AiRun> initial) async {
     runs = FakeAiRunRepository(initial);
+    queue = FakeAiOrganizeQueue();
     harness = await LibraryHarness.create(
-      extraOverrides: [aiRunRepositoryProvider.overrideWithValue(runs)],
+      extraOverrides: [
+        aiRunRepositoryProvider.overrideWithValue(runs),
+        aiOrganizeQueueProvider.overrideWithValue(queue),
+      ],
     );
     await insertItemRows(harness.database, id: 'a', title: 'Roma');
     await insertItemRows(harness.database, id: 'b', title: 'Cartago');
@@ -112,7 +119,8 @@ void main() {
   });
 
   testWidgets(
-    '«Deshacer todo» pregunta, deshace el elemento y la línea se va',
+    '«Deshacer todo» pregunta, deshace el elemento y la línea ofrece volver '
+    'a organizarlo',
     (tester) async {
       await setUpWith([fakeRun('r1', itemId: 'a')]);
       await pumpDetail(tester);
@@ -133,9 +141,62 @@ void main() {
         find.text(es.aiUndoDone('2 vínculos · 1 tarjeta')),
         findsOneWidget,
       );
-      expect(find.byKey(line), findsNothing);
+      // Ya no queda nada de la IA que contar ni deshacer; queda decir que la
+      // IA no lo vuelve a tocar sola, y cómo pedírselo.
+      expect(find.byKey(line), findsOneWidget);
+      expect(find.text(es.aiItemLineUndoneTitle), findsOneWidget);
+      expect(find.text(es.aiItemLineUndoneMessage), findsOneWidget);
+      expect(find.byKey(const Key('ai-organized-line-undo-all')), findsNothing);
+      expect(
+        find.byKey(const Key('ai-organized-line-reorganize')),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets('«Volver a organizar» se lo pide a la IA y avisa', (
+    tester,
+  ) async {
+    await setUpWith([fakeRun('r1', itemId: 'a', undone: true)]);
+    await pumpDetail(tester);
+
+    await tester.tap(find.byKey(const Key('ai-organized-line-reorganize')));
+    await tester.pumpAndSettle();
+
+    expect(queue.organizeNowCalls, ['a']);
+    // Los modelos de la prueba no están bajados: lo dice en vez de prometer.
+    expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
+  });
+
+  testWidgets('si después de deshacer se volvió a organizar, no lo ofrece', (
+    tester,
+  ) async {
+    await setUpWith([
+      fakeRun('r2', itemId: 'a'),
+      fakeRun('r1', itemId: 'a', undone: true),
+    ]);
+    await pumpDetail(tester);
+
+    expect(find.text(es.aiItemLineTitle), findsOneWidget);
+    expect(find.byKey(const Key('ai-organized-line-reorganize')), findsNothing);
+  });
+
+  testWidgets('si se deshizo solo la última pasada, sigue contando lo de '
+      'antes y ofrece las dos cosas', (tester) async {
+    await setUpWith([
+      fakeRun('r2', itemId: 'a', undone: true),
+      fakeRun('r1', itemId: 'a', remaining: const AiRunTally(properties: 2)),
+    ]);
+    await pumpDetail(tester);
+
+    expect(find.text(es.aiItemLineTitle), findsOneWidget);
+    expect(find.text(es.aiTallyProperties(2)), findsOneWidget);
+    expect(find.byKey(const Key('ai-organized-line-undo-all')), findsOneWidget);
+    expect(
+      find.byKey(const Key('ai-organized-line-reorganize')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('cancelar no deshace nada', (tester) async {
     await setUpWith([fakeRun('r1', itemId: 'a')]);

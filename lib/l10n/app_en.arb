@@ -6336,5 +6336,77 @@
   "settingsAiBackfillSubtitle": "Goes through what you already had, bit by bit and only while the phone charges.",
   "@settingsAiBackfillSubtitle": {
     "description": "Explicación del interruptor de la pasada por la biblioteca existente (F27)."
+  },
+  "sourcePanelOrganizeWithAi": "Organize with AI",
+  "@sourcePanelOrganizeWithAi": {
+    "description": "Opción de la hoja «Más» del panel de la fuente que le pide a la IA que organice el elemento ahora (F27)."
+  },
+  "sourcePanelOrganizeWithAiHint": "Links, cards and topics now, ahead of everything else. Also for older items or what you undid",
+  "@sourcePanelOrganizeWithAiHint": {
+    "description": "Línea que explica «Organizar con IA» en la hoja «Más» del panel de la fuente (F27)."
+  },
+  "aiOrganizeNowQueued": "The AI will organize it in a moment",
+  "@aiOrganizeNowQueued": {
+    "description": "Aviso después de pedirle a la IA que organice un elemento, con la IA lista (F27)."
+  },
+  "aiOrganizeNowPaused": "The AI is paused: it will organize this when you resume it",
+  "@aiOrganizeNowPaused": {
+    "description": "Aviso después de pedirle a la IA que organice un elemento, con la IA en pausa (F27)."
+  },
+  "aiOrganizeNowNeedsModel": "A model is still missing: it will organize this as soon as it is downloaded",
+  "@aiOrganizeNowNeedsModel": {
+    "description": "Aviso después de pedirle a la IA que organice un elemento, si falta bajar un modelo (F27)."
+  },
+  "aiItemLineUndoneTitle": "You undid what the AI did",
+  "@aiItemLineUndoneTitle": {
+    "description": "Título de la línea del detalle cuando la última pasada de la IA sobre el elemento se deshizo (F27)."
+  },
+  "aiItemLineUndoneMessage": "It will not organize this again on its own.",
+  "@aiItemLineUndoneMessage": {
+    "description": "Explicación debajo de «Deshiciste lo que hizo la IA», en la línea del detalle (F27)."
+  },
+  "aiItemReorganize": "Organize again",
+  "@aiItemReorganize": {
+    "description": "Botón de la línea del detalle que le pide a la IA que vuelva a organizar un elemento cuya pasada se deshizo (F27)."
+  },
+  "settingsAiBackfillDone": "The existing library is already tidy",
+  "@settingsAiBackfillDone": {
+    "description": "Línea debajo del interruptor de la biblioteca existente, cuando no queda nada de antes por ordenar (F27)."
+  },
+  "settingsAiBackfillRemaining": "{count, plural, =1{1 item left to tidy up} other{{count} items left to tidy up}}",
+  "@settingsAiBackfillRemaining": {
+    "description": "Cuántos elementos de la biblioteca existente faltan, debajo de su interruptor en Ajustes › IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAiBackfillWorking": "{count, plural, =1{Tidying it up: 1 item left} other{Tidying it up: {count} items left}}",
+  "@settingsAiBackfillWorking": {
+    "description": "Cuántos faltan mientras la IA ordena la biblioteca existente, debajo de su interruptor en Ajustes › IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAiBackfillCharger": "{count, plural, =1{1 item left · it goes on when you plug the phone in} other{{count} items left · it goes on when you plug the phone in}}",
+  "@settingsAiBackfillCharger": {
+    "description": "Cuántos faltan de la biblioteca existente cuando la IA espera el cargador, debajo de su interruptor en Ajustes › IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAiBackfillOff": "{count, plural, =1{1 older item not tidied up} other{{count} older items not tidied up}}",
+  "@settingsAiBackfillOff": {
+    "description": "Cuántos elementos de la biblioteca existente quedan sin ordenar con el interruptor apagado, en Ajustes › IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

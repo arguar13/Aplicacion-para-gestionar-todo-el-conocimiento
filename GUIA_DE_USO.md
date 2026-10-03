@@ -18,25 +18,26 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 9. [Seleccionar texto: el menú](#seleccionar-texto-el-menú)
 10. [Ver los archivos originales](#ver-los-archivos-originales)
 11. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
-12. [El Explorador](#el-explorador)
-13. [Cuadernos](#cuadernos)
-14. [Línea de tiempo](#línea-de-tiempo)
-15. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
-16. [El Atlas](#el-atlas)
-17. [El Mapa](#el-mapa)
-18. [Grafo local de un elemento](#grafo-local-de-un-elemento)
-19. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
-20. [Chat con la IA](#chat-con-la-ia)
-21. [Citas bibliográficas](#citas-bibliográficas)
-22. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
-23. [Notas generadas por IA](#notas-generadas-por-ia)
-24. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
-25. [Tu hábito de repaso](#tu-hábito-de-repaso)
-26. [Exportar a Anki](#exportar-a-anki)
-27. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
-28. [Ajustes](#ajustes)
-29. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-30. [Preguntas frecuentes](#preguntas-frecuentes)
+12. [La IA que organiza sola](#la-ia-que-organiza-sola)
+13. [El Explorador](#el-explorador)
+14. [Cuadernos](#cuadernos)
+15. [Línea de tiempo](#línea-de-tiempo)
+16. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
+17. [El Atlas](#el-atlas)
+18. [El Mapa](#el-mapa)
+19. [Grafo local de un elemento](#grafo-local-de-un-elemento)
+20. [Tensión: contradicciones entre notas](#tensión-contradicciones-entre-notas)
+21. [Chat con la IA](#chat-con-la-ia)
+22. [Citas bibliográficas](#citas-bibliográficas)
+23. [Escuchar: el lector en voz alta](#escuchar-el-lector-en-voz-alta)
+24. [Notas generadas por IA](#notas-generadas-por-ia)
+25. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
+26. [Tu hábito de repaso](#tu-hábito-de-repaso)
+27. [Exportar a Anki](#exportar-a-anki)
+28. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
+29. [Ajustes](#ajustes)
+30. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
+31. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -62,7 +63,8 @@ En pocas palabras, con Sinapsis podés:
 - **Guardar** casi cualquier cosa: un video, una página web, un documento, una
   foto, un audio, o una nota escrita por vos.
 - **Organizarlo** con etiquetas, temas y propiedades, sin perder nunca de
-  dónde salió cada cosa.
+  dónde salió cada cosa — o dejar que la IA lo organice sola, con todo a la
+  vista y reversible.
 - **Conectar** ideas entre sí y verlas como un mapa visual.
 - **Preguntarle a una IA** sobre tu propio material, y que te conteste citando
   de dónde sacó cada dato — no inventa fuentes.
@@ -388,6 +390,8 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
    - **Copiar**: copia todo el texto.
    - **Más**: abre una lista con lo que se usa de vez en cuando, cada
      opción con una línea que explica qué hace:
+     - **Organizar con IA**: que la IA lo organice ahora, antes que lo
+       demás (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
      - **Volver a extraer el texto**: vuelve a leer el original (podés
        elegir el idioma en que se habla, si es un audio o video).
      - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
@@ -397,6 +401,9 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
      - **Ver a pantalla completa**, en los documentos.
 
    En una nota de bloques, en vez de **Más** aparece **Editar**.
+4. **Lo que hizo la IA con este elemento**, si hizo algo: la línea **"La IA
+   organizó esto"**, con lo que sigue siendo suyo, **"Ver"** y **"Deshacer
+   todo"** (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
 
 ### Cómo organizar un elemento desde acá
 
@@ -539,12 +546,128 @@ Contradice, Continúa, Cita, Resume, etc. Se crean desde la sección
 Con el lápiz de cada vínculo (o manteniéndolo apretado) podés cambiarle el
 tipo, editar su frase o borrarlo.
 
+Además, la IA los crea sola: cuando guardás algo nuevo, busca con qué se
+relaciona y lo vincula, con una frase que dice por qué. Esos vínculos llevan
+la marca **✨** y se corrigen igual que los tuyos; el lápiz suma **"No era"**,
+que lo borra y hace que la IA no lo vuelva a proponer (ver
+[La IA que organiza sola](#la-ia-que-organiza-sola)).
+
 ### Vistas guardadas
 
 Guardan una combinación de búsqueda + filtros + forma de ver la lista, con un
 nombre, para volver a aplicarla con un toque. También sirven como base para
 un Cuaderno "por consulta" (ver más abajo). Se guardan desde el ícono de
 marcador en la Biblioteca.
+
+---
+
+## La IA que organiza sola
+
+Cada cosa que guardás, la IA la organiza sola, en segundo plano, apenas
+termina de procesarse: la vincula con lo que ya tenés, le arma tarjetas de
+repaso, le pone temas y completa lo que le falta. No tenés que esperarla ni
+aprobar nada para que el elemento quede listo. Todo lo que hace queda a la
+vista, marcado como suyo, y se puede corregir o deshacer.
+
+Necesita **los dos modelos descargados**: el de lenguaje y el del motor de
+relaciones (ver [Los modelos de IA descargables](#los-modelos-de-ia-descargables)).
+Mientras falte alguno no hace nada, y en "Lo que hizo la IA" te avisa cuál
+falta, con un botón para bajarlo.
+
+### Qué hace sola
+
+- **Vínculos.** Busca con qué otros elementos de tu biblioteca se relaciona
+  cada cosa nueva —también tus notas, que se vinculan con tus fuentes— y
+  crea el vínculo con su tipo (Relacionado, Continúa, Contradice, Cita,
+  Resume) y una frase que dice por qué.
+- **Tarjetas de repaso.** Arma las tarjetas de cada elemento, ancladas a la
+  parte del texto de donde salen, y entran solas a tu repaso. Cuántas
+  depende del largo: 3 para un artículo corto y más cuanto más largo, hasta
+  12 para un libro o un video de más de una hora.
+- **Temas, etiquetas y propiedades.** Si el valor ya existe en tu
+  vocabulario, lo pone directamente; si sería uno nuevo, te lo deja en
+  "Para revisar": inventar una palabra para tu vocabulario es justo lo que
+  conviene mirar antes.
+- **El Tema de cada elemento.** Si algo nuevo todavía no está en ningún
+  Tema (tus "carpetas"), lo ubica en uno de los que ya armaste. Nunca crea
+  un Tema, nunca cambia el que elegiste vos, y si no está segura no lo toca.
+- **Los datos de la referencia.** Completa el autor, el año, la editorial y
+  los demás datos que falten, con lo que lee del archivo o de la página.
+  Solo los vacíos: nunca pisa lo que escribiste.
+- **El Atlas.** Ubica cada tema nuevo debajo de su tema padre en el árbol
+  (por ejemplo, "Roma" debajo de "Historia antigua") y, cuando un tema junta
+  material suficiente, le arma su **nota mapa**: el índice del tema, con los
+  enlaces a lo que hay. La **madurez** de tus notas no la cambia: como mucho
+  te sugiere subirla cuando una nota crece, porque es tu juicio.
+
+Lo que no hace sola es fusionar duplicados: fusionar borra uno de los dos,
+así que los sigue avisando en [Posibles duplicados](#posibles-duplicados).
+
+Tus notas las organiza cuando dejás de escribirlas —después de un rato sin
+cambios—, y si más adelante crecen mucho, las vuelve a mirar.
+
+### Cómo reconocer lo que hizo
+
+- La marca **✨** en cada vínculo y cada tarjeta que hizo la IA.
+- En el detalle de cada elemento, al pie de [su panel](#el-panel-del-elemento),
+  la línea **"La IA organizó esto"** con lo que sigue siendo suyo —por
+  ejemplo, "4 vínculos · 6 tarjetas · 3 temas"—, **"Ver"** y **"Deshacer
+  todo"**. Si dejó dudas, también dice cuántas hay **"para revisar"**.
+
+Lo que editás o borrás deja de contar como de la IA: ya es tuyo.
+
+### Lo que hizo la IA
+
+**Cómo llegar:** Ajustes → "IA y modelos" → **"Lo que hizo la IA"**, o
+**"Ver"** en la línea de un elemento (ahí se ve solo lo de ese elemento).
+
+Arriba, una tarjeta dice en qué anda la IA: al día, organizando algo (con
+cuántos esperan), en pausa (con **"Reanudar"**), esperando el cargador, o si
+falta un modelo. Debajo:
+
+- **"Para revisar"**: lo que la IA no aplicó porque no estaba segura —un
+  vínculo dudoso, un valor nuevo para tu vocabulario, los datos de una
+  referencia—, agrupado por elemento. Cada cosa tiene **"Aceptar"** y
+  **"Descartar"**, y arriba están **"Aceptar todo"** y **"Descartar todo"**,
+  con unos segundos para **"Deshacer"** antes de que se apliquen.
+- **"Actividad"**: lo que hizo, por día y por elemento. Tocar un elemento lo
+  abre.
+
+### Deshacer y "No era"
+
+- **"Deshacer"**, en cada pasada de la actividad, borra lo que esa pasada
+  hizo y sigue siendo de la IA; **"Deshacer todo"** (en la actividad o en la
+  línea del elemento) hace lo mismo con todo lo de un elemento. Antes te
+  pregunta y te dice qué se va a borrar. Lo que editaste queda, y la IA no
+  vuelve a organizar ese elemento sola.
+- **"No era"**, en un vínculo (desde su lápiz) o en una tarjeta (desde su
+  menú ⋮) de la IA, lo borra y hace que no lo vuelva a proponer. Durante
+  unos segundos podés **"Deshacer"**.
+
+### Organizar con IA, a pedido
+
+En la hoja **"Más"** del [panel del elemento](#el-panel-del-elemento),
+**"Organizar con IA"** le pide que lo organice ahora, antes que lo demás.
+Sirve para algo que guardaste antes de que la IA organizara sola (sin
+esperar al cargador), o para algo cuya organización deshiciste: en ese caso
+la línea del elemento dice **"Deshiciste lo que hizo la IA"** y ofrece
+**"Volver a organizar"**, que hace lo mismo. Un aviso te dice si lo va a
+hacer en un momento o qué está esperando (que la reanudes, o que bajes un
+modelo).
+
+### Los interruptores (Ajustes → "IA y modelos")
+
+- **"Organizar con IA"**: el general. Apagado, la IA queda en pausa: no
+  toma nada nuevo, y lo que ya hizo sigue ahí.
+- Uno por cada cosa que hace: **"Vínculos"**, **"Tarjetas"**, **"Temas y
+  propiedades"**, **"Tema de cada elemento"**, **"Datos de la referencia"**
+  y **"Atlas"**. Apagar uno no deshace lo hecho: solo deja de hacer más.
+- **"Ordenar la biblioteca existente mientras carga"**: lo que ya tenías
+  guardado antes de que la IA empezara a organizar sola lo recorre de a
+  poco, del más nuevo al más viejo, **solo con el teléfono enchufado**, para
+  no gastar batería mientras lo usás. Debajo, una línea dice cuántos
+  quedan, si está esperando el cargador para seguir y, mientras los ordena,
+  una barra fina.
 
 ---
 
@@ -630,6 +753,11 @@ podés resolver de tres formas:
 
 Si la app sugirió alguna propiedad para esa fuente (por ejemplo, "Región:
 Roma"), la vas a ver como un chip debajo de la tarjeta: tocarlo la acepta.
+
+Lo que la [IA que organiza sola](#la-ia-que-organiza-sola) deja sin aplicar
+porque dudaba son estas mismas sugerencias: las ves acá, en la tarjeta de
+cada fuente, y también todas juntas en **"Para revisar"**, arriba de "Lo que
+hizo la IA". Aceptarlas o descartarlas en un lugar las resuelve en los dos.
 
 ### Revisar sugerencias en lote
 
@@ -826,18 +954,22 @@ lo que te acordaste bien más adelante en el tiempo, y lo que te costó, pronto
 de nuevo. En otras palabras, **te pregunta las cosas justo antes de que se te
 olviden**, en vez de hacerte repasar todo siempre por igual.
 
-### Generar tarjetas de un elemento
+### Las tarjetas de un elemento
 
-Dentro del detalle de cualquier elemento, en la sección "Tarjetas de
-repaso":
+Ya no hace falta pedirlas: la [IA que organiza sola](#la-ia-que-organiza-sola)
+arma las tarjetas de cada cosa que guardás —de 3 a 12, según el largo— y
+entran solas a tu repaso, con la marca **✨**. Las ves en la sección
+"Tarjetas de repaso" del detalle, donde además podés:
 
-- Botón "✨ Generar con IA": la IA propone preguntas y respuestas a partir del
-  contenido. Te las muestra para que elijas cuáles guardar antes de
-  confirmarlas — nada se guarda sin que lo revises.
+- Botón "✨ Generar con IA": para pedir **más**. La IA propone preguntas y
+  respuestas a partir del contenido y te las muestra para que elijas cuáles
+  guardar antes de confirmarlas.
 - Botón "+" "Agregar tarjeta": para escribir una pregunta y respuesta vos
   mismo, a mano.
-- **Corregir una tarjeta:** el lápiz de cada tarjeta la abre para editar la
-  pregunta y la respuesta. El menú "⋮" tiene **"Borrar"**.
+- **Corregir una tarjeta:** el lápiz de cada tarjeta —tuya o de la IA— la
+  abre para editar la pregunta y la respuesta. El menú "⋮" tiene
+  **"Borrar"** y, en las de la IA, **"No era"**: la borra y la IA no la
+  vuelve a proponer.
 
 ### Generar un cuestionario (quiz de opción múltiple)
 
@@ -920,6 +1052,11 @@ ninguna conexión a internet sale sin que la pidas. Mientras un modelo no está
 descargado, la función asociada simplemente no funciona, y la app te lo
 avisa con claridad en cada caso.
 
+La [IA que organiza sola](#la-ia-que-organiza-sola) usa dos: el del motor de
+relaciones, para encontrar con qué se relaciona cada cosa, y el de lenguaje,
+para decidir los vínculos y armar las tarjetas y los temas. Sin los dos, no
+organiza nada.
+
 **Cómo llegar:** Ajustes → sección "IA y modelos".
 
 ### Transcripción de audio y video
@@ -942,10 +1079,12 @@ Una vez descargado, aparece un botón extra: **"Revisar lo ya guardado"**, que
 procesa retroactivamente todo lo que habías guardado ANTES de tener el
 modelo, para que también quede buscado por relaciones.
 
-### Modelo de lenguaje (el que redacta las respuestas del Chat)
+### Modelo de lenguaje (el del Chat y la IA que organiza sola)
 
-Se descarga desde Ajustes → IA → **"Modelo de lenguaje"**, o desde dentro
-del Chat (ícono de robot arriba a la derecha). Hay tres variantes para elegir, con distinto tamaño y
+Redacta las respuestas del Chat, los resúmenes y las tarjetas, y es el que
+usa la IA que organiza sola. Se descarga desde Ajustes → "IA y modelos" →
+**"Modelo de lenguaje"**, desde dentro del Chat (ícono de robot arriba a la
+derecha) o desde el aviso de "Lo que hizo la IA" cuando falta. Hay tres variantes para elegir, con distinto tamaño y
 calidad de respuesta — la pantalla te explica el peso y las características
 de cada una antes de descargar. Pide el mismo token de Hugging Face que el
 modelo de relaciones.
@@ -959,8 +1098,14 @@ modelo de relaciones.
 - **Apariencia:** cambiar el idioma de la app, y el tema (Sistema / Claro /
   Oscuro).
 - **Citas:** el estilo de cita por defecto (APA, MLA, etc.) y su idioma.
-- **IA y modelos:** accesos a los modelos de transcripción y de relaciones
-  (ver sección anterior).
+- **IA y modelos:**
+  - **"Lo que hizo la IA"**, con una línea que dice en qué anda y cuántas
+    cosas esperan revisión (ver [La IA que organiza sola](#la-ia-que-organiza-sola)).
+  - El interruptor **"Organizar con IA"** y, debajo, uno por cada cosa que
+    organiza, con **"Ordenar la biblioteca existente mientras carga"** y
+    cuántos le quedan.
+  - Los accesos a los tres modelos: el de lenguaje, el de transcripción y
+    el del motor de relaciones (ver sección anterior).
 - **Bóveda:** accesos a Copia de seguridad, Espacio de la bóveda, Posibles
   duplicados, Vocabulario, Enlaces rotos, Papelera y Cambios para revisar —
   todos explicados en la siguiente sección.
@@ -1086,6 +1231,12 @@ veces que haga falta; nunca se pierde nada de lo que ya tenías.
 No de inmediato: pasa a la Papelera, donde lo podés restaurar cuando
 quieras. Solo se borra en serio si vos elegís "Borrar para siempre" ahí
 adentro.
+
+**¿La IA cambia mis cosas sin preguntarme?**
+Organiza sola lo que guardás —vínculos, tarjetas, temas—, pero nunca pisa
+lo que escribiste, deja lo dudoso en "Para revisar" y todo lo suyo se puede
+deshacer. Si preferís que no haga nada, apagá **"Organizar con IA"** en
+Ajustes → "IA y modelos".
 
 **¿La IA puede inventar información?**
 Cuando te responde citando tu bóveda, o arma las opciones de un cuestionario,

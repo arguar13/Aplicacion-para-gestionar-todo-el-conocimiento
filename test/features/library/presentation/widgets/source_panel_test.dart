@@ -15,6 +15,9 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
@@ -28,6 +31,7 @@ import 'package:sinapsis/features/viewer/presentation/widgets/media_player_view.
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
+import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/library_harness.dart';
 
 /// El motor nativo, falso: un video de un minuto que se abre sin más. Hace
@@ -210,7 +214,7 @@ void main() {
 
   group('las partes, según la fuente', () {
     testWidgets('una página web con texto: solo los cuatro mosaicos, sin '
-        'separadores, y "Más" apagado porque no hay nada que ofrecer', (
+        'separadores, y "Más" ofrece solo que la organice la IA', (
       tester,
     ) async {
       await pumpPanel(
@@ -226,14 +230,39 @@ void main() {
       expect(enabled(tester, 'source-panel-read'), isTrue);
       expect(enabled(tester, 'source-panel-summarize'), isTrue);
       expect(enabled(tester, 'source-panel-copy'), isTrue);
-      expect(enabled(tester, 'source-panel-more'), isFalse);
-      expect(find.byTooltip(es.sourcePanelNothingMore), findsOneWidget);
+      expect(enabled(tester, 'source-panel-more'), isTrue);
       expect(find.byType(SourcePanelStatus), findsNothing);
       expect(find.byType(SourcePanelAudio), findsNothing);
       expect(
         find.descendant(of: panel, matching: find.byType(Divider)),
         findsNothing,
       );
+
+      await openMore(tester);
+
+      expect(
+        find.byKey(const Key('source-more-organizeWithAi')),
+        findsOneWidget,
+      );
+      expect(find.text(es.sourcePanelOrganizeWithAi), findsOneWidget);
+      expect(find.text(es.sourcePanelOrganizeWithAiHint), findsOneWidget);
+      expect(find.byKey(const Key('source-more-reextract')), findsNothing);
+    });
+
+    testWidgets('una página web que no se pudo traer: "Más" apagado porque '
+        'no hay nada que ofrecer, ni organizarla', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/nota',
+          state: ProcessingState.failed,
+        ),
+        beforeShow: () => fail(ProcessingFailureReason.network),
+      );
+
+      expect(enabled(tester, 'source-panel-more'), isFalse);
+      expect(find.byTooltip(es.sourcePanelNothingMore), findsOneWidget);
     });
 
     testWidgets('una nota de bloques: Leer · Resumir · Copiar · Editar, y '
@@ -294,6 +323,15 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('source-more-fullScreen')), findsNothing);
+      // Lo de la IA, primero: es lo único de la hoja que no es del archivo.
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('source-more-organizeWithAi')))
+            .dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(const Key('source-more-reextract'))).dy,
+        ),
+      );
       expect(find.text(es.sourcePanelReextractHint), findsOneWidget);
       expect(find.text(es.sourcePanelRemoveTimestampsHint), findsOneWidget);
       expect(find.text(es.sourcePanelDeleteFileHint), findsOneWidget);
@@ -668,6 +706,84 @@ void main() {
         find.byKey(const Key('source-more-removeTimestamps')),
         findsNothing,
       );
+    });
+  });
+
+  group('organizar con la IA (F27)', () {
+    late FakeAiOrganizeQueue queue;
+
+    Future<void> pumpWithQueue(
+      WidgetTester tester, {
+      required bool modelsReady,
+    }) async {
+      queue = FakeAiOrganizeQueue();
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/nota',
+          texts: ['Un artículo.'],
+        ),
+        chatModelReady: modelsReady,
+        extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
+        beforeShow: () async =>
+            harness.embeddingModelManager.ready = modelsReady,
+      );
+    }
+
+    Future<void> organize(WidgetTester tester) async {
+      await openMore(tester);
+      await tester.tap(find.byKey(const Key('source-more-organizeWithAi')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('se lo pide a la cola y avisa que lo organiza en un momento', (
+      tester,
+    ) async {
+      await pumpWithQueue(tester, modelsReady: true);
+      await organize(tester);
+
+      expect(queue.organizeNowCalls, [_id]);
+      expect(find.text(es.aiOrganizeNowQueued), findsOneWidget);
+      // La hoja se cerró antes de pedirlo.
+      expect(find.text(es.sourcePanelMoreTitle), findsNothing);
+    });
+
+    testWidgets('si falta un modelo, lo pide igual y dice que espera', (
+      tester,
+    ) async {
+      await pumpWithQueue(tester, modelsReady: false);
+      await organize(tester);
+
+      expect(queue.organizeNowCalls, [_id]);
+      expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
+    });
+
+    testWidgets('con la IA en pausa, lo pide igual y dice cuándo sigue', (
+      tester,
+    ) async {
+      await pumpWithQueue(tester, modelsReady: true);
+      await harness.container
+          .read(aiOrganizeSettingsProvider.notifier)
+          .set(AiOrganizeToggle.enabled, on: false);
+      await organize(tester);
+
+      expect(queue.organizeNowCalls, [_id]);
+      expect(find.text(es.aiOrganizeNowPaused), findsOneWidget);
+    });
+
+    testWidgets('mientras se procesa, no se ofrece', (tester) async {
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.audio,
+          file: 'originales/f26/clase.m4a',
+          state: ProcessingState.processing,
+          texts: ['[0:00] el texto de antes'],
+        ),
+      );
+
+      expect(enabled(tester, 'source-panel-more'), isFalse);
     });
   });
 

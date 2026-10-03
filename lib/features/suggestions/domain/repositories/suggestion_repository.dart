@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 
 /// La cola de sugerencias del modelo de lenguaje: dueño de crearlas,
@@ -27,6 +28,27 @@ abstract interface class SuggestionRepository {
   /// Bandeja sobre un elemento puntual, acá no hay ningún elemento de
   /// partida — se revisan todas juntas, sin importar cuál las generó.
   Stream<List<Suggestion>> watchPendingDuplicateSuggestions();
+
+  /// Los elementos vivos con algo «Para revisar» (F27) —sugerencias
+  /// pendientes de vínculo, propiedad o referencia—, el de la más reciente
+  /// primero, actualizándose solos.
+  ///
+  /// Es la otra mitad de [watchPendingSuggestions]: la Bandeja y el detalle
+  /// leen elemento por elemento; «Lo que hizo la IA» necesita saber de qué
+  /// elementos hablar sin abrir una consulta por cada uno de la bóveda. Trae
+  /// solo los ids: lo que se ve de cada sugerencia lo decodifica
+  /// [watchPendingSuggestions], y solo para lo que está en pantalla.
+  ///
+  /// Los duplicados no entran: fusionar borra un elemento y tienen su propia
+  /// pantalla (decisión A de F27). Un vínculo propuesto hacia algo que está
+  /// en la papelera tampoco, igual que en [watchPendingSuggestions].
+  Stream<List<PendingReviewItem>> watchItemsWithPendingReview();
+
+  /// Cuántas sugerencias hay «Para revisar» en toda la bóveda (F27), con el
+  /// mismo criterio que [watchItemsWithPendingReview], actualizándose solo:
+  /// el número que acompaña a «Lo que hizo la IA» en Ajustes › IA. Un solo
+  /// número, sin traer ni agrupar las filas.
+  Stream<int> watchPendingReviewCount();
 
   /// Crea una sugerencia de propiedad nueva, en `status: pending`.
   /// Genera `id`/`createdAt` internamente — mismo patrón que

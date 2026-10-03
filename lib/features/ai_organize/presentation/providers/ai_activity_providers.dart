@@ -4,49 +4,42 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
-import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
+import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
-import 'package:sinapsis/features/ai_review/data/repositories/pending_review_repository_impl.dart';
-import 'package:sinapsis/features/ai_review/domain/entities/pending_review_item.dart';
-import 'package:sinapsis/features/ai_review/domain/repositories/pending_review_repository.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 
 // ---------------------------------------------------------------------------
 // «Para revisar» (F27): lo dudoso que la IA no aplicó.
 // ---------------------------------------------------------------------------
 
-final pendingReviewRepositoryProvider = Provider<PendingReviewRepository>((
-  ref,
-) {
-  return PendingReviewRepositoryImpl(
-    database: ref.watch(appDatabaseProvider),
-    telemetry: ref.watch(telemetryServiceProvider),
-  );
-});
-
 /// Los elementos con algo para revisar, el más reciente primero. Es solo el
-/// índice: lo que se ve de cada uno sale de [itemReviewSuggestionsProvider],
-/// que se abre únicamente para las tarjetas que están en pantalla.
+/// índice —lo lee `SuggestionRepository`, el dueño de la cola de
+/// sugerencias—: lo que se ve de cada uno sale de
+/// [itemReviewSuggestionsProvider], que se abre únicamente para las tarjetas
+/// que están en pantalla.
 final pendingReviewItemsProvider =
     StreamProvider.autoDispose<List<PendingReviewItem>>((ref) {
       return ref
-          .watch(pendingReviewRepositoryProvider)
+          .watch(suggestionRepositoryProvider)
           .watchItemsWithPendingReview();
     });
 
 /// Cuántas sugerencias hay para revisar en toda la bóveda: el número que
 /// acompaña a «Lo que hizo la IA» en Ajustes.
 final pendingReviewCountProvider = StreamProvider.autoDispose<int>((ref) {
-  return ref.watch(pendingReviewRepositoryProvider).watchPendingReviewCount();
+  return ref.watch(suggestionRepositoryProvider).watchPendingReviewCount();
 });
 
 /// Si [suggestion] se revisa en «Para revisar»: todo menos un duplicado, que
@@ -66,6 +59,30 @@ final itemReviewSuggestionsProvider = Provider.autoDispose
             ],
           );
     });
+
+// ---------------------------------------------------------------------------
+// La biblioteca existente: cuánto le falta a la IA.
+// ---------------------------------------------------------------------------
+
+/// Cuántos elementos esperan a la IA —los nuevos y los de la biblioteca que
+/// ya existía—, para la línea debajo de su interruptor en Ajustes › IA.
+///
+/// Se vuelve a contar cada vez que la cola cambia de estado: es cuando una
+/// pasada empieza o termina, o cuando deja de trabajar y dice por qué. Cuenta
+/// con los mismos cortes que la cola —desde cuándo organiza sola y cuánto
+/// tiene que estar quieta una nota—, para que el número sea el suyo.
+final aiBacklogCountProvider = FutureProvider.autoDispose<AiBacklogCount>((
+  ref,
+) async {
+  ref.watch(aiOrganizeStatusProvider);
+  final backlog = ref.watch(aiOrganizeBacklogProvider);
+  final memory = ref.watch(aiOrganizeMemoryProvider);
+  final now = ref.watch(clockProvider)();
+  return backlog.count(
+    epoch: await memory.epoch(),
+    notesQuietBefore: now.subtract(kAiNoteQuietPeriod),
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Lo que la IA hizo en UN elemento: la línea del detalle.
@@ -102,6 +119,7 @@ class AiItemSummary {
   const AiItemSummary({
     this.remaining = const AiRunTally(),
     this.reviewCount = 0,
+    this.undone = false,
   });
 
   /// Lo que sigue siendo de la IA, sumando las pasadas que siguen en pie: lo
@@ -111,9 +129,15 @@ class AiItemSummary {
   /// Cuántas sugerencias del elemento esperan en «Para revisar».
   final int reviewCount;
 
-  /// La línea aparece solo si la IA hizo algo que siga en pie, o dejó algo
-  /// para revisar.
-  bool get isVisible => !remaining.isEmpty || reviewCount > 0;
+  /// Si la última pasada se deshizo: la IA no lo vuelve a organizar sola, y
+  /// la línea ofrece «Volver a organizar». Mira la última y no cualquiera:
+  /// una pasada nueva después de deshacer es que ya se volvió a organizar.
+  final bool undone;
+
+  /// La línea aparece si la IA hizo algo que siga en pie, dejó algo para
+  /// revisar o se deshizo lo que hizo: lo último es lo único que dice cómo
+  /// pedirle que lo vuelva a intentar.
+  bool get isVisible => !remaining.isEmpty || reviewCount > 0 || undone;
 }
 
 final aiItemSummaryProvider = Provider.autoDispose
@@ -126,6 +150,8 @@ final aiItemSummaryProvider = Provider.autoDispose
             if (!run.isUndone) run.remaining,
         ].fold(const AiRunTally(), (sum, tally) => sum + tally),
         reviewCount: review.valueOrNull?.length ?? 0,
+        // Las pasadas llegan de la más nueva a la más vieja.
+        undone: runs?.firstOrNull?.isUndone ?? false,
       );
     });
 

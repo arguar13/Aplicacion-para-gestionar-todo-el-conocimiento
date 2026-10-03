@@ -5,6 +5,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
@@ -318,6 +319,131 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    group('la biblioteca existente', () {
+      // El reloj de la harness es el 11 de septiembre: la IA organiza sola
+      // desde entonces, y lo guardado antes es la biblioteca que ya existía.
+      Future<void> seedExisting(int count) async {
+        for (var i = 0; i < count; i++) {
+          await insertItemRows(
+            harness.database,
+            id: 'antes-$i',
+            title: 'De antes $i',
+            createdAt: DateTime(2026, 9, 1, 10, i),
+          );
+        }
+      }
+
+      final progress = find.byKey(const Key('ai-backfill-progress'));
+      final bar = find.byKey(const Key('ai-backfill-progress-bar'));
+
+      void setStatus(AiOrganizeStatus status) =>
+          harness.container.read(aiOrganizeStatusProvider.notifier).state =
+              status;
+
+      String progressText(WidgetTester tester) => tester
+          .widget<Text>(
+            find.descendant(of: progress, matching: find.byType(Text)),
+          )
+          .data!;
+
+      testWidgets('debajo de su interruptor, cuántos quedan', (tester) async {
+        await seedExisting(2);
+        await pumpSettings(tester);
+
+        expect(progressText(tester), es.settingsAiBackfillRemaining(2));
+        expect(bar, findsNothing);
+        // Justo debajo del interruptor, alineada con su texto.
+        final toggle = find.byKey(const Key('ai-toggle-backfillWhileCharging'));
+        expect(
+          tester.getTopLeft(progress).dy,
+          moreOrLessEquals(tester.getBottomLeft(toggle).dy),
+        );
+        expect(
+          tester.getTopLeft(find.text(es.settingsAiBackfill)).dx,
+          moreOrLessEquals(
+            tester.getTopLeft(find.text(progressText(tester))).dx,
+          ),
+        );
+      });
+
+      testWidgets('sin nada de antes, dice que ya está ordenada', (
+        tester,
+      ) async {
+        await pumpSettings(tester);
+
+        expect(progressText(tester), es.settingsAiBackfillDone);
+      });
+
+      testWidgets('si espera el cargador, lo dice', (tester) async {
+        await seedExisting(3);
+        await pumpSettings(tester);
+
+        setStatus(const AiOrganizePaused(pending: 3, waitingForCharger: true));
+        await tester.pumpAndSettle();
+
+        expect(progressText(tester), es.settingsAiBackfillCharger(3));
+        expect(bar, findsNothing);
+      });
+
+      testWidgets('mientras la ordena, una barra fina', (tester) async {
+        await seedExisting(2);
+        await pumpSettings(tester);
+
+        setStatus(const AiOrganizeWorking(itemTitle: 'De antes 1', pending: 1));
+        // La barra es indeterminada y anima siempre: alcanza con dejar pasar
+        // la cuenta nueva y el cambio de alto.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(progressText(tester), es.settingsAiBackfillWorking(2));
+        expect(bar, findsOneWidget);
+      });
+
+      testWidgets('si está con algo nuevo, no dice que la ordena: lo nuevo '
+          'va primero', (tester) async {
+        await seedExisting(2);
+        await insertItemRows(harness.database, id: 'nuevo', title: 'Nuevo');
+        await pumpSettings(tester);
+
+        setStatus(const AiOrganizeWorking(itemTitle: 'Nuevo', pending: 2));
+        await tester.pumpAndSettle();
+
+        expect(progressText(tester), es.settingsAiBackfillRemaining(2));
+        expect(bar, findsNothing);
+      });
+
+      testWidgets('se vuelve a contar cuando la cola termina una pasada', (
+        tester,
+      ) async {
+        await seedExisting(2);
+        await pumpSettings(tester);
+        expect(progressText(tester), es.settingsAiBackfillRemaining(2));
+
+        // La cola organizó uno de antes y quedó esperando el cargador.
+        final runs = harness.container.read(aiRunRepositoryProvider);
+        final runId = (await runs.startRun(
+          'antes-0',
+        )).getOrElse((f) => fail('$f'));
+        await runs.finishRun(runId);
+        setStatus(const AiOrganizePaused(pending: 1, waitingForCharger: true));
+        await tester.pumpAndSettle();
+
+        expect(progressText(tester), es.settingsAiBackfillCharger(1));
+      });
+
+      testWidgets('apagado, cuántos quedan sin ordenar', (tester) async {
+        await seedExisting(2);
+        await pumpSettings(tester);
+
+        await tester.tap(
+          find.byKey(const Key('ai-toggle-backfillWhileCharging')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(progressText(tester), es.settingsAiBackfillOff(2));
+      });
     });
 
     Future<void> openFromSettings(WidgetTester tester, Key key) async {

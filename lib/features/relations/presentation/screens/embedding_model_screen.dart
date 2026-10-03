@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
@@ -121,6 +122,10 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
               _downloadProgress = null;
               _isReady = true;
             });
+            // La IA que organiza sola esperaba este modelo (F27): sin el
+            // aviso seguiría diciendo que falta hasta que otra cosa la
+            // despertara —un elemento nuevo, el cargador—.
+            unawaited(ref.read(aiOrganizeQueueProvider).wake());
           },
           // Sin esto, `onDone` igual llega después de un error —cerrar el
           // stream tras `addError` no lo salta, ver `HttpGemmaModelDownloader.

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/presentation/screens/embedding_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -13,8 +16,15 @@ void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
 
-  Future<void> pumpScreen(WidgetTester tester, {bool ready = false}) async {
-    harness = await LibraryHarness.create(embeddingModelReady: ready);
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    bool ready = false,
+    bool chatModelReady = false,
+  }) async {
+    harness = await LibraryHarness.create(
+      embeddingModelReady: ready,
+      chatModelReady: chatModelReady,
+    );
 
     await tester.pumpWidget(harness.wrapWithAppRouter());
     await tester.pumpAndSettle();
@@ -62,6 +72,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(es.embeddingModelReady), findsOneWidget);
+  });
+
+  testWidgets('al terminar, despierta a la IA que esperaba este modelo '
+      '(F27)', (tester) async {
+    await pumpScreen(tester, chatModelReady: true);
+    final queue = harness.container.read(aiOrganizeQueueProvider);
+    await queue.wake();
+    expect(
+      harness.container.read(aiOrganizeStatusProvider),
+      isA<AiOrganizeModelMissing>().having(
+        (s) => s.embeddingModelMissing,
+        'embeddingModelMissing',
+        isTrue,
+      ),
+    );
+
+    await tapDownload(tester);
+    harness.embeddingModelManager.ready = true;
+    final download = harness.embeddingModelManager.lastDownload!..add(1);
+    await download.close();
+    await tester.pumpAndSettle();
+    await queue.settled;
+
+    // Sin nada guardado, despierta y queda al día: ya no falta nada.
+    expect(
+      harness.container.read(aiOrganizeStatusProvider),
+      isA<AiOrganizeIdle>(),
+    );
   });
 
   testWidgets('un error de autenticación muestra el aviso correspondiente', (

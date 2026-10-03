@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
-import 'package:sinapsis/features/ai_review/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Aparece y se va plegándose y fundiéndose (F27): lo que se acepta o se

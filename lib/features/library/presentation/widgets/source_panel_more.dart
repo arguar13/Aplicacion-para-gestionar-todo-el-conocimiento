@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -8,6 +9,8 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
@@ -18,6 +21,11 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// panel de la fuente (F26, decisión A): a la vista solo lo de todos los
 /// días —leer, resumir, copiar—, y esto a un toque más.
 enum SourceMoreAction {
+  /// Que la IA lo organice ahora, antes que lo demás (F27): lo de la
+  /// biblioteca existente sin esperar al cargador, o lo que se deshizo y la
+  /// IA no vuelve a tocar sola.
+  organizeWithAi,
+
   /// Volver a extraer el texto, con el idioma (F22).
   reextract,
 
@@ -32,11 +40,16 @@ enum SourceMoreAction {
 }
 
 /// Las opciones de "Más" que aplican a [item], en el orden de la hoja: solo
-/// las que se pueden hacer ahora. Vacía para una página web o una nota —no
-/// hay nada de esto que hacerles—.
+/// las que se pueden hacer ahora. A una página web o una nota lista solo se
+/// le puede pedir que la organice la IA; mientras algo se procesa, o si
+/// falló sin texto, no hay nada que ofrecer.
 List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
   final hasText = item.renditions.whereType<TextRendition>().isNotEmpty;
   return [
+    // Solo lo que está listo, como la cola de la IA: organizar a medio
+    // procesar sería vincular y hacer tarjetas de un texto que va a cambiar.
+    if (item.processingState == ProcessingState.ready)
+      SourceMoreAction.organizeWithAi,
     if (hasText && canReextractText(item)) SourceMoreAction.reextract,
     // Mientras se vuelve a extraer, el texto no se ve y va a ser
     // reemplazado: ni quitarle las marcas ni soltar el archivo que se está
@@ -104,6 +117,8 @@ Future<void> showSourceMoreSheet(
   if (chosen == null || !context.mounted) return;
 
   switch (chosen) {
+    case SourceMoreAction.organizeWithAi:
+      await organizeNowWithAi(context, ref, itemId: item.id);
     case SourceMoreAction.reextract:
       await reextractText(context, ref, item);
     case SourceMoreAction.removeTimestamps:
@@ -142,12 +157,15 @@ class _SourceMoreSheet extends StatelessWidget {
               ListTile(
                 key: Key('source-more-${action.name}'),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                leading: SourcePanelIconCircle(
-                  icon: action.icon,
-                  tone: action == SourceMoreAction.deleteOriginalFile
-                      ? SourcePanelTone.error
-                      : SourcePanelTone.neutral,
-                ),
+                // Lo de la IA lleva su ✨, el mismo de todo lo que hace sola.
+                leading: action == SourceMoreAction.organizeWithAi
+                    ? const AiSparkCircle(size: 40)
+                    : SourcePanelIconCircle(
+                        icon: action.icon,
+                        tone: action == SourceMoreAction.deleteOriginalFile
+                            ? SourcePanelTone.error
+                            : SourcePanelTone.neutral,
+                      ),
                 title: Text(action.title(l10n)),
                 subtitle: Text(action.hint(l10n)),
                 onTap: () => Navigator.of(context).pop(action),
@@ -161,6 +179,7 @@ class _SourceMoreSheet extends StatelessWidget {
 
 extension on SourceMoreAction {
   IconData get icon => switch (this) {
+    SourceMoreAction.organizeWithAi => Icons.auto_awesome,
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
     SourceMoreAction.deleteOriginalFile => Icons.delete_sweep_outlined,
@@ -168,6 +187,7 @@ extension on SourceMoreAction {
   };
 
   String title(AppLocalizations l10n) => switch (this) {
+    SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAi,
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
     SourceMoreAction.deleteOriginalFile => l10n.detailDeleteOriginalFile,
@@ -175,6 +195,7 @@ extension on SourceMoreAction {
   };
 
   String hint(AppLocalizations l10n) => switch (this) {
+    SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAiHint,
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
     SourceMoreAction.deleteOriginalFile => l10n.sourcePanelDeleteFileHint,

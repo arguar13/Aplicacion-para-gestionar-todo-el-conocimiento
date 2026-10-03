@@ -489,7 +489,8 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
 String _userNoteKey(String itemId) => 'note:$itemId';
 
 /// El panel de la fuente con la línea de lo que la IA organizó sola (F27),
-/// cuando hizo algo que siga en pie o dejó algo para revisar.
+/// cuando hizo algo que siga en pie, dejó algo para revisar o se deshizo lo
+/// que hizo —ver `AiItemSummary.isVisible`—.
 ///
 /// Se decide acá y no dentro de la línea: el panel separa cada franja con
 /// una raya, y una franja que se dibuja vacía dejaría la raya sola al pie.
