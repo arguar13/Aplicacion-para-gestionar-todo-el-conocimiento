@@ -70,16 +70,75 @@ tar -xf $tar -C $work
 Remove-Item $tar
 
 # --- Lo generado, que no se versiona ---------------------------------------------
-# Solo lo que sale de un generador: los fuentes vienen del commit.
-$generated = @(git ls-files --others --ignored --exclude-standard -- '*.freezed.dart' '*.g.dart' 'lib/l10n/generated/*')
-foreach ($file in $generated) {
-  $destination = Join-Path $work $file
-  New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
-  Copy-Item $file $destination
-}
+# Tiene que corresponder al COMMIT, no a la carpeta de trabajo: copiar lo que
+# hay generado ahora verificaba un commit viejo contra textos o entidades de
+# otro momento —así "fallaron" tres commits sanos cuando, después, se borraron
+# 15 textos de los .arb—.
+#
+# - Los textos traducidos se generan desde los .arb del commit: es rápido.
+# - El código de build_runner (drift, freezed, json) se copia si el commit no
+#   cambió ninguno de los archivos de los que sale; si cambió alguno, se
+#   regenera en la exportación, que tarda unos minutos más.
 New-Item -ItemType Directory -Force -Path (Join-Path $work '.dart_tool') | Out-Null
 Copy-Item '.dart_tool/package_config.json' (Join-Path $work '.dart_tool/package_config.json')
-Write-Host "Exportado a $work ($($generated.Count) archivos generados agregados)."
+
+$changed = @(git diff --name-only $Rev -- 'lib/*.dart' 'test/*.dart') +
+  @(git ls-files --others --exclude-standard -- 'lib/*.dart' 'test/*.dart')
+$generatorPart = "part '.*\.(g|freezed)\.dart'"
+
+# Si [path] es de los que generan código, en la carpeta de trabajo o en el
+# commit. Lo que no existe en uno de los dos lados no se le pregunta a ese
+# lado: en PowerShell 5.1, el aviso de git por un archivo ausente corta el
+# guion entero.
+function Test-GeneratorInput([string] $path) {
+  if ($path -like 'lib/core/database/*') { return $true }
+  if ((Test-Path $path) -and (Select-String -Path $path -Pattern $generatorPart -Quiet)) {
+    return $true
+  }
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & git cat-file -e "${Rev}:$path" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $false }
+    return [bool]((& git show "${Rev}:$path") -match $generatorPart)
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+}
+$builderInputs = @($changed | Where-Object { Test-GeneratorInput $_ })
+
+$previousPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+Push-Location $work
+try {
+  & flutter gen-l10n *> $null
+  if ($LASTEXITCODE -ne 0) { throw "flutter gen-l10n falló en el commit $sha." }
+} finally {
+  Pop-Location
+  $ErrorActionPreference = $previousPreference
+}
+
+if ($builderInputs.Count -eq 0) {
+  $generated = @(git ls-files --others --ignored --exclude-standard -- '*.freezed.dart' '*.g.dart')
+  foreach ($file in $generated) {
+    $destination = Join-Path $work $file
+    New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
+    Copy-Item $file $destination
+  }
+  Write-Host "Exportado a $work (textos generados del commit; $($generated.Count) archivos de build_runner copiados)."
+} else {
+  Write-Host "El commit cambió $($builderInputs.Count) archivos de los que sale código generado: se regenera."
+  $ErrorActionPreference = 'Continue'
+  Push-Location $work
+  try {
+    & dart run build_runner build --delete-conflicting-outputs *> $null
+    if ($LASTEXITCODE -ne 0) { throw "build_runner falló en el commit $sha." }
+  } finally {
+    Pop-Location
+    $ErrorActionPreference = $previousPreference
+  }
+  Write-Host "Exportado a $work (todo lo generado, desde el commit)."
+}
 
 # --- Analizar ------------------------------------------------------------------
 # `flutter analyze` sale con código distinto de cero y escribe su resumen por el
