@@ -30,7 +30,9 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/compact_graph_node.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -38,6 +40,7 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/historical_date_form.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/timeline/data/repositories/timeline_repository_impl.dart';
@@ -600,6 +603,24 @@ void main() {
   });
 
   group('grafo local (panel embebido)', () {
+    testWidgets('está a la vista: arriba del texto y de las tarjetas (F28)', (
+      tester,
+    ) async {
+      final id = await captureAndGetId('un texto para leer entero');
+
+      await pumpDetail(tester, id);
+
+      final panel = tester.getTopLeft(find.byType(LocalGraphPanel)).dy;
+      expect(
+        panel,
+        lessThan(tester.getTopLeft(find.byType(FlashcardSection)).dy),
+      );
+      expect(
+        panel,
+        lessThan(tester.getTopLeft(find.byType(HighlightableText)).dy),
+      );
+    });
+
     testWidgets('sin vínculos, el panel muestra su estado vacío', (
       tester,
     ) async {

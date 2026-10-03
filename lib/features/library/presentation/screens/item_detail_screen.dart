@@ -398,6 +398,12 @@ class _DetailBodyState extends State<_DetailBody> {
                   ),
                 ),
 
+                // Con qué está vinculado, a la vista (F28): arriba del texto y
+                // de las tarjetas, no al final de un libro entero. Vincular
+                // dos cosas se ve acá sin bajar.
+                const SizedBox(height: 16),
+                LocalGraphPanel(item: item),
+
                 // El texto, salvo mientras se vuelve a extraer: ahí el panel
                 // cuenta cómo va, y el viejo deja de verse.
                 if (texts.isNotEmpty && !item.isBeingProcessed) ...[
@@ -424,8 +430,6 @@ class _DetailBodyState extends State<_DetailBody> {
 
                 const SizedBox(height: 16),
                 FlashcardSection(item: item),
-                const SizedBox(height: 24),
-                LocalGraphPanel(item: item),
                 const SizedBox(height: 24),
                 // De dónde sale lo que dice la nota: no dibuja nada si no cita
                 // ninguna fuente, y lleva su propio espacio de abajo.
