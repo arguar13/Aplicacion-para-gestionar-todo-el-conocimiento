@@ -27,9 +27,25 @@ Stream<T> watchQuery<T>({
   required Future<T> Function() read,
   required TelemetryService telemetry,
   required String hint,
+}) => watchReads(
+  changes: () => db.tableUpdates(TableUpdateQuery.onAllTables(tables)),
+  read: read,
+  telemetry: telemetry,
+  hint: hint,
+);
+
+/// Lo mismo que [watchQuery], con los avisos de [changes] en vez de los de
+/// unas tablas: para quien lee a través de un repositorio que ya sabe qué
+/// escrituras le importan —el Mapa, con su `changes(filter:)`— y no tiene por
+/// qué conocer la base (F28).
+Stream<T> watchReads<T>({
+  required Stream<void> Function() changes,
+  required Future<T> Function() read,
+  required TelemetryService telemetry,
+  required String hint,
 }) {
   late final StreamController<T> controller;
-  StreamSubscription<void>? changes;
+  StreamSubscription<void>? subscription;
   var isReading = false;
   var changedWhileReading = false;
 
@@ -62,16 +78,14 @@ Stream<T> watchQuery<T>({
 
   controller = StreamController<T>(
     onListen: () {
-      changes = db
-          .tableUpdates(TableUpdateQuery.onAllTables(tables))
-          .listen((_) => unawaited(refresh()));
+      subscription = changes().listen((_) => unawaited(refresh()));
 
       // El primer valor sale sin esperar a que cambie nada: quien se
       // suscribe quiere ver lo que hay ahora.
       unawaited(refresh());
     },
     onCancel: () async {
-      await changes?.cancel();
+      await subscription?.cancel();
     },
   );
 

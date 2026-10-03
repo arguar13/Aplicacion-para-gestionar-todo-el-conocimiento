@@ -200,3 +200,34 @@ WHERE note.note_kind = 'map'
 ORDER BY item.updated_at DESC, item.id
 LIMIT ?
 ''';
+
+/// Los vínculos entre dos elementos vivos, con su fecha: entre ellos elige la
+/// vista «Vínculos» qué dibujar (F28).
+///
+/// A diferencia de [mapRelationsSql], acá la papelera va en la consulta: la
+/// vista no parte de una lista de elementos con la que descartar después, y
+/// cada extremo se busca por su clave.
+final mapLinksSql =
+    '''
+SELECT r.from_item_id AS from_id,
+       r.to_item_id AS to_id,
+       r.kind AS kind,
+       r.created_at AS created_at
+FROM relations r
+JOIN item a ON a.id = r.from_item_id
+JOIN item b ON b.id = r.to_item_id
+WHERE ${activeItemSql('a')}
+  AND ${activeItemSql('b')}
+''';
+
+/// Cuántos elementos vivos hay: lo que la vista «Vínculos» necesita para
+/// decir cuántos no tienen ningún vínculo.
+const mapLiveItemCountSql =
+    'SELECT COUNT(*) AS total FROM item WHERE $kActiveItemSql';
+
+/// El título y el tipo de un grupo de elementos vivos, buscados por su clave.
+String mapItemsByIdSql(int count) =>
+    'SELECT item.id AS id, item.title AS title, item.kind AS kind '
+    'FROM item '
+    'WHERE item.id IN (${List.filled(count, '?').join(', ')}) '
+    'AND $kActiveItemSql';

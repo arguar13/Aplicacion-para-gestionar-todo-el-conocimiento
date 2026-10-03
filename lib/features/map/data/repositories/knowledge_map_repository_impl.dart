@@ -10,11 +10,13 @@ import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_query_sql.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
+import 'package:sinapsis/features/map/domain/services/link_graph_builder.dart';
 import 'package:sinapsis/features/map/domain/services/map_dashboard_builder.dart';
 
 class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
@@ -242,6 +244,76 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   }
 
   @override
+  Future<LinkGraph> readLinkGraph({
+    LibraryQuery filter = const LibraryQuery(),
+    String? focusId,
+    int limit = kMaxGraphItems,
+  }) async {
+    final allowed = await _allowedItemIds(filter);
+    final rows = await _db
+        .customSelect(mapLinksSql, readsFrom: mapTables(_db).toSet())
+        .get();
+    final links = <LinkRow>[];
+    for (final row in rows) {
+      final from = row.data['from_id'] as String;
+      final to = row.data['to_id'] as String;
+      // Un vínculo con un extremo que el filtro dejó afuera no se dibuja a
+      // medias: queda afuera entero, como en el resto del mapa.
+      if (allowed != null &&
+          (!allowed.contains(from) || !allowed.contains(to))) {
+        continue;
+      }
+      links.add(
+        LinkRow(
+          fromId: from,
+          toId: to,
+          kind: RelationKind.values.byName(row.data['kind'] as String),
+          createdAt: row.read<DateTime>('created_at'),
+        ),
+      );
+    }
+
+    final total = allowed?.length ?? await _liveItemCount();
+    final selection = selectLinkGraph(links, focusId: focusId, limit: limit);
+    final unlinked = total - selection.linkedCount;
+    if (selection.ids.isEmpty) {
+      return LinkGraph.empty(unlinkedCount: unlinked);
+    }
+
+    final itemRows = await _db
+        .customSelect(
+          mapItemsByIdSql(selection.ids.length),
+          variables: [for (final id in selection.ids) Variable.withString(id)],
+          readsFrom: mapTables(_db).toSet(),
+        )
+        .get();
+    final byId = {for (final row in itemRows) row.data['id'] as String: row};
+    // En el orden de la selección, que no depende de cómo los devolvió la base.
+    final items = [
+      for (final id in selection.ids)
+        if (byId[id] case final row?)
+          TopicItemNode(
+            id: id,
+            title: row.data['title'] as String,
+            isNote: row.data['kind'] == ItemKind.note.name,
+          ),
+    ];
+    final positionOf = {for (var i = 0; i < items.length; i++) items[i].id: i};
+    return LinkGraph(
+      items: items,
+      edges: [
+        for (final link in links)
+          if (positionOf[link.fromId] case final a?)
+            if (positionOf[link.toId] case final b?)
+              TopicItemEdge(a: a, b: b, kind: link.kind),
+      ],
+      linkedCount: selection.linkedCount,
+      unlinkedCount: unlinked,
+      focusId: positionOf.containsKey(focusId) ? focusId : null,
+    );
+  }
+
+  @override
   Stream<void> changes({LibraryQuery filter = const LibraryQuery()}) {
     final tables = {
       ...mapTables(_db),
@@ -266,6 +338,13 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
       (failure) => throw MapFilterFailed(failure),
       (ids) => ids.toSet(),
     );
+  }
+
+  Future<int> _liveItemCount() async {
+    final row = await _db
+        .customSelect(mapLiveItemCountSql, readsFrom: mapTables(_db).toSet())
+        .getSingle();
+    return row.data['total'] as int;
   }
 
   Future<List<AtlasValueRow>> _readValues(String definitionId) async {

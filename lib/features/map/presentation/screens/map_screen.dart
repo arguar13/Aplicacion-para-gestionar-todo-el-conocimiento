@@ -19,15 +19,20 @@ import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_filter_sheet.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_graph_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_links_view.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Las vistas del mapa: tres maneras de mirar los mismos temas, con el mismo
-/// motor, los mismos datos y los mismos filtros.
+/// Las vistas del mapa: cuatro maneras de mirar la bóveda con los mismos
+/// filtros. Tres miran los temas con el mismo motor; «Vínculos», los
+/// elementos y sus vínculos, tengan o no temas (F28).
 enum MapView {
   /// Los números que resumen la bóveda.
   board,
+
+  /// Los elementos y los vínculos entre ellos, sin temas de por medio.
+  links,
 
   /// Un árbol que parte de un tema y se despliega.
   schema,
@@ -124,6 +129,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   static String _viewSlug(MapView view) => switch (view) {
     MapView.board => 'tablero',
+    MapView.links => 'vinculos',
     MapView.schema => 'esquema',
     MapView.graph => 'grafo',
   };
@@ -237,31 +243,45 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget _viewSelector(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Semantics(
-        label: l10n.mapViewSelectorLabel,
-        child: SegmentedButton<MapView>(
-          key: const ValueKey('map-view-selector'),
-          showSelectedIcon: false,
-          segments: [
-            ButtonSegment(
-              value: MapView.board,
-              icon: const Icon(Icons.dashboard_outlined),
-              label: Text(l10n.mapViewBoard),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Cuatro vistas no entran con ícono y nombre en un celular angosto:
+          // ahí, solo el nombre, que es lo que dice cuál es cuál.
+          final icons = constraints.maxWidth >= 520;
+          ButtonSegment<MapView> segment(
+            MapView view,
+            IconData icon,
+            String label,
+          ) => ButtonSegment(
+            value: view,
+            icon: icons ? Icon(icon) : null,
+            label: Text(label, maxLines: 1, softWrap: false),
+          );
+          return Semantics(
+            label: l10n.mapViewSelectorLabel,
+            child: SegmentedButton<MapView>(
+              key: const ValueKey('map-view-selector'),
+              showSelectedIcon: false,
+              segments: [
+                segment(
+                  MapView.board,
+                  Icons.dashboard_outlined,
+                  l10n.mapViewBoard,
+                ),
+                segment(MapView.links, Icons.link, l10n.mapViewLinks),
+                segment(
+                  MapView.schema,
+                  Icons.account_tree_outlined,
+                  l10n.mapViewSchema,
+                ),
+                segment(MapView.graph, Icons.hub_outlined, l10n.mapViewGraph),
+              ],
+              selected: {_view},
+              onSelectionChanged: (views) =>
+                  setState(() => _view = views.single),
             ),
-            ButtonSegment(
-              value: MapView.schema,
-              icon: const Icon(Icons.account_tree_outlined),
-              label: Text(l10n.mapViewSchema),
-            ),
-            ButtonSegment(
-              value: MapView.graph,
-              icon: const Icon(Icons.hub_outlined),
-              label: Text(l10n.mapViewGraph),
-            ),
-          ],
-          selected: {_view},
-          onSelectionChanged: (views) => setState(() => _view = views.single),
-        ),
+          );
+        },
       ),
     );
   }
@@ -288,6 +308,8 @@ class _MapBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    // Los vínculos no esperan al grafo de temas: no lo usan.
+    if (view == MapView.links) return _fade(context, _links());
     final state = ref.watch(knowledgeMapProvider(request)).valueOrNull;
 
     return switch (state) {
@@ -314,6 +336,7 @@ class _MapBody extends ConsumerWidget {
 
     final dashboard = ref.watch(mapDashboardProvider(request)).valueOrNull;
     final body = switch (view) {
+      MapView.links => _links(),
       MapView.board => MapBoardView(
         snapshot: snapshot,
         dashboard: dashboard,
@@ -337,15 +360,7 @@ class _MapBody extends ConsumerWidget {
       ),
     };
 
-    // Un fundido corto entre vistas, salvo que el sistema pida menos
-    // movimiento.
-    final animated = AnimatedSwitcher(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 180),
-      child: KeyedSubtree(key: ValueKey(view), child: body),
-    );
-
+    final animated = _fade(context, body);
     if (!stale) return animated;
     return Column(
       children: [
@@ -363,6 +378,22 @@ class _MapBody extends ConsumerWidget {
       ],
     );
   }
+
+  Widget _links() => MapLinksView(
+    key: const ValueKey('map-links'),
+    filter: request.filter,
+    exportHandle: exportHandle,
+    onOpenItem: onOpenItem,
+  );
+
+  /// Un fundido corto entre vistas, salvo que el sistema pida menos
+  /// movimiento.
+  Widget _fade(BuildContext context, Widget body) => AnimatedSwitcher(
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180),
+    child: KeyedSubtree(key: ValueKey(view), child: body),
+  );
 }
 
 class _Empty extends StatelessWidget {

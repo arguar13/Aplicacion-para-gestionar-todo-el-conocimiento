@@ -3480,6 +3480,52 @@
   "@mapViewGraph": {
     "description": "Nombre de la vista del grafo de conocimiento: comunidades de temas, temas y elementos según el zoom."
   },
+  "mapViewLinks": "Vínculos",
+  "@mapViewLinks": {
+    "description": "Nombre de la vista del Mapa con los elementos y sus vínculos, tengan o no temas (F28)."
+  },
+  "mapLinksSummary": "{count, plural, =1{1 elemento vinculado} other{{count} elementos vinculados}}",
+  "@mapLinksSummary": {
+    "description": "Encabezado de la vista «Vínculos» del Mapa: cuántos elementos tienen algún vínculo (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksCut": "Se muestran {shown} de {total}: lo vinculado hace poco y lo más vinculado. Con los filtros ves otra parte.",
+  "@mapLinksCut": {
+    "description": "Aviso de la vista «Vínculos» cuando hay más elementos vinculados de los que se dibujan (F28).",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksUnlinked": "{count, plural, =1{1 elemento sin vínculos no se dibuja.} other{{count} elementos sin vínculos no se dibujan.}}",
+  "@mapLinksUnlinked": {
+    "description": "Pie de la vista «Vínculos»: cuántos elementos no tienen ningún vínculo y por eso no aparecen (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksEmptyTitle": "Todavía no hay vínculos",
+  "@mapLinksEmptyTitle": {
+    "description": "Título de la vista «Vínculos» del Mapa sin ningún vínculo (F28)."
+  },
+  "mapLinksEmptyMessage": "Cuando vincules dos cosas —desde su detalle, o acá con «Agregar vínculo»—, aparecen en esta vista al instante, tengan o no tema.",
+  "@mapLinksEmptyMessage": {
+    "description": "Mensaje de la vista «Vínculos» del Mapa sin ningún vínculo (F28)."
+  },
+  "mapLinksLoadError": "No se pudieron leer los vínculos.",
+  "@mapLinksLoadError": {
+    "description": "Error de la vista «Vínculos» del Mapa al leer de la base (F28)."
+  },
   "mapGraphCrumbOverview": "Comunidades",
   "@mapGraphCrumbOverview": {
     "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."

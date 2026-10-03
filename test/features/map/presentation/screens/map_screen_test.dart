@@ -237,6 +237,89 @@ void main() {
     expect(find.byType(MapSchemaView), findsNothing);
   });
 
+  group('la vista «Vínculos» (F28)', () {
+    Future<void> openLinks(WidgetTester tester) async {
+      await tester.tap(find.text(es.mapViewLinks));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('dibuja lo vinculado aunque no tenga ningún tema, y cuenta lo '
+        'que no tiene vínculos', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await item('suelto', const []);
+      await relate('a', 'b', kind: RelationKind.cites);
+      await pump(tester);
+
+      await openLinks(tester);
+
+      expect(find.byKey(const ValueKey('map-links-node-a')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-links-node-b')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-links-node-suelto')), findsNothing);
+      expect(find.text(es.mapLinksSummary(2)), findsOneWidget);
+      expect(find.text(es.mapLinksUnlinked(1)), findsOneWidget);
+    });
+
+    testWidgets('vincular dos cosas se ve en el acto', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await item('c', const []);
+      await relate('a', 'b');
+      await pump(tester);
+      await openLinks(tester);
+      expect(find.byKey(const ValueKey('map-links-node-c')), findsNothing);
+
+      await tester.runAsync(() => relate('b', 'c'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('map-links-node-c')), findsOneWidget);
+      expect(find.text(es.mapLinksSummary(3)), findsOneWidget);
+    });
+
+    testWidgets('sin vínculos, lo dice y ofrece agregar uno', (tester) async {
+      await item('a', const []);
+      await pump(tester);
+
+      await openLinks(tester);
+
+      expect(find.text(es.mapLinksEmptyTitle), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, es.graphAddRelationTooltip),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tocar un elemento abre su detalle', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await relate('a', 'b');
+      await pump(tester);
+      await openLinks(tester);
+
+      await tester.tap(find.byKey(const ValueKey('map-links-node-a')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ItemDetailScreen), findsOneWidget);
+    });
+
+    testWidgets('se exporta como SVG con el nombre de la vista', (
+      tester,
+    ) async {
+      await seed();
+      await pump(tester);
+      await openLinks(tester);
+
+      await tester.tap(find.byKey(const ValueKey('map-export')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-export-svg')));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'mapa-vinculos-tema.svg');
+      final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
+      expect(text, contains('Fuente s1'));
+    });
+  });
+
   group('la transición entre vistas', () {
     testWidgets('es un fundido corto: un instante después de tocar, las dos '
         'vistas conviven, y al terminar queda solo la nueva', (tester) async {

@@ -693,6 +693,99 @@ void main() {
     });
   });
 
+  group('los vínculos (F28)', () {
+    test('trae los elementos vinculados aunque no tengan ningún tema, con '
+        'sus vínculos, y cuenta los que no tienen ninguno', () async {
+      await source('a', const []);
+      await note('b', const []);
+      await source('suelto', const []);
+      await relate('a', 'b', kind: RelationKind.cites);
+
+      final links = await repository.readLinkGraph();
+
+      expect({for (final i in links.items) i.id}, {'a', 'b'});
+      expect(links.items.firstWhere((i) => i.id == 'b').isNote, isTrue);
+      expect(links.edges, hasLength(1));
+      final edge = links.edges.single;
+      expect(links.items[edge.a].id, 'a');
+      expect(links.items[edge.b].id, 'b');
+      expect(edge.kind, RelationKind.cites);
+      expect(links.linkedCount, 2);
+      expect(links.unlinkedCount, 1);
+      expect(links.hidden, 0);
+    });
+
+    test('lo que está en la papelera no sale, ni sus vínculos', () async {
+      await source('a', const []);
+      await source('b', const []);
+      await source('c', const []);
+      await relate('a', 'b');
+      await relate('b', 'c');
+      await trashItemRows(db, 'c');
+
+      final links = await repository.readLinkGraph();
+
+      expect({for (final i in links.items) i.id}, {'a', 'b'});
+      expect(links.edges, hasLength(1));
+      // El de la papelera no cuenta ni como suelto.
+      expect(links.unlinkedCount, 0);
+    });
+
+    test('el filtro de la biblioteca rige: un vínculo con un extremo afuera '
+        'no se dibuja a medias', () async {
+      await seedTopics();
+      await source('a', ['roma']);
+      await source('b', ['roma']);
+      await source('c', ['grecia']);
+      await relate('a', 'b');
+      await relate('a', 'c');
+
+      final links = await repository.readLinkGraph(
+        filter: const LibraryQuery(propertyValueIds: {'roma'}),
+      );
+
+      expect({for (final i in links.items) i.id}, {'a', 'b'});
+      expect(links.edges, hasLength(1));
+    });
+
+    test('con más vinculados que el tope, el foco entra con sus vecinos, se '
+        'avisa cuántos quedaron afuera y se dice cuál es el foco', () async {
+      for (var i = 0; i < 6; i++) {
+        await source('i$i', const []);
+      }
+      await relate('i0', 'i1');
+      await relate('i2', 'i3');
+      await relate('i4', 'i5');
+
+      final links = await repository.readLinkGraph(focusId: 'i4', limit: 2);
+
+      expect({for (final i in links.items) i.id}, {'i4', 'i5'});
+      expect(links.focusId, 'i4');
+      expect(links.linkedCount, 6);
+      expect(links.hidden, 4);
+    });
+
+    test('un foco que no está entre los dibujados no se marca', () async {
+      await source('a', const []);
+      await source('b', const []);
+      await source('suelto', const []);
+      await relate('a', 'b');
+
+      final links = await repository.readLinkGraph(focusId: 'suelto');
+
+      expect(links.focusId, isNull);
+    });
+
+    test('sin ningún vínculo, un grafo vacío que cuenta los sueltos', () async {
+      await source('a', const []);
+
+      final links = await repository.readLinkGraph();
+
+      expect(links.items, isEmpty);
+      expect(links.unlinkedCount, 1);
+    });
+  });
+
   group('los avisos de cambio', () {
     /// Si dentro de un rato llegó un aviso, mientras se hace [write].
     Future<bool> notifies(
@@ -945,6 +1038,25 @@ void main() {
 
       expect(plan, hasLength(1), reason: reason);
       expect(plan.single, startsWith('SCAN relations'), reason: reason);
+    });
+
+    test('los vínculos de la vista «Vínculos» se recorren una vez, y cada '
+        'extremo se busca por su clave (F28)', () async {
+      final plan = await planOf(mapLinksSql, const []);
+      final reason = plan.join('\n');
+
+      expect(
+        plan.where((line) => line.startsWith('SCAN')),
+        hasLength(1),
+        reason: reason,
+      );
+      expect(
+        plan.where(
+          (line) => line.startsWith('SEARCH') && line.contains('(id=?)'),
+        ),
+        hasLength(2),
+        reason: reason,
+      );
     });
   });
 

@@ -1,5 +1,6 @@
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/services/community_detector.dart';
@@ -280,27 +281,61 @@ GraphScene sceneOfTopics(
 /// El nivel cercano: los elementos de un tema y los vínculos entre ellos.
 GraphScene sceneOfItems(TopicItemsGraph items) {
   return GraphScene(
-    nodes: [
-      for (final item in items.items)
-        SceneNode(
-          key: 'item:${item.id}',
-          kind: item.isNote ? SceneKind.note : SceneKind.source,
-          label: item.title,
-          size: 1,
-          ref: item.id,
-        ),
-    ],
-    edges: [
-      for (final edge in items.edges)
-        SceneEdge(
-          a: edge.a,
-          b: edge.b,
-          // Una contradicción une más que una cita, como entre temas.
-          weight: edge.kind == RelationKind.contradicts ? 3 : 2,
-          tension: edge.kind == RelationKind.contradicts,
-          relation: edge.kind,
-        ),
-    ],
+    nodes: [for (final item in items.items) _itemNode(item)],
+    edges: [for (final edge in items.edges) _itemEdge(edge)],
     hidden: items.truncated ? 1 : 0,
   );
 }
+
+/// La vista «Vínculos» (F28): los elementos vinculados, sin temas de por
+/// medio, con el mismo dibujo que el nivel de elementos.
+///
+/// Cada grupo de elementos unidos entre sí —una componente conexa— es un
+/// grupo para el layout: lo que está vinculado queda junto, y dos grupos
+/// sueltos no se mezclan.
+GraphScene sceneOfLinks(LinkGraph graph) {
+  final count = graph.items.length;
+  // Las componentes, con una unión por rango: cada elemento apunta a uno de su
+  // grupo, y el de más arriba es el que lo nombra.
+  final parent = List<int>.generate(count, (i) => i);
+  int root(int i) {
+    var node = i;
+    while (parent[node] != node) {
+      parent[node] = parent[parent[node]];
+      node = parent[node];
+    }
+    return node;
+  }
+
+  for (final edge in graph.edges) {
+    final a = root(edge.a);
+    final b = root(edge.b);
+    if (a != b) parent[a < b ? b : a] = a < b ? a : b;
+  }
+
+  return GraphScene(
+    nodes: [
+      for (var i = 0; i < count; i++) _itemNode(graph.items[i], group: root(i)),
+    ],
+    edges: [for (final edge in graph.edges) _itemEdge(edge)],
+    hidden: graph.hidden,
+  );
+}
+
+SceneNode _itemNode(TopicItemNode item, {int? group}) => SceneNode(
+  key: 'item:${item.id}',
+  kind: item.isNote ? SceneKind.note : SceneKind.source,
+  label: item.title,
+  size: 1,
+  group: group,
+  ref: item.id,
+);
+
+SceneEdge _itemEdge(TopicItemEdge edge) => SceneEdge(
+  a: edge.a,
+  b: edge.b,
+  // Una contradicción une más que una cita, como entre temas.
+  weight: edge.kind == RelationKind.contradicts ? 3 : 2,
+  tension: edge.kind == RelationKind.contradicts,
+  relation: edge.kind,
+);

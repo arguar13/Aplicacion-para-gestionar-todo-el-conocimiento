@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/map/data/repositories/knowledge_map_repository_impl.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/repositories/knowledge_map_repository.dart';
 import 'package:sinapsis/features/map/domain/services/knowledge_map_engine.dart';
@@ -54,6 +57,29 @@ final mapDashboardProvider = FutureProvider.autoDispose
       return ref
           .watch(knowledgeMapRepositoryProvider)
           .readDashboard(filter: request.filter);
+    });
+
+/// Qué se pide a la vista «Vínculos»: sobre qué elementos —el filtro del
+/// mapa— y en cuál poner el foco, si en alguno.
+typedef MapLinksRequest = ({LibraryQuery filter, String? focusId});
+
+/// Los elementos vinculados y sus vínculos (F28), que se actualizan solos:
+/// vincular dos cosas se ve en el acto, sin la espera por lotes del grafo de
+/// temas —acá no hay comunidades que recalcular—.
+///
+/// `autoDispose`: mantiene una suscripción a los cambios de la base.
+final mapLinksProvider = StreamProvider.autoDispose
+    .family<LinkGraph, MapLinksRequest>((ref, request) {
+      final repository = ref.watch(knowledgeMapRepositoryProvider);
+      return watchReads(
+        changes: () => repository.changes(filter: request.filter),
+        read: () => repository.readLinkGraph(
+          filter: request.filter,
+          focusId: request.focusId,
+        ),
+        telemetry: ref.watch(telemetryServiceProvider),
+        hint: 'mapLinksProvider',
+      );
     });
 
 /// El mapa de un pedido, que se actualiza solo.

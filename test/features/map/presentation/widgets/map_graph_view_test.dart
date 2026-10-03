@@ -7,6 +7,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -62,6 +63,13 @@ class _FakeRepository implements KnowledgeMapRepository {
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
     int limit = kSchemaFanOut,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<LinkGraph> readLinkGraph({
+    LibraryQuery filter = const LibraryQuery(),
+    String? focusId,
+    int limit = kMaxGraphItems,
   }) => throw UnimplementedError();
 
   @override

@@ -4075,6 +4075,52 @@
   "@mapViewGraph": {
     "description": "Nombre de la vista del grafo de conocimiento: comunidades de temas, temas y elementos según el zoom."
   },
+  "mapViewLinks": "Links",
+  "@mapViewLinks": {
+    "description": "Name of the Map view with items and their links, whether or not they have topics (F28)."
+  },
+  "mapLinksSummary": "{count, plural, =1{1 linked item} other{{count} linked items}}",
+  "@mapLinksSummary": {
+    "description": "Header of the Map's Links view: how many items have a link (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksCut": "Showing {shown} of {total}: what you linked lately and the most linked. Use the filters to see another part.",
+  "@mapLinksCut": {
+    "description": "Notice of the Links view when there are more linked items than are drawn (F28).",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksUnlinked": "{count, plural, =1{1 item without links is not drawn.} other{{count} items without links are not drawn.}}",
+  "@mapLinksUnlinked": {
+    "description": "Footer of the Links view: how many items have no link and therefore do not appear (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapLinksEmptyTitle": "No links yet",
+  "@mapLinksEmptyTitle": {
+    "description": "Title of the Map's Links view with no links at all (F28)."
+  },
+  "mapLinksEmptyMessage": "When you link two things —from their detail, or here with “Add link”— they show up in this view right away, whether or not they have a topic.",
+  "@mapLinksEmptyMessage": {
+    "description": "Message of the Map's Links view with no links at all (F28)."
+  },
+  "mapLinksLoadError": "The links could not be read.",
+  "@mapLinksLoadError": {
+    "description": "Error of the Map's Links view when reading the database (F28)."
+  },
   "mapGraphCrumbOverview": "Communities",
   "@mapGraphCrumbOverview": {
     "description": "Primer paso del camino del grafo de conocimiento: el panorama con todas las comunidades de temas."

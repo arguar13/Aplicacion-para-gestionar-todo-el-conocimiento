@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_items.dart';
 import 'package:sinapsis/features/map/domain/services/community_detector.dart';
@@ -327,6 +328,45 @@ void main() {
     expect(scene.edges.last.tension, isTrue);
     expect(scene.edges.last.weight, greaterThan(scene.edges.first.weight));
     expect(scene.hidden, 1);
+  });
+
+  test('la vista «Vínculos» dibuja los elementos como el nivel de elementos, '
+      'y agrupa para el layout lo que está unido entre sí (F28)', () {
+    const links = LinkGraph(
+      items: [
+        TopicItemNode(id: 'a', title: 'A', isNote: true),
+        TopicItemNode(id: 'b', title: 'B', isNote: false),
+        TopicItemNode(id: 'c', title: 'C', isNote: false),
+        TopicItemNode(id: 'd', title: 'D', isNote: false),
+        TopicItemNode(id: 'e', title: 'E', isNote: true),
+      ],
+      edges: [
+        TopicItemEdge(a: 0, b: 1, kind: RelationKind.cites),
+        TopicItemEdge(a: 2, b: 1, kind: RelationKind.contradicts),
+        TopicItemEdge(a: 3, b: 4, kind: RelationKind.relatedTo),
+      ],
+      linkedCount: 7,
+      unlinkedCount: 3,
+    );
+
+    final scene = sceneOfLinks(links);
+
+    expect(scene.nodes.map((n) => n.key), [
+      'item:a',
+      'item:b',
+      'item:c',
+      'item:d',
+      'item:e',
+    ]);
+    expect(scene.nodes.first.kind, SceneKind.note);
+    // a, b y c están unidos; d y e, aparte.
+    final groups = [for (final node in scene.nodes) node.group];
+    expect(groups[0], groups[1]);
+    expect(groups[1], groups[2]);
+    expect(groups[3], groups[4]);
+    expect(groups[0], isNot(groups[3]));
+    expect(scene.edges[1].tension, isTrue);
+    expect(scene.hidden, 2);
   });
 
   test('las uniones se dan al layout con su peso', () {

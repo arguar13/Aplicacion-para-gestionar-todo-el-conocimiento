@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -66,4 +67,11 @@ class StructuredMapRepository implements KnowledgeMapRepository {
     String valueId, {
     int limit = kMaxGraphItems,
   }) => _real.readTopicItems(valueId, limit: limit);
+
+  @override
+  Future<LinkGraph> readLinkGraph({
+    LibraryQuery filter = const LibraryQuery(),
+    String? focusId,
+    int limit = kMaxGraphItems,
+  }) => _real.readLinkGraph(filter: filter, focusId: focusId, limit: limit);
 }

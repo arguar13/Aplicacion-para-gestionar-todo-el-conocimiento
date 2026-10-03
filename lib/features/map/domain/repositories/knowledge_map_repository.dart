@@ -1,4 +1,5 @@
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/map/domain/entities/link_graph.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
 import 'package:sinapsis/features/map/domain/entities/schema.dart';
 import 'package:sinapsis/features/map/domain/entities/topic_graph.dart';
@@ -50,6 +51,20 @@ abstract interface class KnowledgeMapRepository {
   /// tocados más recientemente; lo que está en la papelera queda afuera.
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
+    int limit = kMaxGraphItems,
+  });
+
+  /// Los elementos vivos que pasan [filter] y tienen algún vínculo con otro
+  /// que también lo pasa, con esos vínculos: lo que dibuja la vista
+  /// «Vínculos» (F28). No mira temas ni etiquetas: un elemento sin ninguno
+  /// se dibuja igual.
+  ///
+  /// A lo sumo [limit] elementos, elegidos como dice `selectLinkGraph`:
+  /// primero [focusId] y su vecindario, después lo vinculado más
+  /// recientemente y al final lo más vinculado.
+  Future<LinkGraph> readLinkGraph({
+    LibraryQuery filter = const LibraryQuery(),
+    String? focusId,
     int limit = kMaxGraphItems,
   });
 

@@ -21,6 +21,7 @@ import 'package:sinapsis/features/map/presentation/providers/map_providers.dart'
 import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -252,23 +253,13 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
         _ => node.label,
       };
       if (node.kind == SceneKind.note || node.kind == SceneKind.source) {
-        final role = node.kind == SceneKind.note
-            ? EntityRole.note
-            : EntityRole.source;
-        svg
-          ..rect(
-            Rect.fromCenter(center: at, width: 150, height: 34),
-            fill: role.surface(scheme),
-            stroke: role.outline(scheme),
-            radius: role.radius,
-          )
-          ..text(
-            SvgWriter.ellipsize(label, 22),
-            Offset(at.dx - 75 + 10, at.dy + 4),
-            color: scheme.onSurface,
-            size: 11,
-            anchor: 'start',
-          );
+        writeMapItemBoxSvg(
+          svg,
+          isNote: node.kind == SceneKind.note,
+          label: label,
+          at: at,
+          colors: scheme,
+        );
         continue;
       }
       final disc = _disc(node);
@@ -834,7 +825,7 @@ Size _sizeOf(SceneNode node) => switch (node.kind) {
   SceneKind.overflow ||
   SceneKind.isolated => Size(math.max(_disc(node), 120), _disc(node) + 22),
   SceneKind.topic => Size(math.max(_disc(node), 96), _disc(node) + 18),
-  SceneKind.note || SceneKind.source => const Size(150, 34),
+  SceneKind.note || SceneKind.source => kMapItemBoxSize,
 };
 
 /// El diámetro del círculo de un nodo, que crece con su peso.
@@ -890,40 +881,7 @@ class _NodeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (node.kind == SceneKind.note || node.kind == SceneKind.source) {
-      final role = node.kind == SceneKind.note
-          ? EntityRole.note
-          : EntityRole.source;
-      final colors = theme.colorScheme;
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          color: role.surface(colors),
-          border: Border.all(color: role.outline(colors)),
-          borderRadius: BorderRadius.circular(role.radius),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              Icon(
-                node.kind == SceneKind.note
-                    ? Icons.sticky_note_2_outlined
-                    : Icons.article_outlined,
-                size: 14,
-                color: color,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return MapItemBox(isNote: node.kind == SceneKind.note, label: label);
     }
 
     final disc = _disc(node);
