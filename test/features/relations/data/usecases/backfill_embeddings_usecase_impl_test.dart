@@ -1,9 +1,11 @@
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 import 'package:sinapsis/features/relations/data/usecases/backfill_embeddings_usecase_impl.dart';
@@ -125,6 +127,51 @@ void main() {
     // Los dos ítems que sí funcionan se indexan igual — el que falla no
     // suma nada, pero tampoco corta el recorrido de los otros dos.
     expect(progress.last.indexedChunks, 2);
+  });
+
+  test('recorre también las notas vivas (F27), por sus tramos', () async {
+    await seedItemWithChunks('fuente');
+    for (final (id, title) in [('nota', 'Viva'), ('borrada', 'Borrada')]) {
+      await db
+          .into(db.knowledgeEntries)
+          .insert(
+            KnowledgeEntriesCompanion.insert(
+              id: id,
+              title: title,
+              kind: ItemKind.note,
+              state: ItemState.processed,
+              createdAt: now,
+              updatedAt: now,
+              deviceId: 'test',
+            ),
+          );
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'rend-$id',
+              itemId: id,
+              kind: RenditionKind.markdown,
+              content: Value('Lo que pienso, en la nota $title.'),
+              isPrimary: true,
+              createdAt: now,
+            ),
+          );
+    }
+    await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('borrada')))
+        .write(KnowledgeEntriesCompanion(deletedAt: Value(now)));
+    final indexer = ChunkEmbeddingIndexerImpl(
+      database: db,
+      embeddings: FakeEmbeddingService(),
+      clock: () => now,
+    );
+
+    final progress = await build(indexer).call().toList();
+
+    expect(progress.last.totalItems, 2);
+    expect(progress.last.indexedChunks, 2);
+    final notes = await db.select(db.noteEmbeddings).get();
+    expect(notes.map((e) => e.itemId), ['nota']);
   });
 
   test('correrlo dos veces: la segunda no reindexa nada', () async {

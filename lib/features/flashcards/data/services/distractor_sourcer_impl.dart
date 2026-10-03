@@ -107,7 +107,9 @@ class DistractorSourcerImpl implements DistractorSourcer {
   /// Elementos cercanos por embedding a [seedItemId], de más a menos
   /// parecido.
   Future<List<String>> _embeddingNeighbors(String seedItemId, int count) async {
-    final candidates = await _relations.selectCandidates(
+    // Solo fuentes: un distractor se ancla a un fragmento, y una nota no
+    // tiene.
+    final candidates = await _relations.selectSourceCandidates(
       seedItemId: seedItemId,
       limit: count,
     );

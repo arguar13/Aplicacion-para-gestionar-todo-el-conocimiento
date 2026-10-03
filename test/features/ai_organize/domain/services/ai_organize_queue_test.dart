@@ -12,6 +12,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 
 import '../../../../support/ai_organize_harness.dart';
 import '../../../../support/fake_chat_model_manager.dart';
@@ -40,6 +41,21 @@ class _Step implements AiOrganizeStep {
   }
 }
 
+/// Los vectores de las notas, de mentira: anota a cuáles se les pusieron al
+/// día.
+class _Vectors implements ChunkEmbeddingIndexer {
+  final notes = <String>[];
+
+  @override
+  Future<int> indexItem(String itemId) async => 0;
+
+  @override
+  Future<int> indexNote(String itemId) async {
+    notes.add(itemId);
+    return 1;
+  }
+}
+
 class _Charging implements ChargingProbe {
   bool charging = false;
   final changes = StreamController<bool>.broadcast();
@@ -64,6 +80,7 @@ void main() {
   late FakeChatModelManager chatModel;
   late FakeEmbeddingModelManager embeddingModel;
   late _Charging charging;
+  late _Vectors vectors;
   late List<AiOrganizeStatus> statuses;
 
   /// Lo creado antes de este momento es la biblioteca que ya existía.
@@ -77,6 +94,7 @@ void main() {
     chatModel = FakeChatModelManager(ready: true);
     embeddingModel = FakeEmbeddingModelManager(ready: true);
     charging = _Charging();
+    vectors = _Vectors();
     statuses = [];
   });
 
@@ -96,6 +114,7 @@ void main() {
       steps: () => steps,
       chatModel: () => chatModel,
       embeddingModel: () => embeddingModel,
+      vectors: () => vectors,
       charging: charging,
       epoch: () async => epoch,
       telemetry: vault.telemetry,
@@ -415,6 +434,9 @@ void main() {
       vault.now = vault.now.add(const Duration(seconds: 20));
       await ai.wake();
       expect(relations.organized, ['n']);
+      // No se reorganiza, pero sus vectores sí se ponen al día: la describen
+      // para los vínculos de otros elementos.
+      expect(vectors.notes, ['n']);
 
       // Reescrita entera, con el mismo largo: la medida por el largo no la
       // veía.

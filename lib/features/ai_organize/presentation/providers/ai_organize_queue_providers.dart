@@ -82,7 +82,6 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
     AutoRelateStep(
       database: ref.watch(appDatabaseProvider),
       ids: ref.watch(idGeneratorProvider),
-      embeddings: ref.watch(embeddingServiceProvider),
       indexer: ref.watch(chunkEmbeddingIndexerProvider),
       selector: ref.watch(relationCandidateSelectorProvider),
       service: model,
@@ -128,6 +127,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     steps: () => ref.read(aiOrganizeStepsProvider),
     chatModel: () => ref.read(chatModelManagerProvider),
     embeddingModel: () => ref.read(embeddingModelManagerProvider),
+    vectors: () => ref.read(chunkEmbeddingIndexerProvider),
     charging: ref.read(chargingProbeProvider),
     epoch: ref.read(aiOrganizeMemoryProvider).epoch,
     telemetry: ref.read(telemetryServiceProvider),

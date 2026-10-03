@@ -10,11 +10,9 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settin
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/relation_confidence.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
-import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 
@@ -27,24 +25,16 @@ const kAutoRelateMaxCandidates = 10;
 /// que ya ve de cada candidato.
 const kAutoRelateSeedExcerptChars = 280;
 
-/// De a cuánto se calculan los vectores de una nota: holgado dentro de los
-/// 2048 tokens que acepta EmbeddingGemma.
-const kNoteEmbeddingPieceChars = 2000;
-
-/// Cuántos tramos de una nota describen su centro, como mucho: una nota de
-/// más de 16.000 caracteres se describe por su comienzo, que es donde suele
-/// estar lo que la nota es.
-const kMaxNoteEmbeddingPieces = 8;
-
 /// Vincula sola un elemento con el resto de la biblioteca (F27): el mismo
 /// camino que las sugerencias de F5 —candidatos por parecido de embeddings,
 /// el modelo de lenguaje juzga cuáles van y de qué tipo—, pero lo seguro se
 /// crea solo, marcado como de la IA y con el motivo en su frase, y lo dudoso
 /// queda en «Para revisar» (`relationConfidence`).
 ///
-/// También para notas: una nota no tiene fragmentos guardados, así que sus
-/// vectores se calculan en el momento. Las notas no son candidatas —no tienen
-/// vectores con qué compararlas—; una nota se vincula con fuentes.
+/// También para notas, y las notas son destino igual que las fuentes: una
+/// nota no tiene fragmentos, pero sí vectores de sus tramos
+/// (`ChunkEmbeddingIndexer.indexNote`), que esta pasada deja al día y quedan
+/// guardados para cuando otro elemento busque con qué vincularse.
 ///
 /// Nunca repite: deja afuera lo que ya está vinculado de cualquier tipo, lo
 /// que ya está para revisar o la persona descartó ahí, lo que dijo que «no
@@ -53,7 +43,6 @@ class AutoRelateStep implements AiOrganizeStep {
   const AutoRelateStep({
     required AppDatabase database,
     required IdGenerator ids,
-    required EmbeddingService embeddings,
     required ChunkEmbeddingIndexer indexer,
     required RelationCandidateSelector selector,
     required RelationSuggestionService service,
@@ -62,7 +51,6 @@ class AutoRelateStep implements AiOrganizeStep {
     required AiRunRepository runs,
   }) : _db = database,
        _ids = ids,
-       _embeddings = embeddings,
        _indexer = indexer,
        _selector = selector,
        _service = service,
@@ -72,7 +60,6 @@ class AutoRelateStep implements AiOrganizeStep {
 
   final AppDatabase _db;
   final IdGenerator _ids;
-  final EmbeddingService _embeddings;
   final ChunkEmbeddingIndexer _indexer;
   final RelationCandidateSelector _selector;
   final RelationSuggestionService _service;
@@ -190,19 +177,11 @@ class AutoRelateStep implements AiOrganizeStep {
       // una fuente guardada antes de que existieran. Es idempotente.
       await chunkAndPersistSource(_db, itemId: item.id, ids: _ids);
       await _indexer.indexItem(item.id);
-      return _selector.selectCandidates(seedItemId: item.id);
+    } else {
+      // Solo los tramos que cambiaron desde la última vez.
+      await _indexer.indexNote(item.id);
     }
-
-    final text = item.searchableText.trim();
-    if (text.isEmpty) return const [];
-    final pieces = splitIntoParts(
-      text,
-      maxChars: kNoteEmbeddingPieceChars,
-    ).take(kMaxNoteEmbeddingPieces).map((p) => p.text).toList();
-    return _selector.selectCandidatesNear(
-      seedItemId: item.id,
-      seedVectors: await _embeddings.embedBatch(pieces),
-    );
+    return _selector.selectCandidates(seedItemId: item.id);
   }
 
   /// De [candidateIds], los que ya tienen un vínculo propuesto con [itemId]

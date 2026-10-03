@@ -29,10 +29,11 @@ class Embeddings extends Table {
 /// hace `item_search`—, así que sus vectores van acá: uno por tramo del texto
 /// (`splitIntoParts`, de `kNoteEmbeddingPieceChars`), en orden ([seq]).
 ///
-/// [textHash] dice qué texto describen: si la nota cambió, los tramos de otro
-/// texto se descartan y se calculan de nuevo. Se calculan por tandas y cada
-/// tanda queda guardada, como los de las fuentes: lo que se cortó a mitad se
-/// retoma desde lo que falta.
+/// [textHash] dice qué tramo describe cada vector: si la nota cambió, solo
+/// los tramos que cambiaron se descartan y se calculan de nuevo —corregir el
+/// final de una nota larga no recalcula el principio—. Se calculan por tandas
+/// y cada tanda queda guardada, como los de las fuentes: lo que se cortó a
+/// mitad se retoma desde lo que falta.
 ///
 /// Derivados, como [Embeddings]: no viajan en la fusión de bóvedas —se
 /// recalculan— y se van con su nota.
@@ -48,7 +49,7 @@ class NoteEmbeddings extends Table {
   IntColumn get seq => integer()();
   BlobColumn get vector => blob()();
 
-  /// El SHA-256 del texto entero de la nota que estos tramos describen.
+  /// El SHA-256 del texto del tramo que este vector describe.
   TextColumn get textHash => text()();
   TextColumn get modelVersion => text()();
   DateTimeColumn get createdAt => dateTime()();

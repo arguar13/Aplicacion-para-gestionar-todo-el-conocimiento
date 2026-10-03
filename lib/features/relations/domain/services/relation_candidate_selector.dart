@@ -28,24 +28,22 @@ class ScoredRelationCandidate {
 /// una preselección real, sin cambiar quién decide el vínculo.
 abstract interface class RelationCandidateSelector {
   /// Hasta [limit] candidatos con similitud `>= [minSimilarity]`, de
-  /// mayor a menor score. Lista vacía si [seedItemId] no tiene chunks o
-  /// embeddings propios todavía, o si ningún otro elemento supera el
-  /// umbral — no es un error, es que no hay nada que preseleccionar
-  /// todavía.
+  /// mayor a menor score: fuentes y notas (F27), cada una por sus vectores
+  /// —los de los fragmentos de una fuente, los de los tramos de una nota—.
+  /// Lista vacía si [seedItemId] no tiene vectores propios todavía, o si
+  /// ningún otro elemento supera el umbral — no es un error, es que no hay
+  /// nada que preseleccionar todavía.
   Future<List<ScoredRelationCandidate>> selectCandidates({
     required String seedItemId,
     int limit = 15,
     double minSimilarity = 0.5,
   });
 
-  /// Lo mismo que [selectCandidates], pero con el semilla descripto por
-  /// [seedVectors] en vez de por sus fragmentos guardados (F27): una nota no
-  /// se fragmenta —es texto del usuario que cambia—, así que la IA que la
-  /// vincula calcula sus vectores en el momento. [seedItemId] queda afuera
-  /// de los candidatos.
-  Future<List<ScoredRelationCandidate>> selectCandidatesNear({
+  /// Lo mismo que [selectCandidates], pero solo fuentes: lo que tiene un
+  /// fragmento que citar o donde anclarse, como los distractores de un quiz.
+  /// Una nota no tiene fragmentos.
+  Future<List<ScoredRelationCandidate>> selectSourceCandidates({
     required String seedItemId,
-    required List<List<double>> seedVectors,
     int limit = 15,
     double minSimilarity = 0.5,
   });

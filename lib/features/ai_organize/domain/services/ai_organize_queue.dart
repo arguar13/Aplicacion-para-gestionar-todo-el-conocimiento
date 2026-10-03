@@ -16,6 +16,7 @@ import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dar
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
+import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 
 /// Cuánto tiene que estar quieta una nota antes de que la IA la organice:
@@ -65,6 +66,7 @@ class AiOrganizeQueue {
     required List<AiOrganizeStep> Function() steps,
     required ChatModelManager Function() chatModel,
     required EmbeddingModelManager Function() embeddingModel,
+    required ChunkEmbeddingIndexer Function() vectors,
     required ChargingProbe charging,
     required AiOrganizeEpoch epoch,
     required TelemetryService telemetry,
@@ -79,6 +81,7 @@ class AiOrganizeQueue {
        _steps = steps,
        _chatModel = chatModel,
        _embeddingModel = embeddingModel,
+       _vectors = vectors,
        _charging = charging,
        _epoch = epoch,
        _telemetry = telemetry,
@@ -99,6 +102,10 @@ class AiOrganizeQueue {
   /// También al usarlos: elegir otra opción de modelo de chat arma otro.
   final ChatModelManager Function() _chatModel;
   final EmbeddingModelManager Function() _embeddingModel;
+
+  /// Con qué se ponen al día los vectores de una nota que cambió poco: los
+  /// necesita para ser destino de los vínculos de otros elementos.
+  final ChunkEmbeddingIndexer Function() _vectors;
   final ChargingProbe _charging;
   final AiOrganizeEpoch _epoch;
   final TelemetryService _telemetry;
@@ -334,8 +341,28 @@ class AiOrganizeQueue {
       if (contentChangedMuch(seen, await _simhashOf(note.searchableText))) {
         return edited.itemId;
       }
+      await _refreshNoteVectors(edited.itemId);
     }
     return null;
+  }
+
+  /// Una nota que cambió poco no se reorganiza, pero sus vectores sí se
+  /// ponen al día (F27): son lo que la hace destino de los vínculos que la IA
+  /// busca para otros elementos, y tienen que describir su texto de hoy. Solo
+  /// se recalculan los tramos que cambiaron. Un fallo se registra y no frena
+  /// la cola: la nota sigue con los vectores de antes.
+  Future<void> _refreshNoteVectors(String itemId) async {
+    try {
+      await _vectors().indexNote(itemId);
+      // El modelo de vectores es de terceros: falla de formas sin un tipo
+      // propio.
+    } on Object catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'AiOrganizeQueue: vectores de la nota $itemId',
+      );
+    }
   }
 
   /// La huella de [text], fuera del hilo de la interfaz: es una cuenta por

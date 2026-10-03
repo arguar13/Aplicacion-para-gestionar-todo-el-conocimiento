@@ -143,7 +143,6 @@ void main() {
         AutoRelateStep(
           database: vault.db,
           ids: vault.ids,
-          embeddings: embeddings,
           indexer: indexer,
           selector: RelationCandidateSelectorImpl(database: vault.db),
           service: FakeRelationSuggestionService(
@@ -168,6 +167,7 @@ void main() {
       ],
       chatModel: () => FakeChatModelManager(ready: true),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
+      vectors: () => indexer,
       charging: _NeverCharging(),
       epoch: () async => DateTime(2026, 10),
       telemetry: vault.telemetry,

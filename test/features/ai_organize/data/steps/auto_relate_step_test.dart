@@ -27,13 +27,14 @@ List<double> _vectorFor(String text) {
 void main() {
   late AiOrganizeHarness vault;
   late FakeRelationSuggestionService model;
+  late FakeEmbeddingService embeddings;
   late ChunkEmbeddingIndexerImpl indexer;
   late AutoRelateStep step;
 
   setUp(() {
     vault = AiOrganizeHarness();
     model = FakeRelationSuggestionService();
-    final embeddings = FakeEmbeddingService(vectorFor: _vectorFor);
+    embeddings = FakeEmbeddingService(vectorFor: _vectorFor);
     indexer = ChunkEmbeddingIndexerImpl(
       database: vault.db,
       embeddings: embeddings,
@@ -42,7 +43,6 @@ void main() {
     step = AutoRelateStep(
       database: vault.db,
       ids: vault.ids,
-      embeddings: embeddings,
       indexer: indexer,
       selector: RelationCandidateSelectorImpl(database: vault.db),
       service: model,
@@ -176,7 +176,7 @@ void main() {
     );
   });
 
-  test('una nota se vincula con vectores calculados en el momento', () async {
+  test('una nota se vincula, y sus vectores quedan guardados', () async {
     await indexed('a', 'CERCA: las leyes del Senado.');
     final note = await vault.note(
       'n',
@@ -190,8 +190,56 @@ void main() {
     expect(report.applied, 1);
     final relation = await vault.db.select(vault.db.relations).getSingle();
     expect((relation.fromItemId, relation.toItemId), ('n', 'a'));
-    // Las notas no se fragmentan: sus vectores no quedan guardados.
+    // Las notas no se fragmentan: sus vectores van aparte, por tramo.
     expect(await vault.db.select(vault.db.chunks).get(), hasLength(1));
+    final stored = await vault.db.select(vault.db.noteEmbeddings).get();
+    expect(stored.map((e) => (e.itemId, e.seq)), [('n', 0)]);
+  });
+
+  test('una nota es destino de un vínculo igual que una fuente', () async {
+    // Una nota ya organizada: sus vectores quedaron guardados.
+    await vault.note(
+      'n',
+      title: 'Mi nota sobre las leyes',
+      content: 'CERCA: lo que pienso de las leyes del Senado.',
+    );
+    await indexer.indexNote('n');
+    final seed = await vault.source(
+      's',
+      title: 'El Senado',
+      content: 'SEMILLA: el Senado romano.',
+    );
+    model.suggestions = [said('n', RelationKind.relatedTo, AiCertainty.high)];
+
+    final report = await step.organize(seed, runId: await vault.startRun('s'));
+
+    expect(report.applied, 1);
+    expect(model.candidateIdsSent.single, ['n']);
+    final relation = await vault.db.select(vault.db.relations).getSingle();
+    expect((relation.fromItemId, relation.toItemId), ('s', 'n'));
+  });
+
+  test('organizar de nuevo una nota solo calcula los tramos que '
+      'cambiaron', () async {
+    final first = 'SEMILLA: ${'Una idea sobre el Senado. ' * 100}';
+    await vault.note('n', title: 'Mi nota', content: '$first\n\nFinal.');
+    await indexer.indexNote('n');
+    final pieces =
+        (await vault.db.select(vault.db.noteEmbeddings).get()).length;
+    expect(pieces, greaterThan(1));
+    embeddings.requests.clear();
+
+    // Se corrige el final: el principio queda como estaba.
+    await vault.note('n', title: 'Mi nota', content: '$first\n\nOtro final.');
+    final note = await vault.reload('n');
+    await step.organize(note, runId: await vault.startRun('n'));
+
+    expect(embeddings.requests, hasLength(1));
+    expect(embeddings.requests.single, contains('Otro final.'));
+    expect(
+      await vault.db.select(vault.db.noteEmbeddings).get(),
+      hasLength(pieces),
+    );
   });
 
   test('si el modelo repite un candidato, vale la primera vez', () async {

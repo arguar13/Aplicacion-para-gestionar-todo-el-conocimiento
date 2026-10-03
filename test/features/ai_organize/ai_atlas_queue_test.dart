@@ -10,11 +10,13 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.d
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
+import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 
 import '../../support/ai_organize_harness.dart';
 import '../../support/atlas_topics.dart';
 import '../../support/fake_chat_model_manager.dart';
 import '../../support/fake_embedding_model_manager.dart';
+import '../../support/fake_embedding_service.dart';
 
 class _NeverCharging implements ChargingProbe {
   @override
@@ -109,6 +111,11 @@ void main() {
       ],
       chatModel: () => FakeChatModelManager(ready: true),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
+      vectors: () => ChunkEmbeddingIndexerImpl(
+        database: vault.db,
+        embeddings: FakeEmbeddingService(),
+        clock: vault.clock,
+      ),
       charging: _NeverCharging(),
       epoch: _epoch,
       telemetry: vault.telemetry,

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/note_text.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
 
@@ -12,7 +13,8 @@ import 'package:sinapsis/features/relations/domain/services/relation_candidate_s
 const _excerptMaxLength = 280;
 
 /// [RelationCandidateSelector] contra `AppDatabase`: lee los embeddings ya
-/// persistidos por `ChunkEmbeddingIndexer`, sin calcular ninguno nuevo —
+/// persistidos por `ChunkEmbeddingIndexer` —los de los fragmentos de las
+/// fuentes y los de los tramos de las notas—, sin calcular ninguno nuevo —
 /// si el semilla o un candidato todavía no tienen embeddings, simplemente
 /// no participan de la preselección.
 class RelationCandidateSelectorImpl implements RelationCandidateSelector {
@@ -26,45 +28,45 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     required String seedItemId,
     int limit = 15,
     double minSimilarity = 0.5,
-  }) async {
-    final seedVectors = await _blobsFor(
-      await (_db.selectOnly(_db.chunks)
-            ..addColumns([_db.chunks.id])
-            ..where(_db.chunks.itemId.equals(seedItemId)))
-          .map((row) => row.read(_db.chunks.id)!)
-          .get(),
-    );
-    return _rank(
-      seedItemId: seedItemId,
-      seedVectors: seedVectors,
-      limit: limit,
-      minSimilarity: minSimilarity,
-    );
-  }
+  }) => _rank(
+    seedItemId: seedItemId,
+    limit: limit,
+    minSimilarity: minSimilarity,
+    includeNotes: true,
+  );
 
   @override
-  Future<List<ScoredRelationCandidate>> selectCandidatesNear({
+  Future<List<ScoredRelationCandidate>> selectSourceCandidates({
     required String seedItemId,
-    required List<List<double>> seedVectors,
     int limit = 15,
     double minSimilarity = 0.5,
   }) => _rank(
     seedItemId: seedItemId,
-    // Codificados como los guardados: el cálculo en el isolate es uno solo.
-    seedVectors: [
-      for (final vector in seedVectors) encodeEmbeddingVector(vector),
-    ],
     limit: limit,
     minSimilarity: minSimilarity,
+    includeNotes: false,
   );
 
-  /// Los candidatos más parecidos al semilla descripto por [seedVectors].
+  /// Los candidatos más parecidos a [seedItemId]; las notas, si
+  /// [includeNotes].
   Future<List<ScoredRelationCandidate>> _rank({
     required String seedItemId,
-    required List<Uint8List> seedVectors,
     required int limit,
     required double minSimilarity,
+    required bool includeNotes,
   }) async {
+    // El semilla se describe por sus fragmentos si es una fuente, o por sus
+    // tramos si es una nota (F27): uno de los dos está vacío.
+    final seedVectors = <Uint8List>[
+      ...await _blobsFor(
+        await (_db.selectOnly(_db.chunks)
+              ..addColumns([_db.chunks.id])
+              ..where(_db.chunks.itemId.equals(seedItemId)))
+            .map((row) => row.read(_db.chunks.id)!)
+            .get(),
+      ),
+      ...(await _noteVectors(only: seedItemId))[seedItemId] ?? const [],
+    ];
     if (seedVectors.isEmpty) return const [];
 
     // Solo de elementos vivos: sugerir vincular con algo que está en la
@@ -96,6 +98,15 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
         in chunkIdsByItem.entries) {
       final vectors = await _blobsFor(chunkIds);
       if (vectors.isNotEmpty) vectorsByItem[itemId] = vectors;
+    }
+    // Las notas, por los vectores de sus tramos (F27): son candidatas igual
+    // que las fuentes.
+    if (includeNotes) {
+      for (final MapEntry(key: itemId, value: vectors) in (await _noteVectors(
+        except: seedItemId,
+      )).entries) {
+        (vectorsByItem[itemId] ??= []).addAll(vectors);
+      }
     }
 
     // Decodificar y promediar miles de vectores —diez libros son diez mil—
@@ -149,7 +160,30 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
     return row?.title;
   }
 
-  /// El comienzo del primer fragmento de [itemId].
+  /// Los vectores guardados de las notas vivas, sin decodificar, por nota:
+  /// [only] la de esa, o todas menos [except].
+  Future<Map<String, List<Uint8List>>> _noteVectors({
+    String? only,
+    String? except,
+  }) async {
+    final notes = _db.noteEmbeddings;
+    var filter = itemIsActive(_db, notes.itemId);
+    if (only != null) filter &= notes.itemId.equals(only);
+    if (except != null) filter &= notes.itemId.equals(except).not();
+    final query = _db.selectOnly(notes)
+      ..addColumns([notes.itemId, notes.vector])
+      ..where(filter);
+    final byItem = <String, List<Uint8List>>{};
+    for (final row in await query.get()) {
+      final itemId = row.read(notes.itemId)!;
+      final vector = row.read(notes.vector)!;
+      (byItem[itemId] ??= []).add(vector);
+    }
+    return byItem;
+  }
+
+  /// El comienzo de [itemId]: su primer fragmento si es una fuente, o el
+  /// principio de su texto si es una nota.
   Future<String> _excerptFor(String itemId) async {
     final first =
         await (_db.select(_db.chunks)
@@ -157,7 +191,8 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
               ..orderBy([(c) => OrderingTerm.asc(c.seq)])
               ..limit(1))
             .getSingleOrNull();
-    final content = first?.content ?? '';
+    final content = (first?.content ?? await noteTextOf(_db, itemId) ?? '')
+        .trim();
     return content.length > _excerptMaxLength
         ? '${content.substring(0, _excerptMaxLength)}…'
         : content;
