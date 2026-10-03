@@ -5,6 +5,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_settings_tiles.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
@@ -16,7 +17,7 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Idioma, tema, modelo de transcripción, copia de seguridad y bloqueo de la
+/// Idioma, tema, la IA y sus modelos, copia de seguridad y bloqueo de la
 /// bóveda, todo en un solo lugar.
 ///
 /// Antes eran seis de los nueve íconos amontonados en el AppBar de la
@@ -131,9 +132,21 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
+          // F27: primero lo que la IA hace sola —en qué anda, qué hizo y qué
+          // puede hacer—; después los modelos con que lo hace, incluido el de
+          // lenguaje, que hasta ahora solo se alcanzaba desde el chat.
           _SettingsSection(
             title: l10n.settingsAiSection,
             children: [
+              const AiActivitySettingsTile(),
+              const AiOrganizeSwitches(),
+              ListTile(
+                key: const Key('settings-chat-model'),
+                leading: const Icon(Icons.psychology_outlined),
+                title: Text(l10n.chatModelTooltip),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(RoutePaths.chatModel),
+              ),
               ListTile(
                 leading: const Icon(Icons.mic_none_outlined),
                 title: Text(l10n.libraryTranscriptionModelTooltip),

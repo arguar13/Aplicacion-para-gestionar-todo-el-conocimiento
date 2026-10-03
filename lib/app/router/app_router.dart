@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
@@ -139,6 +140,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.trash,
         name: RouteNames.trash,
         builder: (context, state) => const TrashScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.aiActivity,
+        name: RouteNames.aiActivity,
+        builder: (context, state) =>
+            AiActivityScreen(itemId: state.uri.queryParameters['item']),
       ),
       GoRoute(
         path: RoutePaths.conflicts,

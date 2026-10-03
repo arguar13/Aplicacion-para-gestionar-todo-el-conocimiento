@@ -33,6 +33,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_item_card
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
+import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue_state.dart';
 import 'package:sinapsis/features/transform/presentation/screens/transcription_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -1162,7 +1163,25 @@ void main() {
 
         await tester.tap(find.byIcon(Icons.settings_outlined));
         await tester.pumpAndSettle();
-        await tester.tap(find.text(es.libraryTranscriptionModelTooltip));
+        // Ajustes crece con cada sección —la IA de F27 empujó los modelos
+        // hacia abajo—: como haría una persona, se desplaza hasta la fila
+        // antes de tocarla, en vez de depender de que entre en la ventana.
+        // `hitTestable`: que esté construida no alcanza, la lista arma de
+        // más fuera de la vista; tiene que poder tocarse.
+        final transcription = find
+            .text(es.libraryTranscriptionModelTooltip)
+            .hitTestable();
+        await tester.scrollUntilVisible(
+          transcription,
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(SettingsScreen),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.tap(transcription);
         await tester.pumpAndSettle();
 
         expect(find.byType(TranscriptionModelScreen), findsOneWidget);

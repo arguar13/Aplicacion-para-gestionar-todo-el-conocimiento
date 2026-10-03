@@ -164,6 +164,16 @@ abstract final class RoutePaths {
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
 
+  /// Lo que la IA organizó sola, lo que dejó para revisar y en qué anda su
+  /// cola (F27). Ruta plana, mismo criterio que [trash]: se llega desde
+  /// Ajustes › IA y desde la línea de cada elemento, no es un destino de
+  /// navegación.
+  static const aiActivity = '/ai-activity';
+
+  /// Lo mismo, solo de un elemento: lo que abre «Ver» desde su detalle.
+  static String aiActivityFor(String itemId) =>
+      '$aiActivity?item=${Uri.encodeQueryComponent(itemId)}';
+
   /// Los cambios que una fusión no pudo decidir sola y esperan que el usuario
   /// elija (F11).
   static const conflicts = '/conflicts';
@@ -204,5 +214,6 @@ abstract final class RouteNames {
   static const reviewHistory = 'review-history';
   static const settings = 'settings';
   static const trash = 'trash';
+  static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';
 }

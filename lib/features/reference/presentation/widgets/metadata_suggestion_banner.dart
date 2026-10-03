@@ -65,7 +65,7 @@ class _MetadataSuggestionBannerState
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final summary = _summaryOf(l10n, widget.suggestion.extracted);
+    final summary = extractedMetadataSummary(l10n, widget.suggestion.extracted);
     final repository = ref.read(suggestionRepositoryProvider);
 
     return Card(
@@ -130,7 +130,13 @@ class _MetadataSuggestionBannerState
 
 /// Qué trae [extracted], en una línea —«Autores · DOI · Editorial»—: no
 /// repite los valores, esos ya se ven al usarla; solo dice qué se halló.
-String _summaryOf(AppLocalizations l10n, ExtractedMetadata extracted) {
+///
+/// Pública para «Para revisar» (F27), que muestra la misma sugerencia en una
+/// fila y la tiene que describir con las mismas palabras.
+String extractedMetadataSummary(
+  AppLocalizations l10n,
+  ExtractedMetadata extracted,
+) {
   final reference = extracted.reference;
   final parts = <String>[
     if (reference.contributors.isNotEmpty)

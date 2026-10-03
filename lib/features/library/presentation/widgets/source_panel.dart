@@ -58,8 +58,9 @@ class SourcePanel extends ConsumerWidget {
   final KnowledgeItem item;
 
   /// Secciones de más, debajo de los mosaicos y con el mismo separador: el
-  /// lugar donde F27 va a contar lo que la IA organizó sola ("La IA organizó
-  /// esto: …"). Vacío por ahora.
+  /// lugar donde F27 cuenta lo que la IA organizó sola ("La IA organizó
+  /// esto: …") —ver `AiOrganizedLine`—. Cada una va solo si tiene algo que
+  /// decir: una vacía dejaría su separador suelto.
   final List<Widget> extraSections;
 
   @override

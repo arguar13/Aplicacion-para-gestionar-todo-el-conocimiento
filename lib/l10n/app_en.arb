@@ -5979,5 +5979,362 @@
   "flashcardRejected": "Done: the AI won't suggest this card again.",
   "@flashcardRejected": {
     "description": "Aviso después de decir que una tarjeta de la IA no era (F27)."
+  },
+  "aiActivityTitle": "What the AI did",
+  "@aiActivityTitle": {
+    "description": "Título de la pantalla con lo que la IA organizó sola, y su entrada en Ajustes › IA (F27)."
+  },
+  "aiActivitySection": "Activity",
+  "@aiActivitySection": {
+    "description": "Encabezado de la lista de pasadas de la IA, en «Lo que hizo la IA» (F27)."
+  },
+  "aiActivityToday": "Today",
+  "@aiActivityToday": {
+    "description": "Encabezado del día de hoy en la actividad de la IA (F27)."
+  },
+  "aiActivityYesterday": "Yesterday",
+  "@aiActivityYesterday": {
+    "description": "Encabezado del día de ayer en la actividad de la IA (F27)."
+  },
+  "aiActivityEmptyTitle": "Nothing organized yet",
+  "@aiActivityEmptyTitle": {
+    "description": "Título del estado vacío de «Lo que hizo la IA» (F27)."
+  },
+  "aiActivityEmptyMessage": "When the AI links your things, makes cards or adds topics, you'll see it here, and you'll be able to undo it.",
+  "@aiActivityEmptyMessage": {
+    "description": "Mensaje del estado vacío de «Lo que hizo la IA» (F27)."
+  },
+  "aiActivityItemEmptyMessage": "The AI hasn't organized anything here yet.",
+  "@aiActivityItemEmptyMessage": {
+    "description": "Estado vacío de «Lo que hizo la IA» filtrada por un elemento (F27)."
+  },
+  "aiActivityLoadError": "Couldn't read what the AI did.",
+  "@aiActivityLoadError": {
+    "description": "Error al leer las pasadas de la IA (F27)."
+  },
+  "aiActivityRetry": "Retry",
+  "@aiActivityRetry": {
+    "description": "Botón para volver a leer las pasadas de la IA después de un error (F27)."
+  },
+  "aiActivityShowAll": "Show all",
+  "@aiActivityShowAll": {
+    "description": "Ayuda de la cruz del filtro por elemento en «Lo que hizo la IA»: vuelve a mostrar todo (F27)."
+  },
+  "aiActivityOpenItem": "Open the item",
+  "@aiActivityOpenItem": {
+    "description": "Ayuda del encabezado de un elemento en la actividad de la IA: lo abre (F27)."
+  },
+  "aiRunUndo": "Undo",
+  "@aiRunUndo": {
+    "description": "Botón que deshace una pasada de la IA (F27)."
+  },
+  "aiRunUndone": "Undone",
+  "@aiRunUndone": {
+    "description": "Marca de una pasada de la IA que ya se deshizo (F27)."
+  },
+  "aiRunNothingLeft": "None of this is the AI's anymore: you edited or deleted it.",
+  "@aiRunNothingLeft": {
+    "description": "Una pasada de la IA de la que ya no queda nada suyo (F27)."
+  },
+  "aiRunInProgress": "Organizing now…",
+  "@aiRunInProgress": {
+    "description": "Una pasada de la IA que sigue en curso (F27)."
+  },
+  "aiItemUndoAll": "Undo all",
+  "@aiItemUndoAll": {
+    "description": "Botón que deshace todo lo que la IA hizo en un elemento (F27)."
+  },
+  "aiTallyRelations": "{count, plural, =1{1 link} other{{count} links}}",
+  "@aiTallyRelations": {
+    "description": "Cuántos vínculos creó la IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiTallyFlashcards": "{count, plural, =1{1 card} other{{count} cards}}",
+  "@aiTallyFlashcards": {
+    "description": "Cuántas tarjetas creó la IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiTallyProperties": "{count, plural, =1{1 topic} other{{count} topics}}",
+  "@aiTallyProperties": {
+    "description": "Cuántos temas, etiquetas o propiedades puso la IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiUndoRunTitle": "Undo this pass?",
+  "@aiUndoRunTitle": {
+    "description": "Título de la confirmación antes de deshacer una pasada de la IA (F27)."
+  },
+  "aiUndoItemTitle": "Undo everything the AI did?",
+  "@aiUndoItemTitle": {
+    "description": "Título de la confirmación antes de deshacer todo lo de la IA en un elemento (F27)."
+  },
+  "aiUndoMessage": "This removes what is still the AI's in “{title}”: {tally}. Whatever you edited stays, and the AI won't organize this item on its own again.",
+  "@aiUndoMessage": {
+    "description": "Qué pasa al deshacer lo de la IA (F27). {tally} es la lista, p. ej. «4 vínculos · 6 tarjetas».",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "tally": {
+        "type": "String"
+      }
+    }
+  },
+  "aiUndoConfirm": "Undo",
+  "@aiUndoConfirm": {
+    "description": "Botón que confirma deshacer lo de la IA (F27)."
+  },
+  "aiUndoDone": "Undone: {tally}",
+  "@aiUndoDone": {
+    "description": "Aviso después de deshacer lo de la IA, con lo que se borró (F27).",
+    "placeholders": {
+      "tally": {
+        "type": "String"
+      }
+    }
+  },
+  "aiUndoNothing": "There was nothing of the AI's left to undo.",
+  "@aiUndoNothing": {
+    "description": "Aviso cuando deshacer no encontró nada que siguiera siendo de la IA (F27)."
+  },
+  "aiReviewTitle": "To review",
+  "@aiReviewTitle": {
+    "description": "Encabezado de lo dudoso que la IA no aplicó sola (F27)."
+  },
+  "aiReviewHint": "What the AI didn't apply because it wasn't sure.",
+  "@aiReviewHint": {
+    "description": "Explicación debajo de «Para revisar» (F27)."
+  },
+  "aiReviewAcceptAll": "Accept all",
+  "@aiReviewAcceptAll": {
+    "description": "Botón que acepta todo lo de «Para revisar» (F27)."
+  },
+  "aiReviewDiscardAll": "Discard all",
+  "@aiReviewDiscardAll": {
+    "description": "Botón que descarta todo lo de «Para revisar» (F27)."
+  },
+  "aiReviewAccept": "Accept",
+  "@aiReviewAccept": {
+    "description": "Ayuda del botón que acepta una sugerencia de «Para revisar» (F27)."
+  },
+  "aiReviewDiscard": "Discard",
+  "@aiReviewDiscard": {
+    "description": "Ayuda del botón que descarta una sugerencia de «Para revisar» (F27)."
+  },
+  "aiReviewAcceptedAll": "{count, plural, =1{Accepted 1} other{Accepted {count}}}",
+  "@aiReviewAcceptedAll": {
+    "description": "Aviso después de aceptar todo lo de «Para revisar», con «Deshacer» (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiReviewDiscardedAll": "{count, plural, =1{Discarded 1} other{Discarded {count}}}",
+  "@aiReviewDiscardedAll": {
+    "description": "Aviso después de descartar todo lo de «Para revisar», con «Deshacer» (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiReviewUndo": "Undo",
+  "@aiReviewUndo": {
+    "description": "Acción del aviso que deshace aceptar o descartar todo (F27)."
+  },
+  "aiReviewSomeFailed": "{count, plural, =1{1 couldn't be applied: it's still to review.} other{{count} couldn't be applied: they're still to review.}}",
+  "@aiReviewSomeFailed": {
+    "description": "Aviso cuando algunas sugerencias no se pudieron aceptar o descartar (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiReviewMetadataTitle": "Reference details",
+  "@aiReviewMetadataTitle": {
+    "description": "Fila de «Para revisar» con datos bibliográficos encontrados (F27)."
+  },
+  "aiReviewPendingCount": "{count, plural, =1{1 to review} other{{count} to review}}",
+  "@aiReviewPendingCount": {
+    "description": "Cuántas sugerencias de un elemento esperan en «Para revisar» (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiStatusIdleTitle": "The AI is up to date",
+  "@aiStatusIdleTitle": {
+    "description": "Estado de la cola de la IA sin nada pendiente (F27)."
+  },
+  "aiStatusIdleMessage": "It organizes everything new you save, on its own.",
+  "@aiStatusIdleMessage": {
+    "description": "Explicación del estado «al día» de la IA (F27)."
+  },
+  "aiStatusPausedTitle": "The AI is paused",
+  "@aiStatusPausedTitle": {
+    "description": "Estado de la cola de la IA cuando el interruptor general está apagado (F27)."
+  },
+  "aiStatusPausedMessage": "{count, plural, =0{It won't organize anything new until you turn it on. What it already did stays.} =1{1 item is waiting for you to turn it on.} other{{count} items are waiting for you to turn it on.}}",
+  "@aiStatusPausedMessage": {
+    "description": "Explicación del estado «en pausa» de la IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiStatusResume": "Resume",
+  "@aiStatusResume": {
+    "description": "Botón que prende de nuevo la IA (F27)."
+  },
+  "aiStatusWorkingTitle": "Organizing “{title}”",
+  "@aiStatusWorkingTitle": {
+    "description": "Estado de la cola de la IA mientras organiza un elemento (F27).",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "aiStatusWorkingMessage": "{count, plural, =0{It's the last one in the queue.} =1{1 more in the queue.} other{{count} more in the queue.}}",
+  "@aiStatusWorkingMessage": {
+    "description": "Cuántos elementos esperan detrás del que la IA organiza (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiStatusChargerTitle": "Waiting for the charger",
+  "@aiStatusChargerTitle": {
+    "description": "Estado de la pasada por la biblioteca existente, que corre solo con el teléfono cargando (F27)."
+  },
+  "aiStatusChargerMessage": "{count, plural, =1{It tidies up your library bit by bit, only while the phone charges. 1 left.} other{It tidies up your library bit by bit, only while the phone charges. {count} left.}}",
+  "@aiStatusChargerMessage": {
+    "description": "Explicación del estado «esperando el cargador» (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiStatusModelTitle": "The AI needs a model to organize",
+  "@aiStatusModelTitle": {
+    "description": "Estado de la cola de la IA cuando falta bajar un modelo (F27)."
+  },
+  "aiStatusModelChat": "The language model makes the links, the cards and the topics.",
+  "@aiStatusModelChat": {
+    "description": "Por qué hace falta el modelo de lenguaje para que la IA organice (F27)."
+  },
+  "aiStatusModelEmbedding": "The relations model finds what each thing relates to.",
+  "@aiStatusModelEmbedding": {
+    "description": "Por qué hace falta el modelo de relaciones para que la IA organice (F27)."
+  },
+  "aiStatusDownloadChat": "Download the language model",
+  "@aiStatusDownloadChat": {
+    "description": "Botón que lleva a la pantalla del modelo de lenguaje (F27)."
+  },
+  "aiStatusDownloadEmbedding": "Download the relations model",
+  "@aiStatusDownloadEmbedding": {
+    "description": "Botón que lleva a la pantalla del modelo de relaciones (F27)."
+  },
+  "aiStatusQueued": "{count} queued",
+  "@aiStatusQueued": {
+    "description": "Cuántos elementos esperan en la cola de la IA, en la línea de Ajustes › IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiItemLineTitle": "The AI organized this",
+  "@aiItemLineTitle": {
+    "description": "Título de la línea del detalle con lo que la IA hizo en el elemento (F27)."
+  },
+  "aiItemLineReviewOnly": "The AI left doubts about this",
+  "@aiItemLineReviewOnly": {
+    "description": "Título de la línea del detalle cuando la IA solo dejó sugerencias para revisar (F27)."
+  },
+  "aiItemLineSee": "See",
+  "@aiItemLineSee": {
+    "description": "Botón de la línea del detalle que abre lo que hizo la IA en ese elemento (F27)."
+  },
+  "settingsAiOrganize": "Organize with AI",
+  "@settingsAiOrganize": {
+    "description": "Interruptor general de Ajustes › IA: la IA organiza sola lo que se guarda (F27)."
+  },
+  "settingsAiOrganizeSubtitle": "Links, cards and topics, automatic and always reversible.",
+  "@settingsAiOrganizeSubtitle": {
+    "description": "Explicación del interruptor general de la IA (F27)."
+  },
+  "settingsAiRelations": "Links",
+  "@settingsAiRelations": {
+    "description": "Interruptor de la IA para los vínculos (F27)."
+  },
+  "settingsAiRelationsSubtitle": "Connects each new thing with what you already have on the same subject.",
+  "@settingsAiRelationsSubtitle": {
+    "description": "Explicación del interruptor de vínculos (F27)."
+  },
+  "settingsAiFlashcards": "Cards",
+  "@settingsAiFlashcards": {
+    "description": "Interruptor de la IA para las tarjetas de repaso (F27)."
+  },
+  "settingsAiFlashcardsSubtitle": "Makes review cards from what matters: more the longer it is.",
+  "@settingsAiFlashcardsSubtitle": {
+    "description": "Explicación del interruptor de tarjetas (F27)."
+  },
+  "settingsAiProperties": "Topics and properties",
+  "@settingsAiProperties": {
+    "description": "Interruptor de la IA para temas, etiquetas y propiedades (F27)."
+  },
+  "settingsAiPropertiesSubtitle": "Adds topics, tags and properties.",
+  "@settingsAiPropertiesSubtitle": {
+    "description": "Explicación del interruptor de temas y propiedades (F27)."
+  },
+  "settingsAiSpace": "Each item's topic",
+  "@settingsAiSpace": {
+    "description": "Interruptor de la IA para el tema (espacio) de cada elemento (F27)."
+  },
+  "settingsAiSpaceSubtitle": "Puts each new thing in its topic, if it doesn't have one yet.",
+  "@settingsAiSpaceSubtitle": {
+    "description": "Explicación del interruptor del tema de cada elemento (F27)."
+  },
+  "settingsAiReference": "Reference details",
+  "@settingsAiReference": {
+    "description": "Interruptor de la IA para los datos bibliográficos (F27)."
+  },
+  "settingsAiReferenceSubtitle": "Fills in missing author, year and publisher, without overwriting what you wrote.",
+  "@settingsAiReferenceSubtitle": {
+    "description": "Explicación del interruptor de datos de la referencia (F27)."
+  },
+  "settingsAiAtlas": "Atlas",
+  "@settingsAiAtlas": {
+    "description": "Interruptor de la IA para el Atlas (F27)."
+  },
+  "settingsAiAtlasSubtitle": "Arranges the topic tree and writes the map notes.",
+  "@settingsAiAtlasSubtitle": {
+    "description": "Explicación del interruptor del Atlas (F27)."
+  },
+  "settingsAiBackfill": "Tidy up the existing library while charging",
+  "@settingsAiBackfill": {
+    "description": "Interruptor de la pasada de la IA por lo que ya estaba guardado (F27, decisión C)."
+  },
+  "settingsAiBackfillSubtitle": "Goes through what you already had, bit by bit and only while the phone charges.",
+  "@settingsAiBackfillSubtitle": {
+    "description": "Explicación del interruptor de la pasada por la biblioteca existente (F27)."
   }
 }

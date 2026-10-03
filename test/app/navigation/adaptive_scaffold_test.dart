@@ -236,7 +236,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more-6')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.account_tree_outlined));
+      // El ícono del destino, en la barra: la pantalla abierta puede mostrar
+      // el mismo —Ajustes lo usa para el interruptor del Atlas (F27)—.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.byIcon(Icons.account_tree_outlined),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));

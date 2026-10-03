@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
+import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/trash/presentation/screens/trash_screen.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
@@ -16,6 +23,7 @@ import 'package:sinapsis/features/vault/presentation/screens/vault_compaction_sc
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
 void main() {
@@ -26,18 +34,39 @@ void main() {
     harness = await LibraryHarness.create();
   });
 
+  /// Agranda la ventana hasta que Ajustes entra entero, sin desplazar.
+  ///
+  /// Estas pruebas miran y tocan filas de toda la lista, y una lista perezosa
+  /// no construye lo que está lejos de la vista. Antes la ventana tenía un
+  /// alto fijo (1600, o 1400 con el router), y cada sección nueva —F7, F15,
+  /// la IA de F27— dejaba afuera las del final y rompía pruebas que no
+  /// tenían nada que ver. Medir lo que falta desplazar y sumarlo deja la
+  /// ventana del tamaño de la lista, crezca lo que crezca.
+  Future<void> fitWholeSettings(WidgetTester tester) async {
+    final scrollable = find
+        .descendant(
+          of: find.byType(SettingsScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final overflow = tester
+        .state<ScrollableState>(scrollable)
+        .position
+        .maxScrollExtent;
+    final ratio = tester.view.devicePixelRatio;
+    final size = tester.view.physicalSize;
+    tester.view.physicalSize = Size(size.width, size.height + overflow * ratio);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pumpSettings(WidgetTester tester) async {
-    // Con la fila nueva de "Posibles duplicados" (F7) y el grupo de citas
-    // (F15), la lista entera ya no entra en el tamaño de ventana por defecto
-    // de las pruebas de widget (800x600) — agrandar la ventana es más simple
-    // y menos frágil que un `scrollUntilVisible` en cada prueba que toca algo
-    // del final de la lista.
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(harness.wrap(const SettingsScreen()));
     await tester.pumpAndSettle();
+    await fitWholeSettings(tester);
   }
 
   testWidgets('muestra las cinco secciones', (tester) async {
@@ -173,6 +202,154 @@ void main() {
     });
   });
 
+  group('IA (F27)', () {
+    /// Los interruptores de cada tipo: todos menos el general.
+    final types = [
+      for (final toggle in AiOrganizeToggle.values)
+        if (toggle != AiOrganizeToggle.enabled) toggle,
+    ];
+
+    SwitchListTile toggleTile(WidgetTester tester, AiOrganizeToggle toggle) =>
+        tester.widget<SwitchListTile>(
+          find.byKey(Key('ai-toggle-${toggle.name}')),
+        );
+
+    testWidgets('el general y uno por cada cosa que organiza, todos '
+        'prendidos', (tester) async {
+      await pumpSettings(tester);
+
+      expect(find.text(es.settingsAiOrganize), findsOneWidget);
+      for (final toggle in [AiOrganizeToggle.enabled, ...types]) {
+        expect(toggleTile(tester, toggle).value, isTrue, reason: toggle.name);
+      }
+      expect(find.text(es.settingsAiBackfill), findsOneWidget);
+      expect(find.text(es.settingsAiBackfillSubtitle), findsOneWidget);
+    });
+
+    testWidgets('cada interruptor se guarda', (tester) async {
+      await pumpSettings(tester);
+
+      await tester.tap(find.byKey(const Key('ai-toggle-flashcards')));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(aiOrganizeSettingsProvider).flashcards,
+        isFalse,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('ai_organize_flashcards'), isFalse);
+      expect(toggleTile(tester, AiOrganizeToggle.flashcards).value, isFalse);
+    });
+
+    testWidgets('con el general apagado, los de cada tipo se apagan y '
+        'conservan lo elegido', (tester) async {
+      await pumpSettings(tester);
+      await tester.tap(find.byKey(const Key('ai-toggle-atlas')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('ai-toggle-enabled')));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(aiOrganizeSettingsProvider).enabled,
+        isFalse,
+      );
+      for (final toggle in types) {
+        expect(
+          toggleTile(tester, toggle).onChanged,
+          isNull,
+          reason: toggle.name,
+        );
+      }
+      // Tocarlos no cambia nada.
+      await tester.tap(find.byKey(const Key('ai-toggle-relations')));
+      await tester.pumpAndSettle();
+      expect(
+        harness.container.read(aiOrganizeSettingsProvider).relations,
+        isTrue,
+      );
+      // Lo que cada uno tenía queda para cuando se vuelva a prender.
+      expect(toggleTile(tester, AiOrganizeToggle.atlas).value, isFalse);
+
+      await tester.tap(find.byKey(const Key('ai-toggle-enabled')));
+      await tester.pumpAndSettle();
+      expect(
+        toggleTile(tester, AiOrganizeToggle.relations).onChanged,
+        isNotNull,
+      );
+    });
+
+    testWidgets('la línea de la cola dice en qué anda y cuántos esperan', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+      expect(find.text(es.aiStatusIdleTitle), findsOneWidget);
+
+      harness.container.read(aiOrganizeStatusProvider.notifier).state =
+          const AiOrganizeWorking(itemTitle: 'Roma', pending: 3);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          '${es.aiStatusWorkingTitle('Roma')} · ${es.aiStatusQueued(3)}',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('cuenta lo que espera revisión', (tester) async {
+      await insertItemRows(harness.database, id: 'a', title: 'Roma');
+      await insertItemRows(harness.database, id: 'b', title: 'Cartago');
+      await harness.container
+          .read(suggestionRepositoryProvider)
+          .createRelationSuggestion(
+            targetItemId: 'a',
+            relatedItemId: 'b',
+            relatedItemTitle: 'Cartago',
+            kind: RelationKind.relatedTo,
+            reason: 'La misma guerra',
+          );
+      await pumpSettings(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('settings-ai-review-count')),
+          matching: find.text('1'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    Future<void> openFromSettings(WidgetTester tester, Key key) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo(RoutePaths.settings);
+      await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
+
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('«Lo que hizo la IA» abre su pantalla, con el router real', (
+      tester,
+    ) async {
+      await openFromSettings(tester, const Key('settings-ai-activity'));
+
+      expect(find.byType(AiActivityScreen), findsOneWidget);
+    });
+
+    testWidgets('el modelo de lenguaje se alcanza desde Ajustes, con el '
+        'router real', (tester) async {
+      await openFromSettings(tester, const Key('settings-chat-model'));
+
+      expect(find.byType(ChatModelScreen), findsOneWidget);
+    });
+  });
+
   group('hábito (F17, D9)', () {
     testWidgets('arranca encendido', (tester) async {
       await pumpSettings(tester);
@@ -231,6 +408,7 @@ void main() {
       await tester.pumpAndSettle();
       harness.goTo(RoutePaths.settings);
       await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
 
       await tester.tap(find.text(es.vocabularySettingsTooltip));
       // Sin `pumpAndSettle`: la pantalla real calcula los candidatos en un
@@ -259,6 +437,7 @@ void main() {
       await tester.pumpAndSettle();
       harness.goTo(RoutePaths.settings);
       await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
 
       await tester.tap(find.text(es.brokenLinksTitle));
       await tester.pumpAndSettle();
@@ -284,6 +463,7 @@ void main() {
       await tester.pumpAndSettle();
       harness.goTo(RoutePaths.settings);
       await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
 
       await tester.tap(find.text(es.trashTitle));
       await tester.pumpAndSettle();
@@ -313,6 +493,7 @@ void main() {
       await tester.pumpAndSettle();
       harness.goTo(RoutePaths.settings);
       await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
 
       await tester.tap(find.text(es.conflictsTitle));
       await tester.pumpAndSettle();
@@ -366,6 +547,7 @@ void main() {
         await tester.pumpAndSettle();
         harness.goTo(RoutePaths.settings);
         await tester.pumpAndSettle();
+        await fitWholeSettings(tester);
 
         await tester.tap(find.text(es.vaultCompactionSettingsTooltip));
         await tester.pumpAndSettle();

@@ -18,6 +18,8 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
@@ -369,7 +371,7 @@ class _DetailBodyState extends State<_DetailBody> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       EmbeddedFileViewer(item: item, gapBelow: 12),
-                      SourcePanel(item: item),
+                      _SourcePanelWithAi(item: item),
                     ],
                   ),
                 ),
@@ -485,6 +487,29 @@ ReadableDocument _readableOf(KnowledgeItem item, {bool unfolded = false}) {
 
 /// Con qué nombre conoce el lector flotante a la nota del usuario (F25).
 String _userNoteKey(String itemId) => 'note:$itemId';
+
+/// El panel de la fuente con la línea de lo que la IA organizó sola (F27),
+/// cuando hizo algo que siga en pie o dejó algo para revisar.
+///
+/// Se decide acá y no dentro de la línea: el panel separa cada franja con
+/// una raya, y una franja que se dibuja vacía dejaría la raya sola al pie.
+class _SourcePanelWithAi extends ConsumerWidget {
+  const _SourcePanelWithAi({required this.item});
+
+  final KnowledgeItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ai = ref.watch(aiItemSummaryProvider(item.id));
+    return SourcePanel(
+      item: item,
+      extraSections: [
+        if (ai.isVisible)
+          AiOrganizedLine(itemId: item.id, itemTitle: item.title, summary: ai),
+      ],
+    );
+  }
+}
 
 /// La madurez de una nota viva —`seed`/`developing`/`mature`—, leída del
 /// espejo `item`/`source`/`note` que F3 mantiene sincronizado. `null`
