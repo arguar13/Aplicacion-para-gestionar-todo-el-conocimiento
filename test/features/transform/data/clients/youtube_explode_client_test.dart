@@ -23,6 +23,33 @@ class _MockAudio extends Mock implements yt_api.AudioOnlyStreamInfo {}
 
 /// El cliente contra un YouTube falso: lo que se prueba acá son los límites
 /// de tiempo y la traducción de los cortes de red (F21), no el paquete.
+/// Una pista de audio de verdad, armada como la arma el paquete —desde
+/// JSON—: la clase de la pista doblada (`AudioTrack`) no es pública.
+yt_api.AudioOnlyStreamInfo _track(
+  int bitsPerSecond, {
+  String? language,
+  bool isDefault = false,
+  int totalBytes = 1000,
+}) => yt_api.AudioOnlyStreamInfo.fromJson({
+  'videoId': {'value': 'dQw4w9WgXcQ'},
+  'tag': 140,
+  'url': 'https://example.com/$language-$bitsPerSecond',
+  'container': {'name': 'mp4'},
+  'size': {'totalBytes': totalBytes},
+  'bitrate': {'bitsPerSecond': bitsPerSecond},
+  'audioCodec': 'mp4a.40.2',
+  'qualityLabel': 'medium',
+  'fragments': const <Object>[],
+  'codec': 'audio/mp4',
+  'audioTrack': language == null
+      ? null
+      : {
+          'displayName': language,
+          'id': '$language.4',
+          'audioIsDefault': isDefault,
+        },
+});
+
 void main() {
   late _MockYoutube youtube;
   late _MockVideos videos;
@@ -271,6 +298,47 @@ void main() {
       },
     );
 
+    test('al pedir una dirección nueva sigue con la misma pista: con audio '
+        'doblado, el mismo formato en otro idioma no sirve', () async {
+      // El original y un doblaje con el mismo formato: antes la dirección
+      // nueva se buscaba solo por el formato, y la bajada podía seguir en
+      // otro idioma a mitad de camino.
+      final dubbed = _track(160000, language: 'en', totalBytes: 10);
+      final original = _track(
+        128000,
+        language: 'es',
+        isDefault: true,
+        totalBytes: 10,
+      );
+      final manifest = _MockManifest();
+      when(
+        () => manifest.audioOnly,
+      ).thenReturn(UnmodifiableListView([dubbed, original]));
+      when(
+        () => streams.getManifest(
+          any<dynamic>(),
+          ytClients: any(named: 'ytClients'),
+        ),
+      ).thenAnswer((_) async => manifest);
+      final fetched = <Uri>[];
+      var call = 0;
+      final client = YoutubeExplodeClient(
+        create: () => youtube,
+        resumeBackoff: const Duration(milliseconds: 1),
+        fetchRange: (_, audio, start) async* {
+          fetched.add(audio.url);
+          if (call++ == 0) {
+            yield [0, 1, 2, 3, 4, 5];
+            throw const DownloadBlockedException(message: '403');
+          }
+          yield [6, 7, 8, 9];
+        },
+      );
+
+      expect(await drain(client), List.generate(10, (i) => i));
+      expect(fetched, [original.url, original.url]);
+    });
+
     test('un 403 que sigue desde el mismo byte es un bloqueo: se informa en '
         'el acto, sin agotar los intentos', () async {
       final client = YoutubeExplodeClient(
@@ -388,6 +456,51 @@ void main() {
       expect(primaryLanguage('es-419'), 'es');
       expect(primaryLanguage('pt_BR'), 'pt');
       expect(primaryLanguage('EN'), 'en');
+    });
+  });
+
+  group('qué pista de audio se baja: la original, no un doblaje', () {
+    yt_api.AudioOnlyStreamInfo track(
+      int bitsPerSecond, {
+      String? language,
+      bool isDefault = false,
+    }) => _track(bitsPerSecond, language: language, isDefault: isDefault);
+
+    test('el original gana aunque un doblaje traiga más calidad', () {
+      final original = track(128000, language: 'es', isDefault: true);
+      final dubbed = [
+        track(160000, language: 'en'),
+        track(160000, language: 'ar'),
+      ];
+
+      expect(originalAudioOf([...dubbed, original]), same(original));
+    });
+
+    test('entre las del original, la de mayor calidad', () {
+      final low = track(50000, language: 'es', isDefault: true);
+      final high = track(160000, language: 'es', isDefault: true);
+
+      expect(
+        originalAudioOf([low, track(256000, language: 'pt'), high]),
+        same(high),
+      );
+    });
+
+    test('un video sin doblajes: la de mayor calidad', () {
+      final low = track(50000);
+      final high = track(160000);
+
+      expect(originalAudioOf([low, high]), same(high));
+    });
+
+    test('si ninguna está marcada como la de siempre, entre todas', () {
+      final best = track(160000, language: 'en');
+
+      expect(originalAudioOf([track(50000, language: 'es'), best]), same(best));
+    });
+
+    test('sin pistas no hay qué elegir', () {
+      expect(() => originalAudioOf(const []), throwsStateError);
     });
   });
 }

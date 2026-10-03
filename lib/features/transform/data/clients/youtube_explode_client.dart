@@ -130,10 +130,11 @@ class YoutubeExplodeClient implements YouTubeClient {
     final yt_api.AudioOnlyStreamInfo audio;
     try {
       final manifest = await _manifestWithRetries(yt, videoId);
-      // La de mayor bitrate entre las que traen solo audio: no hace falta
-      // el video para escuchar, y bajar el archivo completo pesaría muchas
-      // veces más para nada que se vaya a usar.
-      audio = manifest.audioOnly.withHighestBitrate();
+      // La original de mayor bitrate entre las que traen solo audio: no
+      // hace falta el video para escuchar, y bajar el archivo completo
+      // pesaría muchas veces más para nada que se vaya a usar. Ver
+      // [originalAudioOf].
+      audio = originalAudioOf(manifest.audioOnly);
     } on Object catch (error) {
       // Nada que devolver: el cliente se cierra acá, no al terminar el
       // stream que nunca llega a existir.
@@ -295,8 +296,14 @@ class YoutubeExplodeClient implements YouTubeClient {
   ) async {
     try {
       final manifest = await _manifest(yt, videoId);
+      // La misma pista es el mismo formato EN EL MISMO IDIOMA: con audio
+      // doblado, varias pistas comparten el formato, y elegir solo por él
+      // podía seguir la bajada en otro idioma a mitad de camino.
       for (final audio in manifest.audioOnly) {
-        if (audio.tag == current.tag) return audio;
+        if (audio.tag == current.tag &&
+            audio.audioTrack?.id == current.audioTrack?.id) {
+          return audio;
+        }
       }
       // Pedir la lista no puede romper lo que ya venía funcionando: se
       // sigue con la dirección de antes.
@@ -551,3 +558,32 @@ int? pickCaptionTrack(
 /// El idioma principal de un código: "es-419" y "es_AR" son "es".
 String primaryLanguage(String code) =>
     code.toLowerCase().split(RegExp('[-_]')).first;
+
+/// La pista de audio original de un video entre [streams], la de mayor
+/// bitrate.
+///
+/// YouTube dobla algunos videos a otros idiomas con IA y los ofrece como
+/// pistas aparte —con `audioTrack`, y una sola marcada como la de siempre
+/// (`audioIsDefault`)—. Elegir solo por bitrate podía bajar el audio en
+/// inglés, árabe o portugués de un video en español (visto en 6 de los 15
+/// videos de la biblioteca de ejemplo), y la transcripción salía en ese
+/// idioma. Una pista sin `audioTrack` es la de un video sin doblajes: la
+/// original. Si ninguna estuviera marcada, se elige entre todas, como antes.
+yt_api.AudioOnlyStreamInfo originalAudioOf(
+  Iterable<yt_api.AudioOnlyStreamInfo> streams,
+) {
+  final all = streams.toList();
+  if (all.isEmpty) {
+    throw StateError('El video no ofrece ninguna pista de audio');
+  }
+  final original = [
+    for (final stream in all)
+      if (stream.audioTrack == null || stream.audioTrack!.audioIsDefault)
+        stream,
+  ];
+  final candidates = original.isEmpty ? all : original;
+  return candidates.reduce(
+    (best, next) =>
+        next.bitrate.bitsPerSecond > best.bitrate.bitsPerSecond ? next : best,
+  );
+}
