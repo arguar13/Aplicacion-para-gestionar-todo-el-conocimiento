@@ -452,7 +452,8 @@ void main() {
       // Tema, Fecha del hecho, Autor y la vacía: 4.
       await openTab(tester, es.vocabularyTabCategories(4));
 
-      expect(find.text('Tema'), findsOneWidget);
+      // La de las etiquetas, con el nombre de la interfaz (F28).
+      expect(find.text('Etiquetas'), findsOneWidget);
       expect(find.text(es.vocabularyCategoryValueCount(5)), findsOneWidget);
       expect(find.text('Vacía'), findsOneWidget);
       expect(find.text(es.vocabularyCategoryValueCount(0)), findsWidgets);

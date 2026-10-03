@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/widgets/candidate_group_card.dart';
@@ -167,7 +168,7 @@ class _SingleUseTab extends ConsumerWidget {
             title: Text(value.label),
             subtitle: Text(
               [
-                value.definitionName,
+                categoryLabel(l10n, value.definitionName),
                 if (value.aliasCount > 0)
                   l10n.vocabularyAliasCount(value.aliasCount),
               ].join(' · '),
@@ -257,7 +258,7 @@ class _UnusedTabState extends ConsumerState<_UnusedTab> {
                     }
                   }),
                   title: Text(value.label),
-                  subtitle: Text(value.definitionName),
+                  subtitle: Text(categoryLabel(l10n, value.definitionName)),
                 );
               },
             ),
@@ -296,7 +297,9 @@ class _EmptyCategoriesTab extends ConsumerWidget {
     final confirmed = await confirmVocabularyAction(
       context,
       title: l10n.vocabularyDeleteCategoryConfirmTitle,
-      body: l10n.vocabularyDeleteCategoryConfirmBody(category.name),
+      body: l10n.vocabularyDeleteCategoryConfirmBody(
+        categoryLabel(l10n, category.name),
+      ),
       confirmLabel: l10n.commonDelete,
     );
     if (!confirmed) return;
@@ -316,9 +319,11 @@ class _EmptyCategoriesTab extends ConsumerWidget {
         itemBuilder: (context, index) {
           final category = categories[index];
           return ListTile(
-            title: Text(category.name),
+            title: Text(categoryLabel(l10n, category.name)),
             trailing: IconButton(
-              tooltip: l10n.vocabularyDeleteCategoryTooltip(category.name),
+              tooltip: l10n.vocabularyDeleteCategoryTooltip(
+                categoryLabel(l10n, category.name),
+              ),
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _delete(context, ref, category),
             ),
@@ -345,7 +350,7 @@ class _CategoriesTab extends ConsumerWidget {
         itemBuilder: (context, index) {
           final category = categories[index];
           return ListTile(
-            title: Text(category.name),
+            title: Text(categoryLabel(l10n, category.name)),
             subtitle: Text(
               l10n.vocabularyCategoryValueCount(category.valueCount),
             ),

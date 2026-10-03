@@ -432,7 +432,7 @@
   "@detailAddProperty": {
     "description": "Tooltip/label del botón que abre el diálogo para agregar una propiedad, y título de ese diálogo."
   },
-  "detailPropertyCategoryHint": "Categoría (Época, Región, Tema...)",
+  "detailPropertyCategoryHint": "Categoría (Época, Región, Personaje...)",
   "@detailPropertyCategoryHint": {
     "description": "Texto de ayuda del campo de categoría en el diálogo de agregar propiedad."
   },
@@ -538,7 +538,7 @@
   "@timelineFilterTypes": {
     "description": "Encabezado de los filtros por tipo de elemento en la línea de tiempo."
   },
-  "timelineFilterTopics": "Tema",
+  "timelineFilterTopics": "Etiquetas",
   "@timelineFilterTopics": {
     "description": "Encabezado de los filtros por tema en la línea de tiempo."
   },
@@ -2017,7 +2017,7 @@
   "@spacesNameIsTagTitle": {
     "description": "Título del aviso al crear o renombrar un tema con el nombre de una etiqueta existente."
   },
-  "spacesNameIsTagBody": "«{name}» ya es una etiqueta de Tema. Un tema y una etiqueta no son lo mismo: un elemento está en un solo tema, pero puede tener muchas etiquetas. Con el mismo nombre se confunden al buscar y al clasificar.",
+  "spacesNameIsTagBody": "«{name}» ya es una etiqueta. Un tema y una etiqueta no son lo mismo: un elemento está en un solo tema, pero puede tener muchas etiquetas. Con el mismo nombre se confunden al buscar y al clasificar.",
   "@spacesNameIsTagBody": {
     "description": "Explica que un tema y una etiqueta con el mismo nombre no son lo mismo.",
     "placeholders": {
@@ -3102,9 +3102,14 @@
   "@atlasTitle": {
     "description": "Título de la pantalla del Atlas."
   },
-  "atlasSearchHint": "Buscar un tema",
+  "atlasSearchHint": "{kind, select, spaces{Buscar un tema} tags{Buscar una etiqueta} other{Buscar un valor}}",
   "@atlasSearchHint": {
-    "description": "Texto de ayuda del campo de búsqueda del Atlas."
+    "description": "Texto de ayuda del campo de búsqueda del Atlas, según lo que se mira: los temas, las etiquetas u otra categoría (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "atlasCoverageTitle": "Cobertura",
   "@atlasCoverageTitle": {
@@ -3148,15 +3153,25 @@
       }
     }
   },
-  "atlasEmptyTitle": "Todavía no hay temas",
+  "atlasEmptyTitle": "{kind, select, spaces{Todavía no tenés temas} tags{Todavía no hay etiquetas} other{Esta categoría no tiene valores}}",
   "@atlasEmptyTitle": {
-    "description": "Título del estado vacío del Atlas."
+    "description": "Título del Atlas cuando lo que se mira no tiene nada todavía: los temas, las etiquetas u otra categoría (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
-  "atlasEmptyMessage": "Cuando esta categoría tenga valores, el Atlas va a mostrar qué hay de cada uno y qué falta.",
+  "atlasEmptyMessage": "{kind, select, spaces{Elegí un tema al guardar algo —o dejá que la IA lo ubique— y el Atlas va a mostrar qué hay en cada uno y qué falta.} tags{Cuando pongas etiquetas, el Atlas va a mostrar su árbol, qué hay debajo de cada una y qué falta.} other{Cuando esta categoría tenga valores, el Atlas va a mostrar qué hay de cada uno y qué falta.}}",
   "@atlasEmptyMessage": {
-    "description": "Explicación del estado vacío del Atlas."
+    "description": "Mensaje del Atlas vacío, según lo que se mira (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
-  "atlasNoResults": "Ningún tema coincide con la búsqueda.",
+  "atlasNoResults": "Nada coincide con la búsqueda.",
   "@atlasNoResults": {
     "description": "Aviso cuando la búsqueda dentro del Atlas no encuentra nada."
   },
@@ -3228,9 +3243,9 @@
   "@atlasExportAction": {
     "description": "Tooltip del botón que exporta el Atlas como un archivo Markdown."
   },
-  "atlasExportGenerated": "Generado el {date} · {count, plural, =1{1 tema} other{{count} temas}}",
+  "atlasExportGenerated": "Generado el {date} · {count, plural, =1{1 rama} other{{count} ramas}}",
   "@atlasExportGenerated": {
-    "description": "Línea de encabezado del Atlas exportado: fecha y cuántos temas tiene.",
+    "description": "Línea de encabezado del Atlas exportado: fecha y cuántas ramas tiene —temas, etiquetas o valores, según lo que se exportó— (F28).",
     "placeholders": {
       "date": {
         "type": "String"
@@ -3240,9 +3255,9 @@
       }
     }
   },
-  "atlasExportTopics": "Temas",
+  "atlasExportTopics": "Ramas",
   "@atlasExportTopics": {
-    "description": "Encabezado de la sección con el árbol de temas del Atlas exportado."
+    "description": "Encabezado de la sección con el árbol del Atlas exportado: sus ramas, sean temas, etiquetas o valores (F28)."
   },
   "atlasExportMapNotes": "Notas mapa: {notes}",
   "@atlasExportMapNotes": {
@@ -3273,6 +3288,10 @@
   "@topicDimensionTags": {
     "description": "Opción del selector del Mapa y del Atlas: agrupar por las etiquetas (F28). Es el nombre con que la interfaz muestra la categoría de sistema de las etiquetas."
   },
+  "categoryTagSingular": "Etiqueta",
+  "@categoryTagSingular": {
+    "description": "Cómo se nombra la categoría de las etiquetas delante de un valor —«Etiqueta: Roma»— en las sugerencias y en lo que hizo la IA (F28). En la base se sigue llamando «Tema»."
+  },
   "mapViewSelectorLabel": "Vista del mapa",
   "@mapViewSelectorLabel": {
     "description": "Etiqueta accesible del selector entre las vistas del mapa."
@@ -3281,13 +3300,23 @@
   "@mapViewBoard": {
     "description": "Nombre de la vista de tablero del mapa: los números que resumen la bóveda."
   },
-  "mapEmptyTitle": "Todavía no hay temas",
+  "mapEmptyTitle": "{kind, select, spaces{Todavía no tenés temas} tags{Todavía no hay etiquetas} other{Esta categoría no tiene valores}}",
   "@mapEmptyTitle": {
-    "description": "Título del estado vacío del mapa: la categoría no tiene valores."
+    "description": "Título del esquema y el grafo del Mapa cuando lo que se mira no tiene nada que dibujar: los temas, las etiquetas u otra categoría (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
-  "mapEmptyMessage": "Cuando esta categoría tenga valores, el mapa va a mostrar cómo se relacionan.",
+  "mapEmptyMessage": "{kind, select, spaces{Elegí un tema al guardar algo —o dejá que la IA lo ubique— y acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».} tags{Cuando pongas etiquetas, acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».} other{Cuando esta categoría tenga valores, acá vas a ver cómo se relacionan. Lo que vinculaste ya está en «Vínculos».}}",
   "@mapEmptyMessage": {
-    "description": "Mensaje del estado vacío del mapa."
+    "description": "Mensaje del esquema y el grafo del Mapa sin nada que dibujar, según lo que se mira (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "mapUnassignedTags": "{count, plural, =1{1 elemento sin etiquetas} other{{count} elementos sin etiquetas}}",
   "@mapUnassignedTags": {
@@ -3339,10 +3368,13 @@
   "@mapStaleNotice": {
     "description": "Aviso sobre el mapa cuando el último recálculo falló y se muestra el anterior."
   },
-  "mapTopicCount": "{count, plural, =1{1 tema} other{{count} temas}}",
+  "mapTopicCount": "{kind, select, spaces{{count, plural, =1{1 tema} other{{count} temas}}} tags{{count, plural, =1{1 etiqueta} other{{count} etiquetas}}} other{{count, plural, =1{1 valor} other{{count} valores}}}}",
   "@mapTopicCount": {
-    "description": "Cuántos temas tiene el mapa.",
+    "description": "Cuántos temas, etiquetas o valores tiene el mapa, según lo que se mira (F28).",
     "placeholders": {
+      "kind": {
+        "type": "String"
+      },
       "count": {
         "type": "int"
       }
@@ -3366,21 +3398,36 @@
       }
     }
   },
-  "mapBoardDensestTitle": "Temas con más material",
+  "mapBoardDensestTitle": "{kind, select, spaces{Temas con más material} tags{Etiquetas con más material} other{Valores con más material}}",
   "@mapBoardDensestTitle": {
-    "description": "Título de la tarjeta del tablero con los temas que más elementos tienen."
+    "description": "Título de la tarjeta del tablero con los temas, etiquetas o valores que más elementos tienen (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "mapBoardConnectedTitle": "Los más conectados entre sí",
   "@mapBoardConnectedTitle": {
     "description": "Título de la tarjeta del tablero con los pares de temas más unidos."
   },
-  "mapBoardIsolatedTitle": "Temas aislados",
+  "mapBoardIsolatedTitle": "{kind, select, spaces{Temas aislados} tags{Etiquetas aisladas} other{Valores aislados}}",
   "@mapBoardIsolatedTitle": {
-    "description": "Título de la tarjeta del tablero con los temas sin ninguna unión."
+    "description": "Título de la tarjeta del tablero con lo que no tiene ninguna unión, y nombre del nodo que lo junta en el grafo (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
-  "mapBoardIsolatedHint": "No comparten elementos ni relaciones con ningún otro tema.",
+  "mapBoardIsolatedHint": "{kind, select, spaces{No comparten elementos ni relaciones con ningún otro tema.} tags{No comparten elementos ni relaciones con ninguna otra etiqueta.} other{No comparten elementos ni relaciones con ningún otro valor.}}",
   "@mapBoardIsolatedHint": {
-    "description": "Explicación de qué es un tema aislado."
+    "description": "Explicación de qué es algo aislado en el tablero (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "mapBoardMore": "y {count} más",
   "@mapBoardMore": {
@@ -3471,7 +3518,7 @@
   "@mapSchemaTree": {
     "description": "Modo del esquema como árbol, con los niveles hacia abajo."
   },
-  "mapSchemaRootTooltip": "Elegir el tema de partida",
+  "mapSchemaRootTooltip": "Elegir el punto de partida",
   "@mapSchemaRootTooltip": {
     "description": "Tooltip del botón que cambia el tema desde el que parte el esquema."
   },
@@ -3497,9 +3544,14 @@
       }
     }
   },
-  "mapSchemaNodeTopic": "Tema",
+  "mapSchemaNodeTopic": "{kind, select, spaces{Tema} tags{Etiqueta} other{Valor}}",
   "@mapSchemaNodeTopic": {
-    "description": "Qué es un nodo del esquema que es un tema, para la descripción accesible."
+    "description": "Qué es un nodo del esquema que no es un elemento, para la descripción accesible (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "mapSchemaNodeNote": "Nota",
   "@mapSchemaNodeNote": {
@@ -3584,19 +3636,19 @@
   "@mapGraphOverflow": {
     "description": "Nombre del nodo que junta varias comunidades chicas que no entran en el panorama."
   },
-  "mapGraphCommunitySemantics": "Comunidad de {name}: {count, plural, =1{1 tema} other{{count} temas}}",
+  "mapGraphCommunitySemantics": "Comunidad de {name}: {count}",
   "@mapGraphCommunitySemantics": {
-    "description": "Descripción accesible de un nodo de comunidad en el grafo.",
+    "description": "Descripción accesible de un nodo de comunidad en el grafo: su nombre y cuántos temas, etiquetas o valores junta, ya dicho con mapTopicCount (F28).",
     "placeholders": {
       "name": {
         "type": "String"
       },
       "count": {
-        "type": "int"
+        "type": "String"
       }
     }
   },
-  "mapGraphTopicsCut": "Se muestran {shown} de {total} temas. Tocá una comunidad para ver los suyos.",
+  "mapGraphTopicsCut": "Se muestran {shown} de {total}. Tocá una comunidad para ver el resto.",
   "@mapGraphTopicsCut": {
     "description": "Aviso del grafo cuando hay más temas de los que se dibujan a la vez.",
     "placeholders": {
@@ -3608,7 +3660,7 @@
       }
     }
   },
-  "mapGraphEdgesCut": "Se dibujan las {shown} uniones más fuertes de {total}: cada tema conserva las suyas más fuertes.",
+  "mapGraphEdgesCut": "Se dibujan las {shown} uniones más fuertes de {total}: cada uno conserva las suyas más fuertes.",
   "@mapGraphEdgesCut": {
     "description": "Aviso del nivel de temas del grafo cuando hay más uniones de las que se dibujan: cada tema conserva las más fuertes.",
     "placeholders": {
@@ -3620,7 +3672,7 @@
       }
     }
   },
-  "mapGraphItemsCut": "Se muestran los {count} elementos más recientes de este tema.",
+  "mapGraphItemsCut": "Se muestran los {count} elementos más recientes.",
   "@mapGraphItemsCut": {
     "description": "Aviso del grafo cuando un tema tiene más elementos de los que se dibujan.",
     "placeholders": {
@@ -3633,7 +3685,7 @@
   "@mapGraphActionItems": {
     "description": "Acción de un tema en el grafo: acercarse a los elementos que tiene."
   },
-  "mapGraphHint": "Tocá una comunidad o acercate para ver sus temas.",
+  "mapGraphHint": "Tocá una comunidad o acercate para ver qué tiene adentro.",
   "@mapGraphHint": {
     "description": "Ayuda de una línea bajo el camino del grafo, en el panorama de comunidades."
   },
@@ -3666,9 +3718,14 @@
       }
     }
   },
-  "mapSchemaPickerTopics": "Temas",
+  "mapSchemaPickerTopics": "{kind, select, spaces{Temas} tags{Etiquetas} other{Valores}}",
   "@mapSchemaPickerTopics": {
-    "description": "Encabezado de la lista de temas en el selector del punto de partida del esquema."
+    "description": "Encabezado de la lista de temas, etiquetas o valores en el selector del punto de partida del esquema (F28).",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
   },
   "mapSchemaPickerMapNotes": "Notas mapa",
   "@mapSchemaPickerMapNotes": {
@@ -3694,7 +3751,7 @@
   "@mapExportUnavailable": {
     "description": "Tooltip del botón de exportar cuando la vista del mapa no se puede exportar, como el tablero."
   },
-  "timelineBranchFilterTooltip": "Quitar el filtro por tema",
+  "timelineBranchFilterTooltip": "Quitar el filtro",
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
   },
@@ -3856,7 +3913,7 @@
   "@habitBadgeContradictionResolvedDescription": {
     "description": "Descripción de la insignia: una contradicción marcada como revisada."
   },
-  "habitBadgeCompleteTopicBranchLabel": "Un tema completo",
+  "habitBadgeCompleteTopicBranchLabel": "Una rama completa",
   "@habitBadgeCompleteTopicBranchLabel": {
     "description": "Nombre de la insignia: una rama del Atlas con todas sus fuentes citadas."
   },
@@ -4086,11 +4143,11 @@
       }
     }
   },
-  "quizSessionMissedTopicsTitle": "Temas con más errores",
+  "quizSessionMissedTopicsTitle": "Etiquetas con más errores",
   "@quizSessionMissedTopicsTitle": {
     "description": "Título del resumen de temas del Atlas que concentraron los errores de la sesión."
   },
-  "quizSessionMissedTopicsEmpty": "Las preguntas falladas no tienen ningún tema del Atlas asignado.",
+  "quizSessionMissedTopicsEmpty": "Las preguntas falladas no tienen ninguna etiqueta asignada.",
   "@quizSessionMissedTopicsEmpty": {
     "description": "Mensaje cuando hubo errores pero ninguno se pudo agrupar por tema."
   },
@@ -5001,7 +5058,7 @@
   "@aiActivityEmptyTitle": {
     "description": "Título del estado vacío de «Lo que hizo la IA» (F27)."
   },
-  "aiActivityEmptyMessage": "Cuando la IA una tus cosas, arme tarjetas o ponga temas, lo vas a ver acá, y vas a poder deshacerlo.",
+  "aiActivityEmptyMessage": "Cuando la IA una tus cosas, arme tarjetas o ponga temas y etiquetas, lo vas a ver acá, y vas a poder deshacerlo.",
   "@aiActivityEmptyMessage": {
     "description": "Mensaje del estado vacío de «Lo que hizo la IA» (F27)."
   },
@@ -5063,7 +5120,7 @@
       }
     }
   },
-  "aiTallyProperties": "{count, plural, =1{1 tema} other{{count} temas}}",
+  "aiTallyProperties": "{count, plural, =1{1 etiqueta o propiedad} other{{count} etiquetas y propiedades}}",
   "@aiTallyProperties": {
     "description": "Cuántos temas, etiquetas o propiedades puso la IA (F27).",
     "placeholders": {
@@ -5237,7 +5294,7 @@
   "@aiStatusModelTitle": {
     "description": "Estado de la cola de la IA cuando falta bajar un modelo (F27)."
   },
-  "aiStatusModelChat": "El modelo de lenguaje arma los vínculos, las tarjetas y los temas.",
+  "aiStatusModelChat": "El modelo de lenguaje arma los vínculos, las tarjetas, los temas y las etiquetas.",
   "@aiStatusModelChat": {
     "description": "Por qué hace falta el modelo de lenguaje para que la IA organice (F27)."
   },
@@ -5278,7 +5335,7 @@
   "@settingsAiOrganize": {
     "description": "Interruptor general de Ajustes › IA: la IA organiza sola lo que se guarda (F27)."
   },
-  "settingsAiOrganizeSubtitle": "Vínculos, tarjetas y temas, solos y siempre reversibles.",
+  "settingsAiOrganizeSubtitle": "Vínculos, tarjetas, temas y etiquetas, solos y siempre reversibles.",
   "@settingsAiOrganizeSubtitle": {
     "description": "Explicación del interruptor general de la IA (F27)."
   },
@@ -5298,11 +5355,11 @@
   "@settingsAiFlashcardsSubtitle": {
     "description": "Explicación del interruptor de tarjetas (F27)."
   },
-  "settingsAiProperties": "Temas y propiedades",
+  "settingsAiProperties": "Etiquetas y propiedades",
   "@settingsAiProperties": {
     "description": "Interruptor de la IA para temas, etiquetas y propiedades (F27)."
   },
-  "settingsAiPropertiesSubtitle": "Pone temas, etiquetas y propiedades.",
+  "settingsAiPropertiesSubtitle": "Pone etiquetas y propiedades.",
   "@settingsAiPropertiesSubtitle": {
     "description": "Explicación del interruptor de temas y propiedades (F27)."
   },
@@ -5326,7 +5383,7 @@
   "@settingsAiAtlas": {
     "description": "Interruptor de la IA para el Atlas (F27)."
   },
-  "settingsAiAtlasSubtitle": "Ordena el árbol de temas y arma las notas mapa.",
+  "settingsAiAtlasSubtitle": "Ordena el árbol de etiquetas y arma las notas mapa.",
   "@settingsAiAtlasSubtitle": {
     "description": "Explicación del interruptor del Atlas (F27)."
   },
@@ -5437,7 +5494,7 @@
       }
     }
   },
-  "aiTallySpaces": "{count, plural, =1{1 tema de la biblioteca} other{{count} temas de la biblioteca}}",
+  "aiTallySpaces": "{count, plural, =1{1 tema} other{{count} temas}}",
   "@aiTallySpaces": {
     "description": "En cuántos temas de la biblioteca —espacios— puso la IA un elemento (F27).",
     "placeholders": {
@@ -5455,7 +5512,7 @@
       }
     }
   },
-  "aiTallyTopicPlacements": "{count, plural, =1{1 tema ubicado} other{{count} temas ubicados}}",
+  "aiTallyTopicPlacements": "{count, plural, =1{1 etiqueta ubicada en el árbol} other{{count} etiquetas ubicadas en el árbol}}",
   "@aiTallyTopicPlacements": {
     "description": "Cuántos temas sueltos ubicó la IA en el árbol de temas, bajo otro (F27, el Atlas).",
     "placeholders": {

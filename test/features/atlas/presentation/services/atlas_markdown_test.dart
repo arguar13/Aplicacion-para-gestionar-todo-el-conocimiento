@@ -64,7 +64,7 @@ void main() {
     );
 
     expect(markdown, startsWith('# Atlas — Tema\n'));
-    expect(markdown, contains('_Generado el 2026-09-21 · 2 temas_'));
+    expect(markdown, contains('_Generado el 2026-09-21 · 2 ramas_'));
   });
 
   test('el árbol es una lista anidada: dos espacios por nivel', () {
@@ -167,7 +167,7 @@ void main() {
     // Los vacíos, antes que el árbol.
     expect(
       markdown.indexOf('## 3 vacíos detectados'),
-      lessThan(markdown.indexOf('## Temas')),
+      lessThan(markdown.indexOf('## Ramas')),
     );
   });
 
@@ -179,14 +179,14 @@ void main() {
     );
 
     expect(markdown, isNot(contains('vacío')));
-    expect(markdown, contains('## Temas'));
+    expect(markdown, contains('## Ramas'));
   });
 
-  test('un Atlas sin temas es solo el encabezado', () {
+  test('un Atlas sin ramas es solo el encabezado', () {
     final markdown = atlasToMarkdown(atlas(const []), es, now: now);
 
-    expect(markdown, isNot(contains('## Temas')));
-    expect(markdown, contains('_Generado el 2026-09-21 · 0 temas_'));
+    expect(markdown, isNot(contains('## Ramas')));
+    expect(markdown, contains('_Generado el 2026-09-21 · 0 ramas_'));
   });
 
   test('un nombre con caracteres de Markdown no rompe la lista', () {
@@ -208,8 +208,8 @@ void main() {
     );
 
     expect(markdown, startsWith('# Atlas — Tema\n'));
-    expect(markdown, contains('_Generated on 2026-09-21 · 1 topic_'));
-    expect(markdown, contains('## Topics'));
+    expect(markdown, contains('_Generated on 2026-09-21 · 1 branch_'));
+    expect(markdown, contains('## Branches'));
     expect(markdown, contains('- **Roma** — Mature · 3 sources · 1 note'));
   });
 

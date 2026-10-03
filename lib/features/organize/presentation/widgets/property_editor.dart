@@ -269,7 +269,10 @@ class _AddPropertyDialogState extends ConsumerState<_AddPropertyDialog> {
   List<PropertyDefinition> _selectable(List<PropertyDefinition> definitions) =>
       [
         for (final d in definitions)
-          if (d.type != PropertyValueType.person) d,
+          // Las etiquetas tienen su propio editor, justo arriba (F28): acá
+          // la categoría aparecería con su nombre de la base, «Tema», que ya
+          // nombra otra cosa.
+          if (d.type != PropertyValueType.person && !d.isTema) d,
       ];
 
   void _confirm() {

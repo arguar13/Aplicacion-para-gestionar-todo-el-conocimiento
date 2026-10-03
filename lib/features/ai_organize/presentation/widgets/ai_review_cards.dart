@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
@@ -239,7 +240,7 @@ class _ReviewRow extends StatelessWidget {
         (
           Icons.sell_outlined,
           scheme.secondary,
-          '$definitionName: $value',
+          '${categoryValueLabel(l10n, definitionName)}: $value',
           isNewValue ? l10n.suggestionsNewValueBadge : null,
         ),
       MetadataSuggestion(:final extracted) => (

@@ -27,11 +27,11 @@ void main() {
     expect(aiTallyText(es, const AiRunTally()), isEmpty);
   });
 
-  test('los temas que la IA ubicó en el árbol se cuentan aparte de los que '
+  test('las etiquetas que la IA ubicó en el árbol se cuentan aparte de las que '
       'puso', () {
     expect(
       aiTallyText(es, const AiRunTally(properties: 3, topicPlacements: 2)),
-      '3 temas · 2 temas ubicados',
+      '3 etiquetas y propiedades · 2 etiquetas ubicadas en el árbol',
     );
   });
 

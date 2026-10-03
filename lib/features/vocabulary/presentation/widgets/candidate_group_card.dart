@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/domain/services/hierarchy_suggestions.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
@@ -109,7 +110,7 @@ class _CandidateGroupCardState extends ConsumerState<CandidateGroupCard> {
               children: [
                 Expanded(
                   child: Text(
-                    group.definitionName,
+                    categoryLabel(l10n, group.definitionName),
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

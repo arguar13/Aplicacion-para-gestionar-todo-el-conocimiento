@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/map/domain/entities/community_detection.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
@@ -94,6 +95,7 @@ void main() {
         home: Scaffold(
           body: MapBoardView(
             snapshot: snapshot ?? mapSnapshot(),
+            dimension: const TopicDimension.spaces(),
             dashboard: dash,
             onOpenTopic: (id) => calls.add('topic:$id'),
             onOpenItem: (id) => calls.add('item:$id'),
@@ -111,7 +113,7 @@ void main() {
   ) async {
     await pump(tester, dash: dashboard());
 
-    expect(find.text(es.mapTopicCount(3)), findsOneWidget);
+    expect(find.text(es.mapTopicCount('spaces', 3)), findsOneWidget);
     expect(find.text(es.mapCommunityCount(1)), findsOneWidget);
     expect(find.text(es.mapItemCount(4)), findsWidgets);
   });
@@ -119,7 +121,7 @@ void main() {
   testWidgets('los temas con más material, de más a menos', (tester) async {
     await pump(tester);
 
-    expect(find.text(es.mapBoardDensestTitle), findsOneWidget);
+    expect(find.text(es.mapBoardDensestTitle('spaces')), findsOneWidget);
     final roma = tester.getTopLeft(
       find.byKey(const ValueKey('map-densest-roma')),
     );
@@ -167,7 +169,7 @@ void main() {
 
     // Egipto y once más: 12 en total, y solo ocho a la vista.
     expect(
-      find.textContaining('${es.mapBoardIsolatedTitle} (12)'),
+      find.textContaining('${es.mapBoardIsolatedTitle('spaces')} (12)'),
       findsOneWidget,
     );
     expect(find.text(es.mapBoardMore(4)), findsOneWidget);

@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Cómo se llama una dimensión en la interfaz (F28): «Temas», «Etiquetas» —la
 /// categoría de sistema que en la base se sigue llamando «Tema»— o el nombre
 /// de la categoría.
 String topicDimensionLabel(AppLocalizations l10n, TopicDimension dimension) {
-  if (dimension.isSpaces) return l10n.topicDimensionSpaces;
-  if (dimension.isTags) return l10n.topicDimensionTags;
-  return dimension.category!.name;
+  final category = dimension.category;
+  if (category == null) return l10n.topicDimensionSpaces;
+  return categoryLabel(l10n, category.name);
+}
+
+/// Qué clase de cosa agrupa [dimension], como la piden los textos que cambian
+/// según lo que se mira —«Temas aislados», «Etiquetas aisladas», «Valores
+/// aislados»—: `spaces`, `tags` u `other`.
+String topicSelectKind(TopicDimension dimension) {
+  if (dimension.isSpaces) return 'spaces';
+  if (dimension.isTags) return 'tags';
+  return 'other';
 }
 
 /// El ícono de una dimensión: una carpeta para los temas —son carpetas: uno

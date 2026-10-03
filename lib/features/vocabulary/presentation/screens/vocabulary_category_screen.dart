@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/vocabulary/domain/entities/vocabulary_stats.dart';
 import 'package:sinapsis/features/vocabulary/presentation/providers/vocabulary_providers.dart';
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_value_screen.dart';
@@ -101,7 +102,9 @@ class _VocabularyCategoryScreenState
         .valueOrNull
         ?.where((c) => c.id == widget.definitionId)
         .firstOrNull;
-    final categoryName = category?.name;
+    final categoryName = category == null
+        ? null
+        : categoryLabel(l10n, category.name);
 
     return Scaffold(
       appBar: AppBar(

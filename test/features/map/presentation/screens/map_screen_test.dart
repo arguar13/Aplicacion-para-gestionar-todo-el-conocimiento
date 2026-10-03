@@ -116,12 +116,12 @@ void main() {
 
     expect(find.byType(MapScreen), findsOneWidget);
     expect(find.byType(MapBoardView), findsOneWidget);
-    expect(find.text(es.mapTopicCount(0)), findsOneWidget);
+    expect(find.text(es.mapTopicCount('tags', 0)), findsOneWidget);
 
     await tester.tap(find.text(es.mapViewSchema));
     await tester.pumpAndSettle();
 
-    expect(find.text(es.mapEmptyTitle), findsOneWidget);
+    expect(find.text(es.mapEmptyTitle('tags')), findsOneWidget);
   });
 
   testWidgets('muestra el tablero de lo que hay en la bóveda', (tester) async {
@@ -136,7 +136,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(es.mapTopicCount(3)), findsOneWidget);
+    expect(find.text(es.mapTopicCount('tags', 3)), findsOneWidget);
     expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
     // Roma tiene tres fuentes; Grecia, dos; Egipto, una.
     final roma = tester.getTopLeft(
@@ -359,7 +359,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(es.mapTopicCount(2)), findsOneWidget);
+      expect(find.text(es.mapTopicCount('spaces', 2)), findsOneWidget);
       // s3 no está en ningún tema.
       expect(find.text(es.mapUnassignedSpaces(1)), findsOneWidget);
     });
@@ -394,7 +394,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Roma, Grecia y Egipto: las etiquetas de la siembra.
-      expect(find.text(es.mapTopicCount(3)), findsOneWidget);
+      expect(find.text(es.mapTopicCount('tags', 3)), findsOneWidget);
     });
 
     testWidgets('sin temas, arranca por las etiquetas', (tester) async {

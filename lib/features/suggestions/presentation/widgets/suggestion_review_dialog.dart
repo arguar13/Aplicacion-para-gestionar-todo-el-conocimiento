@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart' show Either, left, right;
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -77,7 +78,8 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
             final suggestion = widget.suggestions[index];
             final (title, subtitle, icon, color) = switch (suggestion) {
               PropertySuggestion() => (
-                '${suggestion.definitionName}: ${suggestion.value}',
+                '${categoryValueLabel(l10n, suggestion.definitionName)}: '
+                    '${suggestion.value}',
                 suggestion.isNewValue ? l10n.suggestionsNewValueBadge : null,
                 Icons.sell_outlined,
                 null,

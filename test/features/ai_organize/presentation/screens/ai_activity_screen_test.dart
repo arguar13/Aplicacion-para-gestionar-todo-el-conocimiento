@@ -305,7 +305,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(es.aiUndoItemTitle), findsOneWidget);
       expect(
-        find.text(es.aiUndoMessage('Roma', '2 vínculos · 1 tarjeta · 1 tema')),
+        find.text(
+          es.aiUndoMessage(
+            'Roma',
+            '2 vínculos · 1 tarjeta · 1 etiqueta o propiedad',
+          ),
+        ),
         findsOneWidget,
       );
       await tester.tap(find.byKey(const Key('ai-undo-confirm')));

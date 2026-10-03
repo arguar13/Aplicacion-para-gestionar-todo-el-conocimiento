@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -59,7 +60,9 @@ class PropertySuggestionGroupTile extends StatelessWidget {
           onChanged: enabled ? (_) => onToggleGroup(!all) : null,
         ),
       ),
-      title: Text('${group.definitionName}: ${group.value}'),
+      title: Text(
+        '${categoryValueLabel(l10n, group.definitionName)}: ${group.value}',
+      ),
       subtitle: Wrap(
         spacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,

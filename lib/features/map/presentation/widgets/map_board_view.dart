@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/entities/map_dashboard.dart';
@@ -18,6 +20,7 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 class MapBoardView extends StatefulWidget {
   const MapBoardView({
     required this.snapshot,
+    required this.dimension,
     required this.dashboard,
     required this.onOpenTopic,
     required this.onOpenItem,
@@ -26,6 +29,9 @@ class MapBoardView extends StatefulWidget {
   });
 
   final KnowledgeMapSnapshot snapshot;
+
+  /// Qué se mira: los textos dicen «temas», «etiquetas» o «valores» (F28).
+  final TopicDimension dimension;
   final MapDashboard? dashboard;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
@@ -55,6 +61,7 @@ class _MapBoardViewState extends State<MapBoardView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final dashboard = widget.dashboard;
+    final kind = topicSelectKind(widget.dimension);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -69,7 +76,9 @@ class _MapBoardViewState extends State<MapBoardView> {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    Chip(label: Text(l10n.mapTopicCount(_stats.topicCount))),
+                    Chip(
+                      label: Text(l10n.mapTopicCount(kind, _stats.topicCount)),
+                    ),
                     Chip(
                       label: Text(
                         l10n.mapCommunityCount(_stats.communityCount),
@@ -81,6 +90,7 @@ class _MapBoardViewState extends State<MapBoardView> {
                 ),
                 const SizedBox(height: 12),
                 _DensestCard(
+                  kind: kind,
                   topics: _stats.densest,
                   onOpenTopic: widget.onOpenTopic,
                 ),
@@ -89,6 +99,7 @@ class _MapBoardViewState extends State<MapBoardView> {
                   onOpenTopic: widget.onOpenTopic,
                 ),
                 _IsolatedCard(
+                  kind: kind,
                   topics: _stats.isolated,
                   total: _stats.isolatedCount,
                   onOpenTopic: widget.onOpenTopic,
@@ -179,8 +190,14 @@ class _TapRow extends StatelessWidget {
 }
 
 class _DensestCard extends StatelessWidget {
-  const _DensestCard({required this.topics, required this.onOpenTopic});
+  const _DensestCard({
+    required this.kind,
+    required this.topics,
+    required this.onOpenTopic,
+  });
 
+  /// Qué se agrupa: ver `topicSelectKind`.
+  final String kind;
   final List<TopicNode> topics;
   final void Function(String valueId) onOpenTopic;
 
@@ -193,7 +210,7 @@ class _DensestCard extends StatelessWidget {
 
     return _BoardCard(
       cardKey: 'densest',
-      title: l10n.mapBoardDensestTitle,
+      title: l10n.mapBoardDensestTitle(kind),
       child: Column(
         children: [
           for (final topic in topics)
@@ -318,11 +335,14 @@ class _ConnectedCard extends StatelessWidget {
 
 class _IsolatedCard extends StatelessWidget {
   const _IsolatedCard({
+    required this.kind,
     required this.topics,
     required this.total,
     required this.onOpenTopic,
   });
 
+  /// Qué se agrupa: ver `topicSelectKind`.
+  final String kind;
   final List<TopicNode> topics;
   final int total;
   final void Function(String valueId) onOpenTopic;
@@ -334,12 +354,12 @@ class _IsolatedCard extends StatelessWidget {
 
     return _BoardCard(
       cardKey: 'isolated',
-      title: '${l10n.mapBoardIsolatedTitle} ($total)',
+      title: '${l10n.mapBoardIsolatedTitle(kind)} ($total)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.mapBoardIsolatedHint,
+            l10n.mapBoardIsolatedHint(kind),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),

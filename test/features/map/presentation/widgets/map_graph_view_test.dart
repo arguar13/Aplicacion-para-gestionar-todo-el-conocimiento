@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -164,6 +165,7 @@ void main() {
       home: Scaffold(
         body: MapGraphView(
           snapshot: map,
+          dimension: const TopicDimension.spaces(),
           exportHandle: handle,
           onOpenTopic: (id) => opened.add('topic:$id'),
           onOpenItem: (id) => opened.add('item:$id'),
@@ -214,7 +216,7 @@ void main() {
     expect(crumb('overview'), findsOneWidget);
     expect(crumb('topics'), findsNothing);
     // El nodo de los aislados se rotula solo.
-    expect(find.text(es.mapBoardIsolatedTitle), findsOneWidget);
+    expect(find.text(es.mapBoardIsolatedTitle('spaces')), findsOneWidget);
   });
 
   testWidgets('tocar una comunidad muestra sus temas, y el camino vuelve', (
@@ -601,7 +603,7 @@ void main() {
       expect('<circle'.allMatches(svg), hasLength(3));
       expect(svg, contains('>Alfa 1</text>'));
       expect(svg, contains('>Beta 1</text>'));
-      expect(svg, contains('>${es.mapBoardIsolatedTitle}</text>'));
+      expect(svg, contains('>${es.mapBoardIsolatedTitle('spaces')}</text>'));
       expect('<line'.allMatches(svg), hasLength(1));
     });
 
@@ -790,7 +792,12 @@ void main() {
 
     expect(
       tester.getSemantics(node('overview:0')).label,
-      startsWith(es.mapGraphCommunitySemantics('Alfa 1', 4).split(':').first),
+      startsWith(
+        es
+            .mapGraphCommunitySemantics('Alfa 1', es.mapTopicCount('spaces', 4))
+            .split(':')
+            .first,
+      ),
     );
     await tester.tap(node('overview:0'));
     await tester.pumpAndSettle();

@@ -3,7 +3,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -35,6 +37,7 @@ const _kCanvasMargin = 80.0;
 class MapSchemaView extends ConsumerStatefulWidget {
   const MapSchemaView({
     required this.snapshot,
+    required this.dimension,
     required this.onOpenTopic,
     required this.onOpenItem,
     this.exportHandle,
@@ -42,6 +45,9 @@ class MapSchemaView extends ConsumerStatefulWidget {
   });
 
   final KnowledgeMapSnapshot snapshot;
+
+  /// Qué se mira: los textos dicen «tema», «etiqueta» o «valor» (F28).
+  final TopicDimension dimension;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
 
@@ -301,7 +307,11 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => _RootPicker(graph: _graph, notes: notes),
+      builder: (context) => _RootPicker(
+        graph: _graph,
+        notes: notes,
+        topicKind: topicSelectKind(widget.dimension),
+      ),
     );
     if (chosen == null || !mounted) return;
     setState(() => _open(chosen.ref, title: chosen.title));
@@ -411,6 +421,7 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
                                 height: _kNodeHeight,
                                 child: _NodeCard(
                                   entry: entry,
+                                  topicKind: topicSelectKind(widget.dimension),
                                   onToggle: () => _toggle(entry),
                                   onOpen: () =>
                                       entry.ref.kind == SchemaNodeKind.topic
@@ -447,11 +458,15 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
 class _NodeCard extends StatelessWidget {
   const _NodeCard({
     required this.entry,
+    required this.topicKind,
     required this.onToggle,
     required this.onOpen,
   });
 
   final SchemaEntry entry;
+
+  /// Qué es un tema acá: ver `topicSelectKind`.
+  final String topicKind;
   final VoidCallback onToggle;
   final VoidCallback onOpen;
 
@@ -463,7 +478,7 @@ class _NodeCard extends StatelessWidget {
     final role = entry.isNote ? EntityRole.note : EntityRole.source;
     final accent = isTopic ? colors.primary : role.accent(colors);
     final kind = isTopic
-        ? l10n.mapSchemaNodeTopic
+        ? l10n.mapSchemaNodeTopic(topicKind)
         : entry.edge == SchemaEdgeKind.mapNote
         ? l10n.mapSchemaNodeMapNote
         : entry.isNote
@@ -641,10 +656,17 @@ class _RootChoice {
 /// que ya traen ordenada una parte del conocimiento, y de los temas —los de
 /// más elementos primero—.
 class _RootPicker extends StatefulWidget {
-  const _RootPicker({required this.graph, required this.notes});
+  const _RootPicker({
+    required this.graph,
+    required this.notes,
+    required this.topicKind,
+  });
 
   final TopicGraph graph;
   final Future<List<SchemaLink>> notes;
+
+  /// Qué son los temas acá: ver `topicSelectKind`.
+  final String topicKind;
 
   @override
   State<_RootPicker> createState() => _RootPickerState();
@@ -676,7 +698,7 @@ class _RootPickerState extends State<_RootPicker> {
                 autofocus: true,
                 onChanged: (value) => setState(() => _query = value),
                 decoration: InputDecoration(
-                  hintText: l10n.atlasSearchHint,
+                  hintText: l10n.atlasSearchHint(widget.topicKind),
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                   border: const OutlineInputBorder(
@@ -715,7 +737,9 @@ class _RootPickerState extends State<_RootPicker> {
                           ),
                       ],
                       if (shownTopics.isNotEmpty) ...[
-                        _PickerHeading(l10n.mapSchemaPickerTopics),
+                        _PickerHeading(
+                          l10n.mapSchemaPickerTopics(widget.topicKind),
+                        ),
                         for (final node in shownTopics)
                           ListTile(
                             key: ValueKey('map-schema-pick-${node.valueId}'),

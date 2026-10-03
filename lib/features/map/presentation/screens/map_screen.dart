@@ -267,6 +267,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           Expanded(
             child: _MapBody(
               request: MapRequest(selected.id, filter: filter),
+              dimension: selected,
               view: _view,
               focusId: _focusId,
               exportHandle: _exportHandle,
@@ -350,6 +351,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 class _MapBody extends ConsumerWidget {
   const _MapBody({
     required this.request,
+    required this.dimension,
     required this.view,
     required this.exportHandle,
     required this.unassignedLabel,
@@ -361,6 +363,9 @@ class _MapBody extends ConsumerWidget {
   });
 
   final MapRequest request;
+
+  /// Lo que se mira: los textos dicen «temas», «etiquetas» o «valores».
+  final TopicDimension dimension;
   final MapView view;
   final MapExportHandle exportHandle;
 
@@ -410,6 +415,7 @@ class _MapBody extends ConsumerWidget {
       MapView.links => _links(),
       MapView.board => MapBoardView(
         snapshot: snapshot,
+        dimension: dimension,
         dashboard: dashboard,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,
@@ -420,14 +426,15 @@ class _MapBody extends ConsumerWidget {
       MapView.schema || MapView.graph when noTopics => EmptyStateView(
         key: const ValueKey('map-no-topics'),
         icon: Icons.hub_outlined,
-        title: l10n.mapEmptyTitle,
-        message: l10n.mapEmptyMessage,
+        title: l10n.mapEmptyTitle(topicSelectKind(dimension)),
+        message: l10n.mapEmptyMessage(topicSelectKind(dimension)),
         actionLabel: l10n.mapSeeLinksAction,
         onAction: onShowLinks,
       ),
       MapView.schema => MapSchemaView(
         key: const ValueKey('map-schema'),
         snapshot: snapshot,
+        dimension: dimension,
         exportHandle: exportHandle,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,
@@ -435,6 +442,7 @@ class _MapBody extends ConsumerWidget {
       MapView.graph => MapGraphView(
         key: const ValueKey('map-graph'),
         snapshot: snapshot,
+        dimension: dimension,
         exportHandle: exportHandle,
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,

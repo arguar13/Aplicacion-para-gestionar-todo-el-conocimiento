@@ -324,4 +324,26 @@ void main() {
       ).called(1);
     });
   });
+
+  testWidgets('la categoría de las etiquetas no se ofrece: tienen su propio '
+      'editor, y su nombre de la base, «Tema», ya nombra otra cosa (F28)', (
+    tester,
+  ) async {
+    final tema = PropertyDefinition(
+      id: 'def-tema',
+      name: kTemaCategoryName,
+      createdAt: now,
+      isSystem: true,
+    );
+    when(
+      organize.watchAllPropertyDefinitions,
+    ).thenAnswer((_) => Stream.value([fecha, region, tema]));
+    await pumpEditor(tester);
+
+    await tester.tap(find.text(es.detailAddProperty));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ActionChip, 'Región'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, kTemaCategoryName), findsNothing);
+  });
 }

@@ -99,7 +99,9 @@ void main() {
 
     await pumpCategory(tester);
 
-    expect(find.text('Tema'), findsOneWidget); // el título
+    // El título: la categoría de las etiquetas se llama así en la interfaz
+    // aunque en la base siga siendo «Tema» (F28).
+    expect(find.text('Etiquetas'), findsOneWidget);
     expect(find.text('Roma'), findsOneWidget);
     expect(find.text('Róma'), findsOneWidget);
     expect(find.text('Egipto'), findsOneWidget);

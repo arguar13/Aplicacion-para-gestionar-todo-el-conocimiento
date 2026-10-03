@@ -530,7 +530,7 @@ void main() {
   ) async {
     await pump(tester);
 
-    expect(find.text(es.atlasEmptyTitle), findsOneWidget);
+    expect(find.text(es.atlasEmptyTitle('tags')), findsOneWidget);
   });
 
   testWidgets('el selector cambia de categoría', (tester) async {

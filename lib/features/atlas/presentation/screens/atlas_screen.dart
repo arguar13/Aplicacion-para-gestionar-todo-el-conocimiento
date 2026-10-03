@@ -196,7 +196,7 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
               onChanged: (_) => setState(() {}),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: l10n.atlasSearchHint,
+                hintText: l10n.atlasSearchHint(topicSelectKind(selected)),
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
@@ -211,13 +211,14 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
               ),
             ),
           ),
-          Expanded(child: _atlas(selected.id, l10n)),
+          Expanded(child: _atlas(selected, l10n)),
         ],
       ),
     );
   }
 
-  Widget _atlas(String definitionId, AppLocalizations l10n) {
+  Widget _atlas(TopicDimension dimension, AppLocalizations l10n) {
+    final definitionId = dimension.id;
     final atlas = ref.watch(atlasProvider(definitionId));
 
     return atlas.when(
@@ -236,7 +237,9 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
         ),
       ),
       data: (snapshot) {
-        if (snapshot.nodes.isEmpty) return _Empty(l10n: l10n);
+        if (snapshot.nodes.isEmpty) {
+          return _Empty(l10n: l10n, kind: topicSelectKind(dimension));
+        }
         return _AtlasList(
           snapshot: snapshot,
           expanded: _expanded,
@@ -254,16 +257,19 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.l10n});
+  const _Empty({required this.l10n, required this.kind});
 
   final AppLocalizations l10n;
+
+  /// Qué se mira: ver `topicSelectKind`.
+  final String kind;
 
   @override
   Widget build(BuildContext context) {
     return EmptyStateView(
       icon: Icons.account_tree_outlined,
-      title: l10n.atlasEmptyTitle,
-      message: l10n.atlasEmptyMessage,
+      title: l10n.atlasEmptyTitle(kind),
+      message: l10n.atlasEmptyMessage(kind),
     );
   }
 }

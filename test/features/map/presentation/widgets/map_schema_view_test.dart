@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -142,6 +143,7 @@ void main() {
       home: Scaffold(
         body: MapSchemaView(
           snapshot: map,
+          dimension: const TopicDimension.spaces(),
           exportHandle: handle,
           onOpenTopic: (id) => opened.add('topic:$id'),
           onOpenItem: (id) => opened.add('item:$id'),
@@ -348,7 +350,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('map-schema-root')));
     await tester.pumpAndSettle();
     expect(find.text(es.mapSchemaPickerMapNotes), findsOneWidget);
-    expect(find.text(es.mapSchemaPickerTopics), findsOneWidget);
+    expect(find.text(es.mapSchemaPickerTopics('spaces')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('map-schema-pick-note-n1')));
     await tester.pumpAndSettle();
 
@@ -553,7 +555,7 @@ void main() {
 
     expect(
       tester.getSemantics(node('topic:roma')).label,
-      '${es.mapSchemaNodeTopic}: Roma',
+      '${es.mapSchemaNodeTopic('spaces')}: Roma',
     );
     expect(
       tester.getSemantics(node('item:n1')).label,

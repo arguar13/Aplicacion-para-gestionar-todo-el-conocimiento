@@ -84,11 +84,11 @@ void main() {
 
     expect(find.byKey(line), findsOneWidget);
     expect(find.text(es.aiItemLineTitle), findsOneWidget);
-    expect(find.text('4 vínculos · 3 temas'), findsOneWidget);
+    expect(find.text('4 vínculos · 3 etiquetas y propiedades'), findsOneWidget);
     expect(runs.pages.first.itemId, 'a');
   });
 
-  testWidgets('cuenta también el tema de la biblioteca y los datos de la '
+  testWidgets('cuenta también el tema y los datos de la '
       'referencia', (tester) async {
     await setUpWith([
       fakeRun(
@@ -99,10 +99,7 @@ void main() {
     ]);
     await pumpDetail(tester);
 
-    expect(
-      find.text('1 tema de la biblioteca · 2 datos de la referencia'),
-      findsOneWidget,
-    );
+    expect(find.text('1 tema · 2 datos de la referencia'), findsOneWidget);
   });
 
   testWidgets('si todo lo de la IA ya se adoptó o se borró, no aparece', (

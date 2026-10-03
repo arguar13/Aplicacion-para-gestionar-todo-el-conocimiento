@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
@@ -91,6 +93,7 @@ enum GraphLevel {
 class MapGraphView extends ConsumerStatefulWidget {
   const MapGraphView({
     required this.snapshot,
+    required this.dimension,
     required this.onOpenTopic,
     required this.onOpenItem,
     this.exportHandle,
@@ -98,6 +101,9 @@ class MapGraphView extends ConsumerStatefulWidget {
   });
 
   final KnowledgeMapSnapshot snapshot;
+
+  /// Qué se mira: los textos dicen «temas», «etiquetas» o «valores» (F28).
+  final TopicDimension dimension;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
 
@@ -249,7 +255,9 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
       final color = _colorOf(node, scheme, brightness);
       final label = switch (node.kind) {
         SceneKind.overflow => l10n.mapGraphOverflow,
-        SceneKind.isolated => l10n.mapBoardIsolatedTitle,
+        SceneKind.isolated => l10n.mapBoardIsolatedTitle(
+          topicSelectKind(widget.dimension),
+        ),
         _ => node.label,
       };
       if (node.kind == SceneKind.note || node.kind == SceneKind.source) {
@@ -783,13 +791,15 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     final color = _colorOf(node, colors, brightness);
     final label = switch (node.kind) {
       SceneKind.overflow => l10n.mapGraphOverflow,
-      SceneKind.isolated => l10n.mapBoardIsolatedTitle,
+      SceneKind.isolated => l10n.mapBoardIsolatedTitle(
+        topicSelectKind(widget.dimension),
+      ),
       _ => node.label,
     };
     final semantics = switch (node.kind) {
       SceneKind.community => l10n.mapGraphCommunitySemantics(
         node.label,
-        node.count,
+        l10n.mapTopicCount(topicSelectKind(widget.dimension), node.count),
       ),
       SceneKind.overflow || SceneKind.isolated => '$label: ${node.count}',
       SceneKind.topic => '$label: ${l10n.mapItemCount(node.size)}',

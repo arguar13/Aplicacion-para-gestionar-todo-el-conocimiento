@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_action_bar.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_batch_actions.dart';
@@ -133,7 +134,8 @@ class _PropertySuggestionGroupSheetState
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '${group.definitionName}: ${group.value}',
+              '${categoryValueLabel(l10n, group.definitionName)}: '
+              '${group.value}',
               style: theme.textTheme.titleMedium,
             ),
           ),
