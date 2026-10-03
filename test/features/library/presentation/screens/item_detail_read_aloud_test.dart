@@ -14,9 +14,13 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_document.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
+import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/viewer_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import '../../../../support/library_harness.dart';
+import '../../../../support/quiet_video_player.dart';
 import '../../../../support/read_aloud_test_support.dart';
 
 /// El detalle de un elemento con el lector flotante (F25): qué ofrece para
@@ -84,6 +88,77 @@ void main() {
     await tester.pumpWidget(harness.wrap(ItemDetailScreen(itemId: id)));
     await tester.pumpAndSettle();
   }
+
+  group('con su propio audio no se ofrece: sería un segundo audio de lo '
+      'mismo', () {
+    /// Un elemento de [kind] con su archivo, que se resuelve como audio:
+    /// como un audio o un video del teléfono, o el audio ya bajado de un
+    /// YouTube.
+    Future<String> saveWithAudio(SourceKind kind) async {
+      VideoPlayerPlatform.instance = QuietVideoPlayer();
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          readAloudControllerProvider.overrideWith(FakeReadAloudController.new),
+          resolvedFileViewerProvider.overrideWith(
+            (ref, item) async => const MediaResolvedViewer(
+              path: '/boveda/archivos/clase.opus',
+              isVideo: false,
+            ),
+          ),
+        ],
+      );
+      const id = 'f25-con-audio';
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .save(
+            KnowledgeItem(
+              id: id,
+              title: 'Una clase grabada',
+              source: Source(
+                id: id,
+                kind: kind,
+                capturedAt: now,
+                originalFilePath: 'clase.opus',
+              ),
+              processingState: ProcessingState.ready,
+              createdAt: now,
+              updatedAt: now,
+              renditions: [text(id, '[0:00] hola a todos')],
+            ),
+          );
+      return id;
+    }
+
+    testWidgets('un audio con su archivo: el texto ya se escucha con la voz '
+        'original', (tester) async {
+      final id = await saveWithAudio(SourceKind.audio);
+      await pumpDetail(tester, id);
+
+      expect(offered(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('un video con su archivo, tampoco', (tester) async {
+      final id = await saveWithAudio(SourceKind.video);
+      await pumpDetail(tester, id);
+
+      expect(offered(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('un YouTube sin el audio bajado sí: no hay otra forma de '
+        'escucharlo', (tester) async {
+      final id = await save(
+        kind: SourceKind.youtube,
+        renditions: (id) => [text(id, '[0:00] hola a todos')],
+      );
+      await pumpDetail(tester, id);
+
+      expect(offered()?.id, 'item:$id');
+    });
+  });
 
   testWidgets('ofrece la nota del usuario y después el texto, línea por '
       'línea, con su lugar en cada uno', (tester) async {

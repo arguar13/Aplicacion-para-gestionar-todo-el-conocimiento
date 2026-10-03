@@ -53,6 +53,7 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
+import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -265,8 +266,25 @@ class _DetailBodyState extends State<_DetailBody> {
 
     return Stack(
       children: [
-        ReadableRegion(
-          document: _readable,
+        // Con su propio audio —un audio, un video, un reel, el de YouTube ya
+        // bajado—, el texto ya se escucha con la voz original y se resalta
+        // solo (F23): el lector en voz alta sería un segundo audio de lo
+        // mismo (pedido del usuario). Se ofrece cuando no hay qué escuchar:
+        // un documento, una nota, o un YouTube cuyo audio no se pudo bajar.
+        // Mientras se averigua, no se ofrece —así el botón no aparece para
+        // irse enseguida—; si averiguarlo falla, no hay qué escuchar y sí.
+        Consumer(
+          builder: (context, ref, child) {
+            final offer = switch (ref.watch(itemPlaybackPathProvider(item))) {
+              AsyncData(:final value) => value == null,
+              AsyncError() => true,
+              _ => false,
+            };
+            return ReadableRegion(
+              document: offer ? _readable : null,
+              child: child!,
+            );
+          },
           child: _scrollingContent(context, item, theme, texts),
         ),
         // Con un audio o un video: el mini reproductor, para pausar o seguir

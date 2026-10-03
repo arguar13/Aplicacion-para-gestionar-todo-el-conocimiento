@@ -905,6 +905,13 @@ modo lectura, el lector de libros y documentos, el editor de notas, el chat
 y el repaso de tarjetas. No aparece en la Biblioteca, la Bandeja, el Mapa,
 el Atlas, Ajustes ni la Papelera.
 
+Tampoco aparece en un audio o un video que tiene su propio audio (también un
+reel, un TikTok o un YouTube con el audio ya bajado): ahí el texto ya se
+escucha con la voz original y se resalta solo (ver
+[El texto sigue al audio](#el-texto-sigue-al-audio)). Si un video de YouTube
+no pudo bajar su audio, el botón sí aparece, porque es la única forma de
+escucharlo.
+
 1. **Tocalo** y la app empieza a leer el texto de esa pantalla en voz alta.
    La **línea que está leyendo se ve en amarillo**. Lee el texto tal cual se
    ve, sin las marcas "[3:15]" ni los símbolos de formato.

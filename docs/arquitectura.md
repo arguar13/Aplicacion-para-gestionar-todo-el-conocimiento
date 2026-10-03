@@ -4787,6 +4787,12 @@ había debajo de cada texto, que se quitó a pedido.
   selección, con su resaltado, y se detiene; "Buscar en la Web" la hace la app, porque Flutter la
   ofrece solo en iOS.
 
+**Actualización (2026-10-03, pedido del usuario):** en el detalle de un elemento con su propio
+audio —un audio, un video, un reel, un YouTube con el audio bajado— el lector no se ofrece: el
+texto ya se escucha con la voz original y se resalta solo (F23), y el lector era un segundo audio
+de lo mismo. Sigue ofreciéndose donde no hay qué escuchar, también en un YouTube cuyo audio no se
+pudo bajar.
+
 Al construirlo aparecieron dos defectos viejos de la narración, corregidos de raíz: volver a "Voz
 del sistema" no cambiaba la voz (`setVoice(null)` no hacía nada) y borraba la voz guardada pero no
 la del estado.
