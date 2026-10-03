@@ -283,4 +283,19 @@ void main() {
       expect(platform.calls, ['mostrar processing 1/100']);
     });
   });
+
+  testWidgets('sin margen para soltar, se apaga en el acto', (tester) async {
+    final quick = LongWorkCoordinator(
+      platform: platform,
+      releaseDelay: Duration.zero,
+    );
+    final keeper = quick.keeperFor(LongWorkOwner.processing)
+      ..working(done: 1, total: 2);
+    await tester.pump();
+
+    keeper.idle();
+
+    expect(platform.calls, ['mostrar processing 1/2', 'apagar']);
+    expect(quick.shown, isNull);
+  });
 }

@@ -762,21 +762,29 @@ void main() {
       final queue = buildQueue(transformer, longWork: keeper)
         ..enqueue('video-largo');
       await transformer.enteredLong('video-largo');
-      await _until(() async => keeper.calls.contains('working 3/10'));
+      await _until(
+        () async => keeper.calls.contains('working 3/10 mediaProcessing'),
+      );
 
       transformer.release('video-largo');
       await whenIdle(queue);
       expect(keeper.calls.last, 'idle');
     }, timeout: const Timeout(Duration(seconds: 20)));
 
-    test('lo corto no la mantiene viva', () async {
+    test('lo corto también la mantiene viva —una página que se está '
+        'trayendo no se congela al minimizar—, como traer datos', () async {
       await seed('pagina');
       final keeper = _RecordingKeeper();
-      final queue = buildQueue(_ScriptedTransformer(), longWork: keeper)
+      final transformer = _ScriptedTransformer(gated: true);
+      final queue = buildQueue(transformer, longWork: keeper)
         ..enqueue('pagina');
+      await transformer.started('pagina');
 
+      expect(keeper.calls.last, 'working 0/0 dataSync');
+
+      transformer.release('pagina');
       await whenIdle(queue);
-      expect(keeper.calls.where((c) => c.startsWith('working')), isEmpty);
+      expect(keeper.calls.last, 'idle');
     }, timeout: const Timeout(Duration(seconds: 20)));
   });
 
@@ -822,7 +830,7 @@ class _RecordingKeeper implements LongWorkKeeper {
     required int total,
     LongWorkKind kind = LongWorkKind.dataSync,
     String? detail,
-  }) => calls.add('working $done/$total');
+  }) => calls.add('working $done/$total ${kind.name}');
 
   @override
   void idle() => calls.add('idle');

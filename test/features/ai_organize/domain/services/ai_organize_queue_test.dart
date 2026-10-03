@@ -67,8 +67,7 @@ class _Keeper implements LongWorkKeeper {
     required int total,
     LongWorkKind kind = LongWorkKind.dataSync,
     String? detail,
-  }) =>
-      calls.add('trabajando $done/$total');
+  }) => calls.add('trabajando $done/$total${detail == null ? '' : ' $detail'}');
 
   @override
   void idle() => calls.add('suelta');
@@ -317,9 +316,9 @@ void main() {
 
       expect(relations.organized, hasLength(3));
       expect(keeper.calls, [
-        'trabajando 0/3',
-        'trabajando 1/3',
-        'trabajando 2/3',
+        'trabajando 0/3 while_charging',
+        'trabajando 1/3 while_charging',
+        'trabajando 2/3 while_charging',
         'suelta',
       ]);
     });
@@ -363,15 +362,16 @@ void main() {
       expect(keeper.calls, isEmpty);
     });
 
-    test('lo nuevo solo no la pide; lo nuevo que se cuela en la pasada la '
-        'mantiene', () async {
+    test('lo nuevo también la pide mientras trabaja —no se congela al '
+        'minimizar—; lo nuevo que se cuela en la pasada la mantiene', () async {
       await vault.source('nuevo', title: 'Nuevo', content: 'Texto.');
       final keeper = _Keeper();
       final ai = queue(longWork: keeper);
 
       await ai.start();
       expect(relations.organized, ['nuevo']);
-      expect(keeper.calls, isEmpty);
+      expect(keeper.calls, ['trabajando 0/1', 'suelta']);
+      keeper.calls.clear();
 
       await vault.source(
         'viejo',
@@ -392,8 +392,13 @@ void main() {
       await pumpEventQueue();
       await ai.settled;
 
-      // El que se coló suma al total: uno hecho de dos.
-      expect(keeper.calls, ['trabajando 0/1', 'trabajando 1/2', 'suelta']);
+      // El que se coló suma al total: uno hecho de dos. La notificación deja
+      // de hablar del cargador cuando pasa a lo nuevo.
+      expect(keeper.calls, [
+        'trabajando 0/1 while_charging',
+        'trabajando 1/2',
+        'suelta',
+      ]);
       expect(later.organized, ['viejo', 'otro']);
     });
 

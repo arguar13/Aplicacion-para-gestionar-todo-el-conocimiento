@@ -56,15 +56,16 @@ const kAiNoteQuietPeriod = Duration(seconds: 15);
 /// con el turno de la cola (`GemmaChatModel.background`), que espera a que la
 /// persona no lo esté usando.
 ///
-/// **Mantiene viva la app mientras recorre la biblioteca existente**: son
-/// horas con el cargador, y el sistema congelaba la app a los pocos minutos
-/// de apagarse la pantalla. Pide el servicio en primer plano de F21, que
-/// comparte con la cola de procesamiento (`LongWorkCoordinator`), desde que
-/// toma el primer elemento de esa pasada hasta que no queda nada que pueda
-/// hacer —terminó, se pausó, se desenchufó el cargador, falta un modelo—; lo
-/// nuevo que se cuela en el medio la mantiene pedida. Lo nuevo solo, que es
-/// de a uno y de segundos a un par de minutos, no la pide. Si igual el
-/// sistema congela la app, la cola sigue al volver.
+/// **Mantiene viva la app mientras trabaja**, venga de donde venga lo que
+/// organiza: lo nuevo, lo pedido a mano, una nota que cambió o —con el
+/// cargador— la biblioteca que ya existía. Pide el servicio en primer plano
+/// de F21, que comparte con el procesamiento y las descargas
+/// (`LongWorkCoordinator`), desde que toma un elemento hasta que no queda
+/// nada que pueda hacer —terminó, se pausó, se desenchufó el cargador, falta
+/// un modelo—. Antes lo pedía solo para la biblioteca existente: lo nuevo
+/// que se organizaba al minimizar la app —de segundos a un par de minutos
+/// por elemento, pero a veces decenas seguidas— quedaba congelado a mitad.
+/// Si igual el sistema congela la app, la cola sigue al volver.
 class AiOrganizeQueue {
   AiOrganizeQueue({
     required AiOrganizeBacklog backlog,
@@ -130,10 +131,10 @@ class AiOrganizeQueue {
   /// El servicio en primer plano, del lado de la IA (ver la clase).
   final LongWorkKeeper _longWork;
 
-  /// Si la cola lo tiene pedido ahora, y cuántos de la biblioteca existente
-  /// organizó desde que lo pidió: el avance de la notificación.
+  /// Si la cola lo tiene pedido ahora, y cuántos organizó desde que lo
+  /// pidió: el avance de la notificación.
   var _keepingAlive = false;
-  var _existingDone = 0;
+  var _organizedWhileKept = 0;
 
   /// Lo que se pidió organizar a mano, en orden.
   final _requested = Queue<String>();
@@ -256,7 +257,7 @@ class AiOrganizeQueue {
         final next = await _next();
         if (next != null) {
           await _organize(next.itemId, next.source);
-          if (next.source == AiWorkSource.existingLibrary) _existingDone++;
+          _organizedWhileKept++;
           continue;
         }
         // Nada que pueda hacer ahora: terminó, se pausó, falta el cargador o
@@ -477,19 +478,25 @@ class AiOrganizeQueue {
     }, (_) {});
   }
 
-  /// Pide el servicio en primer plano al tomar un elemento de la biblioteca
-  /// existente, y lo mantiene —con el avance— mientras siga trabajando.
+  /// Pide el servicio en primer plano al tomar un elemento, y lo mantiene
+  /// —con el avance— mientras siga trabajando. La notificación dice si es la
+  /// biblioteca que ya existía, que solo se recorre con el cargador.
   void _keepAlive(AiWorkSource source, int pending) {
-    if (source == AiWorkSource.existingLibrary) _keepingAlive = true;
-    if (!_keepingAlive) return;
-    _longWork.working(done: _existingDone, total: _existingDone + pending + 1);
+    _keepingAlive = true;
+    _longWork.working(
+      done: _organizedWhileKept,
+      total: _organizedWhileKept + pending + 1,
+      detail: source == AiWorkSource.existingLibrary
+          ? LongWorkDetail.whileCharging
+          : null,
+    );
   }
 
   /// Suelta el servicio, si lo tenía pedido.
   void _letGo() {
     if (!_keepingAlive) return;
     _keepingAlive = false;
-    _existingDone = 0;
+    _organizedWhileKept = 0;
     _longWork.idle();
   }
 

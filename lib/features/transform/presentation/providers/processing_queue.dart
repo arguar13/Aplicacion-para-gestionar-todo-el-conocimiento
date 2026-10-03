@@ -74,7 +74,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   /// la base. No ocupa un carril.
   final void Function()? _onResume;
 
-  /// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
+  /// Lo que mantiene viva la app mientras hay algo en curso (F21, decisión
   /// C). `null` en las pruebas que no lo miran.
   final LongWorkKeeper Function()? _longWork;
 
@@ -310,22 +310,34 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
       active: Map.unmodifiable(_active),
       waiting: _queue.length,
     );
-    _keepAliveWhileLong();
+    _keepAliveWhileWorking();
   }
 
-  /// Mientras algo esté en el carril largo, la app se mantiene viva con el
-  /// avance de lo que corre ahí; si no, se suelta.
-  void _keepAliveWhileLong() {
+  /// Mientras haya algo en curso, en cualquiera de los dos carriles, la app
+  /// se mantiene viva; sin nada, se suelta.
+  ///
+  /// Antes solo lo hacía el carril largo: una página o un video que se
+  /// estaban trayendo por el corto quedaban congelados al minimizar la app,
+  /// y el sistema podía matarla a mitad. La notificación muestra el avance
+  /// de lo largo si hay —es lo que tiene porcentaje—; si no, lo corto.
+  ///
+  /// El tipo de trabajo: lo largo es transcribir o reconocer páginas
+  /// (`mediaProcessing`); lo corto, traer contenido de la red (`dataSync`).
+  void _keepAliveWhileWorking() {
     final keeper = _keeper ??= _longWork?.call();
     if (keeper == null) return;
 
-    final long = _active.values.where((p) => p.lane == ProcessingLane.long);
-    if (long.isEmpty) {
+    if (_active.isEmpty) {
       keeper.idle();
-    } else {
-      final current = long.first;
-      keeper.working(done: current.done, total: current.total);
+      return;
     }
+    final long = _active.values.where((p) => p.lane == ProcessingLane.long);
+    final shown = long.isEmpty ? _active.values.first : long.first;
+    keeper.working(
+      done: shown.done,
+      total: shown.total,
+      kind: long.isEmpty ? LongWorkKind.dataSync : LongWorkKind.mediaProcessing,
+    );
   }
 
   @override

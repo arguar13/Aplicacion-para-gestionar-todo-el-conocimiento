@@ -262,6 +262,11 @@ class LongWorkCoordinator {
     _publish();
   }
 
+  void _stop() {
+    _shown = null;
+    unawaited(_platform.stop());
+  }
+
   void _stoppedBySystem() {
     _release?.cancel();
     _release = null;
@@ -273,10 +278,14 @@ class LongWorkCoordinator {
     if (_disposed || _stoppedUntilResumed) return;
     if (_working.isEmpty) {
       if (_shown == null || _release != null) return;
+      if (releaseDelay == Duration.zero) {
+        // Sin margen: se apaga en el acto, sin un temporizador de por medio.
+        _stop();
+        return;
+      }
       _release = Timer(releaseDelay, () {
         _release = null;
-        _shown = null;
-        unawaited(_platform.stop());
+        _stop();
       });
       return;
     }
