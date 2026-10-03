@@ -5390,5 +5390,23 @@
         "type": "int"
       }
     }
+  },
+  "aiTallySpaces": "{count, plural, =1{1 tema de la biblioteca} other{{count} temas de la biblioteca}}",
+  "@aiTallySpaces": {
+    "description": "En cuántos temas de la biblioteca —espacios— puso la IA un elemento (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiTallyReferenceFields": "{count, plural, =1{1 dato de la referencia} other{{count} datos de la referencia}}",
+  "@aiTallyReferenceFields": {
+    "description": "Cuántos datos de la referencia —autor, editorial, año…— completó la IA (F27).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

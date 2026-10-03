@@ -5,12 +5,39 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+/// Cada cosa que cuenta una cuenta de la IA, con su ícono y cómo se dice, sin
+/// los ceros (F27). Es la única tabla: la línea del detalle, la confirmación,
+/// el aviso y las píldoras de la actividad salen de acá, así que un contador
+/// nuevo de `AiRunTally` se agrega una vez y se ve en todos lados.
+List<({IconData icon, String label})> _tallyEntries(
+  AppLocalizations l10n,
+  AiRunTally tally,
+) => [
+  if (tally.relations > 0)
+    (icon: Icons.link, label: l10n.aiTallyRelations(tally.relations)),
+  if (tally.flashcards > 0)
+    (
+      icon: Icons.style_outlined,
+      label: l10n.aiTallyFlashcards(tally.flashcards),
+    ),
+  if (tally.properties > 0)
+    (
+      icon: Icons.sell_outlined,
+      label: l10n.aiTallyProperties(tally.properties),
+    ),
+  if (tally.spaces > 0)
+    (icon: Icons.folder_outlined, label: l10n.aiTallySpaces(tally.spaces)),
+  if (tally.referenceFields > 0)
+    (
+      icon: Icons.menu_book_outlined,
+      label: l10n.aiTallyReferenceFields(tally.referenceFields),
+    ),
+];
+
 /// Lo que dice una cuenta de la IA, parte por parte y sin los ceros: «4
 /// vínculos», «6 tarjetas», «3 temas» (F27).
 List<String> aiTallyParts(AppLocalizations l10n, AiRunTally tally) => [
-  if (tally.relations > 0) l10n.aiTallyRelations(tally.relations),
-  if (tally.flashcards > 0) l10n.aiTallyFlashcards(tally.flashcards),
-  if (tally.properties > 0) l10n.aiTallyProperties(tally.properties),
+  for (final entry in _tallyEntries(l10n, tally)) entry.label,
 ];
 
 /// La cuenta en una línea: «4 vínculos · 6 tarjetas · 3 temas». La misma en
@@ -64,21 +91,8 @@ class AiTallyPills extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: [
-        if (tally.relations > 0)
-          _Pill(
-            icon: Icons.link,
-            label: l10n.aiTallyRelations(tally.relations),
-          ),
-        if (tally.flashcards > 0)
-          _Pill(
-            icon: Icons.style_outlined,
-            label: l10n.aiTallyFlashcards(tally.flashcards),
-          ),
-        if (tally.properties > 0)
-          _Pill(
-            icon: Icons.sell_outlined,
-            label: l10n.aiTallyProperties(tally.properties),
-          ),
+        for (final entry in _tallyEntries(l10n, tally))
+          _Pill(icon: entry.icon, label: entry.label),
       ],
     );
   }

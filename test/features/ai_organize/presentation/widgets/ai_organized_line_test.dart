@@ -88,6 +88,23 @@ void main() {
     expect(runs.pages.first.itemId, 'a');
   });
 
+  testWidgets('cuenta también el tema de la biblioteca y los datos de la '
+      'referencia', (tester) async {
+    await setUpWith([
+      fakeRun(
+        'r1',
+        itemId: 'a',
+        remaining: const AiRunTally(spaces: 1, referenceFields: 2),
+      ),
+    ]);
+    await pumpDetail(tester);
+
+    expect(
+      find.text('1 tema de la biblioteca · 2 datos de la referencia'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('si todo lo de la IA ya se adoptó o se borró, no aparece', (
     tester,
   ) async {
