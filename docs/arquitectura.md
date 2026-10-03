@@ -4885,6 +4885,58 @@ cita, la fecha de consulta y la exactitud de la fecha: ahora usa la misma regla 
 lo vacío—, y las pruebas de memoria de la copia y la fusión, que medían la memoria
 residente —el sistema la recorta con la máquina cargada— en vez de la comprometida.
 
+### 61. F28: el Mapa muestra lo que hacés, y un solo «tema»
+
+Pedido del usuario: vincular dos cosas "no aparece nada en grafos ni en mapa conceptual". Plan:
+`docs/planes/F28-nada-se-pierde.md`, aprobado con la recomendada A —«Tema» es lo que se elige al
+guardar; el Mapa y el Atlas se arman también con los temas; lo que hoy llaman «Tema» pasa a
+«Etiquetas»—. Esta decisión cubre el Mapa y el «tema»; la Bandeja y lo procesado (B) van aparte.
+
+**Revisa a propósito las decisiones 46 y 47**: el Atlas y el Mapa ya no miran solo categorías de
+propiedades.
+
+- **La vista «Vínculos»** dibuja los elementos y sus relaciones sin temas de por medio
+  (`readLinkGraph`, `selectLinkGraph`, `MapLinksView`), con el lenguaje del nivel de elementos del
+  grafo. Escala como el resto del Mapa: los sueltos no se dibujan y se cuentan; de los vinculados,
+  a lo sumo 200, en este orden: el foco y su vecindario, los extremos de los 40 elementos de los
+  vínculos más recientes —lo recién vinculado se ve aunque haya cientos más vinculados— y lo más
+  vinculado. Se lee con un `watchReads` (lo de `watchQuery`, con los avisos del repositorio) y no
+  pasa por el motor del mapa: no hay comunidades que recalcular, y vincular se ve sin la espera
+  por lotes.
+- **Sin vacíos mudos**: el motor entrega con cada cálculo los elementos sin ningún valor de lo que
+  se mira; el Mapa los cuenta y ofrece «Organizar con IA» (`organizeAllNow`, que pide miles de una
+  vez). Sin temas, el tablero se ve, y el esquema y el grafo lo dicen y llevan a «Vínculos».
+  «Ver en el Mapa» es un pedido en un proveedor (`mapLinksFocusRequestProvider`) y no un parámetro
+  de la ruta: el Mapa es un destino del shell que sigue vivo, y pedir dos veces el mismo elemento
+  tiene que volver a enfocarlo.
+- **Un solo «tema»: la dimensión.** El Mapa y el Atlas agrupan por una `TopicDimension`: los temas
+  (los espacios), las etiquetas (la categoría de sistema) o cualquier categoría de texto. Viaja por
+  el mismo id con que antes viajaba la categoría; los temas tienen uno propio, `kSpacesDimensionId`
+  (`@temas`), que no es el de ninguna fila. Así el pedido del mapa, su caché, sus recuerdos de
+  comunidades y la caché del Atlas sirven igual, y los repositorios solo cambian de dónde leen: el
+  tema de un elemento es `item.space_id`, una columna, sin tabla de asignaciones.
+- **Cómo conviven temas y etiquetas en el Atlas**: son dos dimensiones, no un árbol mezclado. Los
+  temas son planos y uno por elemento, así que su Atlas es una lista de ramas del primer nivel —con
+  los mismos conteos en cascada, cobertura, vacíos, eje de años y notas mapa (las que están en el
+  tema)—; la jerarquía vive en las etiquetas, a un toque del selector. Se descartó colgar el árbol
+  de etiquetas debajo de cada tema: repetiría las mismas ramas en varios temas, sus conteos ya no
+  serían «todo lo de esta rama» y los vacíos se avisarían varias veces. Por defecto se muestran los
+  temas si hay alguno —poner un tema al guardar ya ubica el elemento— y si no, las etiquetas; lo
+  elegido queda fijo mientras se mira, así un tema que crea la IA no cambia la pantalla de golpe.
+  Un tema abre el Explorador parado en él (`?space=`), la línea de tiempo filtrada por él y su
+  bibliografía (`sourcesOfSpace`). La IA (F27) sigue ordenando el árbol de etiquetas: sus textos
+  ahora lo dicen.
+- **«Etiquetas» en la interfaz, «Tema» en la base.** La categoría de sistema se sigue llamando
+  «Tema» (`kTemaCategoryName`, `isTema`, `temaDefinitionId`): lo usan búsquedas por nombre, la IA,
+  las copias y la fusión, y renombrar una categoría de sistema rompería las bóvedas existentes. La
+  interfaz la muestra con `categoryLabel`/`categoryValueLabel` («Etiquetas», «Etiqueta: Roma») y los
+  textos del Mapa y el Atlas que dependen de lo que se mira usan un `select` del .arb (temas,
+  etiquetas o valores). El editor de propiedades ya no la ofrece: tiene su editor propio. Los
+  «subtemas» del vocabulario quedan: nombran lo que cuelga de un valor en cualquier categoría, y los
+  temas no tienen.
+- **El grafo local del detalle** sube, debajo del panel del elemento: arriba del texto y de las
+  tarjetas, a la vista.
+
 ## Estado y orden de construcción
 
 ### Construido

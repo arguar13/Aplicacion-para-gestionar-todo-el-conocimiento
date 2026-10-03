@@ -371,10 +371,11 @@ De arriba hacia abajo, vas a encontrar:
    ahí mismo (ver [Ver los archivos originales](#ver-los-archivos-originales)).
 9. **El panel del elemento**, justo debajo: una tarjeta con todo lo que se
    puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
-10. El **contenido/texto** extraído. En un PDF, un libro o un Word está
+10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
+    vinculás se ve acá sin tener que bajar hasta el final.
+11. El **contenido/texto** extraído. En un PDF, un libro o un Word está
     plegado bajo **"Texto extraído"**: tocalo para verlo.
-11. Sus **tarjetas de repaso**, si generaste alguna.
-12. Un **grafo local** con sus vínculos más cercanos.
+12. Sus **tarjetas de repaso**, si generaste alguna.
 13. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
     Relacionado, Contradice, Continúa, Cita, Resume, etc.; y corregir o
@@ -432,7 +433,9 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
 - **Cambiar el Tema:** tocá el chip que dice el Tema actual (o "Sin
   clasificar") y elegí uno nuevo.
 - **Vincular con otro elemento:** tocá el ícono de cadena en "Relacionado",
-  buscá el otro elemento, y elegí qué tipo de vínculo tienen.
+  buscá el otro elemento, y elegí qué tipo de vínculo tienen. Un aviso
+  **"Vinculado"** ofrece **"Ver en el Mapa"**: te lleva a la vista
+  "Vínculos" del [Mapa](#el-mapa) con este elemento resaltado.
 - **Corregir un vínculo:** tocá el lápiz de un vínculo (o mantenelo
   apretado) para cambiarle el tipo, editar su frase, o borrarlo.
 
@@ -533,6 +536,13 @@ vez (a diferencia del Tema, que es uno solo). Se agregan y quitan desde la
 sección "Etiquetas" del detalle de cualquier elemento, y sirven para filtrar
 en la Biblioteca, el Explorador o la Línea de tiempo.
 
+Las etiquetas pueden ir una debajo de otra ("Roma" debajo de "Historia
+antigua"): ese árbol se ordena desde [Vocabulario](#vocabulario) —o lo
+ordena la IA— y es el que se ve en el [Atlas](#el-atlas) y el
+[Mapa](#el-mapa) eligiendo **"Agrupar por" → "Etiquetas"**. (Antes, en el
+Mapa y el Atlas, las etiquetas se llamaban "Tema": ahora "Tema" es solo lo
+que elegís al guardar.)
+
 ### Propiedades
 
 Datos estructurados del tipo "Categoría: Valor" — por ejemplo "Época: Siglo I
@@ -551,6 +561,10 @@ menú de tres puntos de su tarjeta (**"Mover a tema"**); en cualquiera de esos
 lugares podés crear uno nuevo con **"Nuevo tema"**. Para ver solo los de un
 Tema, usá **Filtros → "Tema"** en la Biblioteca.
 
+Tus Temas también arman el [Mapa](#el-mapa) y el [Atlas](#el-atlas): es lo
+primero que muestran si tenés alguno, así que ponerle un Tema a algo al
+guardarlo ya lo ubica ahí.
+
 ### Relaciones entre elementos
 
 Conectan un elemento con otro, con un tipo específico: Relacionado,
@@ -558,6 +572,10 @@ Contradice, Continúa, Cita, Resume, etc. Se crean desde la sección
 "Relacionado" del detalle de cualquier elemento, tocando el ícono de cadena.
 Con el lápiz de cada vínculo (o manteniéndolo apretado) podés cambiarle el
 tipo, editar su frase o borrarlo.
+
+Todos tus vínculos —tengan o no tema o etiquetas los elementos— se ven en la
+vista **"Vínculos"** del [Mapa](#el-mapa), y en el grafo local de cada
+elemento. Al vincular, el aviso **"Vinculado"** ofrece **"Ver en el Mapa"**.
 
 Además, la IA los crea sola: cuando guardás algo nuevo, busca con qué se
 relaciona y lo vincula, con una frase que dice por qué. Esos vínculos llevan
@@ -578,7 +596,7 @@ marcador en la Biblioteca.
 
 Cada cosa que guardás, la IA la organiza sola, en segundo plano, apenas
 termina de procesarse: la vincula con lo que ya tenés, le arma tarjetas de
-repaso, le pone temas y completa lo que le falta. No tenés que esperarla ni
+repaso, le pone tema y etiquetas y completa lo que le falta. No tenés que esperarla ni
 aprobar nada para que el elemento quede listo. Todo lo que hace queda a la
 vista, marcado como suyo, y se puede corregir o deshacer.
 
@@ -598,7 +616,7 @@ sola.
   parte del texto de donde salen, y entran solas a tu repaso. Cuántas
   depende del largo: 3 para un artículo corto y más cuanto más largo, hasta
   12 para un libro o un video de más de una hora.
-- **Temas, etiquetas y propiedades.** Si el valor ya existe en tu
+- **Etiquetas y propiedades.** Si el valor ya existe en tu
   vocabulario, lo pone directamente; si sería uno nuevo, te lo deja en
   "Para revisar": inventar una palabra para tu vocabulario es justo lo que
   conviene mirar antes.
@@ -608,10 +626,10 @@ sola.
 - **Los datos de la referencia.** Completa el autor, el año, la editorial y
   los demás datos que falten, con lo que lee del archivo o de la página.
   Solo los vacíos: nunca pisa lo que escribiste.
-- **El Atlas.** Ubica cada tema nuevo debajo de su tema padre en el árbol
-  (por ejemplo, "Roma" debajo de "Historia antigua") y, cuando un tema junta
-  material suficiente, le arma su **nota mapa**: el índice del tema, con los
-  enlaces a lo que hay, en el idioma de la app. Si editás una nota mapa, es
+- **El Atlas.** Ubica cada etiqueta nueva debajo de su etiqueta padre en el
+  árbol de etiquetas (por ejemplo, "Roma" debajo de "Historia antigua") y,
+  cuando una etiqueta junta material suficiente, le arma su **nota mapa**:
+  el índice de esa etiqueta, con los enlaces a lo que hay, en el idioma de la app. Si editás una nota mapa, es
   tuya y la IA ya no la toca. La **madurez** de tus notas no la cambia: como mucho
   te sugiere subirla cuando una nota crece, porque es tu juicio.
 
@@ -626,7 +644,7 @@ cambios—, y si más adelante crecen mucho, las vuelve a mirar.
 - La marca **✨** en cada vínculo y cada tarjeta que hizo la IA.
 - En el detalle de cada elemento, al pie de [su panel](#el-panel-del-elemento),
   la línea **"La IA organizó esto"** con lo que sigue siendo suyo —por
-  ejemplo, "4 vínculos · 6 tarjetas · 3 temas"—, **"Ver"** y **"Deshacer
+  ejemplo, "4 vínculos · 6 tarjetas · 3 etiquetas y propiedades"—, **"Ver"** y **"Deshacer
   todo"**. Si dejó dudas, también dice cuántas hay **"para revisar"**.
 
 Lo que editás o borrás deja de contar como de la IA: ya es tuyo.
@@ -655,8 +673,8 @@ falta un modelo. Debajo:
   línea del elemento) hace lo mismo con todo lo de un elemento. Antes te
   pregunta y te dice qué se va a borrar. También vuelve atrás lo que la IA
   completó en el elemento: el Tema que le puso y los datos de la referencia
-  que llenó vuelven a quedar como estaban, los temas que ubicó en el árbol
-  del Atlas vuelven a donde estaban, y una nota mapa que hizo la IA va a la
+  que llenó vuelven a quedar como estaban, las etiquetas que ubicó en el
+  árbol del Atlas vuelven a donde estaban, y una nota mapa que hizo la IA va a la
   [Papelera](#papelera) (de donde la podés recuperar). Lo que editaste o
   cambiaste después queda como lo dejaste, y la IA no vuelve a organizar ese
   elemento sola.
@@ -679,7 +697,7 @@ modelo).
 
 - **"Organizar con IA"**: el general. Apagado, la IA queda en pausa: no
   toma nada nuevo, y lo que ya hizo sigue ahí.
-- Uno por cada cosa que hace: **"Vínculos"**, **"Tarjetas"**, **"Temas y
+- Uno por cada cosa que hace: **"Vínculos"**, **"Tarjetas"**, **"Etiquetas y
   propiedades"**, **"Tema de cada elemento"**, **"Datos de la referencia"**
   y **"Atlas"**. Apagar uno no deshace lo hecho: solo deja de hacer más.
 - **"Ordenar la biblioteca existente mientras carga"**: lo que ya tenías
@@ -836,27 +854,47 @@ todos juntos con los botones de abajo.
 
 ## El Atlas
 
-Es un árbol de temas y subtemas (por ejemplo, organizado por "Tema"), donde
-para cada rama ves cuánto material tenés debajo y qué tan completa está:
-"Sin material", "Solo fuentes", "Fragmentos", "En construcción" o "Madura".
+Es el índice de lo que sabés y de lo que te falta: para cada rama ves cuánto
+material tenés debajo y qué tan completa está: "Sin material", "Solo
+fuentes", "Fragmentos", "En construcción" o "Madura".
 
 **Cómo llegar:** ítem **"Atlas"** en la navegación.
 
-Tocar una rama la despliega; el menú de tres puntos de cada una ofrece "Ver
-el material", "Ver en la línea de tiempo" y "Bibliografía". Una tarjeta
-plegable te avisa de "vacíos detectados" — huecos como muchas fuentes sin
-ninguna nota propia, o una rama que no tocás hace meses.
+Arriba, la ficha **"Agrupar por"** elige de qué es el índice:
+
+- **Temas** —lo que elegís al guardar—: una rama por cada uno de tus Temas.
+  Es lo que se ve primero si tenés alguno, así que ponerle un Tema a algo ya
+  lo ubica acá. Los Temas no van uno dentro de otro: es una lista de ramas,
+  sin subramas.
+- **Etiquetas**: el árbol de tus etiquetas, con las que cuelgan de otras
+  (por ejemplo, "Roma" debajo de "Historia antigua"). Es el árbol que ordena
+  la IA. Si todavía no tenés Temas, el Atlas arranca por acá.
+- Cualquier otra categoría de texto que hayas creado (Época, Región...).
+
+Tocar una rama la despliega (o, si no tiene nada debajo, abre su material);
+el menú de tres puntos de cada una ofrece "Ver el material" —el Explorador
+parado en ese Tema o filtrado por esa etiqueta—, "Ver en la línea de tiempo"
+y "Bibliografía". Una tarjeta plegable te avisa de "vacíos detectados" —
+huecos como muchas fuentes sin ninguna nota propia, o una rama que no tocás
+hace meses. El botón de compartir guarda el Atlas que estás mirando como un
+documento Markdown.
 
 ---
 
 ## El Mapa
 
-Muestra tu bóveda como una red de temas relacionados, con tres formas de
-mirarla:
+Muestra tu bóveda como una red, con cuatro formas de mirarla:
 
-- **Tablero**: tarjetas con números — temas con más material, los más
-  conectados entre sí, temas aislados, contradicciones abiertas, cuánto creció
+- **Tablero**: tarjetas con números — los temas con más material, los más
+  conectados entre sí, los aislados, contradicciones abiertas, cuánto creció
   tu bóveda mes a mes, y la madurez de tus notas.
+- **Vínculos**: tus documentos y los vínculos entre ellos, tengan o no Tema
+  o etiquetas. Lo que vinculás aparece acá en el acto. Se dibuja solo lo que
+  tiene algún vínculo; si son muchos, hasta 200 —primero lo que vinculaste
+  hace poco, después lo más vinculado— y un aviso dice cuántos quedaron
+  afuera (con los filtros ves otra parte). Abajo, otra línea cuenta los
+  elementos que no tienen ningún vínculo. Tocar uno abre su detalle; el
+  botón de cadena agrega un vínculo.
 - **Esquema**: un árbol que se despliega desde un tema elegido.
 - **Grafo**: una red interactiva con tres niveles de zoom — comunidades
   (círculos grandes) → temas → elementos individuales. Tocás un nodo para
@@ -864,6 +902,24 @@ mirarla:
 
 **Cómo llegar:** ítem **"Mapa"** en la navegación.
 
+**Agrupar por.** El tablero, el esquema y el grafo agrupan por lo que elijas
+en la ficha de arriba: tus **Temas** (lo primero que se ve si tenés alguno),
+tus **Etiquetas** u otra categoría de texto. Los textos acompañan: con
+etiquetas dice "Etiquetas aisladas", con Temas "Temas aislados".
+
+**Nada queda en blanco.** Si hay elementos sin Tema (o sin etiquetas, según
+lo que estés mirando), una franja arriba dice cuántos son y ofrece
+**"Organizar con IA"**, que le pide a la IA que los ubique (un aviso te dice
+si lo hace en un rato o qué está esperando). Sin ningún Tema todavía, el
+tablero se ve igual, y el esquema y el grafo te lo dicen y te llevan a
+"Vínculos", que no los necesita.
+
+**Ver en el Mapa.** Cada vez que vinculás dos cosas —desde el detalle o
+desde el Mapa— un aviso **"Vinculado"** ofrece **"Ver en el Mapa"**: abre
+"Vínculos" con ese elemento resaltado y encuadrado junto a sus vecinos.
+
+Los filtros (tipo, Tema, etiquetas, búsqueda) rigen en todas las vistas, y el
+esquema, el grafo y los vínculos se pueden guardar como imagen o como SVG.
 Desde el nivel de elementos del Grafo hay un botón "✨ Sugerir vínculos con
 IA" y otro para agregar un vínculo a mano.
 
@@ -875,7 +931,7 @@ Es una versión chica del grafo, centrada en un único elemento: muestra solo
 sus vecinos directos (lo que está vinculado a él).
 
 **Cómo llegar:** aparece automáticamente, como vista previa, dentro del
-detalle de cualquier elemento; tocarla o tocar el botón de expandir abre la
+detalle de cualquier elemento, justo debajo de su panel; tocarla o tocar el botón de expandir abre la
 pantalla completa, con un selector de "Grado" (cuántos saltos de distancia
 mostrar).
 
@@ -1067,7 +1123,7 @@ tarde.
 
 Sirve para practicar de punta a punta un lote de preguntas recién generado
 (o cualquier otro), **sin afectar** la programación de repasos normal. Al
-final te muestra tu puntaje y, si te equivocaste en algo, qué temas
+final te muestra tu puntaje y, si te equivocaste en algo, qué etiquetas
 concentraron más errores, con un acceso directo a la nota correspondiente
 para repasarla.
 
@@ -1120,7 +1176,7 @@ avisa con claridad en cada caso.
 
 La [IA que organiza sola](#la-ia-que-organiza-sola) usa dos: el del motor de
 relaciones, para encontrar con qué se relaciona cada cosa, y el de lenguaje,
-para decidir los vínculos y armar las tarjetas y los temas. Sin los dos, no
+para decidir los vínculos y armar las tarjetas, los temas y las etiquetas. Sin los dos, no
 organiza nada.
 
 **Cómo llegar:** Ajustes → sección "IA y modelos".
