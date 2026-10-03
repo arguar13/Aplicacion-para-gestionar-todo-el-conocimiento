@@ -115,7 +115,7 @@ class _VaultBackupScreenState extends ConsumerState<VaultBackupScreen> {
       _showMessage(
         l10n.vaultBackupExportSuccess(
           exportResult.path,
-          formatFileSize(exportResult.sizeBytes),
+          formatFileSize(exportResult.sizeBytes, l10n.localeName),
         ),
       );
     });

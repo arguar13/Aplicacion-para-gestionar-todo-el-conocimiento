@@ -77,6 +77,15 @@ void main() {
 
       expect(lines.single, en.vaultMergePreviewFiles(3, '3.0 MB'));
     });
+
+    test('lo que pesa va con el decimal del idioma de la frase', () {
+      final lines = vaultMergePreviewLines(
+        es,
+        empty.copyWith(newFiles: 3, newFilesBytes: 3 * 1024 * 1024),
+      );
+
+      expect(lines.single, es.vaultMergePreviewFiles(3, '3,0 MB'));
+    });
   });
 
   group('lo que hizo la fusión', () {

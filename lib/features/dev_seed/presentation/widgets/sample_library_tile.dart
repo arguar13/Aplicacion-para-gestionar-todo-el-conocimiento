@@ -104,7 +104,7 @@ class _IdleTile extends ConsumerWidget {
       _ when pending.isEmpty => l10n.sampleLibraryAllLoaded(total),
       _ => l10n.sampleLibrarySubtitle(
         pending.length,
-        formatFileSize(_bytes(pending)),
+        formatFileSize(_bytes(pending), l10n.localeName),
       ),
     };
 
@@ -142,8 +142,8 @@ class _IdleTile extends ConsumerWidget {
         content: Text(
           l10n.sampleLibraryConfirmBody(
             pending.length,
-            formatFileSize(_bytes(files)),
-            formatFileSize(_bytes(links)),
+            formatFileSize(_bytes(files), l10n.localeName),
+            formatFileSize(_bytes(links), l10n.localeName),
           ),
         ),
         actions: [

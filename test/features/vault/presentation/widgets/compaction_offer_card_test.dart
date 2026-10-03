@@ -96,7 +96,7 @@ void main() {
       expect(offer(), findsOneWidget);
       // 1 GiB de archivo, la mitad libre.
       expect(
-        find.text(es.vaultCompactionOfferTitle('512.0 MB')),
+        find.text(es.vaultCompactionOfferTitle('512,0 MB')),
         findsOneWidget,
       );
       expect(find.text(es.vaultCompactionOfferBody), findsOneWidget);

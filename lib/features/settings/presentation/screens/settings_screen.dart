@@ -185,7 +185,10 @@ class SettingsScreen extends ConsumerWidget {
                         assessment.verdict == CompactionVerdict.nothingToReclaim
                             ? l10n.vaultCompactionSettingsNothing
                             : l10n.vaultCompactionSettingsReclaimable(
-                                formatFileSize(assessment.reclaimableBytes),
+                                formatFileSize(
+                                  assessment.reclaimableBytes,
+                                  l10n.localeName,
+                                ),
                               ),
                       ),
                     ),

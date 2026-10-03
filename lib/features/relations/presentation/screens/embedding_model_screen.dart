@@ -206,7 +206,9 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
           if (_downloadSizeInBytes != null) ...[
             const SizedBox(height: 8),
             Text(
-              l10n.embeddingModelSize(formatFileSize(_downloadSizeInBytes!)),
+              l10n.embeddingModelSize(
+                formatFileSize(_downloadSizeInBytes!, l10n.localeName),
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

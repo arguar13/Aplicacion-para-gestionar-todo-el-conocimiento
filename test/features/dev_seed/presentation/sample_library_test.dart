@@ -189,7 +189,7 @@ void main() {
       await pumpTile(tester);
 
       expect(find.text(es.sampleLibraryTitle), findsOneWidget);
-      expect(find.text(es.sampleLibrarySubtitle(3, '10.0 MB')), findsOneWidget);
+      expect(find.text(es.sampleLibrarySubtitle(3, '10,0 MB')), findsOneWidget);
     });
 
     testWidgets('pide confirmación con lo que se baja, y cancelar no carga '
@@ -201,7 +201,7 @@ void main() {
 
       expect(find.text(es.sampleLibraryConfirmTitle), findsOneWidget);
       expect(
-        find.text(es.sampleLibraryConfirmBody(3, '8.0 MB', '2.0 MB')),
+        find.text(es.sampleLibraryConfirmBody(3, '8,0 MB', '2,0 MB')),
         findsOneWidget,
       );
 

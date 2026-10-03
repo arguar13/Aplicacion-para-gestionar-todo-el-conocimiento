@@ -257,7 +257,9 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
           if (_downloadSizeInBytes != null) ...[
             const SizedBox(height: 8),
             Text(
-              l10n.chatModelSize(formatFileSize(_downloadSizeInBytes!)),
+              l10n.chatModelSize(
+                formatFileSize(_downloadSizeInBytes!, l10n.localeName),
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

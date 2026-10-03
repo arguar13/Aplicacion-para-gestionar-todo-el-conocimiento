@@ -1079,7 +1079,7 @@ class _ChosenFileCard extends StatelessWidget {
         title: Text(file.name, maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           l10n.captureFileSize(
-            formatFileSize(file.sizeInBytes),
+            formatFileSize(file.sizeInBytes, l10n.localeName),
             describeFormat(format),
           ),
         ),

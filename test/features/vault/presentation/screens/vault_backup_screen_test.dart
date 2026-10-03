@@ -339,7 +339,7 @@ void main() {
         expect(gateway.saved, ['/tmp/sinapsis-backup-x/copia.zip']);
         expect(
           find.text(
-            es.vaultBackupExportSuccess('/elegido/copia.zip', '913.0 MB'),
+            es.vaultBackupExportSuccess('/elegido/copia.zip', '913,0 MB'),
           ),
           findsOneWidget,
         );

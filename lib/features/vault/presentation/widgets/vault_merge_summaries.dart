@@ -30,7 +30,7 @@ List<String> vaultMergePreviewLines(
   if (preview.newFiles > 0)
     l10n.vaultMergePreviewFiles(
       preview.newFiles,
-      formatFileSize(preview.newFilesBytes),
+      formatFileSize(preview.newFilesBytes, l10n.localeName),
     ),
 ];
 

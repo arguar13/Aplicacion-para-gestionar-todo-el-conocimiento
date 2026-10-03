@@ -45,7 +45,7 @@ void main() {
     testWidgets('con el tamaño calculado, lo muestra', (tester) async {
       await pumpScreen(tester, sizeInBytes: 160 * 1024 * 1024);
 
-      expect(find.text(es.transcriptionModelSize('160.0 MB')), findsOneWidget);
+      expect(find.text(es.transcriptionModelSize('160,0 MB')), findsOneWidget);
     });
 
     testWidgets('sin poder calcular el tamaño, no muestra ninguno', (

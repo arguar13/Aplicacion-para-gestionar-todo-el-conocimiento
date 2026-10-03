@@ -59,9 +59,12 @@ class VaultCompactionScreen extends ConsumerWidget {
                   ),
                   CompactionNoSpace(:final assessment) => _Problem(
                     message: l10n.vaultCompactionNoSpace(
-                      formatFileSize(assessment.requiredBytes),
-                      formatFileSize(assessment.freeSpaceBytes ?? 0),
-                      formatFileSize(assessment.missingBytes),
+                      formatFileSize(assessment.requiredBytes, l10n.localeName),
+                      formatFileSize(
+                        assessment.freeSpaceBytes ?? 0,
+                        l10n.localeName,
+                      ),
+                      formatFileSize(assessment.missingBytes, l10n.localeName),
                     ),
                   ),
                   CompactionFailed() => _Problem(
@@ -131,7 +134,9 @@ class _Assessment extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          l10n.vaultCompactionSizeLine(formatFileSize(assessment.fileBytes)),
+          l10n.vaultCompactionSizeLine(
+            formatFileSize(assessment.fileBytes, l10n.localeName),
+          ),
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 4),
@@ -139,7 +144,7 @@ class _Assessment extends ConsumerWidget {
           nothing
               ? l10n.vaultCompactionNothingLine
               : l10n.vaultCompactionReclaimableLine(
-                  formatFileSize(assessment.reclaimableBytes),
+                  formatFileSize(assessment.reclaimableBytes, l10n.localeName),
                 ),
           style: theme.textTheme.titleSmall,
         ),
@@ -148,7 +153,7 @@ class _Assessment extends ConsumerWidget {
           Text(
             assessment.needsFullRewrite
                 ? l10n.vaultCompactionFirstTimeNote(
-                    formatFileSize(assessment.requiredBytes),
+                    formatFileSize(assessment.requiredBytes, l10n.localeName),
                   )
                 : l10n.vaultCompactionStepsNote,
             style: theme.textTheme.bodySmall,
@@ -157,9 +162,9 @@ class _Assessment extends ConsumerWidget {
           switch (assessment.verdict) {
             CompactionVerdict.notEnoughSpace => Text(
               l10n.vaultCompactionNoSpace(
-                formatFileSize(assessment.requiredBytes),
-                formatFileSize(assessment.freeSpaceBytes ?? 0),
-                formatFileSize(assessment.missingBytes),
+                formatFileSize(assessment.requiredBytes, l10n.localeName),
+                formatFileSize(assessment.freeSpaceBytes ?? 0, l10n.localeName),
+                formatFileSize(assessment.missingBytes, l10n.localeName),
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.error,
@@ -271,15 +276,15 @@ class _Finished extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final freed = formatFileSize(result.freedBytes);
+    final freed = formatFileSize(result.freedBytes, l10n.localeName);
     final headline = result.wasCancelled
         ? l10n.vaultCompactionStopped(freed)
         : result.freedBytes == 0
         ? l10n.vaultCompactionNothingReturned
         : l10n.vaultCompactionDone(
             freed,
-            formatFileSize(result.bytesBefore),
-            formatFileSize(result.bytesAfter),
+            formatFileSize(result.bytesBefore, l10n.localeName),
+            formatFileSize(result.bytesAfter, l10n.localeName),
           );
 
     return Column(

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
-import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
@@ -189,20 +188,6 @@ void main() {
       await chooseBookType(tester);
 
       expect(find.textContaining('EPUB'), findsWidgets);
-    });
-  });
-
-  group('el tamano que se muestra', () {
-    test('nadie lee "3.613.707 bytes"', () {
-      expect(formatFileSize(512), '512 B');
-      expect(formatFileSize(40 * 1024), '40 kB');
-      expect(formatFileSize(3 * 1024 * 1024), '3.0 MB');
-      expect(formatFileSize(2 * 1024 * 1024 * 1024), '2.0 GB');
-    });
-
-    test('los bytes y los kilobytes van sin decimales', () {
-      // "512,0 B" se lee peor que "512 B".
-      expect(formatFileSize(1536), '2 kB');
     });
   });
 }

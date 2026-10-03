@@ -47,7 +47,7 @@ class CompactionOfferCard extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     l10n.vaultCompactionOfferTitle(
-                      formatFileSize(offer.reclaimableBytes),
+                      formatFileSize(offer.reclaimableBytes, l10n.localeName),
                     ),
                     style: theme.textTheme.titleSmall,
                   ),

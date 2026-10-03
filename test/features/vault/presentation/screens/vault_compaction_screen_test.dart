@@ -134,14 +134,14 @@ void main() {
 
       expect(find.text(es.vaultCompactionTitle), findsOneWidget);
       expect(find.text(es.vaultCompactionExplanation), findsOneWidget);
-      expect(find.text(es.vaultCompactionSizeLine('100.0 MB')), findsOneWidget);
+      expect(find.text(es.vaultCompactionSizeLine('100,0 MB')), findsOneWidget);
       expect(
-        find.text(es.vaultCompactionReclaimableLine('50.0 MB')),
+        find.text(es.vaultCompactionReclaimableLine('50,0 MB')),
         findsOneWidget,
       );
       // Reescribir pide el doble de lo útil (100) más 10 % (10) y 16 de resto.
       expect(
-        find.text(es.vaultCompactionFirstTimeNote('126.0 MB')),
+        find.text(es.vaultCompactionFirstTimeNote('126,0 MB')),
         findsOneWidget,
       );
       expect(find.text(es.vaultCompactionAction), findsOneWidget);
@@ -175,7 +175,7 @@ void main() {
       await pumpScreen(tester);
 
       expect(
-        find.text(es.vaultCompactionNoSpace('126.0 MB', '20.0 MB', '106.0 MB')),
+        find.text(es.vaultCompactionNoSpace('126,0 MB', '20,0 MB', '106,0 MB')),
         findsOneWidget,
       );
       expect(find.text(es.vaultCompactionAction), findsNothing);
@@ -333,7 +333,7 @@ void main() {
       await startAndFinish(tester, done);
 
       expect(
-        find.text(es.vaultCompactionDone('50.0 MB', '100.0 MB', '50.0 MB')),
+        find.text(es.vaultCompactionDone('50,0 MB', '100,0 MB', '50,0 MB')),
         findsOneWidget,
       );
       expect(find.text(es.vaultCompactionVerified(7)), findsOneWidget);
@@ -385,7 +385,7 @@ void main() {
         ),
       );
 
-      expect(find.text(es.vaultCompactionStopped('20.0 MB')), findsOneWidget);
+      expect(find.text(es.vaultCompactionStopped('20,0 MB')), findsOneWidget);
       expect(find.textContaining('íntegro'), findsNothing);
     });
 
@@ -423,7 +423,7 @@ void main() {
       );
 
       expect(
-        find.text(es.vaultCompactionNoSpace('126.0 MB', '30.0 MB', '96.0 MB')),
+        find.text(es.vaultCompactionNoSpace('126,0 MB', '30,0 MB', '96,0 MB')),
         findsOneWidget,
       );
     });

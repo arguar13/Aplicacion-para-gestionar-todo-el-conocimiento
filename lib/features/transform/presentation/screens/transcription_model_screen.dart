@@ -167,7 +167,9 @@ class _TranscriptionModelScreenState
       explanation: l10n.transcriptionModelExplanation,
       sizeLabel: _downloadSizeInBytes == null
           ? null
-          : l10n.transcriptionModelSize(formatFileSize(_downloadSizeInBytes!)),
+          : l10n.transcriptionModelSize(
+              formatFileSize(_downloadSizeInBytes!, l10n.localeName),
+            ),
       actionLabel: l10n.transcriptionModelDownloadAction,
       onDownload: _startDownload,
     );
