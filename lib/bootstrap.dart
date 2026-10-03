@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/app.dart';
@@ -11,6 +9,7 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/database/device_identity.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
+import 'package:sinapsis/core/gemma/initialize_gemma.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/telemetry/sentry_telemetry_service.dart';
@@ -74,18 +73,9 @@ Future<void> bootstrap() async {
       // Quién es esta instalación: lo que firma cada cambio que se guarda.
       final device = await DeviceIdentity.loadOrCreate(prefs);
 
-      // Requisito del propio paquete: ninguna otra API de `flutter_gemma`
-      // —`installModel`, `hasActiveModel`, `getActiveModel`— funciona sin
-      // esto. Sin inicializar, cualquier llamada revienta con un
-      // `StateError` interno del paquete que no tiene nada que ver con la
-      // red ni con el token, y termina mostrándose como el mismo error
-      // genérico de "no se pudo descargar" sin importar la causa real —el
-      // bug real detrás de una falla que se probó en un dispositivo real y
-      // persistía con cualquier token. `LiteRtLmEngine` es el motor que
-      // entiende el formato `.litertlm` que usa Gemma acá (ver la decisión
-      // 20 en docs/arquitectura.md); sin registrarlo, `installModel`
-      // tampoco sabría qué hacer con la descarga.
-      await FlutterGemma.initialize(inferenceEngines: [const LiteRtLmEngine()]);
+      // Antes que cualquier otra API de `flutter_gemma`, con el motor del
+      // modelo de lenguaje y el de los vectores: ver `initializeGemma`.
+      await initializeGemma();
 
       runApp(
         ProviderScope(
