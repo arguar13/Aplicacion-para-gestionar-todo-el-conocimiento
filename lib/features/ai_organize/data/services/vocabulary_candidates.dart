@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/services/embedding_similarity.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
+import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
 
 /// Cuántos valores del vocabulario, como mucho, se describen con vectores
@@ -32,7 +33,7 @@ class VocabularyCandidatesReader {
     required AppDatabase database,
     required EmbeddingService embeddings,
     required Clock clock,
-    this.modelVersion = 'embeddinggemma-300m-8bit',
+    this.modelVersion = kEmbeddingModelVersion,
   }) : _db = database,
        _embeddings = embeddings,
        _clock = clock;

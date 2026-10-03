@@ -18,7 +18,7 @@ class ChunkEmbeddingIndexerImpl implements ChunkEmbeddingIndexer {
     required AppDatabase database,
     required EmbeddingService embeddings,
     required Clock clock,
-    this.modelVersion = 'embeddinggemma-300m-8bit',
+    this.modelVersion = kEmbeddingModelVersion,
   }) : _db = database,
        _embeddings = embeddings,
        _clock = clock;

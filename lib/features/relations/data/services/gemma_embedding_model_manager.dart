@@ -1,18 +1,37 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_gemma/flutter_gemma.dart' hide EmbeddingModel;
-import 'package:flutter_gemma/rag/embedding_models.dart' show EmbeddingModel;
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart'
     as domain;
 
-/// El único modelo de embeddings que la app baja — sin selector de
+/// El único modelo de embeddings que la app baja —sin selector de
 /// variantes como el chat (ver la decisión sobre F5, D9): nadie interactúa
-/// directo con "el embedder", solo se beneficia de que exista. 8-bit en vez
-/// de fp32 (300MB) porque corre automáticamente en cada captura nueva, no
-/// es una acción puntual que se pide una vez.
-const _model = EmbeddingModel.embeddingGemma300M8bit;
+/// directo con "el embedder", solo se beneficia de que exista—.
+///
+/// De `litert-community/embeddinggemma-300m`, el repositorio cuya licencia
+/// la pantalla pide aceptar y el mismo que usa el ejemplo oficial de
+/// `flutter_gemma`. Antes salía de `EmbeddingModel.embeddingGemma300M8bit`
+/// del paquete, que apunta a `google/embeddinggemma-300m-8bit`: ese
+/// repositorio no existe para nadie —responde 401 hasta a la consulta
+/// pública de su ficha (medido el 2026-10-03)—, así que la descarga fallaba
+/// siempre con "comprobá tu conexión", aceptara quien aceptara la licencia
+/// del otro.
+///
+/// La exportación de precisión mixta para textos de hasta 1024 piezas (183
+/// MB): un tramo de nota tiene hasta 2000 caracteres
+/// (`kNoteEmbeddingPieceChars`, unas 500 piezas) y uno de transcripción, 75
+/// segundos de habla (unas 300), así que la de 512 quedaba justa y la de
+/// 2048 pesa más sin hacer falta.
+const _modelUrl =
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/'
+    'main/embeddinggemma-300M_seq1024_mixed-precision.tflite';
+const _modelFilename = 'embeddinggemma-300M_seq1024_mixed-precision.tflite';
+const _tokenizerUrl =
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/'
+    'main/sentencepiece.model';
+const _tokenizerFilename = 'embeddinggemma-sentencepiece.model';
 
 /// [domain.EmbeddingModelManager] sobre `flutter_gemma`, con la descarga
 /// bajada a mano vía [HttpGemmaModelDownloader] —reusado tal cual del
@@ -51,8 +70,8 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
   ) async {
     try {
       final modelProgress = downloader.download(
-        url: _model.url,
-        fileName: _model.filename,
+        url: _modelUrl,
+        fileName: _modelFilename,
         token: token,
       );
       await for (final value in modelProgress) {
@@ -60,18 +79,16 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
       }
 
       final tokenizerProgress = downloader.download(
-        url: _model.tokenizerUrl,
-        fileName: _model.tokenizerFilename,
+        url: _tokenizerUrl,
+        fileName: _tokenizerFilename,
         token: token,
       );
       await for (final value in tokenizerProgress) {
         if (!controller.isClosed) controller.add(0.9 + value * 0.1);
       }
 
-      final modelFile = await downloader.targetFile(_model.filename);
-      final tokenizerFile = await downloader.targetFile(
-        _model.tokenizerFilename,
-      );
+      final modelFile = await downloader.targetFile(_modelFilename);
+      final tokenizerFile = await downloader.targetFile(_tokenizerFilename);
       await FlutterGemma.installEmbedder()
           .modelFromFile(modelFile.path)
           .tokenizerFromFile(tokenizerFile.path)

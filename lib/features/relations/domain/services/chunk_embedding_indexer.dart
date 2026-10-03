@@ -1,8 +1,14 @@
-/// De a cuánto se cortan las notas para calcular sus vectores (F27): holgado
-/// dentro de los 2048 tokens que acepta EmbeddingGemma, y del tamaño de un
+/// De a cuánto se cortan las notas para calcular sus vectores (F27): unas
+/// 500 piezas, holgado dentro de las 1024 que acepta el modelo que se baja
+/// (ver `GemmaEmbeddingModelManager`), y del tamaño de un
 /// fragmento de fuente, así una nota y una fuente se comparan con vectores
 /// que describen trozos parecidos.
 const kNoteEmbeddingPieceChars = 2000;
+
+/// Con qué modelo se calcularon los vectores que se guardan: el que baja
+/// `GemmaEmbeddingModelManager`. Si el modelo cambia, cambia esto, y los
+/// vectores viejos se reconocen por su etiqueta.
+const kEmbeddingModelVersion = 'embeddinggemma-300m-seq1024-mixed';
 
 /// Calcula y persiste los embeddings que todavía falten: los de los chunks de
 /// una fuente ([indexItem]) y los de los tramos de una nota ([indexNote]).
