@@ -137,4 +137,27 @@ void main() {
       ]);
     });
   });
+
+  testWidgets('la biblioteca de ejemplo va última: mientras se procesa lo '
+      'que carga, se ve el procesamiento, y después ella', (tester) async {
+    final sample = coordinator.keeperFor(LongWorkOwner.sampleLibrary)
+      ..working(done: 2, total: 80);
+    await tester.pump();
+    processing.working(done: 1, total: 4);
+    await tester.pump();
+    expect(coordinator.shown?.owner, LongWorkOwner.processing);
+
+    processing.idle();
+    await tester.pump();
+    expect(coordinator.shown?.owner, LongWorkOwner.sampleLibrary);
+
+    sample.idle();
+    await tester.pump(const Duration(seconds: 16));
+    expect(platform.calls, [
+      'mostrar sampleLibrary 2/80',
+      'mostrar processing 1/4',
+      'mostrar sampleLibrary 2/80',
+      'apagar',
+    ]);
+  });
 }

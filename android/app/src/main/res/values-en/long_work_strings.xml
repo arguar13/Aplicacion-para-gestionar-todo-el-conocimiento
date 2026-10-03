@@ -9,4 +9,7 @@
     <string name="long_work_organizing_title">Sinapsis is organizing your library</string>
     <string name="long_work_organizing_starting">The AI works while your phone charges.</string>
     <string name="long_work_organizing_progress">%1$d of %2$d organized. It keeps going while your phone charges.</string>
+    <!-- Loading the sample library, development only. -->
+    <string name="long_work_sample_library_title">Sinapsis is loading the sample library</string>
+    <string name="long_work_sample_library_progress">%1$d of %2$d loaded. You can keep using your phone.</string>
 </resources>

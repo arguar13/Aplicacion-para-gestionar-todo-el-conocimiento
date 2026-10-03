@@ -6444,5 +6444,143 @@
         "type": "int"
       }
     }
+  },
+  "settingsDevelopmentSection": "Development",
+  "@settingsDevelopmentSection": {
+    "description": "Encabezado de la sección de Ajustes que solo existe en dev y staging."
+  },
+  "sampleLibraryTitle": "Load sample library",
+  "@sampleLibraryTitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: el título de la fila en Ajustes."
+  },
+  "sampleLibrarySubtitle": "{count} real resources to explore the whole app · about {size}",
+  "@sampleLibrarySubtitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: lo que falta cargar y cuánto se baja.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryAllLoaded": "Already fully loaded ({count} resources)",
+  "@sampleLibraryAllLoaded": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: no queda nada por cargar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryConfirmTitle": "Load the sample library?",
+  "@sampleLibraryConfirmTitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la confirmación."
+  },
+  "sampleLibraryConfirmBody": "This saves {count} sample resources —articles, videos, PDFs, books, audio, images and notes— downloading about {filesSize} now, plus about {linksSize} while they are processed (the pages and the audio of the videos). They load in batches, in the background: you can keep using the app and cancel at any time.",
+  "@sampleLibraryConfirmBody": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cuerpo de la confirmación, con cuánto se baja.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "filesSize": {
+        "type": "String"
+      },
+      "linksSize": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryConfirmAction": "Load",
+  "@sampleLibraryConfirmAction": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: botón que confirma la carga."
+  },
+  "sampleLibraryLoadingTitle": "Loading the sample library…",
+  "@sampleLibraryLoadingTitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la fila mientras carga."
+  },
+  "sampleLibraryCancellingTitle": "Cancelling…",
+  "@sampleLibraryCancellingTitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la fila después de pedir cancelar."
+  },
+  "sampleLibraryStarting": "Getting ready…",
+  "@sampleLibraryStarting": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: antes de saber cuánto hay."
+  },
+  "sampleLibraryProgress": "{done} of {total} · batch {batch} of {batches}",
+  "@sampleLibraryProgress": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: el avance de la carga.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "batch": {
+        "type": "int"
+      },
+      "batches": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryLastRun": "Last run: loaded {loaded} · failed {failed} · already there {skipped}",
+  "@sampleLibraryLastRun": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: cómo terminó la última pasada.",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryLastRunCancelled": "Cancelled: loaded {loaded} · failed {failed}. Tap to continue.",
+  "@sampleLibraryLastRunCancelled": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: la última pasada se canceló.",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryFailed": "Loading stopped: {message}",
+  "@sampleLibraryFailed": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: un error de la carga entera, no de un recurso.",
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "sampleLibraryDoneSnack": "Sample library: loaded {loaded} · failed {failed}",
+  "@sampleLibraryDoneSnack": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: aviso al terminar.",
+    "placeholders": {
+      "loaded": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "sampleLibraryShowFailures": "See what failed",
+  "@sampleLibraryShowFailures": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: abre la lista de lo que no se cargó."
+  },
+  "sampleLibraryFailuresTitle": "What could not be loaded",
+  "@sampleLibraryFailuresTitle": {
+    "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la lista de fallidos."
   }
 }

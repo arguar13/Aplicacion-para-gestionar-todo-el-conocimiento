@@ -48,11 +48,19 @@ void main() {
         total: 120,
       ),
     );
+    await platform.show(
+      const LongWorkNotice(
+        owner: LongWorkOwner.sampleLibrary,
+        done: 7,
+        total: 80,
+      ),
+    );
     await platform.stop();
 
     expect(calls, [
       'working processing 1/4',
       'working organizing 3/120',
+      'working sample_library 7/80',
       'idle',
     ]);
   });

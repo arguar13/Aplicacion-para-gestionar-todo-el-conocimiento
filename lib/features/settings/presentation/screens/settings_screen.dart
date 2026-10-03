@@ -10,6 +10,8 @@ import 'package:sinapsis/features/citations/domain/entities/citation_source.dart
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
+import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
@@ -18,7 +20,8 @@ import 'package:sinapsis/features/vault/presentation/providers/vault_providers.d
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Idioma, tema, la IA y sus modelos, copia de seguridad y bloqueo de la
-/// bóveda, todo en un solo lugar.
+/// bóveda, todo en un solo lugar. En dev y staging, además, la biblioteca de
+/// ejemplo.
 ///
 /// Antes eran seis de los nueve íconos amontonados en el AppBar de la
 /// biblioteca — ver la decisión 22 en docs/arquitectura.md—. Son ajustes que
@@ -51,6 +54,7 @@ class SettingsScreen extends ConsumerWidget {
     final citationStyle = ref.watch(defaultCitationStyleProvider);
     final citationLanguage = ref.watch(citationPreferencesProvider).language;
     final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
+    final sampleLibraryAvailable = ref.watch(sampleLibraryAvailableProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -241,6 +245,15 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          // Solo en dev y staging: herramientas para probar la app, que en
+          // prod no existen —ni la sección—.
+          if (sampleLibraryAvailable) ...[
+            const SizedBox(height: 24),
+            _SettingsSection(
+              title: l10n.settingsDevelopmentSection,
+              children: const [SampleLibraryTile()],
+            ),
+          ],
           const SizedBox(height: 24),
           _SettingsSection(
             children: [

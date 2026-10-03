@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/config/app_flavor.dart';
+import 'package:sinapsis/core/config/config_providers.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -12,6 +14,7 @@ import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.da
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
+import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
@@ -78,6 +81,31 @@ void main() {
     expect(find.text(es.settingsAiSection), findsOneWidget);
     expect(find.text(es.settingsVaultSection), findsOneWidget);
     expect(find.text(es.settingsHabitSection), findsOneWidget);
+  });
+
+  group('desarrollo: la biblioteca de ejemplo', () {
+    testWidgets('en dev hay una sección más, con la fila para cargarla', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+
+      expect(find.text(es.settingsDevelopmentSection), findsOneWidget);
+      expect(find.byType(SampleLibraryTile), findsOneWidget);
+      expect(find.text(es.sampleLibraryTitle), findsOneWidget);
+    });
+
+    testWidgets('en prod no existe: ni la sección ni la fila', (tester) async {
+      harness = await LibraryHarness.create(
+        extraOverrides: [appFlavorProvider.overrideWithValue(AppFlavor.prod)],
+      );
+      await pumpSettings(tester);
+
+      expect(find.text(es.settingsDevelopmentSection), findsNothing);
+      expect(find.byType(SampleLibraryTile), findsNothing);
+      expect(find.text(es.sampleLibraryTitle), findsNothing);
+      // El resto de Ajustes, igual.
+      expect(find.text(es.settingsHabitSection), findsOneWidget);
+    });
   });
 
   group('citas (F15)', () {

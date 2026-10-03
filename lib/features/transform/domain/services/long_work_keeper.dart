@@ -45,6 +45,12 @@ enum LongWorkOwner {
   /// La IA que organiza sola la biblioteca que ya existía, con el cargador
   /// (F27, decisión C).
   aiOrganize,
+
+  /// La carga de la biblioteca de ejemplo, solo en desarrollo: bajar decenas
+  /// de archivos lleva minutos, y quien la pidió sigue usando el teléfono.
+  /// Última en prioridad: lo que se carga pasa enseguida a la cola de
+  /// procesamiento, y el avance de esa es el que más dice.
+  sampleLibrary,
 }
 
 /// Lo que muestra la notificación del servicio: de quién es el trabajo que

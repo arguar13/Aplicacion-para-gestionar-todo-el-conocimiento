@@ -22,7 +22,8 @@ import android.util.Log
  * Lo comparten varios dueños (F27): el procesamiento y la IA que ordena la
  * biblioteca existente con el cargador. Quién se ve y cuándo se apaga lo
  * decide Dart (`LongWorkCoordinator`); acá llega una sola cosa por vez, con
- * de quién es ([KIND_ORGANIZING] o el procesamiento) para el texto.
+ * de quién es ([KIND_ORGANIZING], [KIND_SAMPLE_LIBRARY] o el procesamiento)
+ * para el texto.
  *
  * No hace el trabajo: el trabajo lo hace Dart, en el proceso de la app. El
  * servicio solo mantiene vivo ese proceso y muestra cuánto va. Por eso, si
@@ -41,8 +42,7 @@ class LongWorkService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val done = intent?.getIntExtra(EXTRA_DONE, 0) ?: 0
         val total = intent?.getIntExtra(EXTRA_TOTAL, 0) ?: 0
-        val organizing = intent?.getStringExtra(EXTRA_KIND) == KIND_ORGANIZING
-        val notification = buildNotification(organizing, done, total)
+        val notification = buildNotification(intent?.getStringExtra(EXTRA_KIND), done, total)
 
         if (!inForeground) {
             try {
@@ -84,7 +84,7 @@ class LongWorkService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         }
 
-    private fun buildNotification(organizing: Boolean, done: Int, total: Int): Notification {
+    private fun buildNotification(kind: String?, done: Int, total: Int): Notification {
         ensureChannel()
 
         val open = PendingIntent.getActivity(
@@ -102,15 +102,32 @@ class LongWorkService : Service() {
             Notification.Builder(this)
         }
 
-        val text = when {
-            organizing && total > 0 ->
-                getString(R.string.long_work_organizing_progress, done, total)
-            organizing -> getString(R.string.long_work_organizing_starting)
-            total > 0 -> getString(R.string.long_work_progress, done * 100 / total)
-            else -> getString(R.string.long_work_starting)
+        val text = when (kind) {
+            KIND_ORGANIZING ->
+                if (total > 0) {
+                    getString(R.string.long_work_organizing_progress, done, total)
+                } else {
+                    getString(R.string.long_work_organizing_starting)
+                }
+            KIND_SAMPLE_LIBRARY ->
+                if (total > 0) {
+                    getString(R.string.long_work_sample_library_progress, done, total)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
+            else ->
+                if (total > 0) {
+                    getString(R.string.long_work_progress, done * 100 / total)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
         }
         val title = getString(
-            if (organizing) R.string.long_work_organizing_title else R.string.long_work_title,
+            when (kind) {
+                KIND_ORGANIZING -> R.string.long_work_organizing_title
+                KIND_SAMPLE_LIBRARY -> R.string.long_work_sample_library_title
+                else -> R.string.long_work_title
+            },
         )
 
         return builder
@@ -152,12 +169,15 @@ class LongWorkService : Service() {
         /** El trabajo es la IA ordenando la biblioteca (F27). */
         const val KIND_ORGANIZING = "organizing"
 
+        /** El trabajo es cargar la biblioteca de ejemplo (solo en desarrollo). */
+        const val KIND_SAMPLE_LIBRARY = "sample_library"
+
         @Volatile private var running = false
         @Volatile private var inForeground = false
 
         /**
          * Hay trabajo largo en curso: [done] de [total] (0 si no se sabe), de
-         * [kind] —el procesamiento o [KIND_ORGANIZING]—.
+         * [kind] —el procesamiento, [KIND_ORGANIZING] o [KIND_SAMPLE_LIBRARY]—.
          */
         fun working(context: Context, kind: String?, done: Int, total: Int) {
             val intent = Intent(context, LongWorkService::class.java)

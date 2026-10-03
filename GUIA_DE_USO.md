@@ -1125,6 +1125,21 @@ modelo de relaciones.
   todos explicados en la siguiente sección.
 - **Hábito:** un interruptor para mostrar u ocultar la racha, las insignias y
   el historial (apagarlo no borra nada).
+- **Desarrollo** (solo en las versiones de prueba, *Sinapsis Dev* y
+  *Sinapsis Staging*; en la versión normal no aparece):
+  **"Cargar biblioteca de ejemplo"** llena la bóveda con unos 80 recursos
+  reales y de uso libre —artículos de Wikipedia, videos de YouTube cortos y
+  de dos horas, PDF, libros EPUB, textos, audios, imágenes con texto y notas
+  enlazadas— sobre santos, la Biblia, Roma, la Edad Media, la Revolución
+  francesa, filosofía y ciencia, para recorrer toda la app sin cargar nada a
+  mano. Al tocarla te dice cuánto se baja (unos 80 MB de archivos al
+  cargarlos, y unos 600 MB más mientras se procesan, casi todo el audio de
+  los videos) y, si aceptás, carga por tandas en segundo plano: podés salir
+  de Ajustes y seguir usando el teléfono, con una notificación que dice
+  cuántos van. La fila muestra el avance y un botón **Cancelar**. Al
+  terminar avisa cuántos se cargaron y, si alguno falló, **"Ver qué falló"**
+  dice cuál y por qué. Tocarla otra vez no duplica nada: sigue con lo que
+  falte —lo cancelado o lo que falló—.
 - **Bloquear bóveda** (al final, en rojo): cierra la sesión y vuelve a la
   pantalla de desbloqueo, sin borrar absolutamente nada.
 

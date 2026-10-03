@@ -9,4 +9,7 @@
     <string name="long_work_organizing_title">Sinapsis está ordenando tu biblioteca</string>
     <string name="long_work_organizing_starting">La IA trabaja mientras el teléfono carga.</string>
     <string name="long_work_organizing_progress">%1$d de %2$d organizados. Sigue mientras el teléfono carga.</string>
+    <!-- La carga de la biblioteca de ejemplo, solo en desarrollo. -->
+    <string name="long_work_sample_library_title">Sinapsis está cargando la biblioteca de ejemplo</string>
+    <string name="long_work_sample_library_progress">%1$d de %2$d cargados. Podés seguir usando el teléfono.</string>
 </resources>

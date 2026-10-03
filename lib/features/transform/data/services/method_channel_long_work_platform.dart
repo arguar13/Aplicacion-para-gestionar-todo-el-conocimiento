@@ -5,7 +5,8 @@ import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dar
 /// [LongWorkPlatform] sobre el servicio en primer plano de Android
 /// (`LongWorkService`), por un canal de método. Le dice de quién es el
 /// trabajo (`kind`), para que la notificación diga lo que se está haciendo:
-/// procesar o, con el cargador, organizar la biblioteca (F27).
+/// procesar, organizar la biblioteca con el cargador (F27) o, en desarrollo,
+/// cargar la biblioteca de ejemplo.
 class MethodChannelLongWorkPlatform implements LongWorkPlatform {
   MethodChannelLongWorkPlatform({
     required AppLogger logger,
@@ -20,6 +21,7 @@ class MethodChannelLongWorkPlatform implements LongWorkPlatform {
   static String kindOf(LongWorkOwner owner) => switch (owner) {
     LongWorkOwner.processing => 'processing',
     LongWorkOwner.aiOrganize => 'organizing',
+    LongWorkOwner.sampleLibrary => 'sample_library',
   };
 
   @override
