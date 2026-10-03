@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -321,6 +322,10 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   p.origin.equalsValue(ItemPropertyOrigin.ai),
             ))
             .go();
+    // Los temas que la IA ubicó sola en el árbol (F27, el Atlas) vuelven a la
+    // raíz. No tienen `ai_run_id` propio —el lugar de un tema es una columna
+    // del vocabulario—: la pasada queda en su registro de sugerencias.
+    await undoAiTopicPlacements(_db, run.id);
     if (run.undoneAt == null) {
       await (_db.update(_db.aiRuns)..where((r) => r.id.equals(run.id))).write(
         AiRunsCompanion(undoneAt: Value(_clock())),

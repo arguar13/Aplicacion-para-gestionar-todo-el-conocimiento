@@ -21,4 +21,12 @@ enum SuggestionKind {
 
   /// Los datos bibliográficos leídos del PDF, la página o YouTube — F15.
   metadata,
+
+  /// Bajo qué tema del árbol va un tema suelto — F27, el Atlas. La columna
+  /// es de texto: sumar un tipo no cambia el esquema.
+  topicParent,
+
+  /// Subir la madurez de una nota viva que creció — F27, el Atlas. La IA
+  /// nunca la cambia sola: es el juicio de la persona.
+  maturity,
 }

@@ -80,6 +80,20 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
                 suggestion.kind.icon,
                 suggestion.kind.color(Theme.of(context).colorScheme),
               ),
+              // El Atlas (F27): el tema con su padre delante, y la madurez.
+              TopicParentSuggestion() => (
+                '${suggestion.parentName} › ${suggestion.valueName}',
+                null,
+                Icons.account_tree_outlined,
+                null,
+              ),
+              MaturitySuggestion() => (
+                '${suggestion.from.label(l10n)} → '
+                    '${suggestion.to.label(l10n)}',
+                l10n.noteMaturityChangeTooltip,
+                Icons.trending_up,
+                suggestion.to.color(Theme.of(context).colorScheme),
+              ),
               // Nunca deberían llegar hasta acá: un duplicado pide su propia
               // confirmación explícita —la pantalla "Posibles duplicados"
               // (D4, F7)— porque fusionar borra un elemento, y una sugerencia

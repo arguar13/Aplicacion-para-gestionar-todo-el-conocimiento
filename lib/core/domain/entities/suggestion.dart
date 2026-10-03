@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 
@@ -93,4 +94,41 @@ sealed class Suggestion with _$Suggestion {
     required DateTime createdAt,
     double? confidence,
   }) = MetadataSuggestion;
+
+  /// Poner el tema [valueName], que estaba suelto —sin padre ni subtemas—,
+  /// bajo [parentName] en el árbol de la categoría [definitionId] — F27, el
+  /// Atlas. [targetItemId] es el elemento en cuya pasada la IA lo encontró:
+  /// por él se agrupa en «Para revisar».
+  ///
+  /// Con [aiRunId], la IA la aplicó sola —estaba segura y el tema era nuevo—
+  /// y la fila queda `accepted` como registro de lo que hizo: deshacer la
+  /// pasada lo devuelve a la raíz. Sin él, es una propuesta para revisar.
+  /// Los nombres van denormalizados, mismo criterio que
+  /// [PropertySuggestion.definitionName].
+  const factory Suggestion.topicParent({
+    required String id,
+    required String targetItemId,
+    required String definitionId,
+    required String valueId,
+    required String valueName,
+    required String parentId,
+    required String parentName,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    String? aiRunId,
+    double? confidence,
+  }) = TopicParentSuggestion;
+
+  /// Subir la madurez de la nota viva [targetItemId] de [from] a [to] — F27,
+  /// el Atlas. Solo se propone: cambiarla es el juicio de la persona, y la
+  /// IA nunca lo hace sola (decisión A).
+  const factory Suggestion.maturity({
+    required String id,
+    required String targetItemId,
+    required NoteMaturity from,
+    required NoteMaturity to,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    double? confidence,
+  }) = MaturitySuggestion;
 }

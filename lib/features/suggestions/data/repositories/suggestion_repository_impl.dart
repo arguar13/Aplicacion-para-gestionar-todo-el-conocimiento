@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
@@ -140,10 +141,13 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
 
   /// Lo que se revisa en «Para revisar» (F27). Ni los duplicados —tienen su
   /// pantalla— ni las tarjetas, que nunca pasan por la cola de sugerencias.
+  /// Del Atlas, el lugar de un tema en el árbol y la madurez de una nota.
   static const _reviewable = [
     SuggestionKind.relation,
     SuggestionKind.property,
     SuggestionKind.metadata,
+    SuggestionKind.topicParent,
+    SuggestionKind.maturity,
   ];
 
   /// Lo que cuenta como «para revisar», igual para la lista y para el número:
@@ -494,6 +498,8 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         SuggestionKind.relation => await _applyRelation(row),
         SuggestionKind.duplicate => await _applyDuplicate(row),
         SuggestionKind.metadata => await _applyMetadata(row),
+        SuggestionKind.topicParent => await _applyTopicParent(row),
+        SuggestionKind.maturity => await _applyMaturity(row),
         SuggestionKind.flashcard => throw StateError(
           'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
           'debería existir ninguna fila con este kind.',
@@ -780,6 +786,34 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     return right(unit);
   }
 
+  /// Pone el tema bajo el padre propuesto (F27, el Atlas), con las reglas de
+  /// `placeTopicValue`: si la persona ya lo ubicó, no se mueve y se dice.
+  Future<Either<Failure, Unit>> _applyTopicParent(SuggestionRow row) {
+    final suggestion = topicParentSuggestionOf(row);
+    return _db.transaction(
+      () => placeTopicValue(
+        _db,
+        valueId: suggestion.valueId,
+        parentId: suggestion.parentId,
+      ),
+    );
+  }
+
+  /// Sube la madurez de la nota a la propuesta (F27, el Atlas): es la
+  /// persona la que acepta, así que va por el mismo camino que elegirla a
+  /// mano —versionada para la fusión de bóvedas—.
+  Future<Either<Failure, Unit>> _applyMaturity(SuggestionRow row) async {
+    final suggestion = maturitySuggestionOf(row);
+    if (!await _writer.setMaturity(row.targetItemId, suggestion.to)) {
+      return left(
+        const Failure.unexpected(
+          message: 'La nota ya no existe; puede que se haya borrado.',
+        ),
+      );
+    }
+    return right(unit);
+  }
+
   @override
   Future<Either<Failure, Unit>> reject(String id) async {
     try {
@@ -1047,6 +1081,8 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         status: row.status,
         createdAt: row.createdAt,
       ),
+      SuggestionKind.topicParent => topicParentSuggestionOf(row),
+      SuggestionKind.maturity => maturitySuggestionOf(row),
       SuggestionKind.flashcard => throw StateError(
         'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
         'debería existir ninguna fila con este kind.',

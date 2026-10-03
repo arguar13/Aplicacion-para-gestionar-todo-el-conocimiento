@@ -248,6 +248,20 @@ class _ReviewRow extends StatelessWidget {
         l10n.aiReviewMetadataTitle,
         extractedMetadataSummary(l10n, extracted),
       ),
+      // El Atlas (F27): el tema, ya con el padre delante, como se lee en el
+      // árbol; y la madurez, de cuál a cuál.
+      TopicParentSuggestion(:final parentName, :final valueName) => (
+        Icons.account_tree_outlined,
+        scheme.secondary,
+        '$parentName › $valueName',
+        null,
+      ),
+      MaturitySuggestion(:final from, :final to) => (
+        Icons.trending_up,
+        to.color(scheme),
+        '${from.label(l10n)} → ${to.label(l10n)}',
+        l10n.noteMaturityChangeTooltip,
+      ),
       // Nunca llega: `itemReviewSuggestionsProvider` los deja afuera.
       DuplicateSuggestionEntry() => throw StateError(
         'Un duplicado no se revisa en «Para revisar»: tiene su pantalla.',
