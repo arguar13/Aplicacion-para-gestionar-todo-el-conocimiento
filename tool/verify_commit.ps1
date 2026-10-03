@@ -23,8 +23,8 @@
   El commit a comprobar. Por defecto, HEAD.
 
 .PARAMETER Baseline
-  La línea base de avisos del analizador; no puede crecer. Hoy, 23 (F25 y F26
-  corrigieron ocho).
+  La línea base de avisos del analizador; no puede crecer. Hoy, 21 (F25, F26 y F27
+  corrigieron diez).
 
 .PARAMETER Keep
   Deja la carpeta exportada, por si hay que mirar qué falló.
@@ -32,7 +32,7 @@
 [CmdletBinding()]
 param(
   [string] $Rev = 'HEAD',
-  [int] $Baseline = 23,
+  [int] $Baseline = 21,
   [switch] $Keep
 )
 
