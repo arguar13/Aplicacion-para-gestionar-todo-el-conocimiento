@@ -52,7 +52,9 @@ void main() {
       documentsDirectory: () async => docs,
     );
 
-    final sampler = await RssSampler.start();
+    final sampler = await RssSampler.start(
+      measure: MemoryMeasure.privateCommit,
+    );
     final built = await service.buildBackupFile();
     final growth = await sampler.stop();
 

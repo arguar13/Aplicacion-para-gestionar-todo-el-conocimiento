@@ -1,6 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:isolate';
+
+import 'process_memory.dart';
+
+export 'process_memory.dart' show MemoryMeasure;
 
 /// Mide el pico de memoria del proceso MIENTRAS otro aislado —el de la prueba—
 /// trabaja.
@@ -29,18 +32,28 @@ class RssSampler {
 
   /// Empieza a muestrear. Lo que se cree antes de llamarlo cuenta como punto
   /// de partida, no como crecimiento.
+  ///
+  /// [measure] elige qué memoria: la residente, la de siempre en las cifras
+  /// de rendimiento, o la privada comprometida, la que hay que usar para
+  /// afirmar que algo no pasó entero por la memoria —ver [MemoryMeasure]—.
   static Future<RssSampler> start({
     Duration every = const Duration(milliseconds: 2),
+    MemoryMeasure measure = MemoryMeasure.residentSet,
   }) async {
     final ready = ReceivePort();
     final result = ReceivePort();
-    await Isolate.spawn(_sample, (ready.sendPort, result.sendPort, every));
+    await Isolate.spawn(_sample, (
+      ready.sendPort,
+      result.sendPort,
+      every,
+      measure,
+    ));
     final control = await ready.first as SendPort;
     // El aislado ya nació: su costo no cuenta como crecimiento de lo medido.
     return RssSampler._(
       control: control,
       result: result,
-      baseline: ProcessInfo.currentRss,
+      baseline: processMemory(measure),
     );
   }
 
@@ -54,13 +67,13 @@ class RssSampler {
   }
 }
 
-void _sample((SendPort, SendPort, Duration) args) {
-  final (ready, result, every) = args;
+void _sample((SendPort, SendPort, Duration, MemoryMeasure) args) {
+  final (ready, result, every, measure) = args;
   final control = ReceivePort();
-  var peak = ProcessInfo.currentRss;
+  var peak = processMemory(measure);
 
   void look() {
-    final now = ProcessInfo.currentRss;
+    final now = processMemory(measure);
     if (now > peak) peak = now;
   }
 

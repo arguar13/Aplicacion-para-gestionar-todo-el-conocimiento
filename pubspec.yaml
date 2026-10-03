@@ -244,6 +244,11 @@ dev_dependencies:
   async: ^2.11.0
   build_runner: ^2.4.13
   drift_dev: ^2.35.0
+  # Para medir en las pruebas la memoria privada comprometida del proceso en
+  # Windows (`test/support/process_memory.dart`), que el sistema no recorta
+  # como la residente. Ya venía como dependencia transitiva; es del equipo
+  # de Dart.
+  ffi: ^2.2.0
   flutter_secure_storage_platform_interface: ^1.1.2
   flutter_test:
     sdk: flutter

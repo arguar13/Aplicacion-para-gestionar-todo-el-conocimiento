@@ -370,11 +370,16 @@ void main() {
       // ni el .zip ni la base extraída deberían pasar enteros por la memoria.
       //
       // El tamaño no es capricho: la memoria del proceso se mueve por su
-      // cuenta decenas de MB —recolección de basura, el sistema recortando el
-      // conjunto de trabajo cuando otras pruebas corren a la vez— y una base
-      // chica se perdía en ese ruido (una vez midió 24 MB con 63 de base). Con
-      // 126 MB, lo que se busca detectar (la base y el .zip enteros en memoria:
-      // más de 2 veces su peso) queda lejos del ruido y del umbral.
+      // cuenta varios MB —la recolección de basura— y una base chica se
+      // perdía en ese ruido (una vez midió 24 MB con 63 de base). Con 126 MB,
+      // lo que se busca detectar (la base y el .zip enteros en memoria: más de
+      // 2 veces su peso) queda lejos del ruido y del umbral.
+      //
+      // Se mide la memoria privada comprometida y no la residente: en Windows
+      // el sistema le recorta la residente al proceso cuando la máquina está
+      // cargada, y las páginas que vuelven a entrar se contaban como
+      // crecimiento —así midió una vez 51 MB contra un tope de 41—. Ver
+      // `MemoryMeasure.privateCommit`.
       final dbFile = File(p.join(tempRoot.path, 'grande.sqlite'));
       final db = AppDatabase(NativeDatabase.createInBackground(dbFile));
       await db.customStatement(
@@ -392,7 +397,9 @@ void main() {
       await _zipDatabase(zip.path, dbFile.path);
       await dbFile.delete();
 
-      final sampler = await RssSampler.start();
+      final sampler = await RssSampler.start(
+        measure: MemoryMeasure.privateCommit,
+      );
       final incoming = await IncomingVault.openFile(zip);
       final growth = await sampler.stop();
       addTearDown(incoming.dispose);
