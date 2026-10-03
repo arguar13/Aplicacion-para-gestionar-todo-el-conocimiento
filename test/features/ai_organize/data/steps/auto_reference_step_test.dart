@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
+import 'package:sinapsis/core/domain/entities/publication_date.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -103,6 +104,35 @@ void main() {
     final reference = await ReferenceReader(vault.db).read('a');
     expect(reference.contributors.single.name.label, 'Gibbon');
   });
+
+  test(
+    'si la persona dijo que la obra no tiene fecha, no le pone una',
+    () async {
+      final item = await vault.source(
+        'a',
+        title: 'Página',
+        content: 'Texto.',
+        originalFilePath: await archivedPage(),
+      );
+      await KnowledgeEntryWriter(vault.db).setReference(
+        'a',
+        const ReferenceData(publicationPrecision: PublicationPrecision.undated),
+      );
+
+      final report = await step.organize(
+        item,
+        runId: await vault.startRun('a'),
+      );
+
+      // Solo la autora.
+      expect(report.applied, 1);
+      expect((await vault.reload('a')).source.publishedAt, isNull);
+      expect(
+        (await ReferenceReader(vault.db).read('a')).publicationPrecision,
+        PublicationPrecision.undated,
+      );
+    },
+  );
 
   group('deshacer la pasada (v35)', () {
     test('vacía lo que completó y deja la fecha como estaba', () async {

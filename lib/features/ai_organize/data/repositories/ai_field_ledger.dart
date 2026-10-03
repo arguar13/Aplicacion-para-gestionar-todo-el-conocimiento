@@ -87,8 +87,12 @@ class AiFieldLedger {
 
     final before = await ReferenceReader(_db).read(itemId);
     final wanted = _fillEmpty(before, extracted.reference);
+    // La fecha, solo si nadie dijo nada de ella: «sin fecha» (`undated`)
+    // también es algo que la persona escribió.
     final datesFilled =
-        source.publishedAt == null && extracted.publishedAt != null;
+        source.publishedAt == null &&
+        before.publicationPrecision == null &&
+        extracted.publishedAt != null;
     final reference = datesFilled
         ? _withPrecision(wanted, extracted.publicationPrecision)
         : wanted;
