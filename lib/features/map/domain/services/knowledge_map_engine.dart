@@ -299,6 +299,7 @@ class KnowledgeMapEngine {
           total: total.elapsed,
         ),
         sequence: ++_sequence,
+        unassignedItemIds: input.unassignedItemIds,
       );
       entry
         ..snapshot = snapshot

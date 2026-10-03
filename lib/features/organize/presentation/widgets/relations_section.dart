@@ -8,6 +8,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/map/presentation/widgets/see_in_map.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_relation_dialog.dart';
@@ -68,7 +69,8 @@ class RelationsSection extends ConsumerWidget {
 
 /// Abre el flujo de dos pasos para vincular [fromItemId] con otro elemento
 /// —elegir con qué, después qué tipo de vínculo—. Cancelar cualquiera de
-/// los dos pasos no crea nada.
+/// los dos pasos no crea nada; guardar avisa «Vinculado» con «Ver en el
+/// Mapa» (F28).
 ///
 /// Aparte de [RelationsSection] para que `MapNoteLinksSection` (ver la
 /// decisión sobre F6) lo reuse tal cual, sin duplicar el diálogo.
@@ -99,12 +101,12 @@ Future<void> addRelationFlow(
         note: picked.note,
       );
 
+  if (!context.mounted) return;
   result.match((failure) {
-    if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-  }, (_) {});
+  }, (_) => showLinkedNotice(context, ref, itemId: fromItemId));
 }
 
 /// Una fila con un vínculo ya existente: ícono, descripción con el sentido

@@ -16,5 +16,9 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void organizeNow(String itemId) => organizeNowCalls.add(itemId);
 
   @override
+  void organizeAllNow(Iterable<String> itemIds) =>
+      organizeNowCalls.addAll(itemIds);
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

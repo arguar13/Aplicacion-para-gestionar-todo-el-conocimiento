@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/map/domain/entities/knowledge_map_state.dart';
 import 'package:sinapsis/features/map/domain/usecases/export_map_usecase.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_filter_provider.dart';
@@ -60,8 +61,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   MapView _view = MapView.board;
 
+  /// El elemento en foco en la vista «Vínculos»: el último que se pidió ver
+  /// con «Ver en el Mapa» (F28).
+  String? _focusId;
+
   /// Lo que la vista de ahora ofrece para exportarse.
   final _exportHandle = MapExportHandle();
+
+  @override
+  void initState() {
+    super.initState();
+    // Un pedido que llegó con el Mapa cerrado se atiende al abrirlo; uno que
+    // llega con el Mapa abierto, en el acto.
+    ref.listenManual(mapLinksFocusRequestProvider, (_, itemId) {
+      if (itemId != null) _focusOn(itemId);
+    }, fireImmediately: true);
+  }
+
+  /// Pasa a la vista «Vínculos» con el foco en [itemId], y da el pedido por
+  /// atendido. Un proveedor no se modifica mientras se arma el árbol: se
+  /// vuelve a `null` apenas termina.
+  void _focusOn(String itemId) {
+    setState(() {
+      _view = MapView.links;
+      _focusId = itemId;
+    });
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      ref.read(mapLinksFocusRequestProvider.notifier).state = null;
+    });
+  }
 
   /// Las categorías donde el mapa tiene sentido —las de texto: la jerarquía
   /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
@@ -229,10 +258,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: _MapBody(
                     request: MapRequest(selected.id, filter: filter),
                     view: _view,
+                    focusId: _focusId,
                     exportHandle: _exportHandle,
+                    unassignedLabel: (count) => selected.isTema
+                        ? l10n.mapUnassignedTags(count)
+                        : l10n.mapUnassignedCategory(count, selected.name),
                     onOpenTopic: _openTopic,
                     onOpenItem: _openItem,
                     onOpenTension: _openTension,
+                    onShowLinks: () => setState(() => _view = MapView.links),
                   ),
                 ),
               ],
@@ -288,28 +322,46 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 }
 
 /// El mapa de un pedido: pide el estado al motor y muestra la vista elegida.
+///
+/// Nunca es un vacío mudo (F28): sin temas, el tablero y la vista «Vínculos»
+/// siguen ahí, el esquema y el grafo dicen por qué no tienen nada y llevan a
+/// los vínculos, y arriba se cuenta lo que quedó sin ubicar con «Organizar con
+/// IA».
 class _MapBody extends ConsumerWidget {
   const _MapBody({
     required this.request,
     required this.view,
     required this.exportHandle,
+    required this.unassignedLabel,
     required this.onOpenTopic,
     required this.onOpenItem,
     required this.onOpenTension,
+    required this.onShowLinks,
+    this.focusId,
   });
 
   final MapRequest request;
   final MapView view;
   final MapExportHandle exportHandle;
+
+  /// Cómo se dice que tantos elementos quedaron sin ubicar en lo que se mira:
+  /// «sin etiquetas», «sin «Época»».
+  final String Function(int count) unassignedLabel;
   final void Function(String valueId) onOpenTopic;
   final void Function(String itemId) onOpenItem;
   final VoidCallback onOpenTension;
+  final VoidCallback onShowLinks;
+
+  /// El elemento en foco en la vista «Vínculos».
+  final String? focusId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     // Los vínculos no esperan al grafo de temas: no lo usan.
-    if (view == MapView.links) return _fade(context, _links());
+    if (view == MapView.links) {
+      return Column(children: [Expanded(child: _fade(context, _links()))]);
+    }
     final state = ref.watch(knowledgeMapProvider(request)).valueOrNull;
 
     return switch (state) {
@@ -332,9 +384,8 @@ class _MapBody extends ConsumerWidget {
     AppLocalizations l10n, {
     bool stale = false,
   }) {
-    if (snapshot.graph.nodes.isEmpty) return _Empty(l10n: l10n);
-
     final dashboard = ref.watch(mapDashboardProvider(request)).valueOrNull;
+    final noTopics = snapshot.graph.nodes.isEmpty;
     final body = switch (view) {
       MapView.links => _links(),
       MapView.board => MapBoardView(
@@ -343,6 +394,16 @@ class _MapBody extends ConsumerWidget {
         onOpenTopic: onOpenTopic,
         onOpenItem: onOpenItem,
         onOpenTension: onOpenTension,
+      ),
+      // El esquema y el grafo dibujan temas: sin ninguno no hay qué, pero los
+      // vínculos se ven igual en su vista.
+      MapView.schema || MapView.graph when noTopics => EmptyStateView(
+        key: const ValueKey('map-no-topics'),
+        icon: Icons.hub_outlined,
+        title: l10n.mapEmptyTitle,
+        message: l10n.mapEmptyMessage,
+        actionLabel: l10n.mapSeeLinksAction,
+        onAction: onShowLinks,
       ),
       MapView.schema => MapSchemaView(
         key: const ValueKey('map-schema'),
@@ -360,21 +421,28 @@ class _MapBody extends ConsumerWidget {
       ),
     };
 
-    final animated = _fade(context, body);
-    if (!stale) return animated;
+    final unassigned = snapshot.unassignedItemIds;
     return Column(
       children: [
-        MaterialBanner(
-          key: const ValueKey('map-stale'),
-          content: Text(l10n.mapStaleNotice),
-          actions: [
-            TextButton(
-              onPressed: () => ref.invalidate(knowledgeMapProvider(request)),
-              child: Text(l10n.mapRetry),
+        if (stale)
+          MaterialBanner(
+            key: const ValueKey('map-stale'),
+            content: Text(l10n.mapStaleNotice),
+            actions: [
+              TextButton(
+                onPressed: () => ref.invalidate(knowledgeMapProvider(request)),
+                child: Text(l10n.mapRetry),
+              ),
+            ],
+          ),
+        if (unassigned.isNotEmpty)
+          _UnassignedNotice(
+            label: unassignedLabel(unassigned.length),
+            onOrganize: () => unawaited(
+              organizeAllNowWithAi(context, ref, itemIds: unassigned),
             ),
-          ],
-        ),
-        Expanded(child: animated),
+          ),
+        Expanded(child: _fade(context, body)),
       ],
     );
   }
@@ -382,6 +450,7 @@ class _MapBody extends ConsumerWidget {
   Widget _links() => MapLinksView(
     key: const ValueKey('map-links'),
     filter: request.filter,
+    focusId: focusId,
     exportHandle: exportHandle,
     onOpenItem: onOpenItem,
   );
@@ -407,6 +476,59 @@ class _Empty extends StatelessWidget {
       icon: Icons.hub_outlined,
       title: l10n.mapEmptyTitle,
       message: l10n.mapEmptyMessage,
+    );
+  }
+}
+
+/// Cuántos elementos quedaron sin ubicar en lo que se mira, con «Organizar con
+/// IA» (F28): lo que el grafo de temas no puede dibujar, dicho en vez de
+/// callado. Una fila, y no un cartel que tape: el tablero y las vistas siguen
+/// abajo.
+class _UnassignedNotice extends StatelessWidget {
+  const _UnassignedNotice({required this.label, required this.onOrganize});
+
+  final String label;
+  final VoidCallback onOrganize;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      key: const ValueKey('map-unassigned'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: colors.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+          child: Row(
+            children: [
+              Icon(
+                Icons.label_off_outlined,
+                size: 20,
+                color: colors.onSecondaryContainer,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSecondaryContainer,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                key: const ValueKey('map-organize-with-ai'),
+                onPressed: onOrganize,
+                icon: const Icon(Icons.auto_awesome, size: 18),
+                label: Text(l10n.mapOrganizeWithAi),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

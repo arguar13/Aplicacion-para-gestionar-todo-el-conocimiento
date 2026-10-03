@@ -25,6 +25,53 @@ Future<void> organizeNowWithAi(
   BuildContext context,
   WidgetRef ref, {
   required String itemId,
+}) {
+  final l10n = AppLocalizations.of(context)!;
+  return _organizeWithAi(
+    context,
+    ref,
+    itemIds: [itemId],
+    see: RoutePaths.aiActivityFor(itemId),
+    message: (state) => switch (state) {
+      _AiState.paused => l10n.aiOrganizeNowPaused,
+      _AiState.needsModel => l10n.aiOrganizeNowNeedsModel,
+      _AiState.ready => l10n.aiOrganizeNowQueued,
+    },
+  );
+}
+
+/// [organizeNowWithAi] para varios elementos a la vez: lo que ofrece el Mapa
+/// para lo que quedó sin tema o sin etiquetas (F28). «Ver» abre todo lo que
+/// hizo la IA, no lo de un elemento.
+Future<void> organizeAllNowWithAi(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<String> itemIds,
+}) {
+  final l10n = AppLocalizations.of(context)!;
+  final count = itemIds.length;
+  return _organizeWithAi(
+    context,
+    ref,
+    itemIds: itemIds,
+    see: RoutePaths.aiActivity,
+    message: (state) => switch (state) {
+      _AiState.paused => l10n.aiOrganizeManyPaused(count),
+      _AiState.needsModel => l10n.aiOrganizeManyNeedsModel(count),
+      _AiState.ready => l10n.aiOrganizeManyQueued(count),
+    },
+  );
+}
+
+/// Si la IA va a poder hacer lo pedido ahora.
+enum _AiState { paused, needsModel, ready }
+
+Future<void> _organizeWithAi(
+  BuildContext context,
+  WidgetRef ref, {
+  required List<String> itemIds,
+  required String see,
+  required String Function(_AiState state) message,
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
@@ -33,31 +80,29 @@ Future<void> organizeNowWithAi(
   final enabled = ref.read(aiOrganizeSettingsProvider).enabled;
   final chatModel = ref.read(chatModelManagerProvider);
   final embeddingModel = ref.read(embeddingModelManagerProvider);
-  ref.read(aiOrganizeQueueProvider).organizeNow(itemId);
+  ref.read(aiOrganizeQueueProvider).organizeAllNow(itemIds);
 
-  final String message;
+  final _AiState state;
   if (!enabled) {
-    message = l10n.aiOrganizeNowPaused;
+    state = _AiState.paused;
   } else {
     final ready = await Future.wait([
       chatModel.isReady(),
       embeddingModel.isReady(),
     ]);
-    message = ready.every((r) => r)
-        ? l10n.aiOrganizeNowQueued
-        : l10n.aiOrganizeNowNeedsModel;
+    state = ready.every((r) => r) ? _AiState.ready : _AiState.needsModel;
   }
 
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message(state)),
         action: SnackBarAction(
           label: l10n.aiItemLineSee,
           onPressed: () {
             if (!context.mounted) return;
-            unawaited(context.push(RoutePaths.aiActivityFor(itemId)));
+            unawaited(context.push(see));
           },
         ),
       ),

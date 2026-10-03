@@ -167,13 +167,15 @@ class TopicGraphInput {
     required this.values,
     required this.items,
     required this.relations,
+    this.unassignedItemIds = const [],
   });
 
   /// La entrada de una categoría que no existe o que no tiene valores.
   const TopicGraphInput.empty(this.definitionId, {this.definitionName = ''})
     : values = const [],
       items = const [],
-      relations = const [];
+      relations = const [],
+      unassignedItemIds = const [];
 
   final String definitionId;
   final String definitionName;
@@ -186,4 +188,9 @@ class TopicGraphInput {
 
   /// Las relaciones cuyos DOS extremos son elementos de [items].
   final List<TopicRelation> relations;
+
+  /// Los elementos vivos que pasan el filtro y NO tienen ningún valor: no
+  /// entran en el grafo, y el Mapa dice cuántos son en vez de callarlos
+  /// (F28).
+  final List<String> unassignedItemIds;
 }

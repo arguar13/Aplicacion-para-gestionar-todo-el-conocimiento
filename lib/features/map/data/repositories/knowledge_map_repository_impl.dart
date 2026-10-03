@@ -41,13 +41,14 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     if (definition == null) return TopicGraphInput.empty(definitionId);
 
     final allowed = await _allowedItemIds(filter);
-    final items = await _readItems(definitionId, allowed);
+    final (items, unassigned) = await _readItems(definitionId, allowed);
     return TopicGraphInput(
       definitionId: definitionId,
       definitionName: definition.name,
       values: await _readValues(definitionId),
       items: items,
       relations: await _readRelations({for (final item in items) item.id}),
+      unassignedItemIds: unassigned,
     );
   }
 
@@ -365,8 +366,8 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   }
 
   /// Los elementos vivos que pasan el filtro y tienen algún valor de la
-  /// categoría.
-  Future<List<TopicItem>> _readItems(
+  /// categoría, y aparte los que no tienen ninguno.
+  Future<(List<TopicItem>, List<String>)> _readItems(
     String definitionId,
     Set<String>? allowed,
   ) async {
@@ -380,17 +381,21 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     // Las columnas se toman de `data` y no con `read`: con miles de filas, la
     // conversión tipada de cada columna era una parte grande del tiempo.
     final items = <TopicItem>[];
+    final unassigned = <String>[];
     for (final row in rows) {
       final data = row.data;
-      final valueIds = data['value_ids'] as String?;
-      if (valueIds == null) continue;
       final id = data['id'] as String;
       if (allowed != null && !allowed.contains(id)) continue;
+      final valueIds = data['value_ids'] as String?;
+      if (valueIds == null) {
+        unassigned.add(id);
+        continue;
+      }
       items.add(
         TopicItem(id: id, valueIds: valueIds.split(mapValueIdSeparator)),
       );
     }
-    return items;
+    return (items, unassigned);
   }
 
   /// Las relaciones entre dos elementos de [itemIds]: las que tienen un extremo

@@ -693,6 +693,25 @@ void main() {
     });
   });
 
+  test('cuenta aparte lo que no tiene ningún valor de la categoría, sin lo '
+      'de la papelera ni lo que el filtro deja afuera (F28)', () async {
+    await seedTopics();
+    await source('con', ['roma']);
+    await source('sin', const []);
+    await source('borrado', const []);
+    await source('documento', const [], kind: SourceKind.document);
+    await trashItemRows(db, 'borrado');
+
+    final all = await repository.readTopicInput(tema);
+    final pages = await repository.readTopicInput(
+      tema,
+      filter: const LibraryQuery(sourceKinds: {SourceKind.webPage}),
+    );
+
+    expect(all.unassignedItemIds.toSet(), {'sin', 'documento'});
+    expect(pages.unassignedItemIds, ['sin']);
+  });
+
   group('los vínculos (F28)', () {
     test('trae los elementos vinculados aunque no tengan ningún tema, con '
         'sus vínculos, y cuenta los que no tienen ninguno', () async {

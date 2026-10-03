@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/item_rows.dart';
@@ -141,6 +142,27 @@ void main() {
       expect(created.single.fromItemId, 's3');
       expect(created.single.toItemId, 's4');
       expect(created.single.kind, RelationKind.relatedTo);
+    });
+
+    testWidgets('avisa «Vinculado» y «Ver en el Mapa» lleva a la vista '
+        '«Vínculos» con el foco en lo vinculado (F28)', (tester) async {
+      await seed();
+      await pump(tester);
+
+      await tapAndSettle(tester, addRelation);
+      await tapAndSettle(tester, inDialog('Fuente s3'));
+      await tapAndSettle(tester, inDialog('Fuente s4'));
+      await tapAndSettle(tester, find.text(es.pickRelationConfirm));
+
+      expect(find.text(es.relationLinked), findsOneWidget);
+      await tapAndSettle(tester, find.text(es.relationSeeInMap));
+
+      final s3 = find.descendant(
+        of: find.byKey(const ValueKey('map-links-node-s3')),
+        matching: find.byType(MapItemBox),
+      );
+      expect(tester.widget<MapItemBox>(s3).highlighted, isTrue);
+      expect(find.byKey(const ValueKey('map-links-node-s4')), findsOneWidget);
     });
 
     testWidgets('está a mano también con los elementos de un tema a la vista', (

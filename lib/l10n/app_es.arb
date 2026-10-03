@@ -2607,6 +2607,14 @@
   "@graphPickSecondItemTitle": {
     "description": "Título del segundo selector al agregar un vínculo manual desde el grafo."
   },
+  "relationLinked": "Vinculado",
+  "@relationLinked": {
+    "description": "Aviso después de vincular dos elementos (F28)."
+  },
+  "relationSeeInMap": "Ver en el Mapa",
+  "@relationSeeInMap": {
+    "description": "Botón del aviso de un vínculo recién creado: abre la vista «Vínculos» del Mapa con el foco en él (F28)."
+  },
   "graphAiSuggestTooltip": "Sugerir vínculos con IA",
   "@graphAiSuggestTooltip": {
     "description": "Tooltip del botón flotante que pide sugerencias de vínculos al modelo de lenguaje."
@@ -3276,6 +3284,35 @@
   "mapEmptyMessage": "Cuando esta categoría tenga valores, el mapa va a mostrar cómo se relacionan.",
   "@mapEmptyMessage": {
     "description": "Mensaje del estado vacío del mapa."
+  },
+  "mapUnassignedTags": "{count, plural, =1{1 elemento sin etiquetas} other{{count} elementos sin etiquetas}}",
+  "@mapUnassignedTags": {
+    "description": "Aviso del Mapa mirando las etiquetas: cuántos elementos no tienen ninguna y por eso no aparecen en el tablero, el esquema ni el grafo (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapUnassignedCategory": "{count, plural, =1{1 elemento sin «{name}»} other{{count} elementos sin «{name}»}}",
+  "@mapUnassignedCategory": {
+    "description": "Aviso del Mapa mirando una categoría: cuántos elementos no tienen ningún valor de ella (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mapOrganizeWithAi": "Organizar con IA",
+  "@mapOrganizeWithAi": {
+    "description": "Botón del aviso del Mapa que le pide a la IA que organice lo que quedó sin ubicar (F28)."
+  },
+  "mapSeeLinksAction": "Ver los vínculos",
+  "@mapSeeLinksAction": {
+    "description": "Botón del esquema y el grafo del Mapa sin nada que dibujar: pasa a la vista «Vínculos», que no necesita temas (F28)."
   },
   "mapLoadError": "No se pudo armar el mapa.",
   "@mapLoadError": {
@@ -5307,6 +5344,33 @@
   "aiOrganizeNowNeedsModel": "Falta bajar un modelo: lo organiza apenas esté",
   "@aiOrganizeNowNeedsModel": {
     "description": "Aviso después de pedirle a la IA que organice un elemento, si falta bajar un modelo (F27)."
+  },
+  "aiOrganizeManyQueued": "La IA organiza {count, plural, =1{1 elemento} other{{count} elementos}} en un rato",
+  "@aiOrganizeManyQueued": {
+    "description": "Aviso después de pedirle a la IA que organice varios elementos a la vez —desde el Mapa—, con la IA lista (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiOrganizeManyPaused": "La IA está en pausa: organiza {count, plural, =1{1 elemento} other{{count} elementos}} cuando la reanudes",
+  "@aiOrganizeManyPaused": {
+    "description": "Aviso después de pedirle a la IA que organice varios elementos a la vez, con la IA en pausa (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiOrganizeManyNeedsModel": "Falta bajar un modelo: la IA organiza {count, plural, =1{1 elemento} other{{count} elementos}} apenas esté",
+  "@aiOrganizeManyNeedsModel": {
+    "description": "Aviso después de pedirle a la IA que organice varios elementos a la vez, si falta bajar un modelo (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "aiItemLineUndoneTitle": "Deshiciste lo que hizo la IA",
   "@aiItemLineUndoneTitle": {

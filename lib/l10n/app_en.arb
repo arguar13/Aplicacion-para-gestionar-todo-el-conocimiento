@@ -3241,6 +3241,14 @@
   "@graphPickSecondItemTitle": {
     "description": "Título del segundo selector al agregar un vínculo manual desde el grafo."
   },
+  "relationLinked": "Linked",
+  "@relationLinked": {
+    "description": "Notice after linking two items (F28)."
+  },
+  "relationSeeInMap": "See in the Map",
+  "@relationSeeInMap": {
+    "description": "Button of the notice of a newly created link: opens the Map's Links view focused on it (F28)."
+  },
   "graphAiSuggestTooltip": "Suggest links with AI",
   "@graphAiSuggestTooltip": {
     "description": "Tooltip del botón flotante que pide sugerencias de vínculos al modelo de lenguaje."
@@ -3871,6 +3879,35 @@
   "mapEmptyMessage": "Once this category has values, the map will show how they relate.",
   "@mapEmptyMessage": {
     "description": "Mensaje del estado vacío del mapa."
+  },
+  "mapUnassignedTags": "{count, plural, =1{1 item without tags} other{{count} items without tags}}",
+  "@mapUnassignedTags": {
+    "description": "Map notice while looking at tags: how many items have none and so do not appear on the board, the outline or the graph (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapUnassignedCategory": "{count, plural, =1{1 item without “{name}”} other{{count} items without “{name}”}}",
+  "@mapUnassignedCategory": {
+    "description": "Map notice while looking at a category: how many items have no value of it (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mapOrganizeWithAi": "Organize with AI",
+  "@mapOrganizeWithAi": {
+    "description": "Button of the Map notice that asks the AI to organize what was left unplaced (F28)."
+  },
+  "mapSeeLinksAction": "See the links",
+  "@mapSeeLinksAction": {
+    "description": "Button of the Map's outline and graph with nothing to draw: switches to the Links view, which needs no topics (F28)."
   },
   "mapLoadError": "The map could not be built.",
   "@mapLoadError": {
@@ -6325,6 +6362,33 @@
   "aiOrganizeNowNeedsModel": "A model is still missing: it will organize this as soon as it is downloaded",
   "@aiOrganizeNowNeedsModel": {
     "description": "Aviso después de pedirle a la IA que organice un elemento, si falta bajar un modelo (F27)."
+  },
+  "aiOrganizeManyQueued": "The AI will organize {count, plural, =1{1 item} other{{count} items}} shortly",
+  "@aiOrganizeManyQueued": {
+    "description": "Notice after asking the AI to organize several items at once —from the Map—, with the AI ready (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiOrganizeManyPaused": "The AI is paused: it will organize {count, plural, =1{1 item} other{{count} items}} when you resume it",
+  "@aiOrganizeManyPaused": {
+    "description": "Notice after asking the AI to organize several items at once, with the AI paused (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiOrganizeManyNeedsModel": "A model is still missing: the AI will organize {count, plural, =1{1 item} other{{count} items}} as soon as it is downloaded",
+  "@aiOrganizeManyNeedsModel": {
+    "description": "Notice after asking the AI to organize several items at once, if a model is missing (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "aiItemLineUndoneTitle": "You undid what the AI did",
   "@aiItemLineUndoneTitle": {

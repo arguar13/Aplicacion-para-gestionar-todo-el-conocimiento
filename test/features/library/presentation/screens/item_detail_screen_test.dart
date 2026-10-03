@@ -2011,6 +2011,8 @@ void main() {
         find.text(es.relationKindRelatedTo('un artículo sobre el tema')),
         findsOneWidget,
       );
+      // F28: vincular avisa, en vez de pasar sin que se note.
+      expect(find.text(es.relationLinked), findsOneWidget);
     });
 
     testWidgets('se puede elegir otro tipo de vínculo, con una nota', (

@@ -461,6 +461,23 @@ void main() {
     },
   );
 
+  test('pedir varios a la vez los organiza a todos, una vez cada uno, aunque '
+      'vengan repetidos o ya se hayan deshecho (F28)', () async {
+    await vault.source('a', title: 'A', content: 'Texto.');
+    await vault.source('b', title: 'B', content: 'Texto.');
+    final ai = queue();
+    await ai.start();
+    for (final id in ['a', 'b']) {
+      await vault.runs.undoRun((await runsOf(id)).single);
+    }
+    relations.organized.clear();
+
+    ai.organizeAllNow(['a', 'b', 'a']);
+    await ai.settled;
+
+    expect(relations.organized, unorderedEquals(['a', 'b']));
+  });
+
   test(
     'un paso que falla se registra y no corta la pasada ni la cola',
     () async {

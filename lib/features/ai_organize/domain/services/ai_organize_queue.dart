@@ -209,9 +209,18 @@ class AiOrganizeQueue {
   /// se haya deshecho o sea de la biblioteca que ya existía y el teléfono no
   /// esté cargando: lo pidió la persona. Sigue respetando la pausa y los
   /// modelos.
-  void organizeNow(String itemId) {
-    _skip.remove(itemId);
-    if (!_requested.contains(itemId)) _requested.add(itemId);
+  void organizeNow(String itemId) => organizeAllNow([itemId]);
+
+  /// [organizeNow] para varios a la vez, en ese orden: lo que pide el Mapa
+  /// para lo que quedó sin tema (F28). Pueden ser miles: lo ya pedido se
+  /// mira en un conjunto, no recorriendo la cola por cada uno, y la cola se
+  /// despierta una sola vez.
+  void organizeAllNow(Iterable<String> itemIds) {
+    final pending = _requested.toSet();
+    for (final itemId in itemIds) {
+      _skip.remove(itemId);
+      if (pending.add(itemId)) _requested.add(itemId);
+    }
     unawaited(wake());
   }
 

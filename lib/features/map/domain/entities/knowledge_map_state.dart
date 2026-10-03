@@ -58,12 +58,17 @@ class KnowledgeMapSnapshot {
     required this.detection,
     required this.timings,
     required this.sequence,
+    this.unassignedItemIds = const [],
   });
 
   final MapRequest request;
   final TopicGraph graph;
   final CommunityDetection detection;
   final MapTimings timings;
+
+  /// Los elementos que pasan el filtro sin ningún valor de lo que se mira:
+  /// lo que el grafo no puede ubicar y el Mapa ofrece organizar (F28).
+  final List<String> unassignedItemIds;
 
   /// Cuántos cálculos había hecho el motor al terminar este: dos resultados
   /// iguales de cálculos distintos se distinguen por él.

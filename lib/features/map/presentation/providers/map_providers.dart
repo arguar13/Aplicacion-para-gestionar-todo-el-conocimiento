@@ -59,6 +59,16 @@ final mapDashboardProvider = FutureProvider.autoDispose
           .readDashboard(filter: request.filter);
     });
 
+/// Un pedido de mirar un elemento en la vista «Vínculos» del Mapa (F28): lo
+/// deja «Ver en el Mapa» y lo toma el Mapa —abierto o la próxima vez que se
+/// arme—, que lo vuelve a `null` al atenderlo.
+///
+/// Un pedido y no un parámetro de la ruta: el Mapa es un destino del shell que
+/// sigue vivo entre pestañas, y pedir dos veces el mismo elemento —después de
+/// haber cambiado de vista en el medio— tiene que volver a enfocarlo; una ruta
+/// igual a la anterior no avisaría nada.
+final mapLinksFocusRequestProvider = StateProvider<String?>((ref) => null);
+
 /// Qué se pide a la vista «Vínculos»: sobre qué elementos —el filtro del
 /// mapa— y en cuál poner el foco, si en alguno.
 typedef MapLinksRequest = ({LibraryQuery filter, String? focusId});

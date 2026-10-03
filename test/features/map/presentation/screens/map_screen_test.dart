@@ -8,16 +8,19 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_board_view.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_schema_view.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/relations/presentation/screens/tension_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_ai_organize_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
@@ -106,10 +109,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('sin temas, dice que todavía no hay', (tester) async {
+  testWidgets('sin temas, el tablero no se tapa: cuenta lo que hay, y el '
+      'esquema dice que todavía no hay temas (F28)', (tester) async {
     await pump(tester);
 
     expect(find.byType(MapScreen), findsOneWidget);
+    expect(find.byType(MapBoardView), findsOneWidget);
+    expect(find.text(es.mapTopicCount(0)), findsOneWidget);
+
+    await tester.tap(find.text(es.mapViewSchema));
+    await tester.pumpAndSettle();
+
     expect(find.text(es.mapEmptyTitle), findsOneWidget);
   });
 
@@ -317,6 +327,86 @@ void main() {
       expect(harness.fileSaver.savedFileName, 'mapa-vinculos-tema.svg');
       final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
       expect(text, contains('Fuente s1'));
+    });
+  });
+
+  group('sin vacíos mudos (F28)', () {
+    testWidgets('sin etiquetas, el tablero sigue ahí, dice cuántos elementos '
+        'quedaron sin ubicar y ofrece organizarlos con la IA', (tester) async {
+      final queue = FakeAiOrganizeQueue();
+      harness = await LibraryHarness.create(
+        extraOverrides: [aiOrganizeQueueProvider.overrideWithValue(queue)],
+      );
+      db = harness.database;
+      await item('a', const []);
+      await item('b', const []);
+      await pump(tester);
+
+      expect(find.byType(MapBoardView), findsOneWidget);
+      expect(find.widgetWithText(Chip, es.mapItemCount(2)), findsOneWidget);
+      expect(find.text(es.mapUnassignedTags(2)), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('map-organize-with-ai')));
+      await tester.pumpAndSettle();
+
+      expect(queue.organizeNowCalls.toSet(), {'a', 'b'});
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets('con todo ubicado, no hay aviso', (tester) async {
+      await seed();
+      await pump(tester);
+
+      expect(find.byKey(const ValueKey('map-unassigned')), findsNothing);
+    });
+
+    testWidgets('el esquema y el grafo sin temas lo dicen y llevan a los '
+        'vínculos, que se ven igual', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await relate('a', 'b');
+      await pump(tester);
+
+      for (final view in [es.mapViewSchema, es.mapViewGraph]) {
+        await tester.tap(find.text(view));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('map-no-topics')), findsOneWidget);
+      }
+
+      await tester.tap(find.text(es.mapSeeLinksAction));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('map-links-node-a')), findsOneWidget);
+    });
+
+    testWidgets('vincular desde el detalle avisa, y «Ver en el Mapa» abre los '
+        'vínculos con el foco en ese elemento', (tester) async {
+      await item('a', const []);
+      await item('b', const []);
+      await pump(tester);
+      harness.goTo(RoutePaths.itemDetail('a'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(es.detailAddRelation));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Fuente b'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.pickRelationConfirm));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.relationSeeInMap));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapScreen), findsOneWidget);
+      final a = find.descendant(
+        of: find.byKey(const ValueKey('map-links-node-a')),
+        matching: find.byType(MapItemBox),
+      );
+      expect(tester.widget<MapItemBox>(a).highlighted, isTrue);
     });
   });
 
