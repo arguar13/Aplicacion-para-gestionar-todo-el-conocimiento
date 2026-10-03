@@ -234,7 +234,7 @@ class _MapSchemaViewState extends ConsumerState<MapSchemaView> {
   Future<void> _fetch(SchemaRef node) async {
     final links = await ref
         .read(knowledgeMapRepositoryProvider)
-        .schemaLinks(node);
+        .schemaLinks(node, dimensionId: widget.snapshot.request.definitionId);
     if (!mounted || !_expanded.containsKey(node.key)) return;
     setState(() {
       _links[node.key] = links;

@@ -61,6 +61,7 @@ class FakeMapRepository implements KnowledgeMapRepository {
   @override
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
+    String? dimensionId,
     int limit = kSchemaFanOut,
   }) async => const [];
 
@@ -71,6 +72,7 @@ class FakeMapRepository implements KnowledgeMapRepository {
   @override
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
+    String? dimensionId,
     int limit = kMaxGraphItems,
   }) async => TopicItemsGraph.empty(valueId);
 

@@ -13,6 +13,8 @@ List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
   db.relations,
   db.knowledgeEntries,
   db.knowledgeNotes,
+  // Los temas (F28): renombrar uno cambia el mapa que los mira.
+  db.spaces,
 ];
 
 /// Lo que se suma cuando el mapa se calcula sobre lo que pasa un filtro: lo que
@@ -45,6 +47,17 @@ SELECT item.id AS id,
           FROM item_property_values ipv
           JOIN property_values pv ON pv.id = ipv.property_value_id
          WHERE ipv.item_id = item.id AND pv.definition_id = ?1) AS value_ids
+FROM item
+WHERE $kActiveItemSql
+''';
+
+/// Los elementos vivos con su tema —su espacio, o nulo—: lo mismo que
+/// [mapItemsSql] cuando el mapa mira los temas (F28). Un elemento está en un
+/// solo tema, así que no hay nada que juntar: es una columna del elemento.
+const mapSpaceItemsSql =
+    '''
+SELECT item.id AS id,
+       item.space_id AS space_id
 FROM item
 WHERE $kActiveItemSql
 ''';
@@ -174,6 +187,38 @@ WHERE $kActiveItemSql
     WHERE property_value_id IN (${valuesWithDescendantsSql(1)}))
 ORDER BY item.updated_at DESC, item.id
 LIMIT ?
+''';
+
+/// Las notas mapa vivas de un tema —un espacio— (F28), las tocadas más
+/// recientemente primero. Variables: `?1` el espacio; `?2` cuántas como
+/// mucho. Los elementos del tema se buscan por el índice de su espacio y su
+/// nota por la clave. `'map'` es `NoteKind.map.name`.
+const mapSpaceNotesSql =
+    '''
+SELECT item.id AS id,
+       item.title AS title
+FROM item
+CROSS JOIN note ON note.item_id = item.id
+WHERE item.space_id = ?1
+  AND note.note_kind = 'map'
+  AND $kActiveItemSql
+ORDER BY item.updated_at DESC, item.id
+LIMIT ?2
+''';
+
+/// Los elementos vivos de un tema —un espacio— (F28), los tocados más
+/// recientemente primero. Variables: `?1` el espacio; `?2` cuántos como
+/// mucho. Los temas no tienen subtemas: no hay jerarquía que recorrer.
+const mapSpaceTopicItemsSql =
+    '''
+SELECT item.id AS id,
+       item.title AS title,
+       item.kind AS kind
+FROM item
+WHERE item.space_id = ?1
+  AND $kActiveItemSql
+ORDER BY item.updated_at DESC, item.id
+LIMIT ?2
 ''';
 
 /// Los vínculos que salen de un grupo de elementos: se buscan por el índice del

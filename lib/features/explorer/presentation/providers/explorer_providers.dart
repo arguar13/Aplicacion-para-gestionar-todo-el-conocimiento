@@ -56,6 +56,15 @@ class ExplorerQueryNotifier extends StateNotifier<LibraryQuery> {
     );
   }
 
+  /// Deja SOLO el tema [spaceId] —lo que abren el Mapa y el Atlas desde un
+  /// tema (F28)—, con el mismo criterio que [focusOnValue].
+  void focusOnSpace(String spaceId) {
+    state = LibraryQuery(
+      processingStates: state.processingStates,
+      spaceId: spaceId,
+    );
+  }
+
   /// Suelta todos los filtros, también el tema: vive en el mismo panel, y un
   /// "Limpiar filtros" que dejara puesto uno de los que se ven ahí no estaría
   /// limpiando lo que promete. Lo procesado sigue siendo lo único que se ve:

@@ -3106,10 +3106,6 @@
   "@atlasSearchHint": {
     "description": "Texto de ayuda del campo de búsqueda del Atlas."
   },
-  "atlasCategoryTooltip": "Categoría del Atlas",
-  "@atlasCategoryTooltip": {
-    "description": "Tooltip del selector de la categoría que muestra el Atlas."
-  },
   "atlasCoverageTitle": "Cobertura",
   "@atlasCoverageTitle": {
     "description": "Encabezado de la leyenda de los estados de cobertura de una rama."
@@ -3265,9 +3261,17 @@
   "@mapTitle": {
     "description": "Título de la pantalla del mapa de conocimiento y de su destino de navegación."
   },
-  "mapCategoryTooltip": "Categoría del mapa",
-  "@mapCategoryTooltip": {
-    "description": "Tooltip del selector de categoría del mapa."
+  "topicDimensionTooltip": "Agrupar por",
+  "@topicDimensionTooltip": {
+    "description": "Ayuda del selector del Mapa y del Atlas que elige por qué agrupar: los temas, las etiquetas u otra categoría (F28)."
+  },
+  "topicDimensionSpaces": "Temas",
+  "@topicDimensionSpaces": {
+    "description": "Opción del selector del Mapa y del Atlas: agrupar por los temas, lo que se elige al guardar (F28)."
+  },
+  "topicDimensionTags": "Etiquetas",
+  "@topicDimensionTags": {
+    "description": "Opción del selector del Mapa y del Atlas: agrupar por las etiquetas (F28). Es el nombre con que la interfaz muestra la categoría de sistema de las etiquetas."
   },
   "mapViewSelectorLabel": "Vista del mapa",
   "@mapViewSelectorLabel": {
@@ -3288,6 +3292,15 @@
   "mapUnassignedTags": "{count, plural, =1{1 elemento sin etiquetas} other{{count} elementos sin etiquetas}}",
   "@mapUnassignedTags": {
     "description": "Aviso del Mapa mirando las etiquetas: cuántos elementos no tienen ninguna y por eso no aparecen en el tablero, el esquema ni el grafo (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapUnassignedSpaces": "{count, plural, =1{1 elemento sin tema} other{{count} elementos sin tema}}",
+  "@mapUnassignedSpaces": {
+    "description": "Aviso del Mapa mirando los temas: cuántos elementos no están en ningún tema (F28).",
     "placeholders": {
       "count": {
         "type": "int"

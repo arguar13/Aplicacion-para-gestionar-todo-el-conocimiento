@@ -181,6 +181,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.timeline,
         builder: (context, state) => TimelineScreen(
           initialValueId: state.uri.queryParameters['value'],
+          initialSpaceId: state.uri.queryParameters['space'],
           initialValueLabel: state.uri.queryParameters['label'],
         ),
       ),
@@ -268,9 +269,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.explorer,
                 name: RouteNames.explorer,
                 // Con `?value=` —lo que abre el Atlas— el Explorador se
-                // pone a mirar ese valor y sus subtemas.
+                // pone a mirar ese valor y sus subtemas; con `?space=`, ese
+                // tema (F28).
                 builder: (context, state) => ExplorerFocus(
                   valueId: state.uri.queryParameters['value'],
+                  spaceId: state.uri.queryParameters['space'],
                   child: const ExplorerScreen(),
                 ),
               ),

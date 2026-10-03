@@ -27,6 +27,11 @@ abstract final class RoutePaths {
   static String explorerFor(String valueId) =>
       '$explorer?value=${Uri.encodeQueryComponent(valueId)}';
 
+  /// El Explorador parado en el tema [spaceId] —un espacio—: lo que el Mapa
+  /// y el Atlas abren desde un tema (F28).
+  static String explorerForSpace(String spaceId) =>
+      '$explorer?space=${Uri.encodeQueryComponent(spaceId)}';
+
   /// El Atlas: el índice dinámico de lo que se sabe y de lo que falta (F13).
   /// Un destino de navegación principal.
   static const atlas = '/atlas';
@@ -99,6 +104,16 @@ abstract final class RoutePaths {
   /// desde el eje temporal de una rama.
   static String timelineFor({required String valueId, required String label}) =>
       '$timeline?value=${Uri.encodeQueryComponent(valueId)}'
+      '&label=${Uri.encodeQueryComponent(label)}';
+
+  /// La línea de tiempo ya filtrada por el tema [spaceId] —un espacio—, con
+  /// su nombre [label] (F28): lo que el Atlas de los temas abre desde el eje
+  /// de una rama.
+  static String timelineForSpace({
+    required String spaceId,
+    required String label,
+  }) =>
+      '$timeline?space=${Uri.encodeQueryComponent(spaceId)}'
       '&label=${Uri.encodeQueryComponent(label)}';
 
   /// El Mapa de conocimiento (F14): el tablero, el esquema y el grafo de

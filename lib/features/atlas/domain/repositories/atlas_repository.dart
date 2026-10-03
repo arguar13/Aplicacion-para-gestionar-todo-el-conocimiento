@@ -12,7 +12,9 @@ abstract interface class AtlasRepository {
   /// cambia algo que lo afecta: asignar una propiedad, mover un valor en el
   /// vocabulario, crear o borrar un elemento.
   ///
-  /// Una categoría que no existe da un Atlas vacío.
+  /// Una categoría que no existe da un Atlas vacío. Con
+  /// `kSpacesDimensionId`, el Atlas de los temas —los espacios—: una rama del
+  /// primer nivel por tema, sin subtemas (F28).
   Stream<AtlasSnapshot> watchAtlas(String definitionId);
 
   /// El Atlas ahora, una sola vez: para lo que no necesita seguir cambios,

@@ -14,6 +14,9 @@ abstract interface class KnowledgeMapRepository {
   /// Lo que hace falta para armar el grafo de temas de la categoría
   /// [definitionId] sobre los elementos que pasan [filter].
   ///
+  /// Con `kSpacesDimensionId`, los temas son los espacios —lo que se elige al
+  /// guardar— (F28): planos, y uno por elemento.
+  ///
   /// Los elementos que cuentan son los VIVOS —lo que está en la papelera queda
   /// afuera, y con ello sus relaciones— y, si [filter] restringe algo, los que
   /// además cumple la consulta de la biblioteca: el mapa no tiene un motor de
@@ -37,8 +40,12 @@ abstract interface class KnowledgeMapRepository {
   /// ya sabe el grafo de temas: las notas mapa de un tema, o los elementos
   /// vinculados a un elemento, con el tipo de vínculo. Lo que está en la
   /// papelera queda afuera. Trae a lo sumo [limit].
+  ///
+  /// [dimensionId] es lo que mira el mapa: con `kSpacesDimensionId`, un tema
+  /// es un espacio y sus notas mapa son las que están en él (F28).
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
+    String? dimensionId,
     int limit = kSchemaFanOut,
   });
 
@@ -49,8 +56,12 @@ abstract interface class KnowledgeMapRepository {
   /// Los elementos de un tema y de sus subtemas con los vínculos entre ellos:
   /// lo que se dibuja al acercarse a un tema (F14, D5). A lo sumo [limit], los
   /// tocados más recientemente; lo que está en la papelera queda afuera.
+  ///
+  /// Con [dimensionId] `kSpacesDimensionId`, [valueId] es un espacio: sus
+  /// elementos, sin subtemas (F28).
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
+    String? dimensionId,
     int limit = kMaxGraphItems,
   });
 

@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_builder.dart'
@@ -34,6 +35,8 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     String definitionId, {
     LibraryQuery filter = const LibraryQuery(),
   }) async {
+    if (isSpacesDimension(definitionId)) return _readSpacesInput(filter);
+
     final definitions = _db.propertyDefinitions;
     final definition = await (_db.select(
       definitions,
@@ -46,6 +49,40 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
       definitionId: definitionId,
       definitionName: definition.name,
       values: await _readValues(definitionId),
+      items: items,
+      relations: await _readRelations({for (final item in items) item.id}),
+      unassignedItemIds: unassigned,
+    );
+  }
+
+  /// La entrada del mapa de los temas (F28): cada espacio es un tema sin
+  /// padre, y cada elemento tiene a lo sumo uno. El nombre lo pone quien lo
+  /// muestra: «Temas» no es una fila de la base.
+  Future<TopicGraphInput> _readSpacesInput(LibraryQuery filter) async {
+    final allowed = await _allowedItemIds(filter);
+    final spaces = await _db.select(_db.spaces).get();
+    final rows = await _db
+        .customSelect(mapSpaceItemsSql, readsFrom: mapTables(_db).toSet())
+        .get();
+    final items = <TopicItem>[];
+    final unassigned = <String>[];
+    for (final row in rows) {
+      final id = row.data['id'] as String;
+      if (allowed != null && !allowed.contains(id)) continue;
+      final spaceId = row.data['space_id'] as String?;
+      if (spaceId == null) {
+        unassigned.add(id);
+      } else {
+        items.add(TopicItem(id: id, valueIds: [spaceId]));
+      }
+    }
+    return TopicGraphInput(
+      definitionId: kSpacesDimensionId,
+      definitionName: '',
+      values: [
+        for (final space in spaces)
+          AtlasValueRow(id: space.id, label: space.name),
+      ],
       items: items,
       relations: await _readRelations({for (final item in items) item.id}),
       unassignedItemIds: unassigned,
@@ -108,13 +145,15 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   @override
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
+    String? dimensionId,
     int limit = kSchemaFanOut,
   }) async {
     switch (node.kind) {
       case SchemaNodeKind.topic:
+        final spaces = dimensionId != null && isSpacesDimension(dimensionId);
         final rows = await _db
             .customSelect(
-              mapTopicNotesSql,
+              spaces ? mapSpaceNotesSql : mapTopicNotesSql,
               variables: [
                 Variable.withString(node.id),
                 Variable.withInt(limit),
@@ -191,12 +230,14 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   @override
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
+    String? dimensionId,
     int limit = kMaxGraphItems,
   }) async {
+    final spaces = dimensionId != null && isSpacesDimension(dimensionId);
     // Uno de más, para saber si hay más de los que se dibujan.
     final rows = await _db
         .customSelect(
-          mapTopicItemsSql,
+          spaces ? mapSpaceTopicItemsSql : mapTopicItemsSql,
           variables: [
             Variable.withString(valueId),
             Variable.withInt(limit + 1),

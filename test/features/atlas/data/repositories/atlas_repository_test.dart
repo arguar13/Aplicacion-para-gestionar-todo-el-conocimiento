@@ -3,12 +3,14 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_repository_impl.dart';
@@ -424,6 +426,76 @@ void main() {
     expect(snapshot.definitionId, 'no-existe');
   });
 
+  group('los temas (F28)', () {
+    Future<void> space(String id, String name) => db
+        .into(db.spaces)
+        .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+
+    Future<void> moveTo(String itemId, String spaceId) =>
+        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
+            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+
+    Future<AtlasSnapshot> spacesAtlas() =>
+        repository.snapshot(kSpacesDimensionId);
+
+    test('cada tema es una rama del primer nivel, sin subtemas, con lo que '
+        'está en él contado como en una rama de etiquetas', () async {
+      await space('historia', 'Historia');
+      await space('arte', 'Arte');
+      await source('s1', const []);
+      await source('s2', const []);
+      await note('n1', NoteKind.living, const []);
+      await source('suelto', const []);
+      for (final id in ['s1', 's2', 'n1']) {
+        await moveTo(id, 'historia');
+      }
+
+      final snapshot = await spacesAtlas();
+
+      expect([for (final n in snapshot.nodes) n.label], ['Arte', 'Historia']);
+      expect(snapshot.nodes.every((n) => n.depth == 0), isTrue);
+      final historia = snapshot.nodeOf('historia')!;
+      expect(historia.sourceCount, 2);
+      expect(historia.growingLivingCount, 1);
+      expect(historia.hasChildren, isFalse);
+      expect(snapshot.nodeOf('arte')!.coverage, AtlasCoverage.empty);
+    });
+
+    test('las notas mapa de un tema son las que están en él', () async {
+      await space('historia', 'Historia');
+      await note('m1', NoteKind.map, const []);
+      await moveTo('m1', 'historia');
+
+      final snapshot = await spacesAtlas();
+
+      expect(
+        [for (final n in snapshot.nodeOf('historia')!.mapNotes) n.id],
+        ['m1'],
+      );
+    });
+
+    test('lo que está en la papelera no cuenta', () async {
+      await space('historia', 'Historia');
+      await source('s1', const []);
+      await moveTo('s1', 'historia');
+      await trashItemRows(db, 's1');
+
+      final snapshot = await spacesAtlas();
+
+      expect(snapshot.nodeOf('historia')!.itemCount, 0);
+    });
+
+    test('crear un tema descarta la caché de los temas', () async {
+      await spacesAtlas();
+      await space('historia', 'Historia');
+
+      final snapshot = await spacesAtlas();
+
+      expect(snapshot.nodes, hasLength(1));
+      expect(repository.computations, 2);
+    });
+  });
+
   group('caché', () {
     test('sin ninguna escritura en medio no se recalcula', () async {
       await seedTree();
@@ -489,9 +561,14 @@ void main() {
       await atlas();
 
       await db
-          .into(db.spaces)
+          .into(db.conversations)
           .insert(
-            SpacesCompanion.insert(id: 'sp1', name: 'Espacio', createdAt: now),
+            ConversationsCompanion.insert(
+              id: 'c1',
+              mode: ChatConversationMode.vault,
+              createdAt: now,
+              updatedAt: now,
+            ),
           );
 
       await atlas();
@@ -585,6 +662,25 @@ void main() {
               line.startsWith('SEARCH note') && line.contains('(item_id=?)'),
         ),
         hasLength(1),
+        reason: reason,
+      );
+    });
+
+    test('el Atlas de los temas también recorre los elementos UNA vez: el '
+        'tema es una columna del elemento (F28)', () async {
+      final plan = await planOf(atlasSpaceItemsSql, [
+        Variable.withString(kFechaDelHechoCategoryName),
+      ]);
+      final reason = plan.join('\n');
+
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN item\b').hasMatch(line)),
+        hasLength(1),
+        reason: reason,
+      );
+      expect(
+        plan.where((line) => RegExp(r'\bSCAN ipv\b').hasMatch(line)),
+        isEmpty,
         reason: reason,
       );
     });

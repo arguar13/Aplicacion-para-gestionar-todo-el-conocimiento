@@ -326,7 +326,10 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
       case GraphLevel.items:
         final items = await ref
             .read(knowledgeMapRepositoryProvider)
-            .readTopicItems(_topicId!);
+            .readTopicItems(
+              _topicId!,
+              dimensionId: widget.snapshot.request.definitionId,
+            );
         scene = sceneOfItems(items);
     }
     if (!mounted || generation != _generation) return;

@@ -55,8 +55,9 @@ class StructuredMapRepository implements KnowledgeMapRepository {
   @override
   Future<List<SchemaLink>> schemaLinks(
     SchemaRef node, {
+    String? dimensionId,
     int limit = kSchemaFanOut,
-  }) => _real.schemaLinks(node, limit: limit);
+  }) => _real.schemaLinks(node, dimensionId: dimensionId, limit: limit);
 
   @override
   Future<List<SchemaLink>> readMapNotes({int limit = kMaxMapNotes}) =>
@@ -65,8 +66,9 @@ class StructuredMapRepository implements KnowledgeMapRepository {
   @override
   Future<TopicItemsGraph> readTopicItems(
     String valueId, {
+    String? dimensionId,
     int limit = kMaxGraphItems,
-  }) => _real.readTopicItems(valueId, limit: limit);
+  }) => _real.readTopicItems(valueId, dimensionId: dimensionId, limit: limit);
 
   @override
   Future<LinkGraph> readLinkGraph({

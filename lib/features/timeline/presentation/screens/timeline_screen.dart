@@ -23,6 +23,7 @@ const _searchDelay = Duration(milliseconds: 300);
 class TimelineScreen extends ConsumerStatefulWidget {
   const TimelineScreen({
     this.initialValueId,
+    this.initialSpaceId,
     this.initialValueLabel,
     super.key,
   });
@@ -31,7 +32,11 @@ class TimelineScreen extends ConsumerStatefulWidget {
   /// propiedad y sus subtemas —desde el eje temporal de una rama del Atlas—.
   final String? initialValueId;
 
-  /// El nombre de ese valor, para rotular el filtro.
+  /// Si viene, ya filtrada por este tema —desde una rama del Atlas de los
+  /// temas (F28)—.
+  final String? initialSpaceId;
+
+  /// El nombre de ese valor o tema, para rotular el filtro.
   final String? initialValueLabel;
 
   @override
@@ -43,22 +48,28 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   Timer? _searchTimer;
 
   /// Si el filtro inicial ya se aplicó. Sin filtro inicial, siempre.
-  late bool _filterApplied = widget.initialValueId == null;
+  late bool _filterApplied =
+      widget.initialValueId == null && widget.initialSpaceId == null;
 
   @override
   void initState() {
     super.initState();
+    if (_filterApplied) return;
     final valueId = widget.initialValueId;
-    if (valueId != null) {
-      // Un proveedor no se modifica mientras se arma el árbol: el filtro se
-      // pone apenas termina, y hasta entonces no se lee nada —sin filtro
-      // serían todos los hechos de la bóveda, para descartarlos enseguida—.
-      scheduleMicrotask(() {
-        if (!mounted) return;
-        ref.read(timelineFilterProvider.notifier).filterByValue(valueId);
-        setState(() => _filterApplied = true);
-      });
-    }
+    final spaceId = widget.initialSpaceId;
+    // Un proveedor no se modifica mientras se arma el árbol: el filtro se pone
+    // apenas termina, y hasta entonces no se lee nada —sin filtro serían todos
+    // los hechos de la bóveda, para descartarlos enseguida—.
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      final filter = ref.read(timelineFilterProvider.notifier);
+      if (valueId != null) {
+        filter.filterByValue(valueId);
+      } else if (spaceId != null) {
+        filter.filterBySpace(spaceId);
+      }
+      setState(() => _filterApplied = true);
+    });
   }
 
   @override
@@ -108,12 +119,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     // Los del panel; la búsqueda ya se ve en su propio campo, y el filtro por
     // una rama del Atlas, en su ficha.
     final panelFilters = filter.sourceKinds.length + filter.tagIds.length;
-    final branchLabel = filter.propertyValueIds.isEmpty
+    final branchLabel =
+        filter.propertyValueIds.isEmpty && filter.spaceId == null
         ? null
         : widget.initialValueLabel;
     final activeFilters =
         panelFilters +
         filter.propertyValueIds.length +
+        (filter.spaceId == null ? 0 : 1) +
         (filter.hasSearchText ? 1 : 0);
 
     return Scaffold(
@@ -167,7 +180,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   deleteButtonTooltipMessage: l10n.timelineBranchFilterTooltip,
                   onDeleted: () => ref
                       .read(timelineFilterProvider.notifier)
-                      .clearValueFilter(),
+                      .clearBranchFilter(),
                 ),
               ),
             ),

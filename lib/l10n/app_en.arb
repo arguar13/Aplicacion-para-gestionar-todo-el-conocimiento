@@ -3701,10 +3701,6 @@
   "@atlasSearchHint": {
     "description": "Texto de ayuda del campo de búsqueda del Atlas."
   },
-  "atlasCategoryTooltip": "Atlas category",
-  "@atlasCategoryTooltip": {
-    "description": "Tooltip del selector de la categoría que muestra el Atlas."
-  },
   "atlasCoverageTitle": "Coverage",
   "@atlasCoverageTitle": {
     "description": "Encabezado de la leyenda de los estados de cobertura de una rama."
@@ -3860,9 +3856,17 @@
   "@mapTitle": {
     "description": "Título de la pantalla del mapa de conocimiento y de su destino de navegación."
   },
-  "mapCategoryTooltip": "Map category",
-  "@mapCategoryTooltip": {
-    "description": "Tooltip del selector de categoría del mapa."
+  "topicDimensionTooltip": "Group by",
+  "@topicDimensionTooltip": {
+    "description": "Tooltip of the Map and Atlas selector that chooses what to group by: topics, tags or another category (F28)."
+  },
+  "topicDimensionSpaces": "Topics",
+  "@topicDimensionSpaces": {
+    "description": "Option of the Map and Atlas selector: group by topics, what you choose when saving (F28)."
+  },
+  "topicDimensionTags": "Tags",
+  "@topicDimensionTags": {
+    "description": "Option of the Map and Atlas selector: group by tags (F28). It is the name the interface uses for the system category of tags."
   },
   "mapViewSelectorLabel": "Map view",
   "@mapViewSelectorLabel": {
@@ -3883,6 +3887,15 @@
   "mapUnassignedTags": "{count, plural, =1{1 item without tags} other{{count} items without tags}}",
   "@mapUnassignedTags": {
     "description": "Map notice while looking at tags: how many items have none and so do not appear on the board, the outline or the graph (F28).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mapUnassignedSpaces": "{count, plural, =1{1 item without a topic} other{{count} items without a topic}}",
+  "@mapUnassignedSpaces": {
+    "description": "Map notice while looking at topics: how many items are in no topic (F28).",
     "placeholders": {
       "count": {
         "type": "int"

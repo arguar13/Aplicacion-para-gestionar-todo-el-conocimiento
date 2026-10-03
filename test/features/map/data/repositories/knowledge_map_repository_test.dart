@@ -3,11 +3,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -805,6 +807,78 @@ void main() {
     });
   });
 
+  group('los temas (F28)', () {
+    Future<void> space(String id, String name) => db
+        .into(db.spaces)
+        .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+
+    Future<void> moveTo(String itemId, String spaceId) =>
+        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
+            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+
+    test('cada espacio es un tema sin padre; lo que está en dos temas '
+        'vinculados los une, y lo que no está en ninguno se cuenta '
+        'aparte', () async {
+      await space('historia', 'Historia');
+      await space('arte', 'Arte');
+      await space('vacio', 'Vacío');
+      await source('a', const []);
+      await source('b', const []);
+      await source('suelto', const []);
+      await moveTo('a', 'historia');
+      await moveTo('b', 'arte');
+      await relate('a', 'b');
+
+      final input = await repository.readTopicInput(kSpacesDimensionId);
+      final g = buildTopicGraph(input);
+
+      expect([for (final n in g.nodes) n.label], ['Arte', 'Historia', 'Vacío']);
+      expect(g.nodes.every((n) => n.parentId == null), isTrue);
+      expect(g.nodes[g.indexOf('historia')!].itemCount, 1);
+      expect(edgeBetween(g, 'historia', 'arte')!.relations, 1);
+      expect(input.unassignedItemIds, ['suelto']);
+    });
+
+    test('el filtro de la biblioteca también rige', () async {
+      await space('historia', 'Historia');
+      await source('a', const []);
+      await source('d', const [], kind: SourceKind.document);
+      await moveTo('a', 'historia');
+      await moveTo('d', 'historia');
+
+      final input = await repository.readTopicInput(
+        kSpacesDimensionId,
+        filter: const LibraryQuery(sourceKinds: {SourceKind.document}),
+      );
+
+      expect([for (final i in input.items) i.id], ['d']);
+    });
+
+    test('los elementos de un tema son los que están en él, y sus notas mapa '
+        'las que están en él', () async {
+      await space('historia', 'Historia');
+      await source('a', const []);
+      await source('afuera', const []);
+      await note('m', const []);
+      await (db.update(db.knowledgeNotes)..where((n) => n.itemId.equals('m')))
+          .write(const KnowledgeNotesCompanion(noteKind: Value(NoteKind.map)));
+      await moveTo('a', 'historia');
+      await moveTo('m', 'historia');
+
+      final items = await repository.readTopicItems(
+        'historia',
+        dimensionId: kSpacesDimensionId,
+      );
+      final notes = await repository.schemaLinks(
+        const SchemaRef.topic('historia'),
+        dimensionId: kSpacesDimensionId,
+      );
+
+      expect({for (final i in items.items) i.id}, {'a', 'm'});
+      expect([for (final n in notes) n.target.id], ['m']);
+    });
+  });
+
   group('los avisos de cambio', () {
     /// Si dentro de un rato llegó un aviso, mientras se hace [write].
     Future<bool> notifies(
@@ -844,13 +918,31 @@ void main() {
     test('no avisan por lo que el mapa no lee', () async {
       final changed = await notifies(
         () => db
+            .into(db.conversations)
+            .insert(
+              ConversationsCompanion.insert(
+                id: 'c1',
+                mode: ChatConversationMode.vault,
+                createdAt: now,
+                updatedAt: now,
+              ),
+            ),
+      );
+
+      expect(changed, isFalse);
+    });
+
+    test('avisan al crear o renombrar un tema: el mapa también los mira '
+        '(F28)', () async {
+      final changed = await notifies(
+        () => db
             .into(db.spaces)
             .insert(
               SpacesCompanion.insert(id: 'sp', name: 'Espacio', createdAt: now),
             ),
       );
 
-      expect(changed, isFalse);
+      expect(changed, isTrue);
     });
 
     test('con un filtro, también avisan por lo que el filtro mira', () async {
@@ -1057,6 +1149,28 @@ void main() {
 
       expect(plan, hasLength(1), reason: reason);
       expect(plan.single, startsWith('SCAN relations'), reason: reason);
+    });
+
+    test('los elementos y las notas mapa de un tema se buscan por el índice '
+        'del espacio, sin recorrer la bóveda (F28)', () async {
+      for (final sql in [mapSpaceTopicItemsSql, mapSpaceNotesSql]) {
+        final plan = await planOf(sql, [
+          Variable.withString('historia'),
+          Variable.withInt(10),
+        ]);
+        final reason = plan.join('\n');
+
+        expect(
+          plan.where((line) => RegExp(r'\bSCAN item\b').hasMatch(line)),
+          isEmpty,
+          reason: reason,
+        );
+        expect(
+          plan.where((line) => line.contains('idx_knowledge_entries_space')),
+          hasLength(1),
+          reason: reason,
+        );
+      }
     });
 
     test('los vínculos de la vista «Vínculos» se recorren una vez, y cada '

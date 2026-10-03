@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
@@ -91,6 +92,7 @@ class AtlasRepositoryImpl implements AtlasRepository {
 
   Future<AtlasSnapshot> _compute(String definitionId) async {
     computations++;
+    if (isSpacesDimension(definitionId)) return _computeSpaces();
 
     final definitions = _db.propertyDefinitions;
     final definition = await (_db.select(
@@ -115,6 +117,30 @@ class AtlasRepositoryImpl implements AtlasRepository {
     );
   }
 
+  /// El Atlas de los temas (F28): cada espacio es una rama del primer nivel
+  /// —los temas no tienen subtemas— con lo que hay en él, contado igual que
+  /// una rama de etiquetas, con sus vacíos y sus notas mapa. El nombre lo pone
+  /// quien lo muestra: «Temas» no es una fila de la base.
+  Future<AtlasSnapshot> _computeSpaces() async {
+    final spaces = await _db.select(_db.spaces).get();
+    final values = [
+      for (final space in spaces)
+        AtlasValueRow(id: space.id, label: space.name),
+    ];
+    final items = await _readItemRows(atlasSpaceItemsSql, [
+      Variable.withString(kFechaDelHechoCategoryName),
+    ]);
+    final notes = await _readMapNoteRows(atlasSpaceMapNotesSql, const []);
+    return buildAtlas(
+      definitionId: kSpacesDimensionId,
+      definitionName: '',
+      values: values,
+      counts: aggregateBranches(values: values, items: items),
+      mapNotes: notes,
+      now: _clock(),
+    );
+  }
+
   Future<List<AtlasValueRow>> _readValues(String definitionId) async {
     final values = _db.propertyValues;
     final rows =
@@ -134,16 +160,20 @@ class AtlasRepositoryImpl implements AtlasRepository {
 
   /// Cada elemento vivo con lo que el Atlas necesita de él: una fila por
   /// elemento.
-  Future<List<AtlasItemFacts>> _readItems(String definitionId) async {
+  Future<List<AtlasItemFacts>> _readItems(String definitionId) =>
+      _readItemRows(atlasItemsSql, [
+        Variable.withString(definitionId),
+        Variable.withString(kFechaDelHechoCategoryName),
+      ]);
+
+  /// Los elementos de [sql] —[atlasItemsSql] o [atlasSpaceItemsSql]—, que
+  /// tienen la misma forma.
+  Future<List<AtlasItemFacts>> _readItemRows(
+    String sql,
+    List<Variable> variables,
+  ) async {
     final rows = await _db
-        .customSelect(
-          atlasItemsSql,
-          variables: [
-            Variable.withString(definitionId),
-            Variable.withString(kFechaDelHechoCategoryName),
-          ],
-          readsFrom: _tables.toSet(),
-        )
+        .customSelect(sql, variables: variables, readsFrom: _tables.toSet())
         .get();
     // Las columnas se toman de `data` y no con `read`: con 10.000 filas, la
     // conversión tipada de cada columna era una parte grande del tiempo.
@@ -171,13 +201,17 @@ class AtlasRepositoryImpl implements AtlasRepository {
 
   /// Las notas mapa vivas, con el valor de la categoría al que están
   /// asignadas: una fila por cada asignación.
-  Future<List<AtlasMapNoteRow>> _readMapNotes(String definitionId) async {
+  Future<List<AtlasMapNoteRow>> _readMapNotes(String definitionId) =>
+      _readMapNoteRows(atlasMapNotesSql, [Variable.withString(definitionId)]);
+
+  /// Las notas mapa de [sql] —[atlasMapNotesSql] o [atlasSpaceMapNotesSql]—,
+  /// que tienen la misma forma.
+  Future<List<AtlasMapNoteRow>> _readMapNoteRows(
+    String sql,
+    List<Variable> variables,
+  ) async {
     final rows = await _db
-        .customSelect(
-          atlasMapNotesSql,
-          variables: [Variable.withString(definitionId)],
-          readsFrom: _tables.toSet(),
-        )
+        .customSelect(sql, variables: variables, readsFrom: _tables.toSet())
         .get();
     return [
       for (final row in rows)

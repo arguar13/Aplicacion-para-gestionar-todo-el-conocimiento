@@ -7,8 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
-import 'package:sinapsis/core/domain/entities/property_definition.dart';
-import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
@@ -42,8 +42,9 @@ enum MapView {
   graph,
 }
 
-/// El mapa de conocimiento (F14): la bóveda vista por temas, en una categoría
-/// a la vez —«Tema» por defecto—.
+/// El mapa de conocimiento (F14): la bóveda vista por temas, en una dimensión
+/// a la vez (F28): los **temas** —lo que se elige al guardar— si hay alguno, o
+/// las **etiquetas**, u otra categoría de texto.
 ///
 /// La pantalla no calcula nada: pide el mapa al motor y lo muestra. Mientras el
 /// motor recalcula, sigue mostrando el mapa anterior; si el recálculo falla,
@@ -56,8 +57,10 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  /// La categoría elegida; `null` hasta que se elige una: se muestra «Tema».
-  String? _definitionId;
+  /// La dimensión que se mira. `null` hasta la primera vez que se sabe cuál
+  /// toca por defecto; desde ahí queda fija hasta que se elija otra, así un
+  /// tema que se crea mientras se mira no cambia el Mapa de golpe.
+  String? _dimensionId;
 
   MapView _view = MapView.board;
 
@@ -92,27 +95,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
   }
 
-  /// Las categorías donde el mapa tiene sentido —las de texto: la jerarquía
-  /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
-  (List<PropertyDefinition>, PropertyDefinition?) _categories(
-    List<PropertyDefinition> definitions,
-  ) {
-    final text = [
-      for (final d in definitions)
-        if (d.type == PropertyValueType.text) d,
-    ];
-    PropertyDefinition? selected;
-    for (final d in text) {
-      if (d.id == _definitionId) selected = d;
-    }
-    for (final d in text) {
-      if (selected == null && d.isTema) selected = d;
-    }
-    return (text, selected ?? (text.isEmpty ? null : text.first));
-  }
-
-  void _openTopic(String valueId) =>
-      context.go(RoutePaths.explorerFor(valueId));
+  /// Abre el material de un tema: el Explorador parado en ese espacio, o
+  /// filtrado por ese valor y sus subtemas.
+  void _openTopic(TopicDimension dimension, String valueId) => context.go(
+    dimension.isSpaces
+        ? RoutePaths.explorerForSpace(valueId)
+        : RoutePaths.explorerFor(valueId),
+  );
 
   void _openItem(String itemId) => context.push(RoutePaths.itemDetail(itemId));
 
@@ -120,9 +109,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Guarda el dibujo de la vista de ahora como [format] —`png` o `svg`—,
   /// donde el usuario elija.
-  Future<void> _export(String format, PropertyDefinition category) async {
+  Future<void> _export(String format, TopicDimension dimension) async {
     // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
     final l10n = AppLocalizations.of(context)!;
+    // «Vínculos» no depende de la dimensión: su archivo no la nombra.
+    final subject = _view == MapView.links
+        ? ''
+        : '-${_fileSlug(topicDimensionLabel(l10n, dimension))}';
     final messenger = ScaffoldMessenger.of(context);
     final export = ref.read(exportMapUseCaseProvider);
 
@@ -137,8 +130,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final result = await export(
       ExportMapParams(
-        fileName:
-            'mapa-${_viewSlug(_view)}-${_fileSlug(category.name)}.$format',
+        fileName: 'mapa-${_viewSlug(_view)}$subject.$format',
         bytes: bytes,
       ),
     );
@@ -163,7 +155,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     MapView.graph => 'grafo',
   };
 
-  /// El nombre de la categoría como parte de un nombre de archivo: en
+  /// El nombre de la dimensión como parte de un nombre de archivo: en
   /// minúsculas, sin acentos y con guiones.
   static String _fileSlug(String name) {
     final dashed = normalizeVocabularyLabel(
@@ -176,13 +168,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final definitions =
-        ref.watch(allPropertyDefinitionsProvider).valueOrNull ?? const [];
-    final (categories, selected) = _categories(definitions);
+    final definitions = ref.watch(allPropertyDefinitionsProvider).valueOrNull;
+    final spaces = ref.watch(allSpacesProvider).valueOrNull;
     // El filtro de la biblioteca sobre el que se calcula el mapa: sin
     // restricciones, abarca todo.
     final filter = ref.watch(mapFilterProvider);
     final activeFilters = activeMapFilters(filter);
+
+    // Hasta saber si hay temas no se sabe qué mirar por defecto: elegir antes
+    // sería calcular un mapa para tirarlo.
+    if (definitions == null || spaces == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.mapTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final (:options, :selected) = topicDimensionsOf(
+      definitions,
+      hasSpaces: spaces.isNotEmpty,
+      chosenId: _dimensionId,
+    );
+    // La de por defecto queda fija desde ahora: ver [_dimensionId]. Es un
+    // recuerdo, no algo que se dibuje, así que no hace falta `setState`.
+    _dimensionId ??= selected.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -198,15 +206,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             onPressed: () => showMapFilters(context),
           ),
-          // Solo el esquema y el grafo son un dibujo que se pueda guardar.
+          // El tablero no es un dibujo que se pueda guardar; las otras vistas,
+          // sí.
           PopupMenuButton<String>(
             key: const ValueKey('map-export'),
-            enabled: selected != null && _view != MapView.board,
+            enabled: _view != MapView.board,
             tooltip: _view == MapView.board
                 ? l10n.mapExportUnavailable
                 : l10n.mapExportAction,
             icon: const Icon(Icons.ios_share),
-            onSelected: (format) => unawaited(_export(format, selected!)),
+            onSelected: (format) => unawaited(_export(format, selected)),
             itemBuilder: (context) => [
               PopupMenuItem(
                 key: const ValueKey('map-export-png'),
@@ -220,58 +229,69 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ],
           ),
-          if (categories.length > 1)
-            PopupMenuButton<String>(
-              key: const ValueKey('map-category'),
-              tooltip: l10n.mapCategoryTooltip,
-              icon: const Icon(Icons.category_outlined),
-              initialValue: selected?.id,
-              onSelected: (id) => setState(() => _definitionId = id),
-              itemBuilder: (context) => [
-                for (final d in categories)
-                  PopupMenuItem(value: d.id, child: Text(d.name)),
-              ],
-            ),
         ],
       ),
-      body: selected == null
-          ? _Empty(l10n: l10n)
-          : Column(
-              children: [
-                if (MapView.values.length > 1) _viewSelector(l10n),
-                if (activeFilters > 0)
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                      child: InputChip(
-                        key: const ValueKey('map-filter-active'),
-                        avatar: const Icon(Icons.filter_list, size: 18),
-                        label: Text(l10n.mapFilterActive(activeFilters)),
-                        deleteButtonTooltipMessage: l10n.mapFilterClear,
-                        onDeleted: ref.read(mapFilterProvider.notifier).clear,
-                        onPressed: () => showMapFilters(context),
-                      ),
+      body: Column(
+        children: [
+          _viewSelector(l10n),
+          // La dimensión solo importa a las vistas de temas: «Vínculos» no
+          // agrupa.
+          if (_view != MapView.links || activeFilters > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (_view != MapView.links)
+                    TopicDimensionMenu(
+                      key: const ValueKey('map-category'),
+                      options: options,
+                      selected: selected,
+                      onSelected: (dimension) =>
+                          setState(() => _dimensionId = dimension.id),
                     ),
-                  ),
-                Expanded(
-                  child: _MapBody(
-                    request: MapRequest(selected.id, filter: filter),
-                    view: _view,
-                    focusId: _focusId,
-                    exportHandle: _exportHandle,
-                    unassignedLabel: (count) => selected.isTema
-                        ? l10n.mapUnassignedTags(count)
-                        : l10n.mapUnassignedCategory(count, selected.name),
-                    onOpenTopic: _openTopic,
-                    onOpenItem: _openItem,
-                    onOpenTension: _openTension,
-                    onShowLinks: () => setState(() => _view = MapView.links),
-                  ),
-                ),
-              ],
+                  if (activeFilters > 0)
+                    InputChip(
+                      key: const ValueKey('map-filter-active'),
+                      avatar: const Icon(Icons.filter_list, size: 18),
+                      label: Text(l10n.mapFilterActive(activeFilters)),
+                      deleteButtonTooltipMessage: l10n.mapFilterClear,
+                      onDeleted: ref.read(mapFilterProvider.notifier).clear,
+                      onPressed: () => showMapFilters(context),
+                    ),
+                ],
+              ),
             ),
+          Expanded(
+            child: _MapBody(
+              request: MapRequest(selected.id, filter: filter),
+              view: _view,
+              focusId: _focusId,
+              exportHandle: _exportHandle,
+              unassignedLabel: (count) =>
+                  _unassignedLabel(l10n, selected, count),
+              onOpenTopic: (valueId) => _openTopic(selected, valueId),
+              onOpenItem: _openItem,
+              onOpenTension: _openTension,
+              onShowLinks: () => setState(() => _view = MapView.links),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  /// Cómo se dice que [count] elementos quedaron afuera de [dimension].
+  static String _unassignedLabel(
+    AppLocalizations l10n,
+    TopicDimension dimension,
+    int count,
+  ) {
+    if (dimension.isSpaces) return l10n.mapUnassignedSpaces(count);
+    if (dimension.isTags) return l10n.mapUnassignedTags(count);
+    return l10n.mapUnassignedCategory(count, dimension.category!.name);
   }
 
   Widget _viewSelector(AppLocalizations l10n) {
@@ -463,21 +483,6 @@ class _MapBody extends ConsumerWidget {
         : const Duration(milliseconds: 180),
     child: KeyedSubtree(key: ValueKey(view), child: body),
   );
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty({required this.l10n});
-
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return EmptyStateView(
-      icon: Icons.hub_outlined,
-      title: l10n.mapEmptyTitle,
-      message: l10n.mapEmptyMessage,
-    );
-  }
 }
 
 /// Cuántos elementos quedaron sin ubicar en lo que se mira, con «Organizar con

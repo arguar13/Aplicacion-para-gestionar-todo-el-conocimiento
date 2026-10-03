@@ -5,17 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 
 /// Pone el Explorador a mirar un valor de una propiedad cuando se llega con
-/// `?value=` (F13): lo que abre el Atlas desde una rama o un vacío.
+/// `?value=` (F13), o un tema cuando se llega con `?space=` (F28): lo que
+/// abren el Atlas y el Mapa desde una rama, un vacío o un tema.
 ///
 /// Envuelve a la pantalla en vez de tocarla: el Explorador es un destino del
 /// shell que sigue vivo mientras se cambia de pestaña, así que llegar con otro
 /// valor NO crea una pantalla nueva sino que cambia lo que la de siempre
-/// mira —de ahí `didUpdateWidget`—. Sin valor, no hace nada.
+/// mira —de ahí `didUpdateWidget`—. Sin ninguno de los dos, no hace nada.
 class ExplorerFocus extends ConsumerStatefulWidget {
-  const ExplorerFocus({required this.valueId, required this.child, super.key});
+  const ExplorerFocus({
+    required this.valueId,
+    required this.child,
+    this.spaceId,
+    super.key,
+  });
 
   /// El valor por el que filtrar, o `null` si se llegó sin uno.
   final String? valueId;
+
+  /// El tema en el que pararse, o `null` si se llegó sin uno.
+  final String? spaceId;
 
   final Widget child;
 
@@ -24,8 +33,8 @@ class ExplorerFocus extends ConsumerStatefulWidget {
 }
 
 class _ExplorerFocusState extends ConsumerState<ExplorerFocus> {
-  /// Si el filtro de este valor ya se aplicó. Sin valor, siempre.
-  late bool _applied = widget.valueId == null;
+  /// Si el filtro pedido ya se aplicó. Sin ninguno, siempre.
+  late bool _applied = widget.valueId == null && widget.spaceId == null;
 
   @override
   void initState() {
@@ -33,23 +42,32 @@ class _ExplorerFocusState extends ConsumerState<ExplorerFocus> {
     // El filtro vive en un proveedor que se descarta si nadie lo mira, y hasta
     // que se aplique no hay pantalla que lo mire: este oyente lo mantiene.
     ref.listenManual(explorerQueryNotifierProvider, (_, _) {});
-    final valueId = widget.valueId;
-    if (valueId != null) _apply(valueId);
+    _applyIfAsked(null);
   }
 
   @override
   void didUpdateWidget(ExplorerFocus oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _applyIfAsked(oldWidget);
+  }
+
+  /// Aplica lo que se pidió si es nuevo respecto de [old].
+  void _applyIfAsked(ExplorerFocus? old) {
     final valueId = widget.valueId;
-    if (valueId != null && valueId != oldWidget.valueId) _apply(valueId);
+    final spaceId = widget.spaceId;
+    if (valueId != null && valueId != old?.valueId) {
+      _apply((explorer) => explorer.focusOnValue(valueId));
+    } else if (spaceId != null && spaceId != old?.spaceId) {
+      _apply((explorer) => explorer.focusOnSpace(spaceId));
+    }
   }
 
   /// Un proveedor no se modifica mientras se arma el árbol: se aplica apenas
   /// termina.
-  void _apply(String valueId) {
+  void _apply(void Function(ExplorerQueryNotifier explorer) focus) {
     scheduleMicrotask(() {
       if (!mounted) return;
-      ref.read(explorerQueryNotifierProvider.notifier).focusOnValue(valueId);
+      focus(ref.read(explorerQueryNotifierProvider.notifier));
       if (!_applied) setState(() => _applied = true);
     });
   }

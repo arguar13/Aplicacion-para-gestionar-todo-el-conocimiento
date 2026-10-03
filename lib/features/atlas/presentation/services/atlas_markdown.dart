@@ -15,13 +15,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 ///
 /// Sale en el idioma de la app [l10n], con [now] como fecha de generación. Es
 /// una foto: no se actualiza sola —para eso está la pantalla—.
+///
+/// [title] es cómo se llama lo que se mira —«Temas», «Etiquetas»— cuando no
+/// es el nombre de la categoría tal cual está en la base (F28).
 String atlasToMarkdown(
   AtlasSnapshot snapshot,
   AppLocalizations l10n, {
   required DateTime now,
+  String? title,
 }) {
+  final subject = title ?? snapshot.definitionName;
   final out = StringBuffer()
-    ..writeln('# ${l10n.atlasTitle} — ${_escape(snapshot.definitionName)}')
+    ..writeln('# ${l10n.atlasTitle} — ${_escape(subject)}')
     ..writeln()
     ..writeln(
       '_${l10n.atlasExportGenerated(_date(now), snapshot.nodes.length)}_',

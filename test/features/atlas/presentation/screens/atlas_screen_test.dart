@@ -16,7 +16,9 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/timeline/presentation/screens/timeline_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -557,6 +559,114 @@ void main() {
     expect(node('roma'), findsNothing);
   });
 
+  group('los temas (F28)', () {
+    Future<String> space(String name, List<String> itemIds) async {
+      final created =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace(name))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpaceMany(itemIds: itemIds, spaceId: created.id);
+      return created.id;
+    }
+
+    testWidgets('con temas, el Atlas arranca por ellos: una rama por tema, '
+        'con lo que hay en él', (tester) async {
+      await seed();
+      final antiguedad = await space('Antigüedad', ['s1', 's2', 'n-viva']);
+      await pump(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('atlas-category')),
+          matching: find.text(es.topicDimensionSpaces),
+        ),
+        findsOneWidget,
+      );
+      expect(node(antiguedad), findsOneWidget);
+      expect(node('roma'), findsNothing);
+      // Los temas no tienen subtemas: no hay nada que desplegar.
+      expect(
+        find.descendant(
+          of: node(antiguedad),
+          matching: find.byIcon(Icons.chevron_right),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('tocar un tema abre el Explorador parado en él', (
+      tester,
+    ) async {
+      await seed();
+      final antiguedad = await space('Antigüedad', ['s1']);
+      await pump(tester);
+
+      await tester.tap(node(antiguedad));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExplorerScreen), findsOneWidget);
+      final query = harness.container.read(explorerQueryNotifierProvider);
+      expect(query.spaceId, antiguedad);
+      expect(query.propertyValueIds, isEmpty);
+    });
+
+    testWidgets('el rango de un tema abre la línea de tiempo filtrada por él', (
+      tester,
+    ) async {
+      await seed();
+      await factDate('f1', -43, 's1');
+      await factDate('f2', 476, 'g1');
+      final antiguedad = await space('Antigüedad', ['s1']);
+      await pump(tester);
+
+      await tester.tap(find.byKey(ValueKey('atlas-axis-$antiguedad')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimelineScreen), findsOneWidget);
+      final chip = find.byKey(const ValueKey('timeline-branch-filter'));
+      expect(
+        find.descendant(of: chip, matching: find.text('Antigüedad')),
+        findsOne,
+      );
+      expect(find.text(es.timelineEventCount(1)), findsOneWidget);
+
+      await tester.tap(find.byTooltip(es.timelineBranchFilterTooltip));
+      await tester.pumpAndSettle();
+      expect(find.text(es.timelineEventCount(2)), findsOneWidget);
+    });
+
+    testWidgets('el árbol de etiquetas sigue a un toque', (tester) async {
+      await seed();
+      await space('Antigüedad', ['s1']);
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('atlas-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.topicDimensionTags).last);
+      await tester.pumpAndSettle();
+
+      expect(node('roma'), findsOneWidget);
+    });
+
+    testWidgets('se exporta con el nombre de los temas', (tester) async {
+      await seed();
+      await space('Antigüedad', ['s1']);
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('atlas-export')));
+      await tester.pumpAndSettle();
+
+      expect(harness.fileSaver.savedFileName, 'atlas-temas.md');
+      final markdown = utf8.decode(harness.fileSaver.savedBytes!);
+      expect(markdown, startsWith('# Atlas — Temas'));
+      expect(markdown, contains('**Antigüedad**'));
+    });
+  });
+
   group('exportar', () {
     testWidgets('el botón guarda el Atlas como Markdown y lo avisa', (
       tester,
@@ -567,10 +677,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('atlas-export')));
       await tester.pumpAndSettle();
 
-      expect(harness.fileSaver.savedFileName, 'atlas-tema.md');
+      expect(harness.fileSaver.savedFileName, 'atlas-etiquetas.md');
       final markdown = utf8.decode(harness.fileSaver.savedBytes!);
       // La jerarquía entera, plegada o no en la pantalla.
-      expect(markdown, startsWith('# Atlas — Tema'));
+      expect(markdown, startsWith('# Atlas — Etiquetas'));
       expect(markdown, contains('- **Roma** — En construcción · 3 fuentes'));
       expect(markdown, contains('  - **República** —'));
       expect(markdown, contains('    - **Gracos** —'));

@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
@@ -324,9 +325,89 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('map-export-svg')));
       await tester.pumpAndSettle();
 
-      expect(harness.fileSaver.savedFileName, 'mapa-vinculos-tema.svg');
+      expect(harness.fileSaver.savedFileName, 'mapa-vinculos.svg');
       final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
       expect(text, contains('Fuente s1'));
+    });
+  });
+
+  group('los temas (F28)', () {
+    Future<String> space(String name, List<String> itemIds) async {
+      final created =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace(name))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpaceMany(itemIds: itemIds, spaceId: created.id);
+      return created.id;
+    }
+
+    testWidgets('con temas, el Mapa se arma con ellos por defecto: poner un '
+        'tema al guardar ya lo ubica', (tester) async {
+      await seed();
+      await space('Antigüedad', ['s1', 's2']);
+      await space('Egipto antiguo', ['s4']);
+      await pump(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-category')),
+          matching: find.text(es.topicDimensionSpaces),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(es.mapTopicCount(2)), findsOneWidget);
+      // s3 no está en ningún tema.
+      expect(find.text(es.mapUnassignedSpaces(1)), findsOneWidget);
+    });
+
+    testWidgets('tocar un tema abre el Explorador parado en él', (
+      tester,
+    ) async {
+      await seed();
+      final antiguedad = await space('Antigüedad', ['s1', 's2']);
+      await pump(tester);
+
+      await tester.tap(find.byKey(ValueKey('map-densest-$antiguedad')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExplorerScreen), findsOneWidget);
+      expect(
+        harness.container.read(explorerQueryNotifierProvider).spaceId,
+        antiguedad,
+      );
+    });
+
+    testWidgets('se puede pasar a las etiquetas, y a las demás categorías', (
+      tester,
+    ) async {
+      await seed();
+      await space('Antigüedad', ['s1']);
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('map-category')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.topicDimensionTags).last);
+      await tester.pumpAndSettle();
+
+      // Roma, Grecia y Egipto: las etiquetas de la siembra.
+      expect(find.text(es.mapTopicCount(3)), findsOneWidget);
+    });
+
+    testWidgets('sin temas, arranca por las etiquetas', (tester) async {
+      await seed();
+      await pump(tester);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-category')),
+          matching: find.text(es.topicDimensionTags),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
@@ -483,7 +564,7 @@ void main() {
 
       await pickExport(tester, 'map-export-svg');
 
-      expect(harness.fileSaver.savedFileName, 'mapa-esquema-tema.svg');
+      expect(harness.fileSaver.savedFileName, 'mapa-esquema-etiquetas.svg');
       final text = String.fromCharCodes(harness.fileSaver.savedBytes!);
       expect(text, startsWith('<?xml'));
       expect(text, contains('Roma'));
@@ -498,7 +579,7 @@ void main() {
 
       await pickExport(tester, 'map-export-png');
 
-      expect(harness.fileSaver.savedFileName, 'mapa-grafo-tema.png');
+      expect(harness.fileSaver.savedFileName, 'mapa-grafo-etiquetas.png');
       expect(harness.fileSaver.savedBytes!.sublist(0, 8), [
         137,
         80,

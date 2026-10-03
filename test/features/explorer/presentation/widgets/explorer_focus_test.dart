@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 
 import '../../../../support/library_harness.dart';
 
@@ -76,5 +77,47 @@ void main() {
     await pump(tester, RoutePaths.explorerFor('a b&c'));
 
     expect(filteredValues(), {'a b&c'});
+  });
+
+  group('con un tema (F28)', () {
+    Future<String> space(String name) async =>
+        (await harness.container
+                .read(organizeRepositoryProvider)
+                .createSpace(name))
+            .getRight()
+            .toNullable()!
+            .id;
+
+    testWidgets('el Explorador se para en ese tema, y nada más', (
+      tester,
+    ) async {
+      final historia = await space('Historia');
+      await pump(tester, RoutePaths.explorer);
+      harness.container
+          .read(explorerQueryNotifierProvider.notifier)
+          .togglePropertyValueId('otro');
+      await tester.pumpAndSettle();
+
+      harness.goTo(RoutePaths.explorerForSpace(historia));
+      await tester.pumpAndSettle();
+
+      final query = harness.container.read(explorerQueryNotifierProvider);
+      expect(query.spaceId, historia);
+      expect(query.propertyValueIds, isEmpty);
+    });
+
+    testWidgets('llegar con otro tema cambia el que se mira', (tester) async {
+      final historia = await space('Historia');
+      final arte = await space('Arte');
+      await pump(tester, RoutePaths.explorerForSpace(historia));
+
+      harness.goTo(RoutePaths.explorerForSpace(arte));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(explorerQueryNotifierProvider).spaceId,
+        arte,
+      );
+    });
   });
 }

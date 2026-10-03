@@ -11,6 +11,8 @@ List<TableInfo<dynamic, dynamic>> atlasTables(AppDatabase db) => [
   db.itemPropertyValues,
   db.knowledgeEntries,
   db.knowledgeNotes,
+  // Los temas (F28): crear, renombrar o borrar uno cambia su Atlas.
+  db.spaces,
 ];
 
 /// El separador de los valores dentro de `value_ids`: el «separador de
@@ -35,7 +37,30 @@ const atlasValueIdSeparator = '\u001f';
 ///
 /// Lo que está en la papelera queda afuera (`kActiveItemSql`): sin fila, el
 /// elemento no cuenta en ninguna rama.
-const atlasItemsSql =
+final atlasItemsSql = _atlasItemsSql(
+  valueIds: '''
+(SELECT group_concat(ipv.property_value_id, char(31))
+          FROM item_property_values ipv
+          JOIN property_values pv ON pv.id = ipv.property_value_id
+         WHERE ipv.item_id = item.id AND pv.definition_id = ?1)''',
+  datesCategory: '?2',
+);
+
+/// Lo mismo que [atlasItemsSql] cuando el Atlas mira los temas (F28): el
+/// «valor» de cada elemento es su espacio, uno o ninguno. Variable: `?1` el
+/// nombre de la categoría de fechas del hecho.
+final atlasSpaceItemsSql = _atlasItemsSql(
+  valueIds: 'item.space_id',
+  datesCategory: '?1',
+);
+
+/// La forma común de [atlasItemsSql] y [atlasSpaceItemsSql]: [valueIds] es la
+/// expresión de los valores de cada elemento, y [datesCategory] la variable
+/// con el nombre de la categoría de fechas.
+String _atlasItemsSql({
+  required String valueIds,
+  required String datesCategory,
+}) =>
     '''
 WITH dated AS (
   SELECT ipv.item_id AS item_id,
@@ -45,7 +70,7 @@ WITH dated AS (
   JOIN item_property_values ipv ON ipv.property_value_id = dv.id
   WHERE dv.definition_id = (
           SELECT id FROM property_definitions
-          WHERE is_system = 1 AND name = ?2 COLLATE NOCASE)
+          WHERE is_system = 1 AND name = $datesCategory COLLATE NOCASE)
     AND dv.date_from_year IS NOT NULL
   GROUP BY ipv.item_id
 )
@@ -55,10 +80,7 @@ SELECT item.kind AS kind,
        note.maturity AS maturity,
        dated.year_from AS year_from,
        dated.year_to AS year_to,
-       (SELECT group_concat(ipv.property_value_id, char(31))
-          FROM item_property_values ipv
-          JOIN property_values pv ON pv.id = ipv.property_value_id
-         WHERE ipv.item_id = item.id AND pv.definition_id = ?1) AS value_ids
+       $valueIds AS value_ids
 FROM item
 LEFT JOIN note ON note.item_id = item.id
 LEFT JOIN dated ON dated.item_id = item.id
@@ -87,5 +109,21 @@ CROSS JOIN item_property_values ipv ON ipv.item_id = item.id
 CROSS JOIN property_values pv ON pv.id = ipv.property_value_id
 WHERE note.note_kind = 'map'
   AND pv.definition_id = ?1
+  AND $kActiveItemSql
+''';
+
+/// Las notas mapa vivas que están en un tema —un espacio— (F28): una fila por
+/// nota, con su espacio como «valor». Se parte de las notas mapa, como en
+/// [atlasMapNotesSql], y cada una va a su elemento por la clave. `'map'` es
+/// `NoteKind.map.name`.
+const atlasSpaceMapNotesSql =
+    '''
+SELECT item.id AS note_id,
+       item.title AS title,
+       item.space_id AS value_id
+FROM note
+CROSS JOIN item ON item.id = note.item_id
+WHERE note.note_kind = 'map'
+  AND item.space_id IS NOT NULL
   AND $kActiveItemSql
 ''';

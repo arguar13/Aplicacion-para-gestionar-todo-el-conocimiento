@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
-import 'package:sinapsis/core/domain/entities/property_definition.dart';
-import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/design/widgets/topic_dimension_menu.dart';
+import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -23,12 +23,16 @@ import 'package:sinapsis/features/organize/presentation/providers/organize_provi
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El Atlas (F13): el mapa de lo que sabés y de lo que te falta, generado solo
-/// desde las propiedades y las notas.
+/// desde lo que organizaste y las notas.
 ///
-/// Muestra UNA categoría a la vez —«Tema» por defecto—: su árbol de temas y
-/// subtemas con cuántas fuentes y notas hay debajo de cada rama, cuánto está
+/// Muestra UNA dimensión a la vez (F28): los **temas** —lo que se elige al
+/// guardar— si hay alguno, o el árbol de **etiquetas**, u otra categoría de
+/// texto. Cada rama dice cuántas fuentes y notas hay debajo, cuánto está
 /// trabajada, qué años cubre y qué notas mapa la abren; y arriba, los vacíos.
-/// Se actualiza solo: asignar una propiedad se refleja sin recargar.
+/// Los temas son planos —un elemento está en uno solo—, así que su Atlas es
+/// una lista de ramas sin subtemas; la jerarquía vive en las etiquetas, y se
+/// pasa de una a otra con el selector. Se actualiza solo: asignar algo se
+/// refleja sin recargar.
 class AtlasScreen extends ConsumerStatefulWidget {
   const AtlasScreen({super.key});
 
@@ -39,8 +43,9 @@ class AtlasScreen extends ConsumerStatefulWidget {
 class _AtlasScreenState extends ConsumerState<AtlasScreen> {
   final _searchController = TextEditingController();
 
-  /// La categoría elegida; `null` hasta que se elige una: se muestra «Tema».
-  String? _definitionId;
+  /// La dimensión que se mira. `null` hasta la primera vez que se sabe cuál
+  /// toca por defecto; desde ahí queda fija hasta que se elija otra.
+  String? _dimensionId;
 
   final Set<String> _expanded = {};
 
@@ -56,21 +61,30 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
     });
   }
 
-  void _openMaterial(String valueId) =>
-      context.go(RoutePaths.explorerFor(valueId));
+  /// Si lo que se mira son los temas: una rama es un espacio y no un valor.
+  bool get _spaces => _dimensionId != null && isSpacesDimension(_dimensionId!);
+
+  void _openMaterial(String valueId) => context.go(
+    _spaces
+        ? RoutePaths.explorerForSpace(valueId)
+        : RoutePaths.explorerFor(valueId),
+  );
 
   void _openTimeline(AtlasNode node) => context.push(
-    RoutePaths.timelineFor(valueId: node.valueId, label: node.label),
+    _spaces
+        ? RoutePaths.timelineForSpace(spaceId: node.valueId, label: node.label)
+        : RoutePaths.timelineFor(valueId: node.valueId, label: node.label),
   );
 
   void _openNote(String noteId) => context.push(RoutePaths.itemDetail(noteId));
 
   /// La bibliografía de la rama [node]: la propia rama y todo lo que cuelga
-  /// de ella (F15, D13).
+  /// de ella (F15, D13), o lo que está en el tema.
   Future<void> _exportBibliography(AtlasNode node) async {
-    final sources = await ref
-        .read(bibliographyRepositoryProvider)
-        .sourcesOfBranch(node.valueId);
+    final bibliography = ref.read(bibliographyRepositoryProvider);
+    final sources = _spaces
+        ? await bibliography.sourcesOfSpace(node.valueId)
+        : await bibliography.sourcesOfBranch(node.valueId);
     if (!mounted) return;
     await exportBibliography(
       context,
@@ -80,22 +94,23 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
     );
   }
 
-  /// Guarda el Atlas de [category] como un documento Markdown: una foto de
+  /// Guarda el Atlas de [dimension] como un documento Markdown: una foto de
   /// ahora, para tener el índice fuera de la app.
-  Future<void> _export(PropertyDefinition category) async {
+  Future<void> _export(TopicDimension dimension) async {
     // Antes de esperar nada: al terminar, esta pantalla puede haber cambiado.
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     final export = ref.read(exportAtlasUseCaseProvider);
     final now = ref.read(clockProvider)();
+    final label = topicDimensionLabel(l10n, dimension);
 
     final snapshot = await ref
         .read(atlasRepositoryProvider)
-        .snapshot(category.id);
+        .snapshot(dimension.id);
     final result = await export(
       ExportAtlasParams(
-        fileName: 'atlas-${_fileSlug(category.name)}.md',
-        markdown: atlasToMarkdown(snapshot, l10n, now: now),
+        fileName: 'atlas-${_fileSlug(label)}.md',
+        markdown: atlasToMarkdown(snapshot, l10n, now: now, title: label),
       ),
     );
     messenger
@@ -122,31 +137,27 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
     return slug.isEmpty ? 'atlas' : slug;
   }
 
-  /// Las categorías donde el Atlas tiene sentido —las de texto: la jerarquía
-  /// solo vive ahí— y la que se muestra: la elegida, o «Tema», o la primera.
-  (List<PropertyDefinition>, PropertyDefinition?) _categories(
-    List<PropertyDefinition> definitions,
-  ) {
-    final text = [
-      for (final d in definitions)
-        if (d.type == PropertyValueType.text) d,
-    ];
-    PropertyDefinition? selected;
-    for (final d in text) {
-      if (d.id == _definitionId) selected = d;
-    }
-    for (final d in text) {
-      if (selected == null && d.isTema) selected = d;
-    }
-    return (text, selected ?? (text.isEmpty ? null : text.first));
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final definitions =
-        ref.watch(allPropertyDefinitionsProvider).valueOrNull ?? const [];
-    final (categories, selected) = _categories(definitions);
+    final definitions = ref.watch(allPropertyDefinitionsProvider).valueOrNull;
+    final spaces = ref.watch(allSpacesProvider).valueOrNull;
+
+    // Hasta saber si hay temas no se sabe qué mirar por defecto.
+    if (definitions == null || spaces == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.atlasTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final (:options, :selected) = topicDimensionsOf(
+      definitions,
+      hasSpaces: spaces.isNotEmpty,
+      chosenId: _dimensionId,
+    );
+    // La de por defecto queda fija desde ahora: ver [_dimensionId]. Es un
+    // recuerdo, no algo que se dibuje, así que no hace falta `setState`.
+    _dimensionId ??= selected.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -156,56 +167,53 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
             key: const ValueKey('atlas-export'),
             tooltip: l10n.atlasExportAction,
             icon: const Icon(Icons.ios_share),
-            onPressed: selected == null ? null : () => _export(selected),
+            onPressed: () => _export(selected),
           ),
-          if (categories.length > 1)
-            PopupMenuButton<String>(
-              key: const ValueKey('atlas-category'),
-              tooltip: l10n.atlasCategoryTooltip,
-              icon: const Icon(Icons.category_outlined),
-              initialValue: selected?.id,
-              onSelected: (id) => setState(() {
-                _definitionId = id;
-                _expanded.clear();
-              }),
-              itemBuilder: (context) => [
-                for (final d in categories)
-                  PopupMenuItem(value: d.id, child: Text(d.name)),
-              ],
-            ),
         ],
       ),
-      body: selected == null
-          ? _Empty(l10n: l10n)
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: TextField(
-                    key: const ValueKey('atlas-search'),
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: l10n.atlasSearchHint,
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () =>
-                                  setState(_searchController.clear),
-                            ),
-                      isDense: true,
-                      border: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(28)),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(child: _atlas(selected.id, l10n)),
-              ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TopicDimensionMenu(
+                key: const ValueKey('atlas-category'),
+                options: options,
+                selected: selected,
+                onSelected: (dimension) => setState(() {
+                  _dimensionId = dimension.id;
+                  _expanded.clear();
+                }),
+              ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              key: const ValueKey('atlas-search'),
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: l10n.atlasSearchHint,
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(_searchController.clear),
+                      ),
+                isDense: true,
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(28)),
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: _atlas(selected.id, l10n)),
+        ],
+      ),
     );
   }
 
