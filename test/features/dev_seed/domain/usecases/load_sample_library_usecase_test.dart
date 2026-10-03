@@ -11,6 +11,7 @@ import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/dev_seed/domain/entities/sample_library_progress.dart';
 import 'package:sinapsis/features/dev_seed/domain/entities/sample_resource.dart';
 import 'package:sinapsis/features/dev_seed/domain/sample_library.dart';
+import 'package:sinapsis/features/dev_seed/domain/services/sample_file_downloader.dart';
 import 'package:sinapsis/features/dev_seed/domain/usecases/load_sample_library_usecase.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 
@@ -87,6 +88,7 @@ void main() {
     List<SampleResource> resources, {
     int batchSize = 10,
     int parallelDownloads = 3,
+    Duration sameHostGap = Duration.zero,
   }) => LoadSampleLibraryUseCase(
     resources: resources,
     ledger: ledger,
@@ -98,6 +100,7 @@ void main() {
     clock: () => now,
     batchSize: batchSize,
     parallelDownloads: parallelDownloads,
+    sameHostGap: sameHostGap,
   );
 
   group('cada tipo por su camino', () {
@@ -307,6 +310,43 @@ void main() {
     },
   );
 
+  group('de a un archivo por servidor', () {
+    // Una bajada que tarda: si dos del mismo servidor se pisaran, se vería.
+    late _SlowDownloader slow;
+
+    setUp(() {
+      slow = _SlowDownloader();
+      downloader = slow;
+    });
+
+    test('dos archivos del mismo servidor nunca se bajan a la vez', () async {
+      // `_pdf` y `_audio` vienen los dos de ejemplo.org: así se pidieron
+      // tres a la vez a Wikimedia y respondió «429, demasiados pedidos».
+      final report = await build([_pdf, _audio])(
+        cancellation: CancellationSignal(),
+      );
+
+      expect(report.loaded, 2);
+      expect(slow.maxAtOnce['ejemplo.org'], 1);
+    });
+
+    test('los de servidores distintos sí van a la vez', () async {
+      const other = SampleFile(
+        id: 'audio-otro',
+        title: 'Otro audio',
+        why: 'De otro servidor.',
+        kind: SampleFileKind.audio,
+        url: 'https://archivo.org/otro.mp3',
+        fileName: 'otro.mp3',
+        approxBytes: 3000,
+      );
+
+      await build([_pdf, other])(cancellation: CancellationSignal());
+
+      expect(slow.maxOverall, 2);
+    });
+  });
+
   group('la lista real', () {
     test('tiene unos 80 recursos con ids únicos y de todos los tipos', () {
       expect(sampleLibrary.length, inInclusiveRange(75, 85));
@@ -370,3 +410,32 @@ void main() {
 
 const _webUrl = 'https://es.wikipedia.org/wiki/Imperio_romano';
 const _videoUrl = 'https://www.youtube.com/watch?v=h3UJWsIfwsg';
+
+/// Un descargador de mentira que tarda un poco en cada bajada y anota
+/// cuántas había a la vez, por servidor y en total.
+class _SlowDownloader extends FakeSampleFileDownloader {
+  final _active = <String, int>{};
+  final maxAtOnce = <String, int>{};
+  var _overall = 0;
+  int maxOverall = 0;
+
+  @override
+  Future<DownloadedSample> download(
+    SampleFile resource, {
+    required CancellationSignal cancellation,
+  }) async {
+    final host = Uri.parse(resource.url).host;
+    final now = (_active[host] ?? 0) + 1;
+    _active[host] = now;
+    if (now > (maxAtOnce[host] ?? 0)) maxAtOnce[host] = now;
+    _overall++;
+    if (_overall > maxOverall) maxOverall = _overall;
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      return await super.download(resource, cancellation: cancellation);
+    } finally {
+      _active[host] = _active[host]! - 1;
+      _overall--;
+    }
+  }
+}

@@ -53,7 +53,7 @@ const _audio = SampleFile(
   title: 'Apología de Sócrates',
   why: 'Un audio.',
   kind: SampleFileKind.audio,
-  url: 'https://ejemplo.org/apologia.mp3',
+  url: 'https://archivo.org/apologia.mp3',
   fileName: 'apologia.mp3',
   approxBytes: 5 * 1024 * 1024,
 );

@@ -36,9 +36,14 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 /// ejemplo de algo propio. Esa es la idea: probar la app de verdad.
 ///
 /// **Por tandas** de [batchSize], y dentro de cada tanda hasta
-/// [parallelDownloads] a la vez. Así se ve el avance tanda por tanda, no se
-/// pide todo de golpe a los mismos servidores y nunca hay más de
-/// [parallelDownloads] temporales en el disco.
+/// [parallelDownloads] a la vez. Así se ve el avance tanda por tanda y nunca
+/// hay más de [parallelDownloads] temporales en el disco.
+///
+/// **De a un archivo por servidor**, con [sameHostGap] entre uno y otro: tres
+/// bajadas a la vez del mismo servidor de Wikimedia —sus imágenes y audios
+/// salen todos de `upload.wikimedia.org`— le valieron a la primera carga en
+/// el teléfono dos «429, demasiados pedidos», aun reintentando lo que pide
+/// su `Retry-After`. Las bajadas de servidores distintos sí van a la vez.
 ///
 /// **No duplica.** Lo que ya se cargó queda anotado en el [SampleLibraryLedger]
 /// uno por uno, apenas se guarda, y una pasada nueva lo saltea: tocar dos
@@ -59,6 +64,7 @@ class LoadSampleLibraryUseCase {
     required Clock clock,
     this.batchSize = 10,
     this.parallelDownloads = 3,
+    this.sameHostGap = const Duration(seconds: 1),
   }) : assert(batchSize > 0, 'Una tanda tiene que tener algo.'),
        assert(parallelDownloads > 0, 'Hace falta al menos una bajada.'),
        _resources = resources,
@@ -85,6 +91,39 @@ class LoadSampleLibraryUseCase {
   /// Cuántos se cargan a la vez dentro de una tanda.
   final int parallelDownloads;
 
+  /// Cuánto se espera, después de bajar un archivo, antes de pedirle otro al
+  /// mismo servidor.
+  final Duration sameHostGap;
+
+  /// La última bajada pedida a cada servidor: la siguiente al mismo espera
+  /// a que termine.
+  final _hostTails = <String, Future<void>>{};
+
+  /// Cuándo terminó la última bajada de cada servidor.
+  final _hostFinished = <String, DateTime>{};
+
+  /// Corre [run] cuando el servidor [host] quede libre y hayan pasado
+  /// [sameHostGap] desde su última bajada. La espera la hace quien llega,
+  /// no quien termina: así no queda ningún temporizador vivo cuando nadie
+  /// más espera ese servidor.
+  Future<T> _oneAtATime<T>(String host, Future<T> Function() run) async {
+    final previous = _hostTails[host] ?? Future<void>.value();
+    final done = Completer<void>();
+    _hostTails[host] = done.future;
+    try {
+      await previous;
+      final finished = _hostFinished[host];
+      if (finished != null) {
+        final wait = sameHostGap - _clock().difference(finished);
+        if (wait > Duration.zero) await Future<void>.delayed(wait);
+      }
+      return await run();
+    } finally {
+      _hostFinished[host] = _clock();
+      done.complete();
+    }
+  }
+
   /// Lo que todavía no se cargó, en el orden de la lista.
   List<SampleResource> pending() {
     final loaded = _ledger.loadedIds();
@@ -103,6 +142,12 @@ class LoadSampleLibraryUseCase {
   }) async {
     final toLoad = pending();
     final batches = (toLoad.length / batchSize).ceil();
+    // Los fallos se informan en el orden de la lista, no en el que
+    // terminaron: con varias bajadas a la vez ese orden cambia de una pasada
+    // a otra, y «Ver qué falló» tiene que leerse igual siempre.
+    final position = {
+      for (var i = 0; i < toLoad.length; i++) toLoad[i].title: i,
+    };
     var progress = SampleLoadProgress(
       total: toLoad.length,
       alreadyLoaded: _resources.length - toLoad.length,
@@ -142,10 +187,14 @@ class LoadSampleLibraryUseCase {
           } else {
             publish(
               progress.copyWith(
-                failures: [
-                  ...progress.failures,
-                  SampleLoadFailure(title: resource.title, reason: reason),
-                ],
+                failures:
+                    [
+                      ...progress.failures,
+                      SampleLoadFailure(title: resource.title, reason: reason),
+                    ]..sort(
+                      (a, b) =>
+                          position[a.title]!.compareTo(position[b.title]!),
+                    ),
               ),
             );
           }
@@ -206,9 +255,9 @@ class LoadSampleLibraryUseCase {
     SampleFile resource,
     CancellationSignal cancellation,
   ) async {
-    final downloaded = await _downloader.download(
-      resource,
-      cancellation: cancellation,
+    final downloaded = await _oneAtATime(
+      Uri.parse(resource.url).host,
+      () => _downloader.download(resource, cancellation: cancellation),
     );
     try {
       final format = downloaded.file.format;
