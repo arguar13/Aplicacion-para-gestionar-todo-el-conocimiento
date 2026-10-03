@@ -14,6 +14,12 @@ abstract interface class SuggestionRepository {
   /// nueva, actualizándose solas.
   Stream<List<Suggestion>> watchPendingSuggestions(String itemId);
 
+  /// Todas las sugerencias de [itemId], en cualquier estado —pendientes,
+  /// aceptadas o descartadas—, de más vieja a más nueva (F27). Es lo que mira
+  /// la IA antes de proponer algo: lo que ya está para revisar no se repite,
+  /// y lo que la persona descartó en «Para revisar» no se vuelve a proponer.
+  Future<Either<Failure, List<Suggestion>>> suggestionsFor(String itemId);
+
   /// Todas las sugerencias de duplicado en `pending`, de toda la bóveda
   /// —no de un solo elemento—, de más vieja a más nueva, actualizándose
   /// solas. Para la pantalla "Posibles duplicados" (F7): a diferencia

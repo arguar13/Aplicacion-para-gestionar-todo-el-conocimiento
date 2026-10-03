@@ -97,6 +97,25 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, List<Suggestion>>> suggestionsFor(
+    String itemId,
+  ) async {
+    try {
+      final rows =
+          await (_db.select(_db.suggestions)
+                ..where((s) => s.targetItemId.equals(itemId))
+                ..orderBy([(s) => OrderingTerm(expression: s.createdAt)]))
+              .get();
+      return right(rows.map(_toSuggestion).toList());
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'SuggestionRepositoryImpl.suggestionsFor'),
+      );
+    }
+  }
+
+  @override
   Stream<List<Suggestion>> watchPendingDuplicateSuggestions() {
     return watchQuery(
       db: _db,

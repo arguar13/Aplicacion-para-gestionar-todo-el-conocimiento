@@ -64,6 +64,18 @@ class FakeAiRunRepository implements AiRunRepository {
     return right(_undo((run) => run.itemId == itemId));
   }
 
+  /// Igual que el de verdad: los elementos con alguna pasada deshecha.
+  @override
+  Future<Either<Failure, Set<String>>> undoneItemsAmong(
+    Iterable<String> itemIds,
+  ) async {
+    final ids = itemIds.toSet();
+    return right({
+      for (final run in _runs)
+        if (run.isUndone && ids.contains(run.itemId)) run.itemId,
+    });
+  }
+
   AiRunTally _undo(bool Function(AiRun run) matches) {
     var removed = const AiRunTally();
     for (var i = 0; i < _runs.length; i++) {

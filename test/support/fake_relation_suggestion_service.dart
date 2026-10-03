@@ -20,6 +20,10 @@ class FakeRelationSuggestionService implements RelationSuggestionService {
   /// pidió al modelo.
   final requests = <({String seedTitle, int candidateCount})>[];
 
+  /// Qué candidatos llegaron en cada pedido, en el mismo orden que
+  /// [requests]: para comprobar qué se dejó afuera antes de preguntar.
+  final candidateIdsSent = <List<String>>[];
+
   @override
   Future<List<RelationSuggestion>> suggestRelations({
     required String seedTitle,
@@ -27,6 +31,7 @@ class FakeRelationSuggestionService implements RelationSuggestionService {
     required List<RelationCandidate> candidates,
   }) async {
     requests.add((seedTitle: seedTitle, candidateCount: candidates.length));
+    candidateIdsSent.add([for (final c in candidates) c.itemId]);
     final err = error;
     if (err != null) throw err;
     return suggestions;

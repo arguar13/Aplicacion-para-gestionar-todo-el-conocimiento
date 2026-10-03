@@ -47,6 +47,14 @@ abstract interface class AiRunRepository {
   /// transacción. Devuelve cuánto se borró en total.
   Future<Either<Failure, AiRunTally>> undoItem(String itemId);
 
+  /// De [itemIds], los que tienen deshecha su última pasada: la persona no
+  /// quiere lo que la IA hizo con ellos, y la IA no vuelve a tocarlos sola
+  /// —ni para organizarlos, ni para vincularlos desde otro elemento—, hasta
+  /// que alguien pida organizarlos de nuevo.
+  Future<Either<Failure, Set<String>>> undoneItemsAmong(
+    Iterable<String> itemIds,
+  );
+
   /// Si la persona dijo que «no era» un vínculo de [kind] entre estos dos
   /// elementos, en cualquier sentido.
   Future<Either<Failure, bool>> isRelationRejected({

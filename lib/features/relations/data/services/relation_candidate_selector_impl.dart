@@ -34,6 +34,37 @@ class RelationCandidateSelectorImpl implements RelationCandidateSelector {
           .map((row) => row.read(_db.chunks.id)!)
           .get(),
     );
+    return _rank(
+      seedItemId: seedItemId,
+      seedVectors: seedVectors,
+      limit: limit,
+      minSimilarity: minSimilarity,
+    );
+  }
+
+  @override
+  Future<List<ScoredRelationCandidate>> selectCandidatesNear({
+    required String seedItemId,
+    required List<List<double>> seedVectors,
+    int limit = 15,
+    double minSimilarity = 0.5,
+  }) => _rank(
+    seedItemId: seedItemId,
+    // Codificados como los guardados: el cálculo en el isolate es uno solo.
+    seedVectors: [
+      for (final vector in seedVectors) encodeEmbeddingVector(vector),
+    ],
+    limit: limit,
+    minSimilarity: minSimilarity,
+  );
+
+  /// Los candidatos más parecidos al semilla descripto por [seedVectors].
+  Future<List<ScoredRelationCandidate>> _rank({
+    required String seedItemId,
+    required List<Uint8List> seedVectors,
+    required int limit,
+    required double minSimilarity,
+  }) async {
     if (seedVectors.isEmpty) return const [];
 
     // Solo de elementos vivos: sugerir vincular con algo que está en la

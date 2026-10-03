@@ -26,7 +26,6 @@ class ScoredRelationCandidate {
 /// vínculo es `RelationSuggestionService`, no este selector — reemplaza
 /// el "primeros N en orden de llegada" del diálogo manual del grafo por
 /// una preselección real, sin cambiar quién decide el vínculo.
-// ignore: one_member_abstracts
 abstract interface class RelationCandidateSelector {
   /// Hasta [limit] candidatos con similitud `>= [minSimilarity]`, de
   /// mayor a menor score. Lista vacía si [seedItemId] no tiene chunks o
@@ -35,6 +34,18 @@ abstract interface class RelationCandidateSelector {
   /// todavía.
   Future<List<ScoredRelationCandidate>> selectCandidates({
     required String seedItemId,
+    int limit = 15,
+    double minSimilarity = 0.5,
+  });
+
+  /// Lo mismo que [selectCandidates], pero con el semilla descripto por
+  /// [seedVectors] en vez de por sus fragmentos guardados (F27): una nota no
+  /// se fragmenta —es texto del usuario que cambia—, así que la IA que la
+  /// vincula calcula sus vectores en el momento. [seedItemId] queda afuera
+  /// de los candidatos.
+  Future<List<ScoredRelationCandidate>> selectCandidatesNear({
+    required String seedItemId,
+    required List<List<double>> seedVectors,
     int limit = 15,
     double minSimilarity = 0.5,
   });

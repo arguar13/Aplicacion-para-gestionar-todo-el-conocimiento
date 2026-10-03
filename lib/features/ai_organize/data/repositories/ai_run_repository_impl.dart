@@ -199,6 +199,39 @@ class AiRunRepositoryImpl implements AiRunRepository {
   }
 
   @override
+  Future<Either<Failure, Set<String>>> undoneItemsAmong(
+    Iterable<String> itemIds,
+  ) async {
+    final ids = itemIds.toSet();
+    if (ids.isEmpty) return right(const {});
+    try {
+      // La última pasada de cada uno, por el índice de `item_id`: unas pocas
+      // filas por elemento, nunca la tabla entera.
+      final rows = await _db
+          .customSelect(
+            '''
+            SELECT r.item_id
+              FROM ai_runs r
+             WHERE r.item_id IN (${List.filled(ids.length, '?').join(', ')})
+               AND r.undone_at IS NOT NULL
+               AND NOT EXISTS (
+                 SELECT 1 FROM ai_runs later
+                  WHERE later.item_id = r.item_id
+                    AND later.started_at > r.started_at)''',
+            variables: [for (final id in ids) Variable.withString(id)],
+            readsFrom: {_db.aiRuns},
+          )
+          .get();
+      return right({for (final row in rows) row.read<String>('item_id')});
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'AiRunRepositoryImpl.undoneItemsAmong'),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, bool>> isRelationRejected({
     required String fromItemId,
     required String toItemId,

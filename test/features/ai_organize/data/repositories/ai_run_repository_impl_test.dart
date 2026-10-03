@@ -285,6 +285,23 @@ void main() {
     });
   });
 
+  test('qué elementos tienen deshecha su última pasada', () async {
+    // «a»: deshecha. «b»: deshecha y después organizada de nuevo a pedido.
+    // «c»: nunca organizado.
+    await runs.undoRun(await startRun('a'));
+    await runs.undoRun(await startRun('b'));
+    now = DateTime(2026, 10, 3);
+    await runs.finishRun(await startRun('b'));
+
+    final undone = await runs.undoneItemsAmong(['a', 'b', 'c']);
+
+    expect(undone.getOrElse((f) => fail('$f')), {'a'});
+    expect(
+      (await runs.undoneItemsAmong(const [])).getOrElse((f) => fail('$f')),
+      isEmpty,
+    );
+  });
+
   test('borrar el elemento se lleva sus pasadas', () async {
     await organizeA();
 
