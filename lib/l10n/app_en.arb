@@ -6426,5 +6426,14 @@
         "type": "int"
       }
     }
+  },
+  "aiTallyTopicPlacements": "{count, plural, =1{1 topic placed} other{{count} topics placed}}",
+  "@aiTallyTopicPlacements": {
+    "description": "Cuántos temas sueltos ubicó la IA en el árbol de temas, bajo otro (F27, el Atlas).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

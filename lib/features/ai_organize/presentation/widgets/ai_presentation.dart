@@ -32,6 +32,12 @@ List<({IconData icon, String label})> _tallyEntries(
       icon: Icons.menu_book_outlined,
       label: l10n.aiTallyReferenceFields(tally.referenceFields),
     ),
+  // El mismo ícono que el Atlas en la navegación: es su árbol de temas.
+  if (tally.topicPlacements > 0)
+    (
+      icon: Icons.account_tree_outlined,
+      label: l10n.aiTallyTopicPlacements(tally.topicPlacements),
+    ),
 ];
 
 /// Lo que dice una cuenta de la IA, parte por parte y sin los ceros: «4

@@ -15,6 +15,7 @@ void main() {
       properties: 1,
       spaces: 1,
       referenceFields: 1,
+      topicPlacements: 1,
     );
 
     expect(aiTallyParts(es, all), hasLength(all.total));
@@ -23,5 +24,13 @@ void main() {
   test('los ceros no se dicen', () {
     expect(aiTallyParts(es, const AiRunTally(flashcards: 2)), ['2 tarjetas']);
     expect(aiTallyText(es, const AiRunTally()), isEmpty);
+  });
+
+  test('los temas que la IA ubicó en el árbol se cuentan aparte de los que '
+      'puso', () {
+    expect(
+      aiTallyText(es, const AiRunTally(properties: 3, topicPlacements: 2)),
+      '3 temas · 2 temas ubicados',
+    );
   });
 }

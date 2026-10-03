@@ -144,6 +144,44 @@ void main() {
       expect(await topics.parentOf(roma), isNull);
     });
 
+    test('lo que ubicó cuenta en su pasada: al cerrarla, al listarla y al '
+        'deshacerla', () async {
+      final roma = await topics.add('Roma');
+      final cartago = await topics.add('Cartago');
+      await sourceIn('a', roma);
+      await topics.tag('a', cartago);
+      chooser.pick = 'Historia antigua';
+      final run = await vault.startRun('a');
+      await step.organize(await vault.reload('a'), runId: run);
+
+      final finished = (await vault.runs.finishRun(
+        run,
+      )).getOrElse((f) => fail('$f'));
+      expect(finished.topicPlacements, 2);
+
+      // La persona movió uno: ese ya es suyo, y deshacer no lo toca.
+      await (vault.db.update(vault.db.propertyValues)
+            ..where((v) => v.id.equals(cartago)))
+          .write(const PropertyValuesCompanion(parentId: Value('t-Grecia')));
+      final listed = (await vault.runs.listRuns(
+        itemId: 'a',
+      )).getOrElse((f) => fail('$f')).single;
+      expect(listed.created.topicPlacements, 2);
+      expect(listed.remaining.topicPlacements, 1);
+
+      final undone = (await vault.runs.undoRun(
+        run,
+      )).getOrElse((f) => fail('$f'));
+      expect(undone.topicPlacements, 1);
+      expect(await topics.parentOf(roma), isNull);
+      expect(await topics.parentOf(cartago), 't-Grecia');
+      final after = (await vault.runs.listRuns(
+        itemId: 'a',
+      )).getOrElse((f) => fail('$f')).single;
+      expect(after.created.topicPlacements, 2);
+      expect(after.remaining.topicPlacements, 0);
+    });
+
     test('lo dudoso va a «Para revisar» y no toca el árbol; aceptarlo lo '
         'ubica', () async {
       final roma = await topics.add('Roma');

@@ -263,6 +263,56 @@ Future<Either<Failure, bool>> undoAiTopicPlacement(
   return right(await _undoPlacement(db, suggestion));
 }
 
+/// Cuántos temas ubicó sola en el árbol cada una de [runIds] (F27): los que
+/// ubicó —`created`, la historia: todos los que registró, se hayan deshecho
+/// o no— y los que todavía son de la IA —`remaining`: siguen aceptados y bajo
+/// el padre que ella eligió—. Una pasada sin ubicaciones no está.
+///
+/// Uno que la persona movió después ya es suyo; uno que volvió a la raíz al
+/// deshacer, o porque dijo «no era», quedó `rejected`. Ninguno de los dos
+/// cuenta como de la IA, igual que un vínculo adoptado o borrado.
+///
+/// Una sola consulta por página de pasadas, con el mismo `json_extract` que
+/// [undoAiTopicPlacements]: son pocas filas —una por tema suelto que la IA
+/// miró—.
+Future<Map<String, ({int created, int remaining})>> aiTopicPlacementCounts(
+  AppDatabase db,
+  Iterable<String> runIds,
+) async {
+  final ids = runIds.toSet();
+  if (ids.isEmpty) return const {};
+  String field(String key) => "json_extract(s.payload_json, '\$.$key')";
+  final marks = List.filled(ids.length, '?').join(', ');
+  final rows = await db
+      .customSelect(
+        '''
+        SELECT ${field(_aiRunIdKey)} AS run_id,
+               COUNT(*) AS created,
+               SUM(CASE WHEN s.status = ?
+                         AND v.parent_id = ${field(_parentIdKey)}
+                        THEN 1 ELSE 0 END) AS remaining
+          FROM suggestions s
+          LEFT JOIN property_values v ON v.id = ${field(_valueIdKey)}
+         WHERE s.kind = ?
+           AND ${field(_aiRunIdKey)} IN ($marks)
+         GROUP BY run_id''',
+        variables: [
+          Variable.withString(SuggestionStatus.accepted.name),
+          Variable.withString(SuggestionKind.topicParent.name),
+          for (final id in ids) Variable.withString(id),
+        ],
+        readsFrom: {db.suggestions, db.propertyValues},
+      )
+      .get();
+  return {
+    for (final row in rows)
+      row.read<String>('run_id'): (
+        created: row.read<int>('created'),
+        remaining: row.read<int>('remaining'),
+      ),
+  };
+}
+
 /// Un campo del `payload_json` de una sugerencia, leído en SQL.
 Expression<String> _payloadField(String key) =>
     CustomExpression<String>("json_extract(payload_json, '\$.$key')");

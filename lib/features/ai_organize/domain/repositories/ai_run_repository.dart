@@ -65,7 +65,9 @@ abstract interface class AiRunRepository {
   /// Deshace la pasada [runId]: borra, en una sola transacción, todo lo que
   /// lleva su id y sigue siendo de la IA, devuelve el tema y los datos de la
   /// referencia que completó a como estaban —si siguen con lo que puso la
-  /// IA—, y la marca como deshecha. Lo que la persona adoptó o cambió queda.
+  /// IA—, devuelve a la raíz los temas que ubicó en el árbol —si siguen
+  /// donde ella los puso— y la marca como deshecha. Lo que la persona adoptó
+  /// o cambió queda.
   /// Devuelve cuánto se deshizo; deshacer dos veces no toca nada la segunda.
   ///
   /// Deshacer no es «no era»: no recuerda nada, porque la persona no dijo que

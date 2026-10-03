@@ -118,9 +118,11 @@ class AiRunRepositoryImpl implements AiRunRepository {
   Future<Either<Failure, AiRunTally>> finishRun(String runId) async {
     try {
       return await _db.transaction(() async {
+        final placements = (await aiTopicPlacementCounts(_db, [runId]))[runId];
         final tally =
             await _remainingOf(runId) +
-            ((await _fields.remaining([runId]))[runId] ?? const AiRunTally());
+            ((await _fields.remaining([runId]))[runId] ?? const AiRunTally()) +
+            AiRunTally(topicPlacements: placements?.remaining ?? 0);
         final updated =
             await (_db.update(
               _db.aiRuns,
@@ -193,10 +195,12 @@ class AiRunRepositoryImpl implements AiRunRepository {
           .get();
 
       // El tema y la referencia se cuentan aparte: lo que todavía es de la IA
-      // se mira contra el valor de hoy, de a una página.
+      // se mira contra el valor de hoy, de a una página. Los temas ubicados
+      // en el árbol, en su registro de sugerencias.
       final runIds = [for (final row in rows) row.read<String>('id')];
       final fieldsCreated = await _fields.created(runIds);
       final fieldsLeft = await _fields.remaining(runIds);
+      final placements = await aiTopicPlacementCounts(_db, runIds);
 
       return right([
         for (final row in rows)
@@ -214,14 +218,22 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   flashcards: row.read<int>('flashcards_created'),
                   properties: row.read<int>('properties_created'),
                 ) +
-                (fieldsCreated[row.read<String>('id')] ?? const AiRunTally()),
+                (fieldsCreated[row.read<String>('id')] ?? const AiRunTally()) +
+                AiRunTally(
+                  topicPlacements:
+                      placements[row.read<String>('id')]?.created ?? 0,
+                ),
             remaining:
                 AiRunTally(
                   relations: row.read<int>('relations_left'),
                   flashcards: row.read<int>('flashcards_left'),
                   properties: row.read<int>('properties_left'),
                 ) +
-                (fieldsLeft[row.read<String>('id')] ?? const AiRunTally()),
+                (fieldsLeft[row.read<String>('id')] ?? const AiRunTally()) +
+                AiRunTally(
+                  topicPlacements:
+                      placements[row.read<String>('id')]?.remaining ?? 0,
+                ),
           ),
       ]);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
@@ -401,7 +413,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
     // Los temas que la IA ubicó sola en el árbol (F27, el Atlas) vuelven a la
     // raíz. No tienen `ai_run_id` propio —el lugar de un tema es una columna
     // del vocabulario—: la pasada queda en su registro de sugerencias.
-    await undoAiTopicPlacements(_db, run.id);
+    final topicPlacements = await undoAiTopicPlacements(_db, run.id);
     if (run.undoneAt == null) {
       await (_db.update(_db.aiRuns)..where((r) => r.id.equals(run.id))).write(
         AiRunsCompanion(undoneAt: Value(_clock())),
@@ -411,6 +423,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
           relations: relations,
           flashcards: flashcards,
           properties: properties,
+          topicPlacements: topicPlacements,
         ) +
         fields;
   }
