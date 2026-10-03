@@ -5640,5 +5640,9 @@
   "sampleLibraryFailuresTitle": "Lo que no se pudo cargar",
   "@sampleLibraryFailuresTitle": {
     "description": "Biblioteca de ejemplo, solo en las flavors dev y staging: título de la lista de fallidos."
+  },
+  "spacesFilterEmptyMessage": "Todavía no tenés temas. Creá uno para agrupar lo que guardás.",
+  "@spacesFilterEmptyMessage": {
+    "description": "Panel de filtros de la Biblioteca y del Explorador, sección Tema, sin ningún tema creado: qué es un tema, arriba del botón «Nuevo tema»."
   }
 }

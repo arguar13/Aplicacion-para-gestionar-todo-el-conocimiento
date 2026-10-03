@@ -22,6 +22,7 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_query_notifier.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -1054,7 +1055,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('library-space-filters')),
+          of: find.byKey(SpaceFilterSection.chipsKey),
           matching: find.text('Tesis'),
         ),
         findsOneWidget,

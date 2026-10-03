@@ -280,7 +280,11 @@ El botón con forma de perilla, al lado del buscador, abre el panel
 
 1. **"Tema"**: tus Temas. Se elige uno a la vez; tocarlo de nuevo lo suelta.
    Si tenés muchos, la sección tiene un alto fijo con una barra de
-   desplazamiento fina y un desvanecido abajo que avisa que hay más.
+   desplazamiento fina y un desvanecido abajo que avisa que hay más. Si
+   todavía no creaste ninguno, la sección igual está: dice *"Todavía no tenés
+   temas. Creá uno para agrupar lo que guardás."* y trae el botón **"Nuevo
+   tema"**, que lo crea ahí mismo (queda en la lista, sin filtrar todavía:
+   recién creado está vacío).
 2. **"Tipo"** (Video, Página web, Publicación, Documento, Imagen, Audio,
    Nota, Referencia).
 3. **"Etiquetas"**.
@@ -299,7 +303,8 @@ del Tema.
 - **Crear un Tema:** al guardar algo, desde el campo **"Tema"** del
   formulario; o desde **"Mover a tema"** (en el menú de tres puntos de una
   tarjeta, en la selección múltiple o en el detalle), con la opción **"Nuevo
-  tema"**.
+  tema"**. El primero también se puede crear desde **Filtros → "Tema"**,
+  mientras no tengas ninguno.
 - **Renombrar o eliminar un Tema:** en Filtros, mantené apretado su chip (o
   tocá el ícono "⋯" del Tema elegido). Al eliminarlo, sus elementos NO se
   borran: solo quedan sin clasificar.
@@ -681,15 +686,25 @@ modelo).
 ## El Explorador
 
 Es una segunda forma de recorrer lo que ya terminó de procesarse, filtrando
-por Tipo, por categorías de propiedades (por ejemplo, Época, Región) y por
-Etiquetas — sin carpetas, todo se organiza filtrando.
+por Tema, por Tipo, por categorías de propiedades (por ejemplo, Época,
+Región) y por Etiquetas — sin carpetas, todo se organiza filtrando.
 
 **Cómo llegar:** ítem **"Explorador"** en la navegación (detrás de "Más" en
 el celular).
 
-El botón de filtros abre un panel con las secciones "Tipo", "Categorías" y
-"Etiquetas". Los resultados se ven con las mismas tarjetas que la Biblioteca;
-tocar una abre su detalle.
+El botón de filtros abre un panel con las secciones "Tema", "Tipo",
+"Categorías" y "Etiquetas". La sección **"Tema"** es la misma que en los
+filtros de la Biblioteca: uno a la vez, barra fina si son muchos, mantener
+apretado para renombrar o eliminar, y el botón **"Nuevo tema"** si todavía
+no tenés ninguno. Con un Tema elegido, su nombre se ve como un chip debajo
+del título: tocarlo abre los filtros y su "X" te saca del Tema. El número
+sobre el botón cuenta también el Tema, y **"Limpiar filtros"** lo suelta.
+Los resultados se ven con las mismas tarjetas que la Biblioteca; tocar una
+abre su detalle.
+
+Elegir un Tema en el Explorador no cambia el de la Biblioteca (cada pantalla
+tiene sus propios filtros); pero si eliminás un Tema desde cualquiera de las
+dos, la otra deja de filtrar por él sola.
 
 ---
 

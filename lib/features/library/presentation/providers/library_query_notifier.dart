@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 
 /// Qué recorte de la biblioteca se está mirando.
 ///
@@ -112,9 +114,29 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
   void apply(LibraryQuery query) {
     state = query.copyWith(limit: pageSize, offset: 0);
   }
+
+  /// Sale del tema elegido si ya no está entre [spaces]: se borró, desde el
+  /// panel de filtros de esta pantalla o desde el del Explorador.
+  void releaseDeletedSpace(List<Space> spaces) {
+    final spaceId = state.spaceId;
+    if (spaceId != null && spaces.every((space) => space.id != spaceId)) {
+      selectSpace(null);
+    }
+  }
 }
 
 final libraryQueryNotifierProvider =
-    StateNotifierProvider.autoDispose<LibraryQueryNotifier, LibraryQuery>(
-      (ref) => LibraryQueryNotifier(),
-    );
+    StateNotifierProvider.autoDispose<LibraryQueryNotifier, LibraryQuery>((
+      ref,
+    ) {
+      final notifier = LibraryQueryNotifier();
+      // Un tema se puede borrar desde los filtros de la Biblioteca y desde
+      // los del Explorador, y las dos pantallas siguen vivas al cambiar de
+      // pestaña: la que no lo borró seguiría filtrando por un tema que ya no
+      // existe, con la lista vacía sin decir por qué.
+      ref.listen(allSpacesProvider, (_, next) {
+        final spaces = next.valueOrNull;
+        if (spaces != null) notifier.releaseDeletedSpace(spaces);
+      });
+      return notifier;
+    });

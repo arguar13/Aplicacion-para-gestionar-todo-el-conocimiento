@@ -10,7 +10,6 @@ import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
-import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
@@ -29,7 +28,7 @@ import 'package:sinapsis/features/library/presentation/widgets/library_kanban_vi
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/move_to_trash.dart';
 import 'package:sinapsis/features/library/presentation/widgets/saved_views_sheet.dart';
-import 'package:sinapsis/features/library/presentation/widgets/space_naming.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/library/presentation/widgets/space_picker_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reference/presentation/export_references_action.dart';
@@ -533,13 +532,12 @@ class _SearchAndFilters extends ConsumerWidget {
   final Space? currentSpace;
 
   static const _searchRowHeight = 64.0;
-  static const _currentSpaceRowHeight = 40.0;
 
   /// El alto que ocupa, que la barra de arriba necesita saber antes de
   /// construirla (`PreferredSize`): la fila de la búsqueda siempre, y la del
   /// tema solo mientras se esté parado en uno.
   static double heightFor({required Space? currentSpace}) =>
-      _searchRowHeight + (currentSpace == null ? 0 : _currentSpaceRowHeight);
+      _searchRowHeight + (currentSpace == null ? 0 : CurrentSpaceChip.extent);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -568,7 +566,8 @@ class _SearchAndFilters extends ConsumerWidget {
         // número que dice cuántos hay activos; después también los temas, a
         // pedido del usuario, arriba de todo en ese mismo panel. Crear un
         // tema ya no vive acá: se crea donde se elige uno —al guardar algo o
-        // al moverlo—, ver `showSpacePickerSheet`.
+        // al moverlo—, ver `showSpacePickerSheet`, salvo el primero, que la
+        // sección de temas del panel ofrece mientras no haya ninguno.
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
           child: Row(
@@ -599,26 +598,12 @@ class _SearchAndFilters extends ConsumerWidget {
           ),
         ),
         // Sin la fila de temas a la vista, esto es lo que dice en qué tema
-        // se está parado: un número en la insignia no alcanza para saber
-        // CUÁL, y mirar una lista recortada sin saber por qué desorienta.
-        // Tocarlo abre el panel —donde se cambia—; la cruz sale del tema.
+        // se está parado —ver `CurrentSpaceChip`—.
         if (space != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: InputChip(
-                avatar: const Icon(Icons.folder_outlined, size: 18),
-                label: Text(space.name, overflow: TextOverflow.ellipsis),
-                selected: true,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onPressed: () => _showFilters(context, tags),
-                onDeleted: () => notifier.selectSpace(null),
-                deleteButtonTooltipMessage: l10n.libraryLeaveSpaceTooltip,
-              ),
-            ),
+          CurrentSpaceChip(
+            space: space,
+            onPressed: () => _showFilters(context, tags),
+            onLeave: () => notifier.selectSpace(null),
           ),
       ],
     );
@@ -637,119 +622,6 @@ class _SearchAndFilters extends ConsumerWidget {
   }
 }
 
-/// Renombrar o borrar [space], desde su chip en el panel de filtros.
-Future<void> _manageSpace(
-  BuildContext context,
-  WidgetRef ref,
-  Space space,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-
-  final action = await showDialog<_SpaceAction>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: Text(space.name),
-      children: [
-        SimpleDialogOption(
-          onPressed: () => Navigator.of(context).pop(_SpaceAction.rename),
-          child: Text(l10n.spacesRenameAction),
-        ),
-        SimpleDialogOption(
-          onPressed: () => Navigator.of(context).pop(_SpaceAction.delete),
-          child: Text(l10n.spacesDeleteAction),
-        ),
-      ],
-    ),
-  );
-  if (action == null || !context.mounted) return;
-
-  switch (action) {
-    case _SpaceAction.rename:
-      await _renameSpace(context, ref, space);
-    case _SpaceAction.delete:
-      await _deleteSpace(context, ref, space);
-  }
-}
-
-Future<void> _renameSpace(
-  BuildContext context,
-  WidgetRef ref,
-  Space space,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-
-  final name = await showDialog<String>(
-    context: context,
-    builder: (context) => SpaceNameDialog(
-      title: l10n.spacesRenameAction,
-      hint: l10n.spacesNameHint,
-      confirmLabel: l10n.detailSave,
-      initialValue: space.name,
-    ),
-  );
-  if (name == null || name.trim().isEmpty || !context.mounted) return;
-  // Quedarse con el mismo nombre no es un nombre nuevo que avisar.
-  if (normalizeVocabularyLabel(name) != normalizeVocabularyLabel(space.name) &&
-      !await confirmSpaceNameNotATag(
-        context,
-        ref,
-        name,
-        action: l10n.spacesNameIsTagRename,
-      )) {
-    return;
-  }
-  if (!context.mounted) return;
-
-  final result = await ref
-      .read(organizeRepositoryProvider)
-      .renameSpace(id: space.id, name: name);
-  if (!context.mounted) return;
-
-  result.match(
-    (failure) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-    (_) {},
-  );
-}
-
-Future<void> _deleteSpace(
-  BuildContext context,
-  WidgetRef ref,
-  Space space,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      content: Text(l10n.spacesDeleteConfirm(space.name)),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.spacesDeleteAction),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return;
-
-  // Si era el tema que se estaba mirando, hay que salir de esa vista:
-  // de lo contrario la biblioteca quedaría filtrando por un tema que
-  // ya no existe, mostrando siempre una lista vacía sin decir por qué.
-  if (ref.read(libraryQueryNotifierProvider).spaceId == space.id) {
-    ref.read(libraryQueryNotifierProvider.notifier).selectSpace(null);
-  }
-
-  await ref.read(organizeRepositoryProvider).deleteSpace(space.id);
-}
-
-enum _SpaceAction { rename, delete }
-
 /// El panel de filtros de tema, tipo y etiquetas, detrás del botón con el
 /// ícono de perilla —ver `_SearchAndFilters`—.
 ///
@@ -757,7 +629,7 @@ enum _SpaceAction { rename, delete }
 /// sola fila que cuidar, así que las opciones pueden quedar a la vista de
 /// una, en las líneas que hagan falta, en vez de esconder las últimas detrás
 /// de un scroll que nadie sabe que está ahí. La excepción son los temas, que
-/// pueden ser muchos: ver `_SpaceFilterChips`.
+/// pueden ser muchos: ver `SpaceFilterSection`.
 class _FiltersSheet extends ConsumerWidget {
   const _FiltersSheet({required this.tags});
 
@@ -769,10 +641,6 @@ class _FiltersSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final query = ref.watch(libraryQueryNotifierProvider);
     final notifier = ref.read(libraryQueryNotifierProvider.notifier);
-    // Mirados acá y no recibidos al abrir, a diferencia de las etiquetas:
-    // renombrar o borrar un tema se hace desde este mismo panel, y tiene que
-    // verse enseguida.
-    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
     // `SingleChildScrollView` y no un `Column` a secas: cuántas líneas
     // ocupan los chips de tipo y de etiquetas depende de cuántas etiquetas
@@ -804,20 +672,16 @@ class _FiltersSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             // Arriba de todo, a pedido del usuario: el tema es la forma
-            // principal de recortar la biblioteca. Sin ninguno creado, la
-            // sección no tiene qué ofrecer —mismo criterio que las
-            // etiquetas, más abajo—.
-            if (spaces.isNotEmpty) ...[
-              _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
-              const SizedBox(height: 8),
-              _SpaceFilterChips(
-                spaces: spaces,
-                selectedSpaceId: query.spaceId,
-                onSelected: notifier.selectSpace,
-                onManage: (space) => _manageSpace(context, ref, space),
-              ),
-              const SizedBox(height: 20),
-            ],
+            // principal de recortar la biblioteca. A diferencia de las
+            // etiquetas, más abajo, está aunque no haya ninguno: ver
+            // `SpaceFilterSection`.
+            _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
+            const SizedBox(height: 8),
+            SpaceFilterSection(
+              selectedSpaceId: query.spaceId,
+              onChanged: notifier.selectSpace,
+            ),
+            const SizedBox(height: 20),
             _FilterSectionLabel(l10n.libraryFilterTypeLabel),
             const SizedBox(height: 8),
             Wrap(
@@ -857,169 +721,6 @@ class _FiltersSheet extends ConsumerWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Los temas del panel de filtros, de a uno: tocar uno lo elige y tocar el
-/// elegido lo suelta —es una carpeta en la que se entra y se sale, ver
-/// `LibraryQueryNotifier.selectSpace`—.
-///
-/// Con muchos temas, el área tiene un alto máximo y se desplaza adentro, en
-/// vez de volverse una pared que empuje Tipo y Etiquetas fuera de la vista.
-/// Que hay más se ve sin tener que descubrirlo: la última fila queda cortada
-/// a la mitad, la barra de desplazamiento está siempre a la vista y el borde
-/// de abajo se desvanece mientras quede algo por ver.
-///
-/// Renombrar o borrar un tema: mantener apretado su chip, o el ícono que
-/// lleva el elegido —mantener apretado no se adivina, y el ícono en todos
-/// los chips duplicaría el ancho de cada uno—.
-class _SpaceFilterChips extends StatefulWidget {
-  const _SpaceFilterChips({
-    required this.spaces,
-    required this.selectedSpaceId,
-    required this.onSelected,
-    required this.onManage,
-  });
-
-  final List<Space> spaces;
-  final String? selectedSpaceId;
-  final ValueChanged<String> onSelected;
-  final ValueChanged<Space> onManage;
-
-  @override
-  State<_SpaceFilterChips> createState() => _SpaceFilterChipsState();
-}
-
-class _SpaceFilterChipsState extends State<_SpaceFilterChips> {
-  static const _spacing = 8.0;
-
-  /// Cuántas filas se ven antes de desplazar. La media de más no es un
-  /// descuido: un chip cortado por el borde es la pista más directa de que
-  /// la lista sigue.
-  static const _visibleRows = 3.5;
-
-  /// El alto del desvanecido del borde de abajo.
-  static const _fadeExtent = 24.0;
-
-  final _controller = ScrollController();
-  var _overflows = false;
-  var _atEnd = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() => _sync(_controller.position));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  /// Si hay más de lo que se ve y si ya se llegó al final: deciden si se
-  /// muestra la barra y si se desvanece el borde.
-  void _sync(ScrollMetrics metrics) {
-    final overflows = metrics.maxScrollExtent > 0;
-    // Menos de un píxel por ver ya es el final: la posición es un
-    // `double`, y el último tramo puede no cerrar exacto.
-    final atEnd = metrics.extentAfter < 1;
-    if (overflows == _overflows && atEnd == _atEnd) return;
-    setState(() {
-      _overflows = overflows;
-      _atEnd = atEnd;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    // Un chip ocupa 48 de alto con el margen táctil de un teléfono y 32 sin
-    // él, en escritorio: el tope se calcula en filas, no en píxeles fijos,
-    // para que muestre las mismas filas en los dos.
-    final chipExtent =
-        theme.materialTapTargetSize == MaterialTapTargetSize.padded
-        ? kMinInteractiveDimension
-        : 32.0;
-    final fades = _overflows && !_atEnd;
-
-    return ConstrainedBox(
-      key: const ValueKey('library-space-filters'),
-      constraints: BoxConstraints(
-        maxHeight: (chipExtent + _spacing) * _visibleRows,
-      ),
-      // Las medidas del contenido llegan recién después de distribuirlo: es
-      // lo que dice, sin desplazar nada, si los temas desbordan el tope.
-      child: NotificationListener<ScrollMetricsNotification>(
-        onNotification: (notification) {
-          if (notification.depth == 0) _sync(notification.metrics);
-          return false;
-        },
-        // Siempre puesto, aunque no desvanezca nada: sacarlo y volver a
-        // ponerlo cambiaría la forma del árbol, y la lista volvería a
-        // arrancar desde arriba a mitad de desplazarla.
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (bounds) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              Colors.black,
-              if (fades) Colors.transparent else Colors.black,
-            ],
-            stops: [
-              0,
-              if (bounds.height > _fadeExtent)
-                1 - _fadeExtent / bounds.height
-              else
-                0,
-              1,
-            ],
-          ).createShader(bounds),
-          child: RawScrollbar(
-            controller: _controller,
-            thumbVisibility: _overflows,
-            thickness: 4,
-            radius: const Radius.circular(2),
-            thumbColor: theme.colorScheme.primary.withValues(alpha: 0.55),
-            child: SingleChildScrollView(
-              controller: _controller,
-              // Aire del lado de la barra, para que no se monte sobre los
-              // chips. Fijo, haya o no barra: si apareciera solo al
-              // desbordar, los chips se reacomodarían en ese momento.
-              padding: const EdgeInsetsDirectional.only(end: 12),
-              child: Wrap(
-                spacing: _spacing,
-                runSpacing: _spacing,
-                children: [
-                  for (final space in widget.spaces)
-                    _buildChip(space, l10n: l10n),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChip(Space space, {required AppLocalizations l10n}) {
-    final selected = widget.selectedSpaceId == space.id;
-
-    return GestureDetector(
-      onLongPress: () => widget.onManage(space),
-      child: FilterChip(
-        avatar: const Icon(Icons.folder_outlined, size: 18),
-        label: Text(space.name),
-        selected: selected,
-        onSelected: (_) => widget.onSelected(space.id),
-        onDeleted: selected ? () => widget.onManage(space) : null,
-        deleteIcon: const Icon(Icons.more_horiz, size: 18),
-        deleteButtonTooltipMessage: l10n.librarySpaceManageTooltip,
       ),
     );
   }

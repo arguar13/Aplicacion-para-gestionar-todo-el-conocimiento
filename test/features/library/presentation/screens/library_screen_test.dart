@@ -31,6 +31,7 @@ import 'package:sinapsis/features/library/presentation/screens/library_screen.da
 import 'package:sinapsis/features/library/presentation/widgets/library_calendar_view.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_table_view.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
@@ -72,7 +73,7 @@ void main() {
   /// muestra el tema elegido debajo de la búsqueda, que puede llamarse
   /// igual—.
   Finder spaceChip(String name) => find.descendant(
-    of: find.byKey(const ValueKey('library-space-filters')),
+    of: find.byKey(SpaceFilterSection.chipsKey),
     matching: find.text(name),
   );
 
@@ -570,13 +571,18 @@ void main() {
       expect(find.textContaining('cocina'), findsOneWidget);
     });
 
-    testWidgets('la biblioteca ya no ofrece crear un tema suelto: se crea '
-        'donde se elige uno', (tester) async {
+    testWidgets('con algún tema creado, la biblioteca no ofrece crear otro '
+        'suelto: se crea donde se elige uno', (tester) async {
       await harness.capture('una nota sin espacio');
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .createSpace('Filosofía');
       await pumpLibrary(tester);
 
       expect(find.text(es.spacesNewAction), findsNothing);
 
+      // El botón de crear solo está mientras no hay ninguno —ver el grupo
+      // de abajo—.
       await openFilters(tester);
       expect(find.text(es.spacesNewAction), findsNothing);
     });
@@ -627,15 +633,68 @@ void main() {
       expect(spaceChip('Filosofía'), findsOneWidget);
     });
 
-    testWidgets('sin ningún tema creado, la sección no aparece', (
-      tester,
-    ) async {
+    testWidgets('sin ningún tema creado, la sección está igual: dice para '
+        'qué sirven y crea el primero sin elegirlo', (tester) async {
       await harness.capture('algo');
       await pumpLibrary(tester);
 
       await openFilters(tester);
 
-      expect(find.text(es.libraryFilterSpaceLabel.toUpperCase()), findsNothing);
+      // Escondida, quien recién empieza no se entera de que puede filtrar
+      // por tema.
+      expect(
+        find.text(es.libraryFilterSpaceLabel.toUpperCase()),
+        findsOneWidget,
+      );
+      expect(find.text(es.spacesFilterEmptyMessage), findsOneWidget);
+
+      await tester.tap(find.text(es.spacesNewAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'Filosofía',
+      );
+      await tester.tap(find.text(es.commonCreate));
+      await tester.pumpAndSettle();
+
+      expect(spaceChip('Filosofía'), findsOneWidget);
+      expect(find.text(es.spacesFilterEmptyMessage), findsNothing);
+      // Recién creado está vacío: elegirlo dejaría la lista vacía de golpe.
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNull,
+      );
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+    });
+
+    testWidgets('borrar desde el Explorador el tema en el que está parada la '
+        'biblioteca también la saca de él', (tester) async {
+      await harness.capture('Afuera');
+      final space = await createSpace('Cocina');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tester.tap(spaceChip('Cocina'));
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+      expect(find.widgetWithText(InputChip, 'Cocina'), findsOneWidget);
+
+      // Desde otra pantalla: este panel no se enteró de nada.
+      await harness.container
+          .read(organizeRepositoryProvider)
+          .deleteSpace(space.id);
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).spaceId,
+        isNull,
+      );
+      expect(find.widgetWithText(InputChip, 'Cocina'), findsNothing);
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+      expect(find.text('Afuera'), findsOneWidget);
     });
 
     testWidgets('elegir un tema cuenta en la insignia y lo muestra debajo de '
@@ -689,7 +748,7 @@ void main() {
       final selected = [
         for (final chip in tester.widgetList<FilterChip>(
           find.descendant(
-            of: find.byKey(const ValueKey('library-space-filters')),
+            of: find.byKey(SpaceFilterSection.chipsKey),
             matching: find.byType(FilterChip),
           ),
         ))
@@ -770,7 +829,7 @@ void main() {
 
       final scrollbar = tester.widget<RawScrollbar>(
         find.descendant(
-          of: find.byKey(const ValueKey('library-space-filters')),
+          of: find.byKey(SpaceFilterSection.chipsKey),
           matching: find.byType(RawScrollbar),
         ),
       );
@@ -789,7 +848,7 @@ void main() {
 
       await openFilters(tester);
 
-      final area = find.byKey(const ValueKey('library-space-filters'));
+      final area = find.byKey(SpaceFilterSection.chipsKey);
       // Unas tres filas y media de chips, no los cuarenta temas apilados.
       expect(tester.getSize(area).height, lessThanOrEqualTo(200));
       expect(

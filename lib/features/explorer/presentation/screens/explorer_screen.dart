@@ -7,15 +7,17 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/property_value.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/features/explorer/presentation/providers/explorer_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/library/presentation/widgets/library_item_card.dart';
+import 'package:sinapsis/features/library/presentation/widgets/space_filter_section.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// El Explorador: lo ya procesado, filtrable por tipo, etiqueta y
+/// El Explorador: lo ya procesado, filtrable por tema, tipo, etiqueta y
 /// propiedad tipada —sin carpetas.
 ///
 /// Antes organizaba en carpetas jerárquicas que había que crear y mantener
@@ -35,7 +37,18 @@ class ExplorerScreen extends ConsumerWidget {
     final query = ref.watch(explorerQueryNotifierProvider);
     final notifier = ref.read(explorerQueryNotifierProvider.notifier);
     final items = ref.watch(libraryItemsProvider(query)).valueOrNull;
+    // El tema elegido, con su nombre; `null` también si su `id` todavía no
+    // llegó con la lista. Mirarlo acá además mantiene viva la lista de temas
+    // mientras el Explorador está abierto: el panel de filtros la encuentra
+    // lista en vez de arrancar vacío.
+    final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
+    final currentSpace = spaces
+        .where((space) => space.id == query.spaceId)
+        .firstOrNull;
+    // Lo mismo que en la Biblioteca: el tema cuenta como un filtro más,
+    // porque vive en el mismo panel y acota lo que se ve.
     final activeFilterCount =
+        (query.spaceId == null ? 0 : 1) +
         query.sourceKinds.length +
         query.tagIds.length +
         query.propertyValueIds.length;
@@ -43,6 +56,20 @@ class ExplorerScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.explorerTitle),
+        // El tema en el que se está parado, igual que debajo de la búsqueda
+        // de la Biblioteca —ver `CurrentSpaceChip`—: es el único filtro que
+        // recorta como una carpeta, y saber CUÁL es importa más que saber
+        // cuántos filtros hay.
+        bottom: currentSpace == null
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(CurrentSpaceChip.extent),
+                child: CurrentSpaceChip(
+                  space: currentSpace,
+                  onPressed: () => _showFilters(context),
+                  onLeave: () => notifier.selectSpace(null),
+                ),
+              ),
         actions: [
           Badge(
             label: Text('$activeFilterCount'),
@@ -112,7 +139,7 @@ class ExplorerScreen extends ConsumerWidget {
   }
 }
 
-/// El panel de filtros: tipo, categorías con sus valores, y etiquetas.
+/// El panel de filtros: tema, tipo, categorías con sus valores, y etiquetas.
 ///
 /// `ConsumerWidget` observando `explorerQueryNotifierProvider` directamente
 /// —igual que `_FiltersSheet` en `library_screen.dart`— para que marcar un
@@ -161,6 +188,15 @@ class _ExplorerFiltersSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
+            // Arriba de todo, como en la Biblioteca: la misma sección, para
+            // que filtrar por tema se vea y se use igual en las dos.
+            _FilterSectionLabel(l10n.libraryFilterSpaceLabel),
+            const SizedBox(height: 8),
+            SpaceFilterSection(
+              selectedSpaceId: query.spaceId,
+              onChanged: notifier.selectSpace,
+            ),
+            const SizedBox(height: 20),
             _FilterSectionLabel(l10n.libraryFilterTypeLabel),
             const SizedBox(height: 8),
             Wrap(
