@@ -12,7 +12,6 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reference/presentation/providers/reference_providers.dart';
-import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/transform/data/archive/html_page_archiver.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_resource_fetcher.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
@@ -219,8 +218,6 @@ final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
     logger: ref.watch(appLoggerProvider),
     telemetry: ref.watch(telemetryServiceProvider),
     clock: ref.watch(clockProvider),
-    suggestionGenerator: ref.watch(propertySuggestionGeneratorProvider),
-    relationSuggestionGenerator: ref.watch(relationSuggestionGeneratorProvider),
     duplicateSuggestionGenerator: ref.watch(
       duplicateSuggestionGeneratorProvider,
     ),

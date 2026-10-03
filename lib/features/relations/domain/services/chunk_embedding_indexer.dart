@@ -1,8 +1,8 @@
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 
 /// Calcula y persiste los embeddings que todavía falten para los chunks de
-/// un elemento. Reusado tanto por el hook en vivo
-/// (`GenerateRelationSuggestionsUseCase`) como por el backfill bajo
+/// un elemento. Reusado tanto por la IA que vincula sola (`AutoRelateStep`,
+/// F27) como por el backfill bajo
 /// demanda (`BackfillEmbeddingsUseCase`) — un solo lugar donde vive cómo
 /// se serializa el vector, qué pasa si ya existe, qué `modelVersion` se
 /// guarda.

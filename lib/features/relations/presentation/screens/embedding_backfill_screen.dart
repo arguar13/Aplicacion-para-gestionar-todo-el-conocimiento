@@ -7,8 +7,8 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Calcula bajo demanda los embeddings que le falten a lo ya capturado
 /// antes de que el modelo estuviera descargado —el modelo en sí, una vez
-/// listo, se usa solo en cada captura nueva (ver
-/// `GenerateRelationSuggestionsUseCase`), pero lo ya guardado necesita
+/// listo, se usa solo con cada elemento que organiza la IA (ver
+/// `AutoRelateStep`, F27), pero lo ya guardado necesita
 /// este empujón puntual (ver la decisión sobre F5, D13).
 ///
 /// Mismo patrón de progreso que `VaultBackupScreen`, con una barra

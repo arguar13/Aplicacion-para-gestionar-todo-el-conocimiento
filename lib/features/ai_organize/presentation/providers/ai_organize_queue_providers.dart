@@ -1,0 +1,138 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
+import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
+
+/// Si el dispositivo está enchufado (F27, decisión C). En una computadora de
+/// escritorio, «no se sabe» es que no tiene batería: está enchufada.
+final chargingProbeProvider = Provider<ChargingProbe>((ref) {
+  final desktop =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+  return BatteryChargingProbe(unknownMeansPlugged: desktop);
+});
+
+/// Desde cuándo organiza sola la IA en este dispositivo, y el largo de las
+/// notas que ya organizó (F27).
+final aiOrganizeMemoryProvider = Provider<AiOrganizeMemory>(
+  (ref) => PrefsAiOrganizeMemory(
+    prefs: ref.watch(sharedPreferencesProvider),
+    clock: ref.watch(clockProvider),
+  ),
+);
+
+/// Lo que la IA tiene pendiente, deducido de la base (F27).
+final aiOrganizeBacklogProvider = Provider<AiOrganizeBacklog>(
+  (ref) => AiOrganizeBacklogImpl(ref.watch(appDatabaseProvider)),
+);
+
+/// Lo que hace la IA con cada elemento, en orden (F27): primero lo barato
+/// —la referencia, que no usa el modelo—, y al final lo que más tarda —las
+/// tarjetas, varias llamadas al modelo en un texto largo—. Todo con el modelo
+/// en el turno de la cola (`backgroundLanguageModelProvider`): le cede el
+/// paso a la persona.
+final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
+  final model = ref.watch(backgroundLanguageModelProvider);
+  final runs = ref.watch(aiRunRepositoryProvider);
+  final organize = ref.watch(organizeRepositoryProvider);
+  final suggestions = ref.watch(suggestionRepositoryProvider);
+  return [
+    AutoReferenceStep(
+      files: ref.watch(fileStoreProvider),
+      suggestions: suggestions,
+    ),
+    AutoPropertiesStep(
+      database: ref.watch(appDatabaseProvider),
+      service: model,
+      organize: organize,
+      suggestions: suggestions,
+      runs: runs,
+    ),
+    AutoSpaceStep(
+      chooser: model.chooseSpace,
+      organize: organize,
+      library: ref.watch(libraryRepositoryProvider),
+    ),
+    AutoRelateStep(
+      database: ref.watch(appDatabaseProvider),
+      ids: ref.watch(idGeneratorProvider),
+      embeddings: ref.watch(embeddingServiceProvider),
+      indexer: ref.watch(chunkEmbeddingIndexerProvider),
+      selector: ref.watch(relationCandidateSelectorProvider),
+      service: model,
+      organize: organize,
+      suggestions: suggestions,
+      runs: runs,
+    ),
+    AutoFlashcardsStep(
+      generator: model,
+      flashcards: ref.watch(flashcardRepositoryProvider),
+      runs: runs,
+    ),
+  ];
+});
+
+/// La cola de la IA que organiza sola (F27). Deliberadamente sin
+/// `autoDispose` y sin `ref.watch`, mismo criterio que
+/// `processingQueueProvider`: vive toda la sesión, y reconstruirla por un
+/// cambio en la cadena de proveedores perdería lo que se pidió a mano. Sus
+/// dependencias se piden al usarlas.
+///
+/// Arranca cuando se retoma el trabajo pendiente al abrir la biblioteca
+/// (`ProcessingQueueNotifier.resume`). Publica su estado en
+/// `aiOrganizeStatusProvider` y sigue los interruptores de
+/// `aiOrganizeSettingsProvider`: pausar y reanudar es prender y apagar
+/// `AiOrganizeToggle.enabled`.
+final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
+  final queue = AiOrganizeQueue(
+    backlog: ref.read(aiOrganizeBacklogProvider),
+    runs: ref.read(aiRunRepositoryProvider),
+    library: ref.read(libraryRepositoryProvider),
+    steps: () => ref.read(aiOrganizeStepsProvider),
+    chatModel: () => ref.read(chatModelManagerProvider),
+    embeddingModel: () => ref.read(embeddingModelManagerProvider),
+    charging: ref.read(chargingProbeProvider),
+    memory: ref.read(aiOrganizeMemoryProvider),
+    telemetry: ref.read(telemetryServiceProvider),
+    clock: ref.read(clockProvider),
+    onStatus: (status) =>
+        ref.read(aiOrganizeStatusProvider.notifier).state = status,
+    settings: ref.read(aiOrganizeSettingsProvider),
+    modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+  );
+  ref
+    ..listen(
+      aiOrganizeSettingsProvider,
+      (_, settings) => queue.updateSettings(settings),
+    )
+    ..onDispose(queue.dispose);
+  return queue;
+});

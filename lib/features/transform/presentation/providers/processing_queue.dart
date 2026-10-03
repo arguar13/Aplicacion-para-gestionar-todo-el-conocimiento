@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_checkpoint_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/repositories/processing_state_repository.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -44,11 +45,13 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     required AppLogger logger,
     LongWorkKeeper Function()? longWork,
     void Function(KnowledgeItem processed)? onProcessed,
+    void Function()? onResume,
   }) : _processItem = processItem,
        _processingStates = processingStates,
        _logger = logger,
        _longWork = longWork,
        _onProcessed = onProcessed,
+       _onResume = onResume,
        super(const ProcessingQueueState());
 
   /// Cuántas veces se retoma algo que quedó a medias porque la app se cerró,
@@ -65,6 +68,11 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
   /// YouTube (F24). No forma parte del procesamiento —el elemento ya está
   /// listo—, ni ocupa un carril.
   final void Function(KnowledgeItem processed)? _onProcessed;
+
+  /// Lo que se retoma junto con esta cola al abrir la biblioteca: la cola de
+  /// la IA que organiza sola (F27), que tiene su propio trabajo pendiente en
+  /// la base. No ocupa un carril.
+  final void Function()? _onResume;
 
   /// Lo que mantiene viva la app mientras hay trabajo largo (F21, decisión
   /// C). `null` en las pruebas que no lo miran.
@@ -168,6 +176,7 @@ class ProcessingQueueNotifier extends StateNotifier<ProcessingQueueState> {
     } catch (e, stackTrace) {
       _logger.error('No se pudo retomar lo pendiente.', e, stackTrace);
     }
+    if (!_isDisposed) _onResume?.call();
   }
 
   /// Vuelve a procesar [itemId] a pedido del usuario, desde cero: sin el
@@ -459,7 +468,11 @@ final processingQueueProvider =
               ref.read(youTubeAudioDownloadProvider(item.id).notifier).start(),
             );
           }
+          // Y la IA lo organiza después, en su propia cola (F27): el
+          // elemento ya está listo, no la espera.
+          ref.read(aiOrganizeQueueProvider).itemProcessed(item.id);
         },
+        onResume: () => unawaited(ref.read(aiOrganizeQueueProvider).start()),
       );
     });
 

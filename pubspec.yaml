@@ -24,6 +24,12 @@ dependencies:
   # mediados de 2025 y no le confiaría a un paquete abandonado la conversión
   # que hace falta antes de transcribir. MIT.
   audio_decoder: ^0.8.1
+  # Si el teléfono está enchufado: la IA pasa por la biblioteca que ya
+  # existía solo mientras carga (F27, decisión C), para no gastar batería en
+  # horas de modelo de lenguaje. Del ecosistema Flutter Community (los
+  # `*_plus`), mantenido, BSD-3; cubre Android, iOS y escritorio. Detrás de
+  # `ChargingProbe`, así las pruebas no lo necesitan.
+  battery_plus: ^7.1.2
   # Ya venía como dependencia transitiva; se declara explícita porque ahora
   # el código del proyecto la usa directamente: el SHA-1 que arma el índice
   # de duplicados de una nota de Anki al exportar el mazo de flashcards

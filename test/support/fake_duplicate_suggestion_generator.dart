@@ -9,7 +9,7 @@ import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestio
 
 /// Un generador de sugerencias de duplicado de mentira, para probar
 /// `ProcessItemUseCase` sin depender de la base. Mismo patrón que
-/// `FakeRelationSuggestionGenerator`.
+/// `FakeMetadataSuggestionGenerator`.
 class FakeDuplicateSuggestionGenerator implements DuplicateSuggestionGenerator {
   FakeDuplicateSuggestionGenerator({this.error});
 

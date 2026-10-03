@@ -4,9 +4,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 /// guardado, y genera una sugerencia de duplicado si encuentra algo
 /// parecido — F7, deduplicación.
 ///
-/// Determinístico, sin modelo de IA (D1): a diferencia de
-/// `RelationSuggestionGenerator`/`PropertySuggestionGenerator` (F4/F5),
-/// corre siempre, sin ningún gate de `ChatModelManager`/
+/// Determinístico, sin modelo de IA (D1): a diferencia de los vínculos y
+/// las propiedades, que desde F27 hace la cola de la IA, corre siempre, sin ningún gate de `ChatModelManager`/
 /// `EmbeddingModelManager`. Sirve tanto para fuentes (enganchado en
 /// `ProcessItemUseCase`) como para notas (enganchado en
 /// `LibraryRepositoryImpl.save()`) — el mismo generador, dos puntos de

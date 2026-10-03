@@ -27,8 +27,6 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 
 import '../../../../support/fake_duplicate_suggestion_generator.dart';
 import '../../../../support/fake_metadata_suggestion_generator.dart';
-import '../../../../support/fake_property_suggestion_generator.dart';
-import '../../../../support/fake_relation_suggestion_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 
@@ -162,8 +160,6 @@ void main() {
         logger: const SilentLogger(),
         telemetry: MockTelemetryService(),
         clock: () => now,
-        suggestionGenerator: FakePropertySuggestionGenerator(),
-        relationSuggestionGenerator: FakeRelationSuggestionGenerator(),
         duplicateSuggestionGenerator: FakeDuplicateSuggestionGenerator(),
         metadataSuggestionGenerator: FakeMetadataSuggestionGenerator(),
       );

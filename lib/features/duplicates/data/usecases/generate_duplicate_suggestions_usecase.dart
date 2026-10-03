@@ -17,8 +17,8 @@ import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_rep
 /// [DuplicateSuggestionGenerator] — F7, deduplicación.
 ///
 /// Vive en `data/`, no en `domain/`: orquesta `AppDatabase` directo para
-/// persistir el fingerprint —mismo criterio que
-/// `GenerateRelationSuggestionsUseCase` de F5—.
+/// persistir el fingerprint —mismo criterio que los pasos de la IA que
+/// organiza sola (F27), como `AutoRelateStep`—.
 class GenerateDuplicateSuggestionsUseCase
     implements DuplicateSuggestionGenerator {
   const GenerateDuplicateSuggestionsUseCase({
