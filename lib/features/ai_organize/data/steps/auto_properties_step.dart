@@ -1,21 +1,21 @@
-import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
-import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
+import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 
 /// Cuánto del elemento ve el modelo para elegir sus propiedades: el
-/// comienzo, que es donde un texto dice de qué trata. Con el vocabulario y
-/// la respuesta, entra holgado en la ventana de 2048 tokens; mandar el texto
-/// entero —como hacían las sugerencias de F4— desbordaba la ventana con
-/// cualquier libro.
+/// comienzo, que es donde un texto dice de qué trata. Con el vocabulario
+/// (`kPropertyVocabularyBudgetChars`) y la respuesta, entra en la ventana de
+/// 2048 tokens; mandar el texto entero —como hacían las sugerencias de F4—
+/// desbordaba la ventana con cualquier libro.
 const kPropertyExcerptChars = 2400;
 
 /// Los temas, las etiquetas y las propiedades de un elemento, puestos por la
@@ -27,24 +27,29 @@ const kPropertyExcerptChars = 2400;
 /// «Para revisar»**: inventar una palabra para el vocabulario de alguien es
 /// justo lo que hay que mirar antes.
 ///
+/// El modelo no ve el vocabulario entero —uno de miles de valores no entra en
+/// su ventana—, sino lo más pertinente para el elemento
+/// (`selectVocabularyForPrompt`): lo que nombra, lo más parecido por
+/// vectores y lo más usado, de cada categoría.
+///
 /// Nunca repite: deja afuera lo que el elemento ya tiene, lo que ya está
 /// propuesto o se descartó en «Para revisar», y lo que la persona dijo que
 /// «no era». Y nunca pisa una asignación de otro origen
 /// (`OrganizeRepository.assignProperty`).
 class AutoPropertiesStep implements AiOrganizeStep {
   const AutoPropertiesStep({
-    required AppDatabase database,
+    required VocabularyCandidatesReader vocabulary,
     required PropertySuggestionService service,
     required OrganizeRepository organize,
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
-  }) : _db = database,
+  }) : _vocabulary = vocabulary,
        _service = service,
        _organize = organize,
        _suggestions = suggestions,
        _runs = runs;
 
-  final AppDatabase _db;
+  final VocabularyCandidatesReader _vocabulary;
   final PropertySuggestionService _service;
   final OrganizeRepository _organize;
   final SuggestionRepository _suggestions;
@@ -61,14 +66,21 @@ class AutoPropertiesStep implements AiOrganizeStep {
     final content = item.searchableText.trim();
     if (content.isEmpty) return AiStepReport.nothing;
 
-    final categories = await _loadVocabulary();
+    final excerpt = content.length > kPropertyExcerptChars
+        ? '${content.substring(0, kPropertyExcerptChars)}…'
+        : content;
+    // Lo que el modelo va a ver del elemento: con eso se mide qué parte del
+    // vocabulario le sirve.
+    final seen = '${item.title}\n$excerpt';
+    final categories = selectVocabularyForPrompt(
+      await _vocabulary.read(seen),
+      mentionedIn: seen,
+    );
     if (categories.isEmpty) return AiStepReport.nothing;
 
     final drafts = await _service.suggestProperties(
       itemTitle: item.title,
-      itemContent: content.length > kPropertyExcerptChars
-          ? '${content.substring(0, kPropertyExcerptChars)}…'
-          : content,
+      itemContent: excerpt,
       categories: categories,
     );
 
@@ -138,35 +150,5 @@ class AutoPropertiesStep implements AiOrganizeStep {
       }
     }
     return AiStepReport(applied: applied, forReview: forReview);
-  }
-
-  /// Las categorías de texto con sus valores y alias. Solo las de texto:
-  /// `assignProperty` escribe el valor como texto, y bajo una categoría de
-  /// fecha o de número dejaría esos campos vacíos —mismo criterio que las
-  /// sugerencias de F4—.
-  Future<List<PropertyVocabularyCategory>> _loadVocabulary() async {
-    final definitions = await (_db.select(
-      _db.propertyDefinitions,
-    )..where((d) => d.type.equalsValue(PropertyValueType.text))).get();
-
-    return [
-      for (final definition in definitions)
-        PropertyVocabularyCategory(
-          definitionId: definition.id,
-          name: definition.name,
-          values: [
-            for (final value in await (_db.select(
-              _db.propertyValues,
-            )..where((v) => v.definitionId.equals(definition.id))).get())
-              value.value,
-          ],
-          aliases: [
-            for (final alias in await (_db.select(
-              _db.propertyAliases,
-            )..where((a) => a.definitionId.equals(definition.id))).get())
-              alias.alias,
-          ],
-        ),
-    ];
   }
 }

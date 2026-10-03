@@ -9,6 +9,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
+import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_atlas_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
@@ -72,7 +73,11 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       runs: runs,
     ),
     AutoPropertiesStep(
-      database: ref.watch(appDatabaseProvider),
+      vocabulary: VocabularyCandidatesReader(
+        database: ref.watch(appDatabaseProvider),
+        embeddings: ref.watch(embeddingServiceProvider),
+        clock: ref.watch(clockProvider),
+      ),
       service: model,
       organize: organize,
       suggestions: suggestions,

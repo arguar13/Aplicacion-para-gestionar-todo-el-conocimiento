@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
@@ -513,7 +514,9 @@ class GemmaChatModel
 
       try {
         final list = [
-          for (final category in categories) _describeCategory(category),
+          // La misma forma con que se midió lo que ocupa (F27).
+          for (final category in categories)
+            describeVocabularyCategory(category),
         ].join('\n');
 
         await chat.addQueryChunk(
@@ -827,16 +830,6 @@ String _buildDerivedPrompt(List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Fuentes:\n$context';
-}
-
-/// Una línea de vocabulario para [GemmaChatModel.suggestProperties]: el
-/// nombre de la categoría, sus valores existentes y, si hay, sus alias.
-String _describeCategory(PropertyVocabularyCategory category) {
-  final values = category.values.join(', ');
-  if (category.aliases.isEmpty) return '${category.name}: $values';
-
-  final aliases = category.aliases.join(', ');
-  return '${category.name}: $values (alias: $aliases)';
 }
 
 /// El modelo de Gemma cargado, compartido entre [GemmaChatModel] y su

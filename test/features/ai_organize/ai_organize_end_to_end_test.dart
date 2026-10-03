@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
@@ -126,7 +127,11 @@ void main() {
       library: vault.library,
       steps: () => [
         AutoPropertiesStep(
-          database: vault.db,
+          vocabulary: VocabularyCandidatesReader(
+            database: vault.db,
+            embeddings: embeddings,
+            clock: vault.clock,
+          ),
           service: FakePropertySuggestionService(
             drafts: [
               PropertyDraft(
