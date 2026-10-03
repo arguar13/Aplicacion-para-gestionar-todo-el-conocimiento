@@ -33,6 +33,7 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_sect
 import 'package:sinapsis/features/flashcards/presentation/widgets/generate_quiz_button.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/local_graph_panel.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/inbox_standing_line.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -345,6 +346,9 @@ class _DetailBodyState extends State<_DetailBody> {
                     ),
                   ),
                 ],
+                // Qué se decidió en la Bandeja y cuándo (F28). En una nota no
+                // dibuja nada: no pasa por la Bandeja.
+                InboxStandingLine(itemId: item.id, itemTitle: item.title),
                 if (item.source.kind == SourceKind.manualNote) ...[
                   const SizedBox(height: 8),
                   Wrap(

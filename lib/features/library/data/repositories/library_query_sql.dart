@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 /// Cuántos chunks puede tener una palabra para que valga la pena ordenar los
@@ -134,7 +135,7 @@ class TextSearchPlan {
 /// texto van antes que los que solo mencionan la palabra en el cuerpo de una
 /// fuente.
 ///
-/// Un único lugar arma los filtros —tipo de fuente, estado, espacio,
+/// Un único lugar arma los filtros —tipo de fuente, estado, Bandeja, espacio,
 /// etiquetas, propiedades— para las tres preguntas que se le hacen a una
 /// consulta (los ids de una página, los ids de todo lo que coincide y cuántos
 /// son), de modo que no puedan discrepar.
@@ -160,6 +161,7 @@ class LibraryQuerySql {
       final onlyText =
           query.sourceKinds.isEmpty &&
           query.processingStates.isEmpty &&
+          query.inboxStatuses.isEmpty &&
           query.spaceId == null &&
           query.ids == null &&
           query.tagIds.isEmpty &&
@@ -208,6 +210,18 @@ class LibraryQuerySql {
       _args.addAll(
         query.processingStates.map((s) => Variable.withString(s.name)),
       );
+    }
+    if (query.inboxStatuses.isNotEmpty) {
+      // Lo decidido en la Bandeja (F28): el estado de trabajo del elemento,
+      // y solo de fuentes —una nota también está `processed`, pero nunca
+      // esperó en la Bandeja—.
+      final states = {
+        for (final status in query.inboxStatuses) ...status.itemStates,
+      };
+      _where.add('item.kind = ? AND item.state IN (${_marks(states.length)})');
+      _args
+        ..add(Variable.withString(ItemKind.source.name))
+        ..addAll(states.map((s) => Variable.withString(s.name)));
     }
     if (query.spaceId != null) {
       _where.add('item.space_id = ?');

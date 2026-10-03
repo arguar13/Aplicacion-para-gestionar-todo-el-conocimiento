@@ -69,6 +69,11 @@ class _FakeLinkRepository implements LinkRepository {
     required String title,
     NoteKind kind = NoteKind.living,
   }) => throw UnimplementedError();
+
+  @override
+  Future<Either<Failure, ({KnowledgeItem item, bool created})>>
+  findOrCreateNote({required String title, NoteKind kind = NoteKind.living}) =>
+      throw UnimplementedError();
 }
 
 BrokenLink _link(String title, List<(String, String)> sources) => BrokenLink(

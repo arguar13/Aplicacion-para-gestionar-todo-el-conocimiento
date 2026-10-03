@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -32,6 +33,7 @@ void main() {
         const LibraryQuery(propertyValueIds: {'p'}),
         const LibraryQuery(spaceId: 's'),
         const LibraryQuery(processingStates: {ProcessingState.failed}),
+        const LibraryQuery(inboxStatuses: {InboxStatus.triaged}),
       ];
 
       for (final query in restricted) {

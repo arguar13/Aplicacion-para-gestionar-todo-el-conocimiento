@@ -277,6 +277,27 @@ void main() {
     });
   });
 
+  group('findOrCreateNote (F28)', () {
+    test('dice que la creó cuando no había ninguna', () async {
+      final result = await repository.findOrCreateNote(title: 'Cartago');
+
+      final (:item, :created) = result.getRight().toNullable()!;
+      expect(created, isTrue);
+      expect(item.title, 'Cartago');
+    });
+
+    test('dice que ya existía cuando devuelve la de ese título', () async {
+      await seedItem('roma', 'Roma');
+
+      final result = await repository.findOrCreateNote(title: 'roma');
+
+      final (:item, :created) = result.getRight().toNullable()!;
+      expect(created, isFalse);
+      expect(item.id, 'roma');
+      expect(await db.select(db.knowledgeEntries).get(), hasLength(1));
+    });
+  });
+
   group('watchBrokenLinks', () {
     Future<List<BrokenLink>> current() => repository.watchBrokenLinks().first;
 

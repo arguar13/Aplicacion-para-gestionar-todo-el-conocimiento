@@ -331,6 +331,33 @@ class OrganizeRepositoryImpl implements OrganizeRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, Unit>> deleteRelationBetween({
+    required String fromItemId,
+    required String toItemId,
+    required RelationKind kind,
+  }) async {
+    try {
+      await (_db.delete(_db.relations)..where(
+            (r) =>
+                r.fromItemId.equals(fromItemId) &
+                r.toItemId.equals(toItemId) &
+                r.kind.equalsValue(kind),
+          ))
+          .go();
+      return right(unit);
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'OrganizeRepositoryImpl.deleteRelationBetween',
+        ),
+      );
+    }
+  }
+
   /// Lo que escribe editar algo que hizo la IA (F27): pasa a ser de la
   /// persona, sin pasada ni confianza. Editar es adoptar.
   static const _adopted = RelationsCompanion(

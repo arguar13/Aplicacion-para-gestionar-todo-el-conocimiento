@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -49,6 +50,13 @@ void main() {
     );
     await harness.container.read(libraryRepositoryProvider).save(item);
     return item.id;
+  }
+
+  Future<ItemState> stateOf(String id) async {
+    final row = await (harness.database.select(
+      harness.database.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle();
+    return row.state;
   }
 
   Future<void> pumpInbox(WidgetTester tester) async {
@@ -120,24 +128,68 @@ void main() {
       expect(find.text(es.inboxActionReviewSuggestions), findsNothing);
     });
 
-    testWidgets(
-      'con sugerencias pendientes, tocarlo transiciona a triaged y abre '
-      'el diálogo',
-      (tester) async {
-        final itemId = await seedProcessedSource();
-        await seedSuggestion(itemId);
+    testWidgets('con sugerencias pendientes, tocarlo abre el diálogo y la '
+        'fuente sigue en la Bandeja mientras se revisa', (tester) async {
+      final itemId = await seedProcessedSource(title: 'Para revisar');
+      await seedSuggestion(itemId);
 
-        await pumpInbox(tester);
-        expect(find.text(es.inboxActionReviewSuggestions), findsOneWidget);
+      await pumpInbox(tester);
+      expect(find.text(es.inboxActionReviewSuggestions), findsOneWidget);
 
-        await tester.tap(find.text(es.inboxActionReviewSuggestions));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text(es.inboxActionReviewSuggestions));
+      await tester.pumpAndSettle();
 
-        expect(find.text(es.suggestionsReviewDialogTitle), findsOneWidget);
-        // Transicionó a triaged: la fuente ya no aparece en pending.
-        expect(find.text(es.inboxEmptyTitle), findsOneWidget);
-      },
-    );
+      expect(find.text(es.suggestionsReviewDialogTitle), findsOneWidget);
+      // Abrir el diálogo no decide nada (F28): antes la fuente se triaba
+      // acá, y cerrarlo la perdía de la Bandeja.
+      expect(await stateOf(itemId), ItemState.processed);
+    });
+
+    testWidgets('cerrar el diálogo sin confirmar la deja en la Bandeja', (
+      tester,
+    ) async {
+      final itemId = await seedProcessedSource(title: 'Sigue acá');
+      await seedSuggestion(itemId);
+      await pumpInbox(tester);
+
+      await tester.tap(find.text(es.inboxActionReviewSuggestions));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      expect(await stateOf(itemId), ItemState.processed);
+      expect(find.text('Sigue acá'), findsOneWidget);
+      // Nada que deshacer: no se decidió nada.
+      expect(
+        tester
+            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.undo))
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('confirmar la tría y lo avisa, con «Ver» y «Deshacer»', (
+      tester,
+    ) async {
+      final itemId = await seedProcessedSource(title: 'Revisada');
+      await seedSuggestion(itemId);
+      await pumpInbox(tester);
+
+      await tester.tap(find.text(es.inboxActionReviewSuggestions));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.suggestionsApplySelected));
+      await tester.pumpAndSettle();
+
+      expect(await stateOf(itemId), ItemState.triaged);
+      expect(find.text(es.inboxReviewedSnack('Revisada')), findsOneWidget);
+      expect(find.widgetWithText(TextButton, es.inboxView), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(SnackBarAction, es.inboxUndo));
+      await tester.pumpAndSettle();
+
+      expect(await stateOf(itemId), ItemState.processed);
+      expect(find.text('Revisada'), findsOneWidget);
+    });
 
     testWidgets('aceptar una sugerencia la aplica de verdad', (tester) async {
       final itemId = await seedProcessedSource();

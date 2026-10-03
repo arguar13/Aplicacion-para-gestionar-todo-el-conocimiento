@@ -276,7 +276,7 @@ resultado; tocarlo te lleva directo a ese lugar exacto.
 ### Filtrar
 
 El botón con forma de perilla, al lado del buscador, abre el panel
-**"Filtros"**, con tres secciones:
+**"Filtros"**, con cuatro secciones:
 
 1. **"Tema"**: tus Temas. Se elige uno a la vez; tocarlo de nuevo lo suelta.
    Si tenés muchos, la sección tiene un alto fijo con una barra de
@@ -287,11 +287,15 @@ El botón con forma de perilla, al lado del buscador, abre el panel
    recién creado está vacío).
 2. **"Tipo"** (Video, Página web, Publicación, Documento, Imagen, Audio,
    Nota, Referencia).
-3. **"Etiquetas"**.
+3. **"Bandeja"**: lo que decidiste en la [Bandeja de entrada](#bandeja-de-entrada)
+   — **"Por revisar"** (lo que todavía espera), **"Triado"** y
+   **"Descartado"**. Así encontrás lo que ya pasó por la Bandeja: nada de lo
+   que triás o descartás se borra, sigue en la Biblioteca.
+4. **"Etiquetas"**.
 
-En Tipo y Etiquetas podés marcar varios a la vez. El número sobre el botón
-dice cuántos filtros hay puestos, y **"Limpiar filtros"** los saca todos,
-también el Tema.
+En Tipo, Bandeja y Etiquetas podés marcar varios a la vez. El número sobre el
+botón dice cuántos filtros hay puestos, y **"Limpiar filtros"** los saca
+todos, también el Tema.
 
 ### Temas (tus "carpetas")
 
@@ -349,7 +353,11 @@ De arriba hacia abajo, vas a encontrar:
    bibliografía, generar una nota derivada con
    IA, generar un cuestionario, y eliminarlo (se manda a la papelera, no se
    borra directo).
-2. **Título** y, si tiene, un subtítulo.
+2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo dice qué
+   decidiste con ella en la Bandeja: **"Triado el 3 oct"** o **"Descartado
+   el…"**, con el botón **"Volver a la Bandeja"** (la devuelve para decidir
+   de nuevo); o **"En la Bandeja"**, con **"Triar ahora"**, que abre la
+   Bandeja con esa fuente arriba de todo.
 3. Si es una nota propia: chips para su **madurez** ("Semilla" / "En
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
@@ -762,16 +770,45 @@ mazo de tarjetas para ir descartando.
 
 **Cómo llegar:** ítem **"Bandeja"** en la navegación.
 
+**Triar** es decidir qué hacés con cada cosa que guardaste. La primera vez que
+abrís la Bandeja, una tarjeta corta lo explica; se cierra con **"Entendido"** y
+no vuelve a aparecer.
+
 Cada fuente aparece como una tarjeta grande, con un extracto de su texto. La
 podés resolver de tres formas:
 
 - **Arrastrando la tarjeta**: a la izquierda para "Descartar", a la derecha
-  para "Triado" (ya la revisaste, queda archivada), hacia arriba para
+  para "Triado" (ya la revisaste, queda para trabajarla), hacia arriba para
   "Extraer nota".
 - **Con los botones** de abajo: los mismos tres, más "Vincular a nota viva"
-  (para conectarla con una nota tuya ya existente).
+  (para conectarla con una nota tuya) y, si hay, "Revisar sugerencias".
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
   Triado, arriba = Extraer, Ctrl+Z = deshacer.
+
+**Nada se pierde.** Lo triado y lo descartado no se borran: siguen en la
+Biblioteca, y los encontrás en **Filtros → "Bandeja"** (ver
+[Filtrar](#filtrar)) o en el detalle de cada uno, que dice cuándo lo triaste.
+Además:
+
+- Cada decisión deja un aviso abajo —por ejemplo, *"Triado: El Imperio
+  romano"*— con **"Ver"** (abre esa fuente) y **"Deshacer"**.
+- **Deshacer** va de a un paso y podés deshacer varios seguidos, con el botón
+  de la flecha arriba, con Ctrl+Z o desde el aviso. Se acuerda de lo que
+  hiciste aunque salgas de la Bandeja y vuelvas, mientras la app siga abierta
+  (al cerrarla, el historial empieza de cero). Deshacer un vínculo con una
+  nota viva lo saca, y si esa nota la habías creado en ese momento, la manda
+  a la papelera (de ahí se recupera).
+- **"Vincular a nota viva"** y **"Revisar sugerencias"** solo dan la fuente
+  por triada si las terminás: si cerrás el selector o el diálogo, la fuente
+  se queda en la Bandeja como estaba.
+- Si todavía no tenés ninguna nota viva, el selector te deja **crear una**:
+  escribí de qué trata y tocá **"Crear la nota viva «…»"**. La nota nueva
+  queda citando a la fuente. Lo mismo cuando buscás una que no existe.
+
+**Lo que queda por triar.** Arriba a la derecha dice cuántas fuentes esperan
+(por ejemplo, *"33 pendientes"*). Tocalo para ver la lista entera, con el tipo
+y la fecha en que guardaste cada una; tocá cualquiera para traerla arriba del
+mazo y decidir sobre esa primero.
 
 Si la app sugirió alguna propiedad para esa fuente (por ejemplo, "Región:
 Roma"), la vas a ver como un chip debajo de la tarjeta: tocarlo la acepta.

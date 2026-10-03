@@ -3,7 +3,9 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
 
 /// El lado del espejo `item`/`source`/`note` (ver la decisión sobre F3 en
 /// docs/arquitectura.md) que sirve a la Bandeja de entrada: qué queda por
@@ -17,9 +19,19 @@ abstract interface class InboxRepository {
   /// su progreso se mide con [watchNoteMaturity], no con este flujo.
   Stream<List<String>> watchPendingIds();
 
+  /// Lo mismo que [watchPendingIds], en el mismo orden, con lo justo para
+  /// listarlo: la cola entera detrás de «N pendientes» (F28).
+  Stream<List<PendingSource>> watchPending();
+
+  /// Dónde está [itemId] respecto de la Bandeja y desde cuándo (F28), o
+  /// `null` si no tiene nada que ver con ella —una nota, una fuente que
+  /// todavía se procesa, algo que ya no existe—. Ver [InboxStanding].
+  Stream<InboxStanding?> watchStanding(String itemId);
+
   /// Cambia el estado de un elemento. Sin una máquina de estados
-  /// completa: los únicos llamadores hoy son las 3 acciones de la
-  /// Bandeja (`processed → discarded`, `processed → triaged`).
+  /// completa: los llamadores son las acciones de la Bandeja
+  /// (`processed → discarded`, `processed → triaged`), deshacerlas, y
+  /// «Volver a la Bandeja» desde el detalle (`→ processed`, F28).
   Future<Either<Failure, Unit>> transitionState({
     required String itemId,
     required ItemState to,

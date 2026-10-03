@@ -640,6 +640,56 @@ void main() {
       expect(await repository.watchRelationsForItem(b.id).first, isEmpty);
     });
 
+    test('borrar por sus extremos saca solo ese vínculo, de ese tipo y en '
+        'ese sentido (F28)', () async {
+      final a = await seedItem();
+      final b = await seedItem();
+      for (final kind in [RelationKind.cites, RelationKind.relatedTo]) {
+        await repository.createRelation(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: kind,
+        );
+      }
+      await repository.createRelation(
+        fromItemId: b.id,
+        toItemId: a.id,
+        kind: RelationKind.cites,
+      );
+
+      final result = await repository.deleteRelationBetween(
+        fromItemId: a.id,
+        toItemId: b.id,
+        kind: RelationKind.cites,
+      );
+
+      expect(result.isRight(), isTrue);
+      final remaining = await repository.watchRelationsForItem(a.id).first;
+      expect(
+        remaining.map((r) => (r.kind, r.direction)),
+        unorderedEquals([
+          (RelationKind.relatedTo, RelationDirection.outgoing),
+          (RelationKind.cites, RelationDirection.incoming),
+        ]),
+      );
+    });
+
+    test(
+      'borrar por sus extremos un vínculo que no existe no es un error',
+      () async {
+        final a = await seedItem();
+        final b = await seedItem();
+
+        final result = await repository.deleteRelationBetween(
+          fromItemId: a.id,
+          toItemId: b.id,
+          kind: RelationKind.cites,
+        );
+
+        expect(result.isRight(), isTrue);
+      },
+    );
+
     test('borrar un elemento borra también sus vínculos', () async {
       // Las cascadas del esquema, no algo que este repositorio tenga que
       // hacer a mano.

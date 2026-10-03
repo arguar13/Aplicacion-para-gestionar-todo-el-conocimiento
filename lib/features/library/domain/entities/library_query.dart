@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 
@@ -73,6 +74,11 @@ sealed class LibraryQuery with _$LibraryQuery {
     /// Para poder mirar solo lo que falló, o solo lo que está en la cola.
     @Default(<ProcessingState>{}) Set<ProcessingState> processingStates,
 
+    /// Lo decidido en la Bandeja (F28): por revisar, triado, descartado.
+    /// Cualquiera de estos basta, y solo entran fuentes —una nota no pasa por
+    /// la Bandeja—. Es lo que hace encontrable lo que se trió.
+    @Default(<InboxStatus>{}) Set<InboxStatus> inboxStatuses,
+
     @Default(LibrarySort.capturedAt) LibrarySort sortBy,
 
     /// Descendente por defecto: en fechas, lo más reciente primero es lo que
@@ -103,5 +109,6 @@ sealed class LibraryQuery with _$LibraryQuery {
       propertyValueIds.isNotEmpty ||
       spaceId != null ||
       ids != null ||
-      processingStates.isNotEmpty;
+      processingStates.isNotEmpty ||
+      inboxStatuses.isNotEmpty;
 }

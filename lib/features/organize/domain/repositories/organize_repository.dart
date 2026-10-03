@@ -117,6 +117,17 @@ abstract interface class OrganizeRepository {
   /// Deshace un vínculo.
   Future<Either<Failure, Unit>> deleteRelation(String id);
 
+  /// Deshace el vínculo de tipo [kind] de [fromItemId] a [toItemId], si
+  /// existe: lo que necesita quien solo sabe qué vinculó —«Deshacer» en la
+  /// Bandeja (F28)—, porque [createRelation] no devuelve el id. Hay a lo sumo
+  /// uno: [createRelation] no deja repetir ese trío. Que no exista no es un
+  /// error.
+  Future<Either<Failure, Unit>> deleteRelationBetween({
+    required String fromItemId,
+    required String toItemId,
+    required RelationKind kind,
+  });
+
   /// «No era» (F27): borra el vínculo que hizo la IA y recuerda que no va
   /// —el par, sin sentido, y el tipo—, para que no lo vuelva a proponer. El
   /// comprobante sirve para [restoreRejectedRelation]. Se rechaza si el

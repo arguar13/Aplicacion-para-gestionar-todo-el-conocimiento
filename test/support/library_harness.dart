@@ -21,6 +21,7 @@ import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
+import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/narration/presentation/providers/narration_providers.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/processing_queue.dart';
@@ -153,6 +154,13 @@ class LibraryHarness {
     /// quien la corre usa Windows, Linux o Android, o las mismas pruebas
     /// pasarían distinto según la máquina.
     ChatModelOption initialChatModelOption = ChatModelOption.gemma4E4b,
+
+    /// Si la tarjeta que explica el triaje la primera vez (F28) ya se cerró.
+    /// Sí por defecto: ocupa lugar arriba del mazo, y lo que miden las pruebas
+    /// de la Bandeja es el mazo, no la bienvenida —con ella, en la pantalla
+    /// chica de una prueba, los botones de la tarjeta quedan más abajo del
+    /// borde—. Las pruebas de la tarjeta misma pasan `false`.
+    bool inboxIntroDismissed = true,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -160,6 +168,7 @@ class LibraryHarness {
     SharedPreferences.setMockInitialValues({
       'app_locale': locale,
       'chat_model_option': initialChatModelOption.name,
+      InboxIntroNotifier.prefsKey: inboxIntroDismissed,
     });
     final prefs = await SharedPreferences.getInstance();
 

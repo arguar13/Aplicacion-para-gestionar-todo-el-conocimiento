@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -16,6 +17,7 @@ import 'package:sinapsis/features/citations/presentation/export_bibliography_act
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/inbox_status_presentation.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/entities/search_citation.dart';
 import 'package:sinapsis/features/library/domain/entities/search_hit.dart';
@@ -547,11 +549,12 @@ class _SearchAndFilters extends ConsumerWidget {
     final tags = ref.watch(allTagsProvider).valueOrNull ?? const <Tag>[];
     final space = currentSpace;
 
-    // Tema, tipo y etiquetas en un solo número: los tres viven en el mismo
-    // panel y acotan qué se ve, así que los tres son "filtros" en el sentido
+    // Tema, tipo, Bandeja y etiquetas en un solo número: viven en el mismo
+    // panel y acotan qué se ve, así que todos son "filtros" en el sentido
     // que les da `LibraryQueryNotifier.hasActiveFilters`.
     final activeFilterCount =
         query.sourceKinds.length +
+        query.inboxStatuses.length +
         query.tagIds.length +
         (query.spaceId == null ? 0 : 1);
 
@@ -622,8 +625,8 @@ class _SearchAndFilters extends ConsumerWidget {
   }
 }
 
-/// El panel de filtros de tema, tipo y etiquetas, detrás del botón con el
-/// ícono de perilla —ver `_SearchAndFilters`—.
+/// El panel de filtros de tema, tipo, Bandeja y etiquetas, detrás del botón
+/// con el ícono de perilla —ver `_SearchAndFilters`—.
 ///
 /// `Wrap` y no un desplazamiento horizontal: acá no hay una altura de una
 /// sola fila que cuidar, así que las opciones pueden quedar a la vista de
@@ -694,6 +697,25 @@ class _FiltersSheet extends ConsumerWidget {
                     label: Text(kind.label(l10n)),
                     selected: query.sourceKinds.contains(kind),
                     onSelected: (_) => notifier.toggleSourceKind(kind),
+                  ),
+              ],
+            ),
+            // Lo que pasó por la Bandeja (F28): sin esto, triar o descartar
+            // algo lo dejaba en la Biblioteca sin ninguna marca, y no había
+            // cómo volver a encontrar lo decidido.
+            const SizedBox(height: 20),
+            _FilterSectionLabel(l10n.libraryFilterInboxLabel),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final status in InboxStatus.values)
+                  FilterChip(
+                    avatar: Icon(status.icon, size: 18),
+                    label: Text(status.filterLabel(l10n)),
+                    selected: query.inboxStatuses.contains(status),
+                    onSelected: (_) => notifier.toggleInboxStatus(status),
                   ),
               ],
             ),

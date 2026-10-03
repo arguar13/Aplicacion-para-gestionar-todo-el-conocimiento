@@ -4,12 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
+import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 
 import '../../../../support/item_rows.dart';
 
@@ -337,6 +341,124 @@ void main() {
       );
 
       expect(result.isLeft(), isTrue);
+    });
+  });
+
+  /// La fila de `source` de una fuente sembrada a mano: la que lee la cola.
+  Future<void> seedSourceRow(
+    String itemId, {
+    SourceKind kind = SourceKind.webPage,
+    DateTime? capturedAt,
+  }) => db
+      .into(db.knowledgeSources)
+      .insert(
+        KnowledgeSourcesCompanion.insert(
+          itemId: itemId,
+          sourceType: kind,
+          capturedAt: capturedAt ?? now,
+          contentHash: 'hash-$itemId',
+          processingStatus: SourceProcessingStatus.done,
+        ),
+      );
+
+  group('watchPending (F28)', () {
+    test('lo mismo que watchPendingIds, en el mismo orden, con tipo y '
+        'fecha', () async {
+      final nueva = await seedEntry(
+        title: 'Nueva',
+        updatedAt: now.add(const Duration(hours: 2)),
+      );
+      await seedSourceRow(nueva, kind: SourceKind.youtube);
+      final vieja = await seedEntry(
+        title: 'Vieja',
+        updatedAt: now.add(const Duration(hours: 1)),
+      );
+      await seedSourceRow(vieja, capturedAt: DateTime(2026, 8, 30));
+      final triada = await seedEntry(state: ItemState.triaged);
+      await seedSourceRow(triada);
+
+      final pending = await repository.watchPending().first;
+
+      expect(
+        pending.map((p) => p.id),
+        await repository.watchPendingIds().first,
+      );
+      expect(pending.map((p) => p.id), [vieja, nueva]);
+      expect(pending.first.title, 'Vieja');
+      expect(pending.first.capturedAt, DateTime(2026, 8, 30));
+      expect(pending.last.kind, SourceKind.youtube);
+    });
+
+    test('se actualiza sola al triar', () async {
+      final id = await seedEntry();
+      await seedSourceRow(id);
+      final queue = StreamQueue(repository.watchPending());
+      addTearDown(queue.cancel);
+      expect((await queue.next).map((p) => p.id), [id]);
+
+      await repository.transitionState(itemId: id, to: ItemState.triaged);
+
+      expect(await queue.next, isEmpty);
+    });
+  });
+
+  group('watchStanding (F28)', () {
+    test('una fuente pendiente está en la Bandeja', () async {
+      final id = await seedEntry();
+
+      expect(
+        await repository.watchStanding(id).first,
+        const InboxStanding(status: InboxStatus.pending),
+      );
+    });
+
+    test('triar la deja triada desde ese momento', () async {
+      final id = await seedEntry();
+
+      await repository.transitionState(itemId: id, to: ItemState.triaged);
+
+      expect(
+        await repository.watchStanding(id).first,
+        InboxStanding(status: InboxStatus.triaged, since: clockNow),
+      );
+    });
+
+    test('destilada también cuenta como triada; descartada, como '
+        'descartada', () async {
+      final destilada = await seedEntry(state: ItemState.distilled);
+      final descartada = await seedEntry(state: ItemState.discarded);
+
+      expect(
+        (await repository.watchStanding(destilada).first)!.status,
+        InboxStatus.triaged,
+      );
+      // Sin versión del estado —lo de antes de F11—, sin fecha.
+      expect(
+        await repository.watchStanding(descartada).first,
+        const InboxStanding(status: InboxStatus.discarded),
+      );
+    });
+
+    test('una nota, una fuente que se procesa o algo que no existe no '
+        'tienen nada que ver con la Bandeja', () async {
+      final nota = await seedEntry(kind: ItemKind.note);
+      await seedNote(nota);
+      final procesandose = await seedEntry(state: ItemState.captured);
+
+      expect(await repository.watchStanding(nota).first, isNull);
+      expect(await repository.watchStanding(procesandose).first, isNull);
+      expect(await repository.watchStanding('no-existe').first, isNull);
+    });
+
+    test('se actualiza sola al volver a la Bandeja', () async {
+      final id = await seedEntry(state: ItemState.triaged);
+      final queue = StreamQueue(repository.watchStanding(id));
+      addTearDown(queue.cancel);
+      expect((await queue.next)!.status, InboxStatus.triaged);
+
+      await repository.transitionState(itemId: id, to: ItemState.processed);
+
+      expect((await queue.next)!.status, InboxStatus.pending);
     });
   });
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fpdart/fpdart.dart' show Either, left, right;
 import 'package:sinapsis/core/domain/entities/item_relation.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -10,13 +12,18 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// confirmar. Las que no se tildaron quedan `pending`, sin tocar: se
 /// pueden revisar de nuevo después, no se rechazan por cerrar el diálogo.
 ///
-/// Recibe el repositorio ya resuelto, no un `WidgetRef`: quien llama
-/// —`_PendingItemCard`— puede desmontarse mientras el diálogo está
-/// abierto (transiciona el elemento a `triaged` antes de mostrarlo, y eso
-/// lo saca de la Bandeja), y un `ref` atado a ese widget deja de servir
-/// en cuanto se desmonta. El repositorio, en cambio, sigue siendo válido
-/// durante todo el tiempo que el diálogo esté en pantalla.
-Future<void> showSuggestionReviewDialog(
+/// Devuelve `null` si se cerró sin confirmar, cuántas se aplicaron si se
+/// confirmó, o el primer fallo si alguna no se pudo aplicar —esa queda
+/// `pending`, para reintentar—. Quien llama decide con eso si la revisión se
+/// completó: la Bandeja tría la fuente solo entonces (F28), y no al abrir el
+/// diálogo.
+///
+/// Recibe el repositorio ya resuelto, no un `WidgetRef`: quien llama puede
+/// desmontarse mientras el diálogo está abierto, y un `ref` atado a ese
+/// widget deja de servir en cuanto se desmonta. El repositorio, en cambio,
+/// sigue siendo válido durante todo el tiempo que el diálogo esté en
+/// pantalla.
+Future<Either<Failure, int>?> showSuggestionReviewDialog(
   BuildContext context, {
   required SuggestionRepository repository,
   required List<Suggestion> suggestions,
@@ -25,11 +32,16 @@ Future<void> showSuggestionReviewDialog(
     context: context,
     builder: (context) => _SuggestionReviewDialog(suggestions: suggestions),
   );
-  if (accepted == null || accepted.isEmpty) return;
+  if (accepted == null) return null;
 
+  // Una que falla no frena a las demás: lo tildado se aplica todo lo que se
+  // pueda, y la que falló queda `pending` para otra vuelta.
+  Failure? firstFailure;
   for (final suggestion in accepted) {
-    await repository.accept(suggestion.id);
+    final result = await repository.accept(suggestion.id);
+    firstFailure ??= result.getLeft().toNullable();
   }
+  return firstFailure == null ? right(accepted.length) : left(firstFailure);
 }
 
 /// Revisar lo que propuso el modelo antes de aplicar nada: cada sugerencia

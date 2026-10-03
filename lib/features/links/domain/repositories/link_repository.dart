@@ -38,6 +38,15 @@ abstract interface class LinkRepository {
     NoteKind kind = NoteKind.living,
   });
 
+  /// Lo mismo que [createNoteForLink], diciendo además si la nota se creó
+  /// recién o ya existía con ese título.
+  ///
+  /// Lo necesita quien después puede deshacer lo que hizo —crear una nota viva
+  /// desde la Bandeja (F28)—: una nota creada para eso se puede mandar a la
+  /// papelera al deshacer; una que ya existía, no.
+  Future<Either<Failure, ({KnowledgeItem item, bool created})>>
+  findOrCreateNote({required String title, NoteKind kind = NoteKind.living});
+
   /// Los `[[Título]]` sin nota de toda la bóveda, agrupados por título y
   /// actualizándose solos: los que más notas escriben primero, y a igual
   /// cantidad, por orden alfabético.

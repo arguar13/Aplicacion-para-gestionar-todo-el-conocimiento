@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/space.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -54,6 +55,13 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
     state = state.copyWith(tagIds: tagIds, limit: pageSize);
   }
 
+  /// Suma o quita algo de lo decidido en la Bandeja del filtro (F28).
+  void toggleInboxStatus(InboxStatus status) {
+    final statuses = Set<InboxStatus>.from(state.inboxStatuses);
+    if (!statuses.remove(status)) statuses.add(status);
+    state = state.copyWith(inboxStatuses: statuses, limit: pageSize);
+  }
+
   /// Entra o sale de un espacio, como una carpeta: elegir el que ya está
   /// activo vuelve a "todos", a diferencia de las etiquetas —que se
   /// combinan— acá solo tiene sentido mirar un espacio a la vez. `null`
@@ -87,6 +95,7 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
       sourceKinds: const {},
       tagIds: const {},
       processingStates: const {},
+      inboxStatuses: const {},
       spaceId: null,
       limit: pageSize,
     );
@@ -106,6 +115,7 @@ class LibraryQueryNotifier extends StateNotifier<LibraryQuery> {
       state.sourceKinds.isNotEmpty ||
       state.tagIds.isNotEmpty ||
       state.processingStates.isNotEmpty ||
+      state.inboxStatuses.isNotEmpty ||
       state.spaceId != null;
 
   /// Reemplaza el filtro y el orden enteros por los de una vista guardada

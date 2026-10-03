@@ -6662,5 +6662,157 @@
   "spacesFilterEmptyMessage": "You don't have any topics yet. Create one to group what you save.",
   "@spacesFilterEmptyMessage": {
     "description": "Panel de filtros de la Biblioteca y del Explorador, sección Tema, sin ningún tema creado: qué es un tema, arriba del botón «Nuevo tema»."
+  },
+  "inboxView": "View",
+  "@inboxView": {
+    "description": "Bandeja: acción del aviso después de decidir sobre una fuente; abre esa fuente."
+  },
+  "inboxLinkedSnack": "Linked to “{note}”: {title}",
+  "@inboxLinkedSnack": {
+    "description": "Aviso de la Bandeja después de vincular una fuente a una nota viva; la fuente queda triada.",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxReviewedSnack": "Suggestions reviewed: {title}",
+  "@inboxReviewedSnack": {
+    "description": "Aviso de la Bandeja después de revisar las sugerencias de una fuente; la fuente queda triada.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxUndoneNoteTrashed": "Undone. The living note “{note}”, created for the link, was moved to the trash.",
+  "@inboxUndoneNoteTrashed": {
+    "description": "Bandeja: aviso al deshacer un vínculo con una nota viva que se había creado para él.",
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxQueueTooltip": "See everything waiting",
+  "@inboxQueueTooltip": {
+    "description": "Bandeja: tooltip del contador de pendientes, que abre la lista de la cola."
+  },
+  "inboxQueueTitle": "Waiting for triage",
+  "@inboxQueueTitle": {
+    "description": "Bandeja: título de la lista de todo lo que espera, abierta desde el contador de pendientes."
+  },
+  "inboxQueueCapturedOn": "Saved on {date}",
+  "@inboxQueueCapturedOn": {
+    "description": "Bandeja, lista de la cola: cuándo se guardó cada fuente.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxQueueShowing": "Showing",
+  "@inboxQueueShowing": {
+    "description": "Bandeja, lista de la cola: marca de la fuente que está arriba del mazo."
+  },
+  "inboxIntroTitle": "Triage means deciding what to do with each thing",
+  "@inboxIntroTitle": {
+    "description": "Bandeja: título de la tarjeta que explica el triaje, la primera vez."
+  },
+  "inboxIntroBody": "What you save arrives here, already processed, one card at a time. “Triaged” keeps it to work on; “Discard” takes it out without deleting it. Nothing is lost: everything stays in the Library, and under Filters › Inbox you find it by what you decided.",
+  "@inboxIntroBody": {
+    "description": "Bandeja: texto de la tarjeta que explica el triaje, la primera vez."
+  },
+  "inboxIntroDismiss": "Got it",
+  "@inboxIntroDismiss": {
+    "description": "Bandeja: cierra para siempre la tarjeta que explica el triaje."
+  },
+  "pickLivingNoteCreate": "Create the living note “{title}”",
+  "@pickLivingNoteCreate": {
+    "description": "Selector de nota viva de la Bandeja: crea una nota viva nueva con ese nombre y le vincula la fuente.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "pickLivingNoteCreateHint": "Type above what it is about —the topic that will gather what you learn— and create it: it will cite this source.",
+  "@pickLivingNoteCreateHint": {
+    "description": "Selector de nota viva de la Bandeja, sin ninguna nota viva: cómo crear la primera."
+  },
+  "inboxStandingPending": "In the Inbox",
+  "@inboxStandingPending": {
+    "description": "Detalle de una fuente: chip que dice que espera triaje en la Bandeja."
+  },
+  "inboxStandingTriaged": "Triaged",
+  "@inboxStandingTriaged": {
+    "description": "Detalle de una fuente: chip de una fuente triada, sin fecha conocida."
+  },
+  "inboxStandingTriagedOn": "Triaged on {date}",
+  "@inboxStandingTriagedOn": {
+    "description": "Detalle de una fuente: chip de una fuente triada, con la fecha.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxStandingDiscarded": "Discarded",
+  "@inboxStandingDiscarded": {
+    "description": "Detalle de una fuente: chip de una fuente descartada, sin fecha conocida."
+  },
+  "inboxStandingDiscardedOn": "Discarded on {date}",
+  "@inboxStandingDiscardedOn": {
+    "description": "Detalle de una fuente: chip de una fuente descartada, con la fecha.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxBackToInbox": "Back to the Inbox",
+  "@inboxBackToInbox": {
+    "description": "Detalle de una fuente triada o descartada: la devuelve a la Bandeja."
+  },
+  "inboxBackToInboxSnack": "Back in the Inbox: {title}",
+  "@inboxBackToInboxSnack": {
+    "description": "Aviso después de devolver una fuente a la Bandeja desde su detalle.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxTriageNow": "Triage now",
+  "@inboxTriageNow": {
+    "description": "Detalle de una fuente que espera en la Bandeja: abre la Bandeja con esa fuente arriba."
+  },
+  "libraryFilterInboxLabel": "Inbox",
+  "@libraryFilterInboxLabel": {
+    "description": "Filtros de la Biblioteca: encabezado de la sección que filtra por lo decidido en la Bandeja."
+  },
+  "libraryFilterInboxPending": "To review",
+  "@libraryFilterInboxPending": {
+    "description": "Filtros de la Biblioteca, sección Bandeja: lo que todavía espera triaje."
+  },
+  "libraryFilterInboxTriaged": "Triaged",
+  "@libraryFilterInboxTriaged": {
+    "description": "Filtros de la Biblioteca, sección Bandeja: lo que se trió."
+  },
+  "libraryFilterInboxDiscarded": "Discarded",
+  "@libraryFilterInboxDiscarded": {
+    "description": "Filtros de la Biblioteca, sección Bandeja: lo que se descartó."
+  },
+  "inboxLinkNameTaken": "There is already an item called “{title}” that is not a note: choose another name.",
+  "@inboxLinkNameTaken": {
+    "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   }
 }

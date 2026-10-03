@@ -8,9 +8,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/bulk_writer_holder.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -1086,6 +1088,76 @@ void main() {
           await titlesOf(const LibraryQuery(searchText: '   ')),
           hasLength(3),
         );
+      },
+    );
+  });
+
+  group('filtrar por lo decidido en la Bandeja (F28)', () {
+    /// Una fuente lista —llega a la Bandeja— que después se pasa a [state],
+    /// por el mismo escritor que usa la Bandeja.
+    Future<void> seedSource(String title, [ItemState? state]) async {
+      final item = buildItem(title: title);
+      await repository.save(item);
+      if (state != null) {
+        await KnowledgeEntryWriter(db).setState(item.id, state);
+      }
+    }
+
+    Future<List<String>> titlesOf(Set<InboxStatus> statuses) async {
+      final items = (await repository.list(
+        LibraryQuery(
+          inboxStatuses: statuses,
+          sortBy: LibrarySort.title,
+          descending: false,
+        ),
+      )).getRight().toNullable()!;
+      return items.map((i) => i.title).toList();
+    }
+
+    Future<void> seed() async {
+      await seedSource('Por revisar');
+      await seedSource('Triada', ItemState.triaged);
+      await seedSource('Destilada', ItemState.distilled);
+      await seedSource('Descartada', ItemState.discarded);
+      // Una nota también queda `processed`, pero nunca esperó en la
+      // Bandeja.
+      await repository.save(
+        buildItem(title: 'Una nota', sourceKind: SourceKind.manualNote),
+      );
+    }
+
+    test('por revisar es lo que espera en la Bandeja, sin las notas', () async {
+      await seed();
+
+      expect(await titlesOf({InboxStatus.pending}), ['Por revisar']);
+    });
+
+    test('triado incluye lo destilado', () async {
+      await seed();
+
+      expect(await titlesOf({InboxStatus.triaged}), ['Destilada', 'Triada']);
+    });
+
+    test('descartado sigue en la Biblioteca, y se encuentra', () async {
+      await seed();
+
+      expect(await titlesOf({InboxStatus.discarded}), ['Descartada']);
+    });
+
+    test(
+      'dentro del filtro vale cualquiera, y cuenta igual que lista',
+      () async {
+        await seed();
+        const query = LibraryQuery(
+          inboxStatuses: {InboxStatus.triaged, InboxStatus.discarded},
+        );
+
+        expect(await titlesOf(query.inboxStatuses), [
+          'Descartada',
+          'Destilada',
+          'Triada',
+        ]);
+        expect((await repository.count(query)).getRight().toNullable(), 3);
       },
     );
   });

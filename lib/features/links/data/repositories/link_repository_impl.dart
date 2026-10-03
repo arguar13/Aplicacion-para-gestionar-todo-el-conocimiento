@@ -81,6 +81,11 @@ class LinkRepositoryImpl implements LinkRepository {
   }
 
   @override
+  Future<Either<Failure, ({KnowledgeItem item, bool created})>>
+  findOrCreateNote({required String title, NoteKind kind = NoteKind.living}) =>
+      _createOrFind(title, kind);
+
+  @override
   Future<Either<Failure, int>> createNotesForLinks(
     List<String> titles, {
     NoteKind kind = NoteKind.living,

@@ -2,8 +2,10 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -11,7 +13,9 @@ import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
+import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
 class InboxRepositoryImpl implements InboxRepository {
@@ -31,6 +35,13 @@ class InboxRepositoryImpl implements InboxRepository {
   /// [KnowledgeEntryWriter].
   KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
+  /// Lo que espera en la Bandeja: una fuente en `processed`, fuera de la
+  /// papelera. Un solo criterio para el mazo y para la lista de la cola.
+  Expression<bool> _isPending($KnowledgeEntriesTable e) =>
+      e.kind.equalsValue(ItemKind.source) &
+      e.state.equalsValue(ItemState.processed) &
+      e.isActive;
+
   @override
   Stream<List<String>> watchPendingIds() {
     return watchQuery(
@@ -39,18 +50,75 @@ class InboxRepositoryImpl implements InboxRepository {
       read: () async {
         final rows =
             await (_db.select(_db.knowledgeEntries)
-                  ..where(
-                    (e) =>
-                        e.kind.equalsValue(ItemKind.source) &
-                        e.state.equalsValue(ItemState.processed) &
-                        e.isActive,
-                  )
+                  ..where(_isPending)
                   ..orderBy([(e) => OrderingTerm(expression: e.updatedAt)]))
                 .get();
         return rows.map((row) => row.id).toList();
       },
       telemetry: _telemetry,
       hint: 'InboxRepositoryImpl.watchPendingIds',
+    );
+  }
+
+  @override
+  Stream<List<PendingSource>> watchPending() {
+    final entries = _db.knowledgeEntries;
+    final sources = _db.knowledgeSources;
+    return watchQuery(
+      db: _db,
+      tables: [entries, sources],
+      read: () async {
+        // Un `innerJoin`: una fuente siempre tiene su fila de `source` —la
+        // escriben juntas `save()` y el espejo—, y sin ella no habría tipo
+        // ni fecha que mostrar.
+        final rows =
+            await (_db.select(entries).join([
+                    innerJoin(sources, sources.itemId.equalsExp(entries.id)),
+                  ])
+                  ..where(_isPending(entries))
+                  ..orderBy([OrderingTerm(expression: entries.updatedAt)]))
+                .get();
+        return [
+          for (final row in rows)
+            PendingSource(
+              id: row.readTable(entries).id,
+              title: row.readTable(entries).title,
+              kind: row.readTable(sources).sourceType,
+              capturedAt: row.readTable(sources).capturedAt,
+            ),
+        ];
+      },
+      telemetry: _telemetry,
+      hint: 'InboxRepositoryImpl.watchPending',
+    );
+  }
+
+  @override
+  Stream<InboxStanding?> watchStanding(String itemId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.knowledgeEntries, _db.fieldVersions],
+      read: () async {
+        final entry = await (_db.select(
+          _db.knowledgeEntries,
+        )..where((e) => e.id.equals(itemId) & e.isActive)).getSingleOrNull();
+        if (entry == null) return null;
+        final status = InboxStatus.of(entry.kind, entry.state);
+        if (status == null) return null;
+
+        // Desde cuándo: la última vez que se cambió el estado, que ya
+        // registra la versión por campo (F11) —ver [InboxStanding.since]—.
+        final version =
+            await (_db.select(_db.fieldVersions)..where(
+                  (f) =>
+                      f.itemId.equals(itemId) &
+                      f.fieldName.equals(EntryField.state),
+                ))
+                .getSingleOrNull();
+        return InboxStanding(status: status, since: version?.updatedAt);
+      },
+      telemetry: _telemetry,
+      hint: 'InboxRepositoryImpl.watchStanding',
     );
   }
 

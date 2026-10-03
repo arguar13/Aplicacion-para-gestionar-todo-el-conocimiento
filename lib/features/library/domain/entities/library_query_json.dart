@@ -1,3 +1,4 @@
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -16,6 +17,7 @@ Map<String, Object?> libraryQueryToJson(LibraryQuery query) => {
   'propertyValueIds': query.propertyValueIds.toList(),
   if (query.spaceId != null) 'spaceId': query.spaceId,
   'processingStates': [for (final state in query.processingStates) state.name],
+  'inboxStatuses': [for (final status in query.inboxStatuses) status.name],
   'sortBy': query.sortBy.name,
   'descending': query.descending,
 };
@@ -41,6 +43,12 @@ LibraryQuery libraryQueryFromJson(Map<String, Object?> json) => LibraryQuery(
       if (ProcessingState.values.where((s) => s.name == name).firstOrNull
           case final state?)
         state,
+  },
+  inboxStatuses: {
+    for (final name in (json['inboxStatuses'] as List?)?.cast<String>() ?? [])
+      if (InboxStatus.values.where((s) => s.name == name).firstOrNull
+          case final status?)
+        status,
   },
   sortBy:
       LibrarySort.values.where((s) => s.name == json['sortBy']).firstOrNull ??

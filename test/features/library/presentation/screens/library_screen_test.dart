@@ -6,6 +6,8 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/date_precision.dart';
 import 'package:sinapsis/core/domain/entities/historical_date.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
@@ -495,6 +497,10 @@ void main() {
 
       await pumpLibrary(tester);
       await openFilters(tester);
+      // Las etiquetas van al final del panel: en una pantalla chica, más abajo
+      // del borde, como para quien las busca con el dedo.
+      await tester.ensureVisible(find.text('Filosofía'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Filosofía'));
       await tester.pumpAndSettle();
 
@@ -516,6 +522,10 @@ void main() {
 
         await pumpLibrary(tester);
         await openFilters(tester);
+        // Las etiquetas van al final del panel: en una pantalla chica,
+        // más abajo del borde, como para quien las busca con el dedo.
+        await tester.ensureVisible(find.text('Sin uso'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Sin uso'));
         await tester.pumpAndSettle();
         await closeFilters(tester);
@@ -2157,6 +2167,112 @@ void main() {
       await tapDay(tester, 15);
 
       expect(find.text('Un hecho con fecha exacta'), findsNothing);
+    });
+  });
+
+  group('la Bandeja en el panel de filtros (F28)', () {
+    var counter = 0;
+
+    /// Una fuente lista, pasada a [state] como la deja la Bandeja.
+    Future<void> seedSource(String title, [ItemState? state]) async {
+      final n = counter++;
+      final now = DateTime(2026, 9, 18, 10).add(Duration(minutes: n));
+      final item = KnowledgeItem(
+        id: 'bandeja-$n',
+        title: title,
+        source: Source(
+          id: 'src-bandeja-$n',
+          kind: SourceKind.webPage,
+          capturedAt: now,
+          url: 'https://ejemplo.org/bandeja/$n',
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await harness.container.read(libraryRepositoryProvider).save(item);
+      if (state != null) {
+        await harness.container
+            .read(inboxRepositoryProvider)
+            .transitionState(itemId: item.id, to: state);
+      }
+    }
+
+    Finder filtersBadge() => find.ancestor(
+      of: find.byTooltip(es.libraryFiltersTooltip),
+      matching: find.byType(Badge),
+    );
+
+    Finder inboxChip(String label) => find.widgetWithText(FilterChip, label);
+
+    Future<void> tapInboxChip(WidgetTester tester, String label) async {
+      await tester.ensureVisible(inboxChip(label));
+      await tester.pumpAndSettle();
+      await tester.tap(inboxChip(label));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('está la sección, con por revisar, triado y descartado', (
+      tester,
+    ) async {
+      await seedSource('Algo');
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+
+      expect(
+        find.text(es.libraryFilterInboxLabel.toUpperCase()),
+        findsOneWidget,
+      );
+      for (final label in [
+        es.libraryFilterInboxPending,
+        es.libraryFilterInboxTriaged,
+        es.libraryFilterInboxDiscarded,
+      ]) {
+        expect(inboxChip(label), findsOneWidget);
+      }
+    });
+
+    testWidgets('elegir «Triado» muestra solo lo triado y cuenta en la '
+        'insignia', (tester) async {
+      await seedSource('Pendiente');
+      await seedSource('Ya triada', ItemState.triaged);
+      await seedSource('Descartada', ItemState.discarded);
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tapInboxChip(tester, es.libraryFilterInboxTriaged);
+      await closeFilters(tester);
+
+      expect(find.text('Ya triada'), findsOneWidget);
+      expect(find.text('Pendiente'), findsNothing);
+      expect(find.text('Descartada'), findsNothing);
+      final badge = tester.widget<Badge>(filtersBadge());
+      expect((badge.label! as Text).data, '1');
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).inboxStatuses,
+        {InboxStatus.triaged},
+      );
+    });
+
+    testWidgets('«Limpiar filtros» la suelta', (tester) async {
+      await seedSource('Pendiente');
+      await seedSource('Descartada', ItemState.discarded);
+      await pumpLibrary(tester);
+
+      await openFilters(tester);
+      await tapInboxChip(tester, es.libraryFilterInboxDiscarded);
+      await tester.tap(find.text(es.libraryClearFilters).last);
+      await tester.pumpAndSettle();
+      await closeFilters(tester);
+
+      expect(
+        harness.container.read(libraryQueryNotifierProvider).inboxStatuses,
+        isEmpty,
+      );
+      expect(tester.widget<Badge>(filtersBadge()).isLabelVisible, isFalse);
+      expect(find.text('Pendiente'), findsOneWidget);
+      expect(find.text('Descartada'), findsOneWidget);
     });
   });
 }
