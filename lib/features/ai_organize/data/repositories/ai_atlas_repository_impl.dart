@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -23,6 +24,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_atlas.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_atlas_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
@@ -309,23 +311,23 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> mapNoteDeclined(
-    String valueId, {
-    required String title,
-  }) => _guard('mapNoteDeclined', () async {
-    final value = await (_db.select(
-      _db.propertyValues,
-    )..where((v) => v.id.equals(valueId))).getSingle();
-    final temaId = await temaDefinitionId(_db);
-    final temaName = (await (_db.select(
-      _db.propertyDefinitions,
-    )..where((d) => d.id.equals(temaId))).getSingle()).name;
-    // Tres huellas de que la persona le sacó la nota mapa al tema. Las dos
-    // primeras miran también lo que está en la papelera: borrar es la forma
-    // más directa de decir que no.
-    final row = await _db
-        .customSelect(
-          '''
+  Future<Either<Failure, bool>> mapNoteDeclined(String valueId) =>
+      _guard('mapNoteDeclined', () async {
+        final value = await (_db.select(
+          _db.propertyValues,
+        )..where((v) => v.id.equals(valueId))).getSingle();
+        final temaId = await temaDefinitionId(_db);
+        final temaName = (await (_db.select(
+          _db.propertyDefinitions,
+        )..where((d) => d.id.equals(temaId))).getSingle()).name;
+        // Tres huellas de que la persona le sacó la nota mapa al tema. Las dos
+        // primeras miran también lo que está en la papelera: borrar es la forma
+        // más directa de decir que no. La segunda se lee del registro de la
+        // pasada que creó la nota (`AiChangedField.mapNote`), no de su título:
+        // el título sale en el idioma de la app, y la persona puede cambiarlo.
+        final row = await _db
+            .customSelect(
+              '''
           SELECT
             EXISTS (
               SELECT 1 FROM item_property_values ipv
@@ -335,44 +337,48 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
                  AND n.note_kind = '$_map'
                  AND i.deleted_at IS NOT NULL) AS trashed,
             EXISTS (
-              SELECT 1 FROM note n
-                JOIN item i ON i.id = n.item_id
-               WHERE n.note_kind = '$_map'
-                 AND n.generated_by_model IS NOT NULL
-                 AND lower(trim(i.title)) = lower(trim(?2))
+              SELECT 1 FROM ai_field_changes c
+                JOIN ai_runs r ON r.id = c.ai_run_id
+               WHERE c.field = ?2 AND c.after_value = ?1
                  AND NOT EXISTS (
                    SELECT 1 FROM item_property_values ipv
-                    WHERE ipv.item_id = i.id
-                      AND ipv.property_value_id = ?1)) AS orphan,
+                     JOIN item i ON i.id = ipv.item_id
+                     JOIN note n ON n.item_id = i.id
+                    WHERE ipv.item_id = r.item_id
+                      AND ipv.property_value_id = ?1
+                      AND n.note_kind = '$_map'
+                      AND ${activeItemSql('i')})) AS let_go,
             EXISTS (
               SELECT 1 FROM ai_rejections r
                 JOIN note n ON n.item_id = r.item_id
                WHERE r.kind = ?3 AND r.fingerprint = ?4
                  AND n.note_kind = '$_map'
                  AND n.generated_by_model IS NOT NULL) AS rejected''',
-          variables: [
-            Variable.withString(valueId),
-            Variable.withString(title),
-            Variable.withString(AiRejectionKind.property.name),
-            Variable.withString(
-              propertyRejectionFingerprint(
-                definitionName: temaName,
-                value: value.value,
-              ),
-            ),
-          ],
-          readsFrom: {
-            _db.itemPropertyValues,
-            _db.knowledgeNotes,
-            _db.knowledgeEntries,
-            _db.aiRejections,
-          },
-        )
-        .getSingle();
-    return row.read<bool>('trashed') ||
-        row.read<bool>('orphan') ||
-        row.read<bool>('rejected');
-  });
+              variables: [
+                Variable.withString(valueId),
+                Variable.withString(AiChangedField.mapNote.name),
+                Variable.withString(AiRejectionKind.property.name),
+                Variable.withString(
+                  propertyRejectionFingerprint(
+                    definitionName: temaName,
+                    value: value.value,
+                  ),
+                ),
+              ],
+              readsFrom: {
+                _db.itemPropertyValues,
+                _db.knowledgeNotes,
+                _db.knowledgeEntries,
+                _db.aiRejections,
+                _db.aiFieldChanges,
+                _db.aiRuns,
+              },
+            )
+            .getSingle();
+        return row.read<bool>('trashed') ||
+            row.read<bool>('let_go') ||
+            row.read<bool>('rejected');
+      });
 
   @override
   Future<Either<Failure, String?>> createMapNote({
@@ -417,10 +423,9 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
       await _writer.markGenerated(noteId, model: model, at: now);
 
       // Su propia pasada: queda en «Lo que hizo la IA» como algo que la IA
-      // hizo, con el modelo; deshacerla le saca el tema —la nota deja de ser
-      // la nota mapa del tema— y la IA la suelta. Y es lo que le dice a la
-      // cola que esta nota ya está organizada: un índice no se vincula ni se
-      // vuelve tarjetas.
+      // hizo, con el modelo; deshacerla la manda a la papelera —si nadie la
+      // editó— y la IA la suelta. Y es lo que le dice a la cola que esta nota
+      // ya está organizada: un índice no se vincula ni se vuelve tarjetas.
       final runId = _orAbort(await _runs.startRun(noteId, model: model));
       _orAbort(
         await _organize.assignProperty(
@@ -431,6 +436,13 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
           aiRunId: runId,
         ),
       );
+      // Que la pasada creó la nota entera, y de qué tema es índice: antes de
+      // cerrarla, para que lo cuente.
+      await AiFieldLedger(
+        _db,
+        ids: _ids,
+        clock: _clock,
+      ).recordMapNote(runId: runId, valueId: valueId);
       _orAbort(await _runs.finishRun(runId));
       return noteId;
     }),

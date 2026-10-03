@@ -16,6 +16,7 @@ void main() {
       spaces: 1,
       referenceFields: 1,
       topicPlacements: 1,
+      mapNotes: 1,
     );
 
     expect(aiTallyParts(es, all), hasLength(all.total));
@@ -32,5 +33,9 @@ void main() {
       aiTallyText(es, const AiRunTally(properties: 3, topicPlacements: 2)),
       '3 temas · 2 temas ubicados',
     );
+  });
+
+  test('una nota mapa se dice entera', () {
+    expect(aiTallyText(es, const AiRunTally(mapNotes: 1)), '1 nota mapa');
   });
 }

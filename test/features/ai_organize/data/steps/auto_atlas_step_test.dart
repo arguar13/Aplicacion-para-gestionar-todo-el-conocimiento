@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_atlas_repository_impl.dart';
@@ -428,6 +429,40 @@ void main() {
 
       expect(report, AiStepReport.nothing);
       expect(await mapNotesOf(historia), isEmpty);
+    });
+
+    test('deshacer su pasada la manda a la papelera, y recuperarla no hace '
+        'que la IA cree otra ni la vuelva a tocar', () async {
+      for (var i = 1; i <= 5; i++) {
+        await sourceIn('f$i', historia);
+      }
+      await organize('f5');
+      final map = (await mapNotesOf(historia)).single;
+      final run = (await vault.runs.listRuns(
+        itemId: map.itemId,
+      )).getOrElse((f) => fail('$f')).single;
+      await vault.runs.undoRun(run.id);
+
+      await sourceIn('f6', historia);
+      expect(await organize('f6'), AiStepReport.nothing);
+      expect(await mapNotesOf(historia), isEmpty);
+
+      (await vault.library.restore(map.itemId)).getOrElse((f) => fail('$f'));
+      await sourceIn('f7', historia);
+      expect(await organize('f7'), AiStepReport.nothing);
+      expect(await mapNotesOf(historia), isEmpty);
+      expect(writer.seen, hasLength(1));
+      // Vuelve como estaba: sin el tema, con el índice que tenía.
+      final restored = await vault.reload(map.itemId);
+      expect(restored.tags, isEmpty);
+      final blocks =
+          await (vault.db.select(vault.db.renditions)..where(
+                (r) =>
+                    r.itemId.equals(map.itemId) &
+                    r.kind.equalsValue(RenditionKind.blocks),
+              ))
+              .getSingle();
+      expect(blocks.content, map.blocksContent);
     });
   });
 

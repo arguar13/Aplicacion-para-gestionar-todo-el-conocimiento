@@ -5417,5 +5417,14 @@
         "type": "int"
       }
     }
+  },
+  "aiTallyMapNotes": "{count, plural, =1{1 nota mapa} other{{count} notas mapa}}",
+  "@aiTallyMapNotes": {
+    "description": "Cuántas notas mapa escribió la IA entera, con su tema (F27, el Atlas).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

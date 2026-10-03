@@ -16,7 +16,8 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_atlas.dart';
 /// una sugerencia `topicParent` aceptada, con su pasada (`atlas_suggestions`):
 /// el lugar de un tema es una columna del vocabulario y no tiene `ai_run_id`.
 /// Una nota mapa de la IA es una nota generada (`generated_by_model`, como los
-/// derivados de F16) con su propia pasada.
+/// derivados de F16) con su propia pasada, que anota que la creó entera:
+/// deshacerla la manda a la papelera.
 abstract interface class AiAtlasRepository {
   /// El árbol de la categoría «Tema».
   Future<Either<Failure, AtlasTopicTree>> topicTree();
@@ -67,19 +68,17 @@ abstract interface class AiAtlasRepository {
   Future<Either<Failure, List<TopicMapNote>>> mapNotesOf(String valueId);
 
   /// Si la persona ya le sacó al tema [valueId] una nota mapa: hay una en la
-  /// papelera con ese tema, una de la IA con el título [title] que no quedó
-  /// como nota mapa viva del tema —le deshicieron la pasada—, o dijo que el
-  /// tema «no era» en una nota mapa de la IA. Entonces la IA no crea otra.
-  Future<Either<Failure, bool>> mapNoteDeclined(
-    String valueId, {
-    required String title,
-  });
+  /// papelera con ese tema, la IA ya le creó una que hoy no es su nota mapa
+  /// viva —le deshicieron la pasada, la borraron, le sacaron el tema, aunque
+  /// después la hayan recuperado—, o dijo que el tema «no era» en una nota
+  /// mapa de la IA. Entonces la IA no crea otra.
+  Future<Either<Failure, bool>> mapNoteDeclined(String valueId);
 
   /// Crea la nota mapa de la IA del tema [valueId]: una nota de tipo mapa
   /// con [title] y [blocks], marcada como generada por [model], con el tema
-  /// puesto por la IA en su propia pasada. Todo junto, o nada. `right(null)`,
-  /// sin crear nada, si el tema ya tiene una nota mapa —alguien la hizo
-  /// mientras el modelo escribía—.
+  /// puesto por la IA en su propia pasada, que anota que la creó. Todo junto,
+  /// o nada. `right(null)`, sin crear nada, si el tema ya tiene una nota mapa
+  /// —alguien la hizo mientras el modelo escribía—.
   Future<Either<Failure, String?>> createMapNote({
     required String valueId,
     required String title,

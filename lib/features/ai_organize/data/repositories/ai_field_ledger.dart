@@ -29,6 +29,10 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 /// - **lo que todavía es de la IA** se cuenta comparando con el valor de hoy,
 ///   igual que los vínculos y las tarjetas que la persona no adoptó.
 ///
+/// Una nota mapa que la IA crea entera (el Atlas) también queda acá, como
+/// [AiChangedField.mapNote]: no es una columna, es el elemento de la pasada.
+/// Deshacer la pasada la manda a la papelera mientras siga siendo de la IA.
+///
 /// Escribe por `KnowledgeEntryWriter`, como cualquier edición: cada cambio
 /// queda versionado para la fusión de bóvedas.
 ///
@@ -132,9 +136,34 @@ class AiFieldLedger {
     return completed;
   }
 
+  /// Anota que la pasada [runId] creó su elemento como la nota mapa del tema
+  /// [valueId]. Corre dentro de la transacción de quien la crea.
+  Future<void> recordMapNote({
+    required String runId,
+    required String valueId,
+  }) => _record(runId, AiChangedField.mapNote, null, valueId);
+
+  /// La nota mapa que creó la pasada [runId], y si la persona ya la hizo suya
+  /// —la editó—; `null` si la pasada no creó ninguna.
+  Future<({String noteId, bool adopted})?> createdMapNote(String runId) async {
+    final created =
+        await (_db.select(_db.aiFieldChanges)..where(
+              (c) =>
+                  c.aiRunId.equals(runId) &
+                  c.field.equalsValue(AiChangedField.mapNote),
+            ))
+            .getSingleOrNull();
+    if (created == null) return null;
+    final noteId = await _itemOf(runId);
+    if (noteId == null) return null;
+    return (noteId: noteId, adopted: (await _mapNoteOf(noteId)).adopted);
+  }
+
   /// Devuelve a como estaban el tema y los datos de la referencia que
-  /// completó la pasada [runId] y que siguen con lo que puso la IA. Devuelve
-  /// cuántos de cada uno. Corre dentro de la transacción de quien llama.
+  /// completó la pasada [runId] y que siguen con lo que puso la IA, y manda
+  /// a la papelera la nota mapa que creó si sigue siendo de la IA —viva y sin
+  /// editar—: como cualquier borrado, se puede recuperar. Devuelve cuántos de
+  /// cada uno. Corre dentro de la transacción de quien llama.
   Future<AiRunTally> undo(String runId) async {
     final itemId = await _itemOf(runId);
     if (itemId == null) return const AiRunTally();
@@ -147,7 +176,15 @@ class AiFieldLedger {
     var publishedAt = current.publishedAt;
     var referenceFields = 0;
     var dateRestored = false;
+    var mapNotes = 0;
     for (final change in changes) {
+      if (change.field == AiChangedField.mapNote) {
+        if ((await _mapNoteOf(itemId)).keptByAi) {
+          await _writer.trash([itemId]);
+          mapNotes++;
+        }
+        continue;
+      }
       if (_encode(
             change.field,
             current.reference,
@@ -189,11 +226,16 @@ class AiFieldLedger {
             : '${publishedAt.millisecondsSinceEpoch ~/ 1000}',
       );
     }
-    return AiRunTally(spaces: spaces, referenceFields: referenceFields);
+    return AiRunTally(
+      spaces: spaces,
+      referenceFields: referenceFields,
+      mapNotes: mapNotes,
+    );
   }
 
-  /// Lo que completó cada una de [runIds] —el tema y los datos de la
-  /// referencia—, contado de su historia: lo que se recordó al completarlo.
+  /// Lo que completó cada una de [runIds] —el tema, los datos de la
+  /// referencia y la nota mapa—, contado de su historia: lo que se recordó al
+  /// completarlo.
   Future<Map<String, AiRunTally>> created(Iterable<String> runIds) async {
     final byRun = <String, AiRunTally>{};
     for (final change in await _changesOf(runIds)) {
@@ -204,9 +246,9 @@ class AiFieldLedger {
   }
 
   /// Lo que de cada una de [runIds] todavía es de la IA: lo que sigue con el
-  /// valor que puso. Las pasadas deshechas no se cuentan: lo suyo ya se
-  /// devolvió, y si hoy tiene el mismo valor es porque alguien lo volvió a
-  /// poner.
+  /// valor que puso, y la nota mapa que creó si sigue viva y sin editar. Las
+  /// pasadas deshechas no se cuentan: lo suyo ya se devolvió, y si hoy tiene
+  /// el mismo valor es porque alguien lo volvió a poner.
   Future<Map<String, AiRunTally>> remaining(Iterable<String> runIds) async {
     final changes = await _changesOf(runIds);
     if (changes.isEmpty) return const {};
@@ -225,6 +267,14 @@ class AiFieldLedger {
     for (final change in changes) {
       final itemId = itemOfRun[change.aiRunId];
       if (itemId == null) continue;
+      if (change.field == AiChangedField.mapNote) {
+        if ((await _mapNoteOf(itemId)).keptByAi) {
+          byRun[change.aiRunId] =
+              (byRun[change.aiRunId] ?? const AiRunTally()) +
+              _one(change.field);
+        }
+        continue;
+      }
       final current = currentByItem[itemId] ??= await _currentOf(itemId);
       if (_encode(
             change.field,
@@ -241,9 +291,11 @@ class AiFieldLedger {
     return byRun;
   }
 
-  static AiRunTally _one(AiChangedField field) => field == AiChangedField.space
-      ? const AiRunTally(spaces: 1)
-      : const AiRunTally(referenceFields: 1);
+  static AiRunTally _one(AiChangedField field) => switch (field) {
+    AiChangedField.space => const AiRunTally(spaces: 1),
+    AiChangedField.mapNote => const AiRunTally(mapNotes: 1),
+    _ => const AiRunTally(referenceFields: 1),
+  };
 
   Future<void> _record(
     String runId,
@@ -283,12 +335,13 @@ class AiFieldLedger {
           SELECT 1 FROM ai_field_changes c
             JOIN ai_runs r ON r.id = c.ai_run_id
            WHERE r.item_id = ? AND r.id <> ? AND r.undone_at IS NULL
-             AND c.field <> ?
+             AND c.field NOT IN (?, ?)
            LIMIT 1''',
           variables: [
             Variable.withString(itemId),
             Variable.withString(exceptRun),
             Variable.withString(AiChangedField.space.name),
+            Variable.withString(AiChangedField.mapNote.name),
           ],
           readsFrom: {_db.aiFieldChanges, _db.aiRuns},
         )
@@ -307,6 +360,21 @@ class AiFieldLedger {
     return (missing: row == null, spaceId: row?.spaceId);
   }
 
+  /// Cómo está hoy la nota [noteId] que la IA creó como nota mapa.
+  Future<_MapNote> _mapNoteOf(String noteId) async {
+    final entry = await (_db.select(
+      _db.knowledgeEntries,
+    )..where((e) => e.id.equals(noteId))).getSingleOrNull();
+    final note = await (_db.select(
+      _db.knowledgeNotes,
+    )..where((n) => n.itemId.equals(noteId))).getSingleOrNull();
+    return _MapNote(
+      alive: entry != null && entry.deletedAt == null,
+      adopted:
+          note == null || note.generatedByModel == null || note.derivedEdited,
+    );
+  }
+
   Future<_Current> _currentOf(String itemId) async {
     final source = await (_db.select(
       _db.knowledgeSources,
@@ -317,6 +385,21 @@ class AiFieldLedger {
       publishedAt: source?.publishedAt,
     );
   }
+}
+
+/// Cómo está hoy una nota mapa que creó la IA.
+class _MapNote {
+  const _MapNote({required this.alive, required this.adopted});
+
+  /// Fuera de la papelera.
+  final bool alive;
+
+  /// La persona la hizo suya: la editó (`derived_edited`). Entonces deshacer
+  /// no la toca —ni la borra, ni le saca el tema—.
+  final bool adopted;
+
+  /// Lo que deshacer se llevaría: viva y de la IA.
+  bool get keptByAi => alive && !adopted;
 }
 
 /// Cómo está hoy un elemento en lo que la IA puede completar.
@@ -382,6 +465,11 @@ String? _encode(
   String? text(String? value) =>
       value == null || value.trim().isEmpty ? null : value;
   return switch (field) {
+    // Una nota mapa no es un valor que se compare: se mira si sigue viva y
+    // sin editar (`_mapNoteOf`), antes de llegar acá.
+    AiChangedField.mapNote => throw StateError(
+      'La nota mapa de una pasada no se codifica como un dato.',
+    ),
     AiChangedField.space => spaceId,
     AiChangedField.referenceType => reference.type?.name,
     AiChangedField.contributors =>

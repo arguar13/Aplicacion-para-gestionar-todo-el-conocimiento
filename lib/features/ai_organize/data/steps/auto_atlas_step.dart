@@ -213,16 +213,14 @@ class AutoAtlasStep implements AiOrganizeStep {
       )).orThrowStep('leer las notas mapa del tema');
 
       if (maps.isEmpty) {
-        final title = aiMapNoteTitle(topic.label);
         final declined = (await _atlas.mapNoteDeclined(
           topicId,
-          title: title,
         )).orThrowStep('leer si la persona le sacó la nota mapa');
         if (declined) continue;
         written++;
         final created = (await _atlas.createMapNote(
           valueId: topicId,
-          title: title,
+          title: aiMapNoteTitle(topic.label),
           blocks: mapNoteBlocks(plan, intro: await _intro(topic, plan)),
           model: _modelName(),
         )).orThrowStep('crear la nota mapa');

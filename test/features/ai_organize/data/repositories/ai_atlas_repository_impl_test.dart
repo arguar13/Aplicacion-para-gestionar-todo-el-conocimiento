@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_atlas_repository_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 
 import '../../../../support/ai_organize_harness.dart';
 import '../../../../support/atlas_topics.dart';
@@ -187,7 +188,9 @@ void main() {
         expect(assignment.origin, ItemPropertyOrigin.ai);
         final run = right(await vault.runs.listRuns(itemId: noteId)).single;
         expect(run.finishedAt, isNotNull);
-        expect(run.created.properties, 1);
+        // La nota entera, con su tema: una nota mapa, no una propiedad.
+        expect(run.created, const AiRunTally(mapNotes: 1));
+        expect(run.remaining, const AiRunTally(mapNotes: 1));
 
         final maps = right(await atlas.mapNotesOf(historia));
         expect(maps.single.keptByAi, isTrue);
@@ -272,12 +275,8 @@ void main() {
 
     test('lo que la persona le sacó no vuelve: a la papelera, la pasada '
         'deshecha o «no era» en el tema', () async {
-      Future<bool> declined() async => right(
-        await atlas.mapNoteDeclined(
-          historia,
-          title: 'Mapa de Historia antigua',
-        ),
-      );
+      Future<bool> declined() async =>
+          right(await atlas.mapNoteDeclined(historia));
       expect(await declined(), isFalse);
 
       // A la papelera.
@@ -294,7 +293,8 @@ void main() {
       await vault.library.purge([first]);
       expect(await declined(), isFalse);
 
-      // La pasada deshecha: la nota queda, sin el tema.
+      // La pasada deshecha: la nota va a la papelera, sin el tema; y
+      // recuperarla no la vuelve a hacer nota mapa del tema.
       final second = right(
         await atlas.createMapNote(
           valueId: historia,
@@ -307,7 +307,28 @@ void main() {
       await vault.runs.undoRun(run.id);
       expect(right(await atlas.mapNotesOf(historia)), isEmpty);
       expect(await declined(), isTrue);
+      await vault.library.restore(second);
+      expect(right(await atlas.mapNotesOf(historia)), isEmpty);
+      expect(await declined(), isTrue);
+      await vault.library.delete(second);
       await vault.library.purge([second]);
+      expect(await declined(), isFalse);
+
+      // La que la persona le sacó al tema a mano, aunque tenga otro título.
+      final renamed = right(
+        await atlas.createMapNote(
+          valueId: historia,
+          title: 'Map of Historia antigua',
+          blocks: blocks,
+          model: 'gemma',
+        ),
+      )!;
+      await (vault.db.delete(
+        vault.db.itemPropertyValues,
+      )..where((a) => a.itemId.equals(renamed))).go();
+      expect(await declined(), isTrue);
+      await vault.library.delete(renamed);
+      await vault.library.purge([renamed]);
 
       // «No era» el tema en la nota mapa de la IA.
       final third = right(
@@ -323,6 +344,67 @@ void main() {
         propertyValueId: historia,
       );
       expect(await declined(), isTrue);
+    });
+  });
+
+  group('deshacer la pasada de una nota mapa', () {
+    Future<String> createMap() async => right(
+      await atlas.createMapNote(
+        valueId: historia,
+        title: 'Mapa de Historia antigua',
+        blocks: blocks,
+        model: 'gemma',
+      ),
+    )!;
+
+    Future<KnowledgeEntryRow> entryOf(String id) => (vault.db.select(
+      vault.db.knowledgeEntries,
+    )..where((e) => e.id.equals(id))).getSingle();
+
+    test('la manda a la papelera con su tema, y se cuenta como una nota '
+        'mapa; se puede recuperar', () async {
+      final noteId = await createMap();
+      final run = right(await vault.runs.listRuns(itemId: noteId)).single;
+
+      final undone = right(await vault.runs.undoRun(run.id));
+
+      expect(undone, const AiRunTally(mapNotes: 1));
+      expect((await entryOf(noteId)).deletedAt, isNotNull);
+      expect(right(await atlas.mapNotesOf(historia)), isEmpty);
+      // Como cualquier borrado: vuelve con su contenido.
+      right(await vault.library.restore(noteId));
+      final restored = await vault.reload(noteId);
+      expect(restored.title, 'Mapa de Historia antigua');
+      expect(restored.tags, isEmpty);
+      // Deshacer dos veces no toca nada la segunda.
+      expect(right(await vault.runs.undoRun(run.id)), const AiRunTally());
+      expect((await entryOf(noteId)).deletedAt, isNull);
+    });
+
+    test('la que la persona editó es suya: deshacer no la borra ni le saca '
+        'el tema, y no cuenta como de la IA', () async {
+      final noteId = await createMap();
+      await KnowledgeEntryWriter(vault.db).markDerivedEdited(noteId);
+      final run = right(await vault.runs.listRuns(itemId: noteId)).single;
+      expect(run.created, const AiRunTally(mapNotes: 1));
+      expect(run.remaining, const AiRunTally());
+
+      expect(right(await vault.runs.undoRun(run.id)), const AiRunTally());
+
+      expect((await entryOf(noteId)).deletedAt, isNull);
+      expect((await vault.reload(noteId)).tags.single.id, historia);
+      final maps = right(await atlas.mapNotesOf(historia));
+      expect(maps.single.itemId, noteId);
+      expect(maps.single.keptByAi, isFalse);
+    });
+
+    test('una que la persona ya borró no cuenta como de la IA', () async {
+      final noteId = await createMap();
+      await vault.library.delete(noteId);
+
+      final run = right(await vault.runs.undoItem(noteId));
+
+      expect(run, const AiRunTally());
     });
   });
 

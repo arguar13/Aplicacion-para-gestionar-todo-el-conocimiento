@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
@@ -171,8 +172,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
                    r.properties_created, i.title AS item_title,
                    ${_remainingSql('relations', 'r.id')} AS relations_left,
                    ${_remainingSql('flashcards', 'r.id')} AS flashcards_left,
-                   ${_remainingSql('item_property_values', 'r.id')}
-                     AS properties_left
+                   ${_propertiesRemainingSql('r.id')} AS properties_left
               FROM ai_runs r
               JOIN item i ON i.id = r.item_id
              WHERE ${activeItemSql('i')}
@@ -190,6 +190,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
               _db.relations,
               _db.flashcards,
               _db.itemPropertyValues,
+              _db.aiFieldChanges,
             },
           )
           .get();
@@ -385,7 +386,13 @@ class AiRunRepositoryImpl implements AiRunRepository {
   /// tema y la referencia, solo la primera vez: una pasada ya deshecha no
   /// tiene nada suyo, y si hoy el elemento tiene el mismo valor es porque
   /// alguien lo volvió a poner.
+  ///
+  /// Una pasada que creó una nota mapa (el Atlas) la manda a la papelera con
+  /// lo que le puso —su tema—, y se cuenta como una nota mapa. Si la persona
+  /// la editó, la nota es suya entera: deshacer no la toca, ni le saca el
+  /// tema.
   Future<AiRunTally> _undo(AiRunRow run) async {
+    final mapNote = await _fields.createdMapNote(run.id);
     final fields = run.undoneAt == null
         ? await _fields.undo(run.id)
         : const AiRunTally();
@@ -403,13 +410,14 @@ class AiRunRepositoryImpl implements AiRunRepository {
                   f.origin.equalsValue(ContentOrigin.ai),
             ))
             .go();
-    final properties =
-        await (_db.delete(_db.itemPropertyValues)..where(
-              (p) =>
-                  p.aiRunId.equals(run.id) &
-                  p.origin.equalsValue(ItemPropertyOrigin.ai),
-            ))
-            .go();
+    final properties = mapNote?.adopted ?? false
+        ? 0
+        : await (_db.delete(_db.itemPropertyValues)..where(
+                (p) =>
+                    p.aiRunId.equals(run.id) &
+                    p.origin.equalsValue(ItemPropertyOrigin.ai),
+              ))
+              .go();
     // Los temas que la IA ubicó sola en el árbol (F27, el Atlas) vuelven a la
     // raíz. No tienen `ai_run_id` propio —el lugar de un tema es una columna
     // del vocabulario—: la pasada queda en su registro de sugerencias.
@@ -422,7 +430,8 @@ class AiRunRepositoryImpl implements AiRunRepository {
     return AiRunTally(
           relations: relations,
           flashcards: flashcards,
-          properties: properties,
+          // El tema de una nota mapa va con ella: ya cuenta en `fields`.
+          properties: mapNote == null ? properties : 0,
           topicPlacements: topicPlacements,
         ) +
         fields;
@@ -434,7 +443,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
         .customSelect(
           'SELECT ${_remainingSql('relations', '?1')} AS relations_left, '
           '${_remainingSql('flashcards', '?1')} AS flashcards_left, '
-          '${_remainingSql('item_property_values', '?1')} AS properties_left',
+          '${_propertiesRemainingSql('?1')} AS properties_left',
           variables: [Variable.withString(runId)],
         )
         .getSingle();
@@ -450,6 +459,17 @@ class AiRunRepositoryImpl implements AiRunRepository {
   static String _remainingSql(String table, String run) =>
       '(SELECT COUNT(*) FROM $table x '
       "WHERE x.ai_run_id = $run AND x.origin = 'ai')";
+
+  /// Lo mismo para las propiedades, sin las de una pasada que creó una nota
+  /// mapa: lo que le puso —su tema— es parte de la nota, que se cuenta
+  /// entera como nota mapa (`AiFieldLedger`). Si la persona la editó, la
+  /// nota es suya, y su tema también.
+  static String _propertiesRemainingSql(String run) =>
+      '(SELECT COUNT(*) FROM item_property_values x '
+      "WHERE x.ai_run_id = $run AND x.origin = 'ai' "
+      'AND NOT EXISTS (SELECT 1 FROM ai_field_changes c '
+      'WHERE c.ai_run_id = $run '
+      "AND c.field = '${AiChangedField.mapNote.name}'))";
 
   static const _missingRun = Failure.unexpected(
     message:
