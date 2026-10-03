@@ -13,6 +13,7 @@ import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_reposit
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
@@ -22,15 +23,6 @@ import 'package:sinapsis/features/relations/domain/services/embedding_model_mana
 /// vincular y hacer tarjetas de un borrador.
 const kAiNoteQuietPeriod = Duration(seconds: 15);
 
-/// Cuánto tiene que cambiar una nota ya organizada para volver a
-/// organizarla: [kNoteRegrowMinChars] caracteres o una [kNoteRegrowRatio]
-/// parte de lo que tenía, lo que sea más. Un párrafo nuevo en una nota corta
-/// alcanza; una coma en una nota larga, no. Se mide por el largo —lo único
-/// que se recuerda de la vez anterior—: reescribir una nota sin cambiarle el
-/// largo no la vuelve a organizar.
-const kNoteRegrowMinChars = 300;
-const kNoteRegrowRatio = 0.3;
-
 /// La cola de la IA que organiza sola (F27): aparte de la de procesamiento,
 /// de a un elemento por vez y en segundo plano. El elemento queda listo como
 /// siempre; la IA trabaja después.
@@ -38,7 +30,8 @@ const kNoteRegrowRatio = 0.3;
 /// **Qué toma, en este orden:** lo que se pidió organizar a mano
 /// ([organizeNow]); lo nuevo —cada fuente que termina de procesarse, cada
 /// nota cuando lleva [kAiNoteQuietPeriod] sin cambios—; las notas ya
-/// organizadas que crecieron mucho; y, solo si está prendido y el
+/// organizadas que cambiaron mucho de contenido (`kNoteRegrowHammingBits`);
+/// y, solo si está prendido y el
 /// dispositivo está enchufado, la biblioteca que ya existía (decisión C).
 ///
 /// **Lo pendiente se deduce de la base** (`AiOrganizeBacklog`), no de una
@@ -73,7 +66,7 @@ class AiOrganizeQueue {
     required ChatModelManager Function() chatModel,
     required EmbeddingModelManager Function() embeddingModel,
     required ChargingProbe charging,
-    required AiOrganizeMemory memory,
+    required AiOrganizeEpoch epoch,
     required TelemetryService telemetry,
     required Clock clock,
     required void Function(AiOrganizeStatus status) onStatus,
@@ -87,7 +80,7 @@ class AiOrganizeQueue {
        _chatModel = chatModel,
        _embeddingModel = embeddingModel,
        _charging = charging,
-       _memory = memory,
+       _epoch = epoch,
        _telemetry = telemetry,
        _clock = clock,
        _onStatus = onStatus,
@@ -107,7 +100,7 @@ class AiOrganizeQueue {
   final ChatModelManager Function() _chatModel;
   final EmbeddingModelManager Function() _embeddingModel;
   final ChargingProbe _charging;
-  final AiOrganizeMemory _memory;
+  final AiOrganizeEpoch _epoch;
   final TelemetryService _telemetry;
   final Clock _clock;
   final void Function(AiOrganizeStatus status) _onStatus;
@@ -255,7 +248,7 @@ class AiOrganizeQueue {
   /// El próximo elemento por organizar y de dónde salió, o `null` si no hay
   /// nada que se pueda hacer ahora; en ese caso deja publicado por qué.
   Future<_Next?> _next() async {
-    final epoch = await _memory.epoch();
+    final epoch = await _epoch();
     final quietBefore = _clock().subtract(_noteQuietPeriod);
 
     if (!_settings.enabled) {
@@ -323,25 +316,32 @@ class AiOrganizeQueue {
 
   bool get _anyStepOn => _steps().any((s) => s.toggle.valueIn(_settings));
 
-  /// Una nota ya organizada que creció o se achicó lo suficiente.
+  /// Una nota ya organizada cuyo contenido cambió lo suficiente: su huella
+  /// de hoy contra la del texto que vio su última pasada. Reescribirla sin
+  /// cambiarle el largo cuenta; una coma, no.
   Future<String?> _grownNote(DateTime quietBefore) async {
     for (final edited in await _backlog.editedNotes(quietBefore: quietBefore)) {
       if (_skip.contains(edited.itemId)) continue;
       if (_noteChangesSeen[edited.itemId] == edited.updatedAt) continue;
       _noteChangesSeen[edited.itemId] = edited.updatedAt;
 
-      final seen = _memory.noteLengthSeen(edited.itemId);
-      // Sin saber cuánto tenía —se organizó en otro dispositivo—, no se
-      // supone que cambió: volver a organizar es más tarjetas y vínculos.
+      final seen = edited.simhashSeen;
+      // Sin saber cómo era —una pasada de antes de v35—, no se supone que
+      // cambió: volver a organizar es más tarjetas y vínculos.
       if (seen == null) continue;
       final note = await _find(edited.itemId);
       if (note == null) continue;
-      final change = (note.searchableText.length - seen).abs();
-      final needed = math.max(kNoteRegrowMinChars, kNoteRegrowRatio * seen);
-      if (change >= needed) return edited.itemId;
+      if (contentChangedMuch(seen, await _simhashOf(note.searchableText))) {
+        return edited.itemId;
+      }
     }
     return null;
   }
+
+  /// La huella de [text], fuera del hilo de la interfaz: es una cuenta por
+  /// cada trío de palabras, y una nota larga tiene miles.
+  static Future<String> _simhashOf(String text) =>
+      compute(contentSimhashOf, text);
 
   /// Cuántos esperan: los nuevos, lo pedido a mano y —si se recorre— la
   /// biblioteca que ya existía.
@@ -362,7 +362,7 @@ class AiOrganizeQueue {
       return;
     }
 
-    final epoch = await _memory.epoch();
+    final epoch = await _epoch();
     final quietBefore = _clock().subtract(_noteQuietPeriod);
     _onStatus(
       AiOrganizeWorking(
@@ -373,8 +373,18 @@ class AiOrganizeQueue {
       ),
     );
 
-    final runId = (await _runs.startRun(item.id, model: _modelName?.call()))
-        .fold((failure) {
+    // La huella del texto que ve esta pasada, para saber después si la nota
+    // cambió. Solo de las notas: una fuente no se vuelve a organizar por
+    // cambios, y la de un libro serían cientos de miles de cuentas.
+    final simhash = _isNote(item)
+        ? await _simhashOf(item.searchableText)
+        : null;
+    final runId =
+        (await _runs.startRun(
+          item.id,
+          model: _modelName?.call(),
+          contentSimhash: simhash,
+        )).fold((failure) {
           _skip.add(item.id);
           _telemetry.recordError(
             failure,
@@ -413,9 +423,6 @@ class AiOrganizeQueue {
         hint: 'AiOrganizeQueue: no se pudo cerrar la pasada',
       );
     }, (_) {});
-    if (_isNote(item)) {
-      await _memory.rememberNoteLength(item.id, item.searchableText.length);
-    }
   }
 
   Future<KnowledgeItem?> _find(String itemId) async =>

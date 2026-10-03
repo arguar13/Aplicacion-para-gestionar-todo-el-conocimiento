@@ -32,8 +32,9 @@ abstract interface class AiOrganizeBacklog {
   });
 
   /// Las notas que la IA ya organizó y que cambiaron después, sin cambios
-  /// desde [quietBefore], con cuándo cambiaron. Si cambiaron lo suficiente
-  /// para volver a organizarlas lo decide la cola.
+  /// desde [quietBefore], con cuándo cambiaron y la huella del texto que vio
+  /// su última pasada. Si cambiaron lo suficiente para volver a organizarlas
+  /// lo decide la cola.
   Future<List<EditedNote>> editedNotes({required DateTime quietBefore});
 
   /// Cuántos faltan: los nuevos —desde [epoch]— y los de la biblioteca que
@@ -49,8 +50,10 @@ abstract interface class AiOrganizeBacklog {
   Stream<DateTime?> watchLastNoteEdit();
 }
 
-/// Una nota que cambió después de que la IA la organizó.
-typedef EditedNote = ({String itemId, DateTime updatedAt});
+/// Una nota que cambió después de que la IA la organizó: cuándo, y la huella
+/// del texto que vio la última pasada (`ai_runs.content_simhash`); `null` si
+/// esa pasada no la guardó —una de antes de v35—.
+typedef EditedNote = ({String itemId, DateTime updatedAt, String? simhashSeen});
 
 /// Cuántos elementos esperan a la IA.
 @immutable

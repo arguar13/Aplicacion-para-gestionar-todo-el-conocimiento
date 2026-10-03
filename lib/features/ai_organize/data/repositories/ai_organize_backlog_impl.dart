@@ -101,7 +101,7 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
     final rows = await _db
         .customSelect(
           '''
-          SELECT i.id, i.updated_at FROM item i
+          SELECT i.id, i.updated_at, r.content_simhash FROM item i
             JOIN ai_runs r ON r.item_id = i.id
            WHERE ${activeItemSql('i')}
              AND i.kind = '$_note'
@@ -122,6 +122,7 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
         (
           itemId: row.read<String>('id'),
           updatedAt: row.read<DateTime>('updated_at'),
+          simhashSeen: row.readNullable<String>('content_simhash'),
         ),
     ];
   }

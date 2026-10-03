@@ -105,9 +105,15 @@ void main() {
     );
   });
 
-  test('las notas que cambiaron después de su pasada', () async {
+  test('las notas que cambiaron después de su pasada, con la huella que '
+      'vio', () async {
     await vault.note('n', title: 'Nota', content: 'Una idea.');
-    await vault.runs.finishRun(await vault.startRun('n'));
+    await vault.runs.finishRun(
+      (await vault.runs.startRun(
+        'n',
+        contentSimhash: '00ff',
+      )).getOrElse((f) => fail('$f')),
+    );
     expect(await backlog.editedNotes(quietBefore: quiet()), isEmpty);
 
     vault.now = vault.now.add(const Duration(minutes: 5));
@@ -121,8 +127,10 @@ void main() {
       isEmpty,
     );
     expect(
-      (await backlog.editedNotes(quietBefore: vault.now)).map((n) => n.itemId),
-      ['n'],
+      (await backlog.editedNotes(
+        quietBefore: vault.now,
+      )).map((n) => (n.itemId, n.simhashSeen)),
+      [('n', '00ff')],
     );
   });
 
@@ -135,8 +143,5 @@ void main() {
     vault.now = vault.now.add(const Duration(days: 3));
 
     expect(await memory.epoch(), first);
-    expect(memory.noteLengthSeen('n'), isNull);
-    await memory.rememberNoteLength('n', 42);
-    expect(memory.noteLengthSeen('n'), 42);
   });
 }

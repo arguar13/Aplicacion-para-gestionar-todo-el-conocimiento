@@ -7,10 +7,10 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 
 import '../../../../support/ai_organize_harness.dart';
@@ -56,23 +56,6 @@ class _Charging implements ChargingProbe {
   Stream<bool> watchCharging() => changes.stream;
 }
 
-class _Memory implements AiOrganizeMemory {
-  _Memory(this.since);
-
-  final DateTime since;
-  final lengths = <String, int>{};
-
-  @override
-  Future<DateTime> epoch() async => since;
-
-  @override
-  int? noteLengthSeen(String itemId) => lengths[itemId];
-
-  @override
-  Future<void> rememberNoteLength(String itemId, int length) async =>
-      lengths[itemId] = length;
-}
-
 void main() {
   late AiOrganizeHarness vault;
   late _Step relations;
@@ -81,7 +64,6 @@ void main() {
   late FakeChatModelManager chatModel;
   late FakeEmbeddingModelManager embeddingModel;
   late _Charging charging;
-  late _Memory memory;
   late List<AiOrganizeStatus> statuses;
 
   /// Lo creado antes de este momento es la biblioteca que ya existía.
@@ -95,7 +77,6 @@ void main() {
     chatModel = FakeChatModelManager(ready: true);
     embeddingModel = FakeEmbeddingModelManager(ready: true);
     charging = _Charging();
-    memory = _Memory(epoch);
     statuses = [];
   });
 
@@ -116,7 +97,7 @@ void main() {
       chatModel: () => chatModel,
       embeddingModel: () => embeddingModel,
       charging: charging,
-      memory: memory,
+      epoch: () async => epoch,
       telemetry: vault.telemetry,
       clock: vault.clock,
       onStatus: statuses.add,
@@ -388,9 +369,26 @@ void main() {
       );
     }
 
+    const roma =
+        'El Senado romano reunía a los antiguos magistrados de la ciudad. '
+        'Durante la república discutía la guerra, las finanzas y las '
+        'provincias, y sus decretos pesaban sobre los cónsules aunque no '
+        'fueran leyes. Con Augusto perdió el mando de los ejércitos, pero '
+        'siguió siendo el lugar donde la aristocracia medía su prestigio y '
+        'donde se votaban los honores del príncipe.';
+    // Del mismo largo que la de Roma, a un carácter, y de otra cosa.
+    const masaMadre =
+        'La masa madre fermenta despacio y le da al pan un sabor ácido que '
+        'la levadura comercial no consigue. Se alimenta con harina y agua '
+        'cada día, se guarda en un frasco tibio y se usa cuando dobla su '
+        'volumen. Un pan de campo lleva harina integral, sal, agua y tiempo: '
+        'la miga queda húmeda y la corteza gruesa, oscura y crujiente cuando '
+        'sale del horno de barro.';
+    final pan = masaMadre.padRight(roma.length, '.').substring(0, roma.length);
+
     test('espera a que la nota quede quieta, y la vuelve a organizar solo '
-        'si cambió mucho', () async {
-      await vault.note('n', title: 'Nota', content: 'Una idea.');
+        'si cambió mucho de contenido', () async {
+      await vault.note('n', title: 'Nota', content: roma);
       final ai = queue();
 
       await ai.start();
@@ -399,25 +397,37 @@ void main() {
       vault.now = vault.now.add(const Duration(seconds: 20));
       await ai.wake();
       expect(relations.organized, ['n']);
-      expect(memory.lengths['n'], 'Una idea.'.length);
+      final firstRun = (await vault.runs.listRuns(
+        itemId: 'n',
+      )).getOrElse((f) => fail('$f')).single;
+      // La pasada guarda la huella del texto que vio.
+      final stored = await (vault.db.select(
+        vault.db.aiRuns,
+      )..where((r) => r.id.equals(firstRun.id))).getSingle();
+      expect(stored.contentSimhash, contentSimhashOf(roma));
 
-      // Un cambio chico: no vale otra pasada.
+      // Un retoque: una palabra y una coma. No vale otra pasada.
       vault.now = vault.now.add(const Duration(minutes: 1));
-      await rewrite('n', 'Una idea. Dos.');
+      await rewrite(
+        'n',
+        roma.replaceFirst('antiguos', 'viejos').replaceFirst('.', ','),
+      );
       vault.now = vault.now.add(const Duration(seconds: 20));
       await ai.wake();
       expect(relations.organized, ['n']);
 
-      // La nota creció de verdad.
+      // Reescrita entera, con el mismo largo: la medida por el largo no la
+      // veía.
+      expect(pan.length, roma.length);
       vault.now = vault.now.add(const Duration(minutes: 1));
-      await rewrite('n', 'Una idea. ${'Otra idea larga. ' * 30}');
+      await rewrite('n', pan);
       vault.now = vault.now.add(const Duration(seconds: 20));
       await ai.wake();
       expect(relations.organized, ['n', 'n']);
-      expect(
-        statuses.whereType<AiOrganizeWorking>().map((s) => s.source),
-        [AiWorkSource.fresh, AiWorkSource.changedNote],
-      );
+      expect(statuses.whereType<AiOrganizeWorking>().map((s) => s.source), [
+        AiWorkSource.fresh,
+        AiWorkSource.changedNote,
+      ]);
     });
 
     test('se despierta sola cuando una nota termina de escribirse', () async {

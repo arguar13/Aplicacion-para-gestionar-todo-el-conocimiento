@@ -5,7 +5,6 @@ import 'package:sinapsis/features/ai_organize/data/repositories/ai_atlas_reposit
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_atlas_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
@@ -25,16 +24,8 @@ class _NeverCharging implements ChargingProbe {
   Stream<bool> watchCharging() => const Stream.empty();
 }
 
-class _Memory implements AiOrganizeMemory {
-  @override
-  Future<DateTime> epoch() async => DateTime(2026, 10);
-
-  @override
-  int? noteLengthSeen(String itemId) => null;
-
-  @override
-  Future<void> rememberNoteLength(String itemId, int length) async {}
-}
+/// Desde cuándo organiza sola la IA: lo de antes es la biblioteca existente.
+Future<DateTime> _epoch() async => DateTime(2026, 10);
 
 /// Un paso de mentira, con el interruptor de las tarjetas, que anota qué
 /// elementos le pasó la cola.
@@ -111,7 +102,7 @@ void main() {
                 required String topic,
                 required List<MapIntroEntry> entries,
               }) async => 'Lo reunido sobre $topic.',
-          epoch: _Memory().epoch,
+          epoch: _epoch,
           modelName: () => 'gemma-prueba',
           clock: vault.clock,
         ),
@@ -119,7 +110,7 @@ void main() {
       chatModel: () => FakeChatModelManager(ready: true),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
       charging: _NeverCharging(),
-      memory: _Memory(),
+      epoch: _epoch,
       telemetry: vault.telemetry,
       clock: vault.clock,
       onStatus: (_) {},

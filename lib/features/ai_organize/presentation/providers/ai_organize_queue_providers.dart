@@ -16,7 +16,6 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dar
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
@@ -42,9 +41,8 @@ final chargingProbeProvider = Provider<ChargingProbe>((ref) {
   return BatteryChargingProbe(unknownMeansPlugged: desktop);
 });
 
-/// Desde cuándo organiza sola la IA en este dispositivo, y el largo de las
-/// notas que ya organizó (F27).
-final aiOrganizeMemoryProvider = Provider<AiOrganizeMemory>(
+/// Desde cuándo organiza sola la IA en este dispositivo (F27).
+final aiOrganizeMemoryProvider = Provider<PrefsAiOrganizeMemory>(
   (ref) => PrefsAiOrganizeMemory(
     prefs: ref.watch(sharedPreferencesProvider),
     clock: ref.watch(clockProvider),
@@ -131,7 +129,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     chatModel: () => ref.read(chatModelManagerProvider),
     embeddingModel: () => ref.read(embeddingModelManagerProvider),
     charging: ref.read(chargingProbeProvider),
-    memory: ref.read(aiOrganizeMemoryProvider),
+    epoch: ref.read(aiOrganizeMemoryProvider).epoch,
     telemetry: ref.read(telemetryServiceProvider),
     clock: ref.read(clockProvider),
     onStatus: (status) =>

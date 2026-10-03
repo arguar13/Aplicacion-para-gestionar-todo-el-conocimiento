@@ -15,7 +15,6 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.da
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
@@ -45,17 +44,6 @@ class _NeverCharging implements ChargingProbe {
 
   @override
   Stream<bool> watchCharging() => const Stream.empty();
-}
-
-class _Memory implements AiOrganizeMemory {
-  @override
-  Future<DateTime> epoch() async => DateTime(2026, 10);
-
-  @override
-  int? noteLengthSeen(String itemId) => null;
-
-  @override
-  Future<void> rememberNoteLength(String itemId, int length) async {}
 }
 
 /// Una tarjeta por pedido, anclada a la única frase que trae el
@@ -181,7 +169,7 @@ void main() {
       chatModel: () => FakeChatModelManager(ready: true),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
       charging: _NeverCharging(),
-      memory: _Memory(),
+      epoch: () async => DateTime(2026, 10),
       telemetry: vault.telemetry,
       clock: vault.clock,
       onStatus: (_) {},
