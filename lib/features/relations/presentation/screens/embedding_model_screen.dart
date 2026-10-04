@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/presentation/providers/relations_providers.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/model_download_progress.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 const _modelPageUrl =
@@ -152,32 +154,40 @@ class _EmbeddingModelScreenState extends ConsumerState<EmbeddingModelScreen> {
     }
 
     if (download case ModelDownloadRunning(:final progress)) {
-      return _DownloadingView(
+      return ModelDownloadProgress(
         progress: progress,
         label: l10n.embeddingModelDownloading(
           (progress * 100).round().toString(),
         ),
+        continuesWithAppClosed: ref
+            .watch(modelFileTransferProvider)
+            .continuesWithAppClosed,
+        onCancel: () => unawaited(
+          ref
+              .read(embeddingModelDownloadProvider.notifier)
+              .cancel(ref.read(embeddingModelManagerProvider).cancelDownload),
+        ),
       );
     }
 
-    final error = switch (download) {
-      ModelDownloadFailed(error: final EmbeddingModelDownloadError error) =>
-        error,
-      ModelDownloadFailed(:final error) => EmbeddingModelDownloadFailed(
-        '$error',
-      ),
-      _ => null,
+    final failure = download is ModelDownloadFailed ? download.error : null;
+    final error = switch (failure) {
+      null => null,
+      final EmbeddingModelDownloadError error => error,
+      final other => EmbeddingModelDownloadFailed('$other'),
     };
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (error != null) ...[
           _ErrorView(
-            message: switch (error) {
-              EmbeddingModelNeedsAuthentication() =>
-                l10n.embeddingModelAuthRequired,
-              EmbeddingModelDownloadFailed() => l10n.embeddingModelError,
-            },
+            message:
+                modelDownloadSpaceMessage(l10n, failure!) ??
+                switch (error) {
+                  EmbeddingModelNeedsAuthentication() =>
+                    l10n.embeddingModelAuthRequired,
+                  EmbeddingModelDownloadFailed() => l10n.embeddingModelError,
+                },
           ),
           const SizedBox(height: 24),
         ] else ...[
@@ -307,25 +317,6 @@ class _ReadyView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(message, textAlign: TextAlign.center),
-      ],
-    );
-  }
-}
-
-class _DownloadingView extends StatelessWidget {
-  const _DownloadingView({required this.progress, required this.label});
-
-  final double progress;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LinearProgressIndicator(value: progress),
-        const SizedBox(height: 16),
-        Text(label),
       ],
     );
   }

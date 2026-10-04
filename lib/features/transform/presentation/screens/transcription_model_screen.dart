@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/model_download_progress.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Si el modelo de transcripción está descargado, y descargarlo si no.
@@ -120,17 +122,27 @@ class _TranscriptionModelScreenState
     if (_isReady) return _ReadyView(message: l10n.transcriptionModelReady);
 
     if (download case ModelDownloadRunning(:final progress)) {
-      return _DownloadingView(
+      return ModelDownloadProgress(
         progress: progress,
         label: l10n.transcriptionModelDownloading(
           (progress * 100).round().toString(),
         ),
+        continuesWithAppClosed: ref
+            .watch(modelFileTransferProvider)
+            .continuesWithAppClosed,
+        onCancel: () => unawaited(
+          ref
+              .read(transcriptionModelDownloadProvider.notifier)
+              .cancel(ref.read(whisperModelManagerProvider).cancelDownload),
+        ),
       );
     }
 
-    if (download is ModelDownloadFailed) {
+    if (download case ModelDownloadFailed(:final error)) {
       return _ErrorView(
-        message: l10n.transcriptionModelError,
+        message:
+            modelDownloadSpaceMessage(l10n, error) ??
+            l10n.transcriptionModelError,
         onRetry: _startDownload,
         retryLabel: l10n.transcriptionModelRetryAction,
       );
@@ -211,25 +223,6 @@ class _NotDownloadedView extends StatelessWidget {
         ],
         const SizedBox(height: 24),
         PrimaryButton(label: actionLabel, onPressed: onDownload),
-      ],
-    );
-  }
-}
-
-class _DownloadingView extends StatelessWidget {
-  const _DownloadingView({required this.progress, required this.label});
-
-  final double progress;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LinearProgressIndicator(value: progress),
-        const SizedBox(height: 16),
-        Text(label),
       ],
     );
   }

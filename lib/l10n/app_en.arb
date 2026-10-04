@@ -6986,6 +6986,39 @@
   "@libraryFilterInboxDiscarded": {
     "description": "Filtros de la Biblioteca, sección Bandeja: lo que se descartó."
   },
+  "modelDownloadContinuesClosed": "It keeps going even if you close the app: the system downloads it, with its own notification.",
+  "@modelDownloadContinuesClosed": {
+    "description": "Below the progress of a model download, when the system download manager does it (F29)."
+  },
+  "modelDownloadCancel": "Cancel download",
+  "@modelDownloadCancel": {
+    "description": "Button that stops a model download, and the action that confirms it (F29)."
+  },
+  "modelDownloadCancelTitle": "Cancel the download?",
+  "@modelDownloadCancelTitle": {
+    "description": "Title of the confirmation before stopping a model download (F29)."
+  },
+  "modelDownloadCancelBody": "What was downloaded so far is deleted. You can start it again whenever you want.",
+  "@modelDownloadCancelBody": {
+    "description": "Text of the confirmation before stopping a model download (F29)."
+  },
+  "modelDownloadKeepGoing": "Keep downloading",
+  "@modelDownloadKeepGoing": {
+    "description": "Button that dismisses the confirmation and leaves the model download as it was (F29)."
+  },
+  "modelDownloadNoSpace": "Not enough space on the phone: {size} free is needed. Free up some space and try again.",
+  "@modelDownloadNoSpace": {
+    "description": "Error of a model download without space on the device, with how much is needed (F29).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadNoSpaceUnknown": "Not enough space on the phone for the model. Free up some space and try again.",
+  "@modelDownloadNoSpaceUnknown": {
+    "description": "Error of a model download without space on the device, when it's unknown how much is needed (F29)."
+  },
   "inboxLinkNameTaken": "There is already an item called “{title}” that is not a note: choose another name.",
   "@inboxLinkNameTaken": {
     "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",

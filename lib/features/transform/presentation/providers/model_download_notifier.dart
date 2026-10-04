@@ -133,11 +133,14 @@ class ModelDownloadNotifier extends StateNotifier<ModelDownloadState> {
   /// del gestor del modelo—. Queda como si nunca hubiera empezado.
   Future<void> cancel(Future<void> Function() cancelDownload) async {
     if (state is! ModelDownloadRunning) return;
-    await _subscription?.cancel();
+    // Desde acá no llega nada más de la descarga —tampoco el aviso de que
+    // se canceló—; lo que tarda es solo el cierre, que se espera al final.
+    final stopping = _subscription?.cancel();
     _subscription = null;
     _keeper?.idle();
     state = const ModelDownloadIdle();
     await cancelDownload();
+    await stopping;
   }
 
   /// Olvida el error de la última descarga —se eligió otro modelo, por

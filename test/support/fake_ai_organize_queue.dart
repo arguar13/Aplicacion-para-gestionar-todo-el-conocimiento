@@ -19,6 +19,12 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void organizeAllNow(Iterable<String> itemIds) =>
       organizeNowCalls.addAll(itemIds);
 
+  /// Cuántas veces se la despertó: la llegada de un modelo la despierta.
+  int wakes = 0;
+
+  @override
+  Future<void> wake() async => wakes++;
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

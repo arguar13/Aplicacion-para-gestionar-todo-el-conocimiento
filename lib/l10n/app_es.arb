@@ -5968,6 +5968,39 @@
   "@libraryFilterInboxDiscarded": {
     "description": "Filtros de la Biblioteca, sección Bandeja: lo que se descartó."
   },
+  "modelDownloadContinuesClosed": "Sigue aunque cierres la app: la baja el sistema, con su propia notificación.",
+  "@modelDownloadContinuesClosed": {
+    "description": "Debajo del avance de la descarga de un modelo, cuando la hace el gestor de descargas del sistema (F29)."
+  },
+  "modelDownloadCancel": "Cancelar la descarga",
+  "@modelDownloadCancel": {
+    "description": "Botón para cortar la descarga de un modelo, y la acción que la confirma (F29)."
+  },
+  "modelDownloadCancelTitle": "¿Cancelar la descarga?",
+  "@modelDownloadCancelTitle": {
+    "description": "Título de la confirmación antes de cortar la descarga de un modelo (F29)."
+  },
+  "modelDownloadCancelBody": "Se borra lo que se bajó hasta ahora. Podés volver a empezarla cuando quieras.",
+  "@modelDownloadCancelBody": {
+    "description": "Texto de la confirmación antes de cortar la descarga de un modelo (F29)."
+  },
+  "modelDownloadKeepGoing": "Seguir bajando",
+  "@modelDownloadKeepGoing": {
+    "description": "Botón que descarta la confirmación y deja la descarga del modelo como estaba (F29)."
+  },
+  "modelDownloadNoSpace": "No hay lugar en el teléfono: hacen falta {size} libres. Liberá espacio y volvé a intentar.",
+  "@modelDownloadNoSpace": {
+    "description": "Error de la descarga de un modelo sin lugar en el dispositivo, con cuánto hace falta (F29).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "modelDownloadNoSpaceUnknown": "No hay lugar en el teléfono para el modelo. Liberá espacio y volvé a intentar.",
+  "@modelDownloadNoSpaceUnknown": {
+    "description": "Error de la descarga de un modelo sin lugar en el dispositivo, cuando no se sabe cuánto hace falta (F29)."
+  },
   "inboxLinkNameTaken": "Ya hay un elemento llamado «{title}» que no es una nota: elegí otro nombre.",
   "@inboxLinkNameTaken": {
     "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",

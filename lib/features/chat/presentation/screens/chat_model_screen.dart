@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/providers/hugging_face_token_notifier.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
+import 'package:sinapsis/features/transform/presentation/widgets/model_download_progress.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La página del modelo en Hugging Face, para aceptar su licencia, según
@@ -215,26 +217,37 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
     if (_isReady) return _ReadyView(message: l10n.chatModelReady);
 
     if (download case ModelDownloadRunning(:final progress)) {
-      return _DownloadingView(
+      return ModelDownloadProgress(
         progress: progress,
         label: l10n.chatModelDownloading((progress * 100).round().toString()),
+        continuesWithAppClosed: ref
+            .watch(modelFileTransferProvider)
+            .continuesWithAppClosed,
+        onCancel: () => unawaited(
+          ref
+              .read(chatModelDownloadProvider.notifier)
+              .cancel(ref.read(chatModelManagerProvider).cancelDownload),
+        ),
       );
     }
 
-    final error = switch (download) {
-      ModelDownloadFailed(error: final ChatModelDownloadError error) => error,
-      ModelDownloadFailed(:final error) => ChatModelDownloadFailed('$error'),
-      _ => null,
+    final failure = download is ModelDownloadFailed ? download.error : null;
+    final error = switch (failure) {
+      null => null,
+      final ChatModelDownloadError error => error,
+      final other => ChatModelDownloadFailed('$other'),
     };
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (error != null) ...[
           _ErrorView(
-            message: switch (error) {
-              ChatModelNeedsAuthentication() => l10n.chatModelAuthRequired,
-              ChatModelDownloadFailed() => l10n.chatModelError,
-            },
+            message:
+                modelDownloadSpaceMessage(l10n, failure!) ??
+                switch (error) {
+                  ChatModelNeedsAuthentication() => l10n.chatModelAuthRequired,
+                  ChatModelDownloadFailed() => l10n.chatModelError,
+                },
           ),
           const SizedBox(height: 24),
         ] else ...[
@@ -427,25 +440,6 @@ class _ReadyView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(message, textAlign: TextAlign.center),
-      ],
-    );
-  }
-}
-
-class _DownloadingView extends StatelessWidget {
-  const _DownloadingView({required this.progress, required this.label});
-
-  final double progress;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LinearProgressIndicator(value: progress),
-        const SizedBox(height: 16),
-        Text(label),
       ],
     );
   }

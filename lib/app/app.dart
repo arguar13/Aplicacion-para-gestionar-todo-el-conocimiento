@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/app/global_error_listener.dart';
+import 'package:sinapsis/app/resume_model_downloads.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
@@ -31,6 +34,11 @@ class _AppState extends ConsumerState<App> {
     _lifecycle = AppLifecycleListener(
       onResume: () => ref.read(longWorkCoordinatorProvider).appResumed(),
     );
+    // Las descargas de modelos que siguieron con la app cerrada (F29)
+    // vuelven a verse. Una vez por arranque de Dart: si la app se cerró y el
+    // motor siguió vivo, al volver a abrirla esto no se repite, y las
+    // descargas siguen seguidas desde antes.
+    unawaited(resumeModelDownloads(ref.read));
   }
 
   @override
