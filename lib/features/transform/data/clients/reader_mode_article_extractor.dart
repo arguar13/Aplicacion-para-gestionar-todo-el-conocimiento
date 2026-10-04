@@ -1,4 +1,6 @@
+import 'package:html/parser.dart' as html_parser;
 import 'package:reader_mode/reader_mode.dart' as reader;
+import 'package:sinapsis/features/transform/data/clients/page_urls.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
 /// [ArticleExtractor] sobre `reader_mode`, un port en Dart del algoritmo
@@ -49,11 +51,25 @@ class ReaderModeArticleExtractor implements ArticleExtractor {
     // `null` en vez de un artículo. Un parser HTML5 de verdad —que
     // entiende elementos vacíos y cierre implícito de etiquetas, igual que
     // un navegador— no tiene ese problema.
-    final article = reader.parse(
-      html,
-      baseUri: baseUri.toString(),
-      parser: reader.ParserType.html,
-    );
+    //
+    // **Las direcciones se completan antes de leer (F30).** Con
+    // `ParserType.html`, el adaptador del paquete no sabe en qué dirección
+    // está la página —devuelve `''` como dirección base—, así que el paso de
+    // Readability que vuelve absolutas las direcciones las dejaba como
+    // venían: `//upload.wikimedia.org/…` sin esquema, `/wiki/Roma` sin
+    // sitio, y un `../img/a.png` hasta perdía su `../`. El Markdown quedaba
+    // con imágenes y enlaces que no llevaban a ningún lado. Por eso la página
+    // se lee acá, se le completan las direcciones contra la de la página
+    // —o la de su `<base href>`, si la declara— y recién entonces se le pasa
+    // a Readability, que con direcciones completas no tiene nada que
+    // adivinar. Se lee una sola vez: es el mismo parser que el paquete
+    // usaría por dentro.
+    final document = html_parser.parse(html);
+    absolutizePageUrls(document, documentBaseUri(document, baseUri));
+    final article = reader.Readability(
+      reader.HtmlDomDocument(document),
+      const reader.ReadabilityOptions(),
+    ).parse();
     if (article == null) return null;
 
     final text = article.textContent.trim();

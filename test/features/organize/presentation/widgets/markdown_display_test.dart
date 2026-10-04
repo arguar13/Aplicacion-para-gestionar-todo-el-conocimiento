@@ -293,4 +293,163 @@ void main() {
       expect(anyHighlighted, isFalse);
     });
   });
+
+  group('enlaces e imágenes de una página web (F30)', () {
+    /// Que cada tramo visible sea el mismo pedazo del crudo: es lo que
+    /// mantiene los resaltados en su lugar.
+    void expectSlicesOfRaw(String raw) {
+      final rendered = RenderedMarkdown.parse(raw);
+      final display = rendered.displayText;
+      for (var i = 0; i < display.length; i++) {
+        final r = rendered.renderToRaw(i);
+        expect(raw[r], display[i], reason: 'posición $i de "$display"');
+        expect(rendered.rawToRender(r), i);
+      }
+    }
+
+    test('la captura de Wikipedia: una imagen enlazada no deja nada crudo', () {
+      const raw =
+          '[![](https://upload.wikimedia.org/a/Coliseo.jpg)]'
+          '(https://es.wikipedia.org/wiki/Archivo:Coliseo.jpg)\n\n'
+          'El Coliseo es un anfiteatro.';
+      final rendered = RenderedMarkdown.parse(raw);
+
+      expect(rendered.displayText.trim(), 'El Coliseo es un anfiteatro.');
+    });
+
+    test('un enlace se lee como su texto', () {
+      const raw =
+          'Fundada por [Rómulo](https://es.wikipedia.org/wiki/R%C3%B3mulo) '
+          'en el 753.';
+      expect(
+        RenderedMarkdown.parse(raw).displayText,
+        'Fundada por Rómulo en el 753.',
+      );
+      expectSlicesOfRaw(raw);
+    });
+
+    test('una dirección entre <> o con paréntesis balanceados', () {
+      expect(
+        RenderedMarkdown.parse(
+          'ver [Roma](<https://x.org/a b>) y '
+          '[Foro](https://x.org/Foro_(Roma)).',
+        ).displayText,
+        'ver Roma y Foro.',
+      );
+    });
+
+    test('la nota al pie de Wikipedia, [[1]](…), se ve como [1]', () {
+      const raw =
+          'Un dato.[[1]](https://es.wikipedia.org/wiki/Roma#cite_note-1)';
+      expect(RenderedMarkdown.parse(raw).displayText, 'Un dato.[1]');
+      expectSlicesOfRaw(raw);
+    });
+
+    test(
+      'un [ suelto antes de un enlace no abre un [[Título]] (Wikipedia)',
+      () {
+        const raw =
+            'César [[Tito](https://x.org/Tito), hijo], *el pueblo.* '
+            '<sup>[[3]](#cite_note-3)</sup>';
+        final rendered = RenderedMarkdown.parse(raw);
+
+        expect(rendered.displayText, 'César [Tito, hijo], el pueblo. [3]');
+        expectSlicesOfRaw(raw);
+      },
+    );
+
+    test('una imagen se lee como su texto alternativo, en cursiva', () {
+      const raw = 'Mirá ![El Coliseo de noche](https://x.org/c.jpg) acá.';
+      final rendered = RenderedMarkdown.parse(raw);
+
+      expect(rendered.displayText, 'Mirá El Coliseo de noche acá.');
+      expectSlicesOfRaw(raw);
+      final span = rendered.buildSpans(ThemeData.light(), const []);
+      final alt = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.text == 'El Coliseo de noche',
+      );
+      expect(alt.style?.fontStyle, FontStyle.italic);
+    });
+
+    test('el enlace no es tocable como un [[Título]]', () {
+      final span = RenderedMarkdown.parse(
+        '[Rómulo](https://x.org/r)',
+      ).buildSpans(ThemeData.light(), const [], onLinkTap: (_) {});
+
+      expect(span.children!.cast<TextSpan>().single.recognizer, isNull);
+    });
+
+    test('el énfasis alrededor de un enlace se aplica a su texto', () {
+      const raw = 'Ver **[el Foro](https://x.org/f)** hoy';
+      expect(RenderedMarkdown.parse(raw).displayText, 'Ver el Foro hoy');
+      expectSlicesOfRaw(raw);
+    });
+
+    test('el HTML en línea de htmlToMarkdown pierde sus etiquetas', () {
+      const raw =
+          '10<sup>6</sup> y H<sub>2</sub>O, '
+          '<a href="https://x.org/[1">ver [1</a> y '
+          '<img src="https://x.org/a.png" alt="un mapa">.';
+      final rendered = RenderedMarkdown.parse(raw);
+
+      expect(rendered.displayText, '106 y H2O, ver [1 y un mapa.');
+      expectSlicesOfRaw(raw);
+    });
+
+    test('el código en línea se ve sin sus comillas y sin interpretar', () {
+      const raw = 'Usá `a_*b*_c` o `` `x` ``.';
+      expect(RenderedMarkdown.parse(raw).displayText, 'Usá a_*b*_c o `x`.');
+      expectSlicesOfRaw(raw);
+    });
+
+    test('el separador * * * de htmlToMarkdown es un separador', () {
+      final span = RenderedMarkdown.parse(
+        'uno\n\n* * *\n\ndos',
+      ).buildSpans(ThemeData.light(), const []);
+      final rule = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.text == '* * *',
+      );
+      expect(rule.style?.letterSpacing, 2);
+    });
+
+    test('un resaltado sobre el texto de un enlace cae en su lugar', () {
+      const raw = 'Ver [el Foro](https://x.org/f) hoy';
+      final rendered = RenderedMarkdown.parse(raw);
+      final start = rendered.renderToRaw(4);
+      final end = rendered.renderToRaw(11, isEnd: true);
+
+      expect(raw.substring(start, end), 'el Foro');
+    });
+  });
+
+  group('excerpt (F30)', () {
+    test('Markdown: el comienzo sin marcado, cortado con …', () {
+      final raw =
+          '[![](https://x.org/a.jpg)](https://x.org/b)\n\n'
+          '# Roma\n\nFundada por [Rómulo](https://x.org/r). ${'Texto ' * 80}';
+      final excerpt = RenderedMarkdown.excerpt(
+        raw,
+        markdown: true,
+        maxChars: 40,
+      );
+
+      expect(excerpt, startsWith('Roma\n\nFundada por Rómulo. Texto'));
+      expect(excerpt, endsWith('…'));
+      expect(excerpt.length, 41);
+    });
+
+    test('sin Markdown, tal cual', () {
+      expect(RenderedMarkdown.excerpt('a **b**', markdown: false), 'a **b**');
+    });
+
+    test('un libro entero no se lee entero', () {
+      final raw = '${'Una línea de un libro largo.\n' * 200000}fin';
+      final watch = Stopwatch()..start();
+      final excerpt = RenderedMarkdown.excerpt(raw, markdown: true);
+      watch.stop();
+
+      expect(excerpt, startsWith('Una línea'));
+      expect(watch.elapsedMilliseconds, lessThan(200));
+    });
+  });
 }

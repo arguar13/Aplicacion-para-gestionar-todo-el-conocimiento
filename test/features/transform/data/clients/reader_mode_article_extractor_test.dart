@@ -173,4 +173,103 @@ void main() {
       expect(article?.textContent, '<<>>');
     });
   });
+
+  group('las direcciones salen completas (F30)', () {
+    // Así escribe Wikipedia sus imágenes y enlaces: sin esquema, relativos
+    // al sitio, a la carpeta y hacia arriba. Antes salían tal cual al
+    // Markdown —`[![](//upload.wikimedia.org/…)](/wiki/Archivo:…)`—, que no
+    // lleva a ningún lado.
+    const page = '''
+<html><head><title>Roma</title></head><body><article>
+  <p>Roma fue fundada, según la leyenda, por Rómulo y Remo en el año 753 a. C., y llegó a ser la capital de un imperio que abarcó todo el Mediterráneo durante siglos de historia.</p>
+  <p><a href="/wiki/Archivo:Coliseo.jpg"><img alt="El Coliseo" src="//upload.wikimedia.org/coliseo.jpg" srcset="//upload.wikimedia.org/coliseo-2x.jpg 2x, /img/c,3x.jpg 3x"></a></p>
+  <p>Ver también <a href="../otros/foro.html">el Foro</a>, <a href="img/mapa.png">el mapa</a> y <a href="#notas">las notas</a>, o escribir a <a href="mailto:roma@ejemplo.org">la redacción</a>.</p>
+  <p>El texto sigue con suficientes palabras para que el algoritmo lo tome como el artículo principal de la página, con comas, puntos y párrafos.</p>
+</article></body></html>
+''';
+
+    test('sin esquema, relativas al sitio, a la carpeta y hacia arriba', () {
+      final article = extractor.extract(
+        page,
+        baseUri: Uri.parse('https://es.wikipedia.org/wiki/sub/Roma'),
+      )!;
+      final html = article.contentHtml;
+
+      expect(html, contains('src="https://upload.wikimedia.org/coliseo.jpg"'));
+      expect(
+        html,
+        contains('href="https://es.wikipedia.org/wiki/Archivo:Coliseo.jpg"'),
+      );
+      expect(
+        html,
+        contains('href="https://es.wikipedia.org/wiki/otros/foro.html"'),
+      );
+      expect(
+        html,
+        contains('href="https://es.wikipedia.org/wiki/sub/img/mapa.png"'),
+      );
+      expect(
+        html,
+        contains(
+          'srcset="https://upload.wikimedia.org/coliseo-2x.jpg 2x, '
+          'https://es.wikipedia.org/img/c,3x.jpg 3x"',
+        ),
+      );
+      // Lo que no es una dirección web, igual que antes.
+      expect(html, contains('href="#notas"'));
+      expect(html, contains('href="mailto:roma@ejemplo.org"'));
+      expect(html, isNot(contains('"//')));
+    });
+
+    test('el <base href> de la página manda sobre su dirección', () {
+      final withBase = page.replaceFirst(
+        '<title>Roma</title>',
+        '<title>Roma</title><base href="https://espejo.ejemplo.net/a/">',
+      );
+      final article = extractor.extract(
+        withBase,
+        baseUri: Uri.parse('https://es.wikipedia.org/wiki/Roma'),
+      )!;
+
+      expect(
+        article.contentHtml,
+        contains('href="https://espejo.ejemplo.net/a/img/mapa.png"'),
+      );
+    });
+
+    test('un <base> que no es web no cambia nada', () {
+      final withBase = page.replaceFirst(
+        '<title>Roma</title>',
+        '<title>Roma</title><base href="javascript:alert(1)//">',
+      );
+      final article = extractor.extract(
+        withBase,
+        baseUri: Uri.parse('https://es.wikipedia.org/wiki/Roma'),
+      )!;
+
+      expect(
+        article.contentHtml,
+        contains('href="https://es.wikipedia.org/wiki/img/mapa.png"'),
+      );
+    });
+
+    test('las imágenes con carga diferida también se completan', () {
+      const lazy = '''
+<html><body><article>
+  <p>Un artículo con una foto que el sitio carga recién cuando se ve en pantalla, como hacen casi todos los diarios y blogs de hoy, para que la página abra más rápido.</p>
+  <p><img class="lazyload" data-src="/fotos/puerto.jpg" alt="El puerto"></p>
+  <p>Más texto del artículo, con comas, puntos y suficientes palabras para que el algoritmo lo reconozca como el contenido principal.</p>
+</article></body></html>
+''';
+      final article = extractor.extract(
+        lazy,
+        baseUri: Uri.parse('https://diario.ejemplo.com/notas/1'),
+      )!;
+
+      expect(
+        article.contentHtml,
+        contains('https://diario.ejemplo.com/fotos/puerto.jpg'),
+      );
+    });
+  });
 }

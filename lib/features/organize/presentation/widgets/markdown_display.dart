@@ -25,12 +25,22 @@ import 'package:flutter/material.dart';
 /// `>`, y el separador `---` que `PdfParser` pone entre páginas— es
 /// exactamente lo que este renderer entiende.
 ///
+/// También lo que `htmlToMarkdown` escribe al guardar una página web o un
+/// EPUB (F30): un enlace `[texto](dirección)` se lee como su texto, una
+/// imagen `![alt](dirección)` como su texto alternativo —en cursiva, y nada
+/// si no tiene—, el código en línea sin sus comillas invertidas, y el HTML
+/// en línea que usa donde Markdown no alcanza (`<a href>`, `<img>`,
+/// `<sup>`, `<sub>`) sin sus etiquetas. Antes se veía todo crudo:
+/// `[![](//upload.wikimedia.org/…)](/wiki/…)` en medio del artículo. Lo que
+/// se ve es siempre un pedazo del texto crudo, así que los resaltados siguen
+/// cayendo donde corresponde.
+///
 /// `[[Título]]` es la excepción: nadie la genera al importar contenido, solo
 /// el editor de bloques, cuando alguien enlaza una nota con otra sin salir
 /// del texto que está escribiendo —ver `BlockEditorScreen._insertLink`—.
 /// Acá se reconoce igual que negrita o cursiva —el marcado desaparece, queda
 /// el título tal cual—, pero con un `TapGestureRecognizer` en vez de un
-/// estilo fijo: [buildSpans] recibe [onLinkTap] y lo invoca con el título
+/// estilo fijo: [buildSpans] recibe `onLinkTap` y lo invoca con el título
 /// tocado, dejando que quien lo use decida cómo resolverlo a un elemento de
 /// verdad.
 class RenderedMarkdown {
@@ -53,6 +63,35 @@ class RenderedMarkdown {
     if (raw.isNotEmpty)
       _Segment.kept(rawStart: 0, text: raw, style: const _RunStyle()),
   ], raw);
+
+  /// El comienzo de [raw] como se lee, para una vista previa (F30): con
+  /// [markdown], sin enlaces ni imágenes con su dirección, sin `**` ni `#`;
+  /// sin él, tal cual. Se corta en [maxChars] con "…".
+  ///
+  /// Solo se lee el principio: un libro entero no hace falta para mostrar
+  /// sus primeras líneas. El corte cae en un fin de línea —una marca de
+  /// Markdown no cruza líneas—, así que no queda ninguna partida a la mitad.
+  static String excerpt(
+    String raw, {
+    required bool markdown,
+    int maxChars = 280,
+  }) {
+    var text = raw;
+    if (markdown) {
+      final lineEnd = raw.length > maxChars * 4
+          ? raw.indexOf('\n', maxChars * 4)
+          : -1;
+      final head = lineEnd == -1 ? raw : raw.substring(0, lineEnd);
+      text = RenderedMarkdown.parse(head).displayText;
+    }
+    text = text
+        .split('\n')
+        .map((line) => line.trim())
+        .join('\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+    return text.length > maxChars ? '${text.substring(0, maxChars)}…' : text;
+  }
 
   final List<_Segment> _segments;
 
@@ -278,7 +317,9 @@ class RenderedMarkdown {
   static final _headingPattern = RegExp(r'^(#{1,3})[ \t]+');
   static final _bulletPattern = RegExp(r'^[-*][ \t]+');
   static final _quotePattern = RegExp(r'^>[ \t]?');
-  static final _rulePattern = RegExp(r'^(-{3,}|\*{3,})\s*$');
+  static final _rulePattern = RegExp(
+    r'^(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$',
+  );
 
   static void _parseLine(
     String raw,
@@ -349,24 +390,59 @@ class RenderedMarkdown {
     _parseInline(raw, lineStart, lineEnd, const _RunStyle(), segments);
   }
 
-  // El enlace va primero en la alternancia: con las cuatro seguidas en el
-  // mismo `RegExp`, cada posición del texto solo puede matchear una —la
-  // primera que encaje, de izquierda a derecha entre las alternativas—, así
-  // que `[[Texto]]` nunca termina interpretado como dos pares de corchetes
-  // sueltos ni como si `*` de énfasis pudiera colarse adentro.
+  // Cada posición del texto solo puede matchear una alternativa —la primera
+  // que encaje, de izquierda a derecha entre las alternativas—, así que el
+  // orden importa:
+  //
+  // - El código en línea va primero: lo de adentro es literal, ni un `*`
+  //   ni un `[` se interpretan.
+  // - La imagen y el enlace de Markdown (F30) antes que `[[Título]]`: un
+  //   `[[1]](…)` —la nota al pie de Wikipedia— es un enlace cuyo texto es
+  //   "[1]", y `[[Título]]` nunca va seguido de `(`.
+  // - `[[Título]]` antes que el énfasis: nunca termina interpretado como dos
+  //   pares de corchetes sueltos ni con un `*` colado adentro. Un título
+  //   no lleva corchetes: un "[" suelto del texto seguido de un enlace
+  //   —"César [[Tito](…), hijo…]"— no puede abrir un `[[…]]` que se cierre
+  //   en la nota al pie de más adelante y se lleve el párrafo entero.
+  // - El HTML en línea que escribe `htmlToMarkdown` donde Markdown no
+  //   alcanza: `<a href>`, `<img>`, `<sup>` y `<sub>`.
   //
   // Las reglas de CommonMark que importan para no comerse texto (F22): el
   // énfasis no empieza ni termina con un espacio —"2 * 3 * 4" no es
   // cursiva—, y el guion bajo no marca nada adentro de una palabra
   // —"var_uno_dos" de una página web o un EPUB se ve tal cual—.
-  static final _emphasisPattern = RegExp(
-    r'\[\[(.+?)\]\]'
-    r'|\*\*(\S(?:.*?\S)?)\*\*'
-    r'|\*(\S(?:.*?\S)?)\*'
-    r'|(?<![\p{L}\p{N}])_(\S(?:.*?\S)?)_(?![\p{L}\p{N}])',
+  static const _destination =
+      r'(?:<[^<>\n]*>|(?:[^\s()<>]|\([^\s()<>]*\))*)'
+      r'(?:[ \t]+"[^"\n]*")?';
+  static final _inlinePattern = RegExp(
+    r'(?<code>(?<fence>`+)(?!`)(?<codeText>.+?)(?<!`)\k<fence>(?!`))'
+    r'|(?<image>!\[(?<alt>[^\[\]\n]*)\]\('
+    '$_destination'
+    r'\))'
+    r'|(?<mdLink>\[(?<linkText>(?:[^\[\]\n]|\[[^\[\]\n]*\])+)\]\('
+    '$_destination'
+    r'\))'
+    r'|\[\[(?<wiki>[^\[\]\n]+)\]\]'
+    r'|(?<htmlLink><a\s[^>]*>)(?<htmlLinkText>.*?)</a\s*>'
+    r'|(?<htmlImage><img\s[^>]*?/?>)'
+    r'|<(?<script>sup|sub)>(?<scriptText>.*?)</\k<script>>'
+    r'|\*\*(?<bold>\S(?:.*?\S)?)\*\*'
+    r'|\*(?<star>\S(?:.*?\S)?)\*'
+    r'|(?<![\p{L}\p{N}])_(?<under>\S(?:.*?\S)?)_(?![\p{L}\p{N}])',
     unicode: true,
   );
 
+  static final _altAttribute = RegExp(
+    r'''\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''',
+  );
+
+  /// Lee el tramo [start]–[end] de [raw] —una línea, o el texto de una marca
+  /// que ya se abrió— y agrega sus segmentos con [baseStyle] como estilo de
+  /// partida.
+  ///
+  /// Es recursivo: lo de adentro de una negrita, de un enlace o de un
+  /// `<sup>` se lee igual, así un `**[enlace](…)**` se ve como el texto del
+  /// enlace en negrita, y no con su marcado.
   static void _parseInline(
     String raw,
     int start,
@@ -377,62 +453,164 @@ class RenderedMarkdown {
     final body = raw.substring(start, end);
     var cursor = 0;
 
-    for (final match in _emphasisPattern.allMatches(body)) {
-      if (match.start > cursor) {
-        segments.add(
-          _Segment.kept(
-            rawStart: start + cursor,
-            rawEnd: start + match.start,
-            text: body.substring(cursor, match.start),
-            style: baseStyle,
+    void keep(int from, int to, _RunStyle style) {
+      if (to <= from) return;
+      segments.add(
+        _Segment.kept(
+          rawStart: start + from,
+          rawEnd: start + to,
+          text: body.substring(from, to),
+          style: style,
+        ),
+      );
+    }
+
+    void remove(int from, int to) {
+      if (to <= from) return;
+      segments.add(
+        _Segment.removed(rawStart: start + from, rawEnd: start + to),
+      );
+    }
+
+    /// Lo de adentro de una marca: se quita lo de los bordes y se lee lo del
+    /// medio con [style].
+    void inner(
+      RegExpMatch match,
+      String group,
+      _RunStyle style, {
+      required int openLength,
+    }) {
+      final content = match.namedGroup(group)!;
+      final contentStart = match.start + openLength;
+      remove(match.start, contentStart);
+      _parseInline(
+        raw,
+        start + contentStart,
+        start + contentStart + content.length,
+        style,
+        segments,
+      );
+      remove(contentStart + content.length, match.end);
+    }
+
+    for (final match in _inlinePattern.allMatches(body)) {
+      keep(cursor, match.start, baseStyle);
+
+      if (match.namedGroup('code') != null) {
+        // La cerca que se agregó para que el código entre con sus comillas
+        // invertidas, y el espacio que la separa de ellas, no son texto.
+        final fence = match.namedGroup('fence')!.length;
+        var from = match.start + fence;
+        var to = match.end - fence;
+        final text = body.substring(from, to);
+        if (text.length > 2 &&
+            text.startsWith(' ') &&
+            text.endsWith(' ') &&
+            text.trim().isNotEmpty) {
+          from++;
+          to--;
+        }
+        remove(match.start, from);
+        keep(from, to, baseStyle.copyWith(code: true));
+        remove(to, match.end);
+      } else if (match.namedGroup('image') != null) {
+        // Una imagen se lee como su texto alternativo. Una sin texto
+        // alternativo es decorativa —eso dice un `alt=""` en HTML—: no se
+        // ve nada. La imagen misma está en el «Contenido» del elemento.
+        final alt = match.namedGroup('alt')!;
+        if (alt.trim().isEmpty) {
+          remove(match.start, match.end);
+        } else {
+          final altStart = match.start + 2;
+          remove(match.start, altStart);
+          keep(
+            altStart,
+            altStart + alt.length,
+            baseStyle.copyWith(media: true),
+          );
+          remove(altStart + alt.length, match.end);
+        }
+      } else if (match.namedGroup('mdLink') != null) {
+        // Un enlace a otra página se lee como su texto, sin la dirección.
+        final text = match.namedGroup('linkText')!;
+        final textStart = match.start + 1;
+        remove(match.start, textStart);
+        _parseInline(
+          raw,
+          start + textStart,
+          start + textStart + text.length,
+          baseStyle,
+          segments,
+        );
+        remove(textStart + text.length, match.end);
+      } else if (match.namedGroup('wiki') != null) {
+        final title = match.namedGroup('wiki')!;
+        final titleStart = match.start + 2;
+        remove(match.start, titleStart);
+        keep(
+          titleStart,
+          titleStart + title.length,
+          const _RunStyle(link: true),
+        );
+        remove(titleStart + title.length, match.end);
+      } else if (match.namedGroup('htmlLink') != null) {
+        final open = match.namedGroup('htmlLink')!;
+        final text = match.namedGroup('htmlLinkText')!;
+        final textStart = match.start + open.length;
+        remove(match.start, textStart);
+        _parseInline(
+          raw,
+          start + textStart,
+          start + textStart + text.length,
+          baseStyle,
+          segments,
+        );
+        remove(textStart + text.length, match.end);
+      } else if (match.namedGroup('htmlImage') != null) {
+        // El texto alternativo de un `<img>` está escapado como atributo:
+        // no se puede mostrar un pedazo del crudo sin cambiarle caracteres,
+        // y lo que se ve tiene que ser un pedazo del crudo para que los
+        // resaltados caigan donde corresponde. Se ve el tramo del atributo
+        // solo si no tiene nada escapado; si no, la imagen no se ve.
+        final tag = match.namedGroup('htmlImage')!;
+        final alt = _altAttribute.firstMatch(tag);
+        final value = alt == null ? null : alt[1] ?? alt[2] ?? alt[3];
+        if (value == null || value.trim().isEmpty || value.contains('&')) {
+          remove(match.start, match.end);
+        } else {
+          final valueStart = match.start + alt!.start + alt[0]!.indexOf(value);
+          remove(match.start, valueStart);
+          keep(
+            valueStart,
+            valueStart + value.length,
+            baseStyle.copyWith(media: true),
+          );
+          remove(valueStart + value.length, match.end);
+        }
+      } else if (match.namedGroup('script') != null) {
+        inner(
+          match,
+          'scriptText',
+          baseStyle.copyWith(
+            script: match.namedGroup('script') == 'sup' ? 1 : -1,
           ),
+          openLength: 5,
+        );
+      } else if (match.namedGroup('bold') != null) {
+        inner(match, 'bold', baseStyle.copyWith(bold: true), openLength: 2);
+      } else {
+        inner(
+          match,
+          match.namedGroup('star') != null ? 'star' : 'under',
+          baseStyle.copyWith(italic: true),
+          openLength: 1,
         );
       }
-
-      final isLink = match.group(1) != null;
-      final isBold = match.group(2) != null;
-      final content =
-          match.group(1) ?? match.group(2) ?? match.group(3) ?? match.group(4)!;
-      final markerLength = isLink || isBold ? 2 : 1;
-      final contentStart = start + match.start + markerLength;
-
-      segments
-        ..add(
-          _Segment.removed(rawStart: start + match.start, rawEnd: contentStart),
-        )
-        ..add(
-          _Segment.kept(
-            rawStart: contentStart,
-            rawEnd: contentStart + content.length,
-            text: content,
-            style: isLink
-                ? const _RunStyle(link: true)
-                : baseStyle.copyWith(
-                    bold: isBold || baseStyle.bold,
-                    italic: !isBold || baseStyle.italic,
-                  ),
-          ),
-        )
-        ..add(
-          _Segment.removed(
-            rawStart: contentStart + content.length,
-            rawEnd: start + match.end,
-          ),
-        );
 
       cursor = match.end;
     }
 
-    if (cursor < body.length) {
-      segments.add(
-        _Segment.kept(
-          rawStart: start + cursor,
-          rawEnd: end,
-          text: body.substring(cursor),
-          style: baseStyle,
-        ),
-      );
-    }
+    keep(cursor, body.length, baseStyle);
   }
 }
 
@@ -479,6 +657,9 @@ class _RunStyle {
     this.quote = false,
     this.rule = false,
     this.link = false,
+    this.code = false,
+    this.media = false,
+    this.script = 0,
   });
 
   /// 0 quiere decir "no es un título"; 1, 2 o 3 es el nivel de `#`.
@@ -489,13 +670,32 @@ class _RunStyle {
   final bool rule;
   final bool link;
 
-  _RunStyle copyWith({bool? bold, bool? italic}) => _RunStyle(
+  /// Código en línea: letra de ancho fijo.
+  final bool code;
+
+  /// El texto alternativo de una imagen (F30): en cursiva y apagado, para
+  /// que se lea como la descripción de algo que no está, no como texto.
+  final bool media;
+
+  /// 1 es un superíndice, -1 un subíndice, 0 ninguno.
+  final int script;
+
+  _RunStyle copyWith({
+    bool? bold,
+    bool? italic,
+    bool? code,
+    bool? media,
+    int? script,
+  }) => _RunStyle(
     heading: heading,
     bold: bold ?? this.bold,
     italic: italic ?? this.italic,
     quote: quote,
     rule: rule,
     link: link,
+    code: code ?? this.code,
+    media: media ?? this.media,
+    script: script ?? this.script,
   );
 
   TextStyle? toTextStyle(ThemeData theme, TextStyle? base) {
@@ -520,11 +720,25 @@ class _RunStyle {
       };
       style = headingStyle?.copyWith(color: theme.colorScheme.onSurface);
     }
-    if (quote) {
+    if (quote || media) {
       style = style?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     }
     if (bold) style = style?.copyWith(fontWeight: FontWeight.bold);
-    if (italic) style = style?.copyWith(fontStyle: FontStyle.italic);
+    if (italic || media) style = style?.copyWith(fontStyle: FontStyle.italic);
+    if (code) style = style?.copyWith(fontFamily: 'monospace');
+    // Un índice se dibuja con los glifos de superíndice o subíndice de la
+    // letra, sin cambiar de tamaño ni de renglón: la posición en el texto
+    // sigue siendo la misma, que es lo que los resaltados necesitan.
+    if (script != 0) {
+      style = style?.copyWith(
+        fontFeatures: [
+          if (script > 0)
+            const FontFeature.superscripts()
+          else
+            const FontFeature.subscripts(),
+        ],
+      );
+    }
     return style;
   }
 }

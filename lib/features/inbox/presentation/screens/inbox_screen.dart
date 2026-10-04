@@ -12,6 +12,7 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -24,6 +25,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
@@ -467,11 +469,14 @@ class _PendingItemCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final rendition = extractableRendition(item);
+    // El texto como se lee, no su Markdown (F30): una página web traía
+    // `[![](//upload.wikimedia.org/…)](…)` en las primeras líneas.
     final excerpt = rendition == null
         ? null
-        : rendition.content.length > 280
-        ? '${rendition.content.substring(0, 280)}…'
-        : rendition.content;
+        : RenderedMarkdown.excerpt(
+            rendition.content,
+            markdown: extractedTextIsMarkdown(item.source),
+          );
     final pending =
         ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
