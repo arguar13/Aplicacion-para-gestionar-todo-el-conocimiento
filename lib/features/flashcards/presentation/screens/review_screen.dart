@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
-import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
@@ -17,6 +16,7 @@ import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
@@ -156,7 +156,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     loading: () => const CircularProgressIndicator(),
                     error: (error, stackTrace) => Text('$error'),
                     data: (cards) => cards.isEmpty
-                        ? _AllDoneView(message: l10n.reviewAllDone)
+                        // F30: si está vacío, dice por qué.
+                        ? const ReviewEmptyState()
                         : _CardView(
                             card: cards.first,
                             revealed: _revealed,
@@ -214,17 +215,6 @@ class _StreakIndicator extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-class _AllDoneView extends StatelessWidget {
-  const _AllDoneView({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return EmptyStateView(icon: Icons.check_circle_outline, title: message);
   }
 }
 

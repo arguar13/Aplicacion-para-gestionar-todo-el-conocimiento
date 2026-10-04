@@ -7494,5 +7494,47 @@
   "reviewAiBatchDismiss": "Close",
   "@reviewAiBatchDismiss": {
     "description": "Repasar con IA (F30): cerrar el aviso terminado."
+  },
+  "reviewEmptyWithoutCards": "{count, plural, =1{1 item has no flashcards yet} other{{count} items have no flashcards yet}}",
+  "@reviewEmptyWithoutCards": {
+    "description": "Repasar vacío: cuántos elementos con texto no tienen tarjetas. (F30)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEmptyWithoutCardsHint": "You can create them by hand from each item, or ask the AI.",
+  "@reviewEmptyWithoutCardsHint": {
+    "description": "Repasar vacío: qué se puede hacer. (F30)"
+  },
+  "reviewEmptyChatModelMissing": "The language model is missing: without it, the AI can't make flashcards.",
+  "@reviewEmptyChatModelMissing": {
+    "description": "Repasar vacío: falta el modelo de lenguaje. (F30)"
+  },
+  "reviewEmptyEmbeddingModelMissing": "The relations model is missing: the AI doesn't organize new items on its own. You can still ask for flashcards.",
+  "@reviewEmptyEmbeddingModelMissing": {
+    "description": "Repasar vacío: falta el modelo de vínculos. (F30)"
+  },
+  "reviewEmptyAiPaused": "The AI is paused: it doesn't make flashcards on its own.",
+  "@reviewEmptyAiPaused": {
+    "description": "Repasar vacío: la IA en pausa. (F30)"
+  },
+  "reviewEmptyWaitingCharger": "{count, plural, =1{The library you already had is organized only while the phone charges: 1 item is waiting.} other{The library you already had is organized only while the phone charges: {count} items are waiting.}}",
+  "@reviewEmptyWaitingCharger": {
+    "description": "Repasar vacío: la biblioteca existente espera el cargador. (F30)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEmptyBatchTitle": "Flashcards are on their way",
+  "@reviewEmptyBatchTitle": {
+    "description": "Repasar vacío mientras la IA hace tarjetas. (F30)"
+  },
+  "reviewEmptyBatchMessage": "They show up here as the AI makes them.",
+  "@reviewEmptyBatchMessage": {
+    "description": "Repasar vacío mientras la IA hace tarjetas. (F30)"
   }
 }

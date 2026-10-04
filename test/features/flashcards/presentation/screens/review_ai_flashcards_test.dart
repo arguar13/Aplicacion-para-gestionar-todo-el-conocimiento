@@ -280,4 +280,87 @@ void main() {
       expect(queue.calls, ['cerrar']);
     });
   });
+
+  group('vacío, dice por qué', () {
+    void setStatus(AiOrganizeStatus status) =>
+        harness.container.read(aiOrganizeStatusProvider.notifier).state =
+            status;
+
+    testWidgets('sin nada para hacer, el mensaje de siempre', (tester) async {
+      await setUpWith();
+      await pumpReview(tester);
+
+      expect(find.byKey(const Key('review-empty-done')), findsOneWidget);
+      expect(find.text(es.reviewAllDone), findsOneWidget);
+    });
+
+    testWidgets('con elementos sin tarjetas: cuántos, y el ✨ al lado', (
+      tester,
+    ) async {
+      await setUpWith();
+      await seed();
+      await pumpReview(tester);
+
+      expect(find.text(es.reviewEmptyWithoutCards(3)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('review-empty-create')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.reviewAiSheetIntro), findsOneWidget);
+    });
+
+    testWidgets('falta un modelo: cuál, con su descarga', (tester) async {
+      await setUpWith();
+      await seed();
+      await pumpReview(tester);
+      setStatus(
+        const AiOrganizeModelMissing(
+          chatModelMissing: true,
+          embeddingModelMissing: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.reviewEmptyChatModelMissing), findsOneWidget);
+      expect(find.text(es.reviewEmptyEmbeddingModelMissing), findsOneWidget);
+    });
+
+    testWidgets('la IA en pausa: lo dice y la reanuda', (tester) async {
+      await setUpWith();
+      await seed();
+      await harness.container
+          .read(aiOrganizeSettingsProvider.notifier)
+          .set(AiOrganizeToggle.enabled, on: false);
+      await pumpReview(tester);
+
+      expect(find.text(es.reviewEmptyAiPaused), findsOneWidget);
+      await tester.tap(find.text(es.reviewAiResumeAi));
+      await tester.pumpAndSettle();
+      expect(
+        harness.container.read(aiOrganizeSettingsProvider).enabled,
+        isTrue,
+      );
+    });
+
+    testWidgets('esperando el cargador: cuántos esperan', (tester) async {
+      await setUpWith();
+      await seed();
+      await pumpReview(tester);
+      setStatus(const AiOrganizePaused(pending: 80, waitingForCharger: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.reviewEmptyWaitingCharger(80)), findsOneWidget);
+    });
+
+    testWidgets('con la IA haciéndolas, que están en camino', (tester) async {
+      await setUpWith();
+      await seed();
+      await pumpReview(tester);
+      harness.container.read(aiFlashcardsBatchProvider.notifier).state =
+          const AiFlashcardsBatch(total: 3);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text(es.reviewEmptyBatchTitle), findsOneWidget);
+      expect(find.text(es.reviewEmptyWithoutCards(3)), findsNothing);
+    });
+  });
 }

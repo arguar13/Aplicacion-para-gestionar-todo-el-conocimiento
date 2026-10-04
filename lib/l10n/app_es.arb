@@ -6476,5 +6476,47 @@
   "reviewAiBatchDismiss": "Cerrar",
   "@reviewAiBatchDismiss": {
     "description": "Repasar con IA (F30): cerrar el aviso terminado."
+  },
+  "reviewEmptyWithoutCards": "{count, plural, =1{1 elemento todavía no tiene tarjetas} other{{count} elementos todavía no tienen tarjetas}}",
+  "@reviewEmptyWithoutCards": {
+    "description": "Repasar vacío: cuántos elementos con texto no tienen tarjetas. (F30)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEmptyWithoutCardsHint": "Podés crearlas a mano desde cada elemento, o pedírselas a la IA.",
+  "@reviewEmptyWithoutCardsHint": {
+    "description": "Repasar vacío: qué se puede hacer. (F30)"
+  },
+  "reviewEmptyChatModelMissing": "Falta el modelo de lenguaje: sin él, la IA no hace tarjetas.",
+  "@reviewEmptyChatModelMissing": {
+    "description": "Repasar vacío: falta el modelo de lenguaje. (F30)"
+  },
+  "reviewEmptyEmbeddingModelMissing": "Falta el modelo de vínculos: la IA no organiza sola lo que entra. Las tarjetas se pueden pedir igual.",
+  "@reviewEmptyEmbeddingModelMissing": {
+    "description": "Repasar vacío: falta el modelo de vínculos. (F30)"
+  },
+  "reviewEmptyAiPaused": "La IA está en pausa: no hace tarjetas sola.",
+  "@reviewEmptyAiPaused": {
+    "description": "Repasar vacío: la IA en pausa. (F30)"
+  },
+  "reviewEmptyWaitingCharger": "{count, plural, =1{La biblioteca que ya existía se organiza solo con el teléfono cargando: espera 1 elemento.} other{La biblioteca que ya existía se organiza solo con el teléfono cargando: esperan {count} elementos.}}",
+  "@reviewEmptyWaitingCharger": {
+    "description": "Repasar vacío: la biblioteca existente espera el cargador. (F30)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEmptyBatchTitle": "Las tarjetas están en camino",
+  "@reviewEmptyBatchTitle": {
+    "description": "Repasar vacío mientras la IA hace tarjetas. (F30)"
+  },
+  "reviewEmptyBatchMessage": "Aparecen acá a medida que la IA las hace.",
+  "@reviewEmptyBatchMessage": {
+    "description": "Repasar vacío mientras la IA hace tarjetas. (F30)"
   }
 }
