@@ -98,11 +98,19 @@ class HttpWhisperModelManager implements WhisperModelManager {
     return false;
   }
 
+  /// Corta lo que baja y borra también los archivos que ya habían
+  /// terminado: sin los tres el modelo no sirve, y cancelar promete dejar el
+  /// lugar como estaba. Un modelo ya entero no se toca.
   @override
   Future<void> cancelDownload() async {
     final dir = await _modelDirectory();
     for (final file in _spec.files) {
       await _transfer.cancel(File(p.join(dir.path, file.name)));
+    }
+    if (_hasAllFiles(dir)) return;
+    for (final file in _spec.files) {
+      final done = File(p.join(dir.path, file.name));
+      if (done.existsSync()) await done.delete();
     }
   }
 

@@ -220,6 +220,17 @@ void main() {
     });
   });
 
+  test('descartar borra el archivo entero y su marca', () async {
+    await download();
+    expect(await downloader.isComplete(fileName), isTrue);
+
+    await downloader.discard(fileName);
+
+    expect(target.existsSync(), isFalse);
+    expect(sibling('.completo').existsSync(), isFalse);
+    expect(await downloader.isComplete(fileName), isFalse);
+  });
+
   test('cancelar corta la descarga y borra lo bajado', () async {
     server.misbehaviors.add(const Misbehavior.stall());
     final errors = <Object>[];

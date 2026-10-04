@@ -114,10 +114,25 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
       await downloader.isDownloading(_modelFilename) ||
       await downloader.isDownloading(_tokenizerFilename);
 
+  /// Corta lo que baja y, si el modelo no quedó entero, borra también el
+  /// archivo que ya había terminado: uno sin el otro no sirve, y cancelar
+  /// promete dejar el lugar como estaba.
   @override
   Future<void> cancelDownload() async {
     await downloader.cancel(_modelFilename);
     await downloader.cancel(_tokenizerFilename);
+    final complete =
+        await downloader.isComplete(
+          _modelFilename,
+          publishedBytes: _modelPublishedBytes,
+        ) &&
+        await downloader.isComplete(
+          _tokenizerFilename,
+          publishedBytes: _tokenizerPublishedBytes,
+        );
+    if (complete) return;
+    await downloader.discard(_modelFilename);
+    await downloader.discard(_tokenizerFilename);
   }
 
   @override

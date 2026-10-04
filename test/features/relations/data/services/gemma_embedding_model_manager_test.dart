@@ -245,13 +245,27 @@ void main() {
       expect(await manager.isDownloading(), isFalse);
     });
 
-    test('cancelar corta los dos', () async {
+    test('cancelar corta los dos y, sin el modelo entero, borra también el '
+        'que ya había terminado', () async {
       when(() => downloader.cancel(any())).thenAnswer((_) async {});
+      when(() => downloader.discard(any())).thenAnswer((_) async {});
+      complete({_tokenizer: File(_tokenizer)});
 
       await manager.cancelDownload();
 
       verify(() => downloader.cancel(_model)).called(1);
       verify(() => downloader.cancel(_tokenizer)).called(1);
+      verify(() => downloader.discard(_model)).called(1);
+      verify(() => downloader.discard(_tokenizer)).called(1);
+    });
+
+    test('con los dos enteros, cancelar no borra nada', () async {
+      when(() => downloader.cancel(any())).thenAnswer((_) async {});
+      complete({_model: File(_model), _tokenizer: File(_tokenizer)});
+
+      await manager.cancelDownload();
+
+      verifyNever(() => downloader.discard(any()));
     });
   });
 }

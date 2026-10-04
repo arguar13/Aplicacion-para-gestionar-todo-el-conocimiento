@@ -103,6 +103,16 @@ class HttpGemmaModelDownloader {
   Future<void> cancel(String fileName) async =>
       _transfer.cancel(await targetFile(fileName));
 
+  /// Borra [fileName] del lugar de ahora aunque haya quedado entero, con su
+  /// marca: para un modelo de varios archivos que se canceló a medias. Lo
+  /// del lugar de antes no se toca.
+  Future<void> discard(String fileName) async {
+    final target = await targetFile(fileName);
+    for (final file in [target, _markOf(target)]) {
+      if (file.existsSync()) await file.delete();
+    }
+  }
+
   /// Baja [url] a [targetFile]`(fileName)` y reporta el progreso como una
   /// fracción de 0 a 1. Emite un error del stream si falla —nunca una
   /// excepción sin dueño— y cierra el stream al terminar.

@@ -274,6 +274,38 @@ void main() {
     expect(await manager.isReady(), isFalse);
   });
 
+  test('cancelar a medias borra también los archivos que ya habían '
+      'terminado: sin los tres el modelo no sirve', () async {
+    serveFiles();
+    for (final name in ['encoder.onnx', 'decoder.onnx']) {
+      server.misbehaviorsByUrl['$_baseUrl/$name'] = [const Misbehavior.stall()];
+    }
+    final tokens = File(
+      '${modelDir('nuevo').path}${Platform.pathSeparator}tokens.txt',
+    );
+
+    final done = manager.download().drain<void>().catchError((_) {});
+    for (var i = 0; i < 200 && !tokens.existsSync(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(tokens.existsSync(), isTrue);
+
+    await manager.cancelDownload();
+    await done;
+
+    expect(tokens.existsSync(), isFalse);
+    expect(modelDir('nuevo').listSync(), isEmpty);
+  });
+
+  test('cancelar con el modelo ya entero no borra nada', () async {
+    serveFiles();
+    await manager.download().drain<void>();
+
+    await manager.cancelDownload();
+
+    expect(await manager.isReady(), isTrue);
+  });
+
   // Antes de F29 el modelo se bajaba a la carpeta interna de la app; con el
   // gestor del sistema se baja a otra, donde el sistema puede escribir.
   group('lo bajado en la carpeta de antes (F29)', () {
