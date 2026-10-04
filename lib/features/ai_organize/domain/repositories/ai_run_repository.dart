@@ -21,10 +21,17 @@ abstract interface class AiRunRepository {
   /// Abre una pasada de la IA sobre [itemId] y devuelve su id. [model] es el
   /// modelo que trabaja, si se sabe; [contentSimhash], la huella del texto que
   /// la pasada va a ver (`simhashOf`), con la que después se sabe si cambió.
+  ///
+  /// Con [flashcardsOnly], es un pedido de solo tarjetas (F30, el ✨ de
+  /// Repasar): se deshace y se lista como cualquier pasada, pero no cuenta
+  /// como organizar el elemento —sigue pendiente para la cola, con sus
+  /// vínculos, temas y etiquetas por hacer— ni como su última pasada a la
+  /// hora de saber si se deshizo ([undoneItemsAmong]).
   Future<Either<Failure, String>> startRun(
     String itemId, {
     String? model,
     String? contentSimhash,
+    bool flashcardsOnly = false,
   });
 
   /// Pone a [itemId] en el tema [spaceId] dentro de la pasada [runId], si

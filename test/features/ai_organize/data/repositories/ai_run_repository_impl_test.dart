@@ -302,6 +302,32 @@ void main() {
     );
   });
 
+  test('una pasada de solo tarjetas (F30) cuenta sus tarjetas, se deshace '
+      'como cualquiera, y la marca no es un dato', () async {
+    final run = (await runs.startRun(
+      'a',
+      model: 'gemma',
+      flashcardsOnly: true,
+    )).getOrElse((f) => fail('$f'));
+    for (final question in ['¿Uno?', '¿Dos?']) {
+      await flashcards.create(
+        itemId: 'a',
+        front: question,
+        back: 'x',
+        ai: AiProvenance(runId: run),
+      );
+    }
+    await runs.finishRun(run);
+
+    final listed = (await runs.listRuns()).getOrElse((f) => fail('$f')).single;
+    expect(listed.created, const AiRunTally(flashcards: 2));
+    expect(listed.remaining, const AiRunTally(flashcards: 2));
+
+    final undone = (await runs.undoRun(run)).getOrElse((f) => fail('$f'));
+    expect(undone, const AiRunTally(flashcards: 2));
+    expect(await db.select(db.flashcards).get(), isEmpty);
+  });
+
   test('borrar el elemento se lleva sus pasadas', () async {
     await organizeA();
 

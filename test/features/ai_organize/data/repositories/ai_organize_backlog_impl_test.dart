@@ -134,6 +134,90 @@ void main() {
     );
   });
 
+  group('una pasada de solo tarjetas (F30) no cuenta como organizar', () {
+    Future<String> flashcardsOnlyRun(String itemId) async =>
+        (await vault.runs.startRun(
+          itemId,
+          flashcardsOnly: true,
+        )).getOrElse((f) => fail('$f'));
+
+    test('el elemento sigue pendiente, terminada o deshecha, y sin gastar '
+        'intentos', () async {
+      await vault.source(
+        'viejo',
+        title: 'Viejo',
+        content: 'Texto.',
+        createdAt: DateTime(2026, 9),
+      );
+      await vault.runs.finishRun(await flashcardsOnlyRun('viejo'));
+      await vault.runs.undoRun(await flashcardsOnlyRun('viejo'));
+      // Tres más, a medias: con las de organizar, el tope de intentos.
+      for (var i = 0; i < kMaxAiRunAttempts; i++) {
+        await flashcardsOnlyRun('viejo');
+      }
+
+      expect(
+        await backlog.nextExisting(before: epoch, notesQuietBefore: quiet()),
+        'viejo',
+      );
+      expect(
+        await backlog.count(epoch: epoch, notesQuietBefore: quiet()),
+        const AiBacklogCount(existing: 1),
+      );
+
+      // Una de organizar, terminada, sí lo saca.
+      await vault.runs.finishRun(await vault.startRun('viejo'));
+      expect(
+        await backlog.nextExisting(before: epoch, notesQuietBefore: quiet()),
+        isNull,
+      );
+    });
+
+    test('una nota que cambió se mira contra su última pasada de organizar, '
+        'no contra la de tarjetas', () async {
+      await vault.note('n', title: 'Nota', content: 'Una idea.');
+      await vault.runs.finishRun(
+        (await vault.runs.startRun(
+          'n',
+          contentSimhash: '00ff',
+        )).getOrElse((f) => fail('$f')),
+      );
+      vault.now = vault.now.add(const Duration(minutes: 5));
+      await vault.note('n', title: 'Nota', content: 'Otra idea.');
+      vault.now = vault.now.add(const Duration(minutes: 5));
+      // Las tarjetas, después del cambio: sin huella, como las pide Repasar.
+      await vault.runs.finishRun(await flashcardsOnlyRun('n'));
+
+      expect(
+        (await backlog.editedNotes(
+          quietBefore: vault.now,
+        )).map((n) => (n.itemId, n.simhashSeen)),
+        [('n', '00ff')],
+      );
+    });
+
+    test('deshacerla no hace que la IA deje de tocar el elemento', () async {
+      await vault.source('a', title: 'A', content: 'Texto.');
+      await vault.runs.finishRun(await vault.startRun('a'));
+      await vault.runs.undoRun(await flashcardsOnlyRun('a'));
+
+      expect(
+        (await vault.runs.undoneItemsAmong(['a'])).getOrElse((f) => fail('$f')),
+        isEmpty,
+      );
+
+      // La de organizar, deshecha, sí: aunque después haya una de tarjetas.
+      await vault.source('b', title: 'B', content: 'Texto.');
+      await vault.runs.undoRun(await vault.startRun('b'));
+      vault.now = vault.now.add(const Duration(minutes: 1));
+      await vault.runs.finishRun(await flashcardsOnlyRun('b'));
+      expect(
+        (await vault.runs.undoneItemsAmong(['b'])).getOrElse((f) => fail('$f')),
+        {'b'},
+      );
+    });
+  });
+
   test('la memoria del dispositivo fija el comienzo una sola vez', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

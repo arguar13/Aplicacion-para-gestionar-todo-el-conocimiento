@@ -43,20 +43,24 @@ class AiRunRepositoryImpl implements AiRunRepository {
     String itemId, {
     String? model,
     String? contentSimhash,
+    bool flashcardsOnly = false,
   }) async {
     try {
       final id = _ids.next();
-      await _db
-          .into(_db.aiRuns)
-          .insert(
-            AiRunsCompanion.insert(
-              id: id,
-              itemId: itemId,
-              model: Value(model),
-              startedAt: _clock(),
-              contentSimhash: Value(contentSimhash),
-            ),
-          );
+      await _db.transaction(() async {
+        await _db
+            .into(_db.aiRuns)
+            .insert(
+              AiRunsCompanion.insert(
+                id: id,
+                itemId: itemId,
+                model: Value(model),
+                startedAt: _clock(),
+                contentSimhash: Value(contentSimhash),
+              ),
+            );
+        if (flashcardsOnly) await _fields.markFlashcardsOnly(id);
+      });
       return right(id);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -297,12 +301,14 @@ class AiRunRepositoryImpl implements AiRunRepository {
               FROM ai_runs r
              WHERE r.item_id IN (${List.filled(ids.length, '?').join(', ')})
                AND r.undone_at IS NOT NULL
+               AND NOT ${flashcardsOnlyRunSql('r')}
                AND NOT EXISTS (
                  SELECT 1 FROM ai_runs later
                   WHERE later.item_id = r.item_id
-                    AND later.started_at > r.started_at)''',
+                    AND later.started_at > r.started_at
+                    AND NOT ${flashcardsOnlyRunSql('later')})''',
             variables: [for (final id in ids) Variable.withString(id)],
-            readsFrom: {_db.aiRuns},
+            readsFrom: {_db.aiRuns, _db.aiFieldChanges},
           )
           .get();
       return right({for (final row in rows) row.read<String>('item_id')});

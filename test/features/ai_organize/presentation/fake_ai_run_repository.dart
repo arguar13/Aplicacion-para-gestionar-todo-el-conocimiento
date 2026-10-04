@@ -96,6 +96,7 @@ class FakeAiRunRepository implements AiRunRepository {
     String itemId, {
     String? model,
     String? contentSimhash,
+    bool flashcardsOnly = false,
   }) => throw UnimplementedError('Las pantallas no abren pasadas.');
 
   @override

@@ -3,6 +3,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 
 /// Cuántas pasadas a medias se le aguantan a un elemento antes de dejarlo:
@@ -26,6 +27,10 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
 
   /// Lo pendiente de `item i` (ver [AiOrganizeBacklog]); el único `?` es
   /// hasta cuándo una nota tiene que estar quieta.
+  ///
+  /// Una pasada de solo tarjetas (F30, `flashcardsOnlyRunSql`) no cuenta:
+  /// hizo tarjetas, no organizó el elemento, que sigue esperando sus
+  /// vínculos, temas y etiquetas.
   static final _pendingSql =
       '''
       ${activeItemSql('i')}
@@ -35,8 +40,10 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
       AND NOT EXISTS (
             SELECT 1 FROM ai_runs r
              WHERE r.item_id = i.id
-               AND (r.finished_at IS NOT NULL OR r.undone_at IS NOT NULL))
-      AND (SELECT COUNT(*) FROM ai_runs r WHERE r.item_id = i.id)
+               AND (r.finished_at IS NOT NULL OR r.undone_at IS NOT NULL)
+               AND NOT ${flashcardsOnlyRunSql('r')})
+      AND (SELECT COUNT(*) FROM ai_runs r
+            WHERE r.item_id = i.id AND NOT ${flashcardsOnlyRunSql('r')})
             < $kMaxAiRunAttempts
       AND (i.kind <> '$_note' OR i.updated_at <= ?)''';
 
@@ -95,8 +102,9 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
 
   @override
   Future<List<EditedNote>> editedNotes({required DateTime quietBefore}) async {
-    // La última pasada de cada nota: si está terminada y en pie, y la nota
-    // cambió después, es candidata. Si está deshecha, no: la IA no vuelve a
+    // La última pasada de cada nota —sin contar las de solo tarjetas, que no
+    // la organizaron—: si está terminada y en pie, y la nota cambió después,
+    // es candidata. Si está deshecha, no: la IA no vuelve a
     // tocar sola algo cuya pasada se deshizo.
     final rows = await _db
         .customSelect(
@@ -105,9 +113,11 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
             JOIN ai_runs r ON r.item_id = i.id
            WHERE ${activeItemSql('i')}
              AND i.kind = '$_note'
+             AND NOT ${flashcardsOnlyRunSql('r')}
              AND r.started_at = (
                    SELECT MAX(last.started_at) FROM ai_runs last
-                    WHERE last.item_id = i.id)
+                    WHERE last.item_id = i.id
+                      AND NOT ${flashcardsOnlyRunSql('last')})
              AND r.finished_at IS NOT NULL
              AND r.undone_at IS NULL
              AND i.updated_at > r.finished_at
@@ -171,6 +181,7 @@ class AiOrganizeBacklogImpl implements AiOrganizeBacklog {
     _db.knowledgeEntries,
     _db.knowledgeSources,
     _db.aiRuns,
+    _db.aiFieldChanges,
   };
 
   static String _marks(int count) => List.filled(count, '?').join(', ');
