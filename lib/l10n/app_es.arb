@@ -6306,5 +6306,175 @@
         "type": "String"
       }
     }
+  },
+  "reviewAiCreateTooltip": "Crear tarjetas con IA",
+  "@reviewAiCreateTooltip": {
+    "description": "Repasar con IA (F30): el botón ✨ de la barra."
+  },
+  "reviewAiSheetTitle": "Crear tarjetas con IA",
+  "@reviewAiSheetTitle": {
+    "description": "Repasar con IA (F30): título de la hoja."
+  },
+  "reviewAiSheetIntro": "La IA lee cada elemento y le hace sus tarjetas de repaso, en segundo plano y sin esperar el cargador. Llevan ✨ y se pueden deshacer desde «Lo que hizo la IA».",
+  "@reviewAiSheetIntro": {
+    "description": "Repasar con IA (F30): qué hace, en la hoja."
+  },
+  "reviewAiScopeTitle": "¿De qué?",
+  "@reviewAiScopeTitle": {
+    "description": "Repasar con IA (F30): el título de los alcances."
+  },
+  "reviewAiScopeLibrary": "Toda la biblioteca",
+  "@reviewAiScopeLibrary": {
+    "description": "Repasar con IA (F30): alcance."
+  },
+  "reviewAiScopeSpace": "Un tema",
+  "@reviewAiScopeSpace": {
+    "description": "Repasar con IA (F30): alcance: un espacio de la biblioteca."
+  },
+  "reviewAiScopeTag": "Una etiqueta",
+  "@reviewAiScopeTag": {
+    "description": "Repasar con IA (F30): alcance."
+  },
+  "reviewAiScopeNotebook": "Un cuaderno",
+  "@reviewAiScopeNotebook": {
+    "description": "Repasar con IA (F30): alcance."
+  },
+  "reviewAiPickSpace": "Elegí un tema",
+  "@reviewAiPickSpace": {
+    "description": "Repasar con IA (F30): el selector de tema."
+  },
+  "reviewAiPickTag": "Elegí una etiqueta",
+  "@reviewAiPickTag": {
+    "description": "Repasar con IA (F30): el selector de etiqueta."
+  },
+  "reviewAiPickNotebook": "Elegí un cuaderno",
+  "@reviewAiPickNotebook": {
+    "description": "Repasar con IA (F30): el selector de cuaderno."
+  },
+  "reviewAiNothingToPick": "Todavía no hay ninguno.",
+  "@reviewAiNothingToPick": {
+    "description": "Repasar con IA (F30): no hay temas, etiquetas o cuadernos para elegir."
+  },
+  "reviewAiCoverage": "{count, plural, =0{Ningún elemento de acá tiene texto todavía} =1{Entra 1 elemento con texto} other{Entran {count} elementos con texto}}",
+  "@reviewAiCoverage": {
+    "description": "Repasar con IA (F30): cuántos elementos del alcance pueden tener tarjetas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiCoverageWithCards": "{count, plural, =0{Ninguno tiene tarjetas todavía} =1{1 ya tiene tarjetas} other{{count} ya tienen tarjetas}}",
+  "@reviewAiCoverageWithCards": {
+    "description": "Repasar con IA (F30): cuántos de esos ya tienen tarjetas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiCoverageFailed": "No se pudo contar qué elementos entran.",
+  "@reviewAiCoverageFailed": {
+    "description": "Repasar con IA (F30): falló la cuenta."
+  },
+  "reviewAiAlsoWithCards": "También los que ya tienen tarjetas",
+  "@reviewAiAlsoWithCards": {
+    "description": "Repasar con IA (F30): el interruptor."
+  },
+  "reviewAiAlsoWithCardsHint": "Les hace otra tanda, sin repetir preguntas.",
+  "@reviewAiAlsoWithCardsHint": {
+    "description": "Repasar con IA (F30): qué hace el interruptor."
+  },
+  "reviewAiStart": "{count, plural, =0{Nada para hacer} =1{Crear tarjetas de 1 elemento} other{Crear tarjetas de {count} elementos}}",
+  "@reviewAiStart": {
+    "description": "Repasar con IA (F30): el botón que empieza.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiStarted": "Creando tarjetas en segundo plano. Podés seguir usando la app.",
+  "@reviewAiStarted": {
+    "description": "Repasar con IA (F30): el aviso al empezar."
+  },
+  "reviewAiBatchWorking": "Creando tarjetas con IA",
+  "@reviewAiBatchWorking": {
+    "description": "Repasar con IA (F30): el aviso de Repasar mientras trabaja."
+  },
+  "reviewAiBatchPaused": "Tarjetas con IA, en pausa",
+  "@reviewAiBatchPaused": {
+    "description": "Repasar con IA (F30): el aviso, en pausa."
+  },
+  "reviewAiBatchDone": "Tarjetas con IA, listas",
+  "@reviewAiBatchDone": {
+    "description": "Repasar con IA (F30): el aviso, al terminar."
+  },
+  "reviewAiBatchProgress": "{done} de {total} elementos",
+  "@reviewAiBatchProgress": {
+    "description": "Repasar con IA (F30): cuántos van.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiBatchCreated": "{count, plural, =0{ninguna tarjeta nueva} =1{1 tarjeta nueva} other{{count} tarjetas nuevas}}",
+  "@reviewAiBatchCreated": {
+    "description": "Repasar con IA (F30): cuántas tarjetas entraron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiBatchForReview": "{count, plural, =1{1 para revisar} other{{count} para revisar}}",
+  "@reviewAiBatchForReview": {
+    "description": "Repasar con IA (F30): cuántas quedaron en «Para revisar».",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewAiBatchCurrent": "Leyendo «{title}»",
+  "@reviewAiBatchCurrent": {
+    "description": "Repasar con IA (F30): qué elemento lee ahora.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewAiBatchAiPaused": "La IA está en pausa: sigue cuando la reanudes.",
+  "@reviewAiBatchAiPaused": {
+    "description": "Repasar con IA (F30): la pausa general de la IA frena el pedido."
+  },
+  "reviewAiResumeAi": "Reanudar la IA",
+  "@reviewAiResumeAi": {
+    "description": "Repasar con IA (F30): reanudar la pausa general."
+  },
+  "reviewAiBatchPause": "Pausar",
+  "@reviewAiBatchPause": {
+    "description": "Repasar con IA (F30): pausar el pedido."
+  },
+  "reviewAiBatchResume": "Seguir",
+  "@reviewAiBatchResume": {
+    "description": "Repasar con IA (F30): reanudar el pedido."
+  },
+  "reviewAiBatchCancel": "Cancelar",
+  "@reviewAiBatchCancel": {
+    "description": "Repasar con IA (F30): cancelar lo que falta del pedido."
+  },
+  "reviewAiBatchSeeReview": "Ver para revisar",
+  "@reviewAiBatchSeeReview": {
+    "description": "Repasar con IA (F30): ir a «Para revisar»."
+  },
+  "reviewAiBatchDismiss": "Cerrar",
+  "@reviewAiBatchDismiss": {
+    "description": "Repasar con IA (F30): cerrar el aviso terminado."
   }
 }

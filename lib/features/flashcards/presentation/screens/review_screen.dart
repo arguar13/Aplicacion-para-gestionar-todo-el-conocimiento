@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_an
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
@@ -114,6 +118,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               onPressed: () => context.push(RoutePaths.reviewHistory),
             ),
           ],
+          // F30: que la IA haga las tarjetas, además de a mano.
+          IconButton(
+            key: const Key('review-ai-create'),
+            icon: const Icon(Icons.auto_awesome_outlined),
+            tooltip: l10n.reviewAiCreateTooltip,
+            onPressed: () => unawaited(showAiFlashcardsSheet(context)),
+          ),
           IconButton(
             icon: _exporting
                 ? const SizedBox(
@@ -128,24 +139,37 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         ],
       ),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: due.when(
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stackTrace) => Text('$error'),
-              data: (cards) => cards.isEmpty
-                  ? _AllDoneView(message: l10n.reviewAllDone)
-                  : _CardView(
-                      card: cards.first,
-                      revealed: _revealed,
-                      grading: _grading,
-                      remaining: cards.length,
-                      onReveal: () => setState(() => _revealed = true),
-                      onGrade: (grade) => _grade(cards.first.id, grade),
-                    ),
+        child: Column(
+          children: [
+            // Cómo va el pedido de tarjetas con IA (F30), si hay uno.
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: const AiFlashcardsBanner(),
+              ),
             ),
-          ),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: due.when(
+                    loading: () => const CircularProgressIndicator(),
+                    error: (error, stackTrace) => Text('$error'),
+                    data: (cards) => cards.isEmpty
+                        ? _AllDoneView(message: l10n.reviewAllDone)
+                        : _CardView(
+                            card: cards.first,
+                            revealed: _revealed,
+                            grading: _grading,
+                            remaining: cards.length,
+                            onReveal: () => setState(() => _revealed = true),
+                            onGrade: (grade) => _grade(cards.first.id, grade),
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
