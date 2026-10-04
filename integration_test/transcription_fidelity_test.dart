@@ -34,6 +34,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sinapsis/core/network/in_app_model_file_transfer.dart';
 import 'package:sinapsis/features/transform/data/services/audio_wav_converter.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/sherpa_onnx_audio_transcriber_io.dart';
@@ -107,7 +108,7 @@ void main() {
     ];
 
     final model = HttpWhisperModelManager(
-      dio: Dio(),
+      transfer: InAppModelFileTransfer(dio: Dio()),
       rootDirectory: getApplicationDocumentsDirectory,
     );
     // El modelo, si se empujó con los audios (`fidelidad/modelo/`): así la

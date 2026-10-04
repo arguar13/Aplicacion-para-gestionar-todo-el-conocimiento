@@ -101,6 +101,19 @@ class OpfsWhisperModelManager implements WhisperModelManager {
   @override
   Future<int?> downloadSizeInBytes() async => _spec.totalBytes;
 
+  /// La descarga en curso, para poder cortarla.
+  CancelToken? _cancel;
+
+  /// En la web la descarga vive en la pestaña: cerrada la pestaña, no hay
+  /// nada a qué engancharse.
+  @override
+  Future<bool> isDownloading() async => false;
+
+  /// Lo bajado está en memoria hasta que el archivo entero pasa a OPFS:
+  /// cortar la descarga no deja nada que borrar.
+  @override
+  Future<void> cancelDownload() async => _cancel?.cancel();
+
   @override
   Stream<double> download() {
     final controller = StreamController<double>();
@@ -109,6 +122,7 @@ class OpfsWhisperModelManager implements WhisperModelManager {
   }
 
   Future<void> _runDownload(StreamController<double> controller) async {
+    final cancel = _cancel = CancelToken();
     try {
       final dir = await _modelDirectory(create: true);
 
@@ -122,6 +136,7 @@ class OpfsWhisperModelManager implements WhisperModelManager {
 
         final response = await _dio.get<List<int>>(
           _spec.urlOf(spec),
+          cancelToken: cancel,
           options: Options(responseType: ResponseType.bytes),
           onReceiveProgress: (received, _) =>
               controller.add((bytesBeforeThisFile + received) / total),

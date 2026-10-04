@@ -1,13 +1,14 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/network/model_file_transfer.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_runtime.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart'
     as domain;
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 /// Qué repositorio de Hugging Face, qué archivo y qué [ModelType] le
 /// corresponde a cada [ChatModelOption].
@@ -146,10 +147,23 @@ class GemmaChatModelManager implements domain.ChatModelManager {
         name == p.basenameWithoutExtension(_spec.file).toLowerCase();
   }
 
+  /// Lo registra desde donde esté entero: el lugar de ahora o, si se bajó
+  /// antes de F29, la carpeta interna de la app.
   Future<void> _install() async {
-    final file = await downloader.targetFile(_fileName);
+    final file =
+        await downloader.completeFile(
+          _fileName,
+          publishedBytes: _spec.publishedBytes,
+        ) ??
+        await downloader.targetFile(_fileName);
     await _runtime.installModelFile(type: _spec.modelType, path: file.path);
   }
+
+  @override
+  Future<bool> isDownloading() => downloader.isDownloading(_fileName);
+
+  @override
+  Future<void> cancelDownload() => downloader.cancel(_fileName);
 
   @override
   Future<int?> downloadSizeInBytes() async {
@@ -177,6 +191,7 @@ class GemmaChatModelManager implements domain.ChatModelManager {
         fileName: _fileName,
         token: token,
         publishedBytes: _spec.publishedBytes,
+        label: LongWorkDetail.languageModel,
       );
 
       await for (final value in progress) {
@@ -209,16 +224,20 @@ class GemmaChatModelManager implements domain.ChatModelManager {
   /// archivo o instalándolo— a algo que la pantalla pueda mostrar sin
   /// necesitar saber nada de HTTP ni de `flutter_gemma`.
   ///
-  /// El repositorio de Gemma está protegido (ver el comentario de
-  /// `_specs`), así que un 401/403 —de la descarga propia, con `dio`, o de
-  /// `flutter_gemma` resolviendo el manifiesto— significa lo mismo: hace
-  /// falta un token de Hugging Face válido, no reintentar.
-  domain.ChatModelDownloadError _toDomainError(Object e) {
-    if (e is DioException) {
-      final status = e.response?.statusCode;
-      if (status == 401 || status == 403) {
-        return const domain.ChatModelNeedsAuthentication();
-      }
+  /// El repositorio de Gemma puede estar protegido (ver el comentario de
+  /// `_specs`), así que un 401/403 —de la descarga en la app, con `dio`, de
+  /// la del sistema, o de `flutter_gemma`— significa lo mismo: hace falta un
+  /// token de Hugging Face válido, no reintentar.
+  ///
+  /// Lo que la pantalla sabe mostrar sin traducir pasa tal cual: la falta de
+  /// lugar ([InsufficientStorageException]) y la cancelación.
+  Object _toDomainError(Object e) {
+    if (e is InsufficientStorageException ||
+        e is ModelDownloadCancelledException) {
+      return e;
+    }
+    if (isModelDownloadAuthError(e)) {
+      return const domain.ChatModelNeedsAuthentication();
     }
     if (e is DownloadException &&
         (e.error is UnauthorizedError || e.error is ForbiddenError)) {

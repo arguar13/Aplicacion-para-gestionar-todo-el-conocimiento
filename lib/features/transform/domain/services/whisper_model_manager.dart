@@ -48,6 +48,15 @@ abstract interface class WhisperModelManager {
   /// stream, sin dejar archivos a medio bajar que hagan creer que el
   /// modelo está listo cuando no lo está.
   Stream<double> download();
+
+  /// Si hay una descarga del modelo en curso a la que engancharse: con el
+  /// gestor de descargas del sistema, también una que siguió con la app
+  /// cerrada (F29). Al abrir la app, la descarga se sigue mostrando en vez
+  /// de ofrecer bajarlo de nuevo.
+  Future<bool> isDownloading();
+
+  /// Corta la descarga en curso, si hay una, y borra lo bajado.
+  Future<void> cancelDownload();
 }
 
 /// Se pidió transcribir sin haber descargado el modelo todavía.

@@ -31,6 +31,15 @@ abstract interface class EmbeddingModelManager {
   /// error en el medio llega como un error del stream, sin dejar el
   /// modelo a medio instalar.
   Stream<double> download({String? huggingFaceToken});
+
+  /// Si hay una descarga del modelo en curso a la que engancharse: con el
+  /// gestor de descargas del sistema, también una que siguió con la app
+  /// cerrada (F29). Al abrir la app, la descarga se sigue mostrando en vez
+  /// de ofrecer bajarlo de nuevo.
+  Future<bool> isDownloading();
+
+  /// Corta la descarga en curso, si hay una, y borra lo bajado.
+  Future<void> cancelDownload();
 }
 
 /// Por qué falló una descarga, en términos que la pantalla pueda mostrar

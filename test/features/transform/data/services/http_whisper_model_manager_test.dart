@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/network/in_app_model_file_transfer.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/data/services/whisper_model_spec.dart';
 
@@ -17,6 +18,7 @@ const _contents = {
 };
 
 const _baseUrl = 'https://modelos.test/fijado';
+const _encoderUrl = '$_baseUrl/encoder.onnx';
 
 WhisperModelFile _file(String name) => WhisperModelFile(
   name,
@@ -53,10 +55,12 @@ void main() {
     server = FakeFileServer({});
     tempDir = Directory.systemTemp.createTempSync('sinapsis_whisper_');
     manager = HttpWhisperModelManager(
-      dio: Dio()..httpClientAdapter = server,
+      transfer: InAppModelFileTransfer(
+        dio: Dio()..httpClientAdapter = server,
+        retryDelay: (_) => Duration.zero,
+      ),
       rootDirectory: () async => tempDir,
       spec: _spec,
-      retryDelay: (_) => Duration.zero,
     );
   });
 
@@ -184,12 +188,12 @@ void main() {
   test('un archivo cortado a mitad se retoma desde donde quedó, no desde '
       'cero', () async {
     serveFiles();
-    server.misbehaviors.add(const Misbehavior.cut(6));
+    server.misbehaviorsByUrl[_encoderUrl] = [const Misbehavior.cut(6)];
 
     await manager.download().drain<void>();
 
     expect(await manager.isReady(), isTrue);
-    expect(server.ranges.take(2), [null, 'bytes=6-']);
+    expect(server.rangesFor(_encoderUrl), [null, 'bytes=6-']);
   });
 
   test('lo que quedó a medias de una sesión anterior se retoma por '
@@ -203,7 +207,7 @@ void main() {
     await manager.download().drain<void>();
 
     expect(await manager.isReady(), isTrue);
-    expect(server.ranges.first, 'bytes=4-');
+    expect(server.rangesFor(_encoderUrl), ['bytes=4-']);
   });
 
   test('lo que quedó a medias y se completa con bytes que no son los '
@@ -226,7 +230,10 @@ void main() {
     'agotados los reintentos de un archivo, el error llega al stream',
     () async {
       serveFiles();
-      server.misbehaviors.addAll(List.filled(8, const Misbehavior.status(500)));
+      server.misbehaviorsByUrl[_encoderUrl] = List.filled(
+        8,
+        const Misbehavior.status(500),
+      );
 
       await expectLater(
         manager.download(),
@@ -242,5 +249,90 @@ void main() {
     expect(real.baseUrl, isNot(contains('/main')));
     expect(real.totalBytes, 375744699);
     expect(real.replaces, ['whisper-small']);
+  });
+
+  test('pide los tres archivos a la vez: con el gestor del sistema siguen '
+      'con la app cerrada', () async {
+    serveFiles();
+    for (final name in _contents.keys) {
+      server.misbehaviorsByUrl['$_baseUrl/$name'] = [const Misbehavior.stall()];
+    }
+
+    final done = manager.download().drain<void>().catchError((_) {});
+    // Hasta que llegan los tres pedidos: antes hay disco de por medio.
+    for (var i = 0; i < 200 && server.requests.length < 3; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+
+    expect(requestedUrls().toSet(), {
+      for (final name in _contents.keys) '$_baseUrl/$name',
+    });
+    expect(await manager.isDownloading(), isTrue);
+    await manager.cancelDownload();
+    await done;
+    expect(await manager.isDownloading(), isFalse);
+    expect(await manager.isReady(), isFalse);
+  });
+
+  // Antes de F29 el modelo se bajaba a la carpeta interna de la app; con el
+  // gestor del sistema se baja a otra, donde el sistema puede escribir.
+  group('lo bajado en la carpeta de antes (F29)', () {
+    late Directory earlierDir;
+    late HttpWhisperModelManager moved;
+
+    Directory earlierModelDir(String folder) => Directory(
+      '${earlierDir.path}${Platform.pathSeparator}modelos'
+      '${Platform.pathSeparator}$folder',
+    );
+
+    setUp(() {
+      earlierDir = Directory.systemTemp.createTempSync(
+        'sinapsis_whisper_antes_',
+      );
+      moved = HttpWhisperModelManager(
+        transfer: InAppModelFileTransfer(
+          dio: Dio()..httpClientAdapter = server,
+          retryDelay: (_) => Duration.zero,
+        ),
+        rootDirectory: () async => tempDir,
+        earlierRoots: [() async => earlierDir],
+        spec: _spec,
+      );
+    });
+
+    tearDown(() => earlierDir.deleteSync(recursive: true));
+
+    test(
+      'entero ahí, está listo y se usa donde está, sin bajar nada',
+      () async {
+        final dir = earlierModelDir('nuevo')..createSync(recursive: true);
+        for (final entry in _contents.entries) {
+          File(
+            '${dir.path}${Platform.pathSeparator}${entry.key}',
+          ).writeAsStringSync(entry.value);
+        }
+
+        expect(await moved.isReady(), isTrue);
+        expect((await moved.paths()).encoder, startsWith(earlierDir.path));
+        await moved.download().drain<void>();
+        expect(server.requests, isEmpty);
+      },
+    );
+
+    test('a medias ahí no se sigue: se borra, y se baja entero en la carpeta '
+        'nueva', () async {
+      serveFiles();
+      final dir = earlierModelDir('nuevo')..createSync(recursive: true);
+      final old = File(
+        '${dir.path}${Platform.pathSeparator}.encoder.onnx.descargando',
+      )..writeAsStringSync('el c');
+
+      await moved.download().drain<void>();
+
+      expect(await moved.isReady(), isTrue);
+      expect((await moved.paths()).encoder, startsWith(tempDir.path));
+      expect(old.existsSync(), isFalse);
+      expect(dir.existsSync(), isFalse);
+    });
   });
 }

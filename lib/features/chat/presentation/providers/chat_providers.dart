@@ -2,12 +2,11 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
-import 'package:sinapsis/core/network/network_providers.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -58,9 +57,7 @@ final chatModelManagerProvider = Provider<ChatModelManager>((ref) {
 final chatModelDownloadProvider =
     StateNotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
       (ref) => ModelDownloadNotifier(
-        keeper: () => ref
-            .read(longWorkCoordinatorProvider)
-            .keeperFor(LongWorkOwner.modelDownload),
+        keeper: modelDownloadKeeper(ref),
         detail: LongWorkDetail.languageModel,
         // La IA que organiza sola esperaba este modelo (F27): sin el aviso
         // seguiría diciendo que falta hasta que otra cosa la despertara —un
@@ -75,9 +72,11 @@ final chatModelDownloadProvider =
 /// medio de una descarga perdería el archivo parcial que ya se estaba
 /// retomando.
 final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
+  final storage = ref.watch(modelStorageProvider);
   return HttpGemmaModelDownloader(
-    dio: ref.watch(gemmaModelDioProvider),
-    rootDirectory: getApplicationDocumentsDirectory,
+    transfer: ref.watch(modelFileTransferProvider),
+    rootDirectory: storage.root,
+    earlierRoots: storage.earlierRoots,
   );
 });
 

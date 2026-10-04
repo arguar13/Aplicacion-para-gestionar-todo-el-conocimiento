@@ -29,6 +29,22 @@ class FakeChatModelManager implements ChatModelManager {
   @override
   Future<int?> downloadSizeInBytes() async => sizeInBytes;
 
+  /// Si hay una descarga en curso a la que engancharse (F29): la que siguió
+  /// con la app cerrada. Mutable a propósito.
+  bool downloading = false;
+
+  /// Cuántas veces se canceló la descarga.
+  int cancelled = 0;
+
+  @override
+  Future<bool> isDownloading() async => downloading;
+
+  @override
+  Future<void> cancelDownload() async {
+    cancelled++;
+    downloading = false;
+  }
+
   @override
   Stream<double> download({String? huggingFaceToken}) {
     final controller = StreamController<double>();

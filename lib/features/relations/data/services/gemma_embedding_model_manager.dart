@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
+import 'package:sinapsis/core/network/model_file_transfer.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_runtime.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart'
     as domain;
+import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 
 /// El único modelo de embeddings que la app baja —sin selector de
 /// variantes como el chat (ver la decisión sobre F5, D9): nadie interactúa
@@ -46,9 +47,8 @@ const _tokenizerPublishedBytes = 4683319;
 /// motivo que `GemmaChatModelManager`: la descarga que hace `flutter_gemma`
 /// por dentro no retoma bien un corte a medias.
 ///
-/// Un embedder necesita DOS archivos —modelo y tokenizador—, así que el
-/// progreso reportado es el combinado de ambas descargas: 0-90% el modelo
-/// (el más pesado con diferencia), 90-100% el tokenizador.
+/// Un embedder necesita DOS archivos —modelo y tokenizador—, que se bajan a
+/// la vez; el progreso reportado es el combinado de ambos, por bytes.
 class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
   GemmaEmbeddingModelManager({
     required this.downloader,
@@ -88,13 +88,36 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
     return _runtime.hasActiveEmbedder;
   }
 
+  /// Lo registra desde donde esté entero cada archivo: el lugar de ahora o,
+  /// si se bajó antes de F29, la carpeta interna de la app.
   Future<void> _install() async {
-    final modelFile = await downloader.targetFile(_modelFilename);
-    final tokenizerFile = await downloader.targetFile(_tokenizerFilename);
+    final modelFile =
+        await downloader.completeFile(
+          _modelFilename,
+          publishedBytes: _modelPublishedBytes,
+        ) ??
+        await downloader.targetFile(_modelFilename);
+    final tokenizerFile =
+        await downloader.completeFile(
+          _tokenizerFilename,
+          publishedBytes: _tokenizerPublishedBytes,
+        ) ??
+        await downloader.targetFile(_tokenizerFilename);
     await _runtime.installEmbedderFiles(
       modelPath: modelFile.path,
       tokenizerPath: tokenizerFile.path,
     );
+  }
+
+  @override
+  Future<bool> isDownloading() async =>
+      await downloader.isDownloading(_modelFilename) ||
+      await downloader.isDownloading(_tokenizerFilename);
+
+  @override
+  Future<void> cancelDownload() async {
+    await downloader.cancel(_modelFilename);
+    await downloader.cancel(_tokenizerFilename);
   }
 
   @override
@@ -116,25 +139,40 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
     String? token,
   ) async {
     try {
-      final modelProgress = downloader.download(
-        url: _modelUrl,
-        fileName: _modelFilename,
-        token: token,
-        publishedBytes: _modelPublishedBytes,
-      );
-      await for (final value in modelProgress) {
-        if (!controller.isClosed) controller.add(value * 0.9);
-      }
-
-      final tokenizerProgress = downloader.download(
-        url: _tokenizerUrl,
-        fileName: _tokenizerFilename,
-        token: token,
-        publishedBytes: _tokenizerPublishedBytes,
-      );
-      await for (final value in tokenizerProgress) {
-        if (!controller.isClosed) controller.add(0.9 + value * 0.1);
-      }
+      // Los dos a la vez, no uno detrás del otro: con el gestor del sistema
+      // la descarga sigue con la app cerrada, y lo que todavía no se pidió
+      // no la seguiría.
+      final files = [
+        (url: _modelUrl, name: _modelFilename, bytes: _modelPublishedBytes),
+        (
+          url: _tokenizerUrl,
+          name: _tokenizerFilename,
+          bytes: _tokenizerPublishedBytes,
+        ),
+      ];
+      final fractions = List<double>.filled(files.length, 0);
+      final totalBytes = files.fold(0, (sum, f) => sum + f.bytes);
+      await Future.wait([
+        for (final (i, file) in files.indexed)
+          downloader
+              .download(
+                url: file.url,
+                fileName: file.name,
+                token: token,
+                publishedBytes: file.bytes,
+                label: LongWorkDetail.relationsModel,
+              )
+              .forEach((value) {
+                fractions[i] = value;
+                if (controller.isClosed) return;
+                // Por bytes: el modelo pesa cuarenta veces el tokenizador.
+                var done = 0.0;
+                for (final (j, f) in files.indexed) {
+                  done += fractions[j] * f.bytes;
+                }
+                controller.add(done / totalBytes);
+              }),
+      ]);
 
       await _install();
       if (!controller.isClosed) await controller.close();
@@ -153,12 +191,13 @@ class GemmaEmbeddingModelManager implements domain.EmbeddingModelManager {
   /// instalándolos— a algo que la pantalla pueda mostrar sin necesitar
   /// saber nada de HTTP ni de `flutter_gemma`. Mismo criterio que
   /// `GemmaChatModelManager._toDomainError`.
-  domain.EmbeddingModelDownloadError _toDomainError(Object e) {
-    if (e is DioException) {
-      final status = e.response?.statusCode;
-      if (status == 401 || status == 403) {
-        return const domain.EmbeddingModelNeedsAuthentication();
-      }
+  Object _toDomainError(Object e) {
+    if (e is InsufficientStorageException ||
+        e is ModelDownloadCancelledException) {
+      return e;
+    }
+    if (isModelDownloadAuthError(e)) {
+      return const domain.EmbeddingModelNeedsAuthentication();
     }
     return domain.EmbeddingModelDownloadFailed(e.toString());
   }

@@ -86,23 +86,6 @@ final resourceFetchDioProvider = Provider<Dio>((ref) {
   )..interceptors.add(NetworkLoggingInterceptor(logger: logger));
 });
 
-/// Cliente HTTP para descargar el modelo de transcripción.
-///
-/// Deliberadamente sin [GlobalErrorInterceptor], por el mismo motivo que
-/// [resourceFetchDioProvider]: la pantalla que dispara esta descarga ya
-/// muestra su propio estado de error con un botón para reintentar, y el
-/// aviso global duplicaría el mensaje sin agregar nada.
-///
-/// Con los límites de [modelDownloadBaseOptions]: los de una descarga de
-/// cientos de megas, que no puede cortar una conexión lenta pero tiene que
-/// cortar una muerta.
-final whisperModelDioProvider = Provider<Dio>((ref) {
-  final logger = ref.watch(appLoggerProvider);
-
-  return Dio(modelDownloadBaseOptions())
-    ..interceptors.add(NetworkLoggingInterceptor(logger: logger));
-});
-
 /// Los límites de tiempo de las descargas de modelos —cientos de megas a
 /// varios gigas—: que una conexión lenta pero viva siga, y que una muerta
 /// se corte y se retome.
@@ -120,14 +103,3 @@ BaseOptions modelDownloadBaseOptions() => BaseOptions(
   receiveTimeout: const Duration(seconds: 30),
   headers: const {'User-Agent': 'Sinapsis/0.1 (+lector de contenido personal)'},
 );
-
-/// Cliente HTTP para descargar los modelos de Gemma —el de lenguaje y el de
-/// relaciones—: mismo criterio que [whisperModelDioProvider], separado nomás
-/// porque son descargas que no tienen por qué compartir el mismo cliente.
-/// Ver `HttpGemmaModelDownloader`.
-final gemmaModelDioProvider = Provider<Dio>((ref) {
-  final logger = ref.watch(appLoggerProvider);
-
-  return Dio(modelDownloadBaseOptions())
-    ..interceptors.add(NetworkLoggingInterceptor(logger: logger));
-});

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/network/in_app_model_file_transfer.dart';
+import 'package:sinapsis/core/network/model_file_transfer.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 
 import '../../../../support/fake_file_server.dart';
@@ -22,9 +24,11 @@ void main() {
     tempDir = Directory.systemTemp.createTempSync('sinapsis_gemma_');
     server = FakeFileServer({url: content});
     downloader = HttpGemmaModelDownloader(
-      dio: Dio()..httpClientAdapter = server,
+      transfer: InAppModelFileTransfer(
+        dio: Dio()..httpClientAdapter = server,
+        retryDelay: (_) => Duration.zero,
+      ),
       rootDirectory: () async => tempDir,
-      retryDelay: (_) => Duration.zero,
     );
     target = await downloader.targetFile(fileName);
   });
@@ -159,5 +163,82 @@ void main() {
       expect(server.ranges, ['bytes=6-']);
       expect(target.readAsBytesSync(), content);
     });
+  });
+
+  // Antes de F29 los modelos se bajaban a la carpeta interna de la app; con
+  // el gestor del sistema se bajan a otra, donde el sistema puede escribir.
+  group('lo bajado en la carpeta de antes (F29)', () {
+    late Directory earlierDir;
+    late HttpGemmaModelDownloader moved;
+
+    File earlier(String suffix) => File(
+      '${earlierDir.path}${Platform.pathSeparator}modelos'
+      '${Platform.pathSeparator}gemma${Platform.pathSeparator}$fileName$suffix',
+    );
+
+    setUp(() {
+      earlierDir = Directory.systemTemp.createTempSync('sinapsis_gemma_antes_');
+      moved = HttpGemmaModelDownloader(
+        transfer: InAppModelFileTransfer(
+          dio: Dio()..httpClientAdapter = server,
+          retryDelay: (_) => Duration.zero,
+        ),
+        rootDirectory: () async => tempDir,
+        earlierRoots: [() async => earlierDir],
+      );
+    });
+
+    tearDown(() => earlierDir.deleteSync(recursive: true));
+
+    test('entero ahí, se reconoce y se usa donde está, sin bajarlo de '
+        'nuevo', () async {
+      earlier('')
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(content);
+      earlier('.completo').writeAsStringSync('10');
+
+      expect(await moved.isComplete(fileName), isTrue);
+      expect((await moved.completeFile(fileName))?.path, earlier('').path);
+      await moved.download(url: url, fileName: fileName).drain<void>();
+      expect(server.requests, isEmpty);
+      expect(target.existsSync(), isFalse);
+    });
+
+    test('a medias ahí no se puede seguir desde la carpeta nueva: se borra '
+        'y se baja en la nueva', () async {
+      earlier('.descargando')
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(content.take(4).toList());
+      earlier('.source').writeAsStringSync(url);
+
+      await moved.download(url: url, fileName: fileName).drain<void>();
+
+      expect(target.readAsBytesSync(), content);
+      expect(earlier('.descargando').existsSync(), isFalse);
+      expect(earlier('.source').existsSync(), isFalse);
+      expect(await moved.isComplete(fileName), isTrue);
+    });
+  });
+
+  test('cancelar corta la descarga y borra lo bajado', () async {
+    server.misbehaviors.add(const Misbehavior.stall());
+    final errors = <Object>[];
+    final done = downloader
+        .download(url: url, fileName: fileName)
+        .handleError(errors.add)
+        .drain<void>();
+    // Hasta que llega el pedido: antes hay disco de por medio.
+    for (var i = 0; i < 200 && server.requests.isEmpty; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    expect(await downloader.isDownloading(fileName), isTrue);
+
+    await downloader.cancel(fileName);
+    await done;
+
+    expect(errors.single, isA<ModelDownloadCancelledException>());
+    expect(await downloader.isDownloading(fileName), isFalse);
+    expect(sibling('.descargando').existsSync(), isFalse);
+    expect(target.existsSync(), isFalse);
   });
 }

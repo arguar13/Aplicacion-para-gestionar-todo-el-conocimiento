@@ -38,9 +38,7 @@ final embeddingModelManagerProvider = Provider<EmbeddingModelManager>((ref) {
 final embeddingModelDownloadProvider =
     StateNotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
       (ref) => ModelDownloadNotifier(
-        keeper: () => ref
-            .read(longWorkCoordinatorProvider)
-            .keeperFor(LongWorkOwner.modelDownload),
+        keeper: modelDownloadKeeper(ref),
         detail: LongWorkDetail.relationsModel,
         // La IA que organiza sola esperaba este modelo (F27).
         onFinished: () => unawaited(ref.read(aiOrganizeQueueProvider).wake()),

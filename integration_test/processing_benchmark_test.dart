@@ -26,6 +26,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sinapsis/core/network/in_app_model_file_transfer.dart';
 import 'package:sinapsis/core/storage/local_file_store.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/data/services/http_whisper_model_manager.dart';
@@ -146,7 +147,7 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 3));
 
     final model = HttpWhisperModelManager(
-      dio: Dio(),
+      transfer: InAppModelFileTransfer(dio: Dio()),
       rootDirectory: getApplicationDocumentsDirectory,
     );
     if (!await model.isReady()) {

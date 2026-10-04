@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/network/in_app_model_file_transfer.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
@@ -60,9 +61,11 @@ void main() {
           GemmaChatModelManager.downloadUrlOf(option): [1, 2, 3, 4],
       });
       downloader = HttpGemmaModelDownloader(
-        dio: Dio()..httpClientAdapter = server,
+        transfer: InAppModelFileTransfer(
+          dio: Dio()..httpClientAdapter = server,
+          retryDelay: (_) => Duration.zero,
+        ),
         rootDirectory: () async => tempDir,
-        retryDelay: (_) => Duration.zero,
       );
       runtime = FakeGemmaRuntime();
     });

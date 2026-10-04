@@ -7,6 +7,7 @@ import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/domain/entities/processing_failure_reason.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
@@ -87,11 +88,25 @@ final imageTextExtractorProvider = Provider<ImageTextExtractor>((ref) {
 /// descarga, una descarga en curso perdería su avance —o directamente su
 /// `StreamController`— apenas alguien navegara para atrás.
 final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
+  final storage = ref.watch(modelStorageProvider);
   return createWhisperModelManager(
-    dio: ref.watch(whisperModelDioProvider),
-    rootDirectory: getApplicationDocumentsDirectory,
+    dio: ref.watch(modelDownloadDioProvider),
+    transfer: ref.watch(modelFileTransferProvider),
+    rootDirectory: storage.root,
+    earlierRoots: storage.earlierRoots,
   );
 });
+
+/// Lo que mantiene viva la app mientras baja un modelo: nada si lo baja el
+/// gestor del sistema —baja en su propio proceso, con su notificación, y
+/// sigue con la app cerrada (F29)—; el servicio en primer plano si lo baja
+/// la app.
+LongWorkKeeper Function()? modelDownloadKeeper(Ref ref) =>
+    ref.read(modelFileTransferProvider).continuesWithAppClosed
+    ? null
+    : () => ref
+          .read(longWorkCoordinatorProvider)
+          .keeperFor(LongWorkOwner.modelDownload);
 
 /// La descarga del modelo de transcripción, viva aparte de su pantalla (ver
 /// [ModelDownloadNotifier]). NO autoDispose: tiene que seguir aunque nadie
@@ -99,9 +114,7 @@ final whisperModelManagerProvider = Provider<WhisperModelManager>((ref) {
 final transcriptionModelDownloadProvider =
     StateNotifierProvider<ModelDownloadNotifier, ModelDownloadState>(
       (ref) => ModelDownloadNotifier(
-        keeper: () => ref
-            .read(longWorkCoordinatorProvider)
-            .keeperFor(LongWorkOwner.modelDownload),
+        keeper: modelDownloadKeeper(ref),
         detail: LongWorkDetail.transcriptionModel,
         // Lo que falló porque faltaba este modelo vuelve a quedar en espera,
         // y la cola —que sigue a la base— lo retoma sola: nadie tiene que ir

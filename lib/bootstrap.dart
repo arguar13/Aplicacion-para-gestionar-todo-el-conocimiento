@@ -12,6 +12,8 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/gemma/initialize_gemma.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
+import 'package:sinapsis/core/network/model_download_providers.dart';
+import 'package:sinapsis/core/network/system_downloads.dart';
 import 'package:sinapsis/core/telemetry/sentry_telemetry_service.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 
@@ -76,6 +78,9 @@ Future<void> bootstrap() async {
       // Antes que cualquier otra API de `flutter_gemma`, con el motor del
       // modelo de lenguaje y el de los vectores: ver `initializeGemma`.
       await initializeGemma();
+      // Si los modelos se bajan con el gestor del sistema (F29): de eso
+      // depende dónde viven, y no puede cambiar a mitad de la sesión.
+      final systemDownloads = await MethodChannelSystemDownloads.resolve();
 
       runApp(
         ProviderScope(
@@ -84,6 +89,7 @@ Future<void> bootstrap() async {
             telemetryServiceProvider.overrideWithValue(telemetry),
             sharedPreferencesProvider.overrideWithValue(prefs),
             deviceIdentityProvider.overrideWithValue(device),
+            systemDownloadsProvider.overrideWithValue(systemDownloads),
           ],
           child: const App(),
         ),

@@ -38,6 +38,12 @@ class _FakeChatModelManager implements ChatModelManager {
 
   @override
   Stream<double> download({String? huggingFaceToken}) => const Stream.empty();
+
+  @override
+  Future<bool> isDownloading() async => false;
+
+  @override
+  Future<void> cancelDownload() async {}
 }
 
 class _FakeChatModel implements ChatModel {
