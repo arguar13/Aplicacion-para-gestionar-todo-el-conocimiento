@@ -5,6 +5,12 @@
          sin una — exigirla dejaría a esos dispositivos afuera de la Play
          Store por completo. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Internet, declarado acá y no de rebote: hasta ahora en las versiones
+         publicadas lo traían Sentry y otras bibliotecas, pero el gestor de
+         descargas del sistema (F29, ver SystemDownloadsChannel) rechaza el
+         pedido de una app sin este permiso, y una dependencia que deje de
+         declararlo no puede apagar las descargas de los modelos. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <!-- El trabajo largo —transcribir horas de audio, reconocer las páginas
          de un libro escaneado, bajar un modelo de gigas— en un servicio en
