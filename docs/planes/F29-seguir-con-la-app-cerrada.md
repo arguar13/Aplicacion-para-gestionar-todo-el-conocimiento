@@ -1,6 +1,8 @@
 # F29 — Que siga trabajando con la app cerrada
 
-> **Estado: aprobado** (2026-10-03), en el chat («Aprobado todos los planes»), con la recomendada:
+> **Estado: construido** (2026-10-04; probado en el emulador, falta la prueba en el teléfono
+> —un Xiaomi con HyperOS—) —ver la decisión 62 en `docs/arquitectura.md`—. **Aprobado**
+> (2026-10-03), en el chat («Aprobado todos los planes»), con la recomendada:
 > las descargas de los modelos con el gestor del sistema, el procesamiento y la IA siguen mientras
 > Android no mate la app, y una ayuda para «Inicio automático» y «Sin restricciones». Pedido del
 > usuario: *"haz que

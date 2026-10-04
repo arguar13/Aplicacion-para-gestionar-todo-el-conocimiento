@@ -4937,6 +4937,93 @@ propiedades.
 - **El grafo local del detalle** sube, debajo del panel del elemento: arriba del texto y de las
   tarjetas, a la vista.
 
+### 62. F29: el trabajo sigue con la app cerrada
+
+Pedido del usuario: *"que el contenido se siga descargando o procesando los documentos en segundo
+plano si minimizo la app o, si se puede, si la cierro"*. Minimizar ya estaba resuelto (el servicio
+en primer plano de cada trabajo largo); este es cerrarla, deslizándola fuera de las recientes. Plan:
+`docs/planes/F29-seguir-con-la-app-cerrada.md`, aprobado con la recomendada: las descargas de los
+modelos con el gestor del sistema, el procesamiento y la IA siguen mientras Android no mate la app,
+y una ayuda para "Inicio automático" y "Sin restricciones". Se descartó un proceso aparte con su
+propia copia de la base: mucho más riesgo, y en HyperOS tampoco garantiza nada sin esos dos ajustes.
+
+- **Por qué moría todo al cerrar**: no era solo el `stopSelf()` del servicio en `onTaskRemoved`.
+  `FlutterActivity` destruye con ella el motor que crea, y con el motor se iba todo Dart —la cola
+  de procesamiento, la transcripción, la IA— aunque el proceso siguiera vivo. Ahora el motor es
+  uno por proceso (`SinapsisEngine`, en `FlutterEngineCache`) y la actividad lo usa sin ser su
+  dueña: al cerrarla, Dart sigue; al volver a abrir, la actividad nueva se engancha al mismo motor
+  con Dart andando —no se vuelve a ejecutar `main`, no se duplica ninguna cola ni estado, la
+  pantalla está donde quedó—. Si el proceso murió, no hay motor guardado y todo arranca como
+  siempre, retomando desde la base. Los canales (trabajo largo, audio, descargas, ajustes) se
+  instalan con el motor y el contexto de la aplicación, porque tienen que funcionar sin
+  actividad; lo único que necesita una —pedir permiso para notificar, abrir ajustes— la usa si hay.
+  Los plugins con actividad se desenganchan y vuelven a engancharse, que es lo que ya soportan
+  (lo compartido desde otra app llega por el stream de `receive_sharing_intent`).
+- **El servicio sigue mientras haya trabajo** y se va con `idle`, como siempre; respeta el tope de
+  6 horas de Android 15 (`onTimeout`, decisión de F21) y su aviso llega a Dart por el canal del
+  motor. No se pide que el sistema lo reviva (`START_NOT_STICKY`): sin la app no hay motor que
+  trabaje, y Android 12 en adelante no deja volver a primer plano desde segundo plano. Si HyperOS
+  mata el proceso igual, lo pendiente se retoma al abrir.
+- **Las descargas de los modelos, con `DownloadManager`** (`SystemModelFileTransfer`, por el canal
+  `app.sinapsis/system_downloads`), sin dependencias nuevas. Baja en el proceso del sistema: sigue
+  aunque se cierre la app —también si HyperOS la mata—, tras reiniciar el teléfono, espera la red y
+  tiene su notificación. Se descartó `background_downloader` (ya viene con `flutter_gemma`): corre
+  en el proceso de la app con WorkManager, así que HyperOS lo mata igual, y fue lo que la decisión
+  sobre F21 ya había dejado de usar. En el escritorio y en las pruebas sigue
+  `InAppModelFileTransfer` (`ResumableDownload`), detrás de la misma interfaz
+  (`ModelFileTransfer`), y también en un Android con el gestor deshabilitado.
+- **Hugging Face, medido el 2026-10-03**: `resolve/` redirige (302, o 307 relativo) a
+  `us.aws.cdn.hf.co` con una dirección firmada que vence en una hora; el CDN acepta rangos, da un
+  ETag fuerte (lo que el gestor necesita para retomar: sin ETag no retoma) y respeta `If-Match`, y
+  `huggingface.co` con `If-Match` sigue redirigiendo. Por eso al sistema se le da la dirección de
+  Hugging Face, no la del CDN: cada vez que retoma pide una firma nueva; con la del CDN, un corte
+  después de la hora obligaba a empezar de cero. El token va en `Authorization` en cada salto —el
+  gestor no deja elegir— y el CDN lo ignora (comprobado con uno falso); llega solo a dominios de
+  Hugging Face. El repositorio del modelo de relaciones está protegido y no se pudo probar con un
+  token real en esta máquina.
+- **Dónde viven los modelos**: el gestor solo escribe en la carpeta propia de la app en el
+  almacenamiento compartido (`Android/data/<app>/files`), no en la interna. Los modelos nuevos van
+  ahí; lo que se bajó entero antes en la interna se sigue reconociendo y usando donde está
+  (`earlierRoots`), sin moverlo —copiar 3,7 GB pediría el doble de lugar—; lo que quedó a medias
+  ahí se borra, porque no se puede seguir desde la carpeta nueva. Se borran con la app, como antes.
+- **Reengancharse**: el número de la descarga queda junto al destino (`<destino>.descarga`). Al
+  abrir la app (`resumeModelDownloads`) cada pantalla de modelo se engancha a la que sigue, recoge
+  la que terminó con la app cerrada —la comprueba, le da su nombre, la instala— o muestra por qué
+  falló; tocar "Descargar" dos veces, o abrir la app a mitad, nunca pide otra. Los archivos de un
+  modelo (dos del de relaciones, tres de Whisper) se piden a la vez, porque lo que no se pidió no
+  sigue con la app cerrada. Cancelar la olvida en el sistema y borra lo bajado —en un modelo de
+  varios archivos que no quedó entero, también los que ya habían terminado—; sin lugar, se dice
+  cuánto hace falta antes de pedir nada. Con el sistema bajando no se pide el servicio en primer
+  plano: sería una segunda notificación para lo mismo. Si no se puede mirar una descarga al abrir,
+  el error llega a la telemetría y las otras se enganchan igual; un error del canal del gestor no
+  se toma por "no hay gestor".
+- **La ayuda "Que siga con la app cerrada"**: en Xiaomi (MIUI, HyperOS, Redmi, POCO) deslizar la
+  app la mata salvo con "Inicio automático" y la batería "Sin restricciones", y ninguna app puede
+  activarlos sola. Se ofrece una vez —la primera vez que la app vuelve al frente con un trabajo
+  largo en curso— y queda en Ajustes › Segundo plano. No cuando el trabajo empieza: el primer
+  trabajo largo es también cuando Android pide permiso para notificar, y en el emulador las dos
+  preguntas salieron encimadas; el diálogo del sistema saca a la app del frente y al cerrarlo
+  aparece la oferta, una después del otro. Abre las pantallas de Xiaomi
+  (`AutoStartManagementActivity`, `HiddenAppsConfigActivity` con el paquete) y, si no están o no se
+  dejan abrir, la ficha de la app en Android o la lista de optimización de batería, diciendo qué
+  tocar —en Android 15 y 16 es "Uso de batería de la app" › "Permitir el uso en segundo plano" ›
+  "Sin restricciones", medido en el emulador—. Se abren sin preguntar antes si existen: desde
+  Android 11 la app no ve los paquetes de otros. Lo único que se puede leer es la batería de
+  Android; "Inicio automático" no lo publica Xiaomi.
+
+Probado en el emulador (Pixel 9 Pro, Android 16, versión release de staging): el modelo de
+transcripción, pedido y con la app cerrada desde recientes —el proceso murió—, terminó de bajar
+en el sistema; al reabrir, la app lo comprobó, le dio su nombre y olvidó los pedidos sin borrar
+nada. Reabierta a mitad, la pantalla mostró la descarga en curso (47 %) y cancelarla dejó la
+carpeta vacía. Una transcripción a mitad (57 %) siguió con la app cerrada —la actividad
+destruida, el mismo proceso, el servicio con su notificación—, el servicio se soltó solo al
+terminar, y al reabrir la actividad se enganchó al mismo motor, sin pedir el PIN, con el texto
+completo. Sin probar: un Xiaomi real (las pantallas de MIUI/HyperOS solo se abren ahí), el
+reinicio del teléfono a mitad de una descarga, y el modelo de relaciones, cuyo repositorio pide
+un token que no había en esta máquina. Los avisos "FlutterJNI.loadLibrary/init called more than
+once" del registro son del plugin `large_file_handler`, que crea su propio `FlutterLoader` al
+registrarse; pasan con cualquier motor.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5324,6 +5411,9 @@ propiedades.
 - **F27, la IA organiza sola.** Vínculos, tarjetas, temas, propiedades, el tema de cada elemento,
   la referencia y el Atlas, en segundo plano; todo marcado, editable y reversible, con "Para
   revisar" y "Lo que hizo la IA". Ver la decisión 60.
+- **F29, que siga con la app cerrada.** Las descargas de los modelos, con el gestor del sistema;
+  el procesamiento y la IA, en un motor que sobrevive a la actividad; y una ayuda para "Inicio
+  automático" y la batería en Xiaomi. Ver la decisión 62.
 
 ### Por construir
 

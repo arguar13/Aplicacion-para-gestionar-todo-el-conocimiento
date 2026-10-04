@@ -37,7 +37,8 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 28. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
 29. [Ajustes](#ajustes)
 30. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
-31. [Preguntas frecuentes](#preguntas-frecuentes)
+31. [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)
+32. [Preguntas frecuentes](#preguntas-frecuentes)
 
 ---
 
@@ -1187,11 +1188,31 @@ ni te pide bajarlo de nuevo, y la IA que organiza sola sigue donde estaba. Lo
 que bajaste con una versión anterior de la app se reconoce solo. Si tocás
 **"Descargar"** con el modelo ya bajado, no se vuelve a bajar.
 
-**Mientras se baja** podés salir de la pantalla, usar otra parte de la app o
-minimizarla: la descarga sigue, con una notificación que dice qué modelo se
-baja y cuánto va (por ejemplo *"Bajando el modelo de lenguaje · 47 %"*). Al
-volver a la pantalla ves el avance, sin que te ofrezca bajarlo otra vez. Si
-la conexión se corta, retoma desde donde quedó.
+**Siguen aunque cierres la app.** En Android, los modelos los baja el propio
+teléfono —su gestor de descargas—, no la app: podés salir de la pantalla,
+minimizar la app, **cerrarla** deslizándola de las recientes, o incluso
+reiniciar el teléfono, y la descarga sigue, con la notificación del sistema
+(*"Sinapsis: el modelo de lenguaje"*) que muestra cuánto va y avisa
+cuando termina. Si la conexión se corta, espera y retoma desde donde quedó.
+Al volver a abrir Sinapsis, la pantalla del modelo muestra el avance —o, si
+terminó con la app cerrada, el modelo ya listo— sin bajar nada de nuevo:
+tocar "Descargar" dos veces tampoco baja dos veces. Los archivos de cada
+modelo se piden todos juntos, así que siguen todos aunque cierres la app
+enseguida.
+
+**Cancelar.** Mientras baja, **"Cancelar la descarga"** la corta; te pregunta
+antes, porque borra lo que se bajó hasta ahora —también los archivos del
+modelo que ya habían terminado: sin todos, el modelo no sirve—. Podés volver
+a empezarla cuando quieras.
+
+**Sin lugar.** Antes de empezar, la app mira si entra: si no, te dice cuánto
+hace falta liberar en vez de intentarlo.
+
+Los modelos nuevos quedan en la carpeta de Sinapsis del almacenamiento del
+teléfono (`Android/data/…`, la única donde el sistema puede bajarlos por la
+app); los que bajaste antes siguen donde estaban y se usan desde ahí, sin
+volver a bajarlos. Se borran si desinstalás la app, como siempre. En la
+computadora, la descarga la hace la app y sigue mientras esté abierta.
 
 ### Transcripción de audio y video
 
@@ -1240,6 +1261,9 @@ modelo de relaciones.
     cuántos le quedan.
   - Los accesos a los tres modelos: el de lenguaje, el de transcripción y
     el del motor de relaciones (ver sección anterior).
+- **Segundo plano** (solo en Android): **"Que siga con la app cerrada"**,
+  la ayuda para que el teléfono no frene a Sinapsis cuando la cerrás (ver
+  [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)).
 - **Bóveda:** accesos a Copia de seguridad, Espacio de la bóveda, Posibles
   duplicados, Vocabulario, Enlaces rotos, Papelera y Cambios para revisar —
   todos explicados en la siguiente sección.
@@ -1362,6 +1386,39 @@ pasarlas a limpio hasta que estén "maduras".
 
 ---
 
+## Que siga con la app cerrada
+
+Si cerrás Sinapsis deslizándola de las recientes mientras trabaja —procesa
+lo que guardaste, transcribe, la IA ordena—, **el trabajo sigue**, con su
+notificación, hasta terminar; después la notificación se va sola. Al volver a
+abrir la app la encontrás donde la dejaste, con lo que se hizo mientras tanto.
+Las descargas de los modelos siguen siempre, también tras reiniciar el
+teléfono.
+
+**Algunos teléfonos la cierran igual.** En los **Xiaomi** (también Redmi y
+POCO, con MIUI o HyperOS), cerrar una app la detiene del todo salvo que le
+des dos permisos, una sola vez:
+
+1. **Inicio automático**: activado para Sinapsis.
+2. **Ahorro de batería**: Sinapsis en **"Sin restricciones"**.
+
+La primera vez que volvés a Sinapsis mientras trabaja en algo largo (por
+ejemplo, después de aceptar el permiso para mostrar notificaciones), te
+ofrece una ayuda —*"¿Que siga aunque cierres la app?"* → **"Ver cómo"**— con
+un botón para cada ajuste, que abre la pantalla justa del teléfono. Si tu
+teléfono no tiene esa pantalla a mano, abre los ajustes de la app y te dice
+qué tocar ahí: en la mayoría de los Android, **"Batería"** (o **"Uso de
+batería de la app"**) → **"Sin restricciones"**; en los más nuevos,
+**"Permitir el uso en segundo plano"** y adentro **"Sin restricciones"**.
+Cuando la batería ya está bien, la ayuda lo marca con un ✓. Si elegiste
+"Ahora no", la ayuda queda en **Ajustes → Segundo plano → "Que siga con la
+app cerrada"**.
+
+**Si el sistema la cierra igual**, no se pierde nada: lo que quedó a medias
+sigue desde donde iba al volver a abrir Sinapsis.
+
+---
+
 ## Preguntas frecuentes
 
 **¿Me puedo olvidar la clave de la bóveda?**
@@ -1375,12 +1432,15 @@ que necesitás, todo funciona sin conexión, incluida la IA.
 
 **¿Sigue trabajando si minimizo la app?**
 Sí. Traer lo que guardaste, transcribir audio y video, reconocer páginas
-escaneadas, bajar un modelo o el audio de un video, y la IA que organiza sola
-siguen con la app minimizada o la pantalla apagada, con una notificación que
-dice qué se está haciendo. Si cerrás la app desde "recientes", se detiene, y
-lo que quedó a medias sigue al volver a abrirla. En Android 15 o más nuevo, el
-sistema deja trabajar así hasta unas 6 horas por día: si se llega al límite,
-la notificación desaparece y vuelve sola cuando abrís la app.
+escaneadas, bajar el audio de un video, y la IA que organiza sola siguen con
+la app minimizada o la pantalla apagada, con una notificación que dice qué
+se está haciendo. Los modelos de IA siguen bajando siempre (ver [Los modelos
+de IA descargables](#los-modelos-de-ia-descargables)). En Android 15 o más
+nuevo, el sistema deja trabajar así hasta unas 6 horas por día: si se llega
+al límite, la notificación desaparece y vuelve sola cuando abrís la app.
+
+**¿Y si la cierro?**
+También sigue: ver [Que siga con la app cerrada](#que-siga-con-la-app-cerrada).
 
 **¿Cómo uso la misma información en el celular y en la computadora?**
 No hay sincronización automática. Hacé una copia de seguridad desde un
