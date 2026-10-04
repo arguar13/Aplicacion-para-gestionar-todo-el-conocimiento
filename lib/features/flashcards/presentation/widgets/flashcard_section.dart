@@ -1,18 +1,29 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
+import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
-import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
-import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
+
+/// Cuántas propone el ✨ como mínimo, aunque el texto sea corto: la persona
+/// las revisa antes de guardar, y elegir entre algunas más cuesta poco.
+const kManualFlashcardsWanted = 5;
 
 /// Las tarjetas de repaso de un elemento: la lista, agregar una a mano, y
 /// generarlas con el modelo de lenguaje a partir del contenido.
@@ -30,6 +41,9 @@ class FlashcardSection extends ConsumerStatefulWidget {
 
 class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   var _generating = false;
+
+  /// Cuántas partes del texto lleva leídas el ✨, de cuántas.
+  ({int read, int total})? _progress;
 
   Future<void> _addManually() async {
     final l10n = AppLocalizations.of(context)!;
@@ -106,6 +120,14 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
     });
   }
 
+  /// Propone tarjetas con el modelo de lenguaje y deja que la persona elija
+  /// cuáles guardar.
+  ///
+  /// El texto se lee **por partes** (`generateFlashcardsByParts`, F30): el
+  /// modelo acepta unas 2.000 palabras entre todo, y un libro o un video
+  /// largo mandado entero fallaba. Cada parte que se lee se ve debajo del
+  /// título. Si el modelo falla en el medio, se ofrece lo que alcanzó a
+  /// proponer y se dice qué pasó: que falta bajarlo, o que falló.
   Future<void> _generateWithAi() async {
     final l10n = AppLocalizations.of(context)!;
     // El mismo texto que abre la lectura —la forma principal que no es de
@@ -113,57 +135,122 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
     // «Ver en la fuente» caiga en el lugar. Sin él —una nota de bloques—, el
     // texto que se buscó siempre y sin fragmentos.
     final sourceText = extractableRendition(widget.item)?.content;
-    final content = (sourceText ?? widget.item.searchableText).trim();
-    if (content.isEmpty) {
+    final content = sourceText ?? widget.item.searchableText;
+    if (content.trim().isEmpty) {
       _showMessage(l10n.flashcardsNoContentToGenerate);
       return;
     }
 
-    setState(() => _generating = true);
+    setState(() {
+      _generating = true;
+      _progress = null;
+    });
 
-    List<FlashcardDraft> drafts;
+    // Lo que el elemento ya tiene no se vuelve a proponer.
+    final existing =
+        ref.read(itemFlashcardsProvider(widget.item.id)).valueOrNull ??
+        const <Flashcard>[];
+    final known = {
+      for (final card in existing) flashcardRejectionFingerprint(card.front),
+    };
+    final proposed = <PartDraft>[];
+    Object? failure;
     try {
-      drafts = await ref
-          .read(flashcardGeneratorProvider)
-          .generate(content: content);
-      // El generador es de terceros (flutter_gemma) y puede fallar de
-      // formas sin un tipo propio en Dart —memoria insuficiente, el
-      // modelo sin descargar todavía—.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (_) {
-      drafts = const [];
+      await generateFlashcardsByParts(
+        generator: ref.read(flashcardGeneratorProvider),
+        text: content,
+        wanted: math.max(kManualFlashcardsWanted, flashcardTargetFor(content)),
+        onDraft: (candidate) async {
+          if (!known.add(
+            flashcardRejectionFingerprint(candidate.draft.front),
+          )) {
+            return PartDraftOutcome.skipped;
+          }
+          proposed.add(candidate);
+          return PartDraftOutcome.kept;
+        },
+        onProgress: (read, total) {
+          if (mounted) setState(() => _progress = (read: read, total: total));
+        },
+      );
+      // El generador es de terceros (flutter_gemma) y falla de formas sin un
+      // tipo propio en Dart —memoria insuficiente, una sesión que se cerró—.
+      // Se registra y se le cuenta a la persona; lo que ya propuso, queda.
+    } on Object catch (e, stackTrace) {
+      failure = e;
+      if (e is! ChatModelNotReadyException) {
+        ref
+            .read(telemetryServiceProvider)
+            .recordError(e, stackTrace, hint: 'FlashcardSection: tarjetas IA');
+      }
     }
 
     if (!mounted) return;
-    setState(() => _generating = false);
-    if (!context.mounted) return;
+    setState(() {
+      _generating = false;
+      _progress = null;
+    });
 
-    if (drafts.isEmpty) {
-      _showMessage(l10n.flashcardsGenerationFailed);
+    if (proposed.isEmpty) {
+      _showFailure(failure, l10n, nothing: true);
       return;
     }
+    if (failure != null) _showFailure(failure, l10n, nothing: false);
 
-    final accepted = await showDialog<List<FlashcardDraft>>(
+    final accepted = await showDialog<List<PartDraft>>(
       context: context,
-      builder: (context) => _FlashcardDraftReviewDialog(drafts: drafts),
+      builder: (context) => _FlashcardDraftReviewDialog(drafts: proposed),
     );
-    if (accepted == null || accepted.isEmpty || !context.mounted) return;
+    if (accepted == null || accepted.isEmpty || !mounted) return;
 
     final repository = ref.read(flashcardRepositoryProvider);
-    for (final draft in accepted) {
-      // La cita la escribió el modelo: solo cuenta como el lugar de la fuente
-      // si está textual. Si no, la tarjeta se guarda igual, sin fragmento.
-      final range = sourceText == null
-          ? null
-          : locateQuote(sourceText, draft.quote);
-      await repository.create(
+    for (final candidate in accepted) {
+      // El pasaje del que sale, si la cita se ubicó —aunque el modelo la haya
+      // parafraseado—. Si no, la tarjeta se guarda igual, sin fragmento: la
+      // persona la leyó y la eligió.
+      final anchor = sourceText == null ? null : candidate.anchor;
+      final saved = await repository.create(
         itemId: widget.item.id,
-        front: draft.front,
-        back: draft.back,
-        sourceCharStart: range?.start,
-        sourceCharEnd: range?.end,
+        front: candidate.draft.front,
+        back: candidate.draft.back,
+        sourceCharStart: anchor?.start,
+        sourceCharEnd: anchor?.end,
       );
+      if (!mounted) return;
+      final error = saved.getLeft().toNullable();
+      if (error != null) {
+        _showMessage(error.localizedMessage(l10n));
+        return;
+      }
     }
+  }
+
+  /// Por qué no hubo tarjetas —o no todas—: falta bajar el modelo, el modelo
+  /// falló, o no propuso nada que sirviera.
+  void _showFailure(
+    Object? failure,
+    AppLocalizations l10n, {
+    required bool nothing,
+  }) {
+    if (failure is ChatModelNotReadyException) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.flashcardsModelMissing),
+            action: SnackBarAction(
+              label: l10n.flashcardsDownloadModel,
+              onPressed: () => context.push(RoutePaths.chatModel),
+            ),
+          ),
+        );
+      return;
+    }
+    _showMessage(switch ((failure, nothing)) {
+      (null, _) => l10n.flashcardsGenerationEmpty,
+      (_, true) => l10n.flashcardsGenerationFailed,
+      (_, false) => l10n.flashcardsGenerationPartial,
+    });
   }
 
   void _showMessage(String message) {
@@ -207,6 +294,36 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
               onPressed: _addManually,
             ),
           ],
+        ),
+        // Un texto largo se lee por partes: cuál va, para que la espera se
+        // entienda.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          alignment: Alignment.topCenter,
+          child: _generating && (_progress?.total ?? 0) > 1
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.flashcardsReadingPart(
+                          math.min(_progress!.read + 1, _progress!.total),
+                          _progress!.total,
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      LinearProgressIndicator(
+                        value: _progress!.read / _progress!.total,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
         cards.when(
           loading: () => const SizedBox.shrink(),
@@ -348,7 +465,7 @@ class _MenuRow extends StatelessWidget {
 class _FlashcardDraftReviewDialog extends StatefulWidget {
   const _FlashcardDraftReviewDialog({required this.drafts});
 
-  final List<FlashcardDraft> drafts;
+  final List<PartDraft> drafts;
 
   @override
   State<_FlashcardDraftReviewDialog> createState() =>
@@ -371,7 +488,7 @@ class _FlashcardDraftReviewDialogState
           shrinkWrap: true,
           itemCount: widget.drafts.length,
           itemBuilder: (context, index) {
-            final draft = widget.drafts[index];
+            final draft = widget.drafts[index].draft;
             return CheckboxListTile(
               value: _accepted[index],
               onChanged: (value) =>

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
@@ -7,46 +5,25 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settin
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
-import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
-import 'package:sinapsis/features/flashcards/domain/services/source_quote_locator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
-
-/// Hasta cuántos caracteres del texto ve el modelo por pedido. Gemma tiene
-/// una ventana de 2048 tokens para todo, y en español cuenta unos 3,5
-/// caracteres por token: 3000 caracteres son ~860 tokens, más ~150 de
-/// instrucciones y ~90 por tarjeta de respuesta (pregunta, respuesta y la
-/// cita textual), con lugar de sobra para [kMaxFlashcardsPerCall].
-const kFlashcardPartChars = 3000;
-
-/// Cuántas tarjetas se le piden, como mucho, por tramo: más que esto no
-/// entra en la respuesta junto con el tramo.
-const kMaxFlashcardsPerCall = 4;
-
-/// Cuántas tarjetas se esperan de cada tramo leído: con 12 por hacer se leen
-/// 6 tramos repartidos por el texto, no 12 seguidos del principio.
-const kFlashcardsPerVisit = 2;
-
-/// Una tarjeta más de las que hacen falta por tramo: las que no anclan o
-/// repiten se descartan, y pedir justo las necesarias dejaría corto el total.
-const kSpareFlashcardsPerCall = 1;
 
 /// Las tarjetas de repaso de un elemento, hechas por la IA (F27, decisión
 /// D): de 3 a 12 según el largo (`flashcardTargetFor`), y entran solas al
 /// repaso.
 ///
-/// El modelo nunca ve el texto entero: se corta en tramos que entran en su
-/// ventana (`splitIntoParts`) y se leen algunos, repartidos parejo por el
-/// texto (`spreadIndices`), de modo que un libro da tarjetas de todo el libro
-/// y no solo del primer capítulo.
+/// El modelo nunca ve el texto entero: lo lee por partes
+/// (`generateFlashcardsByParts`), repartidas por todo el texto.
 ///
-/// Cada tarjeta trae la frase de la que sale; se busca textual en el tramo
-/// (`locateQuote`), y **la que no aparece se descarta**: a mano se guardaba
-/// igual, sin fragmento, porque la persona la había leído; acá nadie la lee
-/// antes, y una cita que no está es la señal más clara de que el modelo
-/// inventó. Tampoco repite una pregunta que el elemento ya tiene ni una que
-/// la persona dijo que «no era».
+/// Cada tarjeta trae la frase de la que sale, y se ubica en el texto aunque
+/// el modelo la haya parafraseado (`anchorQuote`, F30). **La que no se ubica
+/// se descarta**: a mano se guardaba igual, sin fragmento, porque la persona
+/// la había leído; acá nadie la lee antes, y una cita que no es de ningún
+/// pasaje es la señal más clara de que el modelo inventó. Tampoco repite una
+/// pregunta que el elemento ya tiene ni una que la persona dijo que «no
+/// era».
 class AutoFlashcardsStep implements AiOrganizeStep {
   const AutoFlashcardsStep({
     required FlashcardGenerator generator,
@@ -85,51 +62,34 @@ class AutoFlashcardsStep implements AiOrganizeStep {
     final known = {
       for (final card in existing) flashcardRejectionFingerprint(card.front),
     };
-    final parts = splitIntoParts(text, maxChars: kFlashcardPartChars);
-    final visits = spreadIndices(
-      parts.length,
-      (wanted / kFlashcardsPerVisit).ceil(),
-    );
-    var created = 0;
-    for (var visit = 0; visit < visits.length && created < wanted; visit++) {
-      final part = parts[visits[visit]];
-      if (part.text.trim().isEmpty) continue;
-
-      // Lo que falta, repartido entre los tramos que quedan: si uno da menos
-      // —citas que no anclan, preguntas repetidas—, los siguientes lo
-      // compensan, y ninguno se lleva todas.
-      final quota = ((wanted - created) / (visits.length - visit)).ceil();
-      final drafts = await _generator.generate(
-        content: part.text,
-        count: math.min(kMaxFlashcardsPerCall, quota + kSpareFlashcardsPerCall),
-      );
-      var fromPart = 0;
-      for (final draft in drafts) {
-        if (fromPart >= quota) break;
-
-        final anchor = locateQuote(part.text, draft.quote);
-        if (anchor == null) continue;
-        if (!known.add(flashcardRejectionFingerprint(draft.front))) continue;
+    final created = await generateFlashcardsByParts(
+      generator: _generator,
+      text: text,
+      wanted: wanted,
+      onDraft: (candidate) async {
+        final anchor = candidate.anchor;
+        final draft = candidate.draft;
+        if (anchor == null) return PartDraftOutcome.skipped;
+        if (!known.add(flashcardRejectionFingerprint(draft.front))) {
+          return PartDraftOutcome.skipped;
+        }
         final rejected = (await _runs.isFlashcardRejected(
           itemId: item.id,
           question: draft.front,
         )).orThrowStep('leer lo que «no era»');
-        if (rejected) continue;
+        if (rejected) return PartDraftOutcome.skipped;
 
         (await _flashcards.create(
           itemId: item.id,
           front: draft.front,
           back: draft.back,
-          sourceCharStart: sourceText == null
-              ? null
-              : part.start + anchor.start,
-          sourceCharEnd: sourceText == null ? null : part.start + anchor.end,
+          sourceCharStart: sourceText == null ? null : anchor.start,
+          sourceCharEnd: sourceText == null ? null : anchor.end,
           ai: AiProvenance(runId: runId),
         )).orThrowStep('guardar una tarjeta');
-        created++;
-        fromPart++;
-      }
-    }
+        return PartDraftOutcome.kept;
+      },
+    );
     return AiStepReport(applied: created);
   }
 }

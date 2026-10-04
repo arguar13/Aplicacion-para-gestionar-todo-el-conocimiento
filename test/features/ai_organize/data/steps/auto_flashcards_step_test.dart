@@ -5,6 +5,7 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.da
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
+import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 
 import '../../../../support/ai_organize_harness.dart';
 
@@ -13,6 +14,11 @@ import '../../../../support/ai_organize_harness.dart';
 /// cita no está en el texto.
 class _SentenceFlashcards implements FlashcardGenerator {
   bool inventedQuote = false;
+
+  /// Si la cita de cada tarjeta llega parafraseada: en minúsculas, sin
+  /// puntuación y con «antes de Cristo» como «a. C.», como la escribe un
+  /// modelo chico.
+  bool paraphrase = false;
 
   /// Cada tramo que recibió, en orden.
   final contents = <String>[];
@@ -39,11 +45,18 @@ class _SentenceFlashcards implements FlashcardGenerator {
         FlashcardDraft(
           front: '¿Qué dice «$sentence»?',
           back: sentence,
-          quote: sentence,
+          quote: paraphrase ? _paraphrased(sentence) : sentence,
         ),
     ].take(count).toList();
   }
 }
+
+/// [sentence] como la cambia un modelo chico.
+String _paraphrased(String sentence) => sentence
+    .toLowerCase()
+    .replaceAll('antes de cristo', 'a. c.')
+    .replaceAll('asesoraba', 'aconsejaba')
+    .replaceAll('.', '');
 
 void main() {
   late AiOrganizeHarness vault;
@@ -113,6 +126,33 @@ void main() {
     expect(cards.map((c) => c.front), isNot(contains('¿Algo inventado?')));
     expect(cards, hasLength(3));
   });
+
+  test(
+    'una cita parafraseada se ancla al pasaje real del texto (F30)',
+    () async {
+      final item = await vault.source('a', title: 'Roma', content: article);
+      model.paraphrase = true;
+
+      final report = await step.organize(
+        item,
+        runId: await vault.startRun('a'),
+      );
+
+      expect(report, const AiStepReport(applied: 3));
+      final cards = await vault.db.select(vault.db.flashcards).get();
+      for (final card in cards) {
+        // El fragmento es el del texto, no el de la cita cambiada: la
+        // respuesta de la tarjeta de mentira es la oración entera, y el pasaje
+        // va de su primera palabra con contenido a la última.
+        final fragment = article.substring(
+          card.sourceCharStart!,
+          card.sourceCharEnd,
+        );
+        expect(card.back, contains(fragment));
+        expect(fragment, isNot(contains('a. c.')));
+      }
+    },
+  );
 
   test('no repite una pregunta que ya tiene ni una que «no era»', () async {
     final item = await vault.source('a', title: 'Roma', content: article);

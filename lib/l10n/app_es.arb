@@ -6269,5 +6269,33 @@
         "type": "String"
       }
     }
+  },
+  "flashcardsReadingPart": "Leyendo la parte {part} de {total}…",
+  "@flashcardsReadingPart": {
+    "description": "Tarjetas con IA (F30): un texto largo se lee por partes; cuál va.",
+    "placeholders": {
+      "part": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "flashcardsModelMissing": "Para crear tarjetas con IA falta bajar el modelo de lenguaje.",
+  "@flashcardsModelMissing": {
+    "description": "Tarjetas con IA (F30): el modelo de lenguaje no está descargado."
+  },
+  "flashcardsDownloadModel": "Bajarlo",
+  "@flashcardsDownloadModel": {
+    "description": "Acción del aviso de que falta el modelo de lenguaje: abre su descarga."
+  },
+  "flashcardsGenerationEmpty": "El modelo no propuso ninguna tarjeta que sirva. Probá de nuevo, o crealas a mano.",
+  "@flashcardsGenerationEmpty": {
+    "description": "Tarjetas con IA (F30): el modelo respondió, pero nada que se pudiera usar."
+  },
+  "flashcardsGenerationPartial": "El modelo falló a mitad de camino: estas son las que alcanzó a proponer.",
+  "@flashcardsGenerationPartial": {
+    "description": "Tarjetas con IA (F30): el modelo falló después de proponer algunas."
   }
 }
