@@ -14,12 +14,14 @@ import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
@@ -88,10 +90,26 @@ final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
 final _gemmaModelProvider = Provider<GemmaChatModel>(
   (ref) => GemmaChatModel(
     gate: ref.watch(languageModelGateProvider),
+    engine: ref.watch(gemmaEngineProvider),
+    meter: ref.watch(languageModelMeterProvider),
+  ),
+);
+
+/// El modelo de Gemma cargado en memoria, uno solo en toda la app (ver
+/// `GemmaEngine`). NO autoDispose: perderlo es volver a cargar ~3,7 GB.
+final gemmaEngineProvider = Provider<GemmaEngine>(
+  (ref) => GemmaEngine(
     // Leído al usarlo, no observado: elegir otra opción no tiene por qué
     // descartar el modelo ya cargado de la sesión.
     ensureReady: () => ref.read(chatModelManagerProvider).isReady(),
+    meter: ref.watch(languageModelMeterProvider),
   ),
+);
+
+/// Lo medido del modelo de lenguaje en esta sesión (F30): lo muestra la
+/// pantalla del modelo.
+final languageModelMeterProvider = Provider<LanguageModelMeter>(
+  (ref) => LanguageModelMeter(),
 );
 
 /// El turno para usar el modelo de lenguaje (F27): uno a la vez, la persona

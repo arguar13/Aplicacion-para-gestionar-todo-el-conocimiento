@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -214,7 +216,16 @@ class _ChatModelScreenState extends ConsumerState<ChatModelScreen> {
     ChatModelOption option,
     ModelDownloadState download,
   ) {
-    if (_isReady) return _ReadyView(message: l10n.chatModelReady);
+    if (_isReady) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ReadyView(message: l10n.chatModelReady),
+          const SizedBox(height: 24),
+          const _PerformancePanel(),
+        ],
+      );
+    }
 
     if (download case ModelDownloadRunning(:final progress)) {
       return ModelDownloadProgress(
@@ -443,6 +454,104 @@ class _ReadyView extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Lo medido del modelo en esta sesión (F30): cuánto tardó en cargar, si
+/// corre en la GPU o cayó a la CPU, y qué tan rápido escribió la última
+/// respuesta. Discreto, para la prueba en el teléfono de verdad.
+class _PerformancePanel extends ConsumerWidget {
+  const _PerformancePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final number = NumberFormat('0.0', l10n.localeName);
+
+    return ValueListenableBuilder<LanguageModelPerformance>(
+      valueListenable: ref.watch(languageModelMeterProvider).performance,
+      builder: (context, performance, _) {
+        final lines = [
+          ?_loadLine(l10n, number, performance.load),
+          if (performance.load?.fellBackToCpu ?? false)
+            l10n.chatModelPerformanceFallback,
+          ?_replyLine(
+            l10n,
+            number,
+            performance.chatReply,
+            l10n.chatModelPerformanceChatReply,
+          ),
+          ?_replyLine(
+            l10n,
+            number,
+            performance.taskReply,
+            l10n.chatModelPerformanceTaskReply,
+          ),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.chatModelPerformanceTitle,
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            if (lines.isEmpty)
+              Text(l10n.chatModelPerformanceEmpty, style: small)
+            else
+              for (final line in lines)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(line, style: small),
+                ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String? _loadLine(
+    AppLocalizations l10n,
+    NumberFormat number,
+    LanguageModelLoad? load,
+  ) {
+    if (load == null) return null;
+    final seconds = number.format(_seconds(load.duration));
+    final backend = load.backend;
+    return backend == null
+        ? l10n.chatModelPerformanceLoadUnknown(seconds)
+        : l10n.chatModelPerformanceLoad(seconds, backend.name.toUpperCase());
+  }
+
+  static String? _replyLine(
+    AppLocalizations l10n,
+    NumberFormat number,
+    LanguageModelReply? reply,
+    String Function(String first, String rate) line,
+  ) {
+    final first = reply?.firstToken;
+    if (reply == null || first == null) return null;
+    final words = reply.wordsPerSecond;
+    final tokens = reply.tokensPerSecond;
+    final rate = switch ((words, tokens)) {
+      (final double words, final double tokens) =>
+        l10n.chatModelPerformanceRate(
+          number.format(words),
+          number.format(tokens),
+        ),
+      (final double words, null) => l10n.chatModelPerformanceRateWords(
+        number.format(words),
+      ),
+      _ => l10n.chatModelPerformanceRateUnknown,
+    };
+    return line(number.format(_seconds(first)), rate);
+  }
+
+  static double _seconds(Duration duration) =>
+      duration.inMilliseconds / Duration.millisecondsPerSecond;
 }
 
 class _ErrorView extends StatelessWidget {

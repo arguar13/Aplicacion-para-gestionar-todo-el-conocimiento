@@ -21,7 +21,11 @@ const kResumedTranscriptChars = 2400;
 /// lo entienden todos los formatos de `flutter_gemma` —un turno del modelo
 /// agregado a mano no lo leen igual un `.task` y un `.litertlm`—.
 class GemmaChatSession {
-  GemmaChatSession(this._gate, this._open) {
+  GemmaChatSession(
+    this._gate,
+    this._open, {
+    required Future<String> Function(InferenceChat chat) reply,
+  }) : _reply = reply {
     _hold = _gate.holdForUser(onIdle: _closeForIdle);
   }
 
@@ -30,6 +34,10 @@ class GemmaChatSession {
   /// Abre una sesión nueva con la instrucción de la charla. Corre dentro del
   /// turno de la persona: no lo pide.
   final Future<InferenceChat> Function() _open;
+
+  /// La respuesta de la sesión al mensaje que ya tiene cargado, medida
+  /// (`collectReply`, F30).
+  final Future<String> Function(InferenceChat chat) _reply;
 
   late final LanguageModelHold _hold;
   InferenceChat? _chat;
@@ -75,12 +83,7 @@ class GemmaChatSession {
                 ),
         );
         _resuming = false;
-        final response = await chat.generateChatResponse();
-
-        return switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        return _reply(chat);
       });
       _turns.add((
         said: images.isEmpty ? said : '$said [con ${images.length} foto(s)]',

@@ -7,8 +7,12 @@ import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_session.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_reply.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
@@ -250,24 +254,27 @@ class GemmaChatModel
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA.
   ///
-  /// [ensureReady] es `ChatModelManager.isReady` del modelo elegido: antes
-  /// de cargarlo por primera vez en la sesión, lo registra si su archivo
-  /// está entero —`flutter_gemma` no lo recuerda al reabrir la app; ver
-  /// `GemmaChatModelManager.isReady`—. Sin esto, quien usara el modelo sin
-  /// haber preguntado antes encontraba «no está descargado» con el archivo
-  /// ahí.
+  /// [engine] es el modelo cargado, compartido con [background]; [meter],
+  /// dónde queda lo que tardó cada respuesta (F30).
   GemmaChatModel({
     required LanguageModelGate gate,
-    required Future<bool> Function() ensureReady,
-  }) : this._(gate, _LoadedGemma(ensureReady), inBackground: false);
+    required GemmaEngine engine,
+    required LanguageModelMeter meter,
+  }) : this._(gate, engine, meter, inBackground: false);
 
-  GemmaChatModel._(this._gate, this._loaded, {required bool inBackground})
-    : _inBackground = inBackground;
+  GemmaChatModel._(
+    this._gate,
+    this._engine,
+    this._meter, {
+    required bool inBackground,
+  }) : _inBackground = inBackground;
 
   final LanguageModelGate _gate;
 
   /// El modelo cargado, compartido con [background]: son los mismos pesos.
-  final _LoadedGemma _loaded;
+  final GemmaEngine _engine;
+
+  final LanguageModelMeter _meter;
 
   final bool _inBackground;
 
@@ -276,28 +283,15 @@ class GemmaChatModel
   /// reciben los pasos de la IA que organiza sola; nunca la interfaz.
   late final GemmaChatModel background = _inBackground
       ? this
-      : GemmaChatModel._(_gate, _loaded, inBackground: true);
+      : GemmaChatModel._(_gate, _engine, _meter, inBackground: true);
 
   /// Corre [work] con el modelo cargado, en el turno que le toca a esta
   /// instancia. Todo método que abre una sesión pasa por acá: dos sesiones a
   /// la vez se pisan la única que tiene `flutter_gemma` (ver
   /// `LanguageModelGate`).
   Future<T> _withTurn<T>(Future<T> Function(InferenceModel model) work) {
-    Future<T> run() async => work(await _activeModel());
+    Future<T> run() async => work(await _engine.model());
     return _inBackground ? _gate.runInBackground(run) : _gate.runForUser(run);
-  }
-
-  Future<InferenceModel> _activeModel() async {
-    final cached = _loaded.model;
-    if (cached != null) return cached;
-
-    if (!await _loaded.ensureReady()) {
-      throw const ChatModelNotReadyException();
-    }
-
-    final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
-    _loaded.model = model;
-    return model;
   }
 
   @override
@@ -317,17 +311,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        return switch (response) {
-          TextResponse(:final token) => token,
-          // Un vínculo o pensamiento sin texto: no debería pasar sin
-          // herramientas configuradas, pero una cadena vacía es una
-          // respuesta honesta —"no contestó nada"— antes que un `null` que
-          // obligaría a la pantalla a inventar un mensaje de error para algo
-          // que no fue un error.
-          _ => '',
-        };
+        return await collectReply(chat, meter: _meter);
       } finally {
         await chat.close();
       }
@@ -352,9 +336,11 @@ class GemmaChatModel
   Future<GemmaChatSession> _openConversation(String systemInstruction) async {
     final session = GemmaChatSession(
       _gate,
-      () async => (await _activeModel()).createChat(
+      () async => (await _engine.model()).createChat(
         systemInstruction: systemInstruction,
       ),
+      reply: (chat) =>
+          collectReply(chat, meter: _meter, kind: LanguageModelReplyKind.chat),
     );
     await session.openFirst();
     return session;
@@ -379,12 +365,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
 
         return parseFlashcardDrafts(text).take(count).toList();
       } finally {
@@ -412,12 +393,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
 
         return parseFlashcardDrafts(text).take(count).toList();
       } finally {
@@ -435,12 +411,7 @@ class GemmaChatModel
 
       try {
         await chat.addQueryChunk(Message.text(text: content, isUser: true));
-        final response = await chat.generateChatResponse();
-
-        return switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        return await collectReply(chat, meter: _meter);
       } finally {
         await chat.close();
       }
@@ -474,12 +445,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
 
         final suggestions = <RelationSuggestion>[];
         for (final line in parseRelationSuggestions(text)) {
@@ -531,12 +497,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
 
         final knownCategories = categories.map((c) => c.name).toList();
         final drafts = <PropertyDraft>[];
@@ -586,12 +547,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
         return parseSpaceChoice(text, spaceCount: spaces.length);
       } finally {
         await chat.close();
@@ -627,12 +583,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
         return parseTopicParentChoice(text, candidateCount: candidates.length);
       } finally {
         await chat.close();
@@ -660,12 +611,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final response = await chat.generateChatResponse();
-
-        return switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        return await collectReply(chat, meter: _meter);
       } finally {
         await chat.close();
       }
@@ -690,12 +636,7 @@ class GemmaChatModel
         await chat.addQueryChunk(
           Message.text(text: _buildDerivedPrompt(sources), isUser: true),
         );
-        final response = await chat.generateChatResponse();
-
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          _ => '',
-        };
+        final text = await collectReply(chat, meter: _meter);
 
         final raw = parseDerivedNoteResponse(text);
         final sections = anchorDerivedClaims(raw, sources);
@@ -790,15 +731,4 @@ String _buildDerivedPrompt(List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Fuentes:\n$context';
-}
-
-/// El modelo de Gemma cargado, compartido entre [GemmaChatModel] y su
-/// `background`: los mismos pesos, cargados una sola vez.
-class _LoadedGemma {
-  _LoadedGemma(this.ensureReady);
-
-  /// Ver el constructor de [GemmaChatModel].
-  final Future<bool> Function() ensureReady;
-
-  InferenceModel? model;
 }

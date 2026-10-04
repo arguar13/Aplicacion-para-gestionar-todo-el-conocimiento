@@ -7111,5 +7111,87 @@
         "type": "String"
       }
     }
+  },
+  "chatModelPerformanceTitle": "How it runs on this phone",
+  "@chatModelPerformanceTitle": {
+    "description": "Título de la sección de la pantalla del modelo de lenguaje con lo medido: carga, GPU o CPU y velocidad (F30)."
+  },
+  "chatModelPerformanceEmpty": "It hasn't been used since you opened the app. Send a message in the chat and come back here to see how long it takes.",
+  "@chatModelPerformanceEmpty": {
+    "description": "Sección de rendimiento del modelo, sin nada medido todavía en esta sesión."
+  },
+  "chatModelPerformanceLoad": "It loaded in {seconds} s and runs on the {backend}.",
+  "@chatModelPerformanceLoad": {
+    "description": "Cuánto tardó en cargar el modelo y en qué parte del teléfono corre (GPU o CPU).",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      },
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceLoadUnknown": "It loaded in {seconds} s.",
+  "@chatModelPerformanceLoadUnknown": {
+    "description": "Cuánto tardó en cargar el modelo, cuando no se sabe si corre en la GPU o en la CPU.",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceFallback": "The GPU was requested but didn't start: it runs on the CPU, which is slower.",
+  "@chatModelPerformanceFallback": {
+    "description": "Aviso cuando el modelo pidió la GPU y cayó a la CPU."
+  },
+  "chatModelPerformanceChatReply": "Last chat answer: the first word after {first} s; then {rate}.",
+  "@chatModelPerformanceChatReply": {
+    "description": "Cuánto tardó la última respuesta del chat: espera hasta la primera palabra y velocidad.",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceTaskReply": "Last AI task: the first word after {first} s; then {rate}.",
+  "@chatModelPerformanceTaskReply": {
+    "description": "Cuánto tardó la última tarea del modelo (resumir, tarjetas, la IA de fondo).",
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceRate": "{words} words per second ({tokens} tokens per second)",
+  "@chatModelPerformanceRate": {
+    "description": "Velocidad de escritura del modelo, en palabras y en tokens por segundo.",
+    "placeholders": {
+      "words": {
+        "type": "String"
+      },
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceRateWords": "{words} words per second",
+  "@chatModelPerformanceRateWords": {
+    "description": "Velocidad de escritura del modelo, en palabras por segundo, cuando no se pudieron contar los tokens.",
+    "placeholders": {
+      "words": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelPerformanceRateUnknown": "too little text to measure the speed",
+  "@chatModelPerformanceRateUnknown": {
+    "description": "Cuando la respuesta fue demasiado corta para medir la velocidad."
   }
 }

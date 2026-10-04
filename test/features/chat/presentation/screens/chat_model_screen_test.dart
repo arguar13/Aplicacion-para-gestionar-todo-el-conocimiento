@@ -6,7 +6,9 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -229,5 +231,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(es.chatModelReady), findsOneWidget);
+  });
+
+  testWidgets('con el modelo listo, muestra lo medido en este teléfono '
+      '(F30)', (tester) async {
+    await pumpScreen(tester, gemma4Ready: true);
+    expect(find.text(es.chatModelPerformanceEmpty), findsOneWidget);
+
+    harness.container.read(languageModelMeterProvider)
+      ..recordLoad(
+        const LanguageModelLoad(
+          duration: Duration(milliseconds: 8200),
+          backend: LanguageModelBackend.cpu,
+          requestedBackend: null,
+          vision: false,
+        ),
+      )
+      ..recordReply(
+        const LanguageModelReply(
+          kind: LanguageModelReplyKind.chat,
+          firstToken: Duration(milliseconds: 1500),
+          total: Duration(milliseconds: 11500),
+          tokens: 101,
+          words: 60,
+        ),
+      );
+    await tester.pumpAndSettle();
+
+    expect(find.text(es.chatModelPerformanceEmpty), findsNothing);
+    expect(
+      find.text(es.chatModelPerformanceLoad('8,2', 'CPU')),
+      findsOneWidget,
+    );
+    expect(find.text(es.chatModelPerformanceFallback), findsOneWidget);
+    expect(
+      find.text(
+        es.chatModelPerformanceChatReply(
+          '1,5',
+          es.chatModelPerformanceRate('6,0', '10,0'),
+        ),
+      ),
+      findsOneWidget,
+    );
   });
 }

@@ -1,41 +1,18 @@
-import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_session.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_reply.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
 
-/// Una sesión de `flutter_gemma` de mentira: anota lo que recibe, contesta
-/// «respuesta N» y si se cerró.
-class _FakeChat extends Fake implements InferenceChat {
-  _FakeChat(this.id);
-
-  final int id;
-  final received = <String>[];
-  bool closed = false;
-
-  @override
-  Future<void> addQueryChunk(
-    Message message, [
-    bool noTool = false,
-    bool prefix = false,
-  ]) async {
-    if (closed) throw StateError('sesión cerrada');
-    received.add(message.text);
-  }
-
-  @override
-  Future<ModelResponse> generateChatResponse() async =>
-      TextResponse('respuesta ${received.length} de la sesión $id');
-
-  @override
-  Future<void> close() async => closed = true;
-}
+import '../../../../support/fake_inference_chat.dart';
 
 /// La sesión de una charla (F27): retiene el modelo mientras se usa, lo
 /// suelta sola tras un rato sin uso y, al volver a escribir, se retoma con lo
 /// conversado.
 void main() {
   late LanguageModelGate gate;
-  late List<_FakeChat> opened;
+  late List<FakeInferenceChat> opened;
 
   setUp(() {
     gate = LanguageModelGate();
@@ -43,11 +20,17 @@ void main() {
   });
 
   Future<GemmaChatSession> open() async {
-    final session = GemmaChatSession(gate, () async {
-      final chat = _FakeChat(opened.length + 1);
-      opened.add(chat);
-      return chat;
-    });
+    final meter = LanguageModelMeter();
+    final session = GemmaChatSession(
+      gate,
+      () async {
+        final chat = FakeInferenceChat(id: opened.length + 1);
+        opened.add(chat);
+        return chat;
+      },
+      reply: (chat) =>
+          collectReply(chat, meter: meter, kind: LanguageModelReplyKind.chat),
+    );
     await session.openFirst();
     return session;
   }
