@@ -1,7 +1,10 @@
 # F30 — Repasar y Cuadernos con IA, la Bandeja de texto, bajar todo, y un chat rápido
 
-> **Estado: propuesto** (2026-10-04). Esperando «aprobado» en el chat. Pedidos del usuario, después
-> de probar la app en el teléfono:
+> **Estado: aprobado** (2026-10-04), en el chat («aprobado»), con todas las recomendadas: **A**
+> —✨ «Crear tarjetas con IA» en Repasar, con alcance—, **B** —crear con IA, sugeridos y llenar—,
+> **C** —solo lo que tiene texto, y las tres opciones de los libros con papelera de 30 días—, **D**
+> —todo adentro del mismo elemento— y **E** —tope de 500 MB por elemento—. Pedidos del usuario,
+> después de probar la app en el teléfono:
 >
 > - *"en la sesión de repasar también haya una opción que deje que la IA haga las flashcards o lo
 >   que sea necesario para repasar, además de la opción manual"*;
