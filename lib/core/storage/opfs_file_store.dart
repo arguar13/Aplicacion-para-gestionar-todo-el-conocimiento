@@ -81,9 +81,9 @@ class OpfsFileStore implements FileStore {
     required Stream<List<int>> bytes,
     required String suggestedName,
     required String id,
+    String? folder,
+    bool unique = false,
   }) async {
-    final name = sanitizeFileName(suggestedName);
-
     final root = await _root();
     final originales = await root
         .getDirectoryHandle(
@@ -91,9 +91,30 @@ class OpfsFileStore implements FileStore {
           web.FileSystemGetDirectoryOptions(create: true),
         )
         .toDart;
-    final idDirectory = await originales
+    var idDirectory = await originales
         .getDirectoryHandle(id, web.FileSystemGetDirectoryOptions(create: true))
         .toDart;
+    final subfolder = folder == null ? null : sanitizeFileName(folder);
+    if (subfolder != null) {
+      idDirectory = await idDirectory
+          .getDirectoryHandle(
+            subfolder,
+            web.FileSystemGetDirectoryOptions(create: true),
+          )
+          .toDart;
+    }
+
+    // Con [unique], el primer nombre de la serie que no existe todavía (ver
+    // `FileStore.saveStream`).
+    final base = sanitizeFileName(suggestedName);
+    var name = base;
+    for (
+      var attempt = 2;
+      unique && await _hasFile(idDirectory, name);
+      attempt++
+    ) {
+      name = numberedFileName(base, attempt);
+    }
     final fileHandle = await idDirectory
         .getFileHandle(name, web.FileSystemGetFileOptions(create: true))
         .toDart;
@@ -119,7 +140,22 @@ class OpfsFileStore implements FileStore {
       rethrow;
     }
 
-    return '$_folder/$id/$name';
+    return [_folder, id, ?subfolder, name].join('/');
+  }
+
+  /// Si [directory] ya tiene un archivo [name].
+  Future<bool> _hasFile(
+    web.FileSystemDirectoryHandle directory,
+    String name,
+  ) async {
+    try {
+      await directory.getFileHandle(name).toDart;
+      return true;
+      // OPFS no tiene cómo preguntar si existe sin intentar abrirlo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

@@ -145,6 +145,98 @@ void main() {
     });
   });
 
+  group('el «Contenido» de una página: subcarpeta y sin pisarse (F30)', () {
+    Future<String> saveNamed(String name, String text, {bool unique = true}) =>
+        store.saveStream(
+          bytes: Stream.value(bytes(text)),
+          suggestedName: name,
+          id: 'src-1',
+          folder: 'contenido',
+          unique: unique,
+        );
+
+    test('va en la subcarpeta del elemento', () async {
+      final path = await saveNamed('Coliseo.jpg', 'a');
+      expect(path, 'originales/src-1/contenido/Coliseo.jpg');
+    });
+
+    test('dos archivos con el mismo nombre quedan los dos', () async {
+      final first = await saveNamed('foto.jpg', 'primera');
+      final second = await saveNamed('foto.jpg', 'segunda');
+      final third = await saveNamed('foto.jpg', 'tercera');
+      final noExtension = await saveNamed('LEEME', 'x');
+      final noExtensionAgain = await saveNamed('LEEME', 'y');
+
+      expect(first, 'originales/src-1/contenido/foto.jpg');
+      expect(second, 'originales/src-1/contenido/foto-2.jpg');
+      expect(third, 'originales/src-1/contenido/foto-3.jpg');
+      expect(noExtensionAgain, 'originales/src-1/contenido/LEEME-2');
+      expect(noExtension, 'originales/src-1/contenido/LEEME');
+      expect(utf8.decode((await store.read(first))!), 'primera');
+      expect(utf8.decode((await store.read(second))!), 'segunda');
+    });
+
+    test('a la vez, tampoco se pisan', () async {
+      final paths = await Future.wait([
+        for (var i = 0; i < 5; i++) saveNamed('igual.pdf', 'copia $i'),
+      ]);
+      expect(paths.toSet(), hasLength(5));
+      final texts = {
+        for (final path in paths) utf8.decode((await store.read(path))!),
+      };
+      expect(texts, {for (var i = 0; i < 5; i++) 'copia $i'});
+    });
+
+    test('sin unique, el nombre se reemplaza como siempre', () async {
+      await saveNamed('pagina.html', 'vieja', unique: false);
+      final path = await saveNamed('pagina.html', 'nueva', unique: false);
+      expect(path, 'originales/src-1/contenido/pagina.html');
+      expect(utf8.decode((await store.read(path))!), 'nueva');
+    });
+
+    test('una subcarpeta hostil no sale de la carpeta del elemento', () async {
+      final path = await store.saveStream(
+        bytes: Stream.value(bytes('x')),
+        suggestedName: 'a.txt',
+        id: 'src-1',
+        folder: '../../databases',
+      );
+      expect(path, startsWith('originales/src-1/'));
+      expect(path.split('/'), hasLength(4));
+      expect(path, isNot(contains('..')));
+    });
+
+    test('si se corta, no queda ni el nombre reservado', () async {
+      final controller = StreamController<List<int>>();
+      final saving = saveNamed('cortado.mp3', '');
+      await saving;
+      final second = store.saveStream(
+        bytes: controller.stream,
+        suggestedName: 'cortado.mp3',
+        id: 'src-1',
+        folder: 'contenido',
+        unique: true,
+      );
+      controller.addError(const FileSystemException('se cortó'));
+      await controller.close();
+
+      await expectLater(second, throwsA(isA<FileSystemException>()));
+      expect(
+        await store.exists('originales/src-1/contenido/cortado-2.mp3'),
+        isFalse,
+      );
+    });
+  });
+
+  group('numberedFileName', () {
+    test('el número va antes de la extensión', () {
+      expect(numberedFileName('a.pdf', 1), 'a.pdf');
+      expect(numberedFileName('a.pdf', 2), 'a-2.pdf');
+      expect(numberedFileName('archivo.tar.gz', 3), 'archivo.tar-3.gz');
+      expect(numberedFileName('sin', 2), 'sin-2');
+    });
+  });
+
   group('leer una parte, sin traer el archivo entero (F21)', () {
     late String path;
 

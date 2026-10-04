@@ -23,10 +23,19 @@ abstract interface class FileStore {
   /// o el audio de un video de cuatro horas (F21): con [save] habría que
   /// tenerlo entero en memoria primero. Si [bytes] falla a mitad de camino,
   /// no queda un archivo a medias: se borra lo escrito y se relanza el error.
+  ///
+  /// [folder] lo guarda en una subcarpeta de la del elemento —el «Contenido»
+  /// bajado de una página va en `originales/<id>/contenido/` (F30)—: un solo
+  /// tramo, saneado como un nombre. Con [unique], un nombre que ya está no se
+  /// pisa: el archivo nuevo queda como "nombre-2.ext", "nombre-3.ext"…
+  /// Una página puede ofrecer dos `foto.jpg` de carpetas distintas, y sin
+  /// esto la segunda borraba la primera.
   Future<String> saveStream({
     required Stream<List<int>> bytes,
     required String suggestedName,
     required String id,
+    String? folder,
+    bool unique = false,
   });
 
   /// Guarda [bytes] y devuelve la **ruta relativa** donde quedaron.
@@ -180,4 +189,19 @@ String _truncateKeepingExtension(String name, int maxBytes) {
   }
 
   return buffer.toString() + extension;
+}
+
+/// El nombre [attempt] de la serie de [name] que no pisa a otro: el mismo
+/// en el primer intento, y después "nombre-2.ext", "nombre-3.ext"… —sin
+/// paréntesis: no están entre los caracteres que deja [sanitizeFileName]—.
+///
+/// La extensión se conserva —decide con qué app se abre— y el número va
+/// antes. Ya saneado y recortado: lo que devuelve se escribe tal cual.
+String numberedFileName(String name, int attempt) {
+  if (attempt <= 1) return name;
+  final dot = name.lastIndexOf('.');
+  final hasExtension = dot > 0 && name.length - dot <= 12;
+  final stem = hasExtension ? name.substring(0, dot) : name;
+  final extension = hasExtension ? name.substring(dot) : '';
+  return sanitizeFileName('$stem-$attempt$extension');
 }

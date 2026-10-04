@@ -342,4 +342,32 @@ void main() {
     final all = await db.select(db.migrationIssues).get();
     expect(all.map((i) => i.migration), ['f10_save', 'f5_relation_engine']);
   });
+
+  test(
+    'el texto de un archivo del «Contenido» no es el de la fuente (F30)',
+    () async {
+      final item = await seedItem();
+      // Sin forma principal, se toma la más vieja: el texto de una foto que se
+      // guardó antes que el del artículo no puede ganarle.
+      await db.customStatement(
+        '''
+      INSERT INTO renditions (id, item_id, kind, relative_path, is_primary,
+                              created_at, position)
+      VALUES ('foto', '${item.id}', 'image', 'originales/x/foto.jpg', 0, 1, 0)''',
+      );
+      await db.customStatement('''
+      INSERT INTO renditions (id, item_id, kind, content, is_primary,
+                              created_at, text_of)
+      VALUES ('texto-foto', '${item.id}', 'plainText', 'LEYENDA', 0, 2,
+              'foto')''');
+      await db.customStatement('''
+      INSERT INTO renditions (id, item_id, kind, content, is_primary,
+                              created_at)
+      VALUES ('articulo', '${item.id}', 'markdown', 'El artículo.', 0, 3)''');
+
+      final text = await sourceTextRendition(db, item.id);
+
+      expect(text?.id, 'articulo');
+    },
+  );
 }

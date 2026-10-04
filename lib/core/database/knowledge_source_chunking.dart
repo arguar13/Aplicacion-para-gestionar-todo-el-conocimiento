@@ -39,9 +39,17 @@ enum SourceChunkingOutcome {
 /// además `source.full_text`; los chunks y su índice de texto lo indexan, no
 /// lo reemplazan.
 Future<RenditionRow?> sourceTextRendition(AppDatabase db, String itemId) async {
-  final renditions = await (db.select(
-    db.renditions,
-  )..where((r) => r.itemId.equals(itemId) & r.content.isNotNull())).get();
+  // El texto de un archivo del «Contenido» (F30) no es el de la fuente. Se
+  // descarta acá y no en la consulta: esta función también corre en el paso
+  // v16 de la migración, sobre una tabla que todavía no tiene `text_of` —la
+  // agrega v36—, y nombrarla en el WHERE la rompe. Leída con `SELECT *`, una
+  // columna que la tabla no tiene llega nula.
+  final renditions = [
+    for (final row in await (db.select(
+      db.renditions,
+    )..where((r) => r.itemId.equals(itemId) & r.content.isNotNull())).get())
+      if (row.textOf == null) row,
+  ];
   if (renditions.isEmpty) return null;
   return _pickPrimaryOrOldest(renditions);
 }

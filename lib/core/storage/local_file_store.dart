@@ -59,11 +59,17 @@ class LocalFileStore implements FileStore {
     required Stream<List<int>> bytes,
     required String suggestedName,
     required String id,
+    String? folder,
+    bool unique = false,
   }) async {
     // La misma carpeta por fuente que `save`: ver ahí el porqué.
-    final relativePath = p.join(_folder, id, sanitizeFileName(suggestedName));
-    final file = File(await resolve(relativePath));
-    await file.parent.create(recursive: true);
+    final directory = [
+      _folder,
+      id,
+      if (folder != null) sanitizeFileName(folder),
+    ];
+    final name = sanitizeFileName(suggestedName);
+    final (relativePath, file) = await _reserve(directory, name, unique);
 
     final sink = file.openWrite();
     try {
@@ -82,6 +88,32 @@ class LocalFileStore implements FileStore {
     }
 
     return p.posix.joinAll(p.split(relativePath));
+  }
+
+  /// La ruta donde escribir [name] dentro de [directory]. Con [unique], el
+  /// primer nombre de la serie ([numberedFileName]) que no existe, y el
+  /// archivo ya creado vacío: crearlo con `exclusive` es lo que reserva el
+  /// nombre, aunque dos bajadas con el mismo nombre terminen a la vez.
+  Future<(String, File)> _reserve(
+    List<String> directory,
+    String name,
+    bool unique,
+  ) async {
+    for (var attempt = 1; ; attempt++) {
+      final candidate = unique ? numberedFileName(name, attempt) : name;
+      final relativePath = p.joinAll([...directory, candidate]);
+      final file = File(await resolve(relativePath));
+      await file.parent.create(recursive: true);
+      if (!unique) return (relativePath, file);
+      try {
+        await file.create(exclusive: true);
+        return (relativePath, file);
+      } on FileSystemException {
+        // Ya existe —en Windows no siempre llega como `PathExistsException`—:
+        // se prueba el nombre siguiente. Cualquier otra falla, se relanza.
+        if (!file.existsSync() || attempt >= 10000) rethrow;
+      }
+    }
   }
 
   @override

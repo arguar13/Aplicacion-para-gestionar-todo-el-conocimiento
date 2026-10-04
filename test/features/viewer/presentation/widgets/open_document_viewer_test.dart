@@ -75,6 +75,8 @@ class _RealFileStore implements FileStore {
     required Stream<List<int>> bytes,
     required String suggestedName,
     required String id,
+    String? folder,
+    bool unique = false,
   }) => throw UnimplementedError();
 }
 

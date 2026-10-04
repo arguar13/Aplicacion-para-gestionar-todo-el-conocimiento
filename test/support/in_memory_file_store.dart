@@ -43,14 +43,23 @@ class InMemoryFileStore implements FileStore {
     required Stream<List<int>> bytes,
     required String suggestedName,
     required String id,
+    String? folder,
+    bool unique = false,
   }) async {
     final builder = BytesBuilder(copy: false);
     await bytes.forEach(builder.add);
-    return save(
-      bytes: builder.takeBytes(),
-      suggestedName: suggestedName,
-      id: id,
-    );
+    final directory = [
+      'originales',
+      id,
+      if (folder != null) sanitizeFileName(folder),
+    ].join('/');
+    final name = sanitizeFileName(suggestedName);
+    var path = '$directory/$name';
+    for (var attempt = 2; unique && _contents.containsKey(path); attempt++) {
+      path = '$directory/${numberedFileName(name, attempt)}';
+    }
+    _contents[path] = builder.takeBytes();
+    return path;
   }
 
   @override

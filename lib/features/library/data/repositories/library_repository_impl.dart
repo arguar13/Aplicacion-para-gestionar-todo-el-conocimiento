@@ -621,12 +621,16 @@ class LibraryRepositoryImpl implements LibraryRepository {
       await _db.transaction(() async {
         for (final id in ids) {
           final filePath = await _originalFilePathOf(id);
+          final contentFiles = await _contentFilesOf(id);
           // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o
           // nota se van solos por las cascadas del esquema (ver `PRAGMA
           // foreign_keys` en AppDatabase): todo cuelga de la fila de `item`.
           // Lo que sigue vivo no se borra: el escritor lo rechaza.
           if (!await _writer.purge(id)) continue;
           if (filePath != null) filesToDelete.add((id, filePath));
+          for (final path in contentFiles) {
+            filesToDelete.add((id, path));
+          }
         }
       });
 
@@ -691,6 +695,25 @@ class LibraryRepositoryImpl implements LibraryRepository {
           ),
       ];
     }, hint: 'LibraryRepositoryImpl.watchTrash');
+  }
+
+  /// Los archivos del «Contenido» bajado de [id] (F30) que ningún otro
+  /// elemento usa: se borran del disco con él.
+  Future<List<String>> _contentFilesOf(String id) async {
+    final rows = await _db
+        .customSelect(
+          '''
+          SELECT DISTINCT f.relative_path AS path FROM renditions f
+           WHERE f.item_id = ? AND f.position IS NOT NULL
+             AND f.relative_path IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM renditions o
+                              WHERE o.relative_path = f.relative_path
+                                AND o.item_id <> f.item_id)''',
+          variables: [Variable.withString(id)],
+          readsFrom: {_db.renditions},
+        )
+        .get();
+    return [for (final row in rows) row.read<String>('path')];
   }
 
   /// La ruta del archivo original de un elemento, si tenía uno.
@@ -831,9 +854,16 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<void> _syncRenditions(KnowledgeItem item) async {
     final keptIds = item.renditions.map((r) => r.renditionId).toList();
 
-    await (_db.delete(
-      _db.renditions,
-    )..where((r) => r.itemId.equals(item.id) & r.id.isNotIn(keptIds))).go();
+    // El «Contenido» bajado (F30) no viaja en el elemento: que no esté en
+    // [item] no quiere decir que se haya sacado.
+    await (_db.delete(_db.renditions)..where(
+          (r) =>
+              r.itemId.equals(item.id) &
+              r.id.isNotIn(keptIds) &
+              r.position.isNull() &
+              r.textOf.isNull(),
+        ))
+        .go();
 
     for (final rendition in item.renditions) {
       await _db
@@ -1150,9 +1180,17 @@ class LibraryRepositoryImpl implements LibraryRepository {
     )..where((s) => s.itemId.isIn(itemIds))).get();
     final sourcesById = {for (final s in sourceRows) s.itemId: s};
 
-    final renditionRows = await (_db.select(
-      _db.renditions,
-    )..where((r) => r.itemId.isIn(itemIds))).get();
+    // Sin el «Contenido» bajado de una página (F30): lo pide quien lo
+    // muestra, al `AttachmentRepository`. Una página con cien fotos y tres
+    // libros no tiene por qué viajar en cada lista y cada búsqueda.
+    final renditionRows =
+        await (_db.select(_db.renditions)..where(
+              (r) =>
+                  r.itemId.isIn(itemIds) &
+                  r.position.isNull() &
+                  r.textOf.isNull(),
+            ))
+            .get();
     final renditionsByItem = <String, List<Rendition>>{};
     for (final row in renditionRows) {
       (renditionsByItem[row.itemId] ??= []).add(_toRendition(row));
