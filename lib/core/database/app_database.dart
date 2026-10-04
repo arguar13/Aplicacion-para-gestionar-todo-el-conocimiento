@@ -12,6 +12,7 @@ import 'package:sinapsis/core/database/reference_triggers.dart';
 import 'package:sinapsis/core/database/schema_too_old_exception.dart';
 import 'package:sinapsis/core/database/search_index.dart';
 import 'package:sinapsis/core/database/tables/ai_runs.dart';
+import 'package:sinapsis/core/database/tables/attachment_downloads.dart';
 import 'package:sinapsis/core/database/tables/chat_messages.dart';
 import 'package:sinapsis/core/database/tables/chunks.dart';
 import 'package:sinapsis/core/database/tables/conversations.dart';
@@ -49,6 +50,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // excluye los archivos generados. Solo se ve al compilar.
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
@@ -120,6 +122,7 @@ part 'app_database.g.dart';
     AiFieldChanges,
     NoteEmbeddings,
     PropertyValueEmbeddings,
+    AttachmentDownloads,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -164,7 +167,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 35;
+  static const currentSchemaVersion = 36;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -729,6 +732,47 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(noteEmbeddings);
           await migrator.createTable(propertyValueEmbeddings);
           await _requireSameCounts(before, step: 'v35', tables: tables);
+        }
+
+        // Bajar todo de páginas y publicaciones (F30): las formas ganan lo
+        // que hace falta para el «Contenido» de un elemento —título, de
+        // dónde se bajó, tipo, tamaño, orden, y de qué archivo es cada
+        // texto— y la lista de trabajo de lo que ofrece cada página. Aditiva:
+        // columnas nulas en las formas que ya había y una tabla nueva y
+        // vacía. Los conteos de todo lo anterior son compuerta.
+        //
+        // Las columnas pueden existir ya: el paso v18 reconstruye
+        // `renditions` con su definición de hoy.
+        if (from < 36) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          for (final column in [
+            renditions.title,
+            renditions.originUrl,
+            renditions.mimeType,
+            renditions.sizeBytes,
+            renditions.position,
+            renditions.textOf,
+          ]) {
+            if (!await _columnExists('renditions', column.name)) {
+              await migrator.addColumn(renditions, column);
+            }
+          }
+          await migrator.createIndex(idxRenditionsTextOf);
+          await migrator.createTable(attachmentDownloads);
+          await migrator.createIndex(idxAttachmentDownloadsItem);
+          await _requireSameCounts(before, step: 'v36', tables: tables);
         }
       });
     },

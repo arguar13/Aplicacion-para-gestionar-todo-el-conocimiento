@@ -369,7 +369,9 @@ void main() {
             r.read<String>('target'),
         };
 
-        expect(await targets('renditions'), {'item'});
+        // Desde v36 (F30) el texto de un archivo del «Contenido» apunta a
+        // ese archivo, que es otra forma.
+        expect(await targets('renditions'), {'item', 'renditions'});
         // Desde v34 (F27) un vínculo, una tarjeta y una propiedad también
         // pueden apuntar a la pasada de la IA que los hizo.
         expect(await targets('relations'), {'item', 'ai_runs'});

@@ -37,6 +37,14 @@ const kRenditionColumns = [
   'is_primary',
   'created_at',
   'word_timings',
+  // Lo del «Contenido» bajado de una página (F30): un archivo y el texto que
+  // se sacó de él viajan con todo lo suyo.
+  'title',
+  'origin_url',
+  'mime_type',
+  'size_bytes',
+  'position',
+  'text_of',
 ];
 
 /// La decisión sobre una forma de la copia.
@@ -130,6 +138,7 @@ class RenditionMergePlanner {
                WHERE x.item_id = r.item_id AND x.id <> r.id
                  AND x.content IS r.content
                  AND x.relative_path IS r.relative_path
+                 AND x.text_of IS r.text_of
                LIMIT 1) AS same_content_id,
              $stamps
         FROM $_incoming.renditions r
@@ -145,7 +154,7 @@ class RenditionMergePlanner {
        WHERE m.id IS NULL
           OR m.content IS NOT r.content
           OR m.relative_path IS NOT r.relative_path
-       ORDER BY r.item_id, r.id''').get();
+       ORDER BY r.item_id, r.text_of IS NOT NULL, r.id''').get();
 
     final changes = <RenditionChange>[];
     final notPlaced = <String, String?>{};
@@ -327,13 +336,30 @@ class RenditionMergeApplier {
   Future<void> _add(RenditionChange change) async {
     final hasPrimary = await _hasPrimary(change.itemId);
     final demoted = hasPrimary ? 1 : 0;
+    // El texto de un archivo del «Contenido» (F30) va con su archivo: si el
+    // archivo de la copia ya estaba acá con otro identificador —el mismo
+    // archivo, bajado en los dos lados—, el texto apunta a ese; si el archivo
+    // no quedó en ningún lado, el texto tampoco entra: no tendría de qué ser.
+    const textOf =
+        'COALESCE((SELECT m.local_id FROM ${MergeWork.renditionMap} m '
+        'WHERE m.incoming_id = x.text_of), x.text_of)';
+    final values = _columns
+        .map(
+          (c) => switch (c) {
+            'is_primary' => 'CASE WHEN ? THEN 0 ELSE x.is_primary END',
+            'text_of' => textOf,
+            _ => 'x.$c',
+          },
+        )
+        .join(', ');
     await _db.customStatement(
       '''
       INSERT INTO main.renditions (${_columns.join(', ')})
-      SELECT x.id, x.item_id, x.kind, x.content, x.relative_path,
-             CASE WHEN ? THEN 0 ELSE x.is_primary END, x.created_at,
-             x.word_timings
-        FROM $_incoming.renditions x WHERE x.id = ?''',
+      SELECT $values
+        FROM $_incoming.renditions x
+       WHERE x.id = ?
+         AND (x.text_of IS NULL
+              OR $textOf IN (SELECT id FROM main.renditions))''',
       [demoted, change.incomingId],
     );
     await _copyVersion(change);
@@ -366,11 +392,19 @@ class RenditionMergeApplier {
   /// un identificador nuevo—, y el conflicto la señala.
   Future<void> _keepBoth(RenditionChange change) async {
     final extraId = _ids.next();
+    final values = _columns
+        .map(
+          (c) => switch (c) {
+            'id' => '?',
+            'is_primary' => '0',
+            _ => 'x.$c',
+          },
+        )
+        .join(', ');
     await _db.customStatement(
       '''
       INSERT INTO main.renditions (${_columns.join(', ')})
-      SELECT ?, x.item_id, x.kind, x.content, x.relative_path, 0, x.created_at,
-             x.word_timings
+      SELECT $values
         FROM $_incoming.renditions x WHERE x.id = ?''',
       [extraId, change.incomingId],
     );

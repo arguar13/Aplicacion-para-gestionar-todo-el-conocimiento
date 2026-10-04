@@ -161,10 +161,22 @@ Future<ItemReferenceRepointPlan> repointItemReferences(
     }
   }
 
-  // Lo mismo con `renditions`: ganó `word_timings` en v33 (F23), que una
-  // base de v16 o v17 no tiene. El paso v33 la agrega solo si falta.
+  // Lo mismo con `renditions`: ganó `word_timings` en v33 (F23) y lo del
+  // «Contenido» bajado de una página en v36 (F30), que una base de v16 o v17
+  // no tiene. Los pasos v33 y v36 las agregan solo si faltan.
   await migrator.alterTable(
-    TableMigration(db.renditions, newColumns: [db.renditions.wordTimings]),
+    TableMigration(
+      db.renditions,
+      newColumns: [
+        db.renditions.wordTimings,
+        db.renditions.title,
+        db.renditions.originUrl,
+        db.renditions.mimeType,
+        db.renditions.sizeBytes,
+        db.renditions.position,
+        db.renditions.textOf,
+      ],
+    ),
   );
   // `relations` ganó en v34 (F27) quién la hizo, con qué confianza y en qué
   // pasada de la IA; el paso v34 las agrega solo si faltan.

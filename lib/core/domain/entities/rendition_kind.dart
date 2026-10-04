@@ -28,4 +28,12 @@ enum RenditionKind {
   audio,
   video,
   pdf,
+
+  /// Un documento que no es un PDF: un EPUB, un Word, un texto (F30). Lo
+  /// usan los archivos bajados de una página.
+  document,
+
+  /// Un archivo que no es de ninguna de las clases de arriba (F30): se
+  /// guarda tal cual, para abrirlo con otra app.
+  file,
 }

@@ -467,4 +467,110 @@ void main() {
       );
     });
   });
+
+  group('el «Contenido» bajado de una página (F30)', () {
+    /// Un archivo del «Contenido» de [itemId] y el texto que se sacó de él.
+    Future<void> addAttachment(
+      TestVault vault,
+      String itemId, {
+      required String fileId,
+      required String path,
+      String? textId,
+      String text = 'COLOSSEVM',
+    }) async {
+      await vault.db.customStatement(
+        '''
+        INSERT INTO renditions (id, item_id, kind, relative_path, is_primary,
+                                created_at, title, origin_url, mime_type,
+                                size_bytes, position)
+        VALUES ('$fileId', '$itemId', 'image', '$path', 0, 1, 'El Coliseo',
+                'https://upload.wikimedia.org/c.jpg', 'image/jpeg', 56378, 0)''',
+      );
+      if (textId != null) {
+        await vault.db.customStatement('''
+          INSERT INTO renditions (id, item_id, kind, content, is_primary,
+                                  created_at, text_of)
+          VALUES ('$textId', '$itemId', 'plainText', '$text', 0, 1,
+                  '$fileId')''');
+      }
+    }
+
+    test(
+      'con un elemento nuevo llegan el archivo, todo lo suyo y su texto',
+      () async {
+        pc.at(3);
+        await pc.saveSource('a');
+        await addAttachment(
+          pc,
+          'a',
+          fileId: 'foto',
+          path: 'originales/a/contenido/Coliseo.jpg',
+          textId: 'texto-foto',
+        );
+
+        await tel.mergeFrom(pc);
+
+        final forms = {for (final r in await tel.renditionsOf('a')) r.id: r};
+        final photo = forms['foto']!;
+        expect(photo.relativePath, 'originales/a/contenido/Coliseo.jpg');
+        expect(photo.title, 'El Coliseo');
+        expect(photo.originUrl, 'https://upload.wikimedia.org/c.jpg');
+        expect(photo.mimeType, 'image/jpeg');
+        expect(photo.sizeBytes, 56378);
+        expect(photo.position, 0);
+        expect(forms['texto-foto']!.textOf, 'foto');
+        expect(forms['texto-foto']!.content, 'COLOSSEVM');
+      },
+    );
+
+    test(
+      'a un elemento que ya estaba se le suma lo que bajó la copia',
+      () async {
+        await shareSource();
+        // El texto con un identificador menor que el de su archivo: igual
+        // entra después de él, que es lo que pide su clave foránea.
+        await addAttachment(
+          pc,
+          'a',
+          fileId: 'zz-foto',
+          path: 'originales/a/contenido/Coliseo.jpg',
+          textId: 'aa-texto',
+        );
+
+        tel.at(9);
+        final result = await tel.mergeFrom(pc);
+
+        expect(result.renditionsAdded, 2);
+        final forms = {for (final r in await tel.renditionsOf('a')) r.id: r};
+        expect(forms['aa-texto']!.textOf, 'zz-foto');
+        expect(forms['rend-a']!.isPrimary, isTrue);
+        expect(forms['zz-foto']!.isPrimary, isFalse);
+      },
+    );
+
+    test('el mismo archivo bajado en los dos lados queda una vez, y el texto '
+        'de la copia apunta al de acá', () async {
+      await shareSource();
+      const path = 'originales/a/contenido/Coliseo.jpg';
+      await addAttachment(tel, 'a', fileId: 'foto-tel', path: path);
+      await addAttachment(
+        pc,
+        'a',
+        fileId: 'foto-pc',
+        path: path,
+        textId: 'texto-pc',
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      final forms = {for (final r in await tel.renditionsOf('a')) r.id: r};
+      expect(forms.keys, isNot(contains('foto-pc')));
+      expect(forms['texto-pc']!.textOf, 'foto-tel');
+      expect(
+        await tel.db.customSelect('PRAGMA foreign_key_check').get(),
+        isEmpty,
+      );
+    });
+  });
 }
