@@ -299,28 +299,20 @@ void main() {
     expect(quick.shown, isNull);
   });
 
-  testWidgets('avisa cuando empieza el trabajo largo, no a cada avance ni '
-      'con uno ya en curso (F29)', (tester) async {
-    final started = <LongWorkOwner>[];
-    final subscription = coordinator.workStarted.listen(started.add);
-    addTearDown(subscription.cancel);
+  testWidgets('dice si hay trabajo largo en curso, de cualquier dueño, y '
+      'deja de haberlo al soltarse el último (F29)', (tester) async {
+    expect(coordinator.isWorking, isFalse);
 
-    processing
-      ..working(done: 1, total: 4)
-      ..working(done: 2, total: 4);
+    processing.working(done: 1, total: 4);
     ai.working(done: 0, total: 9);
-    await tester.pump();
-    expect(started, [LongWorkOwner.processing]);
+    expect(coordinator.isWorking, isTrue);
 
     processing.idle();
-    ai
-      ..idle()
-      ..working(done: 0, total: 9);
-    await tester.pump();
-    expect(started, [LongWorkOwner.processing, LongWorkOwner.aiOrganize]);
+    expect(coordinator.isWorking, isTrue);
 
-    // Sin dejar el temporizador de soltar colgado.
     ai.idle();
+    // Ya no hay trabajo, aunque el servicio espere un momento para irse.
+    expect(coordinator.isWorking, isFalse);
     await tester.pump(const Duration(seconds: 15));
   });
 }

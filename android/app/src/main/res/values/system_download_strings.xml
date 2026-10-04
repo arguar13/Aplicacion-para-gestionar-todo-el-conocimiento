@@ -3,6 +3,8 @@
      (F29): ver SystemDownloadsChannel. El nombre del modelo sale de
      long_work_strings.xml. -->
 <resources>
-    <string name="system_download_title">Sinapsis baja %1$s</string>
+    <!-- Sin verbo: la misma notificación queda al terminar, con el
+         "Descarga completa" del sistema debajo. -->
+    <string name="system_download_title">Sinapsis: %1$s</string>
     <string name="system_download_description">Sigue aunque cierres la app.</string>
 </resources>

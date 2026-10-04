@@ -81,21 +81,34 @@ void main() {
       );
     }
 
-    /// Empieza un trabajo largo, después de que el anterior terminó.
-    Future<void> startWork(WidgetTester tester) async {
-      processing
-        ..idle()
-        ..working(done: 0, total: 10);
+    /// La app sale del frente —un diálogo del sistema, otra app— y vuelve.
+    Future<void> leaveAndReturn(WidgetTester tester) async {
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
     }
 
-    testWidgets('aparece la primera vez que hay trabajo largo, y «Ver cómo» '
-        'lleva a la ayuda', (tester) async {
-      await pump(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsNothing);
+    const offerTitle = '¿Que siga aunque cierres la app?';
 
-      await startWork(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsOneWidget);
+    testWidgets('no interrumpe cuando el trabajo empieza: ahí Android puede '
+        'estar pidiendo permiso para notificar', (tester) async {
+      await pump(tester);
+
+      processing.working(done: 0, total: 10);
+      await tester.pumpAndSettle();
+
+      expect(find.text(offerTitle), findsNothing);
+      expect(prefs.getBool('keep_working_help_offered'), isNull);
+    });
+
+    testWidgets('aparece al volver a la app con trabajo en curso —después del '
+        'diálogo del sistema—, y «Ver cómo» lleva a la ayuda', (tester) async {
+      await pump(tester);
+      processing.working(done: 0, total: 10);
+
+      await leaveAndReturn(tester);
+      expect(find.text(offerTitle), findsOneWidget);
 
       await tester.tap(find.text('Ver cómo'));
       await tester.pumpAndSettle();
@@ -103,41 +116,42 @@ void main() {
       expect(prefs.getBool('keep_working_help_offered'), isTrue);
     });
 
+    testWidgets('sin trabajo en curso, volver a la app no la ofrece', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await leaveAndReturn(tester);
+
+      expect(find.text(offerTitle), findsNothing);
+      expect(prefs.getBool('keep_working_help_offered'), isNull);
+    });
+
     testWidgets('una sola vez: «Ahora no» y no vuelve, tampoco al abrir la '
         'app de nuevo', (tester) async {
       await pump(tester);
-      await startWork(tester);
+      processing.working(done: 0, total: 10);
+      await leaveAndReturn(tester);
       await tester.tap(find.text('Ahora no'));
       await tester.pumpAndSettle();
 
-      await startWork(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsNothing);
+      await leaveAndReturn(tester);
+      expect(find.text(offerTitle), findsNothing);
 
       // La app vuelta a abrir, con la marca ya guardada.
       await pump(tester);
-      await startWork(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsNothing);
+      await leaveAndReturn(tester);
+      expect(find.text(offerTitle), findsNothing);
       expect(opened, 0);
-    });
-
-    testWidgets('con la app en segundo plano no pregunta: espera a un trabajo '
-        'con la app a la vista', (tester) async {
-      await pump(tester);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      await startWork(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsNothing);
-      expect(prefs.getBool('keep_working_help_offered'), isNull);
-
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      await startWork(tester);
-      expect(find.text('¿Que siga aunque cierres la app?'), findsOneWidget);
     });
 
     testWidgets('fuera de Android no se ofrece', (tester) async {
       await pump(tester, android: false);
-      await startWork(tester);
+      processing.working(done: 0, total: 10);
 
-      expect(find.text('¿Que siga aunque cierres la app?'), findsNothing);
+      await leaveAndReturn(tester);
+
+      expect(find.text(offerTitle), findsNothing);
     });
   });
 
@@ -198,8 +212,18 @@ void main() {
       await tapVisible(tester, 'Abrir ajustes de batería');
       await tester.pumpAndSettle();
 
+      final hint = find.textContaining('«Permitir el uso en segundo plano»');
+      expect(hint, findsOneWidget);
+
+      // De vuelta, con la batería ya sin restricciones: la pista sobra.
+      settings.batteryUnrestricted = true;
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(hint, findsNothing);
       expect(
-        find.text('Entrá en «Batería» y elegí «Sin restricciones».'),
+        find.text('Listo: el sistema no le aplica ahorro de batería.'),
         findsOneWidget,
       );
     });

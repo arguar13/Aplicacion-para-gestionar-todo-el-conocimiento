@@ -2,6 +2,8 @@
 <!-- The system download manager notification while downloading a model
      (F29): see SystemDownloadsChannel. -->
 <resources>
-    <string name="system_download_title">Sinapsis is downloading %1$s</string>
+    <!-- No verb: the same notification stays when done, under the system's
+         "Download complete". -->
+    <string name="system_download_title">Sinapsis: %1$s</string>
     <string name="system_download_description">It keeps going even if you close the app.</string>
 </resources>

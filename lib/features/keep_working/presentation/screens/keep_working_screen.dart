@@ -90,11 +90,17 @@ class _KeepWorkingScreenState extends ConsumerState<KeepWorkingScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.keepWorkingTitle)),
       body: SafeArea(
-        child: Center(
+        // Arriba, como el resto de las pantallas de Ajustes: es una lista de
+        // pasos, no un aviso suelto.
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: status == null
-                ? const Center(child: CircularProgressIndicator())
+                ? const Padding(
+                    padding: EdgeInsets.all(48),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
                 // Pocas cosas, todas a la vista: una columna que se
                 // desplaza si no entra, sin construir a demanda.
                 : SingleChildScrollView(
@@ -146,7 +152,10 @@ class _KeepWorkingScreenState extends ConsumerState<KeepWorkingScreen> {
                           done: status.batteryUnrestricted
                               ? l10n.keepWorkingBatteryDone
                               : null,
-                          hint: _batteryHint,
+                          // Hecho, ya no hay nada que buscar en los ajustes.
+                          hint: status.batteryUnrestricted
+                              ? null
+                              : _batteryHint,
                           actionLabel: l10n.keepWorkingBatteryAction,
                           onAction: _openBattery,
                         ),

@@ -7,9 +7,16 @@ import 'package:sinapsis/features/transform/presentation/providers/transform_pro
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Ofrece **una sola vez** la ayuda "Que siga con la app cerrada" (F29): la
-/// primera vez que empieza un trabajo largo —procesar lo que se guardó,
-/// transcribir, la IA— con la app a la vista, que es cuando importa y se
-/// entiende por qué. Después queda en Ajustes.
+/// primera vez que la app vuelve al frente con un trabajo largo en curso
+/// —procesar lo que se guardó, transcribir, la IA—. Después queda en
+/// Ajustes.
+///
+/// Al volver al frente y no cuando el trabajo empieza: el primer trabajo
+/// largo es también cuando Android pide permiso para las notificaciones
+/// (`SinapsisEngine`), y las dos preguntas salían encimadas. Ese diálogo
+/// del sistema saca a la app del frente; al cerrarlo vuelve, y recién ahí
+/// aparece esta oferta, una después de la otra. Y es el momento en que se
+/// entiende: la persona vuelve y Sinapsis sigue trabajando.
 ///
 /// Va por encima de toda pantalla, como el lector flotante: abre la hoja con
 /// el navegador principal ([navigatorKey]).
@@ -35,43 +42,36 @@ class KeepWorkingOfferListener extends ConsumerStatefulWidget {
 
 class _KeepWorkingOfferListenerState
     extends ConsumerState<KeepWorkingOfferListener> {
-  StreamSubscription<void>? _starts;
+  AppLifecycleListener? _lifecycle;
   var _offering = false;
 
   @override
   void initState() {
     super.initState();
-    // Fuera de Android no hay nada que ofrecer, ni a quién escuchar.
+    // Fuera de Android no hay nada que ofrecer; ya ofrecida, tampoco.
     if (ref.read(backgroundSettingsProvider) == null) return;
     if (ref.read(keepWorkingHelpOfferProvider).alreadyOffered) return;
-    _starts = ref
-        .read(longWorkCoordinatorProvider)
-        .workStarted
-        .listen((_) => unawaited(_offer()));
+    _lifecycle = AppLifecycleListener(onResume: () => unawaited(_offer()));
   }
 
   @override
   void dispose() {
-    unawaited(_starts?.cancel());
+    _lifecycle?.dispose();
     super.dispose();
   }
 
   Future<void> _offer() async {
     final offer = ref.read(keepWorkingHelpOfferProvider);
     if (_offering || offer.alreadyOffered) return;
-    // Con la app a la vista: un trabajo que arranca en segundo plano —la IA
-    // con el cargador— no es momento de preguntar nada.
-    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-      return;
-    }
+    if (!ref.read(longWorkCoordinatorProvider).isWorking) return;
     final navigator = widget.navigatorKey.currentContext;
     if (navigator == null) return;
 
     _offering = true;
-    await offer.markOffered();
     // Ya no hay nada más que ofrecer: deja de escuchar desde ya.
-    unawaited(_starts?.cancel());
-    _starts = null;
+    _lifecycle?.dispose();
+    _lifecycle = null;
+    await offer.markOffered();
     if (!navigator.mounted) return;
     final wantsHelp = await showModalBottomSheet<bool>(
       context: navigator,

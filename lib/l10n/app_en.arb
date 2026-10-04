@@ -7031,7 +7031,7 @@
   "@settingsBackgroundSection": {
     "description": "Header of the Settings section with what lets work continue with the app closed (F29)."
   },
-  "keepWorkingIntro": "Sinapsis can keep processing, transcribing and organizing even if you close the app, and model downloads always keep going. But some phones close it anyway unless you allow it: two settings, just once.",
+  "keepWorkingIntro": "Sinapsis can keep processing, transcribing and organizing even if you close the app, and model downloads always keep going. But some phones close it anyway unless you allow it: you set it up just once.",
   "@keepWorkingIntro": {
     "description": "Explanation at the top of the help (F29)."
   },
@@ -7071,7 +7071,7 @@
   "@keepWorkingBatteryDone": {
     "description": "The battery step is already done (F29)."
   },
-  "keepWorkingBatteryFallback": "Go to «Battery» and choose «Unrestricted».",
+  "keepWorkingBatteryFallback": "In the app's battery («Battery» or «App battery usage») choose «Unrestricted»; on newer Android, turn on «Allow background usage» and choose «Unrestricted» inside.",
   "@keepWorkingBatteryFallback": {
     "description": "What to tap when the app info page opened instead of the battery saver (F29)."
   },

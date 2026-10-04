@@ -232,12 +232,9 @@ class LongWorkCoordinator {
   /// la vez piden cada una el suyo.
   LongWorkKeeper keeperFor(LongWorkOwner owner) => _OwnedKeeper(this, owner);
 
-  final _started = StreamController<LongWorkOwner>.broadcast();
-
-  /// Cada vez que se pasa de no tener trabajo largo a tenerlo, de quién es
-  /// el que empezó. Lo escucha la ayuda "Que siga con la app cerrada"
-  /// (F29), que se ofrece la primera vez.
-  Stream<LongWorkOwner> get workStarted => _started.stream;
+  /// Si hay algún trabajo largo en curso. Lo mira la ayuda "Que siga con la
+  /// app cerrada" (F29), que se ofrece al volver a la app con trabajo.
+  bool get isWorking => _working.isNotEmpty;
 
   /// Lo que se ve ahora en la notificación, para las pruebas.
   @visibleForTesting
@@ -257,13 +254,10 @@ class LongWorkCoordinator {
     _release?.cancel();
     _release = null;
     await _systemStops.cancel();
-    await _started.close();
   }
 
   void _report(_OwnedKeeper keeper, _Work work) {
-    final started = _working.isEmpty;
     _working[keeper] = work;
-    if (started && !_disposed) _started.add(keeper.owner);
     _publish();
   }
 
