@@ -14,9 +14,8 @@ enum SuggestionKind {
   /// Dos elementos que podrían ser el mismo — F7, deduplicación.
   duplicate,
 
-  /// Una tarjeta de repaso propuesta a partir del contenido — ya existe
-  /// como `FlashcardDraft` efímero; modelado acá para una futura cola
-  /// persistente, sin generador todavía.
+  /// Una tarjeta de repaso de la IA cuya cita no se ubicó en el texto — F30:
+  /// espera en «Para revisar» en vez de entrar sola al repaso.
   flashcard,
 
   /// Los datos bibliográficos leídos del PDF, la página o YouTube — F15.

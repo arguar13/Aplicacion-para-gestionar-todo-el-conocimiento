@@ -6297,5 +6297,14 @@
   "flashcardsGenerationPartial": "El modelo falló a mitad de camino: estas son las que alcanzó a proponer.",
   "@flashcardsGenerationPartial": {
     "description": "Tarjetas con IA (F30): el modelo falló después de proponer algunas."
+  },
+  "aiReviewFlashcardDetail": "Respuesta: {answer}",
+  "@aiReviewFlashcardDetail": {
+    "description": "Para revisar (F30): una tarjeta de la IA cuya cita no se ubicó en el texto; debajo de la pregunta, su respuesta.",
+    "placeholders": {
+      "answer": {
+        "type": "String"
+      }
+    }
   }
 }

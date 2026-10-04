@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
+import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
@@ -20,6 +22,9 @@ class _SentenceFlashcards implements FlashcardGenerator {
   /// modelo chico.
   bool paraphrase = false;
 
+  /// Si todas las citas son inventadas, cada una con otra pregunta.
+  bool allInvented = false;
+
   /// Cada tramo que recibió, en orden.
   final contents = <String>[];
   final counts = <int>[];
@@ -31,6 +36,16 @@ class _SentenceFlashcards implements FlashcardGenerator {
   }) async {
     contents.add(content);
     counts.add(count);
+    if (allInvented) {
+      return [
+        for (var i = 0; i < count; i++)
+          FlashcardDraft(
+            front: '¿Inventada ${contents.length}.$i?',
+            back: 'Sí',
+            quote: 'Algo que el texto no dice $i.',
+          ),
+      ];
+    }
     final sentences = RegExp(
       r'[^.]+\.',
     ).allMatches(content).map((m) => m.group(0)!.trim()).toList();
@@ -69,6 +84,7 @@ void main() {
     step = AutoFlashcardsStep(
       generator: model,
       flashcards: vault.flashcards,
+      suggestions: vault.suggestions,
       runs: vault.runs,
     );
   });
@@ -116,15 +132,79 @@ void main() {
     }
   });
 
-  test('descarta la tarjeta cuya cita no está en el texto', () async {
+  test('la tarjeta cuya cita no se ubica no entra sola: va a «Para '
+      'revisar» (F30)', () async {
     final item = await vault.source('a', title: 'Roma', content: article);
     model.inventedQuote = true;
 
-    await step.organize(item, runId: await vault.startRun('a'));
+    final report = await step.organize(item, runId: await vault.startRun('a'));
 
     final cards = await vault.db.select(vault.db.flashcards).get();
     expect(cards.map((c) => c.front), isNot(contains('¿Algo inventado?')));
     expect(cards, hasLength(3));
+    expect(report, const AiStepReport(applied: 3, forReview: 1));
+
+    final review = (await vault.suggestions.suggestionsFor(
+      'a',
+    )).getOrElse((f) => fail('$f')).whereType<FlashcardSuggestion>();
+    expect(review.single.front, '¿Algo inventado?');
+    expect(review.single.quote, 'Una frase que el texto no tiene.');
+    expect(review.single.status, SuggestionStatus.pending);
+  });
+
+  test('aceptarla en «Para revisar» crea la tarjeta, de la persona y sin '
+      'fragmento', () async {
+    final item = await vault.source('a', title: 'Roma', content: article);
+    model.inventedQuote = true;
+    await step.organize(item, runId: await vault.startRun('a'));
+    final proposal = (await vault.suggestions.suggestionsFor(
+      'a',
+    )).getOrElse((f) => fail('$f')).whereType<FlashcardSuggestion>().single;
+
+    expect((await vault.suggestions.accept(proposal.id)).isRight(), isTrue);
+
+    final adopted = (await vault.db.select(vault.db.flashcards).get())
+        .singleWhere((c) => c.front == '¿Algo inventado?');
+    expect(adopted.origin, ContentOrigin.user);
+    expect(adopted.aiRunId, isNull);
+    expect(adopted.sourceCharStart, isNull);
+    expect(adopted.dueAt.isAfter(vault.now), isFalse);
+  });
+
+  test(
+    'una que se descartó en «Para revisar» no se vuelve a proponer',
+    () async {
+      final item = await vault.source('a', title: 'Roma', content: article);
+      model.inventedQuote = true;
+      await step.organize(item, runId: await vault.startRun('a'));
+      final proposal = (await vault.suggestions.suggestionsFor(
+        'a',
+      )).getOrElse((f) => fail('$f')).whereType<FlashcardSuggestion>().single;
+      await vault.suggestions.reject(proposal.id);
+
+      // Otra pasada sobre el mismo elemento, sin sus tarjetas: el modelo vuelve
+      // a inventar la misma.
+      await vault.db.delete(vault.db.flashcards).go();
+      await step.organize(item, runId: await vault.startRun('a'));
+
+      final proposals = (await vault.suggestions.suggestionsFor(
+        'a',
+      )).getOrElse((f) => fail('$f')).whereType<FlashcardSuggestion>();
+      expect(proposals.single.status, SuggestionStatus.rejected);
+    },
+  );
+
+  test('un modelo que inventa todo no llena «Para revisar»', () async {
+    final item = await vault.source('a', title: 'Roma', content: article);
+    model.allInvented = true;
+
+    await step.organize(item, runId: await vault.startRun('a'));
+
+    final review = (await vault.suggestions.suggestionsFor(
+      'a',
+    )).getOrElse((f) => fail('$f'));
+    expect(review, hasLength(kMaxFlashcardsForReview));
+    expect(await vault.db.select(vault.db.flashcards).get(), isEmpty);
   });
 
   test(

@@ -495,6 +495,34 @@ void main() {
       expect(find.text(es.aiReviewTitle), findsNothing);
     });
 
+    testWidgets('una tarjeta cuya cita no se ubicó: su pregunta y su '
+        'respuesta, y aceptarla la crea (F30)', (tester) async {
+      final created = await harness.container
+          .read(suggestionRepositoryProvider)
+          .createFlashcardSuggestion(
+            targetItemId: 'a',
+            front: '¿Quién fundó Roma?',
+            back: 'Rómulo',
+            quote: 'Una frase que el texto no tiene',
+          );
+      final id = created.getOrElse((f) => fail('$f')).id;
+      await pumpScreen(tester);
+
+      expect(find.byKey(const Key('ai-review-item-a')), findsOneWidget);
+      expect(find.text('¿Quién fundó Roma?'), findsOneWidget);
+      expect(find.text(es.aiReviewFlashcardDetail('Rómulo')), findsOneWidget);
+
+      await tester.tap(find.byKey(Key('ai-review-accept-$id')));
+      await tester.pumpAndSettle();
+
+      expect(await statusOf(id), SuggestionStatus.accepted);
+      final card = await harness.database
+          .select(harness.database.flashcards)
+          .getSingle();
+      expect(card.front, '¿Quién fundó Roma?');
+      expect(card.itemId, 'a');
+    });
+
     testWidgets('descartar uno no aplica nada', (tester) async {
       final id = await suggestRelation('a', 'b', 'Cartago');
       await pumpScreen(tester);

@@ -263,6 +263,14 @@ class _ReviewRow extends StatelessWidget {
         '${from.label(l10n)} → ${to.label(l10n)}',
         l10n.noteMaturityChangeTooltip,
       ),
+      // Una tarjeta cuya cita no se ubicó (F30): la pregunta, y la respuesta
+      // abajo, para decidir sin abrir nada.
+      FlashcardSuggestion(:final front, :final back) => (
+        Icons.style_outlined,
+        scheme.primary,
+        front,
+        l10n.aiReviewFlashcardDetail(back),
+      ),
       // Nunca llega: `itemReviewSuggestionsProvider` los deja afuera.
       DuplicateSuggestionEntry() => throw StateError(
         'Un duplicado no se revisa en «Para revisar»: tiene su pantalla.',

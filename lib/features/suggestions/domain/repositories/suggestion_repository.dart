@@ -100,13 +100,25 @@ abstract interface class SuggestionRepository {
     required ExtractedMetadata extracted,
   });
 
+  /// Deja «Para revisar» una tarjeta que hizo la IA y cuya cita no se ubicó
+  /// en el texto (F30), en `status: pending`. [quote] es la cita que dio el
+  /// modelo, si dio alguna. Mismo criterio que [createPropertySuggestion]:
+  /// genera `id`/`createdAt` internamente.
+  Future<Either<Failure, Suggestion>> createFlashcardSuggestion({
+    required String targetItemId,
+    required String front,
+    required String back,
+    String? quote,
+  });
+
   /// Aplica el payload de verdad —vía
   /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`
   /// para una sugerencia de propiedad, `OrganizeRepository.createRelation`
   /// para una de vínculo, `MergeDuplicateItemsUseCase` para una de
   /// duplicado, o `KnowledgeEntryWriter.setReference` para una de
-  /// referencia, completando solo lo que la referencia todavía no tenía—
-  /// y marca `status: accepted`. Si la aplicación falla, la sugerencia
+  /// referencia, completando solo lo que la referencia todavía no tenía, o
+  /// crea la tarjeta de una de tarjeta, como de la persona y lista para
+  /// repasar— y marca `status: accepted`. Si la aplicación falla, la sugerencia
   /// queda `pending`, reintentable.
   Future<Either<Failure, Unit>> accept(String id);
 

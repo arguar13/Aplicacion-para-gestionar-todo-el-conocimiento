@@ -140,15 +140,16 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     );
   }
 
-  /// Lo que se revisa en «Para revisar» (F27). Ni los duplicados —tienen su
-  /// pantalla— ni las tarjetas, que nunca pasan por la cola de sugerencias.
-  /// Del Atlas, el lugar de un tema en el árbol y la madurez de una nota.
+  /// Lo que se revisa en «Para revisar» (F27). Los duplicados no —tienen su
+  /// pantalla—. Del Atlas, el lugar de un tema en el árbol y la madurez de
+  /// una nota; desde F30, las tarjetas de la IA cuya cita no se ubicó.
   static const _reviewable = [
     SuggestionKind.relation,
     SuggestionKind.property,
     SuggestionKind.metadata,
     SuggestionKind.topicParent,
     SuggestionKind.maturity,
+    SuggestionKind.flashcard,
   ];
 
   /// Lo que cuenta como «para revisar», igual para la lista y para el número:
@@ -481,6 +482,55 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, Suggestion>> createFlashcardSuggestion({
+    required String targetItemId,
+    required String front,
+    required String back,
+    String? quote,
+  }) async {
+    try {
+      final id = _ids.next();
+      final createdAt = _clock();
+      await _db
+          .into(_db.suggestions)
+          .insert(
+            SuggestionsCompanion.insert(
+              id: id,
+              kind: SuggestionKind.flashcard,
+              targetItemId: targetItemId,
+              payloadJson: jsonEncode({
+                _frontKey: front,
+                _backKey: back,
+                _quoteKey: ?quote,
+              }),
+              createdAt: createdAt,
+            ),
+          );
+      return right(
+        Suggestion.flashcard(
+          id: id,
+          targetItemId: targetItemId,
+          front: front,
+          back: back,
+          quote: quote,
+          status: SuggestionStatus.pending,
+          createdAt: createdAt,
+        ),
+      );
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.createFlashcardSuggestion',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> accept(String id) async {
     try {
       final row = await (_db.select(
@@ -501,10 +551,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         SuggestionKind.metadata => await _applyMetadata(row),
         SuggestionKind.topicParent => await _applyTopicParent(row),
         SuggestionKind.maturity => await _applyMaturity(row),
-        SuggestionKind.flashcard => throw StateError(
-          'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
-          'debería existir ninguna fila con este kind.',
-        ),
+        SuggestionKind.flashcard => await _applyFlashcard(row),
       };
       final failure = applied.getLeft().toNullable();
       if (failure != null) return left(failure);
@@ -817,6 +864,36 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     return right(unit);
   }
 
+  /// Crea la tarjeta que la IA propuso (F30), como de la persona —la aceptó
+  /// ella— y lista para repasar desde ya, como toda tarjeta nueva. Sin
+  /// fragmento de la fuente: su cita no se ubicó en el texto.
+  Future<Either<Failure, Unit>> _applyFlashcard(SuggestionRow row) async {
+    final suggestion = _toSuggestion(row) as FlashcardSuggestion;
+    final front = suggestion.front.trim();
+    final back = suggestion.back.trim();
+    if (front.isEmpty || back.isEmpty) {
+      return left(
+        const Failure.validation(
+          message: 'La pregunta y la respuesta no pueden quedar vacías.',
+        ),
+      );
+    }
+    final now = _clock();
+    await _db
+        .into(_db.flashcards)
+        .insert(
+          FlashcardsCompanion.insert(
+            id: _ids.next(),
+            itemId: row.targetItemId,
+            front: front,
+            back: back,
+            dueAt: now,
+            createdAt: now,
+          ),
+        );
+    return right(unit);
+  }
+
   @override
   Future<Either<Failure, Unit>> reject(String id) async {
     try {
@@ -1086,9 +1163,15 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       ),
       SuggestionKind.topicParent => topicParentSuggestionOf(row),
       SuggestionKind.maturity => maturitySuggestionOf(row),
-      SuggestionKind.flashcard => throw StateError(
-        'SuggestionKind.${row.kind.name} todavía no tiene generador; no '
-        'debería existir ninguna fila con este kind.',
+      SuggestionKind.flashcard => Suggestion.flashcard(
+        id: row.id,
+        targetItemId: row.targetItemId,
+        front: payload[_frontKey] as String,
+        back: payload[_backKey] as String,
+        quote: payload[_quoteKey] as String?,
+        confidence: row.confidence,
+        status: row.status,
+        createdAt: row.createdAt,
       ),
     };
   }
@@ -1105,6 +1188,11 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
 /// tenía la propiedad: la aceptación no puso nada, y deshacerla tampoco quita
 /// nada.
 const _alreadyHadKey = 'alreadyHad';
+
+/// El `payload_json` de una tarjeta para revisar (F30).
+const _frontKey = 'front';
+const _backKey = 'back';
+const _quoteKey = 'quote';
 
 class _BatchAborted implements Exception {
   const _BatchAborted(this.failure);

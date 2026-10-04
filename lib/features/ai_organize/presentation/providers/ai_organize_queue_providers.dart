@@ -101,6 +101,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
     AutoFlashcardsStep(
       generator: model,
       flashcards: ref.watch(flashcardRepositoryProvider),
+      suggestions: suggestions,
       runs: runs,
     ),
     // El Atlas, al final: trabaja con los temas que dejaron los de arriba.

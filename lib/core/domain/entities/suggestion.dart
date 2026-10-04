@@ -131,4 +131,23 @@ sealed class Suggestion with _$Suggestion {
     required DateTime createdAt,
     double? confidence,
   }) = MaturitySuggestion;
+
+  /// Una tarjeta de repaso que hizo la IA y cuya cita no se pudo ubicar en
+  /// el texto, ni textual ni parafraseada (`anchorQuote`, F30): puede ser
+  /// inventada. No entra sola al repaso —una tarjeta sin pasaje no se aplica
+  /// sola—, pero tampoco se pierde: espera en «Para revisar». Aceptarla la
+  /// crea como de la persona, sin fragmento de la fuente.
+  ///
+  /// [quote] es la cita que dio el modelo, si dio alguna: se muestra para
+  /// que la persona vea de dónde dice salir.
+  const factory Suggestion.flashcard({
+    required String id,
+    required String targetItemId,
+    required String front,
+    required String back,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    String? quote,
+    double? confidence,
+  }) = FlashcardSuggestion;
 }

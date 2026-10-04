@@ -167,6 +167,7 @@ void main() {
         AutoFlashcardsStep(
           generator: _OneCard(),
           flashcards: vault.flashcards,
+          suggestions: vault.suggestions,
           runs: vault.runs,
         ),
       ],

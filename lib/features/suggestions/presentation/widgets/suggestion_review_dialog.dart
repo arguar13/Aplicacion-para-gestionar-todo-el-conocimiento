@@ -108,6 +108,13 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
                 Icons.trending_up,
                 suggestion.to.color(Theme.of(context).colorScheme),
               ),
+              // Una tarjeta de la IA cuya cita no se ubicó (F30).
+              FlashcardSuggestion() => (
+                suggestion.front,
+                l10n.aiReviewFlashcardDetail(suggestion.back),
+                Icons.style_outlined,
+                null,
+              ),
               // Nunca deberían llegar hasta acá: un duplicado pide su propia
               // confirmación explícita —la pantalla "Posibles duplicados"
               // (D4, F7)— porque fusionar borra un elemento, y una sugerencia
