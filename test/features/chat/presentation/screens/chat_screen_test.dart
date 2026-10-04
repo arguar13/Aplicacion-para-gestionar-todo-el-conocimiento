@@ -297,6 +297,83 @@ void main() {
     });
   });
 
+  group('la respuesta mientras se escribe (F30)', () {
+    Future<StreamController<String>> sendLive(
+      WidgetTester tester,
+      String text,
+    ) async {
+      await pumpChat(tester, chatModelReady: true);
+      harness.chatModel.manualReplies = true;
+      await tester.tap(find.text(es.chatModeFree));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), text);
+      await tester.tap(find.byIcon(Icons.send));
+      await tester.pump();
+      await tester.pump();
+      return harness.chatModel.conversations.single.replies.single;
+    }
+
+    Finder growing(String text) => find.descendant(
+      of: find.byKey(const Key('chat-streaming-reply')),
+      matching: find.text(text),
+    );
+
+    testWidgets('se ve a medida que llega y queda guardada al terminar', (
+      tester,
+    ) async {
+      final reply = await sendLive(tester, 'Contame de Roma');
+
+      reply.add('Roma fue');
+      await tester.pump();
+      expect(growing('Roma fue'), findsOneWidget);
+
+      reply.add('Roma fue una república.');
+      await tester.pump();
+      expect(growing('Roma fue una república.'), findsOneWidget);
+
+      await reply.close();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('chat-streaming-reply')), findsNothing);
+      expect(find.text('Roma fue una república.'), findsOneWidget);
+      expect(find.byIcon(Icons.send), findsOneWidget);
+    });
+
+    testWidgets('detenerla corta al modelo y guarda lo que alcanzó a '
+        'escribir', (tester) async {
+      final reply = await sendLive(tester, 'Contame de Roma');
+      reply.add('Roma fue');
+      await tester.pump();
+
+      await tester.tap(find.byTooltip(es.chatStopTooltip));
+      await tester.pumpAndSettle();
+
+      expect(reply.hasListener, isFalse);
+      expect(find.text('Roma fue'), findsOneWidget);
+      expect(find.byKey(const Key('chat-streaming-reply')), findsNothing);
+      expect(find.byTooltip(es.chatStopTooltip), findsNothing);
+    });
+
+    testWidgets('detenerla antes de que escriba nada lo dice', (tester) async {
+      await sendLive(tester, 'Hola');
+
+      await tester.tap(find.byTooltip(es.chatStopTooltip));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.chatReplyStoppedEmpty), findsOneWidget);
+    });
+
+    testWidgets('un error a mitad deja lo escrito y avisa', (tester) async {
+      final reply = await sendLive(tester, 'Contame de Roma');
+      reply
+        ..add('Roma fue')
+        ..addError(StateError('falla del motor'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Roma fue'), findsOneWidget);
+      expect(find.text(es.chatReplyInterrupted), findsOneWidget);
+    });
+  });
+
   group('adjuntos', () {
     Future<void> openAttachMenu(WidgetTester tester) async {
       await tester.tap(find.byIcon(Icons.attach_file));

@@ -295,18 +295,25 @@ class GemmaChatModel
   ///
   /// [engine] es el modelo cargado, compartido con [background]; [meter],
   /// dónde queda lo que tardó cada respuesta (F30).
+  ///
+  /// [countTokens] cuenta con el tokenizador del modelo lo que ocupa un texto
+  /// en la ventana de una charla.
   GemmaChatModel({
     required LanguageModelGate gate,
     required GemmaEngine engine,
     required LanguageModelMeter meter,
-  }) : this._(gate, engine, meter, inBackground: false);
+    GemmaTokenCounter countTokens = countGemmaTokens,
+  }) : this._(gate, engine, meter, countTokens, inBackground: false);
 
   GemmaChatModel._(
     this._gate,
     this._engine,
-    this._meter, {
+    this._meter,
+    this._countTokens, {
     required bool inBackground,
   }) : _inBackground = inBackground;
+
+  final GemmaTokenCounter _countTokens;
 
   final LanguageModelGate _gate;
 
@@ -322,7 +329,13 @@ class GemmaChatModel
   /// reciben los pasos de la IA que organiza sola; nunca la interfaz.
   late final GemmaChatModel background = _inBackground
       ? this
-      : GemmaChatModel._(_gate, _engine, _meter, inBackground: true);
+      : GemmaChatModel._(
+          _gate,
+          _engine,
+          _meter,
+          _countTokens,
+          inBackground: true,
+        );
 
   /// Corre [work] con el modelo cargado, en el turno que le toca a esta
   /// instancia. Todo método que abre una sesión pasa por acá: dos sesiones a
@@ -373,15 +386,26 @@ class GemmaChatModel
   /// abrirla, y mientras esté en uso, la cola de la IA no usa el modelo
   /// (F27): le cerraría la sesión a la charla. Si abrirla falla, el modelo se
   /// suelta.
+  ///
+  /// La sesión lleva su propia cuenta de la ventana (F30, ver
+  /// `GemmaChatSession`): por eso `tokenBuffer: 0`, que apaga el recorte de
+  /// `flutter_gemma` —cuenta solo lo que escribe el modelo y, al pasarse,
+  /// junta todo lo conversado en un solo mensaje—.
   Future<GemmaChatSession> _openConversation(String systemInstruction) async {
     final session = GemmaChatSession(
       _gate,
       () async => (await _engine.model()).createChat(
         systemInstruction: systemInstruction,
         maxOutputTokens: kChatReplyTokens,
+        tokenBuffer: 0,
       ),
       reply: (chat) =>
-          collectReply(chat, meter: _meter, kind: LanguageModelReplyKind.chat),
+          measuredReply(chat, meter: _meter, kind: LanguageModelReplyKind.chat),
+      clean: cleanReply,
+      instruction: systemInstruction,
+      window: _engine.contextTokens,
+      replyTokens: kChatReplyTokens,
+      countTokens: _countTokens,
     );
     await session.openFirst();
     return session;
@@ -710,7 +734,7 @@ class _GemmaFreeConversation implements FreeConversation {
   final GemmaChatSession _session;
 
   @override
-  Future<String> send(String message, {List<Uint8List> images = const []}) =>
+  ChatReplyStream send(String message, {List<Uint8List> images = const []}) =>
       _session.send(prompt: message, said: message, images: images);
 
   @override
@@ -729,7 +753,7 @@ class _GemmaVaultConversation implements VaultConversation {
   final GemmaChatSession _session;
 
   @override
-  Future<String> send({
+  ChatReplyStream send({
     required String message,
     required List<ChatSource> sources,
     List<Uint8List> images = const [],

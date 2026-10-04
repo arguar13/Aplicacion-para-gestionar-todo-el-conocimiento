@@ -7193,5 +7193,21 @@
   "chatModelPerformanceRateUnknown": "too little text to measure the speed",
   "@chatModelPerformanceRateUnknown": {
     "description": "Cuando la respuesta fue demasiado corta para medir la velocidad."
+  },
+  "chatStopTooltip": "Stop the answer",
+  "@chatStopTooltip": {
+    "description": "Botón que corta la respuesta que el modelo está escribiendo (F30)."
+  },
+  "chatReplyStoppedEmpty": "You stopped the answer before it started.",
+  "@chatReplyStoppedEmpty": {
+    "description": "Cuando la persona corta la respuesta antes de que el modelo escriba nada."
+  },
+  "chatReplyInterrupted": "The answer was cut off by an error. This is what it managed to write.",
+  "@chatReplyInterrupted": {
+    "description": "Cuando el modelo falla a mitad de una respuesta: se muestra lo escrito hasta ahí."
+  },
+  "chatMessageTooLong": "The message is too long for the model. Try less text or a shorter document.",
+  "@chatMessageTooLong": {
+    "description": "Cuando el mensaje no entra en lo que el modelo puede leer de una vez."
   }
 }

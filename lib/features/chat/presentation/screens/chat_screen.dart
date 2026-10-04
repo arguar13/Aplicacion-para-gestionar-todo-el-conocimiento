@@ -110,6 +110,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// Lo mismo, para el modo con la bóveda.
   VaultConversation? _vaultConversation;
 
+  /// La respuesta que el modelo está escribiendo, para mostrarla mientras
+  /// llega (F30); `null` si no hay ninguna o todavía no escribió nada.
+  final _streamingText = ValueNotifier<String?>(null);
+
+  /// En qué conversación se está escribiendo la respuesta: la burbuja que
+  /// crece se muestra solo ahí, no en la del otro modo.
+  String? _askingConversationId;
+
+  /// Corta la respuesta que se está escribiendo; `null` si no hay ninguna.
+  Future<void> Function()? _stopReply;
+
   String? get _currentConversationId => switch (_mode) {
     ChatConversationMode.vault => _vaultConversationId,
     ChatConversationMode.free => _freeConversationId,
@@ -129,7 +140,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     _gate = ref.read(languageModelGateProvider);
     _lifecycle = AppLifecycleListener(onStateChange: (_) => _tellPresence());
+    _streamingText.addListener(_followStreaming);
     _refreshModelStatus();
+  }
+
+  /// Mientras la respuesta crece, la lista la sigue —si se estaba mirando el
+  /// final—: quien subió a releer algo no es arrastrado hacia abajo.
+  void _followStreaming() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (position.maxScrollExtent - position.pixels > 120) return;
+      _scrollController.jumpTo(position.maxScrollExtent);
+    });
   }
 
   @override
@@ -160,6 +183,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _routeVisible?.removeListener(_tellPresence);
     _lifecycle.dispose();
     _gate.chatVisible = false;
+    // Salir corta la respuesta en curso: lo escrito hasta ahí se guarda.
+    unawaited(_stopReply?.call());
+    _streamingText
+      ..removeListener(_followStreaming)
+      ..dispose();
     _controller.dispose();
     _scrollController.dispose();
     unawaited(_conversation?.close());
@@ -190,6 +218,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// mismo criterio que [_newConversation].
   void _selectNotebook(String? notebookId) {
     if (notebookId == _notebookId) return;
+    unawaited(_stopReply?.call());
     if (_vaultConversationId != null) {
       unawaited(_vaultConversation?.close());
       setState(() {
@@ -206,6 +235,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// vacía, sin borrar ninguna de las guardadas: la próxima vez que se
   /// mande un mensaje, se crea una fila nueva en el historial.
   void _newConversation() {
+    unawaited(_stopReply?.call());
     switch (_mode) {
       case ChatConversationMode.free:
         unawaited(_conversation?.close());
@@ -223,6 +253,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _openConversation(ChatConversation conversation) {
+    unawaited(_stopReply?.call());
     switch (conversation.mode) {
       case ChatConversationMode.free:
         unawaited(_conversation?.close());
@@ -248,6 +279,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .deleteConversation(conversation.id);
     if (!mounted) return;
     if (conversation.id == _currentConversationId) {
+      unawaited(_stopReply?.call());
       switch (conversation.mode) {
         case ChatConversationMode.free:
           unawaited(_conversation?.close());
@@ -298,7 +330,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// bytes**, no por cuál de las dos opciones del menú se tocó: los dos
   /// caminos abren el mismo selector sin filtrar —igual que
   /// `SystemFileChooser`, que tampoco confía en la extensión— y es
-  /// [FileFormat.sourceKind] quien decide si es una imagen o un documento.
+  /// `FileFormat.sourceKind` quien decide si es una imagen o un documento.
   Future<void> _addAttachment() async {
     final l10n = AppLocalizations.of(context)!;
 
@@ -435,6 +467,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       conversationId = conversation.id;
       _setConversationId(mode, conversationId);
     }
+    _askingConversationId = conversationId;
 
     await repo.addMessage(
       PersistedChatMessage(
@@ -474,10 +507,73 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
     };
 
+    // Se guarda aunque se haya salido de la pantalla a mitad: lo que el
+    // modelo alcanzó a escribir no se pierde.
     await repo.addMessage(answer);
     if (!mounted) return;
-    setState(() => _asking = false);
+    _streamingText.value = null;
+    setState(() {
+      _asking = false;
+      _askingConversationId = null;
+    });
     _scrollToEnd();
+  }
+
+  /// Sigue la respuesta que el modelo va escribiendo (F30): la muestra
+  /// mientras crece y la deja cortar con [_stopReply]. Termina con todo lo
+  /// escrito, cómo terminó y, si falló, por qué.
+  Future<_Reply> _follow(ChatReplyStream replies) {
+    final done = Completer<_Reply>();
+    var text = '';
+    late final StreamSubscription<String> subscription;
+    subscription = replies.listen(
+      (latest) {
+        text = latest;
+        if (mounted) _streamingText.value = latest;
+      },
+      onError: (Object error) {
+        if (!done.isCompleted) done.complete((text: text, error: error));
+      },
+      onDone: () {
+        if (!done.isCompleted) done.complete((text: text, error: null));
+      },
+      cancelOnError: true,
+    );
+    _stopReply = () async {
+      if (done.isCompleted) return;
+      done.complete((text: text, error: const _Stopped()));
+      await subscription.cancel();
+    };
+    if (mounted) setState(() {});
+    return done.future.whenComplete(() => _stopReply = null);
+  }
+
+  /// El mensaje del modelo que se guarda con [reply]: el texto que alcanzó a
+  /// escribir y, si no terminó bien, por qué.
+  PersistedChatMessage _replyMessage(
+    _Reply reply, {
+    required String id,
+    required String conversationId,
+    required DateTime Function() clock,
+    required AppLocalizations l10n,
+    List<ChatSource> sources = const [],
+  }) {
+    final written = reply.text.trim().isNotEmpty;
+    final error = switch (reply.error) {
+      null => null,
+      _Stopped() => written ? null : l10n.chatReplyStoppedEmpty,
+      ChatMessageTooLongException() => l10n.chatMessageTooLong,
+      _ => written ? l10n.chatReplyInterrupted : l10n.globalErrorUnexpected,
+    };
+    return PersistedChatMessage(
+      id: id,
+      conversationId: conversationId,
+      isUser: false,
+      text: written ? reply.text.trim() : '',
+      sources: written ? sources : const [],
+      createdAt: clock(),
+      error: error,
+    );
   }
 
   void _setConversationId(ChatConversationMode mode, String id) {
@@ -578,36 +674,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           .read(vaultRetrieverProvider)
           .retrieve(query, scopeIds: scopeIds);
 
-      var conversation = _vaultConversation;
-      conversation ??= await ref
+      final conversation = _vaultConversation ??= await ref
           .read(chatModelProvider)
           .startVaultConversation();
-      _vaultConversation = conversation;
 
-      final text = await conversation.send(
-        message: promptText,
-        sources: sources,
-        images: images,
+      final reply = await _follow(
+        conversation.send(
+          message: promptText,
+          sources: sources,
+          images: images,
+        ),
       );
-      return PersistedChatMessage(
+      return _replyMessage(
+        reply,
         id: id,
         conversationId: conversationId,
-        isUser: false,
-        text: text,
+        clock: clock,
+        l10n: l10n,
         sources: sources,
-        createdAt: clock(),
       );
       // El motor de inferencia es de terceros (flutter_gemma); puede fallar
       // de formas que no tienen un tipo propio en Dart.
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
-      return PersistedChatMessage(
+      return _replyMessage(
+        (text: '', error: e),
         id: id,
         conversationId: conversationId,
-        isUser: false,
-        text: '',
-        createdAt: clock(),
-        error: l10n.globalErrorUnexpected,
+        clock: clock,
+        l10n: l10n,
       );
     }
   }
@@ -634,29 +729,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     try {
-      var conversation = _conversation;
-      conversation ??= await ref.read(chatModelProvider).startConversation();
-      _conversation = conversation;
+      final conversation = _conversation ??= await ref
+          .read(chatModelProvider)
+          .startConversation();
 
-      final answer = await conversation.send(promptText, images: images);
-      return PersistedChatMessage(
+      final reply = await _follow(
+        conversation.send(promptText, images: images),
+      );
+      return _replyMessage(
+        reply,
         id: id,
         conversationId: conversationId,
-        isUser: false,
-        text: answer,
-        createdAt: clock(),
+        clock: clock,
+        l10n: l10n,
       );
       // El motor de inferencia es de terceros (flutter_gemma); puede fallar
       // de formas que no tienen un tipo propio en Dart.
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
-      return PersistedChatMessage(
+      return _replyMessage(
+        (text: '', error: e),
         id: id,
         conversationId: conversationId,
-        isUser: false,
-        text: '',
-        createdAt: clock(),
-        error: l10n.globalErrorUnexpected,
+        clock: clock,
+        l10n: l10n,
       );
     }
   }
@@ -768,7 +864,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   : _MessagesList(
                       conversationId: conversationId,
                       mode: _mode,
-                      asking: _asking,
+                      asking:
+                          _asking && _askingConversationId == conversationId,
+                      streaming: _streamingText,
                       scrollController: _scrollController,
                     ),
             ),
@@ -785,6 +883,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 enabled: !_asking,
                 attaching: _attaching,
                 onSend: _send,
+                onStop: _stopReply == null
+                    ? null
+                    : () => unawaited(_stopReply?.call()),
                 onAttach: _attaching ? null : _pickAttachmentKind,
               ),
             ),
@@ -1051,12 +1152,18 @@ class _MessagesList extends ConsumerWidget {
     required this.conversationId,
     required this.mode,
     required this.asking,
+    required this.streaming,
     required this.scrollController,
   });
 
   final String conversationId;
   final ChatConversationMode mode;
+
+  /// Si en esta conversación se está esperando una respuesta.
   final bool asking;
+
+  /// La respuesta mientras se escribe (F30).
+  final ValueListenable<String?> streaming;
   final ScrollController scrollController;
 
   @override
@@ -1096,7 +1203,14 @@ class _MessagesList extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             itemCount: messages.length + (asking ? 1 : 0),
             itemBuilder: (context, index) {
-              if (index >= messages.length) return const _TypingBubble();
+              if (index >= messages.length) {
+                return ValueListenableBuilder<String?>(
+                  valueListenable: streaming,
+                  builder: (context, text, _) => text == null || text.isEmpty
+                      ? const _TypingBubble()
+                      : _StreamingBubble(text: text),
+                );
+              }
               return _MessageBubble(message: messages[index]);
             },
           ),
@@ -1167,6 +1281,26 @@ class _TypingBubble extends StatelessWidget {
   }
 }
 
+/// La respuesta mientras el modelo la escribe (F30): crece palabra por
+/// palabra. Las fuentes aparecen al terminar, con el mensaje guardado.
+class _StreamingBubble extends StatelessWidget {
+  const _StreamingBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const Key('chat-streaming-reply'),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
+      ),
+    );
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({required this.message});
 
@@ -1229,19 +1363,25 @@ class _MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (error != null)
-            Text(error, style: TextStyle(color: theme.colorScheme.error))
-          else if (message.text.isNotEmpty) ...[
+          if (message.text.isNotEmpty) ...[
             ReadAloudText(
               message.text,
               sourceKey: _messageKey(message.id),
               style: theme.textTheme.bodyLarge,
             ),
+            // Lo que alcanzó a escribir antes de un error se muestra igual,
+            // con el aviso debajo (F30).
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(error, style: TextStyle(color: theme.colorScheme.error)),
+            ],
             if (message.sources.isNotEmpty) ...[
               const SizedBox(height: 12),
               for (final source in message.sources) _SourceCard(source: source),
             ],
-          ] else if (message.sources.isNotEmpty) ...[
+          ] else if (error != null)
+            Text(error, style: TextStyle(color: theme.colorScheme.error))
+          else if (message.sources.isNotEmpty) ...[
             Text(
               l10n.chatSourcesOnlyExplanation,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1429,6 +1569,7 @@ class _Composer extends StatelessWidget {
     required this.enabled,
     required this.attaching,
     required this.onSend,
+    required this.onStop,
     required this.onAttach,
   });
 
@@ -1436,6 +1577,10 @@ class _Composer extends StatelessWidget {
   final bool enabled;
   final bool attaching;
   final VoidCallback onSend;
+
+  /// Corta la respuesta que se está escribiendo; `null` si no hay ninguna.
+  /// Mientras haya una, el botón de enviar es el de detener (F30).
+  final VoidCallback? onStop;
   final VoidCallback? onAttach;
 
   @override
@@ -1467,12 +1612,28 @@ class _Composer extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          IconButton.filled(
-            icon: const Icon(Icons.send),
-            onPressed: enabled ? onSend : null,
-          ),
+          if (onStop case final stop?)
+            IconButton.filledTonal(
+              icon: const Icon(Icons.stop),
+              tooltip: l10n.chatStopTooltip,
+              onPressed: stop,
+            )
+          else
+            IconButton.filled(
+              icon: const Icon(Icons.send),
+              onPressed: enabled ? onSend : null,
+            ),
         ],
       ),
     );
   }
+}
+
+/// Cómo terminó una respuesta: todo lo que el modelo alcanzó a escribir y,
+/// si no terminó sola, por qué —un error, o [_Stopped]—.
+typedef _Reply = ({String text, Object? error});
+
+/// La persona cortó la respuesta.
+class _Stopped {
+  const _Stopped();
 }

@@ -30,6 +30,7 @@ void main() {
         load: (_) async => model,
       ),
       meter: meter,
+      countTokens: (_, text) async => (text.length / 4).ceil(),
     );
   });
 
