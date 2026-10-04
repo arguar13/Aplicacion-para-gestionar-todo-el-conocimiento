@@ -1,4 +1,5 @@
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:sinapsis/features/chat/data/services/language_model_backend_store.dart';
 import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
@@ -56,15 +57,25 @@ Future<InferenceModel> loadActiveGemma(GemmaLoadRequest request) =>
 /// Mide cada carga (F30): cuánto tardó y en qué parte del teléfono quedó
 /// corriendo —`flutter_gemma` prueba la GPU y, si no arranca, cae a la CPU
 /// sin avisar—.
+///
+/// **Dónde corre** (F30): donde diga la elección recordada ([backends]) —la
+/// que se midió más rápida, ver `LanguageModelBenchmark`—; sin elección, en
+/// la GPU. Si se pide la GPU y no arranca, se recuerda que en este teléfono
+/// va la CPU, para no volver a esperar el intento fallido en cada carga.
 class GemmaEngine {
   GemmaEngine({
     required Future<bool> Function() ensureReady,
     required LanguageModelMeter meter,
     GemmaModelLoader load = loadActiveGemma,
+    this.backends,
     this.contextTokens = kGemmaContextTokens,
   }) : _ensureReady = ensureReady,
        _meter = meter,
        _load = load;
+
+  /// Dónde se recuerda en qué parte del teléfono correr; `null`, siempre la
+  /// GPU sin recordar nada.
+  final LanguageModelBackendStore? backends;
 
   /// `ChatModelManager.isReady` del modelo elegido: lo registra si su archivo
   /// está entero —`flutter_gemma` no lo recuerda al reabrir la app—.
@@ -117,12 +128,51 @@ class GemmaEngine {
   }
 
   Future<InferenceModel> _loadWith({required bool vision}) async {
-    final request = GemmaLoadRequest(maxTokens: contextTokens, vision: vision);
+    final choice = backends?.choice;
+    final model = await _loadRequest(
+      GemmaLoadRequest(
+        maxTokens: contextTokens,
+        backend: _preferredOf(choice?.backend ?? LanguageModelBackend.gpu),
+        vision: vision,
+        speculativeDecoding: choice?.speculative,
+      ),
+    );
+    if (choice?.backend != LanguageModelBackend.cpu &&
+        model.activeBackend == PreferredBackend.cpu) {
+      await backends?.saveChoice(
+        const LanguageModelBackendChoice(
+          backend: LanguageModelBackend.cpu,
+          reason: LanguageModelBackendReason.gpuFailed,
+        ),
+      );
+    }
+    return model;
+  }
+
+  /// Carga el modelo de una forma dada —para medirla, ver
+  /// `LanguageModelBenchmark`—, sin mirar ni tocar la elección recordada.
+  /// Suelta antes el que hubiera. Dentro de un turno.
+  Future<InferenceModel> loadToMeasure({
+    required LanguageModelBackend backend,
+    bool? speculative,
+  }) async {
+    await release();
+    if (!await _ensureReady()) throw const ChatModelNotReadyException();
+    return _loadRequest(
+      GemmaLoadRequest(
+        maxTokens: contextTokens,
+        backend: _preferredOf(backend),
+        speculativeDecoding: speculative,
+      ),
+    );
+  }
+
+  Future<InferenceModel> _loadRequest(GemmaLoadRequest request) async {
     final watch = Stopwatch()..start();
     final model = await _load(request);
     watch.stop();
     _model = model;
-    _vision = vision;
+    _vision = request.vision;
     _loads++;
     _meter.recordLoad(
       LanguageModelLoad(
@@ -145,6 +195,13 @@ class GemmaEngine {
     await model.close();
   }
 }
+
+PreferredBackend _preferredOf(LanguageModelBackend backend) =>
+    switch (backend) {
+      LanguageModelBackend.gpu => PreferredBackend.gpu,
+      LanguageModelBackend.cpu => PreferredBackend.cpu,
+      LanguageModelBackend.npu => PreferredBackend.npu,
+    };
 
 LanguageModelBackend? _backendOf(PreferredBackend? backend) =>
     switch (backend) {

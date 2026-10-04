@@ -7217,5 +7217,75 @@
   "chatImagesUnsupported": "The model couldn't look at the photo on this phone, so it didn't answer. Send the message without the photo, or describe it in words.",
   "@chatImagesUnsupported": {
     "description": "Cuando el modelo no puede cargar la parte que mira imágenes: la foto no se descarta en silencio."
+  },
+  "chatModelBackendDefault": "It uses the GPU if it starts; otherwise, the CPU.",
+  "@chatModelBackendDefault": {
+    "description": "Dónde corre el modelo cuando todavía no se midió nada (F30)."
+  },
+  "chatModelBackendGpuFailed": "It uses the CPU: the GPU didn't start on this phone.",
+  "@chatModelBackendGpuFailed": {
+    "description": "Dónde corre el modelo cuando la GPU no arrancó y quedó recordada la CPU."
+  },
+  "chatModelBackendMeasured": "It uses the {backend}: it was the fastest when measured.",
+  "@chatModelBackendMeasured": {
+    "description": "Dónde corre el modelo después de medir GPU y CPU.",
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelBenchmarkAction": "Measure GPU and CPU",
+  "@chatModelBenchmarkAction": {
+    "description": "Botón que prueba el modelo en la GPU y en la CPU y se queda con la más rápida."
+  },
+  "chatModelBenchmarkExplanation": "It loads the model each way and asks it for the same paragraph: it takes a minute or two. Then it uses the fastest.",
+  "@chatModelBenchmarkExplanation": {
+    "description": "Explicación debajo del botón de medir GPU y CPU."
+  },
+  "chatModelBenchmarkRunning": "Measuring… ({step} of {total})",
+  "@chatModelBenchmarkRunning": {
+    "description": "Avance de la medición de GPU y CPU.",
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelBenchmarkResult": "{label}: {rate} tokens per second, first word after {first} s.",
+  "@chatModelBenchmarkResult": {
+    "description": "Resultado de medir una forma de cargar el modelo.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "rate": {
+        "type": "String"
+      },
+      "first": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelBenchmarkFailed": "{label}: didn't start.",
+  "@chatModelBenchmarkFailed": {
+    "description": "Una forma de cargar el modelo que no anduvo al medir.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelBenchmarkSpeculative": "{backend} with speculative decoding",
+  "@chatModelBenchmarkSpeculative": {
+    "description": "Nombre de la forma de cargar el modelo con la decodificación especulativa prendida.",
+    "placeholders": {
+      "backend": {
+        "type": "String"
+      }
+    }
   }
 }

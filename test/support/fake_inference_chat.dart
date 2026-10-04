@@ -17,6 +17,7 @@ class FakeInferenceChat extends Fake implements InferenceChat {
     this.gated = false,
     this.tokensPerPiece = 1,
     this.failAfter,
+    this.pieceDelay = Duration.zero,
   });
 
   final int id;
@@ -32,6 +33,9 @@ class FakeInferenceChat extends Fake implements InferenceChat {
 
   /// Si está, el motor falla después de dar estos pedazos.
   final int? failAfter;
+
+  /// Cuánto tarda en escribir cada pedazo.
+  final Duration pieceDelay;
 
   /// Lo que se le mandó, en orden: un texto por pedido.
   final received = <String>[];
@@ -89,6 +93,7 @@ class FakeInferenceChat extends Fake implements InferenceChat {
       var given = 0;
       for (final piece in pieces) {
         if (gated) await _pieces.moveNext();
+        if (pieceDelay > Duration.zero) await Future<void>.delayed(pieceDelay);
         if (_stopped || closed) break;
         if (given == failAfter) throw StateError('falla del motor');
         _tokens += tokensPerPiece;

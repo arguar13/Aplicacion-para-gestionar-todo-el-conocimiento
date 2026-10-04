@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:sinapsis/core/design/selection_menu.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/network/model_download_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/chat/data/services/language_model_benchmark.dart';
 import 'package:sinapsis/features/chat/domain/entities/chat_model_option.dart';
 import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
@@ -458,18 +460,59 @@ class _ReadyView extends StatelessWidget {
 
 /// Lo medido del modelo en esta sesión (F30): cuánto tardó en cargar, si
 /// corre en la GPU o cayó a la CPU, y qué tan rápido escribió la última
-/// respuesta. Discreto, para la prueba en el teléfono de verdad.
-class _PerformancePanel extends ConsumerWidget {
+/// respuesta. Discreto, para la prueba en el teléfono de verdad. Y medir la
+/// GPU y la CPU para quedarse con la más rápida.
+class _PerformancePanel extends ConsumerStatefulWidget {
   const _PerformancePanel();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PerformancePanel> createState() => _PerformancePanelState();
+}
+
+class _PerformancePanelState extends ConsumerState<_PerformancePanel> {
+  /// Cuántas formas van probadas, mientras se mide; `null` si no se mide.
+  int? _measuring;
+  var _failed = false;
+
+  Future<void> _measure() async {
+    setState(() {
+      _measuring = 0;
+      _failed = false;
+    });
+    try {
+      await ref
+          .read(languageModelBenchmarkProvider)
+          .run(
+            progress: (done) {
+              if (mounted) setState(() => _measuring = done);
+            },
+          );
+      // El motor es de terceros y falla de formas sin un tipo propio: se
+      // registra y se dice.
+    } on Object catch (error, stackTrace) {
+      ref
+          .read(telemetryServiceProvider)
+          .recordError(
+            error,
+            stackTrace,
+            hint: 'ChatModelScreen: medir GPU y CPU',
+          );
+      if (mounted) setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _measuring = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final small = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
     final number = NumberFormat('0.0', l10n.localeName);
+    final store = ref.watch(languageModelBackendStoreProvider);
+    final measuring = _measuring;
 
     return ValueListenableBuilder<LanguageModelPerformance>(
       valueListenable: ref.watch(languageModelMeterProvider).performance,
@@ -507,10 +550,80 @@ class _PerformancePanel extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(line, style: small),
                 ),
+            const SizedBox(height: 8),
+            Text(_choiceLine(l10n, store.choice), style: small),
+            for (final result in store.results)
+              Text(_resultLine(l10n, number, result), style: small),
+            const SizedBox(height: 8),
+            if (measuring != null) ...[
+              LinearProgressIndicator(
+                value: measuring / LanguageModelBenchmark.steps,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.chatModelBenchmarkRunning(
+                  '${(measuring + 1).clamp(1, LanguageModelBenchmark.steps)}',
+                  '${LanguageModelBenchmark.steps}',
+                ),
+                style: small,
+              ),
+            ] else ...[
+              Text(l10n.chatModelBenchmarkExplanation, style: small),
+              if (_failed)
+                Text(
+                  l10n.globalErrorUnexpected,
+                  style: small?.copyWith(color: theme.colorScheme.error),
+                ),
+              TextButton.icon(
+                icon: const Icon(Icons.speed),
+                label: Text(l10n.chatModelBenchmarkAction),
+                onPressed: () => unawaited(_measure()),
+              ),
+            ],
           ],
         );
       },
     );
+  }
+
+  static String _choiceLine(
+    AppLocalizations l10n,
+    LanguageModelBackendChoice? choice,
+  ) => switch (choice) {
+    null => l10n.chatModelBackendDefault,
+    LanguageModelBackendChoice(reason: LanguageModelBackendReason.gpuFailed) =>
+      l10n.chatModelBackendGpuFailed,
+    LanguageModelBackendChoice(:final backend, :final speculative) =>
+      l10n.chatModelBackendMeasured(_label(l10n, backend, speculative)),
+  };
+
+  static String _resultLine(
+    AppLocalizations l10n,
+    NumberFormat number,
+    LanguageModelBenchmarkResult result,
+  ) {
+    final label = _label(l10n, result.backend, result.speculative);
+    final reply = result.reply;
+    final first = reply?.firstToken;
+    if (reply == null || first == null) {
+      return l10n.chatModelBenchmarkFailed(label);
+    }
+    return l10n.chatModelBenchmarkResult(
+      label,
+      number.format(result.speed),
+      number.format(_seconds(first)),
+    );
+  }
+
+  static String _label(
+    AppLocalizations l10n,
+    LanguageModelBackend backend,
+    bool? speculative,
+  ) {
+    final name = backend.name.toUpperCase();
+    return speculative ?? false
+        ? l10n.chatModelBenchmarkSpeculative(name)
+        : name;
   }
 
   static String? _loadLine(

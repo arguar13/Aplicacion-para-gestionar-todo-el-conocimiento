@@ -1,17 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart' show PreferredBackend;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_inference_chat.dart';
+import '../../../../support/fake_inference_model.dart';
 import '../../../../support/library_harness.dart';
 
 /// Cuánto pesa esta pantalla: elegir entre las dos opciones de modelo, y
@@ -271,6 +275,61 @@ void main() {
           es.chatModelPerformanceRate('6,0', '10,0'),
         ),
       ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('«Medir GPU y CPU» prueba cada forma, muestra lo medido y '
+      'dice cuál queda (F30)', (tester) async {
+    harness = await LibraryHarness.create(
+      chatModelReady: true,
+      extraOverrides: [
+        gemmaEngineProvider.overrideWith(
+          (ref) => GemmaEngine(
+            ensureReady: () async => true,
+            meter: ref.watch(languageModelMeterProvider),
+            backends: ref.watch(languageModelBackendStoreProvider),
+            load: (request) async => FakeInferenceModel(
+              activeBackend: request.backend,
+              newChat: (n) => FakeInferenceChat(
+                id: n,
+                tokensPerPiece: request.backend == PreferredBackend.cpu
+                    ? 1
+                    : 10,
+                answer: (_, _) => ['Uno ', 'dos ', 'tres.'],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(harness.wrapWithAppRouter());
+    await tester.pumpAndSettle();
+    harness.pushTo(RoutePaths.chatModel);
+    await tester.pumpAndSettle();
+    expect(find.text(es.chatModelBackendDefault), findsOneWidget);
+
+    final measure = find.text(es.chatModelBenchmarkAction);
+    await tester.scrollUntilVisible(
+      measure,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.runAsync(() async {
+      await tester.tap(measure);
+      await tester.pump();
+      while (find.byType(LinearProgressIndicator).evaluate().isNotEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await tester.pump();
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('GPU:'), findsWidgets);
+    expect(find.textContaining('CPU:'), findsOneWidget);
+    expect(find.text(es.chatModelBackendDefault), findsNothing);
+    expect(
+      find.textContaining(es.chatModelBackendMeasured('').split(':').first),
       findsOneWidget,
     );
   });

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
+import 'package:sinapsis/core/design/theme_mode_notifier.dart'
+    show sharedPreferencesProvider;
 import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
@@ -17,6 +19,8 @@ import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
+import 'package:sinapsis/features/chat/data/services/language_model_backend_store.dart';
+import 'package:sinapsis/features/chat/data/services/language_model_benchmark.dart';
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
@@ -102,6 +106,25 @@ final gemmaEngineProvider = Provider<GemmaEngine>(
     // descartar el modelo ya cargado de la sesión.
     ensureReady: () => ref.read(chatModelManagerProvider).isReady(),
     meter: ref.watch(languageModelMeterProvider),
+    backends: ref.watch(languageModelBackendStoreProvider),
+  ),
+);
+
+/// En qué parte del teléfono correr el modelo, y lo medido para elegirlo
+/// (F30): uno por modelo elegido.
+final languageModelBackendStoreProvider = Provider<LanguageModelBackendStore>(
+  (ref) => LanguageModelBackendStore(
+    preferences: ref.watch(sharedPreferencesProvider),
+    modelKey: () => ref.read(chatModelOptionNotifierProvider).name,
+  ),
+);
+
+/// Medir GPU y CPU en este teléfono y elegir la más rápida (F30).
+final languageModelBenchmarkProvider = Provider<LanguageModelBenchmark>(
+  (ref) => LanguageModelBenchmark(
+    gate: ref.watch(languageModelGateProvider),
+    engine: ref.watch(gemmaEngineProvider),
+    store: ref.watch(languageModelBackendStoreProvider),
   ),
 );
 

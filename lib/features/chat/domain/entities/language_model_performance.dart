@@ -130,3 +130,60 @@ class LanguageModelPerformance {
         ),
       };
 }
+
+/// Por qué el modelo corre donde corre (F30).
+enum LanguageModelBackendReason {
+  /// Se midió cuál es más rápida en este teléfono.
+  measured,
+
+  /// Se pidió la GPU y no arrancó: la CPU es lo único que anda.
+  gpuFailed,
+}
+
+/// Dónde se carga el modelo de lenguaje en este teléfono, recordado entre
+/// aperturas de la app (F30). Sin elección, se pide la GPU —y si no
+/// arranca, queda la CPU y se recuerda eso—.
+class LanguageModelBackendChoice {
+  const LanguageModelBackendChoice({
+    required this.backend,
+    required this.reason,
+    this.speculative,
+  });
+
+  final LanguageModelBackend backend;
+
+  /// La decodificación especulativa: `true` o `false` si se eligió al
+  /// medir; `null`, lo que traiga el modelo.
+  final bool? speculative;
+
+  final LanguageModelBackendReason reason;
+}
+
+/// Una de las formas de cargar el modelo que se probaron al medir (F30), y
+/// cómo le fue.
+class LanguageModelBenchmarkResult {
+  const LanguageModelBenchmarkResult({
+    required this.backend,
+    this.speculative,
+    this.reply,
+    this.failure,
+  });
+
+  final LanguageModelBackend backend;
+
+  /// Si se probó con la decodificación especulativa prendida; `null`, lo
+  /// que traiga el modelo.
+  final bool? speculative;
+
+  /// Lo medido; `null` si no arrancó.
+  final LanguageModelReply? reply;
+
+  /// Por qué no arrancó; `null` si anduvo.
+  final String? failure;
+
+  bool get worked => reply != null;
+
+  /// Tokens por segundo mientras escribe —o, sin contarlos, palabras—: lo
+  /// que decide cuál es más rápida.
+  double get speed => reply?.tokensPerSecond ?? reply?.wordsPerSecond ?? 0;
+}
