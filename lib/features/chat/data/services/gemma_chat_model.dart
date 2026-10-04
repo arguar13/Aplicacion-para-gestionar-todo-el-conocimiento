@@ -219,6 +219,45 @@ const _timelineSystemInstruction =
     '"afirmación" es un hecho, con su fecha si la tiene. No hace falta '
     'agrupar por título. $_derivedFormatInstruction';
 
+/// Cuánto puede escribir el modelo, como mucho, en cada uso (F30): un tope de
+/// tokens por respuesta (`maxOutputTokens`).
+///
+/// Sin tope, el modelo escribe hasta que decide terminar —o hasta llenar la
+/// ventana—, y un modelo chico a veces no decide: repite, se va por las
+/// ramas. Cada token cuesta lo mismo de escribir, así que el tope es la
+/// espera más larga posible. Va por uso: una charla necesita párrafos; elegir
+/// un tema, una línea.
+///
+/// Una respuesta del chat: unas 350 palabras, de sobra para «breve y
+/// directa», y deja lugar en la ventana de 2048 para la instrucción, lo
+/// conversado y el contexto de la bóveda.
+const kChatReplyTokens = 512;
+
+/// Un resumen: dos o tres párrafos cortos.
+const kSummaryReplyTokens = 512;
+
+/// Las líneas `PROPIEDAD:` de un elemento: unas pocas.
+const kPropertiesReplyTokens = 192;
+
+/// Una sola línea de elección —`TEMA:` o `PADRE:`—, con margen.
+const kChoiceReplyTokens = 48;
+
+/// La introducción de una nota mapa: dos o tres oraciones.
+const kMapIntroReplyTokens = 192;
+
+/// Una guía de estudio, preguntas, un esquema o una cronología: lo más largo
+/// que se le pide, con la frase de origen de cada afirmación.
+const kDerivedNoteReplyTokens = 768;
+
+/// [count] tarjetas o preguntas, con su respuesta y la frase de la que sale
+/// cada una: unos 96 tokens cada una, y un margen.
+int draftsReplyTokens(int count) => (count * 96 + 32).clamp(192, 1024);
+
+/// Una línea `SUGERENCIA:` por cada uno de [candidates] candidatos, como
+/// mucho.
+int relationsReplyTokens(int candidates) =>
+    (candidates * 40 + 32).clamp(96, 768);
+
 /// [ChatModel] sobre `flutter_gemma`: Gemma corriendo en el dispositivo, vía
 /// FFI directo —sin JVM, sin servidor propio, ver la decisión 20 en
 /// docs/arquitectura.md—.
@@ -302,6 +341,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _systemInstruction,
+        maxOutputTokens: kChatReplyTokens,
       );
 
       try {
@@ -338,6 +378,7 @@ class GemmaChatModel
       _gate,
       () async => (await _engine.model()).createChat(
         systemInstruction: systemInstruction,
+        maxOutputTokens: kChatReplyTokens,
       ),
       reply: (chat) =>
           collectReply(chat, meter: _meter, kind: LanguageModelReplyKind.chat),
@@ -354,6 +395,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _flashcardSystemInstruction,
+        maxOutputTokens: draftsReplyTokens(count),
       );
 
       try {
@@ -382,6 +424,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _quizQuestionSystemInstruction,
+        maxOutputTokens: draftsReplyTokens(count),
       );
 
       try {
@@ -407,6 +450,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _summarizationSystemInstruction,
+        maxOutputTokens: kSummaryReplyTokens,
       );
 
       try {
@@ -429,6 +473,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _relationSuggestionSystemInstruction,
+        maxOutputTokens: relationsReplyTokens(candidates.length),
       );
 
       try {
@@ -480,6 +525,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _propertySuggestionSystemInstruction,
+        maxOutputTokens: kPropertiesReplyTokens,
       );
 
       try {
@@ -534,6 +580,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _spaceChoiceSystemInstruction,
+        maxOutputTokens: kChoiceReplyTokens,
       );
 
       try {
@@ -567,6 +614,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _topicParentSystemInstruction,
+        maxOutputTokens: kChoiceReplyTokens,
       );
 
       try {
@@ -602,6 +650,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _mapIntroSystemInstruction,
+        maxOutputTokens: kMapIntroReplyTokens,
       );
 
       try {
@@ -630,6 +679,7 @@ class GemmaChatModel
     return _withTurn((model) async {
       final chat = await model.createChat(
         systemInstruction: _derivedSystemInstructionFor(type),
+        maxOutputTokens: kDerivedNoteReplyTokens,
       );
 
       try {
