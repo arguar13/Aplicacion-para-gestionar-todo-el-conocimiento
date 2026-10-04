@@ -119,7 +119,16 @@ try {
 }
 
 if ($builderInputs.Count -eq 0) {
-  $generated = @(git ls-files --others --ignored --exclude-standard -- '*.freezed.dart' '*.g.dart')
+  # Solo de las carpetas de código del proyecto, que son las que mira
+  # build_runner: sin acotar, `git ls-files` también entra a las copias de
+  # trabajo de los agentes en `.claude/worktrees/` y copiaría su código
+  # generado —de otro commit— o fallaría si una se borra mientras corre.
+  $sourceRoots = 'lib', 'test', 'integration_test', 'tool', 'bin'
+  $generatedSpecs = foreach ($root in $sourceRoots) {
+    ":(glob)$root/**/*.freezed.dart"
+    ":(glob)$root/**/*.g.dart"
+  }
+  $generated = @(git ls-files --others --ignored --exclude-standard -- @generatedSpecs)
   foreach ($file in $generated) {
     $destination = Join-Path $work $file
     New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
