@@ -7019,6 +7019,90 @@
   "@modelDownloadNoSpaceUnknown": {
     "description": "Error of a model download without space on the device, when it's unknown how much is needed (F29)."
   },
+  "keepWorkingTitle": "Keep working when closed",
+  "@keepWorkingTitle": {
+    "description": "Title of the help so the system doesn't close Sinapsis with work in progress, and its Settings entry (F29)."
+  },
+  "keepWorkingSettingsSubtitle": "Autostart and battery, so the system doesn't stop it",
+  "@keepWorkingSettingsSubtitle": {
+    "description": "Subtitle of the help entry in Settings (F29)."
+  },
+  "settingsBackgroundSection": "Background",
+  "@settingsBackgroundSection": {
+    "description": "Header of the Settings section with what lets work continue with the app closed (F29)."
+  },
+  "keepWorkingIntro": "Sinapsis can keep processing, transcribing and organizing even if you close the app, and model downloads always keep going. But some phones close it anyway unless you allow it: two settings, just once.",
+  "@keepWorkingIntro": {
+    "description": "Explanation at the top of the help (F29)."
+  },
+  "keepWorkingXiaomiNote": "On Xiaomi phones —also Redmi and POCO— both are needed.",
+  "@keepWorkingXiaomiNote": {
+    "description": "Note of the help on a Xiaomi phone (F29)."
+  },
+  "keepWorkingAutostartTitle": "Autostart",
+  "@keepWorkingAutostartTitle": {
+    "description": "Help step: Xiaomi's «Autostart» setting, with its name on the phone (F29)."
+  },
+  "keepWorkingAutostartBody": "Turn it on for Sinapsis: without it, closing the app stops it completely.",
+  "@keepWorkingAutostartBody": {
+    "description": "What «Autostart» is for (F29)."
+  },
+  "keepWorkingAutostartAction": "Open Autostart",
+  "@keepWorkingAutostartAction": {
+    "description": "Button that opens «Autostart» in the phone settings (F29)."
+  },
+  "keepWorkingAutostartFallback": "Your phone doesn't have that screen at hand: look for «Autostart» among Sinapsis's permissions.",
+  "@keepWorkingAutostartFallback": {
+    "description": "What to tap when the app info page opened instead of «Autostart» (F29)."
+  },
+  "keepWorkingBatteryTitle": "Unrestricted battery",
+  "@keepWorkingBatteryTitle": {
+    "description": "Help step: the app's battery saver set to «Unrestricted» (F29)."
+  },
+  "keepWorkingBatteryBody": "In Sinapsis's battery saver, choose «Unrestricted» so it doesn't hold it back.",
+  "@keepWorkingBatteryBody": {
+    "description": "What the battery step is for (F29)."
+  },
+  "keepWorkingBatteryAction": "Open battery settings",
+  "@keepWorkingBatteryAction": {
+    "description": "Button that opens the app's battery saver in the phone settings (F29)."
+  },
+  "keepWorkingBatteryDone": "Done: the system doesn't apply battery saving to it.",
+  "@keepWorkingBatteryDone": {
+    "description": "The battery step is already done (F29)."
+  },
+  "keepWorkingBatteryFallback": "Go to «Battery» and choose «Unrestricted».",
+  "@keepWorkingBatteryFallback": {
+    "description": "What to tap when the app info page opened instead of the battery saver (F29)."
+  },
+  "keepWorkingBatteryListFallback": "Find Sinapsis in the list and choose «Don't optimize».",
+  "@keepWorkingBatteryListFallback": {
+    "description": "What to tap when Android's battery optimization list opened (F29)."
+  },
+  "keepWorkingCouldNotOpen": "The settings couldn't be opened. Look for Sinapsis in Settings › Apps.",
+  "@keepWorkingCouldNotOpen": {
+    "description": "The phone didn't let any settings screen open (F29)."
+  },
+  "keepWorkingReassurance": "If the system closes it anyway, nothing is lost: whatever was halfway continues when you open Sinapsis again.",
+  "@keepWorkingReassurance": {
+    "description": "At the bottom of the help: what happens if the system closes the app anyway (F29)."
+  },
+  "keepWorkingOfferTitle": "Keep going even if you close the app?",
+  "@keepWorkingOfferTitle": {
+    "description": "Title of the help offer, shown only once (F29)."
+  },
+  "keepWorkingOfferBody": "Sinapsis is working on your things. For it to keep going even if you close the app, some phones ask you to allow it: I'll show you how, it takes a minute.",
+  "@keepWorkingOfferBody": {
+    "description": "Text of the help offer, the first time there is long work (F29)."
+  },
+  "keepWorkingOfferAction": "Show me how",
+  "@keepWorkingOfferAction": {
+    "description": "Offer button that opens the help (F29)."
+  },
+  "keepWorkingOfferLater": "Not now",
+  "@keepWorkingOfferLater": {
+    "description": "Offer button that closes it; the help stays in Settings (F29)."
+  },
   "inboxLinkNameTaken": "There is already an item called “{title}” that is not a note: choose another name.",
   "@inboxLinkNameTaken": {
     "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",

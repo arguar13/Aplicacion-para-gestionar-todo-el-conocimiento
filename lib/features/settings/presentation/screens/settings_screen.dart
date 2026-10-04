@@ -13,6 +13,7 @@ import 'package:sinapsis/features/citations/presentation/providers/citation_pref
 import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library_providers.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
+import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
@@ -55,6 +56,8 @@ class SettingsScreen extends ConsumerWidget {
     final citationLanguage = ref.watch(citationPreferencesProvider).language;
     final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
     final sampleLibraryAvailable = ref.watch(sampleLibraryAvailableProvider);
+    final backgroundSettingsAvailable =
+        ref.watch(backgroundSettingsProvider) != null;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settingsTitle)),
@@ -165,6 +168,24 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          // F29: lo que deja seguir el trabajo con la app cerrada. Solo en
+          // Android: en el resto nada la cierra con trabajo a medias.
+          if (backgroundSettingsAvailable) ...[
+            const SizedBox(height: 24),
+            _SettingsSection(
+              title: l10n.settingsBackgroundSection,
+              children: [
+                ListTile(
+                  key: const Key('settings-keep-working'),
+                  leading: const Icon(Icons.nights_stay_outlined),
+                  title: Text(l10n.keepWorkingTitle),
+                  subtitle: Text(l10n.keepWorkingSettingsSubtitle),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push(RoutePaths.keepWorking),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           _SettingsSection(
             title: l10n.settingsVaultSection,

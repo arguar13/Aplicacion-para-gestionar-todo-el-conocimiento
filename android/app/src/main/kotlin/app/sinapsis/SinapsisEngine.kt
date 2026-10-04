@@ -143,6 +143,11 @@ object SinapsisEngine {
         // Las descargas de los modelos con el gestor del sistema (F29).
         MethodChannel(messenger, SystemDownloadsChannel.CHANNEL)
             .setMethodCallHandler(SystemDownloadsChannel(context))
+
+        // Los ajustes que deciden si el sistema deja seguir el trabajo con
+        // la app cerrada (F29): "Inicio automático" y el ahorro de batería.
+        MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)
+            .setMethodCallHandler(BackgroundSettingsChannel(context))
     }
 
     // Android 13 en adelante pide permiso para mostrar notificaciones. Se

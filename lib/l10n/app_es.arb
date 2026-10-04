@@ -6001,6 +6001,90 @@
   "@modelDownloadNoSpaceUnknown": {
     "description": "Error de la descarga de un modelo sin lugar en el dispositivo, cuando no se sabe cuánto hace falta (F29)."
   },
+  "keepWorkingTitle": "Que siga con la app cerrada",
+  "@keepWorkingTitle": {
+    "description": "Título de la ayuda para que el sistema no cierre Sinapsis con trabajo a medias, y su entrada en Ajustes (F29)."
+  },
+  "keepWorkingSettingsSubtitle": "Inicio automático y batería, para que el sistema no la frene",
+  "@keepWorkingSettingsSubtitle": {
+    "description": "Subtítulo de la entrada de la ayuda en Ajustes (F29)."
+  },
+  "settingsBackgroundSection": "Segundo plano",
+  "@settingsBackgroundSection": {
+    "description": "Encabezado de la sección de Ajustes con lo que deja seguir el trabajo con la app cerrada (F29)."
+  },
+  "keepWorkingIntro": "Sinapsis puede seguir procesando, transcribiendo y organizando aunque cierres la app, y las descargas de los modelos siguen siempre. Pero algunos teléfonos la cierran igual si no le das permiso: son dos ajustes, una sola vez.",
+  "@keepWorkingIntro": {
+    "description": "Explicación al principio de la ayuda (F29)."
+  },
+  "keepWorkingXiaomiNote": "En los Xiaomi —también Redmi y POCO— hacen falta los dos.",
+  "@keepWorkingXiaomiNote": {
+    "description": "Nota de la ayuda en un teléfono Xiaomi (F29)."
+  },
+  "keepWorkingAutostartTitle": "Inicio automático",
+  "@keepWorkingAutostartTitle": {
+    "description": "Paso de la ayuda: el ajuste «Inicio automático» de Xiaomi, con su nombre en el teléfono (F29)."
+  },
+  "keepWorkingAutostartBody": "Activalo para Sinapsis: sin esto, cerrar la app la detiene del todo.",
+  "@keepWorkingAutostartBody": {
+    "description": "Para qué sirve «Inicio automático» (F29)."
+  },
+  "keepWorkingAutostartAction": "Abrir Inicio automático",
+  "@keepWorkingAutostartAction": {
+    "description": "Botón que abre «Inicio automático» en los ajustes del teléfono (F29)."
+  },
+  "keepWorkingAutostartFallback": "Tu teléfono no tiene esa pantalla a mano: buscá «Inicio automático» entre los permisos de Sinapsis.",
+  "@keepWorkingAutostartFallback": {
+    "description": "Qué tocar cuando, en vez de «Inicio automático», se abrió la ficha de la app (F29)."
+  },
+  "keepWorkingBatteryTitle": "Batería sin restricciones",
+  "@keepWorkingBatteryTitle": {
+    "description": "Paso de la ayuda: el ahorro de batería de la app en «Sin restricciones» (F29)."
+  },
+  "keepWorkingBatteryBody": "En el ahorro de batería de Sinapsis, elegí «Sin restricciones», así no la frena.",
+  "@keepWorkingBatteryBody": {
+    "description": "Para qué sirve el paso de la batería (F29)."
+  },
+  "keepWorkingBatteryAction": "Abrir ajustes de batería",
+  "@keepWorkingBatteryAction": {
+    "description": "Botón que abre el ahorro de batería de la app en los ajustes del teléfono (F29)."
+  },
+  "keepWorkingBatteryDone": "Listo: el sistema no le aplica ahorro de batería.",
+  "@keepWorkingBatteryDone": {
+    "description": "El paso de la batería ya está hecho (F29)."
+  },
+  "keepWorkingBatteryFallback": "Entrá en «Batería» y elegí «Sin restricciones».",
+  "@keepWorkingBatteryFallback": {
+    "description": "Qué tocar cuando se abrió la ficha de la app en vez del ahorro de batería (F29)."
+  },
+  "keepWorkingBatteryListFallback": "Buscá Sinapsis en la lista y elegí «No optimizar».",
+  "@keepWorkingBatteryListFallback": {
+    "description": "Qué tocar cuando se abrió la lista de optimización de batería de Android (F29)."
+  },
+  "keepWorkingCouldNotOpen": "No se pudieron abrir los ajustes. Buscá Sinapsis en Ajustes › Apps.",
+  "@keepWorkingCouldNotOpen": {
+    "description": "El teléfono no dejó abrir ninguna pantalla de ajustes (F29)."
+  },
+  "keepWorkingReassurance": "Si el sistema la cierra igual, no se pierde nada: lo que quedó a medias sigue al volver a abrir Sinapsis.",
+  "@keepWorkingReassurance": {
+    "description": "Al pie de la ayuda: qué pasa si el sistema cierra la app de todos modos (F29)."
+  },
+  "keepWorkingOfferTitle": "¿Que siga aunque cierres la app?",
+  "@keepWorkingOfferTitle": {
+    "description": "Título de la oferta de la ayuda, que aparece una sola vez (F29)."
+  },
+  "keepWorkingOfferBody": "Sinapsis está trabajando en lo tuyo. Para que siga aunque cierres la app, algunos teléfonos piden darle permiso: te muestro cómo, es un minuto.",
+  "@keepWorkingOfferBody": {
+    "description": "Texto de la oferta de la ayuda, la primera vez que hay trabajo largo (F29)."
+  },
+  "keepWorkingOfferAction": "Ver cómo",
+  "@keepWorkingOfferAction": {
+    "description": "Botón de la oferta que abre la ayuda (F29)."
+  },
+  "keepWorkingOfferLater": "Ahora no",
+  "@keepWorkingOfferLater": {
+    "description": "Botón de la oferta que la cierra; la ayuda queda en Ajustes (F29)."
+  },
   "inboxLinkNameTaken": "Ya hay un elemento llamado «{title}» que no es una nota: elegí otro nombre.",
   "@inboxLinkNameTaken": {
     "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",

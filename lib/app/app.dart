@@ -6,11 +6,13 @@ import 'package:sinapsis/app/global_error_listener.dart';
 import 'package:sinapsis/app/resume_model_downloads.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -75,9 +77,16 @@ class _AppState extends ConsumerState<App> {
       // GlobalErrorListener sobre por qué alcanza con este `context`. Ahí
       // mismo, por encima de toda pantalla, el lector flotante (F25): sigue
       // leyendo aunque se cambie de pestaña.
-      builder: (context, child) => ReadAloudOverlay(
-        router: router,
-        child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+      //
+      // Y la oferta, una sola vez, de la ayuda para que el trabajo siga con
+      // la app cerrada (F29), con el mismo navegador.
+      builder: (context, child) => KeepWorkingOfferListener(
+        navigatorKey: router.routerDelegate.navigatorKey,
+        onOpenHelp: () => unawaited(router.push(RoutePaths.keepWorking)),
+        child: ReadAloudOverlay(
+          router: router,
+          child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+        ),
       ),
     );
   }

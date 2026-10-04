@@ -155,6 +155,10 @@ abstract final class RoutePaths {
   /// [chatModel]: es una lente sobre datos, no un destino de navegación.
   static const embeddingModel = '/relations/embedding-model';
 
+  /// La ayuda para que el sistema no cierre la app con trabajo a medias
+  /// (F29): "Inicio automático" y la batería.
+  static const keepWorking = '/keep-working';
+
   /// Calcular bajo demanda los embeddings que le falten a lo ya
   /// capturado antes de tener el modelo descargado.
   static const embeddingBackfill = '/relations/embedding-backfill';
@@ -221,6 +225,7 @@ abstract final class RouteNames {
   static const chat = 'chat';
   static const chatModel = 'chat-model';
   static const embeddingModel = 'embedding-model';
+  static const keepWorking = 'keep-working';
   static const embeddingBackfill = 'embedding-backfill';
   static const graphTension = 'graph-tension';
   static const graphLocal = 'graph-local';

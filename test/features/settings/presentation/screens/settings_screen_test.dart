@@ -16,6 +16,8 @@ import 'package:sinapsis/features/citations/domain/services/reference_styles.dar
 import 'package:sinapsis/features/citations/presentation/providers/citation_preferences.dart';
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
+import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
+import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
 import 'package:sinapsis/features/settings/presentation/screens/settings_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
@@ -27,6 +29,7 @@ import 'package:sinapsis/features/vault/presentation/screens/vault_compaction_sc
 import 'package:sinapsis/features/vocabulary/presentation/screens/vocabulary_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_background_settings.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 
@@ -749,6 +752,44 @@ void main() {
         expect(find.byType(VaultCompactionScreen), findsOneWidget);
         expect(find.text(es.vaultCompactionNothingLine), findsOneWidget);
       });
+    });
+  });
+
+  group('segundo plano (F29)', () {
+    testWidgets('en Android, la ayuda para que siga con la app cerrada se '
+        'alcanza desde Ajustes, con el router real', (tester) async {
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          backgroundSettingsProvider.overrideWithValue(
+            FakeBackgroundSettings(isXiaomi: true),
+          ),
+        ],
+      );
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.goTo(RoutePaths.settings);
+      await tester.pumpAndSettle();
+      await fitWholeSettings(tester);
+
+      expect(find.text(es.settingsBackgroundSection), findsOneWidget);
+      await tester.tap(find.byKey(const Key('settings-keep-working')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(KeepWorkingScreen), findsOneWidget);
+      expect(find.text(es.keepWorkingAutostartTitle), findsOneWidget);
+    });
+
+    testWidgets('fuera de Android no aparece', (tester) async {
+      harness = await LibraryHarness.create(
+        extraOverrides: [backgroundSettingsProvider.overrideWithValue(null)],
+      );
+      await pumpSettings(tester);
+
+      expect(find.text(es.settingsBackgroundSection), findsNothing);
+      expect(find.byKey(const Key('settings-keep-working')), findsNothing);
     });
   });
 }

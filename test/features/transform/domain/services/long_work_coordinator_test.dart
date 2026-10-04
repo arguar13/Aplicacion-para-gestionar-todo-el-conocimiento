@@ -298,4 +298,29 @@ void main() {
     expect(platform.calls, ['mostrar processing 1/2', 'apagar']);
     expect(quick.shown, isNull);
   });
+
+  testWidgets('avisa cuando empieza el trabajo largo, no a cada avance ni '
+      'con uno ya en curso (F29)', (tester) async {
+    final started = <LongWorkOwner>[];
+    final subscription = coordinator.workStarted.listen(started.add);
+    addTearDown(subscription.cancel);
+
+    processing
+      ..working(done: 1, total: 4)
+      ..working(done: 2, total: 4);
+    ai.working(done: 0, total: 9);
+    await tester.pump();
+    expect(started, [LongWorkOwner.processing]);
+
+    processing.idle();
+    ai
+      ..idle()
+      ..working(done: 0, total: 9);
+    await tester.pump();
+    expect(started, [LongWorkOwner.processing, LongWorkOwner.aiOrganize]);
+
+    // Sin dejar el temporizador de soltar colgado.
+    ai.idle();
+    await tester.pump(const Duration(seconds: 15));
+  });
 }

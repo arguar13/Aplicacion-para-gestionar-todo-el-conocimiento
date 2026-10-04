@@ -22,6 +22,7 @@ import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart'
 import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
 import 'package:sinapsis/features/health/presentation/screens/grown_notes_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
+import 'package:sinapsis/features/keep_working/presentation/screens/keep_working_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/links/presentation/screens/broken_links_screen.dart';
@@ -194,6 +195,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.embeddingModel,
         name: RouteNames.embeddingModel,
         builder: (context, state) => const EmbeddingModelScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.keepWorking,
+        name: RouteNames.keepWorking,
+        builder: (context, state) => const KeepWorkingScreen(),
       ),
       GoRoute(
         path: RoutePaths.embeddingBackfill,
