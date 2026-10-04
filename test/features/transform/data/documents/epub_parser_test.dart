@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/data/documents/epub_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -27,6 +28,21 @@ void main() {
       expect(parser.canParse(FileFormat.epub), isTrue);
       expect(parser.canParse(FileFormat.docx), isFalse);
       expect(parser.canParse(FileFormat.pdf), isFalse);
+    });
+  });
+
+  group('con el registro de la app', () {
+    // En la app el lector siempre lleva el registro de verdad, que no se
+    // puede mandar a otro isolate. Si lo que corre allá arrastrara al lector
+    // —un método de instancia en vez de uno `static`—, todo EPUB fallaba
+    // antes de leer una página: "object is unsendable". Los registros de
+    // mentira de las demás pruebas sí se pueden mandar, y no lo veían.
+    test('lee el libro igual', () async {
+      final result = await EpubParser(
+        logger: ConsoleAppLogger(),
+      ).parseBytes(buildEpub());
+
+      expect(result.markdown, contains('El primer capítulo'));
     });
   });
 

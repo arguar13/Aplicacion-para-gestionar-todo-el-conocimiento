@@ -51,6 +51,10 @@ class EpubParser implements DocumentParser {
   }) async {
     // Un ZIP se descomprime entero: se lee entero, fuera del hilo principal.
     final bytes = await source.readAll();
+    // `_parse` es `static`, y tiene que seguir siéndolo: un método de
+    // instancia arrastra a `this` al otro isolate, y con él al registro de la
+    // app, que no se puede enviar. Así fallaba todo EPUB en la app —donde el
+    // lector siempre lleva registro— antes de leer una sola página.
     final (document, :missing, :empty) = await Isolate.run(() => _parse(bytes));
 
     // Un capítulo que falta no frena el libro —perderlo entero por una línea
@@ -77,7 +81,7 @@ class EpubParser implements DocumentParser {
     return document;
   }
 
-  (ParsedDocument, {List<String> missing, List<String> empty}) _parse(
+  static (ParsedDocument, {List<String> missing, List<String> empty}) _parse(
     Uint8List bytes,
   ) {
     final archive = _decode(bytes);
@@ -122,7 +126,7 @@ class EpubParser implements DocumentParser {
   /// está. Dar por sentado `OEBPS/content.opf` —el nombre que usa la mayoría—
   /// funcionaría con casi todos los libros y fallaría en silencio con el
   /// resto.
-  String _findOpfPath(Archive archive) {
+  static String _findOpfPath(Archive archive) {
     const containerPath = 'META-INF/container.xml';
     final container = _parseXml(
       _requireEntry(archive, containerPath),
@@ -149,7 +153,7 @@ class EpubParser implements DocumentParser {
   // Capítulos
   // -------------------------------------------------------------------
 
-  ({List<String> chapters, List<String> missing, List<String> empty})
+  static ({List<String> chapters, List<String> missing, List<String> empty})
   _readSpine(Archive archive, XmlElement opf, String base) {
     // El manifiesto asocia cada identificador con su archivo; el spine dice
     // en qué orden van esos identificadores.
@@ -209,7 +213,7 @@ class EpubParser implements DocumentParser {
   /// Las rutas vienen además con los caracteres especiales escapados, porque
   /// son URL: un capítulo llamado `El niño.xhtml` aparece como
   /// `El%20ni%C3%B1o.xhtml` y no encontraría su archivo sin desescaparlo.
-  String _resolve(String base, String href) {
+  static String _resolve(String base, String href) {
     final decoded = Uri.decodeComponent(href.split('#').first);
     return base.isEmpty ? decoded : p.url.normalize(p.url.join(base, decoded));
   }
@@ -218,7 +222,7 @@ class EpubParser implements DocumentParser {
   // Metadatos
   // -------------------------------------------------------------------
 
-  ({String? title, String? author}) _readMetadata(XmlElement opf) => (
+  static ({String? title, String? author}) _readMetadata(XmlElement opf) => (
     title: _nonEmpty(
       opf.findAllElements('title', namespace: _dc).firstOrNull?.innerText,
     ),
@@ -231,7 +235,7 @@ class EpubParser implements DocumentParser {
   // Utilidades
   // -------------------------------------------------------------------
 
-  Archive _decode(Uint8List bytes) {
+  static Archive _decode(Uint8List bytes) {
     try {
       return ZipDecoder().decodeBytes(bytes);
       // `archive` lanza de varias formas según por dónde esté cortado el
@@ -242,10 +246,10 @@ class EpubParser implements DocumentParser {
     }
   }
 
-  List<int>? _entryBytes(Archive archive, String name) =>
+  static List<int>? _entryBytes(Archive archive, String name) =>
       archive.files.where((f) => f.name == name).firstOrNull?.readBytes();
 
-  String _requireEntry(Archive archive, String name) {
+  static String _requireEntry(Archive archive, String name) {
     final bytes = _entryBytes(archive, name);
     if (bytes == null) {
       throw UnreadableDocumentException(FileFormat.epub, 'falta $name');
@@ -266,7 +270,7 @@ class EpubParser implements DocumentParser {
   /// línea: `<?xml version="1.0" encoding="iso-8859-1"?>`. Leído siempre
   /// como UTF-8, un capítulo así perdía cada tilde (F22). Una codificación
   /// declarada que no se conoce se lee como UTF-8, como antes.
-  String _decodeText(List<int> bytes) {
+  static String _decodeText(List<int> bytes) {
     if (bytes.length >= 2) {
       final bigEndian = bytes[0] == 0xFE && bytes[1] == 0xFF;
       final littleEndian = bytes[0] == 0xFF && bytes[1] == 0xFE;
@@ -301,7 +305,7 @@ class EpubParser implements DocumentParser {
     );
   }
 
-  XmlDocument _parseXml(String source, String name) {
+  static XmlDocument _parseXml(String source, String name) {
     try {
       return XmlDocument.parse(source);
     } on XmlException catch (e) {
@@ -309,7 +313,7 @@ class EpubParser implements DocumentParser {
     }
   }
 
-  String? _nonEmpty(String? value) {
+  static String? _nonEmpty(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
