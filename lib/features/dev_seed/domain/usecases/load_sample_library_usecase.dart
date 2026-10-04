@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/network/host_gate.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -95,34 +96,9 @@ class LoadSampleLibraryUseCase {
   /// mismo servidor.
   final Duration sameHostGap;
 
-  /// La última bajada pedida a cada servidor: la siguiente al mismo espera
-  /// a que termine.
-  final _hostTails = <String, Future<void>>{};
-
-  /// Cuándo terminó la última bajada de cada servidor.
-  final _hostFinished = <String, DateTime>{};
-
-  /// Corre [run] cuando el servidor [host] quede libre y hayan pasado
-  /// [sameHostGap] desde su última bajada. La espera la hace quien llega,
-  /// no quien termina: así no queda ningún temporizador vivo cuando nadie
-  /// más espera ese servidor.
-  Future<T> _oneAtATime<T>(String host, Future<T> Function() run) async {
-    final previous = _hostTails[host] ?? Future<void>.value();
-    final done = Completer<void>();
-    _hostTails[host] = done.future;
-    try {
-      await previous;
-      final finished = _hostFinished[host];
-      if (finished != null) {
-        final wait = sameHostGap - _clock().difference(finished);
-        if (wait > Duration.zero) await Future<void>.delayed(wait);
-      }
-      return await run();
-    } finally {
-      _hostFinished[host] = _clock();
-      done.complete();
-    }
-  }
+  /// De a una bajada por servidor, con [sameHostGap] entre una y otra
+  /// (ver `HostGate`).
+  late final _hosts = HostGate(gap: sameHostGap, clock: _clock);
 
   /// Lo que todavía no se cargó, en el orden de la lista.
   List<SampleResource> pending() {
@@ -255,7 +231,7 @@ class LoadSampleLibraryUseCase {
     SampleFile resource,
     CancellationSignal cancellation,
   ) async {
-    final downloaded = await _oneAtATime(
+    final downloaded = await _hosts.run(
       Uri.parse(resource.url).host,
       () => _downloader.download(resource, cancellation: cancellation),
     );
