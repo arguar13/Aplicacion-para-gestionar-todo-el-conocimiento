@@ -27,10 +27,17 @@ import android.util.Log
  * ([EXTRA_TYPES]) tiene que correr.
  *
  * No hace el trabajo: el trabajo lo hace Dart, en el proceso de la app. El
- * servicio solo mantiene vivo ese proceso y muestra cuánto va. Por eso, si
- * el usuario cierra la app desde "recientes", el servicio se va con ella:
- * sin la app no hay quién trabaje, y lo hecho ya quedó guardado para
- * retomarlo al volver.
+ * servicio solo mantiene vivo ese proceso y muestra cuánto va.
+ *
+ * **Sigue con la app cerrada** (F29): cerrarla desde "recientes" destruye la
+ * actividad, pero no el motor de Flutter ([SinapsisEngine]), así que Dart
+ * sigue trabajando y el servicio sigue mientras Dart diga que hay trabajo;
+ * cuando termina, Dart avisa `idle` y el servicio se va, como siempre. Si el
+ * sistema mata el proceso igual —HyperOS lo hace sin "Inicio automático" y
+ * sin "Sin restricciones"—, lo hecho ya quedó guardado y se retoma al abrir
+ * la app. No se pide que el sistema lo reviva (`START_NOT_STICKY`): sin la
+ * app abierta no hay motor que trabaje, y Android 12 en adelante no deja
+ * volver a primer plano desde segundo plano.
  */
 class LongWorkService : Service() {
     /** Con qué tipos corre ahora el servicio; 0 sin primer plano. */
@@ -109,11 +116,6 @@ class LongWorkService : Service() {
         Log.w(TAG, "Se acabaron las horas del servicio en primer plano (tipo $fgsType)")
         stopSelf()
         onStoppedBySystem?.invoke(typeName(fgsType))
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        stopSelf()
-        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
@@ -299,8 +301,8 @@ class LongWorkService : Service() {
 
         /**
          * A quién avisarle que el sistema cortó el servicio ([onTimeout]),
-         * con el tipo que se agotó. Lo pone la actividad, que tiene el canal
-         * con Dart; sin actividad no hay Dart a quien avisarle.
+         * con el tipo que se agotó. Lo pone [SinapsisEngine], que tiene el
+         * canal con Dart, haya o no una actividad a la vista.
          */
         @Volatile var onStoppedBySystem: ((String) -> Unit)? = null
 

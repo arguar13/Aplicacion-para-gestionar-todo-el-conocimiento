@@ -1,16 +1,10 @@
 package app.sinapsis
 
-import android.Manifest
+import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     // `receive_sharing_intent` 1.9.0 no envuelve en try/catch sus propias
@@ -42,93 +36,29 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // El canal del trabajo largo (F21): Dart avisa cuándo hay trabajo largo
-    // en curso, de qué clase y cuánto va; Android le avisa si cortó el
-    // servicio por su cuenta. Ver `LongWorkService`.
+    // El motor es el del proceso (F29), no uno propio: sobrevive a esta
+    // actividad para que el trabajo siga con la app cerrada, y la próxima
+    // actividad se engancha al mismo, con Dart ya andando. Ver
+    // `SinapsisEngine`, que también instala los canales de la app.
+    override fun provideFlutterEngine(context: Context): FlutterEngine =
+        SinapsisEngine.obtain(this)
+
+    // Explícito aunque sea lo que `FlutterActivity` hace con un motor que
+    // no creó ella: que cerrar la actividad no destruya el motor es
+    // justamente lo que hace seguir al trabajo.
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        val longWork = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LONG_WORK_CHANNEL)
-        longWork.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "working" -> {
-                    askForNotificationsOnce()
-                    LongWorkService.working(
-                        this,
-                        call.argument<String>("kind"),
-                        call.argument<String>("detail"),
-                        call.argument<Int>("done") ?: 0,
-                        call.argument<Int>("total") ?: 0,
-                        call.argument<List<String>>("types"),
-                    )
-                    result.success(null)
-                }
-                "idle" -> {
-                    LongWorkService.idle(this)
-                    result.success(null)
-                }
-                else -> result.notImplemented()
-            }
-        }
-        // `onTimeout` llega en el hilo principal, el mismo donde el canal
-        // espera que se lo use.
-        LongWorkService.onStoppedBySystem = { type ->
-            longWork.invokeMethod("timedOut", mapOf("type" to type))
-        }
-        // Decodificar un audio para transcribirlo (F22): en un hilo aparte
-        // —un audio de horas tarda—, con el resultado de vuelta en el
-        // principal, que es donde Flutter lo espera. Ver `AudioToPcm`.
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_CHANNEL)
-            .setMethodCallHandler { call, result ->
-                if (call.method != "toRawPcm") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
-                }
-                val input = call.argument<String>("input")
-                val output = call.argument<String>("output")
-                if (input == null || output == null) {
-                    result.error("arguments", "Faltan input y output.", null)
-                    return@setMethodCallHandler
-                }
-                audioWorker.execute {
-                    try {
-                        val segments = AudioToPcm.decode(input, output).map { it.toMap() }
-                        mainHandler.post { result.success(segments) }
-                    } catch (e: Exception) {
-                        mainHandler.post { result.error("decode", e.message ?: e.toString(), null) }
-                    }
-                }
-            }
+        SinapsisEngine.attach(this)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        // Sin motor no hay Dart a quien avisarle.
-        LongWorkService.onStoppedBySystem = null
+        SinapsisEngine.detach(this)
         super.cleanUpFlutterEngine(flutterEngine)
-    }
-
-    private val audioWorker = Executors.newSingleThreadExecutor()
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    // Android 13 en adelante pide permiso para mostrar notificaciones. Se
-    // pide la primera vez que hace falta —cuando arranca un trabajo largo—,
-    // no al abrir la app sin contexto. Sin permiso el trabajo sigue igual:
-    // solo no se ve la notificación.
-    private fun askForNotificationsOnce() {
-        if (askedForNotifications || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        askedForNotifications = true
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATIONS_REQUEST)
     }
 
     private companion object {
         const val TAG = "MainActivity"
-        const val LONG_WORK_CHANNEL = "app.sinapsis/long_work"
-        const val AUDIO_CHANNEL = "app.sinapsis/audio"
-        const val NOTIFICATIONS_REQUEST = 21
-        var askedForNotifications = false
     }
 }
