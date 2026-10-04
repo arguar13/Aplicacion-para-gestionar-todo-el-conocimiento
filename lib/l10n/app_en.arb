@@ -7536,5 +7536,29 @@
   "reviewEmptyBatchMessage": "They show up here as the AI makes them.",
   "@reviewEmptyBatchMessage": {
     "description": "Repasar vacío mientras la IA hace tarjetas. (F30)"
+  },
+  "reviewPracticeAction": "Practice anyway",
+  "@reviewPracticeAction": {
+    "description": "Repasar vacío: repasar las tarjetas aunque no les toque, sin calificarlas. (F30)"
+  },
+  "reviewPracticeProgress": "Practice, not graded · {current} of {total}",
+  "@reviewPracticeProgress": {
+    "description": "Practicar igual: cuál va; no cambia cuándo vuelve cada tarjeta. (F30)",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewPracticeNext": "Next",
+  "@reviewPracticeNext": {
+    "description": "Practicar igual: la próxima tarjeta. (F30)"
+  },
+  "reviewPracticeStop": "Finish",
+  "@reviewPracticeStop": {
+    "description": "Practicar igual: volver a Repasar. (F30)"
   }
 }

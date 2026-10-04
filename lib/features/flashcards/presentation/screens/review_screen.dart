@@ -40,6 +40,41 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   var _grading = false;
   var _exporting = false;
 
+  /// «Practicar igual» (F30): las tarjetas que se están practicando sin que
+  /// les toque, y cuál va. `null` fuera de la práctica.
+  List<Flashcard>? _practice;
+  var _practiceIndex = 0;
+
+  /// Practica todas las tarjetas, aunque no les toque: la que vence antes,
+  /// primero. No califica: el calendario de cada una (SM-2) no cambia.
+  Future<void> _startPractice() async {
+    final all = await ref.read(flashcardRepositoryProvider).getAll();
+    if (!mounted) return;
+    final cards = all.getOrElse((_) => const <Flashcard>[]).toList()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    if (cards.isEmpty) return;
+    setState(() {
+      _practice = cards;
+      _practiceIndex = 0;
+      _revealed = false;
+    });
+  }
+
+  void _nextPractice() => setState(() {
+    _revealed = false;
+    final cards = _practice!;
+    if (_practiceIndex + 1 >= cards.length) {
+      _practice = null;
+    } else {
+      _practiceIndex++;
+    }
+  });
+
+  void _stopPractice() => setState(() {
+    _practice = null;
+    _revealed = false;
+  });
+
   Future<void> _grade(String cardId, ReviewGrade grade) async {
     setState(() => _grading = true);
     await ref
@@ -155,9 +190,29 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   child: due.when(
                     loading: () => const CircularProgressIndicator(),
                     error: (error, stackTrace) => Text('$error'),
-                    data: (cards) => cards.isEmpty
+                    data: (cards) => _practice != null
+                        ? _CardView(
+                            key: ValueKey(
+                              'practice-${_practice![_practiceIndex].id}',
+                            ),
+                            card: _practice![_practiceIndex],
+                            revealed: _revealed,
+                            grading: false,
+                            remaining: 0,
+                            practice: (
+                              done: _practiceIndex,
+                              total: _practice!.length,
+                              onNext: _nextPractice,
+                              onStop: _stopPractice,
+                            ),
+                            onReveal: () => setState(() => _revealed = true),
+                            onGrade: (_) {},
+                          )
+                        : cards.isEmpty
                         // F30: si está vacío, dice por qué.
-                        ? const ReviewEmptyState()
+                        ? ReviewEmptyState(
+                            onPractice: () => unawaited(_startPractice()),
+                          )
                         : _CardView(
                             card: cards.first,
                             revealed: _revealed,
@@ -218,6 +273,15 @@ class _StreakIndicator extends ConsumerWidget {
   }
 }
 
+/// Lo que necesita una tarjeta en «Practicar igual» (F30): cuántas van de
+/// cuántas, y pasar a la siguiente o terminar, en vez de calificarla.
+typedef _Practice = ({
+  int done,
+  int total,
+  VoidCallback onNext,
+  VoidCallback onStop,
+});
+
 class _CardView extends ConsumerWidget {
   const _CardView({
     required this.card,
@@ -226,7 +290,12 @@ class _CardView extends ConsumerWidget {
     required this.remaining,
     required this.onReveal,
     required this.onGrade,
+    this.practice,
+    super.key,
   });
+
+  /// En «Practicar igual»: sin calificar.
+  final _Practice? practice;
 
   final Flashcard card;
   final bool revealed;
@@ -234,6 +303,14 @@ class _CardView extends ConsumerWidget {
   final int remaining;
   final VoidCallback onReveal;
   final ValueChanged<ReviewGrade> onGrade;
+
+  /// Con la respuesta a la vista: calificarla, o —practicando— seguir.
+  Widget _answered() {
+    final current = practice;
+    return current == null
+        ? _GradeRow(grading: grading, onGrade: onGrade)
+        : _PracticeRow(onNext: current.onNext, onStop: current.onStop);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -286,7 +363,12 @@ class _CardView extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                l10n.reviewRemaining(remaining),
+                practice == null
+                    ? l10n.reviewRemaining(remaining)
+                    : l10n.reviewPracticeProgress(
+                        practice!.done + 1,
+                        practice!.total,
+                      ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -357,17 +439,14 @@ class _CardView extends ConsumerWidget {
                   flashcardId: card.id,
                   onAnswered: (_) => onReveal(),
                 ),
-                if (revealed) ...[
-                  const SizedBox(height: 16),
-                  _GradeRow(grading: grading, onGrade: onGrade),
-                ],
+                if (revealed) ...[const SizedBox(height: 16), _answered()],
               ] else if (!revealed)
                 OutlinedButton(
                   onPressed: onReveal,
                   child: Text(l10n.reviewShowAnswer),
                 )
               else
-                _GradeRow(grading: grading, onGrade: onGrade),
+                _answered(),
             ],
           ),
         ),
@@ -409,6 +488,39 @@ class _GradeRow extends StatelessWidget {
     ReviewGrade.good => l10n.reviewGradeGood,
     ReviewGrade.easy => l10n.reviewGradeEasy,
   };
+}
+
+/// En «Practicar igual» (F30): la siguiente, o terminar. No califica: el
+/// calendario de la tarjeta no cambia.
+class _PracticeRow extends StatelessWidget {
+  const _PracticeRow({required this.onNext, required this.onStop});
+
+  final VoidCallback onNext;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            key: const Key('practice-stop'),
+            onPressed: onStop,
+            child: Text(l10n.reviewPracticeStop),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: FilledButton.tonal(
+            key: const Key('practice-next'),
+            onPressed: onNext,
+            child: Text(l10n.reviewPracticeNext),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// Trae las opciones de [flashcardId] y las muestra con

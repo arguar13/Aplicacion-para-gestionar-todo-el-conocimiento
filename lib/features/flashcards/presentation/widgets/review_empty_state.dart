@@ -22,14 +22,21 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// ya existía espera el cargador—, cada uno con lo que lo resuelve, y al lado
 /// el ✨ que las pide ya. Si la IA ya las está haciendo, que están en camino.
 /// Si no hay nada que hacer, el mensaje de siempre.
+///
+/// Con tarjetas que todavía no tocan, ofrece «Practicar igual»
+/// ([onPractice]): repasarlas sin esperar, sin tocar su calendario.
 class ReviewEmptyState extends ConsumerWidget {
-  const ReviewEmptyState({super.key});
+  const ReviewEmptyState({this.onPractice, super.key});
+
+  final VoidCallback? onPractice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final waiting = ref.watch(itemsWithoutCardsCountProvider).valueOrNull ?? 0;
     final batch = ref.watch(aiFlashcardsBatchProvider);
+    final anyCard = ref.watch(hasFlashcardsProvider).valueOrNull ?? false;
+    final practice = anyCard ? onPractice : null;
 
     if (batch != null && !batch.finished) {
       return EmptyStateView(
@@ -44,17 +51,20 @@ class ReviewEmptyState extends ConsumerWidget {
         key: const Key('review-empty-done'),
         icon: Icons.check_circle_outline,
         title: l10n.reviewAllDone,
+        actionLabel: practice == null ? null : l10n.reviewPracticeAction,
+        onAction: practice,
       );
     }
-    return _WithoutCards(count: waiting);
+    return _WithoutCards(count: waiting, onPractice: practice);
   }
 }
 
 /// Hay [count] elementos sin tarjetas: por qué la IA no las hizo, y el ✨.
 class _WithoutCards extends ConsumerWidget {
-  const _WithoutCards({required this.count});
+  const _WithoutCards({required this.count, required this.onPractice});
 
   final int count;
+  final VoidCallback? onPractice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -116,6 +126,14 @@ class _WithoutCards extends ConsumerWidget {
                 icon: const Icon(Icons.auto_awesome),
                 label: Text(l10n.reviewAiCreateTooltip),
               ),
+              if (onPractice != null) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  key: const Key('review-practice'),
+                  onPressed: onPractice,
+                  child: Text(l10n.reviewPracticeAction),
+                ),
+              ],
             ],
           ),
         ),

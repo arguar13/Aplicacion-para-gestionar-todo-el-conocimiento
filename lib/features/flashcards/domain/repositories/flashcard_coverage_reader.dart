@@ -49,4 +49,8 @@ abstract interface class FlashcardCoverageReader {
   /// Cuántos elementos de la biblioteca podrían tener tarjetas y no tienen
   /// ninguna, actualizándose solo: lo que dice Repasar cuando está vacío.
   Stream<int> watchWithoutCardsCount();
+
+  /// Si hay alguna tarjeta, de un elemento vivo, le toque o no:
+  /// actualizándose solo. Con alguna, Repasar vacío ofrece practicar igual.
+  Stream<bool> watchHasCards();
 }

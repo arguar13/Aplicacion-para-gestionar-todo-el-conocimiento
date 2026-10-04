@@ -6,6 +6,7 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settin
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -361,6 +362,71 @@ void main() {
 
       expect(find.text(es.reviewEmptyBatchTitle), findsOneWidget);
       expect(find.text(es.reviewEmptyWithoutCards(3)), findsNothing);
+    });
+  });
+
+  group('practicar igual', () {
+    /// Dos tarjetas que ya se repasaron y no vuelven hasta dentro de días.
+    Future<List<String>> answeredCards() async {
+      final ids = await seed();
+      final repository = harness.container.read(flashcardRepositoryProvider);
+      final cards = <String>[];
+      for (final title in ['Roma', 'Cartago']) {
+        final card = (await repository.create(
+          itemId: ids[title]!,
+          front: '¿Qué fue $title?',
+          back: 'Una ciudad.',
+        )).getOrElse((f) => fail('$f'));
+        await repository.review(id: card.id, grade: ReviewGrade.easy);
+        cards.add(card.id);
+      }
+      return cards;
+    }
+
+    testWidgets('sin tarjetas no se ofrece', (tester) async {
+      await setUpWith();
+      await pumpReview(tester);
+
+      expect(find.text(es.reviewPracticeAction), findsNothing);
+    });
+
+    testWidgets('las recorre sin calificar y sin tocar cuándo vuelven', (
+      tester,
+    ) async {
+      await setUpWith();
+      await answeredCards();
+      final db = harness.database;
+      final before = {
+        for (final row in await db.select(db.flashcards).get())
+          row.id: row.dueAt,
+      };
+      final reviews = (await db.select(db.reviewLogs).get()).length;
+      await pumpReview(tester);
+
+      await tester.tap(find.byKey(const Key('review-practice')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.reviewPracticeProgress(1, 2)), findsOneWidget);
+      await tester.tap(find.text(es.reviewShowAnswer));
+      await tester.pumpAndSettle();
+      expect(find.text(es.reviewGradeGood), findsNothing);
+      await tester.tap(find.byKey(const Key('practice-next')));
+      await tester.pumpAndSettle();
+      expect(find.text(es.reviewPracticeProgress(2, 2)), findsOneWidget);
+      await tester.tap(find.text(es.reviewShowAnswer));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('practice-next')));
+      await tester.pumpAndSettle();
+
+      // Terminó: vuelve a Repasar, vacío.
+      expect(find.byKey(const Key('practice-next')), findsNothing);
+      expect(find.text(es.reviewEmptyWithoutCards(1)), findsOneWidget);
+      final after = {
+        for (final row in await db.select(db.flashcards).get())
+          row.id: row.dueAt,
+      };
+      expect(after, before);
+      expect(await db.select(db.reviewLogs).get(), hasLength(reviews));
     });
   });
 }

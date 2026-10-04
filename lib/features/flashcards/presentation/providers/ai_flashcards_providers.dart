@@ -25,6 +25,11 @@ final itemsWithoutCardsCountProvider = StreamProvider.autoDispose<int>(
   (ref) => ref.watch(flashcardCoverageReaderProvider).watchWithoutCardsCount(),
 );
 
+/// Si hay alguna tarjeta, le toque o no (F30): para «Practicar igual».
+final hasFlashcardsProvider = StreamProvider.autoDispose<bool>(
+  (ref) => ref.watch(flashcardCoverageReaderProvider).watchHasCards(),
+);
+
 /// Si el modelo de lenguaje está bajado: sin él no hay tarjetas con IA.
 final languageModelReadyProvider = FutureProvider.autoDispose<bool>(
   (ref) => ref.watch(chatModelManagerProvider).isReady(),

@@ -129,4 +129,24 @@ class FlashcardCoverageReaderImpl implements FlashcardCoverageReader {
     telemetry: _telemetry,
     hint: 'FlashcardCoverageReaderImpl.watchWithoutCardsCount',
   );
+
+  @override
+  Stream<bool> watchHasCards() => watchQuery(
+    db: _db,
+    tables: [_db.flashcards, _db.knowledgeEntries],
+    read: () async {
+      final row = await _db
+          .customSelect(
+            '''
+            SELECT EXISTS (
+              SELECT 1 FROM flashcards f JOIN item i ON i.id = f.item_id
+               WHERE ${activeItemSql('i')}) AS any_card''',
+            readsFrom: {_db.flashcards, _db.knowledgeEntries},
+          )
+          .getSingle();
+      return row.read<bool>('any_card');
+    },
+    telemetry: _telemetry,
+    hint: 'FlashcardCoverageReaderImpl.watchHasCards',
+  );
 }
