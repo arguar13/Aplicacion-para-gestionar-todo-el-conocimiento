@@ -11,6 +11,7 @@ import 'package:sinapsis/core/network/bounded_download.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/attachments/data/services/page_attachment_finder.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
 import 'package:sinapsis/features/attachments/domain/repositories/attachment_repository.dart';
@@ -137,12 +138,20 @@ class WebArticleTransformer implements Transformer {
     // que traba la interfaz mientras dura. Se puede mover porque el
     // extractor no tiene estado propio y lo que entra y sale son datos
     // simples.
+    //
+    // Ahí mismo se anota lo que el artículo ofrece para bajar (F30): sus
+    // fotos, los archivos que enlaza y lo que incrusta. Solo si hay quien
+    // lo baje: en la web no se anota nada.
     final extractor = _extractor;
-    final (article, markdown) = await Isolate.run(() {
+    final findAttachments = _fileFetcher != null && _attachments != null;
+    final (article, markdown, candidates) = await Isolate.run(() {
       final extracted = extractor.extract(html, baseUri: url);
       return (
         extracted,
         extracted == null ? null : htmlToMarkdown(extracted.contentHtml),
+        extracted == null || !findAttachments
+            ? const <AttachmentCandidate>[]
+            : findPageAttachments(extracted.contentHtml),
       );
     });
 
@@ -161,6 +170,10 @@ class WebArticleTransformer implements Transformer {
     final title = article.title?.isNotEmpty ?? false
         ? article.title!
         : item.title;
+
+    // Lo que hay que bajar queda anotado; lo baja la cola después de
+    // guardar el artículo, que no tiene por qué esperar a las fotos.
+    if (candidates.isNotEmpty) await _attachments?.plan(item.id, candidates);
 
     final originalFilePath = await _archiveSafely(
       html,

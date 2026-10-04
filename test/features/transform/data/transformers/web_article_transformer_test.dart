@@ -410,6 +410,46 @@ void main() {
     });
 
     test(
+      'de una página, anota lo que ofrece su artículo, sin bajarlo',
+      () async {
+        final transformer = WebArticleTransformer(
+          client: FakeWebPageClient(html: '<html></html>'),
+          extractor: FakeArticleExtractor(
+            article: const ExtractedArticle(
+              contentHtml:
+                  '<p>Ver <a href="https://ejemplo.org/informe.pdf">el informe'
+                  '</a>.</p><img src="https://ejemplo.org/foto.jpg" alt="Foto">',
+              textContent: 'Ver el informe.',
+            ),
+          ),
+          archiver: FakePageArchiver(),
+          files: files,
+          ids: ids,
+          clock: () => now,
+          logger: const SilentLogger(),
+          fileFetcher: fetcher,
+          attachments: attachments,
+        );
+
+        final result = await transformer.transform(webItem());
+
+        expect(result.renditions, isNotEmpty);
+        expect(fetcher.requested, isEmpty);
+        expect(
+          attachments.downloads.map((d) => (d.url.toString(), d.kind, d.title)),
+          [
+            (
+              'https://ejemplo.org/informe.pdf',
+              RenditionKind.pdf,
+              'el informe',
+            ),
+            ('https://ejemplo.org/foto.jpg', RenditionKind.image, 'Foto'),
+          ],
+        );
+      },
+    );
+
+    test(
       'donde no se bajan archivos, es como antes: no hay artículo',
       () async {
         final transformer = build(
