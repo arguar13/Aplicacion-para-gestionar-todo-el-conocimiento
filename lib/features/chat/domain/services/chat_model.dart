@@ -59,7 +59,11 @@ abstract interface class FreeConversation {
   /// [images] son fotos adjuntas al mensaje —vacío si no se adjuntó
   /// ninguna—: Gemma 3n E4B y Gemma 4 E4B son multimodales, así que
   /// mandarlas junto con el texto deja que el modelo las describa o
-  /// responda preguntas sobre ellas, no solo sobre lo escrito.
+  /// responda preguntas sobre ellas, no solo sobre lo escrito. Llegan de
+  /// verdad al modelo (F30; hasta entonces se descartaban sin aviso): la
+  /// primera foto vuelve a cargar el modelo con la parte que mira imágenes,
+  /// que no se carga si no hace falta. Si no se puede, la respuesta termina
+  /// con [ChatImagesUnsupportedException], nunca sin la foto.
   ChatReplyStream send(String message, {List<Uint8List> images = const []});
 
   /// Libera lo que haya quedado abierto. Después de esto, [send] no vuelve
@@ -110,6 +114,19 @@ class ChatMessageTooLongException implements Exception {
 
   @override
   String toString() => 'El mensaje no entra en la ventana del modelo.';
+}
+
+/// El modelo no pudo cargar la parte que mira imágenes en este teléfono
+/// (F30): la foto no llegó al modelo y el mensaje no se contestó. El modelo
+/// sigue cargado sin ella; el mismo mensaje sin la foto sí se puede mandar.
+class ChatImagesUnsupportedException implements Exception {
+  const ChatImagesUnsupportedException(this.cause);
+
+  /// Por qué no se pudo, según el motor.
+  final Object cause;
+
+  @override
+  String toString() => 'El modelo no puede mirar imágenes: $cause';
 }
 
 /// Se pidió una respuesta sin haber descargado el modelo todavía. El

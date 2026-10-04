@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
@@ -12,7 +14,11 @@ void main() {
   late FakeInferenceModel model;
   late GemmaChatModel gemma;
 
+  /// Con qué se pidió cargar el modelo, cada vez.
+  late List<GemmaLoadRequest> loads;
+
   setUp(() {
+    loads = [];
     model = FakeInferenceModel(
       newChat: (n) => FakeInferenceChat(
         id: n,
@@ -27,7 +33,10 @@ void main() {
       engine: GemmaEngine(
         ensureReady: () async => true,
         meter: meter,
-        load: (_) async => model,
+        load: (request) async {
+          loads.add(request);
+          return model;
+        },
       ),
       meter: meter,
       countTokens: (_, text) async => (text.length / 4).ceil(),
@@ -100,5 +109,28 @@ void main() {
     expect(model.opened[1].maxOutputTokens, kSummaryReplyTokens);
     expect(model.opened[2].maxOutputTokens, kChoiceReplyTokens);
     expect(model.chats.every((c) => c.closed), isTrue);
+  });
+
+  test('una foto en la charla llega al modelo, cargado para mirarla '
+      '(F30)', () async {
+    final conversation = await gemma.startConversation();
+    await conversation.send('Hola').last;
+    expect(loads.map((l) => l.vision), [false]);
+
+    // El modelo de mentira es el mismo objeto: lo que importa es que se pide
+    // de nuevo con la parte de las fotos y que la foto llega.
+    model = FakeInferenceModel();
+    await conversation
+        .send(
+          '¿Qué es?',
+          images: [
+            Uint8List.fromList(const [1]),
+          ],
+        )
+        .last;
+
+    expect(loads.map((l) => l.vision), [false, true]);
+    expect(model.chats.single.imagesReceived, 1);
+    await conversation.close();
   });
 }

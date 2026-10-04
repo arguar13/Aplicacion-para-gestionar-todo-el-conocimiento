@@ -456,6 +456,8 @@ class GemmaChatModel
       instruction: systemInstruction,
       window: _engine.contextTokens,
       replyTokens: kChatReplyTokens,
+      prepareImages: () => _engine.model(vision: true),
+      loadCount: () => _engine.loadCount,
       countTokens: _countTokens,
     );
     await session.openFirst();

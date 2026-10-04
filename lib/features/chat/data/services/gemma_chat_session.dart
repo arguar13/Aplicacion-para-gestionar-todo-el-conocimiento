@@ -61,9 +61,13 @@ class GemmaChatSession {
     required this.instruction,
     required this.window,
     required this.replyTokens,
+    required Future<void> Function() prepareImages,
+    required int Function() loadCount,
     GemmaTokenCounter countTokens = countGemmaTokens,
   }) : _reply = reply,
        _clean = clean,
+       _prepareImages = prepareImages,
+       _loadCount = loadCount,
        _count = countTokens {
     _hold = _gate.holdForUser(onIdle: _closeForIdle);
   }
@@ -82,6 +86,18 @@ class GemmaChatSession {
   final String Function(InferenceChat chat, String text) _clean;
 
   final GemmaTokenCounter _count;
+
+  /// Deja el modelo listo para mirar fotos (`GemmaEngine.model(vision:
+  /// true)`): puede volver a cargarlo, y entonces la sesión abierta muere
+  /// con el modelo de antes.
+  final Future<void> Function() _prepareImages;
+
+  /// Cuántas veces se cargó el modelo (`GemmaEngine.loadCount`): si cambió
+  /// desde que se abrió la sesión, la sesión ya no sirve.
+  final int Function() _loadCount;
+
+  /// [_loadCount] al abrir la sesión.
+  var _openedOnLoad = 0;
 
   /// La instrucción con la que se abre cada sesión: ocupa ventana.
   final String instruction;
@@ -222,6 +238,14 @@ class GemmaChatSession {
   /// sesión nueva y le da lo conversado que entre. Si no entraría ni solo,
   /// falla sin tocar la sesión.
   Future<InferenceChat> _load(String prompt, List<Uint8List> images) async {
+    if (images.isNotEmpty) await _prepareImages();
+    if (_chat != null && _openedOnLoad != _loadCount()) {
+      // El modelo se volvió a cargar —para mirar fotos, o porque se soltó—
+      // y la sesión se cerró con el de antes: sigue una nueva, con lo
+      // conversado.
+      _chat = null;
+      _resuming = true;
+    }
     final open = _chat;
     int? needed;
     if (open != null) {
@@ -275,6 +299,7 @@ class GemmaChatSession {
   Future<InferenceChat> _openFresh() async {
     final chat = await _open();
     _chat = chat;
+    _openedOnLoad = _loadCount();
     _used = _instructionTokens = await _count(chat, instruction);
     return chat;
   }

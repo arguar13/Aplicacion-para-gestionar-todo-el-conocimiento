@@ -82,4 +82,41 @@ void main() {
     );
     expect(requests, isEmpty);
   });
+
+  group('la parte que mira fotos (F30)', () {
+    test('no se carga hasta la primera foto; ahí se vuelve a cargar con '
+        'ella, y queda', () async {
+      final gemma = engine();
+      await gemma.model();
+      expect(requests.single.vision, isFalse);
+
+      await gemma.model(vision: true);
+      await gemma.model();
+
+      expect(requests.map((r) => r.vision), [false, true]);
+      expect(models.first.closed, isTrue);
+      expect(gemma.loadCount, 2);
+      expect(meter.performance.value.load!.vision, isTrue);
+    });
+
+    test('si no se puede, queda cargado sin ella y lo dice', () async {
+      final gemma = GemmaEngine(
+        ensureReady: () async => true,
+        meter: meter,
+        load: (request) async {
+          requests.add(request);
+          if (request.vision) throw StateError('sin codificador de imágenes');
+          return FakeInferenceModel();
+        },
+      );
+
+      await expectLater(
+        gemma.model(vision: true),
+        throwsA(isA<ChatImagesUnsupportedException>()),
+      );
+
+      expect(gemma.isLoaded, isTrue);
+      expect(requests.map((r) => r.vision), [true, false]);
+    });
+  });
 }

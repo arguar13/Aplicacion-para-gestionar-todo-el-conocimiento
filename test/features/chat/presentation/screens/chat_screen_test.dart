@@ -310,6 +310,24 @@ void main() {
     expect(harness.chatModel.warmUps, 0);
   });
 
+  testWidgets('una foto por mensaje: la segunda no se adjunta y lo dice '
+      '(F30)', (tester) async {
+    await pumpChat(
+      tester,
+      chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
+    );
+
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.chatAttachImageAction));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byType(InputChip), findsOneWidget);
+    expect(find.text(es.chatAttachOneImage), findsOneWidget);
+  });
+
   group('la respuesta mientras se escribe (F30)', () {
     Future<StreamController<String>> sendLive(
       WidgetTester tester,

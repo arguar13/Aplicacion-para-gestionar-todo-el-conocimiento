@@ -78,6 +78,9 @@ class GemmaEngine {
   InferenceModel? _model;
   var _loads = 0;
 
+  /// Si el modelo cargado tiene la parte que mira imágenes.
+  var _vision = false;
+
   /// Si el modelo está en memoria ahora.
   bool get isLoaded => _model != null;
 
@@ -86,17 +89,40 @@ class GemmaEngine {
   int get loadCount => _loads;
 
   /// El modelo cargado; lo carga si hace falta. Dentro de un turno.
-  Future<InferenceModel> model() async {
+  ///
+  /// Con [vision], con la parte que mira imágenes (F30): si estaba cargado
+  /// sin ella, lo vuelve a cargar. Esa parte ocupa memoria, así que no se
+  /// carga hasta que llega la primera foto; después queda hasta que el
+  /// modelo se suelte. Si no se puede cargar con ella, lo deja cargado sin
+  /// ella y lanza [ChatImagesUnsupportedException].
+  Future<InferenceModel> model({bool vision = false}) async {
     final loaded = _model;
-    if (loaded != null) return loaded;
+    if (loaded != null && (_vision || !vision)) return loaded;
+    if (loaded != null) await release();
 
     if (!await _ensureReady()) throw const ChatModelNotReadyException();
 
-    final request = GemmaLoadRequest(maxTokens: contextTokens);
+    if (!vision) return _loadWith(vision: false);
+    try {
+      return await _loadWith(vision: true);
+      // El motor falla de formas sin un tipo propio: sea cual sea, la foto
+      // no puede llegar, y se dice así.
+    } on Object catch (error, stackTrace) {
+      await _loadWith(vision: false);
+      Error.throwWithStackTrace(
+        ChatImagesUnsupportedException(error),
+        stackTrace,
+      );
+    }
+  }
+
+  Future<InferenceModel> _loadWith({required bool vision}) async {
+    final request = GemmaLoadRequest(maxTokens: contextTokens, vision: vision);
     final watch = Stopwatch()..start();
     final model = await _load(request);
     watch.stop();
     _model = model;
+    _vision = vision;
     _loads++;
     _meter.recordLoad(
       LanguageModelLoad(
@@ -115,6 +141,7 @@ class GemmaEngine {
     final model = _model;
     if (model == null) return;
     _model = null;
+    _vision = false;
     await model.close();
   }
 }

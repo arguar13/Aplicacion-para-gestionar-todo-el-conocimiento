@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,9 +23,15 @@ void main() {
   late LanguageModelGate gate;
   late List<FakeInferenceChat> opened;
 
+  /// Cuántas veces se "cargó" el modelo, y si con la parte de las fotos.
+  late int loads;
+  late bool vision;
+
   setUp(() {
     gate = LanguageModelGate();
     opened = [];
+    loads = 1;
+    vision = false;
   });
 
   Future<GemmaChatSession> open({
@@ -48,6 +55,12 @@ void main() {
       instruction: 'Sos un asistente.',
       window: window,
       replyTokens: replyTokens,
+      prepareImages: () async {
+        if (vision) return;
+        vision = true;
+        loads++;
+      },
+      loadCount: () => loads,
       countTokens: _fourCharsPerToken,
     );
     await session.openFirst();
@@ -238,6 +251,44 @@ void main() {
     expect(error, isA<StateError>());
     // El turno no quedó tomado.
     expect(await gate.runForUser(() async => 'libre'), 'libre');
+    await session.close();
+  });
+
+  testWidgets('una foto llega al modelo: si hay que volver a cargarlo para '
+      'mirarla, sigue en una sesión nueva con lo conversado (F30)', (
+    tester,
+  ) async {
+    final session = await open();
+    await session.send(prompt: 'Hola', said: 'Hola').last;
+
+    await session
+        .send(
+          prompt: '¿Qué es esto?',
+          said: '¿Qué es esto?',
+          images: [
+            Uint8List.fromList(const [1, 2, 3]),
+          ],
+        )
+        .last;
+
+    expect(vision, isTrue);
+    expect(opened, hasLength(2));
+    expect(opened.last.imagesReceived, 1);
+    expect(opened.last.received.single, contains('Persona: Hola'));
+    expect(opened.last.received.single, endsWith('¿Qué es esto?'));
+
+    // Con el modelo ya listo para fotos, la siguiente va en la misma sesión.
+    await session
+        .send(
+          prompt: '¿Y esta?',
+          said: '¿Y esta?',
+          images: [
+            Uint8List.fromList(const [4]),
+          ],
+        )
+        .last;
+    expect(opened, hasLength(2));
+    expect(opened.last.imagesReceived, 2);
     await session.close();
   });
 }

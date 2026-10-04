@@ -400,6 +400,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final format = file.format;
     if (format.sourceKind == SourceKind.image) {
+      // El modelo mira una foto por mensaje (F30): es lo que le entra en la
+      // ventana junto con el resto, y lo que el motor carga.
+      if (_pendingAttachments.any(
+        (a) => a.attachment.kind == ChatAttachmentKind.image,
+      )) {
+        _showSnack(l10n.chatAttachOneImage);
+        return;
+      }
       final ids = ref.read(idGeneratorProvider);
       final relativePath = await ref
           .read(fileStoreProvider)
@@ -595,6 +603,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       null => null,
       _Stopped() => written ? null : l10n.chatReplyStoppedEmpty,
       ChatMessageTooLongException() => l10n.chatMessageTooLong,
+      ChatImagesUnsupportedException() => l10n.chatImagesUnsupported,
       _ => written ? l10n.chatReplyInterrupted : l10n.globalErrorUnexpected,
     };
     return PersistedChatMessage(

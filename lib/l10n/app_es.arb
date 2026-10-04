@@ -6191,5 +6191,13 @@
   "chatMessageTooLong": "El mensaje es demasiado largo para el modelo. Probá con menos texto o con un documento más corto.",
   "@chatMessageTooLong": {
     "description": "Cuando el mensaje no entra en lo que el modelo puede leer de una vez."
+  },
+  "chatAttachOneImage": "Una foto por mensaje: ya hay una adjunta.",
+  "@chatAttachOneImage": {
+    "description": "Aviso al adjuntar una segunda foto al mismo mensaje del chat (F30)."
+  },
+  "chatImagesUnsupported": "El modelo no pudo mirar la foto en este teléfono, así que no contestó. Mandá el mensaje sin la foto, o describila con palabras.",
+  "@chatImagesUnsupported": {
+    "description": "Cuando el modelo no puede cargar la parte que mira imágenes: la foto no se descarta en silencio."
   }
 }
