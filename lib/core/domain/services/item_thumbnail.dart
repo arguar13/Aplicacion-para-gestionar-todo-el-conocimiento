@@ -18,12 +18,24 @@ sealed class ItemThumbnail {
   const ItemThumbnail();
 }
 
-/// Bytes ya decodificables con `Image.memory`: la foto original de una
-/// imagen guardada, o la primera página de un PDF ya renderizada.
+/// Bytes ya decodificables con `Image.memory`: la primera página de un PDF
+/// ya renderizada, o la foto original de una imagen guardada donde no hay
+/// disco del que leerla (la web).
 class ItemThumbnailBytes extends ItemThumbnail {
   const ItemThumbnailBytes(this.bytes);
 
   final Uint8List bytes;
+}
+
+/// La foto original de una imagen guardada, en el disco: se muestra con
+/// `Image.file`, que la abre sin pasar sus bytes por Dart. Traerla a memoria
+/// para una miniatura de 40×40 retenía el archivo entero —varios MB por foto—
+/// mientras la tarjeta estuviera a la vista.
+class ItemThumbnailFile extends ItemThumbnail {
+  const ItemThumbnailFile(this.path);
+
+  /// Ruta absoluta en el disco.
+  final String path;
 }
 
 /// Una miniatura que vive en la web y hay que pedir por red: la miniatura
@@ -91,6 +103,9 @@ class ItemThumbnailResolver {
   Future<ItemThumbnail> _fromOriginalFile(KnowledgeItem item) async {
     final path = item.source.originalFilePath;
     if (path == null) return const ItemThumbnailNone();
+
+    final localPath = await _files.localPathOf(path);
+    if (localPath != null) return ItemThumbnailFile(localPath);
 
     final bytes = await _files.read(path);
     return bytes == null

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/services/item_thumbnail.dart';
@@ -434,12 +437,23 @@ class _ItemThumbnailBadge extends ConsumerWidget {
               ),
             ),
             switch (thumbnail) {
-              ItemThumbnailBytes(:final bytes) => TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 220),
-                builder: (context, opacity, child) =>
-                    Opacity(opacity: opacity, child: child),
-                child: Image.memory(bytes, fit: BoxFit.cover),
+              ItemThumbnailBytes(:final bytes) => _FadeIn(
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.cover,
+                  cacheWidth: thumbnailDecodeWidth(context, 40),
+                ),
+              ),
+              ItemThumbnailFile(:final path) => _FadeIn(
+                child: Image.file(
+                  File(path),
+                  fit: BoxFit.cover,
+                  cacheWidth: thumbnailDecodeWidth(context, 40),
+                  // Un original que se borró o que no es la imagen que dice
+                  // ser: queda el ícono del tipo, que está debajo.
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
               ),
               ItemThumbnailUrl(:final url) => Image.network(
                 url,
@@ -559,4 +573,20 @@ class _StateBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/// La miniatura aparece de a poco en vez de saltar sobre el ícono.
+class _FadeIn extends StatelessWidget {
+  const _FadeIn({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0, end: 1),
+    duration: const Duration(milliseconds: 220),
+    builder: (context, opacity, child) =>
+        Opacity(opacity: opacity, child: child),
+    child: child,
+  );
 }

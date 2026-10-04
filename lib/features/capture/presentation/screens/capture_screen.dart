@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/design/widgets/custom_text_field.dart';
 import 'package:sinapsis/core/design/widgets/primary_button.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
@@ -951,6 +952,9 @@ class _ScanPageThumbnail extends StatelessWidget {
               width: 72,
               height: 96,
               fit: BoxFit.cover,
+              // Una página fotografiada son millones de píxeles: se decodifica
+              // al tamaño de la miniatura, no entera.
+              cacheWidth: thumbnailDecodeWidth(context, 72),
             ),
           ),
           Positioned(
