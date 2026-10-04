@@ -42,6 +42,12 @@ class FakeChatModel implements ChatModel {
     return response ?? '';
   }
 
+  /// Cuántas veces se pidió cargarlo de antemano.
+  int warmUps = 0;
+
+  @override
+  Future<void> warmUp() async => warmUps++;
+
   @override
   Future<FreeConversation> startConversation() async {
     final conversation = FakeFreeConversation(response: response, error: error)

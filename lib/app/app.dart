@@ -12,6 +12,7 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/chat/presentation/providers/model_memory_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
@@ -30,12 +31,20 @@ class _AppState extends ConsumerState<App> {
   /// lo deja prender, y desde segundo plano no. Ver `LongWorkCoordinator`.
   late final AppLifecycleListener _lifecycle;
 
+  /// Saca los modelos de la IA de la memoria cuando Android avisa que falta,
+  /// o tras un rato en segundo plano (F30, ver `ModelMemoryKeeper`).
+  late final ModelMemoryObserver _modelMemory;
+
   @override
   void initState() {
     super.initState();
     _lifecycle = AppLifecycleListener(
       onResume: () => ref.read(longWorkCoordinatorProvider).appResumed(),
     );
+    _modelMemory = ModelMemoryObserver(
+      () => ref.read(modelMemoryKeeperProvider),
+    );
+    WidgetsBinding.instance.addObserver(_modelMemory);
     // Las descargas de modelos que siguieron con la app cerrada (F29)
     // vuelven a verse. Una vez por arranque de Dart: si la app se cerró y el
     // motor siguió vivo, al volver a abrirla esto no se repite, y las
@@ -46,6 +55,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(_modelMemory);
     _lifecycle.dispose();
     super.dispose();
   }

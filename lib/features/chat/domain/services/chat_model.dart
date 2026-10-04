@@ -40,6 +40,11 @@ abstract interface class ChatModel {
   /// contexto nuevo; lo que esta sesión aporta es la memoria de lo
   /// conversado antes, no la búsqueda en sí.
   Future<VaultConversation> startVaultConversation();
+
+  /// Carga el modelo en memoria, si no lo está, para que el primer mensaje
+  /// no espere la carga (F30): la pantalla del chat lo pide al abrirse, en
+  /// segundo plano. No corta a nadie: si el modelo está ocupado, espera.
+  Future<void> warmUp();
 }
 
 /// Una conversación libre en curso, con su propio historial en memoria

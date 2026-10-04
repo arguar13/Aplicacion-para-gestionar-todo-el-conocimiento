@@ -60,7 +60,9 @@ class LanguageModelGate {
   LanguageModelGate({
     this.idleRelease = kChatIdleRelease,
     void Function(Object error, StackTrace stackTrace)? onError,
-  }) : _onError = onError;
+    DateTime Function()? clock,
+  }) : _onError = onError,
+       _clock = clock ?? DateTime.now;
 
   /// Cuánto retiene el modelo una charla sin uso: ver [kChatIdleRelease].
   final Duration idleRelease;
@@ -69,7 +71,12 @@ class LanguageModelGate {
   /// pasa solo, sin nadie que lo espere. Sin esto, se lanza en la zona.
   final void Function(Object error, StackTrace stackTrace)? _onError;
 
+  final DateTime Function() _clock;
+
   var _busy = false;
+
+  /// Cuándo se soltó el modelo por última vez; `null` si nunca se usó.
+  DateTime? _lastUse;
 
   /// Si el que tiene el turno ahora es la persona.
   var _busyForUser = false;
@@ -97,6 +104,42 @@ class LanguageModelGate {
 
   /// Si nadie usa el modelo ni espera para usarlo: ni la persona ni la cola.
   bool get isIdle => !_busy && !isUserActive && _backgroundWaiting.isEmpty;
+
+  /// Cuánto hace que nadie usa el modelo: `null` si alguien lo usa o espera
+  /// para usarlo ([isIdle] es falso) o si nunca se usó.
+  Duration? get unusedFor {
+    final last = _lastUse;
+    if (!isIdle || last == null) return null;
+    return _clock().difference(last);
+  }
+
+  /// Corre [work] con el modelo solo si nadie lo usa ni espera para usarlo
+  /// ahora: si no, no lo corre y da `false`. Para soltar la memoria del
+  /// modelo (F30) sin cruzarse con nadie y sin hacer esperar a nadie.
+  Future<bool> runIfFree(Future<void> Function() work) async {
+    if (_busy || _userWaiting.isNotEmpty || _backgroundWaiting.isNotEmpty) {
+      return false;
+    }
+    _busy = true;
+    _busyForUser = false;
+    try {
+      await work();
+      return true;
+    } finally {
+      _release();
+    }
+  }
+
+  /// Cierra ya las sesiones de las charlas abiertas, como si llevaran un rato
+  /// sin uso: el próximo mensaje de cada una la reabre con lo conversado.
+  /// Para soltar la memoria del modelo cuando Android avisa que falta (F30).
+  Future<void> closeIdleConversations() async {
+    for (final hold in List.of(_holding)) {
+      hold._idleTimer?.cancel();
+      hold._idleTimer = null;
+      if (!hold._closing) await _idleOut(hold);
+    }
+  }
 
   /// Completa cuando la persona no esté usando el modelo de lenguaje (ver
   /// [isUserActive]); en el acto, si ya no lo usa. Para el trabajo de fondo
@@ -234,6 +277,7 @@ class LanguageModelGate {
   void _release() {
     _busy = false;
     _busyForUser = false;
+    _lastUse = _clock();
     _handOver();
     _wakeIdleWaiters();
   }

@@ -74,6 +74,10 @@ class _FakeChatModel implements ChatModel {
   @override
   Future<VaultConversation> startVaultConversation() =>
       throw UnimplementedError('no lo usa este caso de uso');
+
+  @override
+  Future<void> warmUp() =>
+      throw UnimplementedError('no lo usa este caso de uso');
 }
 
 void main() {

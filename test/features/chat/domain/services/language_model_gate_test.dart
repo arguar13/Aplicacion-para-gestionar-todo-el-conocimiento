@@ -123,6 +123,33 @@ void main() {
     });
   });
 
+  group('para soltar la memoria (F30)', () {
+    test('runIfFree corre solo si nadie usa ni espera el modelo', () async {
+      final running = Completer<void>();
+      final current = gate.runInBackground(() => running.future);
+
+      expect(await gate.runIfFree(() async {}), isFalse);
+      running.complete();
+      await current;
+      var ran = false;
+      expect(await gate.runIfFree(() async => ran = true), isTrue);
+      expect(ran, isTrue);
+    });
+
+    test('cuánto hace que nadie lo usa', () async {
+      var now = DateTime(2026, 10, 4, 12);
+      final timed = LanguageModelGate(clock: () => now);
+      expect(timed.unusedFor, isNull);
+
+      await timed.runForUser(() async {});
+      now = now.add(const Duration(minutes: 2));
+      expect(timed.unusedFor, const Duration(minutes: 2));
+
+      timed.chatVisible = true;
+      expect(timed.unusedFor, isNull);
+    });
+  });
+
   test('la persona cuenta como activa mientras espera su turno', () async {
     final running = Completer<void>();
     final current = gate.runInBackground(() => running.future);

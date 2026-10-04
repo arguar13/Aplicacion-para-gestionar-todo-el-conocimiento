@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_service.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
@@ -75,4 +76,88 @@ void main() {
     );
     expect(asked, 1);
   });
+
+  group('sacarlo de la memoria (F30)', () {
+    late List<_FakeEmbedder> loaded;
+    late DateTime now;
+    late GemmaEmbeddingService gemma;
+
+    setUp(() {
+      loaded = [];
+      now = DateTime(2026, 10, 4);
+      gemma = GemmaEmbeddingService(
+        ensureReady: () async => true,
+        load: () async {
+          final model = _FakeEmbedder();
+          loaded.add(model);
+          return model;
+        },
+        now: () => now,
+      );
+    });
+
+    test('lo cierra, y el próximo pedido lo vuelve a cargar', () async {
+      await gemma.embed('a');
+
+      await gemma.release();
+
+      expect(loaded.single.closed, isTrue);
+      expect(await gemma.embed('b'), [1.0]);
+      expect(loaded, hasLength(2));
+    });
+
+    test('no lo suelta mientras un pedido lo usa', () async {
+      await gemma.embed('a');
+      final working = Completer<void>();
+      loaded.single.pending = working;
+      final batch = gemma.embedBatch(['b']);
+      await pumpEventQueue();
+
+      await gemma.release();
+      expect(loaded.single.closed, isFalse);
+
+      working.complete();
+      await batch;
+    });
+
+    test('con un rato pedido, solo si pasó desde el último uso', () async {
+      await gemma.embed('a');
+
+      now = now.add(const Duration(minutes: 1));
+      await gemma.release(unusedFor: const Duration(minutes: 3));
+      expect(loaded.single.closed, isFalse);
+
+      now = now.add(const Duration(minutes: 3));
+      await gemma.release(unusedFor: const Duration(minutes: 3));
+      expect(loaded.single.closed, isTrue);
+    });
+  });
+}
+
+/// Un modelo de vínculos de mentira: un vector de un número por texto.
+class _FakeEmbedder extends Fake implements EmbeddingModel {
+  bool closed = false;
+
+  /// Si está, el próximo lote espera a que se complete.
+  Completer<void>? pending;
+
+  @override
+  Future<List<double>> generateEmbedding(
+    String text, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async => [1.0];
+
+  @override
+  Future<List<List<double>>> generateEmbeddings(
+    List<String> texts, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
+    await pending?.future;
+    return [
+      for (final _ in texts) const [1.0],
+    ];
+  }
+
+  @override
+  Future<void> close() async => closed = true;
 }

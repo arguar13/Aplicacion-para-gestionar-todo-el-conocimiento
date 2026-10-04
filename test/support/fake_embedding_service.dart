@@ -41,6 +41,12 @@ class FakeEmbeddingService implements EmbeddingService {
     return texts.map(vectorFor).toList();
   }
 
+  /// Cuántas veces se pidió sacarlo de la memoria.
+  int releases = 0;
+
+  @override
+  Future<void> release({Duration? unusedFor}) async => releases++;
+
   static List<double> _defaultVectorFor(String text) {
     final length = text.length.toDouble();
     return [length, length / 2, length / 3];

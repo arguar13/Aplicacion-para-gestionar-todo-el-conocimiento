@@ -297,6 +297,19 @@ void main() {
     });
   });
 
+  testWidgets('con el modelo bajado, lo carga al abrir el chat, antes del '
+      'primer mensaje (F30)', (tester) async {
+    await pumpChat(tester, chatModelReady: true);
+
+    expect(harness.chatModel.warmUps, 1);
+  });
+
+  testWidgets('sin el modelo bajado, no intenta cargarlo', (tester) async {
+    await pumpChat(tester);
+
+    expect(harness.chatModel.warmUps, 0);
+  });
+
   group('la respuesta mientras se escribe (F30)', () {
     Future<StreamController<String>> sendLive(
       WidgetTester tester,

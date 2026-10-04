@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/persisted_chat_message.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
@@ -172,10 +173,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// `kChatIdleRelease`, y la cola de la IA sigue.
   void _tellPresence() {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _gate.chatVisible =
+    final visible =
         mounted &&
         (_routeVisible?.value.enabled ?? false) &&
         (lifecycle == null || lifecycle == AppLifecycleState.resumed);
+    final cameBack = visible && !_gate.chatVisible;
+    _gate.chatVisible = visible;
+    // Al salir de la app el modelo pudo haberse soltado para liberar memoria
+    // (F30): al volver al chat se vuelve a cargar, antes del mensaje.
+    if (cameBack && _modelReady) unawaited(_warmUp());
   }
 
   @override
@@ -199,6 +205,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final ready = await ref.read(chatModelManagerProvider).isReady();
     if (!mounted) return;
     setState(() => _modelReady = ready);
+    if (ready) unawaited(_warmUp());
+  }
+
+  /// Carga el modelo mientras la persona escribe (F30), en vez de con el
+  /// primer mensaje: cargar ~3,7 GB son segundos que así no se esperan. Si
+  /// falla, el primer mensaje lo vuelve a intentar y ahí muestra el error;
+  /// acá solo se registra.
+  Future<void> _warmUp() async {
+    final model = ref.read(chatModelProvider);
+    final telemetry = ref.read(telemetryServiceProvider);
+    try {
+      await model.warmUp();
+      // El motor es de terceros y falla de formas sin un tipo propio.
+    } on Object catch (error, stackTrace) {
+      telemetry.recordError(
+        error,
+        stackTrace,
+        hint: 'ChatScreen: cargar el modelo de antemano',
+      );
+    }
   }
 
   Future<void> _openModelScreen() async {

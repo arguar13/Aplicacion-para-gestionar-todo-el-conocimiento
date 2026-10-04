@@ -417,6 +417,12 @@ class GemmaChatModel
   }
 
   @override
+  Future<void> warmUp() async {
+    if (_engine.isLoaded) return;
+    await _gate.runForUser(_engine.model, preempt: false);
+  }
+
+  @override
   Future<FreeConversation> startConversation() async => _GemmaFreeConversation(
     await _openConversation(_freeConversationSystemInstruction),
   );

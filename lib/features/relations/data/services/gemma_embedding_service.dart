@@ -2,8 +2,10 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
 
 /// [EmbeddingService] sobre el embedder activo de `flutter_gemma` — mismo
-/// patrón de caching que `GemmaChatModel._activeModel()`: el modelo cargado
-/// queda en memoria entre pedidos, no se vuelve a resolver en cada llamado.
+/// patrón de caching que `GemmaEngine`: el modelo cargado queda en memoria
+/// entre pedidos, no se vuelve a resolver en cada llamado, hasta que se lo
+/// suelta ([release]) porque falta memoria o la app lleva un rato en segundo
+/// plano (F30).
 ///
 /// Import plano de `flutter_gemma.dart`: este archivo solo necesita la
 /// clase abstracta de instancia (`EmbeddingModel`, con `generateEmbedding`),
@@ -25,17 +27,37 @@ class GemmaEmbeddingService implements EmbeddingService {
   GemmaEmbeddingService({
     required Future<bool> Function() ensureReady,
     Future<void> Function()? waitForUser,
+    Future<EmbeddingModel> Function()? load,
+    DateTime Function()? now,
   }) : _ensureReady = ensureReady,
-       _waitForUser = waitForUser ?? _noWait;
+       _waitForUser = waitForUser ?? _noWait,
+       _load = load ?? FlutterGemma.getActiveEmbedder,
+       _now = now ?? DateTime.now;
 
   final Future<bool> Function() _ensureReady;
   final Future<void> Function() _waitForUser;
+
+  /// Carga el embedder activo: una función y no la llamada estática suelta,
+  /// para probar el resto sin el motor nativo.
+  final Future<EmbeddingModel> Function() _load;
+  final DateTime Function() _now;
 
   static Future<void> _noWait() async {}
 
   EmbeddingModel? _model;
 
+  /// Cuántos pedidos están usando el modelo ahora: con alguno, no se suelta.
+  var _inUse = 0;
+  DateTime? _lastUse;
+
+  /// El cierre en curso: cargar de nuevo espera a que termine, para no
+  /// recibir el modelo que se está cerrando.
+  Future<void>? _closing;
+
   Future<EmbeddingModel> _activeModel() async {
+    final closing = _closing;
+    if (closing != null) await closing;
+
     final cached = _model;
     if (cached != null) return cached;
 
@@ -43,29 +65,58 @@ class GemmaEmbeddingService implements EmbeddingService {
       throw const EmbeddingModelNotReadyException();
     }
 
-    final model = await FlutterGemma.getActiveEmbedder();
+    final model = await _load();
     _model = model;
     return model;
   }
 
   @override
-  Future<List<double>> embed(String text) async {
-    await _waitForUser();
-    final model = await _activeModel();
+  Future<List<double>> embed(String text) => _using(
     // `retrievalDocument` siempre, nunca `retrievalQuery`: acá no hay
     // ninguna pregunta de usuario — tanto los chunks indexados como el
     // excerpt del elemento semilla que se compara contra ellos son
     // documentos, una comparación simétrica documento-a-documento.
-    return model.generateEmbedding(text, taskType: TaskType.retrievalDocument);
-  }
+    (model) =>
+        model.generateEmbedding(text, taskType: TaskType.retrievalDocument),
+  );
 
   @override
-  Future<List<List<double>>> embedBatch(List<String> texts) async {
+  Future<List<List<double>>> embedBatch(List<String> texts) => _using(
+    (model) =>
+        model.generateEmbeddings(texts, taskType: TaskType.retrievalDocument),
+  );
+
+  /// Corre [work] con el modelo, cuando la persona no está usando el de
+  /// lenguaje, y anota el uso.
+  Future<T> _using<T>(Future<T> Function(EmbeddingModel model) work) async {
     await _waitForUser();
-    final model = await _activeModel();
-    return model.generateEmbeddings(
-      texts,
-      taskType: TaskType.retrievalDocument,
-    );
+    _inUse++;
+    try {
+      return await work(await _activeModel());
+    } finally {
+      _inUse--;
+      _lastUse = _now();
+    }
+  }
+
+  /// Saca el modelo de la memoria (F30), salvo que se esté usando o —con
+  /// [unusedFor]— que se haya usado hace menos de ese rato.
+  @override
+  Future<void> release({Duration? unusedFor}) async {
+    final model = _model;
+    if (model == null || _inUse > 0) return;
+    final last = _lastUse;
+    if (unusedFor != null &&
+        last != null &&
+        _now().difference(last) < unusedFor) {
+      return;
+    }
+    _model = null;
+    final closing = _closing = model.close();
+    try {
+      await closing;
+    } finally {
+      _closing = null;
+    }
   }
 }
