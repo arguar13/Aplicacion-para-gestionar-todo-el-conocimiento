@@ -10,7 +10,8 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
-import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
+import 'package:sinapsis/features/chat/data/services/chunk_passage_retriever.dart';
+import 'package:sinapsis/features/chat/domain/services/chat_passages.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 
 import '../../../../support/in_memory_file_store.dart';
@@ -18,13 +19,12 @@ import '../../../../support/in_memory_file_store.dart';
 class MockTelemetryService extends Mock implements TelemetryService {}
 
 /// Contra SQLite real, en memoria — mismo criterio que el resto de las
-/// pruebas de repositorio: lo que importa acá es que la búsqueda de FTS5
-/// que ya tiene la biblioteca encuentra lo relevante, y eso no lo ejercita
-/// un doble.
+/// pruebas de repositorio: lo que importa acá es que los índices de FTS5
+/// encuentran el pasaje relevante, y eso no lo ejercita un doble (F30).
 void main() {
   late AppDatabase db;
   late LibraryRepositoryImpl libraryRepository;
-  late LibraryVaultRetriever retriever;
+  late ChunkPassageRetriever retriever;
 
   final now = DateTime(2026, 9, 13, 10);
   var counter = 0;
@@ -36,7 +36,7 @@ void main() {
       telemetry: MockTelemetryService(),
       files: InMemoryFileStore(),
     );
-    retriever = LibraryVaultRetriever(library: libraryRepository);
+    retriever = ChunkPassageRetriever(database: db);
     counter = 0;
   });
 
@@ -125,7 +125,10 @@ void main() {
 
     final sources = await retriever.retrieve('palabra');
 
-    expect(sources.single.excerpt.length, lessThan(('palabra ' * 200).length));
+    expect(
+      sources.single.excerpt.length,
+      lessThanOrEqualTo(kChatPassageChars + 2),
+    );
     expect(sources.single.excerpt, endsWith('…'));
   });
 
@@ -305,6 +308,65 @@ void main() {
       final sources = await retriever.retrieve('paradigma', scopeIds: {});
 
       expect(sources, isEmpty);
+    });
+  });
+
+  group('el pasaje que importa (F30)', () {
+    test('de un texto largo, cita el pasaje donde está lo preguntado, no su '
+        'principio', () async {
+      final text =
+          '${'Introducción general sobre otros asuntos. ' * 40}'
+          'El Senado romano reunía a los patricios más antiguos. '
+          '${'Más relleno sin relación alguna. ' * 40}';
+      await seed('Un libro de historia', content: text);
+
+      final source = (await retriever.retrieve(
+        '¿Qué era el Senado romano?',
+      )).single;
+
+      expect(source.excerpt, contains('El Senado romano reunía'));
+      expect(source.excerpt, startsWith('…'));
+      expect(source.excerpt.length, lessThanOrEqualTo(kChatPassageChars + 2));
+      // La cita apunta justo al pasaje, dentro del texto de la fuente.
+      final cited = text.substring(
+        source.sourceCharStart!,
+        source.sourceCharEnd,
+      );
+      expect(cited, contains('El Senado romano reunía'));
+      expect(source.excerpt, contains(cited));
+    });
+
+    test('una pregunta de solo palabras vacías no busca nada', () async {
+      await seed('Algo', content: 'Que es lo que hay sobre esto.');
+
+      expect(
+        await retriever.retrieve('¿Qué es lo que hay sobre esto?'),
+        isEmpty,
+      );
+    });
+
+    test('lo que está en la papelera no se cita', () async {
+      await seed('Borrado', content: 'Habla de paradigmas.');
+      await seed('Vivo', content: 'También de paradigmas.');
+      await libraryRepository.delete('item-0');
+
+      final sources = await retriever.retrieve('paradigmas');
+
+      expect(sources.map((s) => s.itemTitle), ['Vivo']);
+    });
+
+    test('como mucho las fuentes pedidas, una por elemento', () async {
+      for (var i = 0; i < 6; i++) {
+        await seed(
+          'Elemento $i',
+          content: 'Habla de paradigmas, el número $i.',
+        );
+      }
+
+      final sources = await retriever.retrieve('paradigmas');
+
+      expect(sources, hasLength(kChatMaxSources));
+      expect(sources.map((s) => s.itemId).toSet(), hasLength(kChatMaxSources));
     });
   });
 }

@@ -12,11 +12,11 @@ import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
+import 'package:sinapsis/features/chat/data/services/chunk_passage_retriever.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
-import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
@@ -29,7 +29,6 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
-import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -165,8 +164,10 @@ final derivedNoteGeneratorProvider = Provider<DerivedNoteGenerator>((ref) {
   return ref.watch(_gemmaModelProvider);
 });
 
+/// El buscador del chat con la bóveda: los pasajes que hablan de lo
+/// preguntado, con una sola consulta (F30, `ChunkPassageRetriever`).
 final vaultRetrieverProvider = Provider.autoDispose<VaultRetriever>((ref) {
-  return LibraryVaultRetriever(library: ref.watch(libraryRepositoryProvider));
+  return ChunkPassageRetriever(database: ref.watch(appDatabaseProvider));
 });
 
 final askVaultQuestionUseCaseProvider =

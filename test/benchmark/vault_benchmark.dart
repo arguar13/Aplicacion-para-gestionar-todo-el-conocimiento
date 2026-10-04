@@ -10,7 +10,7 @@ import 'package:sinapsis/features/atlas/data/repositories/atlas_query_sql.dart';
 import 'package:sinapsis/features/atlas/data/repositories/atlas_repository_impl.dart';
 import 'package:sinapsis/features/atlas/domain/services/atlas_view.dart';
 import 'package:sinapsis/features/atlas/presentation/services/atlas_markdown.dart';
-import 'package:sinapsis/features/chat/data/services/library_vault_retriever.dart';
+import 'package:sinapsis/features/chat/data/services/chunk_passage_retriever.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_layout.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_scope.dart';
 import 'package:sinapsis/features/health/data/repositories/health_repository_impl.dart';
@@ -132,7 +132,7 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
   late LibraryRepositoryImpl library;
   late OrganizeRepositoryImpl organize;
   late NotebookRepositoryImpl notebooks;
-  late LibraryVaultRetriever retriever;
+  late ChunkPassageRetriever retriever;
   const bigNotebookId = 'bench-notebook-500';
   final results = <Measurement>[];
 
@@ -160,7 +160,7 @@ void registerVaultBenchmark(BenchmarkEnvironment env) {
       ids: FakeIdGenerator(prefix: 'nb'),
       clock: () => vault.now,
     );
-    retriever = LibraryVaultRetriever(library: library);
+    retriever = ChunkPassageRetriever(database: db);
 
     // Un cuaderno manual de 500 elementos (F16, D1), para medir el chat
     // acotado a un cuaderno GRANDE (16, 13): 500 es el tamaño que propone

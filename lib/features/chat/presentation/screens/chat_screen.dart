@@ -22,6 +22,7 @@ import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
+import 'package:sinapsis/features/chat/domain/services/chat_passages.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -36,13 +37,18 @@ import 'package:sinapsis/features/transform/domain/documents/document_parser.dar
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
-/// Cuántos caracteres del texto extraído de un documento adjunto se le
-/// mandan al modelo. Un libro entero adjunto desbordaría la ventana de
-/// contexto del modelo antes de llegar a la pregunta misma; con un tope, el
-/// modelo ve el principio del documento —donde suele estar lo más
-/// relevante para orientarse— y el resto sigue disponible desde la
-/// biblioteca si hace falta más.
-const _kAttachmentTextBudget = 6000;
+/// Cuántos caracteres de los documentos adjuntos a un mensaje se le mandan
+/// al modelo, entre todos (F30). El modelo lee, como mucho, 2048 tokens de
+/// una vez —instrucción, lo conversado, el mensaje y la respuesta—: 1.800
+/// caracteres son unos 500. Hasta F30 eran 6.000 por documento, más de lo
+/// que entraba con todo lo demás. Con un documento adjunto, el modelo ve su
+/// principio —donde suele estar lo que orienta— y el resto sigue en la
+/// biblioteca.
+const _kAttachmentTextBudget = 1800;
+
+/// Con documentos adjuntos, cuántas fuentes de la bóveda acompañan al
+/// mensaje: menos que sin ellos, para que entre todo.
+const _kSourcesWithAttachments = 2;
 
 /// Un adjunto ya elegido y guardado, listo para mandarse con el próximo
 /// mensaje.
@@ -626,11 +632,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ];
     if (docs.isEmpty) return text;
 
+    // El tope se reparte entre los documentos.
+    final each = _kAttachmentTextBudget ~/ docs.length;
     final content = docs
         .map((doc) {
-          final extracted = doc.extractedText!;
-          final truncated = extracted.length > _kAttachmentTextBudget
-              ? '${extracted.substring(0, _kAttachmentTextBudget)}…'
+          final extracted = doc.extractedText!.trim();
+          final truncated = extracted.length > each
+              ? '${extracted.substring(0, each)}…'
               : extracted;
           return '### ${doc.name}\n$truncated';
         })
@@ -698,7 +706,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       final sources = await ref
           .read(vaultRetrieverProvider)
-          .retrieve(query, scopeIds: scopeIds);
+          .retrieve(
+            query,
+            scopeIds: scopeIds,
+            limit: promptText.length > text.length
+                ? _kSourcesWithAttachments
+                : kChatMaxSources,
+          );
 
       final conversation = _vaultConversation ??= await ref
           .read(chatModelProvider)
