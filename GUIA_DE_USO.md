@@ -1391,7 +1391,8 @@ pasarlas a limpio hasta que estén "maduras".
 Si cerrás Sinapsis deslizándola de las recientes mientras trabaja —procesa
 lo que guardaste, transcribe, la IA ordena—, **el trabajo sigue**, con su
 notificación, hasta terminar; después la notificación se va sola. Al volver a
-abrir la app la encontrás donde la dejaste, con lo que se hizo mientras tanto.
+abrir la app te pide la clave, como siempre que la cerrás —cerrarla cierra la
+bóveda aunque el trabajo siga—, y adentro está lo que se hizo mientras tanto.
 Las descargas de los modelos siguen siempre, también tras reiniciar el
 teléfono.
 

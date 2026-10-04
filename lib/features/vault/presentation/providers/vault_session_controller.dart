@@ -55,4 +55,17 @@ class VaultSessionController extends StateNotifier<VaultSession> {
   /// Vuelve a cerrarla. No borra nada: el credencial sigue donde estaba y
   /// el mismo PIN vuelve a abrirla.
   void lock() => state = const VaultSession.locked();
+
+  /// La app se cerró —su ventana se destruyó, por ejemplo al deslizarla
+  /// fuera de "recientes"— pero Dart sigue andando (F29: el motor sobrevive
+  /// para que el trabajo largo termine). Cerrar la app siempre cerró la
+  /// bóveda, porque se iba todo Dart con ella; ahora hay que cerrarla a
+  /// propósito, o al volver a abrirla se entraría sin el PIN.
+  ///
+  /// Solo una bóveda abierta pasa a cerrada: a mitad de crearla, o antes de
+  /// saber si existe, no hay nada que cerrar. El trabajo en curso no se
+  /// toca: el PIN cuida lo que se ve, no la base, que sigue abierta.
+  void lockOnClose() {
+    if (state is VaultUnlocked) state = const VaultSession.locked();
+  }
 }

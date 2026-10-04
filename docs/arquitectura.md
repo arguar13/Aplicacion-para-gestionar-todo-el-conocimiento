@@ -4952,9 +4952,13 @@ propia copia de la base: mucho más riesgo, y en HyperOS tampoco garantiza nada 
   de procesamiento, la transcripción, la IA— aunque el proceso siguiera vivo. Ahora el motor es
   uno por proceso (`SinapsisEngine`, en `FlutterEngineCache`) y la actividad lo usa sin ser su
   dueña: al cerrarla, Dart sigue; al volver a abrir, la actividad nueva se engancha al mismo motor
-  con Dart andando —no se vuelve a ejecutar `main`, no se duplica ninguna cola ni estado, la
-  pantalla está donde quedó—. Si el proceso murió, no hay motor guardado y todo arranca como
-  siempre, retomando desde la base. Los canales (trabajo largo, audio, descargas, ajustes) se
+  con Dart andando —no se vuelve a ejecutar `main`, no se duplica ninguna cola ni estado—. Si el
+  proceso murió, no hay motor guardado y todo arranca como siempre, retomando desde la base.
+- **Cerrar la app cierra la bóveda**, aunque el motor siga. Antes cerrarla se llevaba todo Dart y
+  volver a abrirla pedía el PIN; con el motor vivo se entraba sin él. Al destruirse la actividad,
+  Flutter le avisa a Dart `detached`, y la `App` cierra la sesión (`lockOnClose`: solo una bóveda
+  abierta; a mitad de crearla no hay nada que cerrar). El PIN cuida lo que se ve: la base sigue
+  abierta y el trabajo en curso no se entera. Minimizar no la cierra, como antes. Los canales (trabajo largo, audio, descargas, ajustes) se
   instalan con el motor y el contexto de la aplicación, porque tienen que funcionar sin
   actividad; lo único que necesita una —pedir permiso para notificar, abrir ajustes— la usa si hay.
   Los plugins con actividad se desenganchan y vuelven a engancharse, que es lo que ya soportan
@@ -5017,8 +5021,11 @@ en el sistema; al reabrir, la app lo comprobó, le dio su nombre y olvidó los p
 nada. Reabierta a mitad, la pantalla mostró la descarga en curso (47 %) y cancelarla dejó la
 carpeta vacía. Una transcripción a mitad (57 %) siguió con la app cerrada —la actividad
 destruida, el mismo proceso, el servicio con su notificación—, el servicio se soltó solo al
-terminar, y al reabrir la actividad se enganchó al mismo motor, sin pedir el PIN, con el texto
-completo. Sin probar: un Xiaomi real (las pantallas de MIUI/HyperOS solo se abren ahí), el
+terminar, y al reabrir la actividad se enganchó al mismo motor con el texto completo. Esa
+prueba entró sin pedir el PIN; con el arreglo (`lockOnClose`), también en el emulador: con la
+bajada del audio de un video de 65 minutos en curso, cerrar la app desde recientes dejó vivo el
+mismo proceso, al reabrir pidió el PIN y el audio terminó entero (1:04:36); minimizarla y volver
+no lo pidió. Sin trabajo en curso, cerrar la app la mata (`remove task`), como antes. Sin probar: un Xiaomi real (las pantallas de MIUI/HyperOS solo se abren ahí), el
 reinicio del teléfono a mitad de una descarga, y el modelo de relaciones, cuyo repositorio pide
 un token que no había en esta máquina. Los avisos "FlutterJNI.loadLibrary/init called more than
 once" del registro son del plugin `large_file_handler`, que crea su propio `FlutterLoader` al
