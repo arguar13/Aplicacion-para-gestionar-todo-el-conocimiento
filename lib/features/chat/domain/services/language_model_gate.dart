@@ -26,11 +26,17 @@ const kChatIdleRelease = Duration(minutes: 2);
 ///
 /// Las reglas:
 ///
-/// - **De a uno.** Lo que corre, corre hasta el final: una generación de
-///   `flutter_gemma` no se puede interrumpir a mitad sin perderla.
+/// - **De a uno.** Nunca dos trabajos usan el modelo a la vez.
 /// - **La persona primero.** Cuando se libera el turno, lo toma quien espera
 ///   de parte de la persona ([runForUser]) antes que la cola de la IA
-///   ([runInBackground]).
+///   ([runInBackground]). Y si la cola está escribiendo cuando la persona
+///   lo pide, **se la corta** (F30): el trabajo de la cola dice cómo
+///   cortarse (`onPreempt`) —su respuesta a medias se descarta y lo repite
+///   entero cuando la persona termine—. Antes la persona esperaba lo que
+///   tardara el paso en curso, que podía ser un minuto.
+/// - **El chat a la vista es uso** (F30). Con la pantalla del chat abierta,
+///   la cola no empieza nada aunque todavía no haya ningún mensaje: la
+///   persona está por escribir.
 /// - **Una charla en uso es uso.** Una conversación deja su sesión abierta
 ///   entre mensajes; si la cola abriera la suya en el medio, le cerraría la
 ///   sesión a la charla. Mientras haya una en uso ([holdForUser]), la cola no
@@ -41,9 +47,15 @@ const kChatIdleRelease = Duration(minutes: 2);
 ///   escribir, la retoma. Así una charla que quedó abierta con el teléfono
 ///   bloqueado no frena la cola para siempre.
 ///
-/// Lo peor que espera la persona es lo que tarde el paso de la IA que ya
-/// estaba corriendo —una sola llamada al modelo, no una pasada entera—: la
-/// cola pide el turno de nuevo para cada llamada.
+/// Lo peor que espera la persona es lo que tarde en cortarse el paso de la
+/// IA que ya estaba corriendo: si estaba leyendo el pedido —el «prefill»,
+/// que el motor hace de una vez—, eso; si ya escribía, casi nada. La cola
+/// pide el turno de nuevo para cada llamada.
+///
+/// **Los vínculos también esperan** (F30): el modelo de vínculos no usa este
+/// turno —es otro modelo, más chico—, pero compite por el procesador y la
+/// memoria. Antes de cada tanda, espera a que la persona no esté usando el
+/// de lenguaje ([whenUserIdle]).
 class LanguageModelGate {
   LanguageModelGate({
     this.idleRelease = kChatIdleRelease,
@@ -59,6 +71,15 @@ class LanguageModelGate {
 
   var _busy = false;
 
+  /// Si el que tiene el turno ahora es la persona.
+  var _busyForUser = false;
+
+  /// Cómo cortar el trabajo de la cola que tiene el turno ahora; `null` si
+  /// no lo tiene la cola, o si ya se lo cortó.
+  void Function()? _preemptBackground;
+
+  final _idleWaiters = <Completer<void>>[];
+
   /// Las charlas que retienen el modelo ahora: las soltadas por falta de uso
   /// no están.
   final _holding = <LanguageModelHold>{};
@@ -66,9 +87,26 @@ class LanguageModelGate {
   final _backgroundWaiting = Queue<Completer<void>>();
   var _chatVisible = false;
 
-  /// Si la persona está usando el modelo: corriendo, esperando su turno o con
-  /// una charla en uso.
-  bool get isUserActive => _holding.isNotEmpty || _userWaiting.isNotEmpty;
+  /// Si la persona está usando el modelo: corriendo, esperando su turno, con
+  /// una charla en uso o con el chat a la vista.
+  bool get isUserActive =>
+      (_busy && _busyForUser) ||
+      _holding.isNotEmpty ||
+      _userWaiting.isNotEmpty ||
+      _chatVisible;
+
+  /// Si nadie usa el modelo ni espera para usarlo: ni la persona ni la cola.
+  bool get isIdle => !_busy && !isUserActive && _backgroundWaiting.isEmpty;
+
+  /// Completa cuando la persona no esté usando el modelo de lenguaje (ver
+  /// [isUserActive]); en el acto, si ya no lo usa. Para el trabajo de fondo
+  /// que no usa este turno pero compite con él: los vínculos.
+  Future<void> whenUserIdle() {
+    if (!isUserActive) return Future.value();
+    final waiter = Completer<void>();
+    _idleWaiters.add(waiter);
+    return waiter.future;
+  }
 
   /// Si la pantalla del chat está a la vista: en primer plano, sin otra
   /// pantalla encima y con la app abierta. Mientras lo esté, ninguna charla
@@ -82,18 +120,31 @@ class LanguageModelGate {
     for (final hold in _holding) {
       hold._restartIdle();
     }
+    if (!visible && !_busy) _handOver();
+    _wakeIdleWaiters();
   }
 
-  /// Corre [work] de parte de la persona: espera, como mucho, a que termine
-  /// lo que ya está corriendo, y pasa antes que la cola de la IA.
-  Future<T> runForUser<T>(Future<T> Function() work) async {
+  /// Corre [work] de parte de la persona: pasa antes que la cola de la IA y,
+  /// si la cola está escribiendo, la corta ([preempt]). Sin [preempt] —para
+  /// lo que no apura, como cerrar una charla o cargar el modelo de
+  /// antemano—, espera a que termine.
+  Future<T> runForUser<T>(
+    Future<T> Function() work, {
+    bool preempt = true,
+  }) async {
     if (_busy) {
       final turn = Completer<void>();
       _userWaiting.add(turn);
+      if (preempt) {
+        final cut = _preemptBackground;
+        _preemptBackground = null;
+        cut?.call();
+      }
       await turn.future;
     } else {
       _busy = true;
     }
+    _busyForUser = true;
     try {
       return await work();
     } finally {
@@ -102,8 +153,15 @@ class LanguageModelGate {
   }
 
   /// Corre [work] para la cola de la IA: solo cuando nadie más lo usa ni
-  /// espera, y sin una charla en uso.
-  Future<T> runInBackground<T>(Future<T> Function() work) async {
+  /// espera, sin una charla en uso y sin el chat a la vista.
+  ///
+  /// [onPreempt] es cómo cortarlo si la persona pide el modelo mientras
+  /// corre: tiene que hacer que [work] termine pronto —con un error, para
+  /// que quien lo pidió lo repita—. Sin [onPreempt], corre hasta el final.
+  Future<T> runInBackground<T>(
+    Future<T> Function() work, {
+    void Function()? onPreempt,
+  }) async {
     if (_busy || isUserActive) {
       final turn = Completer<void>();
       _backgroundWaiting.add(turn);
@@ -111,9 +169,12 @@ class LanguageModelGate {
     } else {
       _busy = true;
     }
+    _busyForUser = false;
+    _preemptBackground = onPreempt;
     try {
       return await work();
     } finally {
+      _preemptBackground = null;
       _release();
     }
   }
@@ -139,7 +200,7 @@ class LanguageModelGate {
   Future<void> _idleOut(LanguageModelHold hold) async {
     hold._closing = true;
     try {
-      await runForUser(() async => hold._onIdle?.call());
+      await runForUser(() async => hold._onIdle?.call(), preempt: false);
       // La sesión es de `flutter_gemma`, que falla de formas sin un tipo
       // propio. Si no se pudo cerrar, el modelo se suelta igual: la charla
       // ya no la va a usar —la reabre al próximo mensaje—.
@@ -159,27 +220,46 @@ class LanguageModelGate {
     }
     _holding.remove(hold);
     if (!_busy) _handOver();
+    _wakeIdleWaiters();
   }
 
   void _dropHold(LanguageModelHold hold) {
     if (!_holding.remove(hold)) return;
     if (!_busy) _handOver();
+    _wakeIdleWaiters();
   }
 
   /// Pasa el turno: primero a la persona; a la cola, solo si la persona no
   /// lo está usando.
   void _release() {
     _busy = false;
+    _busyForUser = false;
     _handOver();
+    _wakeIdleWaiters();
   }
 
   void _handOver() {
     if (_userWaiting.isNotEmpty) {
       _busy = true;
+      _busyForUser = true;
       _userWaiting.removeFirst().complete();
-    } else if (_holding.isEmpty && _backgroundWaiting.isNotEmpty) {
+    } else if (_holding.isEmpty &&
+        !_chatVisible &&
+        _backgroundWaiting.isNotEmpty) {
       _busy = true;
+      _busyForUser = false;
       _backgroundWaiting.removeFirst().complete();
+    }
+  }
+
+  /// Avisa a quienes esperaban que la persona soltara el modelo
+  /// ([whenUserIdle]), si ya lo soltó.
+  void _wakeIdleWaiters() {
+    if (isUserActive || _idleWaiters.isEmpty) return;
+    final waiters = List.of(_idleWaiters);
+    _idleWaiters.clear();
+    for (final waiter in waiters) {
+      waiter.complete();
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_service.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
@@ -49,4 +51,28 @@ void main() {
       );
     },
   );
+
+  test('espera a que la persona suelte el modelo de lenguaje antes de usar '
+      'el suyo (F30)', () async {
+    final userDone = Completer<void>();
+    var asked = 0;
+    final waiting = GemmaEmbeddingService(
+      ensureReady: () async {
+        asked++;
+        return false;
+      },
+      waitForUser: () => userDone.future,
+    );
+
+    final embedding = waiting.embedBatch(['a']);
+    await pumpEventQueue();
+    expect(asked, 0);
+
+    userDone.complete();
+    await expectLater(
+      embedding,
+      throwsA(isA<EmbeddingModelNotReadyException>()),
+    );
+    expect(asked, 1);
+  });
 }

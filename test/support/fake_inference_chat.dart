@@ -104,6 +104,9 @@ class FakeInferenceChat extends Fake implements InferenceChat {
   Future<void> stopGeneration() async {
     stopRequests++;
     _stopped = true;
+    // Como el motor de verdad: cortar termina la respuesta en el acto, sin
+    // esperar el próximo pedazo.
+    if (gated && generating) releasePiece();
   }
 
   @override

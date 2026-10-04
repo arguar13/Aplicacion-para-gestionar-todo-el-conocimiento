@@ -51,6 +51,9 @@ final embeddingModelDownloadProvider =
 final embeddingServiceProvider = Provider<EmbeddingService>((ref) {
   return GemmaEmbeddingService(
     ensureReady: () => ref.read(embeddingModelManagerProvider).isReady(),
+    // La persona primero (F30): con el chat a la vista o el modelo de
+    // lenguaje en uso, los vínculos esperan.
+    waitForUser: ref.watch(languageModelGateProvider).whenUserIdle,
   );
 });
 

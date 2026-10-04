@@ -289,7 +289,7 @@ class GemmaChatSession {
         final chat = _chat;
         _chat = null;
         await chat?.close();
-      });
+      }, preempt: false);
     } finally {
       _hold.release();
     }

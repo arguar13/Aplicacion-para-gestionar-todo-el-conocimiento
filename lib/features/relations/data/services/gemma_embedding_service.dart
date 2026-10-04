@@ -15,11 +15,23 @@ import 'package:sinapsis/features/relations/domain/services/embedding_service.da
 /// `ensureReady` es `EmbeddingModelManager.isReady`: registra el modelo si
 /// sus archivos están enteros y `flutter_gemma` no lo recuerda —al reabrir la
 /// app—, mismo motivo que `GemmaChatModel`.
+///
+/// **Espera a la persona** (F30): todo lo que lo usa es trabajo de fondo
+/// —indexar, buscar vínculos, la IA que organiza—, y compite con el modelo de
+/// lenguaje por el procesador y la memoria. Antes de cada pedido espera a
+/// que la persona no esté usando el de lenguaje (`waitForUser`,
+/// `LanguageModelGate.whenUserIdle`): con el chat a la vista, no corre.
 class GemmaEmbeddingService implements EmbeddingService {
-  GemmaEmbeddingService({required Future<bool> Function() ensureReady})
-    : _ensureReady = ensureReady;
+  GemmaEmbeddingService({
+    required Future<bool> Function() ensureReady,
+    Future<void> Function()? waitForUser,
+  }) : _ensureReady = ensureReady,
+       _waitForUser = waitForUser ?? _noWait;
 
   final Future<bool> Function() _ensureReady;
+  final Future<void> Function() _waitForUser;
+
+  static Future<void> _noWait() async {}
 
   EmbeddingModel? _model;
 
@@ -38,6 +50,7 @@ class GemmaEmbeddingService implements EmbeddingService {
 
   @override
   Future<List<double>> embed(String text) async {
+    await _waitForUser();
     final model = await _activeModel();
     // `retrievalDocument` siempre, nunca `retrievalQuery`: acá no hay
     // ninguna pregunta de usuario — tanto los chunks indexados como el
@@ -48,6 +61,7 @@ class GemmaEmbeddingService implements EmbeddingService {
 
   @override
   Future<List<List<double>>> embedBatch(List<String> texts) async {
+    await _waitForUser();
     final model = await _activeModel();
     return model.generateEmbeddings(
       texts,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -341,9 +342,53 @@ class GemmaChatModel
   /// instancia. Todo método que abre una sesión pasa por acá: dos sesiones a
   /// la vez se pisan la única que tiene `flutter_gemma` (ver
   /// `LanguageModelGate`).
-  Future<T> _withTurn<T>(Future<T> Function(InferenceModel model) work) {
-    Future<T> run() async => work(await _engine.model());
-    return _inBackground ? _gate.runInBackground(run) : _gate.runForUser(run);
+  ///
+  /// En la cola de la IA, si la persona pide el modelo a mitad, el trabajo
+  /// se corta ([_preempt]) y se repite entero cuando ella lo suelte (F30):
+  /// cada [work] abre su propia sesión y lee su respuesta de cero, así que
+  /// repetirlo no deja nada a medias.
+  Future<T> _withTurn<T>(Future<T> Function(InferenceModel model) work) async {
+    if (!_inBackground) {
+      return _gate.runForUser(() async => work(await _engine.model()));
+    }
+    while (true) {
+      try {
+        return await _gate.runInBackground(() async {
+          _preempted = false;
+          return work(await _engine.model());
+        }, onPreempt: _preempt);
+      } on _PreemptedByUser {
+        // La persona pidió el modelo: se vuelve a pedir el turno, que espera
+        // a que termine.
+      }
+    }
+  }
+
+  /// Si la persona pidió el modelo mientras la cola lo usaba.
+  var _preempted = false;
+
+  /// La sesión que está escribiendo ahora, para cortarla.
+  InferenceChat? _generating;
+
+  /// Corta lo que la cola esté escribiendo: `stopGeneration` lo termina en el
+  /// acto, y [_generate] lo descarta.
+  void _preempt() {
+    _preempted = true;
+    unawaited(_generating?.stopGeneration());
+  }
+
+  /// La respuesta entera de [chat]. En la cola, si la persona pidió el
+  /// modelo antes o durante, no la da: corta el trabajo para repetirlo.
+  Future<String> _generate(InferenceChat chat) async {
+    if (_preempted) throw const _PreemptedByUser();
+    _generating = chat;
+    try {
+      final text = await collectReply(chat, meter: _meter);
+      if (_preempted) throw const _PreemptedByUser();
+      return text;
+    } finally {
+      _generating = null;
+    }
   }
 
   @override
@@ -364,7 +409,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        return await collectReply(chat, meter: _meter);
+        return await _generate(chat);
       } finally {
         await chat.close();
       }
@@ -431,7 +476,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
 
         return parseFlashcardDrafts(text).take(count).toList();
       } finally {
@@ -460,7 +505,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
 
         return parseFlashcardDrafts(text).take(count).toList();
       } finally {
@@ -479,7 +524,7 @@ class GemmaChatModel
 
       try {
         await chat.addQueryChunk(Message.text(text: content, isUser: true));
-        return await collectReply(chat, meter: _meter);
+        return await _generate(chat);
       } finally {
         await chat.close();
       }
@@ -514,7 +559,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
 
         final suggestions = <RelationSuggestion>[];
         for (final line in parseRelationSuggestions(text)) {
@@ -567,7 +612,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
 
         final knownCategories = categories.map((c) => c.name).toList();
         final drafts = <PropertyDraft>[];
@@ -618,7 +663,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
         return parseSpaceChoice(text, spaceCount: spaces.length);
       } finally {
         await chat.close();
@@ -655,7 +700,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
         return parseTopicParentChoice(text, candidateCount: candidates.length);
       } finally {
         await chat.close();
@@ -684,7 +729,7 @@ class GemmaChatModel
             isUser: true,
           ),
         );
-        return await collectReply(chat, meter: _meter);
+        return await _generate(chat);
       } finally {
         await chat.close();
       }
@@ -710,7 +755,7 @@ class GemmaChatModel
         await chat.addQueryChunk(
           Message.text(text: _buildDerivedPrompt(sources), isUser: true),
         );
-        final text = await collectReply(chat, meter: _meter);
+        final text = await _generate(chat);
 
         final raw = parseDerivedNoteResponse(text);
         final sections = anchorDerivedClaims(raw, sources);
@@ -805,4 +850,10 @@ String _buildDerivedPrompt(List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Fuentes:\n$context';
+}
+
+/// La persona pidió el modelo mientras la cola de la IA lo usaba: el trabajo
+/// se cortó y se repite (ver `GemmaChatModel._withTurn`).
+class _PreemptedByUser implements Exception {
+  const _PreemptedByUser();
 }

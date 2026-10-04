@@ -44,6 +44,85 @@ void main() {
     expect(log, ['persona', 'IA']);
   });
 
+  group('la persona primero, de verdad (F30)', () {
+    test('si la cola está escribiendo cuando la persona pide el modelo, se '
+        'la corta, y la persona va en cuanto la cola suelta', () async {
+      final log = <String>[];
+      final running = Completer<void>();
+      var cuts = 0;
+      final background = gate.runInBackground(
+        () => running.future,
+        onPreempt: () {
+          cuts++;
+          log.add('cortada');
+          running.complete();
+        },
+      );
+      await pumpEventQueue();
+
+      final user = gate.runForUser(() async => log.add('persona'));
+      // Una segunda llamada no la vuelve a cortar.
+      final again = gate.runForUser(() async => log.add('otra vez'));
+      await Future.wait([background, user, again]);
+
+      expect(cuts, 1);
+      expect(log, ['cortada', 'persona', 'otra vez']);
+    });
+
+    test('lo que no apura —cerrar una charla, cargar de antemano— espera sin '
+        'cortar', () async {
+      final running = Completer<void>();
+      var cuts = 0;
+      final background = gate.runInBackground(
+        () => running.future,
+        onPreempt: () => cuts++,
+      );
+      await pumpEventQueue();
+
+      final user = gate.runForUser(() async {}, preempt: false);
+      running.complete();
+      await Future.wait([background, user]);
+
+      expect(cuts, 0);
+    });
+
+    test('con el chat a la vista, la cola no empieza aunque todavía no haya '
+        'ninguna charla; al dejar de verse, sigue', () async {
+      final log = <String>[];
+      gate.chatVisible = true;
+      expect(gate.isUserActive, isTrue);
+
+      final background = gate.runInBackground(() async => log.add('IA'));
+      await pumpEventQueue();
+      expect(log, isEmpty);
+
+      gate.chatVisible = false;
+      await background;
+      expect(log, ['IA']);
+    });
+
+    test('los vínculos esperan a que la persona suelte el modelo', () async {
+      final log = <String>[];
+      gate.chatVisible = true;
+      final idle = gate.whenUserIdle().then((_) => log.add('vínculos'));
+      await pumpEventQueue();
+      expect(log, isEmpty);
+
+      final answering = Completer<void>();
+      final user = gate.runForUser(() => answering.future);
+      gate.chatVisible = false;
+      await pumpEventQueue();
+      // Sin el chat a la vista, pero con una respuesta en curso.
+      expect(log, isEmpty);
+
+      answering.complete();
+      await user;
+      await idle;
+      expect(log, ['vínculos']);
+      expect(gate.isIdle, isTrue);
+    });
+  });
+
   test('la persona cuenta como activa mientras espera su turno', () async {
     final running = Completer<void>();
     final current = gate.runInBackground(() => running.future);
