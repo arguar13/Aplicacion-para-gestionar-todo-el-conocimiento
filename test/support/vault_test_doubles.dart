@@ -20,16 +20,20 @@ class FakeVaultLocalDataSource implements VaultLocalDataSource {
   FakeVaultLocalDataSource({
     String? credential,
     LockoutState? lockout,
+    String? openBoot,
     this.delay = Duration.zero,
   }) : _credential = credential,
-       _lockout = lockout ?? LockoutState.initial;
+       _lockout = lockout ?? LockoutState.initial,
+       _openBoot = openBoot;
 
   /// Una bóveda ya creada, cuyo PIN es [pin] según [FakePinHasher].
   factory FakeVaultLocalDataSource.withPin(
     String pin, {
+    String? openBoot,
     Duration delay = Duration.zero,
   }) => FakeVaultLocalDataSource(
     credential: FakePinHasher.encode(pin),
+    openBoot: openBoot,
     delay: delay,
   );
 
@@ -44,11 +48,15 @@ class FakeVaultLocalDataSource implements VaultLocalDataSource {
 
   String? _credential;
   LockoutState _lockout;
+  String? _openBoot;
   var _credentialWrites = 0;
 
   /// Para poder comprobar en un test qué quedó guardado.
   String? get credential => _credential;
   LockoutState get lockout => _lockout;
+
+  /// El encendido en que se abrió la bóveda, o `null` si está cerrada.
+  String? get openBoot => _openBoot;
 
   /// Cuántas veces se escribió el credencial.
   ///
@@ -74,6 +82,15 @@ class FakeVaultLocalDataSource implements VaultLocalDataSource {
 
   @override
   Future<void> writeLockout(LockoutState state) async => _lockout = state;
+
+  @override
+  Future<String?> readOpenBoot() async => _openBoot;
+
+  @override
+  Future<void> writeOpenBoot(String boot) async => _openBoot = boot;
+
+  @override
+  Future<void> clearOpenBoot() async => _openBoot = null;
 }
 
 /// [PinHasher] que no deriva nada: guarda el PIN tal cual, con un prefijo.
@@ -168,3 +185,11 @@ class InertProcessingQueue extends ProcessingQueueNotifier {
   void showProgress(Map<String, ProcessingProgress> active) =>
       state = ProcessingQueueState(active: active);
 }
+
+/// El encendido de un teléfono de prueba, siempre el mismo (ver `DeviceBoot`).
+///
+/// En las pruebas de Flutter la plataforma es Android, y sin esto la bóveda
+/// le preguntaría su encendido al canal nativo, que en una prueba no existe.
+const kTestDeviceBoot = 'arranque-de-prueba';
+
+Future<String?> testDeviceBoot() async => kTestDeviceBoot;

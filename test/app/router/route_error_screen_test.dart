@@ -113,6 +113,7 @@ void main() {
           vaultLocalDataSourceProvider.overrideWithValue(
             FakeVaultLocalDataSource.withPin('246810'),
           ),
+          deviceBootProvider.overrideWithValue(testDeviceBoot),
           pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
           // Sin un sistema operativo real, el plugin de compartir no tiene

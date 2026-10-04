@@ -7,6 +7,7 @@ import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
 import 'package:sinapsis/features/vault/data/repositories/vault_repository_impl.dart';
 import 'package:sinapsis/features/vault/domain/entities/pin_policy.dart';
 import 'package:sinapsis/features/vault/domain/entities/unlock_result.dart';
+import 'package:sinapsis/features/vault/domain/services/device_boot.dart';
 import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
 
 import '../../../../support/vault_test_doubles.dart';
@@ -31,14 +32,145 @@ void main() {
   VaultRepositoryImpl buildRepository({
     required FakeVaultLocalDataSource vault,
     PinHasher? hasher,
+    DeviceBoot deviceBoot = unknownDeviceBoot,
   }) {
     return VaultRepositoryImpl(
       localDataSource: vault,
       pinHasher: hasher ?? FakePinHasher(),
       telemetry: telemetry,
+      deviceBoot: deviceBoot,
       clock: () => now,
     );
   }
+
+  // Pedido del usuario: la clave solo al apagar o reiniciar el teléfono, o
+  // después de "Bloquear bóveda"; no cada vez que se abre la app.
+  group('una vez por encendido', () {
+    /// Un teléfono que va por su arranque número [boot].
+    DeviceBoot phoneAt(String boot) =>
+        () async => boot;
+
+    test(
+      'desbloquear anota el encendido, y en ese mismo sigue abierta',
+      () async {
+        final vault = FakeVaultLocalDataSource.withPin(tPin);
+        final repository = buildRepository(
+          vault: vault,
+          deviceBoot: phoneAt('41'),
+        );
+
+        await repository.unlock(pin: tPin);
+
+        expect(vault.openBoot, '41');
+        expect(
+          (await repository.isOpenThisBoot()).getRight().toNullable(),
+          isTrue,
+        );
+      },
+    );
+
+    test('después de apagar o reiniciar el teléfono, pide la clave', () async {
+      final vault = FakeVaultLocalDataSource.withPin(tPin, openBoot: '41');
+
+      final repository = buildRepository(
+        vault: vault,
+        deviceBoot: phoneAt('42'),
+      );
+
+      expect(
+        (await repository.isOpenThisBoot()).getRight().toNullable(),
+        isFalse,
+      );
+    });
+
+    test('crear la bóveda cuenta como abrirla', () async {
+      final vault = FakeVaultLocalDataSource();
+      final repository = buildRepository(
+        vault: vault,
+        deviceBoot: phoneAt('7'),
+      );
+
+      await repository.create(pin: tPin);
+
+      expect(vault.openBoot, '7');
+    });
+
+    test('una clave equivocada no la deja abierta', () async {
+      final vault = FakeVaultLocalDataSource.withPin(tPin);
+      final repository = buildRepository(
+        vault: vault,
+        deviceBoot: phoneAt('41'),
+      );
+
+      await repository.unlock(pin: tWrongPin);
+
+      expect(vault.openBoot, isNull);
+    });
+
+    test(
+      '"Bloquear bóveda" la cierra aunque el teléfono no se reinicie',
+      () async {
+        final vault = FakeVaultLocalDataSource.withPin(tPin, openBoot: '41');
+        final repository = buildRepository(
+          vault: vault,
+          deviceBoot: phoneAt('41'),
+        );
+
+        expect(await repository.lock(), right<Failure, Unit>(unit));
+
+        expect(vault.openBoot, isNull);
+        expect(
+          (await repository.isOpenThisBoot()).getRight().toNullable(),
+          isFalse,
+        );
+      },
+    );
+
+    test('donde la plataforma no da su encendido, la pide siempre', () async {
+      final vault = FakeVaultLocalDataSource.withPin(tPin);
+      final repository = buildRepository(vault: vault);
+
+      await repository.unlock(pin: tPin);
+
+      expect(vault.openBoot, isNull);
+      expect(
+        (await repository.isOpenThisBoot()).getRight().toNullable(),
+        isFalse,
+      );
+    });
+
+    test('si no se puede saber el encendido, se informa: quien llama pide la '
+        'clave', () async {
+      final vault = FakeVaultLocalDataSource.withPin(tPin, openBoot: '41');
+      final repository = buildRepository(
+        vault: vault,
+        deviceBoot: () async => throw Exception('canal roto'),
+      );
+
+      expect((await repository.isOpenThisBoot()).isLeft(), isTrue);
+    });
+
+    test('si no se puede anotar el encendido, la bóveda se abre igual y el '
+        'fallo se reporta', () async {
+      final vault = FakeVaultLocalDataSource.withPin(tPin);
+      final repository = buildRepository(
+        vault: vault,
+        deviceBoot: () async => throw Exception('canal roto'),
+      );
+
+      final result = await repository.unlock(pin: tPin);
+
+      expect(result.getRight().toNullable(), const UnlockResult.granted());
+      expect(vault.openBoot, isNull);
+      verify(
+        () => telemetry.recordError(
+          any<Object>(),
+          any(),
+          hint: any(named: 'hint'),
+        ),
+      ).called(1);
+    });
+  });
 
   group('exists', () {
     test('es true cuando hay un credencial guardado', () async {

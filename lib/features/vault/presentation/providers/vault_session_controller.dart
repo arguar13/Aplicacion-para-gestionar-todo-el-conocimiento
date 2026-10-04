@@ -3,6 +3,8 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/vault/domain/entities/vault_session.dart';
 import 'package:sinapsis/features/vault/domain/usecases/check_vault_exists_usecase.dart';
+import 'package:sinapsis/features/vault/domain/usecases/check_vault_open_this_boot_usecase.dart';
+import 'package:sinapsis/features/vault/domain/usecases/lock_vault_usecase.dart';
 
 /// Única fuente de verdad de en qué estado está la bóveda, para toda la
 /// app. El router la observa (vía `refreshListenable`) y decide qué puede
@@ -15,22 +17,31 @@ import 'package:sinapsis/features/vault/domain/usecases/check_vault_exists_useca
 class VaultSessionController extends StateNotifier<VaultSession> {
   VaultSessionController({
     required CheckVaultExistsUseCase checkVaultExists,
+    required CheckVaultOpenThisBootUseCase checkOpenThisBoot,
+    required LockVaultUseCase lockVault,
     required AppLogger logger,
   }) : _checkVaultExists = checkVaultExists,
+       _checkOpenThisBoot = checkOpenThisBoot,
+       _lockVault = lockVault,
        _logger = logger,
        super(const VaultSession.unknown());
 
   final CheckVaultExistsUseCase _checkVaultExists;
+  final CheckVaultOpenThisBootUseCase _checkOpenThisBoot;
+  final LockVaultUseCase _lockVault;
   final AppLogger _logger;
 
   /// Se llama una sola vez al arrancar, desde el splash. Averigua si este
-  /// dispositivo ya tiene bóveda para saber si hay que crearla o abrirla.
+  /// dispositivo ya tiene bóveda para saber si hay que crearla o abrirla, y
+  /// si quedó abierta en este encendido del dispositivo: entonces se entra
+  /// sin pedir la clave, que se pide una vez por encendido —al apagar o
+  /// reiniciar el teléfono— o después de "Bloquear bóveda".
   Future<void> resolveInitialState() async {
     if (state is! VaultUnknown) return;
 
     final result = await _checkVaultExists(const NoParams());
 
-    state = result.match(
+    final resolved = result.match(
       (failure) {
         // Si no se puede leer el almacenamiento, se asume que la bóveda
         // existe y está cerrada. Es el lado seguro del error: dar por
@@ -47,25 +58,45 @@ class VaultSessionController extends StateNotifier<VaultSession> {
       (exists) =>
           exists ? const VaultSession.locked() : const VaultSession.absent(),
     );
+    if (resolved is! VaultLocked) {
+      state = resolved;
+      return;
+    }
+
+    final open = await _checkOpenThisBoot(const NoParams());
+    state = open.match(
+      (failure) {
+        // Sin saber si quedó abierta, se pide la clave: el lado seguro.
+        _logger.error(
+          'No se pudo saber si la bóveda quedó abierta; se pide la clave.',
+          failure,
+        );
+        return const VaultSession.locked();
+      },
+      (isOpen) =>
+          isOpen ? const VaultSession.unlocked() : const VaultSession.locked(),
+    );
   }
 
   /// La bóveda quedó abierta: recién creada o recién desbloqueada.
   void markUnlocked() => state = const VaultSession.unlocked();
 
-  /// Vuelve a cerrarla. No borra nada: el credencial sigue donde estaba y
-  /// el mismo PIN vuelve a abrirla.
-  void lock() => state = const VaultSession.locked();
-
-  /// La app se cerró —su ventana se destruyó, por ejemplo al deslizarla
-  /// fuera de "recientes"— pero Dart sigue andando (F29: el motor sobrevive
-  /// para que el trabajo largo termine). Cerrar la app siempre cerró la
-  /// bóveda, porque se iba todo Dart con ella; ahora hay que cerrarla a
-  /// propósito, o al volver a abrirla se entraría sin el PIN.
+  /// "Bloquear bóveda": la cierra ya, y la próxima vez que se abra la app
+  /// pide la clave aunque el teléfono no se haya reiniciado. No borra nada:
+  /// el credencial sigue donde estaba y el mismo PIN vuelve a abrirla.
   ///
-  /// Solo una bóveda abierta pasa a cerrada: a mitad de crearla, o antes de
-  /// saber si existe, no hay nada que cerrar. El trabajo en curso no se
-  /// toca: el PIN cuida lo que se ve, no la base, que sigue abierta.
-  void lockOnClose() {
-    if (state is VaultUnlocked) state = const VaultSession.locked();
+  /// Se cierra en pantalla aunque no se pueda borrar la sesión guardada:
+  /// quien toca "Bloquear" la quiere cerrada ahora. Ese fallo se registra.
+  Future<void> lock() async {
+    state = const VaultSession.locked();
+    final result = await _lockVault(const NoParams());
+    result.match(
+      (failure) => _logger.error(
+        'No se pudo cerrar la sesión guardada: la próxima vez podría '
+        'entrar sin la clave.',
+        failure,
+      ),
+      (_) {},
+    );
   }
 }

@@ -286,6 +286,7 @@ class LibraryHarness {
         vaultLocalDataSourceProvider.overrideWithValue(
           FakeVaultLocalDataSource.withPin('246810'),
         ),
+        deviceBootProvider.overrideWithValue(testDeviceBoot),
         pinHasherProvider.overrideWithValue(FakePinHasher()),
         // Medir el espacio libre le pregunta al sistema operativo, que en un
         // test no responde: sin esto, guardar un archivo se quedaba

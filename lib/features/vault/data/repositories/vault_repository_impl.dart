@@ -8,6 +8,7 @@ import 'package:sinapsis/features/vault/data/models/lockout_state.dart';
 import 'package:sinapsis/features/vault/domain/entities/pin_policy.dart';
 import 'package:sinapsis/features/vault/domain/entities/unlock_result.dart';
 import 'package:sinapsis/features/vault/domain/repositories/vault_repository.dart';
+import 'package:sinapsis/features/vault/domain/services/device_boot.dart';
 import 'package:sinapsis/features/vault/domain/services/pin_hasher.dart';
 
 class VaultRepositoryImpl implements VaultRepository {
@@ -15,15 +16,18 @@ class VaultRepositoryImpl implements VaultRepository {
     required VaultLocalDataSource localDataSource,
     required PinHasher pinHasher,
     required TelemetryService telemetry,
+    DeviceBoot deviceBoot = unknownDeviceBoot,
     Clock clock = DateTime.now,
   }) : _localDataSource = localDataSource,
        _pinHasher = pinHasher,
        _telemetry = telemetry,
+       _deviceBoot = deviceBoot,
        _clock = clock;
 
   final VaultLocalDataSource _localDataSource;
   final PinHasher _pinHasher;
   final TelemetryService _telemetry;
+  final DeviceBoot _deviceBoot;
   final Clock _clock;
 
   @override
@@ -67,6 +71,8 @@ class VaultRepositoryImpl implements VaultRepository {
 
       await _localDataSource.writeCredential(await _pinHasher.hash(pin));
       await _localDataSource.writeLockout(LockoutState.initial);
+      // Quien la acaba de crear ya está adentro: como un desbloqueo.
+      await _rememberOpen();
       return right(unit);
     } on CacheException catch (e) {
       return left(Failure.cache(message: e.message));
@@ -168,8 +174,68 @@ class VaultRepositoryImpl implements VaultRepository {
     if (rehashOf != null) {
       await _localDataSource.writeCredential(await _pinHasher.hash(rehashOf));
     }
+    await _rememberOpen();
 
     return const UnlockResult.granted();
+  }
+
+  /// Anota el encendido en que se abrió la bóveda, para no volver a pedir la
+  /// clave hasta que el dispositivo se apague o se reinicie. Donde la
+  /// plataforma no dice nada de su encendido no se anota nada, y la clave se
+  /// pide cada vez.
+  ///
+  /// Si no se puede anotar, la bóveda se abre igual: la clave ya se comprobó,
+  /// y lo único que se pierde es no tener que volver a escribirla —la próxima
+  /// vez la pide, que es el lado seguro—. Fallar el desbloqueo por esto sería
+  /// peor, y al crear la bóveda dejaría la clave guardada con un "no se pudo"
+  /// en pantalla. No se esconde: se reporta.
+  Future<void> _rememberOpen() async {
+    try {
+      final boot = await _deviceBoot();
+      if (boot != null) await _localDataSource.writeOpenBoot(boot);
+      // Ver `_unexpected`: además de un TypeError, acá puede llegar el error
+      // del canal que da el encendido.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'VaultRepositoryImpl: no se pudo anotar la sesión',
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> isOpenThisBoot() async {
+    try {
+      final opened = await _localDataSource.readOpenBoot();
+      if (opened == null) return right(false);
+      final boot = await _deviceBoot();
+      return right(boot != null && boot == opened);
+    } on CacheException catch (e) {
+      return left(Failure.cache(message: e.message));
+      // Ver `_unexpected`: además de un TypeError, acá puede llegar el error
+      // del canal que da el encendido.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'VaultRepositoryImpl.isOpenThisBoot'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> lock() async {
+    try {
+      await _localDataSource.clearOpenBoot();
+      return right(unit);
+    } on CacheException catch (e) {
+      return left(Failure.cache(message: e.message));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, 'VaultRepositoryImpl.lock'));
+    }
   }
 
   /// Catch-all deliberado, por el mismo motivo que en el resto de la app:

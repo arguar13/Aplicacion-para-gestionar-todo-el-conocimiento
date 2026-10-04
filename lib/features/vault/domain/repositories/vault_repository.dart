@@ -33,4 +33,14 @@ abstract interface class VaultRepository {
   /// resultado normal de esta operación, no un error. `Left` queda
   /// reservado para cuando la comprobación no se puede ni hacer.
   Future<Either<Failure, UnlockResult>> unlock({required String pin});
+
+  /// Si la bóveda quedó abierta en este mismo encendido del dispositivo: se
+  /// desbloqueó —o se creó— desde que el teléfono arrancó, y nadie la cerró
+  /// con "Bloquear bóveda". Entonces se entra sin pedir la clave. Siempre
+  /// `false` donde la plataforma no dice nada de su encendido.
+  Future<Either<Failure, bool>> isOpenThisBoot();
+
+  /// Cierra la sesión: la próxima vez que se abra la app pide la clave,
+  /// aunque el dispositivo no se haya reiniciado. No borra nada más.
+  Future<Either<Failure, Unit>> lock();
 }

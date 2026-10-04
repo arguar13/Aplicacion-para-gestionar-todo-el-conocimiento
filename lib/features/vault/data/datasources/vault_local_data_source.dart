@@ -22,6 +22,15 @@ abstract interface class VaultLocalDataSource {
   Future<LockoutState> readLockout();
 
   Future<void> writeLockout(LockoutState state);
+
+  /// El encendido del dispositivo en que se abrió la bóveda por última vez,
+  /// o `null` si está cerrada. Ver `DeviceBoot`.
+  Future<String?> readOpenBoot();
+
+  Future<void> writeOpenBoot(String boot);
+
+  /// Cierra la sesión: la próxima vez que se abra la app pide la clave.
+  Future<void> clearOpenBoot();
 }
 
 class SecureVaultLocalDataSource implements VaultLocalDataSource {
@@ -30,6 +39,7 @@ class SecureVaultLocalDataSource implements VaultLocalDataSource {
 
   static const _credentialKey = 'vault_pin_credential';
   static const _lockoutKey = 'vault_lockout_state';
+  static const _openBootKey = 'vault_open_boot';
 
   final FlutterSecureStorage _storage;
 
@@ -88,6 +98,33 @@ class SecureVaultLocalDataSource implements VaultLocalDataSource {
       throw CacheException(
         message: 'No se pudo guardar el control de intentos: $e',
       );
+    }
+  }
+
+  @override
+  Future<String?> readOpenBoot() async {
+    try {
+      return await _storage.read(key: _openBootKey);
+    } on Exception catch (e) {
+      throw CacheException(message: 'No se pudo leer la sesión: $e');
+    }
+  }
+
+  @override
+  Future<void> writeOpenBoot(String boot) async {
+    try {
+      await _storage.write(key: _openBootKey, value: boot);
+    } on Exception catch (e) {
+      throw CacheException(message: 'No se pudo guardar la sesión: $e');
+    }
+  }
+
+  @override
+  Future<void> clearOpenBoot() async {
+    try {
+      await _storage.delete(key: _openBootKey);
+    } on Exception catch (e) {
+      throw CacheException(message: 'No se pudo cerrar la sesión: $e');
     }
   }
 }

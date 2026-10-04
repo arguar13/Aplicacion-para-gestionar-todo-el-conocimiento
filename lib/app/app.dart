@@ -15,7 +15,6 @@ import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
 import 'package:sinapsis/features/transform/presentation/providers/transform_providers.dart';
-import 'package:sinapsis/features/vault/presentation/providers/vault_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -29,9 +28,6 @@ class _AppState extends ConsumerState<App> {
   /// Al volver al frente, el servicio del trabajo largo vuelve si Android lo
   /// había cortado (el tope de horas de Android 15): con la app al frente
   /// lo deja prender, y desde segundo plano no. Ver `LongWorkCoordinator`.
-  ///
-  /// Y al cerrarse la app con el motor todavía vivo (F29), la bóveda se
-  /// cierra: volver a abrirla pide el PIN, como siempre que se cerró la app.
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -39,8 +35,6 @@ class _AppState extends ConsumerState<App> {
     super.initState();
     _lifecycle = AppLifecycleListener(
       onResume: () => ref.read(longWorkCoordinatorProvider).appResumed(),
-      onDetach: () =>
-          ref.read(vaultSessionControllerProvider.notifier).lockOnClose(),
     );
     // Las descargas de modelos que siguieron con la app cerrada (F29)
     // vuelven a verse. Una vez por arranque de Dart: si la app se cerró y el

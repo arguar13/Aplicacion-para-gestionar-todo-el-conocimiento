@@ -125,11 +125,22 @@ que vayas a recordar."*
 Si todo está bien, la app te lleva directo a la Biblioteca — no hace falta
 tocar ningún botón extra de "listo".
 
-### Desbloquear la bóveda (cada vez que abrís la app)
+### Desbloquear la bóveda (una vez por encendido del teléfono)
 
-Una vez que ya creaste tu bóveda, cada vez que abras la app vas a ver la
-pantalla **"Hola de nuevo"**, con un campo para tu **"Clave"** y el botón
-**"Desbloquear"**.
+Una vez que ya creaste tu bóveda, la primera vez que abras la app después de
+prender o reiniciar el teléfono vas a ver la pantalla **"Hola de nuevo"**,
+con un campo para tu **"Clave"** y el botón **"Desbloquear"**.
+
+Mientras el teléfono siga prendido, volver a abrir la app entra directo, sin
+pedirla: aunque la hayas cerrado deslizándola de las recientes. La vuelve a
+pedir cuando:
+
+- **apagás o reiniciás el teléfono**, o
+- tocás **Ajustes → "Bloquear bóveda"**: la cierra en el acto, y la próxima
+  vez que abras la app te pide la clave aunque no hayas reiniciado.
+
+En la computadora la pide cada vez que abrís la app: ahí no hay forma de
+saber si la máquina se reinició.
 
 Si te equivocás de clave, la app te avisa cuántos intentos te quedan (por
 ejemplo: *"Clave incorrecta. Queda 1 intento antes de una espera."*). Si
@@ -1291,7 +1302,8 @@ modelo de relaciones.
   dice cuál y por qué. Tocarla otra vez no duplica nada: sigue con lo que
   falte —lo cancelado o lo que falló—.
 - **Bloquear bóveda** (al final, en rojo): cierra la sesión y vuelve a la
-  pantalla de desbloqueo, sin borrar absolutamente nada.
+  pantalla de desbloqueo, sin borrar absolutamente nada. La próxima vez que
+  abras la app te pide la clave, aunque no hayas reiniciado el teléfono.
 
 ---
 
@@ -1394,8 +1406,9 @@ pasarlas a limpio hasta que estén "maduras".
 Si cerrás Sinapsis deslizándola de las recientes mientras trabaja —procesa
 lo que guardaste, transcribe, la IA ordena—, **el trabajo sigue**, con su
 notificación, hasta terminar; después la notificación se va sola. Al volver a
-abrir la app te pide la clave, como siempre que la cerrás —cerrarla cierra la
-bóveda aunque el trabajo siga—, y adentro está lo que se hizo mientras tanto.
+abrir la app entrás directo —la clave se pide una vez por encendido del
+teléfono, ver [Desbloquear la bóveda](#desbloquear-la-bóveda-una-vez-por-encendido-del-teléfono)—
+y adentro está lo que se hizo mientras tanto.
 Las descargas de los modelos siguen siempre, también tras reiniciar el
 teléfono.
 

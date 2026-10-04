@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -290,8 +292,9 @@ class SettingsScreen extends ConsumerWidget {
                   l10n.lockVaultTooltip,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                onTap: () =>
-                    ref.read(vaultSessionControllerProvider.notifier).lock(),
+                onTap: () => unawaited(
+                  ref.read(vaultSessionControllerProvider.notifier).lock(),
+                ),
               ),
             ],
           ),

@@ -4953,12 +4953,8 @@ propia copia de la base: mucho más riesgo, y en HyperOS tampoco garantiza nada 
   uno por proceso (`SinapsisEngine`, en `FlutterEngineCache`) y la actividad lo usa sin ser su
   dueña: al cerrarla, Dart sigue; al volver a abrir, la actividad nueva se engancha al mismo motor
   con Dart andando —no se vuelve a ejecutar `main`, no se duplica ninguna cola ni estado—. Si el
-  proceso murió, no hay motor guardado y todo arranca como siempre, retomando desde la base.
-- **Cerrar la app cierra la bóveda**, aunque el motor siga. Antes cerrarla se llevaba todo Dart y
-  volver a abrirla pedía el PIN; con el motor vivo se entraba sin él. Al destruirse la actividad,
-  Flutter le avisa a Dart `detached`, y la `App` cierra la sesión (`lockOnClose`: solo una bóveda
-  abierta; a mitad de crearla no hay nada que cerrar). El PIN cuida lo que se ve: la base sigue
-  abierta y el trabajo en curso no se entera. Minimizar no la cierra, como antes. Los canales (trabajo largo, audio, descargas, ajustes) se
+  proceso murió, no hay motor guardado y todo arranca como siempre, retomando desde la base. Los
+  canales (trabajo largo, audio, descargas, ajustes) se
   instalan con el motor y el contexto de la aplicación, porque tienen que funcionar sin
   actividad; lo único que necesita una —pedir permiso para notificar, abrir ajustes— la usa si hay.
   Los plugins con actividad se desenganchan y vuelven a engancharse, que es lo que ya soportan
@@ -5030,6 +5026,39 @@ reinicio del teléfono a mitad de una descarga, y el modelo de relaciones, cuyo 
 un token que no había en esta máquina. Los avisos "FlutterJNI.loadLibrary/init called more than
 once" del registro son del plugin `large_file_handler`, que crea su propio `FlutterLoader` al
 registrarse; pasan con cualquier motor.
+
+**Actualización (decisión 63):** al construirse F29, cerrar la app pasó a cerrar la bóveda
+(`lockOnClose`, al recibir `detached`), porque con el motor vivo se volvía a entrar sin el PIN.
+El usuario pidió lo contrario —la clave solo al apagar o reiniciar el teléfono, o al bloquear a
+mano—, y eso se retiró: ver la decisión 63.
+
+
+### 63. La clave, una vez por encendido del teléfono
+
+Pedido del usuario, probando la app: *"si me pide la contraseña cada vez que entro; quisiera que me
+la pidiera únicamente cuando apague el móvil o se reinicie, o cuando cierre sesión en la app"*.
+
+- **Al desbloquear —o crear— la bóveda, se anota el encendido del teléfono** en el almacén seguro
+  (`vault_open_boot`). Al abrir la app, si la bóveda existe y el encendido es el mismo, se entra
+  directo (`VaultRepository.isOpenThisBoot`); si no, se pide la clave.
+- **El encendido es el contador de arranques de Android** (`Settings.Global.BOOT_COUNT`, desde
+  Android 7, sin permisos), por el canal `app.sinapsis/device_boot` del motor. Sube en uno con cada
+  arranque: apagar y prender, o reiniciar, cambian el encendido. Se descartó el tiempo desde el
+  arranque (`elapsedRealtime`) porque obliga a comparar con un margen, y un identificador que solo
+  cambia al arrancar no tiene ambigüedad.
+- **"Bloquear bóveda" borra la marca** (`VaultRepository.lock`): la cierra en el acto y la próxima
+  vez pide la clave aunque el teléfono no se haya reiniciado. Se cierra en pantalla aunque borrar
+  la marca falle, y ese fallo se registra.
+- **Cerrar o minimizar la app ya no la cierra**: se retiró `lockOnClose` (ver la actualización de
+  la decisión 62).
+- **Lado seguro en cada duda.** Donde la plataforma no da su encendido —escritorio, web— no se
+  anota nada y la clave se pide siempre, como antes. Si no se puede leer el encendido o la marca,
+  se pide la clave. Si no se puede *anotar* al desbloquear, la bóveda se abre igual —la clave ya
+  se comprobó— y la próxima vez la pide; el fallo se reporta a la telemetría.
+- **Lo que cuesta:** quien tenga el teléfono desbloqueado en la mano entra a la bóveda sin la
+  clave hasta que el teléfono se reinicie o se bloquee la bóveda a mano. Es lo que el usuario
+  pidió; la protección de ese caso queda en el bloqueo del propio teléfono. La clave no cifra la
+  base —solo abre la puerta de la interfaz—, así que recordar la sesión no debilita ningún cifrado.
 
 ## Estado y orden de construcción
 

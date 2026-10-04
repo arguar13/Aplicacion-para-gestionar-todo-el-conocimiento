@@ -108,6 +108,10 @@ void main() {
           vaultSessionControllerProvider.overrideWith(
             (ref) => VaultSessionController(
               checkVaultExists: ref.watch(checkVaultExistsUseCaseProvider),
+              checkOpenThisBoot: ref.watch(
+                checkVaultOpenThisBootUseCaseProvider,
+              ),
+              lockVault: ref.watch(lockVaultUseCaseProvider),
               logger: ref.watch(appLoggerProvider),
             )..markUnlocked(),
           ),

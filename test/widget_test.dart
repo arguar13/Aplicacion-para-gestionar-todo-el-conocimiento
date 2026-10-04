@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +47,7 @@ void main() {
       ProviderScope(
         overrides: [
           vaultLocalDataSourceProvider.overrideWithValue(vault),
+          deviceBootProvider.overrideWithValue(testDeviceBoot),
           pinHasherProvider.overrideWithValue(FakePinHasher()),
           sharedPreferencesProvider.overrideWithValue(prefs),
           // Sin un sistema operativo real, el plugin de compartir no tiene
@@ -77,36 +77,5 @@ void main() {
 
     expect(find.byType(UnlockVaultScreen), findsOneWidget);
     expect(find.byType(CreateVaultScreen), findsNothing);
-  });
-
-  // F29: al cerrar la app el motor sigue vivo para terminar el trabajo
-  // largo, y Android le avisa a Dart que la ventana se fue (`detached`).
-  // Que una bóveda abierta se cierre está en `test/app/app_lifecycle_lock_test.dart`.
-  group('al cerrar la app con el motor vivo', () {
-    Future<void> closeAndReopen(WidgetTester tester) async {
-      // De a un estado, como los entrega Flutter en Android.
-      for (final state in const [
-        AppLifecycleState.inactive,
-        AppLifecycleState.hidden,
-        AppLifecycleState.paused,
-        AppLifecycleState.detached,
-        AppLifecycleState.resumed,
-      ]) {
-        tester.binding.handleAppLifecycleStateChanged(state);
-        await tester.pump();
-      }
-      await tester.pumpAndSettle();
-    }
-
-    testWidgets('a mitad de crear la bóveda no hay nada que cerrar', (
-      tester,
-    ) async {
-      await pumpApp(tester, vault: FakeVaultLocalDataSource());
-
-      await closeAndReopen(tester);
-
-      expect(find.byType(CreateVaultScreen), findsOneWidget);
-      expect(find.byType(UnlockVaultScreen), findsNothing);
-    });
   });
 }

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.FlutterShellArgs
@@ -38,6 +39,7 @@ object SinapsisEngine {
     private const val ENGINE_ID = "sinapsis"
     private const val LONG_WORK_CHANNEL = "app.sinapsis/long_work"
     private const val AUDIO_CHANNEL = "app.sinapsis/audio"
+    private const val DEVICE_BOOT_CHANNEL = "app.sinapsis/device_boot"
     private const val NOTIFICATIONS_REQUEST = 21
 
     private val audioWorker = Executors.newSingleThreadExecutor()
@@ -148,6 +150,24 @@ object SinapsisEngine {
         // la app cerrada (F29): "Inicio automático" y el ahorro de batería.
         MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)
             .setMethodCallHandler(BackgroundSettingsChannel(context))
+
+        // El encendido del teléfono, para que la bóveda pida la clave una
+        // vez por encendido: el contador de arranques del sistema, que sube
+        // en uno cada vez que el teléfono arranca. Sin permisos. Antes de
+        // Android 7 no existe: `null`, y la bóveda la pide siempre.
+        MethodChannel(messenger, DEVICE_BOOT_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method != "bootCount") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                result.success(null)
+                return@setMethodCallHandler
+            }
+            result.success(
+                Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT),
+            )
+        }
     }
 
     // Android 13 en adelante pide permiso para mostrar notificaciones. Se

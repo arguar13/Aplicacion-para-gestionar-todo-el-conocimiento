@@ -25,6 +25,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         vaultLocalDataSourceProvider.overrideWithValue(vault),
+        deviceBootProvider.overrideWithValue(testDeviceBoot),
         pinHasherProvider.overrideWithValue(FakePinHasher()),
       ],
     );
