@@ -78,6 +78,9 @@ class ResumableDownload {
   /// [onTotal] avisa el tamaño total apenas el servidor lo dice, para que
   /// quien llama lo anote junto al archivo a medias.
   ///
+  /// [cancelToken] corta la descarga: falla con el [DioException] de tipo
+  /// `cancel`, sin reintentar.
+  ///
   /// Lanza [DioException] si el servidor dice que no (401, 403, 404, o
   /// cualquier otro estado después de agotar los intentos), y lo que lance
   /// el disco —sin lugar, sin permiso— sin reintentar: eso no se arregla
@@ -89,6 +92,7 @@ class ResumableDownload {
     int? expectedBytes,
     void Function(int total)? onTotal,
     void Function(int received, int? total)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     var expected = expectedBytes;
     for (var attempt = 1; ; attempt++) {
@@ -103,18 +107,23 @@ class ResumableDownload {
             onTotal?.call(total);
           },
           onProgress: onProgress,
+          cancelToken: cancelToken,
         );
       } on Object catch (e) {
         if (!_isTransient(e) || attempt >= maxAttempts) rethrow;
         await Future<void>.delayed(_retryDelay(attempt));
+        // Cancelada durante la espera: el próximo intento ni empieza.
+        if (cancelToken?.cancelError case final cancelled?) throw cancelled;
       }
     }
   }
 
   /// Lo que vale la pena reintentar: lo de la red y lo del servidor que no
   /// sea un «no» definitivo. Un 401/403 —repositorio protegido, token
-  /// vencido— o un 404 —el archivo ya no está ahí— no se arreglan solos.
+  /// vencido— o un 404 —el archivo ya no está ahí— no se arreglan solos. Una
+  /// descarga cancelada a pedido, tampoco: no es un corte.
   static bool _isTransient(Object e) => switch (e) {
+    DioException(type: DioExceptionType.cancel) => false,
     DioException(:final response?) => !const {
       401,
       403,
@@ -136,6 +145,7 @@ class ResumableDownload {
     required int? expectedBytes,
     required void Function(int total) onTotal,
     required void Function(int received, int? total)? onProgress,
+    required CancelToken? cancelToken,
   }) async {
     var existing = partial.existsSync() ? partial.lengthSync() : 0;
     if (expectedBytes != null && existing > expectedBytes) {
@@ -150,6 +160,7 @@ class ResumableDownload {
 
     final response = await _dio.get<ResponseBody>(
       url,
+      cancelToken: cancelToken,
       options: Options(
         responseType: ResponseType.stream,
         headers: {...headers, if (existing > 0) 'range': 'bytes=$existing-'},

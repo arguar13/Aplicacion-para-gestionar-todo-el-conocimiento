@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The system download manager notification while downloading a model
+     (F29): see SystemDownloadsChannel. -->
+<resources>
+    <string name="system_download_title">Sinapsis is downloading %1$s</string>
+    <string name="system_download_description">It keeps going even if you close the app.</string>
+</resources>

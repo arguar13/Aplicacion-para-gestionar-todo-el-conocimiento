@@ -139,6 +139,10 @@ object SinapsisEngine {
                 }
             }
         }
+
+        // Las descargas de los modelos con el gestor del sistema (F29).
+        MethodChannel(messenger, SystemDownloadsChannel.CHANNEL)
+            .setMethodCallHandler(SystemDownloadsChannel(context))
     }
 
     // Android 13 en adelante pide permiso para mostrar notificaciones. Se

@@ -26,12 +26,22 @@ class FakeFileServer implements HttpClientAdapter {
   /// Los próximos pedidos se portan así, uno por pedido; después, normal.
   final misbehaviors = <Misbehavior>[];
 
+  /// Como [misbehaviors], pero solo para los pedidos a una dirección: con
+  /// varias descargas a la vez, la fila general no dice a cuál le toca.
+  final misbehaviorsByUrl = <String, List<Misbehavior>>{};
+
   /// Si atiende pedidos `Range`; si no, manda siempre el archivo entero.
   bool acceptsRanges = true;
 
   /// Las cabeceras `range` de cada pedido (`null` si no la tenía).
   List<String?> get ranges => [
     for (final r in requests) r.headers['range'] as String?,
+  ];
+
+  /// Las cabeceras `range` de los pedidos a [url], en orden.
+  List<String?> rangesFor(String url) => [
+    for (final r in requests)
+      if (r.uri.toString() == url) r.headers['range'] as String?,
   ];
 
   /// Para [Misbehavior.stall]: los cuerpos que quedaron colgados, para
@@ -45,7 +55,12 @@ class FakeFileServer implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
-    final misbehavior = misbehaviors.isEmpty ? null : misbehaviors.removeAt(0);
+    final own = misbehaviorsByUrl[options.uri.toString()];
+    final misbehavior = own != null && own.isNotEmpty
+        ? own.removeAt(0)
+        : misbehaviors.isEmpty
+        ? null
+        : misbehaviors.removeAt(0);
 
     if (misbehavior case Misbehavior(:final status?)) {
       return ResponseBody.fromString('', status);

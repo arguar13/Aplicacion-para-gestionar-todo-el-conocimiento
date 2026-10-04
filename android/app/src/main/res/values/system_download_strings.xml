@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La notificación del gestor de descargas del sistema al bajar un modelo
+     (F29): ver SystemDownloadsChannel. El nombre del modelo sale de
+     long_work_strings.xml. -->
+<resources>
+    <string name="system_download_title">Sinapsis baja %1$s</string>
+    <string name="system_download_description">Sigue aunque cierres la app.</string>
+</resources>
