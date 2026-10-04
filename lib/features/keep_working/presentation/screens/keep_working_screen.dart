@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/features/keep_working/domain/services/background_settings.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
@@ -49,17 +48,7 @@ class _KeepWorkingScreenState extends ConsumerState<KeepWorkingScreen> {
   Future<void> _refresh() async {
     final settings = ref.read(backgroundSettingsProvider);
     if (settings == null) return;
-    BackgroundSettingsStatus status;
-    try {
-      status = await settings.status();
-    } on PlatformException {
-      // Sin poder preguntarle al sistema, la ayuda sigue sirviendo: el paso
-      // de la batería, que existe en todo Android, sin decir si ya está.
-      status = const BackgroundSettingsStatus(
-        isXiaomi: false,
-        batteryUnrestricted: false,
-      );
-    }
+    final status = await settings.status();
     if (mounted) setState(() => _status = status);
   }
 

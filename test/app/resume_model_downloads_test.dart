@@ -106,7 +106,11 @@ void main() {
     whisper.downloading = true;
     final container = containerWith(systemDownloads: true);
 
-    await resumeModelDownloads(container.read);
+    // El fallo no se pierde: llega a quien llama, después de las demás.
+    await expectLater(
+      resumeModelDownloads(container.read),
+      throwsA(isA<PlatformException>()),
+    );
 
     expect(container.read(chatModelDownloadProvider), isA<ModelDownloadIdle>());
 

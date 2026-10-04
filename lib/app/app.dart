@@ -39,7 +39,8 @@ class _AppState extends ConsumerState<App> {
     // Las descargas de modelos que siguieron con la app cerrada (F29)
     // vuelven a verse. Una vez por arranque de Dart: si la app se cerró y el
     // motor siguió vivo, al volver a abrirla esto no se repite, y las
-    // descargas siguen seguidas desde antes.
+    // descargas siguen seguidas desde antes. Si no se puede mirar alguna, el
+    // error llega a la telemetría por la zona de `bootstrap`.
     unawaited(resumeModelDownloads(ref.read));
   }
 

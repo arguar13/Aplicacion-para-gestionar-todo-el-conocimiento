@@ -106,21 +106,16 @@ class MethodChannelSystemDownloads implements SystemDownloads {
 
   /// El gestor del sistema, si este dispositivo lo tiene disponible: Android
   /// con el gestor de descargas habilitado y el almacenamiento compartido
-  /// montado. `null` en cualquier otro caso —el escritorio, la web, un
-  /// teléfono que lo deshabilitó—, y se baja dentro de la app.
+  /// montado —eso lo dice Android contestando `null`—. `null` también fuera
+  /// de Android —el escritorio, la web—, y se baja dentro de la app. Un
+  /// error del canal no se toma por "no hay": es un error.
   static Future<MethodChannelSystemDownloads?> resolve({
     MethodChannel channel = _defaultChannel,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
-    try {
-      final path = await channel.invokeMethod<String>('directory');
-      if (path == null) return null;
-      return MethodChannelSystemDownloads._(channel, Directory(path));
-    } on MissingPluginException {
-      return null;
-    } on PlatformException {
-      return null;
-    }
+    final path = await channel.invokeMethod<String>('directory');
+    if (path == null) return null;
+    return MethodChannelSystemDownloads._(channel, Directory(path));
   }
 
   final MethodChannel _channel;
