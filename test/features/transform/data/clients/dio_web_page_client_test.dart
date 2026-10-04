@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/features/transform/data/clients/dio_web_page_client.dart';
+import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
 import '../../../../support/silent_logger.dart';
 
@@ -122,5 +123,84 @@ void main() {
         isA<ServerException>().having((e) => e.statusCode, 'código', 404),
       ),
     );
+  });
+
+  group('un archivo no es una página (F30)', () {
+    /// Un cuerpo que cuenta cuánto se leyó: un archivo no se tiene que leer.
+    ({_FakeAdapter adapter, List<int> read}) serving(
+      Map<String, List<String>> headers, {
+      String path = '/articulo',
+    }) {
+      final read = <int>[];
+      final adapter = _FakeAdapter(
+        (_) async => ResponseBody(
+          // Como llega de la red: de a pedazos, con tiempo entre uno y otro.
+          () async* {
+            for (var i = 0; i < 1000; i++) {
+              await Future<void>.delayed(Duration.zero);
+              read.add(i);
+              yield Uint8List.fromList([i % 256]);
+            }
+          }(),
+          200,
+          headers: headers,
+        ),
+      );
+      return (adapter: adapter, read: read);
+    }
+
+    test('un PDF se avisa sin bajarlo', () async {
+      final server = serving({
+        Headers.contentTypeHeader: ['application/pdf'],
+      });
+
+      await expectLater(
+        clientWith(server.adapter).fetchHtml(url),
+        throwsA(
+          isA<NotAPageException>()
+              .having((e) => e.contentType, 'tipo', 'application/pdf')
+              .having((e) => e.url, 'dirección', url),
+        ),
+      );
+      expect(server.read.length, lessThan(10));
+    });
+
+    test('sin tipo útil, decide la extensión del nombre que ofrece', () async {
+      final server = serving({
+        Headers.contentTypeHeader: ['application/octet-stream'],
+        'content-disposition': ['attachment; filename="datos.zip"'],
+      });
+
+      await expectLater(
+        clientWith(server.adapter).fetchHtml(url),
+        throwsA(
+          isA<NotAPageException>().having(
+            (e) => e.fileName,
+            'nombre',
+            'datos.zip',
+          ),
+        ),
+      );
+    });
+
+    test('un audio, una foto y un video, también', () async {
+      for (final type in ['audio/mpeg', 'image/jpeg', 'video/mp4']) {
+        final server = serving({
+          Headers.contentTypeHeader: [type],
+        });
+        await expectLater(
+          clientWith(server.adapter).fetchHtml(url),
+          throwsA(isA<NotAPageException>()),
+          reason: type,
+        );
+      }
+    });
+
+    test('una página sin tipo sigue siendo una página', () async {
+      final client = clientWith(
+        _FakeAdapter((_) async => ResponseBody.fromString('<p>hola</p>', 200)),
+      );
+      expect(await client.fetchHtml(url), '<p>hola</p>');
+    });
   });
 }

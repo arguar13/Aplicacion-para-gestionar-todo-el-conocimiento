@@ -26,22 +26,26 @@ class AttachmentRepositoryImpl implements AttachmentRepository {
   // --- La lista de trabajo -------------------------------------------------
 
   @override
-  Future<void> plan(String itemId, List<AttachmentCandidate> candidates) =>
-      _db.batch((batch) {
-        batch.insertAll(_downloads, [
-          for (final candidate in candidates)
-            AttachmentDownloadsCompanion.insert(
-              id: _ids.next(),
-              itemId: itemId,
-              url: candidate.url.toString(),
-              kind: candidate.kind,
-              title: Value(candidate.title),
-              position: candidate.position,
-              status: AttachmentDownloadStatus.pending,
-              createdAt: _clock(),
-            ),
-        ], mode: InsertMode.insertOrIgnore);
-      });
+  Future<void> plan(
+    String itemId,
+    List<AttachmentCandidate> candidates, {
+    AttachmentDownloadStatus status = AttachmentDownloadStatus.pending,
+  }) => _db.batch((batch) {
+    batch.insertAll(_downloads, [
+      for (final candidate in candidates)
+        AttachmentDownloadsCompanion.insert(
+          id: _ids.next(),
+          itemId: itemId,
+          url: candidate.url.toString(),
+          kind: candidate.kind,
+          title: Value(candidate.title),
+          position: candidate.position,
+          status: status,
+          expectedBytes: Value(candidate.expectedBytes),
+          createdAt: _clock(),
+        ),
+    ], mode: InsertMode.insertOrIgnore);
+  });
 
   SimpleSelectStatement<$AttachmentDownloadsTable, AttachmentDownloadRow>
   _downloadsQuery(String itemId) => _db.select(_downloads)

@@ -134,6 +134,7 @@ class AttachmentCandidate {
     required this.kind,
     required this.position,
     this.title,
+    this.expectedBytes,
   });
 
   final Uri url;
@@ -145,6 +146,9 @@ class AttachmentCandidate {
   final int position;
   final String? title;
 
+  /// Cuánto pesa, si ya se sabe.
+  final int? expectedBytes;
+
   AttachmentGroup get group => AttachmentGroup.of(kind);
 
   @override
@@ -153,10 +157,11 @@ class AttachmentCandidate {
       other.url == url &&
       other.kind == kind &&
       other.position == position &&
-      other.title == title;
+      other.title == title &&
+      other.expectedBytes == expectedBytes;
 
   @override
-  int get hashCode => Object.hash(url, kind, position, title);
+  int get hashCode => Object.hash(url, kind, position, title, expectedBytes);
 
   @override
   String toString() => 'AttachmentCandidate($kind, $url, "$title")';

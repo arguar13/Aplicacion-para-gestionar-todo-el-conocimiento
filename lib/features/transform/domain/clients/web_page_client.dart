@@ -26,9 +26,37 @@ sealed class ExtractedArticle with _$ExtractedArticle {
 /// Se abstrae para poder probar el transformador sin red. Un test que
 /// descargara de verdad fallaría sin conexión, cambiaría de resultado cuando
 /// cambie la página, y tardaría segundos en cada corrida.
+///
+/// Si la dirección no es una página sino un archivo —un PDF, un MP3, un
+/// `.zip`—, lanza [NotAPageException] sin bajarlo (F30): el archivo se baja
+/// aparte, acotado y sin pasar entero por memoria.
 // ignore: one_member_abstracts
 abstract interface class WebPageClient {
   Future<String> fetchHtml(Uri url);
+}
+
+/// La dirección no es una página: es un archivo (F30). Antes se leía como si
+/// fuera HTML —un enlace directo a un PDF terminaba como una "página" llena
+/// de bytes sin sentido—; ahora se guarda como lo que es.
+final class NotAPageException implements Exception {
+  const NotAPageException({
+    required this.url,
+    required this.contentType,
+    this.fileName,
+  });
+
+  /// La dirección del archivo, después de las redirecciones.
+  final Uri url;
+
+  /// El tipo que dijo el servidor, en minúsculas y sin parámetros.
+  final String? contentType;
+
+  /// El nombre con que lo ofrece el servidor (`Content-Disposition`), si lo
+  /// dice.
+  final String? fileName;
+
+  @override
+  String toString() => 'NotAPageException: $url ($contentType)';
 }
 
 /// Separa el artículo del resto de la página.

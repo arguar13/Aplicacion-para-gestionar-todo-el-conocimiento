@@ -12,6 +12,8 @@ import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/attachments/presentation/providers/attachment_cap.dart';
+import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/reference/presentation/providers/reference_providers.dart';
@@ -175,6 +177,9 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       ids: ids,
       clock: clock,
       logger: ref.watch(appLoggerProvider),
+      fileFetcher: ref.watch(linkedFileFetcherProvider),
+      attachments: ref.watch(attachmentRepositoryProvider),
+      maxBytesPerItem: () => ref.read(attachmentCapProvider),
     ),
     DocumentTransformer(
       parsers: ref.watch(documentParsersProvider),

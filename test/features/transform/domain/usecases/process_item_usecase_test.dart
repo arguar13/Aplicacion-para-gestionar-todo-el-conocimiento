@@ -702,6 +702,91 @@ void main() {
       expect(metadataGenerator.calls, [item.id]);
     });
   });
+
+  group('un enlace que resultó ser un archivo (F30)', () {
+    test('en la misma vuelta le toca al transformador de esa clase', () async {
+      final item = await seedPending();
+      final asPage = _ByKind(SourceKind.webPage, (item) {
+        // Lo que hace `WebArticleTransformer` con un enlace a un PDF: el
+        // elemento pasa a ser un documento, sin texto todavía.
+        return item.copyWith(
+          source: item.source.copyWith(
+            kind: SourceKind.document,
+            originalFilePath: 'originales/src-1/informe.pdf',
+          ),
+        );
+      });
+      final asDocument = _ByKind(
+        SourceKind.document,
+        (item) => item.copyWith(
+          renditions: [
+            Rendition.text(
+              id: 'texto-pdf',
+              itemId: item.id,
+              kind: RenditionKind.plainText,
+              content: 'El texto del informe.',
+              isPrimary: true,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+
+      final result = await build(TransformerRegistry([asPage, asDocument]))(
+        item.id,
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(asPage.calls, 1);
+      expect(asDocument.calls, 1);
+      final saved = await reload(item.id);
+      expect(saved.source.kind, SourceKind.document);
+      expect(saved.source.originalFilePath, 'originales/src-1/informe.pdf');
+      expect(saved.renditions.single.id, 'texto-pdf');
+      expect(saved.processingState, ProcessingState.ready);
+    });
+
+    test('si nadie sabe qué hacer con la clase nueva, queda listo', () async {
+      final item = await seedPending();
+      final asPage = _ByKind(
+        SourceKind.webPage,
+        (item) => item.copyWith(
+          source: item.source.copyWith(kind: SourceKind.document),
+        ),
+      );
+
+      final result = await build(TransformerRegistry([asPage]))(item.id);
+
+      expect(result.isRight(), isTrue);
+      expect(asPage.calls, 1);
+      expect((await reload(item.id)).source.kind, SourceKind.document);
+    });
+  });
+}
+
+/// Acepta los elementos de [kind] sin texto, y los transforma con [enrich].
+class _ByKind implements Transformer {
+  _ByKind(this.kind, this.enrich);
+
+  final SourceKind kind;
+  final KnowledgeItem Function(KnowledgeItem) enrich;
+  int calls = 0;
+
+  @override
+  Duration? get timeLimit => null;
+
+  @override
+  bool canTransform(KnowledgeItem item) =>
+      item.source.kind == kind && item.renditions.isEmpty;
+
+  @override
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
+    calls++;
+    return enrich(item);
+  }
 }
 
 /// Una cola cuyo carril largo está ocupado un rato: entrar tarda [wait].

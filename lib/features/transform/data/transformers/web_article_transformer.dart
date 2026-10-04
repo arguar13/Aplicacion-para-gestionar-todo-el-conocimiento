@@ -1,13 +1,20 @@
 import 'dart:isolate';
 
+import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/core/network/bounded_download.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
+import 'package:sinapsis/features/attachments/domain/media_kind.dart';
+import 'package:sinapsis/features/attachments/domain/repositories/attachment_repository.dart';
+import 'package:sinapsis/features/attachments/domain/services/linked_file_fetcher.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
@@ -43,6 +50,16 @@ import 'package:sinapsis/features/transform/domain/transformers/transformer.dart
 /// Que el archivado falle —una página demasiado pesada, un recurso que no
 /// se pudo traer— nunca le cuesta al usuario el artículo: es un extra sobre
 /// el resultado principal, no una condición para tenerlo.
+///
+/// **Un enlace directo a un archivo es un archivo (F30).** Si la dirección
+/// no es una página sino un PDF, un EPUB, una foto, un audio o un video, se
+/// baja —acotado, de internet, sin pasar entero por memoria— y el elemento
+/// pasa a ser ese archivo: un documento, una foto, un audio. El que sigue
+/// —el lector de documentos, el que transcribe— le saca el texto. Lo que no
+/// es ninguna de esas cosas —un `.zip`, un `.mobi`— va al «Contenido» del
+/// elemento, igual que lo que enlaza una página. Un archivo que no entra en
+/// el tope por elemento, o en el espacio libre, queda anotado en el
+/// «Contenido» como afuera, con «Bajar el resto».
 class WebArticleTransformer implements Transformer {
   const WebArticleTransformer({
     required WebPageClient client,
@@ -52,7 +69,13 @@ class WebArticleTransformer implements Transformer {
     required IdGenerator ids,
     required Clock clock,
     required AppLogger logger,
-  }) : _client = client,
+    LinkedFileFetcher? fileFetcher,
+    AttachmentRepository? attachments,
+    int Function()? maxBytesPerItem,
+  }) : _fileFetcher = fileFetcher,
+       _attachments = attachments,
+       _maxBytesPerItem = maxBytesPerItem ?? _defaultMaxBytesPerItem,
+       _client = client,
        _extractor = extractor,
        _archiver = archiver,
        _files = files,
@@ -67,6 +90,18 @@ class WebArticleTransformer implements Transformer {
   final IdGenerator _ids;
   final Clock _clock;
   final AppLogger _logger;
+
+  /// Quien baja un archivo enlazado, o `null` donde no se puede (la web).
+  final LinkedFileFetcher? _fileFetcher;
+
+  /// El «Contenido» de los elementos (F30), o `null` donde no se baja nada.
+  final AttachmentRepository? _attachments;
+
+  /// El tope por elemento de hoy (decisión E de F30), leído cada vez: se
+  /// puede cambiar en Ajustes mientras la cola trabaja.
+  final int Function() _maxBytesPerItem;
+
+  static int _defaultMaxBytesPerItem() => 500 * 1024 * 1024;
 
   /// Trabajo corto: una página y lo que haga falta para archivarla.
   @override
@@ -90,7 +125,12 @@ class WebArticleTransformer implements Transformer {
   }) async {
     final url = Uri.parse(item.source.url!);
 
-    final html = await _client.fetchHtml(url);
+    final String html;
+    try {
+      html = await _client.fetchHtml(url);
+    } on NotAPageException catch (file) {
+      return _captureFile(item, file, context);
+    }
 
     // Fuera del hilo principal (F21): leer una página de cientos de KB con el
     // algoritmo del modo lectura y convertirla a Markdown es trabajo síncrono
@@ -147,6 +187,97 @@ class WebArticleTransformer implements Transformer {
         ),
       ],
     );
+  }
+
+  /// El elemento como el archivo que es (F30): ver la documentación de la
+  /// clase.
+  Future<KnowledgeItem> _captureFile(
+    KnowledgeItem item,
+    NotAPageException file,
+    TransformContext context,
+  ) async {
+    final fetcher = _fileFetcher;
+    final attachments = _attachments;
+    // Donde no se bajan archivos, un archivo no es un artículo: queda como
+    // antes, fallido con su enlace.
+    if (fetcher == null || attachments == null) {
+      throw NoArticleFoundException(file.url);
+    }
+
+    final name =
+        file.fileName ??
+        file.url.pathSegments.where((s) => s.isNotEmpty).lastOrNull ??
+        file.url.host;
+    final kind =
+        mediaKindOf(contentType: file.contentType, fileName: name) ??
+        RenditionKind.file;
+    // Un nombre que dio el servidor es mejor título que el que se dedujo de
+    // la dirección.
+    final titled = file.fileName == null
+        ? item
+        : item.copyWith(title: p.basenameWithoutExtension(file.fileName!));
+    final sourceKind = switch (kind) {
+      RenditionKind.pdf || RenditionKind.document
+          when isReadableDocument(
+            contentType: file.contentType,
+            fileName: name,
+          ) =>
+        SourceKind.document,
+      RenditionKind.image => SourceKind.image,
+      RenditionKind.audio => SourceKind.audio,
+      RenditionKind.video => SourceKind.video,
+      _ => null,
+    };
+    final candidate = AttachmentCandidate(
+      url: file.url,
+      kind: kind,
+      position: 0,
+      title: titled.title,
+    );
+
+    // Lo que no es un documento, una foto, un audio ni un video va al
+    // «Contenido»: ahí se baja —y se descomprime, si es un `.zip`—.
+    if (sourceKind == null) {
+      await attachments.plan(item.id, [candidate]);
+      return titled;
+    }
+
+    // Puede ser un video de cientos de MB: es trabajo largo.
+    await context.enterLongLane();
+    try {
+      final fetched = await fetcher.fetch(
+        file.url,
+        storeId: item.source.id,
+        maxBytes: _maxBytesPerItem(),
+        unique: false,
+        preferredName: titled.title,
+        whenCancelled: context.whenCancelled,
+        onProgress: (received, total) =>
+            context.reportProgress(received, total ?? 0),
+      );
+      return titled.copyWith(
+        source: titled.source.copyWith(
+          kind: sourceKind,
+          originalFilePath: fetched.relativePath,
+        ),
+      );
+    } on DownloadTooLargeException catch (e) {
+      await attachments.plan(item.id, [
+        AttachmentCandidate(
+          url: file.url,
+          kind: kind,
+          position: 0,
+          title: titled.title,
+          expectedBytes: e.declared,
+        ),
+      ], status: AttachmentDownloadStatus.leftOut);
+      return titled;
+    } on NotEnoughSpaceException {
+      await attachments.plan(item.id, [
+        candidate,
+      ], status: AttachmentDownloadStatus.noSpace);
+      return titled;
+    }
   }
 
   /// Archiva la página y la guarda, o `null` si no se pudo.

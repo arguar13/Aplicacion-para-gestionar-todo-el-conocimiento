@@ -24,6 +24,9 @@ KnowledgeItem mergeTransformResult({
       proposed != before && now == before ? proposed : now;
 
   final source = current.source.copyWith(
+    // Un enlace que resultó ser un archivo pasa a ser un documento, una foto
+    // o un audio (F30).
+    kind: pick(original.source.kind, enriched.source.kind, current.source.kind),
     authorName: pick(
       original.source.authorName,
       enriched.source.authorName,

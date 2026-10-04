@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/features/transform/data/clients/reader_mode_article_ext
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
 
+import '../../../../support/attachment_test_doubles.dart';
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
@@ -298,6 +300,131 @@ void main() {
 
         expect(result.source.originalFilePath, isNull);
         expect(result.renditions, isNotEmpty);
+      },
+    );
+  });
+
+  group('un enlace directo a un archivo (F30)', () {
+    late FakeAttachmentRepository attachments;
+    late FakeLinkedFileFetcher fetcher;
+    final pdfUrl = Uri.parse(
+      'https://ejemplo.org/blog/un-articulo-interesante',
+    );
+
+    setUp(() {
+      attachments = FakeAttachmentRepository();
+      fetcher = FakeLinkedFileFetcher(files);
+    });
+
+    WebArticleTransformer withFiles(NotAPageException file, {int cap = 1000}) =>
+        WebArticleTransformer(
+          client: FakeWebPageClient(error: file),
+          extractor: FakeArticleExtractor(),
+          archiver: FakePageArchiver(),
+          files: files,
+          ids: ids,
+          clock: () => now,
+          logger: const SilentLogger(),
+          fileFetcher: fetcher,
+          attachments: attachments,
+          maxBytesPerItem: () => cap,
+        );
+
+    test('un PDF se baja y el elemento pasa a ser ese documento', () async {
+      fetcher.served['$pdfUrl'] = const FakeServedFile(
+        [1, 2, 3],
+        contentType: 'application/pdf',
+        fileName: 'Informe anual.pdf',
+      );
+
+      final result = await withFiles(
+        NotAPageException(
+          url: pdfUrl,
+          contentType: 'application/pdf',
+          fileName: 'Informe anual.pdf',
+        ),
+      ).transform(webItem());
+
+      expect(result.source.kind, SourceKind.document);
+      expect(
+        result.source.originalFilePath,
+        'originales/src-1/Informe anual.pdf',
+      );
+      expect(result.title, 'Informe anual');
+      expect(result.renditions, isEmpty);
+      expect(await files.read(result.source.originalFilePath!), [1, 2, 3]);
+      expect(attachments.downloads, isEmpty);
+    });
+
+    test('un audio, una foto y un video, también', () async {
+      for (final (type, kind) in [
+        ('audio/mpeg', SourceKind.audio),
+        ('image/png', SourceKind.image),
+        ('video/mp4', SourceKind.video),
+      ]) {
+        fetcher.served['$pdfUrl'] = FakeServedFile([1], contentType: type);
+        final result = await withFiles(
+          NotAPageException(url: pdfUrl, contentType: type),
+        ).transform(webItem());
+        expect(result.source.kind, kind, reason: type);
+        expect(result.source.originalFilePath, isNotNull, reason: type);
+      }
+    });
+
+    test('un .zip va al «Contenido», sin bajarlo acá', () async {
+      final zip = Uri.parse('https://ejemplo.org/datos.zip');
+
+      final result = await withFiles(
+        NotAPageException(url: zip, contentType: 'application/zip'),
+      ).transform(webItem());
+
+      expect(result.source.kind, SourceKind.webPage);
+      expect(result.renditions, isEmpty);
+      expect(fetcher.requested, isEmpty);
+      final planned = attachments.downloads.single;
+      expect(planned.url, zip);
+      expect(planned.kind, RenditionKind.file);
+      expect(planned.status, AttachmentDownloadStatus.pending);
+    });
+
+    test('si no entra en el tope, queda afuera con «Bajar el resto»', () async {
+      fetcher.served['$pdfUrl'] = const FakeServedFile([
+        1,
+        2,
+        3,
+        4,
+        5,
+      ], contentType: 'video/mp4');
+
+      final result = await withFiles(
+        NotAPageException(url: pdfUrl, contentType: 'video/mp4'),
+        cap: 3,
+      ).transform(webItem());
+
+      expect(result.source.kind, SourceKind.webPage);
+      expect(result.source.originalFilePath, isNull);
+      final planned = attachments.downloads.single;
+      expect(planned.status, AttachmentDownloadStatus.leftOut);
+      expect(planned.expectedBytes, 5);
+      expect(planned.kind, RenditionKind.video);
+    });
+
+    test(
+      'donde no se bajan archivos, es como antes: no hay artículo',
+      () async {
+        final transformer = build(
+          client: FakeWebPageClient(
+            error: NotAPageException(
+              url: pdfUrl,
+              contentType: 'application/pdf',
+            ),
+          ),
+        );
+
+        await expectLater(
+          transformer.transform(webItem()),
+          throwsA(isA<NoArticleFoundException>()),
+        );
       },
     );
   });

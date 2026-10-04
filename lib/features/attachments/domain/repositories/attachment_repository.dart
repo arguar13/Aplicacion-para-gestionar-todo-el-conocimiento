@@ -13,10 +13,14 @@ import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 abstract interface class AttachmentRepository {
   // --- La lista de trabajo -------------------------------------------------
 
-  /// Anota lo que ofrece la página de [itemId]. Lo que ya estaba anotado —la
-  /// misma dirección— queda como estaba: volver a leer la página no hace
-  /// volver a bajar lo bajado.
-  Future<void> plan(String itemId, List<AttachmentCandidate> candidates);
+  /// Anota lo que ofrece la página de [itemId], como [status]. Lo que ya
+  /// estaba anotado —la misma dirección— queda como estaba: volver a leer la
+  /// página no hace volver a bajar lo bajado.
+  Future<void> plan(
+    String itemId,
+    List<AttachmentCandidate> candidates, {
+    AttachmentDownloadStatus status = AttachmentDownloadStatus.pending,
+  });
 
   /// La lista de trabajo de [itemId], en el orden de la página.
   Future<List<AttachmentDownload>> downloadsOf(String itemId);

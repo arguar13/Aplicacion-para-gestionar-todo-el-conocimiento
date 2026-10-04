@@ -271,6 +271,17 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
         return _relocateAnchors(before: current, after: savedItem, saved);
       });
       if (result.isRight()) await _processingStates.succeed(item.id);
+      // El enlace resultó ser un archivo (F30): el elemento pasó a ser un
+      // documento, una foto o un audio, todavía sin texto. Le toca al
+      // transformador de esa clase, en la misma vuelta: si no, quedaba
+      // "listo" y sin texto hasta que alguien lo volviera a procesar.
+      final saved = result.getRight().toNullable();
+      if (saved != null &&
+          saved.source.kind != item.source.kind &&
+          saved.renditions.isEmpty &&
+          _registry.resolve(saved) != null) {
+        return await _process(saved, context);
+      }
       _generateSuggestions(result);
       return result;
     } on ProcessingCancelledException {
