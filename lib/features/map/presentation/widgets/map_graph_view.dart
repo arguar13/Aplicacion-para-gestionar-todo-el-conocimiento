@@ -24,6 +24,7 @@ import 'package:sinapsis/features/map/presentation/widgets/arrow_head.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_edges_painter.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_export_handle.dart';
 import 'package:sinapsis/features/map/presentation/widgets/map_item_box.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/add_relation_flow.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -270,7 +271,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
         );
         continue;
       }
-      final disc = _disc(node);
+      final disc = mapNodeDisc(node);
       final isCommunity =
           node.kind == SceneKind.community ||
           node.kind == SceneKind.overflow ||
@@ -363,6 +364,12 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
       startX: known == 0 ? null : startX,
       startY: known == 0 ? null : startY,
       iterations: known == 0 ? _kColdIterations : _kWarmIterations,
+      widths: Float64List.fromList([
+        for (final node in scene.nodes) mapNodeSize(node).width,
+      ]),
+      heights: Float64List.fromList([
+        for (final node in scene.nodes) mapNodeSize(node).height,
+      ]),
     ));
     if (!mounted || generation != _generation) return;
 
@@ -787,7 +794,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
     final brightness = Theme.of(context).brightness;
-    final size = _sizeOf(node);
+    final size = mapNodeSize(node);
     final color = _colorOf(node, colors, brightness);
     final label = switch (node.kind) {
       SceneKind.overflow => l10n.mapGraphOverflow,
@@ -831,24 +838,6 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
     );
   }
 }
-
-/// El tamaño de la caja de un nodo, con su etiqueta.
-Size _sizeOf(SceneNode node) => switch (node.kind) {
-  SceneKind.community ||
-  SceneKind.overflow ||
-  SceneKind.isolated => Size(math.max(_disc(node), 120), _disc(node) + 22),
-  SceneKind.topic => Size(math.max(_disc(node), 96), _disc(node) + 18),
-  SceneKind.note || SceneKind.source => kMapItemBoxSize,
-};
-
-/// El diámetro del círculo de un nodo, que crece con su peso.
-double _disc(SceneNode node) => switch (node.kind) {
-  SceneKind.community ||
-  SceneKind.overflow ||
-  SceneKind.isolated => (30 + 7 * math.sqrt(node.size)).clamp(30, 110),
-  SceneKind.topic => (16 + 5 * math.sqrt(node.size)).clamp(16, 60),
-  _ => 0,
-};
 
 /// El color de un nodo: el de su comunidad, que no cambia mientras la
 /// comunidad exista; sin comunidad, uno neutro.
@@ -897,7 +886,7 @@ class _NodeBody extends StatelessWidget {
       return MapItemBox(isNote: node.kind == SceneKind.note, label: label);
     }
 
-    final disc = _disc(node);
+    final disc = mapNodeDisc(node);
     final isCommunity =
         node.kind == SceneKind.community ||
         node.kind == SceneKind.overflow ||

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/features/map/domain/services/map_layout.dart';
@@ -328,5 +329,184 @@ void main() {
     expect(layout.xs.every((x) => x.isFinite), isTrue);
     // Cotas muy holgadas: la medición de verdad se hace en el emulador.
     expect(watch.elapsedMilliseconds, lessThan(5000));
+  });
+
+  // Lo que ve la persona en el teléfono: el mapa de vínculos con un
+  // componente grande y unos pocos pares sueltos acababa con 53 pares de cajas
+  // encimadas en un rincón y los pares a miles de píxeles.
+  group('legible (layoutReadable)', () {
+    /// Un componente de 23 —un núcleo con cadenas, como suelen quedar los
+    /// vínculos— y dos pares sueltos.
+    List<MapLayoutLink> phoneLike() => [
+      for (var i = 1; i < 23; i++) MapLayoutLink(i % 5 == 0 ? 0 : i - 1, i, 2),
+      const MapLayoutLink(3, 17, 2),
+      const MapLayoutLink(8, 21, 3),
+      const MapLayoutLink(23, 24, 2),
+      const MapLayoutLink(25, 26, 2),
+    ];
+
+    /// Las cajas de cada nodo, centradas en su posición.
+    List<Rect> boxes(
+      MapLayout layout,
+      Float64List widths,
+      Float64List heights,
+    ) => [
+      for (var i = 0; i < layout.count; i++)
+        Rect.fromCenter(
+          center: layout.positionOf(i),
+          width: widths[i],
+          height: heights[i],
+        ),
+    ];
+
+    /// Cuántos pares de cajas se pisan.
+    int overlaps(List<Rect> boxes) {
+      var count = 0;
+      for (var i = 0; i < boxes.length; i++) {
+        for (var j = i + 1; j < boxes.length; j++) {
+          // `overlaps` cuenta el borde compartido: se pide aire de verdad.
+          final inter = boxes[i].intersect(boxes[j]);
+          if (inter.width > 0 && inter.height > 0) count++;
+        }
+      }
+      return count;
+    }
+
+    Rect bounds(Iterable<Rect> boxes) =>
+        boxes.reduce((a, b) => a.expandToInclude(b));
+
+    Float64List filled(int count, double value) =>
+        Float64List(count)..fillRange(0, count, value);
+
+    test('ninguna caja pisa a otra, ni con tamaños distintos', () {
+      final links = phoneLike();
+      // Cajas de elemento y círculos de tema, de alturas distintas.
+      final widths = Float64List.fromList(
+        List.generate(27, (i) => i.isEven ? 150 : 96),
+      );
+      final heights = Float64List.fromList(
+        List.generate(27, (i) => i % 3 == 0 ? 80 : 34),
+      );
+
+      final layout = layoutReadable(
+        count: 27,
+        links: links,
+        widths: widths,
+        heights: heights,
+      );
+
+      expect(overlaps(boxes(layout, widths, heights)), 0);
+    });
+
+    test('compacto: los componentes no se pierden lejos', () {
+      final widths = filled(27, 150);
+      final heights = filled(27, 34);
+      final all = boxes(
+        layoutReadable(count: 27, links: phoneLike()),
+        widths,
+        heights,
+      );
+
+      final area = bounds(all);
+      var used = 0.0;
+      for (final box in all) {
+        used += box.width * box.height;
+      }
+      // Medido: el layout de fuerzas sobre el grafo entero ocupaba el 3 % de
+      // su lienzo; este, el 14 %. La cota deja margen para ajustes finos sin
+      // dejar volver el problema.
+      expect(used / (area.width * area.height), greaterThan(0.08));
+      // Los pares sueltos, cerca del grande: nada a miles de píxeles.
+      expect(area.width, lessThan(1500));
+      expect(area.height, lessThan(1500));
+    });
+
+    test('los componentes no se pisan entre sí: los separa el aire pedido', () {
+      final widths = filled(27, 150);
+      final heights = filled(27, 34);
+      // El aire entre componentes por defecto es de 90.
+      final layout = layoutReadable(count: 27, links: phoneLike());
+      final all = boxes(layout, widths, heights);
+      final big = bounds(all.sublist(0, 23));
+      final pairA = bounds(all.sublist(23, 25));
+      final pairB = bounds(all.sublist(25, 27));
+
+      for (final (a, b) in [(big, pairA), (big, pairB), (pairA, pairB)]) {
+        final gapX = math.max(a.left - b.right, b.left - a.right);
+        final gapY = math.max(a.top - b.bottom, b.top - a.bottom);
+        expect(math.max(gapX, gapY), greaterThanOrEqualTo(90 - 0.01));
+      }
+    });
+
+    test('el componente más grande va primero, arriba a la izquierda', () {
+      final layout = layoutReadable(count: 27, links: phoneLike());
+      final widths = filled(27, 150);
+      final heights = filled(27, 34);
+      final all = boxes(layout, widths, heights);
+      final big = bounds(all.sublist(0, 23));
+
+      expect(big.top, closeTo(bounds(all).top, 0.01));
+      expect(big.left, closeTo(bounds(all).left, 0.01));
+    });
+
+    test('dentro de un componente, lo unido queda más cerca que lo que no', () {
+      final links = phoneLike().where((l) => l.a < 23).toList();
+      final layout = layoutReadable(count: 23, links: links);
+      final linked = {for (final l in links) (l.a, l.b)};
+      final unlinked = [
+        for (final pair in pairsWithin(List.generate(23, (i) => i)))
+          if (!linked.contains(pair)) pair,
+      ];
+
+      expect(
+        meanDistance(layout, linked),
+        lessThan(meanDistance(layout, unlinked)),
+      );
+    });
+
+    test('muchos sueltos van en filas, con la forma de la pantalla', () {
+      // 20 pares sueltos: sin filas, quedarían en una sola línea interminable.
+      final links = [
+        for (var p = 0; p < 20; p++) MapLayoutLink(2 * p, 2 * p + 1, 1),
+      ];
+      final widths = filled(40, 150);
+      final heights = filled(40, 34);
+
+      final area = bounds(
+        boxes(layoutReadable(count: 40, links: links), widths, heights),
+      );
+
+      // La proporción pedida es 0,75 (ancho sobre alto); las filas se llenan
+      // de a componentes enteros, así que se pide estar en la zona.
+      expect(area.width / area.height, inInclusiveRange(0.4, 1.4));
+    });
+
+    test('sin azar: el mismo grafo da exactamente el mismo layout', () {
+      final a = layoutReadable(count: 27, links: phoneLike());
+      final b = layoutReadable(count: 27, links: phoneLike());
+
+      expect(a.xs, b.xs);
+      expect(a.ys, b.ys);
+    });
+
+    test('recalcular desde lo que ya había casi no lo mueve', () {
+      final first = layoutReadable(count: 27, links: phoneLike());
+      final again = layoutReadable(
+        count: 27,
+        links: phoneLike(),
+        startX: first.xs,
+        startY: first.ys,
+        iterations: 60,
+      );
+
+      // Menos que media caja: el mapa no salta al volver a la pantalla.
+      expect(maxMove(first, again), lessThan(75));
+    });
+
+    test('sin nodos no hay nada, y uno solo queda en su lugar', () {
+      expect(layoutReadable(count: 0, links: const []).count, 0);
+      final single = layoutReadable(count: 1, links: const []);
+      expect(single.xs.single.isFinite, isTrue);
+    });
   });
 }

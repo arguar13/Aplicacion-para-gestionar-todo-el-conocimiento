@@ -158,6 +158,10 @@ class _MapLinksViewState extends ConsumerState<MapLinksView> {
       startX: known == 0 ? null : startX,
       startY: known == 0 ? null : startY,
       iterations: known == 0 ? _kColdIterations : _kWarmIterations,
+      widths: Float64List(scene.nodes.length)
+        ..fillRange(0, scene.nodes.length, kMapItemBoxSize.width),
+      heights: Float64List(scene.nodes.length)
+        ..fillRange(0, scene.nodes.length, kMapItemBoxSize.height),
     ));
     if (!mounted || generation != _generation) return;
 

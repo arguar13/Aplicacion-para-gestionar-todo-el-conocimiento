@@ -1,4 +1,4 @@
-import 'dart:typed_data' show Int32List;
+import 'dart:typed_data' show Float64List, Int32List;
 
 import 'package:async/async.dart' show StreamQueue;
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +19,7 @@ import 'package:sinapsis/features/map/domain/services/level_of_detail.dart';
 import 'package:sinapsis/features/map/domain/services/map_layout.dart';
 import 'package:sinapsis/features/map/domain/services/topic_graph_builder.dart';
 import 'package:sinapsis/features/map/presentation/providers/map_layout_runner.dart';
+import 'package:sinapsis/features/map/presentation/widgets/map_node_size.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/in_memory_file_store.dart';
@@ -51,6 +52,12 @@ MapLayoutJob _jobOf(
     startX: from?.xs,
     startY: from?.ys,
     iterations: iterations,
+    widths: Float64List.fromList([
+      for (final node in scene.nodes) mapNodeSize(node).width,
+    ]),
+    heights: Float64List.fromList([
+      for (final node in scene.nodes) mapNodeSize(node).height,
+    ]),
   );
 }
 

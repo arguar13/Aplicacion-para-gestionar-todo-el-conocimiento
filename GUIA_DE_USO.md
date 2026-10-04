@@ -895,7 +895,10 @@ Muestra tu bóveda como una red, con cuatro formas de mirarla:
   hace poco, después lo más vinculado— y un aviso dice cuántos quedaron
   afuera (con los filtros ves otra parte). Abajo, otra línea cuenta los
   elementos que no tienen ningún vínculo. Tocar uno abre su detalle; el
-  botón de cadena agrega un vínculo.
+  botón de cadena agrega un vínculo. Cada grupo de elementos unidos entre sí
+  se acomoda aparte, sin que ninguna caja pise a otra, y los grupos van en
+  filas, uno al lado del otro, del más grande al más chico: al abrir ves el
+  mapa entero, y con dos dedos acercás para leer los títulos.
 - **Esquema**: un árbol que se despliega desde un tema elegido.
 - **Grafo**: una red interactiva con tres niveles de zoom — comunidades
   (círculos grandes) → temas → elementos individuales. Tocás un nodo para

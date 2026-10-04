@@ -13,6 +13,10 @@ typedef MapLayoutJob = ({
   Float64List? startX,
   Float64List? startY,
   int iterations,
+  // El tamaño de la caja de cada nodo, con su etiqueta: lo que el layout
+  // separa para que no se pisen.
+  Float64List widths,
+  Float64List heights,
 });
 
 /// Cómo se acomoda una escena. Se inyecta para que las pruebas la calculen sin
@@ -23,13 +27,15 @@ typedef MapLayoutRunner = Future<MapLayout> Function(MapLayoutJob job);
 const kInlineLayoutNodes = 40;
 
 /// El layout de [job], en el isolate de quien lo llama.
-MapLayout runLayout(MapLayoutJob job) => layoutForces(
+MapLayout runLayout(MapLayoutJob job) => layoutReadable(
   count: job.count,
   links: job.links,
   groups: job.groups,
   startX: job.startX,
   startY: job.startY,
   iterations: job.iterations,
+  widths: job.widths,
+  heights: job.heights,
 );
 
 /// [runLayout] fuera del isolate de la interfaz: el layout cuesta el cuadrado
