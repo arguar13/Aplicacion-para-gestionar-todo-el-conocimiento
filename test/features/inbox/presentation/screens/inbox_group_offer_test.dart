@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -142,6 +143,22 @@ void main() {
         find.text('1 elemento más parece ser Región: Roma'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('la categoría de las etiquetas se lee «Etiqueta», no «Tema»', (
+      tester,
+    ) async {
+      final a = await seedSource('A');
+      final b = await seedSource('B');
+      await suggest(a, category: kTemaCategoryName);
+      await suggest(b, category: kTemaCategoryName);
+
+      await pumpInbox(tester);
+
+      final tag = es.categoryTagSingular;
+      expect(find.widgetWithText(FilterChip, '$tag: Roma'), findsOneWidget);
+      expect(find.text(es.inboxSuggestionMore(1, tag, 'Roma')), findsOneWidget);
+      expect(find.textContaining('$kTemaCategoryName: Roma'), findsNothing);
     });
 
     testWidgets('sin otros elementos con esa sugerencia no hay oferta', (

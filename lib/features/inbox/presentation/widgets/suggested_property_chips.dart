@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/services/vocabulary_normalizer.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/i18n/category_label.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/widgets/property_suggestion_group_sheet.dart';
@@ -139,7 +140,10 @@ class _SuggestedPropertyChipsState
                 FilterChip(
                   key: ValueKey('suggested-${suggestion.id}'),
                   label: Text(
-                    '${suggestion.definitionName}: ${suggestion.value}',
+                    // «Etiqueta: Roma», no «Tema: Roma»: la categoría de las
+                    // etiquetas se llama «Tema» por dentro (F28).
+                    '${categoryValueLabel(l10n, suggestion.definitionName)}: '
+                    '${suggestion.value}',
                   ),
                   selected: _accepted.contains(suggestion.id),
                   onSelected: (_) => _toggle(suggestion),
@@ -156,7 +160,7 @@ class _SuggestedPropertyChipsState
                   label: Text(
                     l10n.inboxSuggestionMore(
                       offer.count,
-                      suggestion.definitionName,
+                      categoryValueLabel(l10n, suggestion.definitionName),
                       offer.group.value,
                     ),
                   ),
