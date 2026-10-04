@@ -268,6 +268,31 @@ void main() {
     expect(fronts, hasLength(2));
   });
 
+  test('con su cantidad hecha no suma ninguna; con «otra tanda» (F30), sí, '
+      'sin repetir preguntas', () async {
+    final item = await vault.source('a', title: 'Roma', content: article);
+    await step.organize(item, runId: await vault.startRun('a'));
+    expect(await vault.db.select(vault.db.flashcards).get(), hasLength(3));
+
+    final again = await step.makeFlashcards(
+      item,
+      runId: await vault.startRun('a'),
+    );
+    expect(again, AiStepReport.nothing);
+
+    final another = await step.makeFlashcards(
+      item,
+      runId: await vault.startRun('a'),
+      anotherBatch: true,
+    );
+    // El texto tiene cuatro oraciones: la única que faltaba.
+    expect(another, const AiStepReport(applied: 1));
+    final fronts = (await vault.db.select(vault.db.flashcards).get())
+        .map((c) => c.front)
+        .toList();
+    expect(fronts.toSet(), hasLength(fronts.length));
+  });
+
   test('un texto largo se recorre por partes, repartidas, sin pasarse de '
       'la ventana', () async {
     final sentences = [

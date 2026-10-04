@@ -215,7 +215,12 @@ class LongWorkService : Service() {
         }
         val title = getString(
             when (kind) {
-                KIND_ORGANIZING -> R.string.long_work_organizing_title
+                KIND_ORGANIZING ->
+                    if (detail == DETAIL_FLASHCARDS) {
+                        R.string.long_work_flashcards_title
+                    } else {
+                        R.string.long_work_organizing_title
+                    }
                 KIND_MODEL_DOWNLOAD -> R.string.long_work_model_title
                 KIND_AUDIO_DOWNLOAD -> R.string.long_work_audio_title
                 KIND_SAMPLE_LIBRARY -> R.string.long_work_sample_library_title
@@ -234,9 +239,18 @@ class LongWorkService : Service() {
             .build()
     }
 
-    /** La IA: con el cargador, la biblioteca que ya existía; si no, lo nuevo. */
+    /**
+     * La IA: con el cargador, la biblioteca que ya existía; las tarjetas que se
+     * pidieron desde Repasar (F30); si no, lo nuevo.
+     */
     private fun organizingText(detail: String?, done: Int, total: Int): String =
-        if (detail == DETAIL_WHILE_CHARGING) {
+        if (detail == DETAIL_FLASHCARDS) {
+            if (total > 0) {
+                getString(R.string.long_work_flashcards_progress, done, total)
+            } else {
+                getString(R.string.long_work_starting)
+            }
+        } else if (detail == DETAIL_WHILE_CHARGING) {
             if (total > 0) {
                 getString(R.string.long_work_organizing_progress, done, total)
             } else {
@@ -292,6 +306,7 @@ class LongWorkService : Service() {
         private const val DETAIL_RELATIONS_MODEL = "relations_model"
         private const val DETAIL_TRANSCRIPTION_MODEL = "transcription_model"
         private const val DETAIL_WHILE_CHARGING = "while_charging"
+        private const val DETAIL_FLASHCARDS = "flashcards"
 
         const val TYPE_DATA_SYNC = "data_sync"
         const val TYPE_MEDIA_PROCESSING = "media_processing"

@@ -4,6 +4,7 @@ import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
@@ -11,6 +12,10 @@ import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator
 import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
+
+/// Cuántas tarjetas sin pasaje deja para revisar, como mucho, una pasada: un
+/// modelo que inventa todo no tiene que llenar «Para revisar» de un libro.
+const kMaxFlashcardsForReview = 3;
 
 /// Las tarjetas de repaso de un elemento, hechas por la IA (F27, decisión
 /// D): de 3 a 12 según el largo (`flashcardTargetFor`), y entran solas al
@@ -29,11 +34,10 @@ import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_rep
 ///
 /// No repite una pregunta que el elemento ya tiene, una que ya está para
 /// revisar o se descartó ahí, ni una que la persona dijo que «no era».
-/// Cuántas tarjetas sin pasaje deja para revisar, como mucho, una pasada: un
-/// modelo que inventa todo no tiene que llenar «Para revisar» de un libro.
-const kMaxFlashcardsForReview = 3;
-
-class AutoFlashcardsStep implements AiOrganizeStep {
+///
+/// Es también el que hace **solo** las tarjetas que pide el ✨ de Repasar
+/// (F30, [AiFlashcardMaker]): las mismas, con la misma regla.
+class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
   const AutoFlashcardsStep({
     required FlashcardGenerator generator,
     required FlashcardRepository flashcards,
@@ -53,9 +57,14 @@ class AutoFlashcardsStep implements AiOrganizeStep {
   AiOrganizeToggle get toggle => AiOrganizeToggle.flashcards;
 
   @override
-  Future<AiStepReport> organize(
+  Future<AiStepReport> organize(KnowledgeItem item, {required String runId}) =>
+      makeFlashcards(item, runId: runId);
+
+  @override
+  Future<AiStepReport> makeFlashcards(
     KnowledgeItem item, {
     required String runId,
+    bool anotherBatch = false,
   }) async {
     // El mismo texto que abre la lectura —como el botón a mano—: el rango de
     // una cita tiene que ser de ESE texto para que «Ver en la fuente» caiga en
@@ -66,9 +75,11 @@ class AutoFlashcardsStep implements AiOrganizeStep {
     if (text.trim().isEmpty) return AiStepReport.nothing;
 
     // Lo que ya tiene cuenta: una nota que se vuelve a organizar porque
-    // creció completa lo que le falta, no suma otra tanda entera.
+    // creció completa lo que le falta, no suma otra tanda entera —salvo que
+    // la persona haya pedido otra—.
     final existing = await _flashcards.watchForItem(item.id).first;
-    final wanted = flashcardTargetFor(text) - existing.length;
+    final wanted =
+        flashcardTargetFor(text) - (anotherBatch ? 0 : existing.length);
     if (wanted <= 0) return AiStepReport.nothing;
 
     // Las que ya están para revisar, o que la persona descartó ahí, tampoco

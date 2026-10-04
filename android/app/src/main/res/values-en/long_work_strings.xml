@@ -25,4 +25,7 @@
     <string name="long_work_audio_progress">Downloading the audio of a video · %1$d%%</string>
     <!-- The AI organizes new items, requests or notes, charging or not. -->
     <string name="long_work_organizing_new_progress">%1$d of %2$d organized. You can keep using your phone.</string>
+    <!-- Las tarjetas que se pidieron desde Repasar (F30), sin esperar el cargador. -->
+    <string name="long_work_flashcards_title">Sinapsis is creating flashcards</string>
+    <string name="long_work_flashcards_progress">%1$d of %2$d items. You can keep using your phone.</string>
 </resources>

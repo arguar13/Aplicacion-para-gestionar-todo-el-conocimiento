@@ -7,9 +7,11 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
@@ -30,8 +32,9 @@ const kAiNoteQuietPeriod = Duration(seconds: 15);
 /// siempre; la IA trabaja después.
 ///
 /// **Qué toma, en este orden:** lo que se pidió organizar a mano
-/// ([organizeNow]); lo nuevo —cada fuente que termina de procesarse, cada
-/// nota cuando lleva [kAiNoteQuietPeriod] sin cambios—; las notas ya
+/// ([organizeNow]); las tarjetas que se pidieron desde Repasar
+/// ([makeFlashcards], F30); lo nuevo —cada fuente que termina de procesarse,
+/// cada nota cuando lleva [kAiNoteQuietPeriod] sin cambios—; las notas ya
 /// organizadas que cambiaron mucho de contenido (`kNoteRegrowHammingBits`);
 /// y, solo si está prendido y el
 /// dispositivo está enchufado, la biblioteca que ya existía (decisión C).
@@ -84,6 +87,7 @@ class AiOrganizeQueue {
     String? Function()? modelName,
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
+    void Function(AiFlashcardsBatch? batch)? onFlashcardsBatch,
   }) : _backlog = backlog,
        _runs = runs,
        _library = library,
@@ -99,7 +103,8 @@ class AiOrganizeQueue {
        _settings = settings,
        _modelName = modelName,
        _noteQuietPeriod = noteQuietPeriod,
-       _longWork = longWork;
+       _longWork = longWork,
+       _onFlashcardsBatch = onFlashcardsBatch;
 
   final AiOrganizeBacklog _backlog;
   final AiRunRepository _runs;
@@ -138,6 +143,16 @@ class AiOrganizeQueue {
 
   /// Lo que se pidió organizar a mano, en orden.
   final _requested = Queue<String>();
+
+  /// Los elementos de los que se pidieron solo tarjetas (F30), en orden, y
+  /// los que pidieron otra tanda aunque ya tengan.
+  final _cardRequests = Queue<String>();
+  final _anotherBatch = <String>{};
+
+  /// Cómo va el pedido de tarjetas, o `null` si no hay ninguno a la vista.
+  AiFlashcardsBatch? _batch;
+  var _cardsPaused = false;
+  final void Function(AiFlashcardsBatch? batch)? _onFlashcardsBatch;
 
   /// Lo que no se pudo ni empezar en esta sesión —el elemento no se pudo
   /// leer, la pasada no se pudo abrir—: no se vuelve a intentar hasta la
@@ -224,6 +239,72 @@ class AiOrganizeQueue {
     unawaited(wake());
   }
 
+  /// Hace **solo las tarjetas** de [itemIds] (F30, el ✨ de Repasar), en ese
+  /// orden, después de lo pedido a mano y antes que lo nuevo: sin vínculos,
+  /// temas ni etiquetas, y **sin esperar el cargador**, aunque sean de la
+  /// biblioteca que ya existía. Solo necesita el modelo de lenguaje, y no
+  /// mira los interruptores de cada tipo —lo pidió la persona—; la pausa
+  /// general de la IA, sí.
+  ///
+  /// Con [anotherBatch], los que ya tienen tarjetas suman otra tanda
+  /// (`AiFlashcardMaker`). Cada elemento es una pasada de solo tarjetas
+  /// (`AiRunRepository.startRun`), que se deshace como cualquiera y no cuenta
+  /// como organizarlo. Si ya había un pedido en curso, estos se le suman.
+  void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) {
+    final queued = _cardRequests.toSet();
+    var added = 0;
+    for (final itemId in itemIds) {
+      _skip.remove(itemId);
+      if (!queued.add(itemId)) continue;
+      _cardRequests.add(itemId);
+      if (anotherBatch) _anotherBatch.add(itemId);
+      added++;
+    }
+    if (added == 0) return;
+    final batch = _batch;
+    _publishBatch(
+      batch == null || batch.finished
+          ? AiFlashcardsBatch(total: added, paused: _cardsPaused)
+          : batch.copyWith(total: batch.total + added),
+    );
+    unawaited(wake());
+  }
+
+  /// Pausa el pedido de tarjetas: lo que está en curso termina —una llamada
+  /// al modelo no se corta a mitad— y no se toma otro hasta [resumeFlashcards].
+  /// El resto de la IA sigue.
+  void pauseFlashcards() {
+    _cardsPaused = true;
+    final batch = _batch;
+    if (batch != null) _publishBatch(batch.copyWith(paused: true));
+  }
+
+  void resumeFlashcards() {
+    _cardsPaused = false;
+    final batch = _batch;
+    if (batch != null) _publishBatch(batch.copyWith(paused: false));
+    unawaited(wake());
+  }
+
+  /// Cancela lo que falta del pedido de tarjetas. Lo que ya se hizo queda,
+  /// con su pasada, y se deshace desde «Lo que hizo la IA».
+  void cancelFlashcards() {
+    _cardRequests.clear();
+    _anotherBatch.clear();
+    _cardsPaused = false;
+    _publishBatch(null);
+  }
+
+  /// Saca de la vista un pedido de tarjetas que ya terminó.
+  void dismissFlashcards() {
+    if (_batch?.finished ?? true) _publishBatch(null);
+  }
+
+  void _publishBatch(AiFlashcardsBatch? batch) {
+    _batch = batch;
+    _onFlashcardsBatch?.call(batch);
+  }
+
   /// Los interruptores cambiaron. Prender la IA la despierta; apagar un tipo
   /// vale desde el próximo paso.
   void updateSettings(AiOrganizeSettings settings) {
@@ -265,7 +346,9 @@ class AiOrganizeQueue {
         _wakeAgain = false;
         final next = await _next();
         if (next != null) {
-          await _organize(next.itemId, next.source);
+          await (next.source == AiWorkSource.flashcardsRequest
+              ? _makeFlashcards(next.itemId)
+              : _organize(next.itemId, next.source));
           _organizedWhileKept++;
           continue;
         }
@@ -295,24 +378,36 @@ class AiOrganizeQueue {
       _onStatus(AiOrganizePaused(pending: await _pending(epoch, quietBefore)));
       return null;
     }
-    if (!_anyStepOn) {
+    // Las tarjetas que pidió la persona (F30) no dependen de los
+    // interruptores de cada tipo ni del modelo de vínculos.
+    final cardsWaiting = _cardRequests.isNotEmpty && !_cardsPaused;
+    if (!_anyStepOn && !cardsWaiting) {
       _onStatus(const AiOrganizeIdle());
       return null;
     }
     final chatReady = await _chatModel().isReady();
     final embeddingReady = await _embeddingModel().isReady();
-    if (!chatReady || !embeddingReady) {
+    final canOrganize = _anyStepOn && chatReady && embeddingReady;
+    if (!canOrganize && !(cardsWaiting && chatReady)) {
       _onStatus(
-        AiOrganizeModelMissing(
-          chatModelMissing: !chatReady,
-          embeddingModelMissing: !embeddingReady,
-        ),
+        chatReady && embeddingReady
+            ? const AiOrganizeIdle()
+            : AiOrganizeModelMissing(
+                chatModelMissing: !chatReady,
+                embeddingModelMissing: !embeddingReady,
+              ),
       );
       return null;
     }
 
-    if (_requested.isNotEmpty) {
+    if (canOrganize && _requested.isNotEmpty) {
       return (itemId: _requested.removeFirst(), source: AiWorkSource.requested);
+    }
+    if (cardsWaiting) {
+      return (
+        itemId: _cardRequests.removeFirst(),
+        source: AiWorkSource.flashcardsRequest,
+      );
     }
 
     final fresh = await _backlog.nextFresh(
@@ -411,6 +506,7 @@ class AiOrganizeQueue {
       notesQuietBefore: quietBefore,
     );
     return _requested.length +
+        _cardRequests.length +
         count.fresh +
         (_settings.backfillWhileCharging ? count.existing : 0);
   }
@@ -487,11 +583,108 @@ class AiOrganizeQueue {
     }, (_) {});
   }
 
+  /// Solo las tarjetas de [itemId] (F30): una pasada de solo tarjetas, con
+  /// el paso de tarjetas como `AiFlashcardMaker`. Un fallo se registra y el
+  /// pedido sigue con el próximo; el elemento cuenta como mirado igual.
+  Future<void> _makeFlashcards(String itemId) async {
+    final anotherBatch = _anotherBatch.remove(itemId);
+    final item = await _find(itemId);
+    final maker = _steps().whereType<AiFlashcardMaker>().firstOrNull;
+    if (item == null || maker == null) {
+      _cardDone(AiStepReport.nothing);
+      return;
+    }
+
+    final epoch = await _epoch();
+    final quietBefore = _clock().subtract(_noteQuietPeriod);
+    final pending = math.max(0, await _pending(epoch, quietBefore));
+    final batch = _batch;
+    if (batch != null) {
+      _publishBatch(batch.copyWith(currentTitle: () => item.title));
+    }
+    _onStatus(
+      AiOrganizeWorking(
+        itemTitle: item.title,
+        source: AiWorkSource.flashcardsRequest,
+        pending: pending,
+      ),
+    );
+    _keepAlive(AiWorkSource.flashcardsRequest, pending);
+
+    final runId =
+        (await _runs.startRun(
+          item.id,
+          model: _modelName?.call(),
+          flashcardsOnly: true,
+        )).fold((failure) {
+          _telemetry.recordError(
+            failure,
+            StackTrace.current,
+            hint: 'AiOrganizeQueue: no se pudo abrir la pasada de tarjetas',
+          );
+          return null;
+        }, (id) => id);
+    if (runId == null) {
+      _cardDone(AiStepReport.nothing);
+      return;
+    }
+
+    var report = AiStepReport.nothing;
+    try {
+      report = await maker.makeFlashcards(
+        item,
+        runId: runId,
+        anotherBatch: anotherBatch,
+      );
+      // Como un paso de la pasada entera: el modelo es de terceros y falla
+      // de formas sin un tipo propio. Lo que ya creó queda, con su pasada.
+    } on Object catch (e, stackTrace) {
+      _telemetry.recordError(
+        e,
+        stackTrace,
+        hint: 'AiOrganizeQueue: tarjetas en ${item.id}',
+      );
+    }
+    (await _runs.finishRun(runId)).match(
+      (failure) => _telemetry.recordError(
+        failure,
+        StackTrace.current,
+        hint: 'AiOrganizeQueue: no se pudo cerrar la pasada de tarjetas',
+      ),
+      (_) {},
+    );
+    _cardDone(report);
+  }
+
+  /// Un elemento del pedido de tarjetas, mirado: suma lo que dio.
+  void _cardDone(AiStepReport report) {
+    final batch = _batch;
+    if (batch == null) return;
+    _publishBatch(
+      batch.copyWith(
+        done: batch.done + 1,
+        created: batch.created + report.applied,
+        forReview: batch.forReview + report.forReview,
+        currentTitle: () => null,
+      ),
+    );
+  }
+
   /// Pide el servicio en primer plano al tomar un elemento, y lo mantiene
   /// —con el avance— mientras siga trabajando. La notificación dice si es la
   /// biblioteca que ya existía, que solo se recorre con el cargador.
   void _keepAlive(AiWorkSource source, int pending) {
     _keepingAlive = true;
+    final batch = _batch;
+    // Un pedido de tarjetas dice cuánto va de ese pedido (F30).
+    if (source == AiWorkSource.flashcardsRequest && batch != null) {
+      _longWork.working(
+        done: batch.done,
+        total: batch.total,
+        detail: LongWorkDetail.flashcards,
+      );
+      return;
+    }
     _longWork.working(
       done: _organizedWhileKept,
       total: _organizedWhileKept + pending + 1,

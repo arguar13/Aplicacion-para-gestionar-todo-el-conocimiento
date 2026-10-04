@@ -17,6 +17,7 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.da
 import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
@@ -122,6 +123,12 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
   ];
 });
 
+/// Cómo va el pedido de «Crear tarjetas con IA» de Repasar (F30), o `null`
+/// si no hay ninguno a la vista. Lo publica la cola.
+final aiFlashcardsBatchProvider = StateProvider<AiFlashcardsBatch?>(
+  (ref) => null,
+);
+
 /// La cola de la IA que organiza sola (F27). Deliberadamente sin
 /// `autoDispose` y sin `ref.watch`, mismo criterio que
 /// `processingQueueProvider`: vive toda la sesión, y reconstruirla por un
@@ -153,6 +160,8 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     longWork: ref
         .read(longWorkCoordinatorProvider)
         .keeperFor(LongWorkOwner.aiOrganize),
+    onFlashcardsBatch: (batch) =>
+        ref.read(aiFlashcardsBatchProvider.notifier).state = batch,
   );
   ref
     ..listen(

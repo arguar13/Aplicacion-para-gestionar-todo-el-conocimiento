@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
@@ -39,6 +42,31 @@ class _Step implements AiOrganizeStep {
     organized.add(item.id);
     await work?.call(item, runId);
     return AiStepReport.nothing;
+  }
+}
+
+/// El paso de tarjetas de mentira: además de organizar, hace solo las
+/// tarjetas cuando se las piden desde Repasar (F30). Cada pedido da dos
+/// tarjetas y una para revisar.
+class _CardsStep extends _Step implements AiFlashcardMaker {
+  _CardsStep() : super(AiOrganizeToggle.flashcards);
+
+  /// Cada pedido de solo tarjetas: el elemento, la pasada y si era otra
+  /// tanda.
+  final made = <({String itemId, String runId, bool anotherBatch})>[];
+
+  /// Si está, el pedido de este elemento lanza.
+  String? failsOn;
+
+  @override
+  Future<AiStepReport> makeFlashcards(
+    KnowledgeItem item, {
+    required String runId,
+    bool anotherBatch = false,
+  }) async {
+    made.add((itemId: item.id, runId: runId, anotherBatch: anotherBatch));
+    if (item.id == failsOn) throw StateError('sin memoria');
+    return const AiStepReport(applied: 2, forReview: 1);
   }
 }
 
@@ -99,6 +127,7 @@ void main() {
   late _Charging charging;
   late _Vectors vectors;
   late List<AiOrganizeStatus> statuses;
+  late List<AiFlashcardsBatch?> batches;
 
   /// Lo creado antes de este momento es la biblioteca que ya existía.
   final epoch = DateTime(2026, 10);
@@ -113,6 +142,7 @@ void main() {
     charging = _Charging();
     vectors = _Vectors();
     statuses = [];
+    batches = [];
   });
 
   tearDown(() async {
@@ -142,6 +172,7 @@ void main() {
       modelName: () => 'gemma',
       noteQuietPeriod: noteQuietPeriod,
       longWork: longWork,
+      onFlashcardsBatch: batches.add,
     );
     addTearDown(queue.dispose);
     return queue;
@@ -608,6 +639,194 @@ void main() {
       vault.now = vault.now.add(const Duration(seconds: 1));
 
       expect(await organized.future, 'n');
+    });
+  });
+
+  group('solo tarjetas, pedidas desde Repasar (F30)', () {
+    late _CardsStep cards;
+
+    setUp(() async {
+      cards = _CardsStep();
+      steps = [relations, cards];
+      // La biblioteca que ya existía, y el teléfono sin cargar.
+      for (final id in ['v1', 'v2']) {
+        await vault.source(
+          id,
+          title: id.toUpperCase(),
+          content: 'Texto.',
+          createdAt: DateTime(2026, 9),
+        );
+      }
+    });
+
+    Future<bool> flashcardsOnly(String runId) async =>
+        (await (vault.db.select(
+          vault.db.aiFieldChanges,
+        )..where((c) => c.aiRunId.equals(runId))).get()).any(
+          (c) => c.field == AiChangedField.flashcardsOnly,
+        );
+
+    test('las hace sin esperar el cargador, sin vínculos ni nada más, cada '
+        'una en su pasada de solo tarjetas', () async {
+      final ai = queue();
+      await ai.start();
+      expect(relations.organized, isEmpty);
+
+      ai.makeFlashcards(['v1', 'v2']);
+      await ai.settled;
+
+      expect(cards.made.map((m) => m.itemId), ['v1', 'v2']);
+      expect(relations.organized, isEmpty);
+      expect(cards.organized, isEmpty);
+      for (final made in cards.made) {
+        expect(await flashcardsOnly(made.runId), isTrue);
+      }
+      expect(
+        statuses.whereType<AiOrganizeWorking>().map(
+          (s) => (s.itemTitle, s.source),
+        ),
+        [
+          ('V1', AiWorkSource.flashcardsRequest),
+          ('V2', AiWorkSource.flashcardsRequest),
+        ],
+      );
+      // Y siguen esperando el cargador para organizarse.
+      final paused = statuses.last as AiOrganizePaused;
+      expect((paused.pending, paused.waitingForCharger), (2, true));
+    });
+
+    test('dice cómo va: cuántos de cuántos, cuántas tarjetas y cuántas para '
+        'revisar', () async {
+      final ai = queue();
+      await ai.start();
+
+      ai.makeFlashcards(['v1', 'v2']);
+      await ai.settled;
+
+      expect(batches.first, const AiFlashcardsBatch(total: 2));
+      expect(
+        batches.last,
+        const AiFlashcardsBatch(total: 2, done: 2, created: 4, forReview: 2),
+      );
+      expect(batches.last!.finished, isTrue);
+      expect(
+        batches.whereType<AiFlashcardsBatch>().map((b) => b.currentTitle),
+        contains('V2'),
+      );
+
+      ai.dismissFlashcards();
+      expect(batches.last, isNull);
+    });
+
+    test('«también los que ya tienen» le pide otra tanda al paso', () async {
+      final ai = queue();
+      await ai.start();
+
+      ai
+        ..makeFlashcards(['v1'], anotherBatch: true)
+        ..makeFlashcards(['v2']);
+      await ai.settled;
+
+      expect(cards.made.map((m) => (m.itemId, m.anotherBatch)), [
+        ('v1', true),
+        ('v2', false),
+      ]);
+      // Los dos pedidos son uno solo.
+      expect(batches.last!.total, 2);
+    });
+
+    test('solo necesita el modelo de lenguaje', () async {
+      embeddingModel.ready = false;
+      final ai = queue();
+      await ai.start();
+
+      ai.makeFlashcards(['v1']);
+      await ai.settled;
+      expect(cards.made.map((m) => m.itemId), ['v1']);
+
+      chatModel.ready = false;
+      ai.makeFlashcards(['v2']);
+      await ai.settled;
+      expect(cards.made.map((m) => m.itemId), ['v1']);
+      final missing = statuses.last as AiOrganizeModelMissing;
+      expect(missing.chatModelMissing, isTrue);
+    });
+
+    test('respeta la pausa general de la IA', () async {
+      final ai = queue(settings: const AiOrganizeSettings(enabled: false));
+      await ai.start();
+
+      ai.makeFlashcards(['v1']);
+      await ai.settled;
+
+      expect(cards.made, isEmpty);
+      // El pedido, y los dos de la biblioteca que ya existía.
+      expect((statuses.last as AiOrganizePaused).pending, 3);
+    });
+
+    test('se pausa y se reanuda aparte; cancelar deja lo hecho', () async {
+      final ai = queue();
+      await ai.start();
+
+      ai
+        ..pauseFlashcards()
+        ..makeFlashcards(['v1', 'v2']);
+      await ai.settled;
+      expect(cards.made, isEmpty);
+      expect(batches.last!.paused, isTrue);
+
+      ai.resumeFlashcards();
+      await ai.settled;
+      expect(cards.made, hasLength(2));
+
+      await vault.source('v3', title: 'V3', content: 'Texto.');
+      await vault.source('v4', title: 'V4', content: 'Texto.');
+      ai
+        ..pauseFlashcards()
+        ..makeFlashcards(['v3', 'v4'])
+        ..cancelFlashcards();
+      expect(batches.last, isNull);
+      ai.resumeFlashcards();
+      await ai.settled;
+      expect(cards.made, hasLength(2));
+    });
+
+    test('lo pedido a mano va antes; un fallo no corta el pedido', () async {
+      cards.failsOn = 'v1';
+      await vault.source('n', title: 'Nuevo', content: 'Texto.');
+      final ai = queue()
+        ..makeFlashcards(['v1', 'v2'])
+        ..organizeNow('v2');
+      await ai.start();
+
+      expect(relations.organized.first, 'v2');
+      expect(cards.made.map((m) => m.itemId), ['v1', 'v2']);
+      expect(
+        batches.last,
+        const AiFlashcardsBatch(total: 2, done: 2, created: 2, forReview: 1),
+      );
+      verify(
+        () => vault.telemetry.recordError(
+          any<Object?>(),
+          any<StackTrace?>(),
+          hint: 'AiOrganizeQueue: tarjetas en v1',
+        ),
+      ).called(1);
+    });
+
+    test('mantiene viva la app con el avance del pedido', () async {
+      final keeper = _Keeper();
+      final ai = queue(longWork: keeper);
+      await ai.start();
+
+      ai.makeFlashcards(['v1', 'v2']);
+      await ai.settled;
+
+      expect(keeper.calls, [
+        'trabajando 0/2 flashcards',
+        'trabajando 1/2 flashcards',
+        'suelta',
+      ]);
     });
   });
 

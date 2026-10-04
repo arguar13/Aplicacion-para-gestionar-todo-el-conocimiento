@@ -156,6 +156,10 @@ enum AiWorkSource {
   /// La pasada por la biblioteca que ya existía, con el cargador (decisión
   /// C).
   existingLibrary,
+
+  /// Solo las tarjetas que pidió la persona desde Repasar (F30), sin esperar
+  /// el cargador.
+  flashcardsRequest,
 }
 
 /// Organizando [itemTitle], que salió de [source]; [pending] cuántos esperan

@@ -58,6 +58,10 @@ abstract final class LongWorkDetail {
   /// [LongWorkOwner.aiOrganize]: la biblioteca que ya existía, que solo se
   /// recorre con el cargador puesto.
   static const whileCharging = 'while_charging';
+
+  /// [LongWorkOwner.aiOrganize]: las tarjetas que se pidieron desde Repasar
+  /// (F30), con cuántos elementos van de cuántos.
+  static const flashcards = 'flashcards';
 }
 
 /// Donde no hace falta mantener nada vivo: la web, el escritorio, las
