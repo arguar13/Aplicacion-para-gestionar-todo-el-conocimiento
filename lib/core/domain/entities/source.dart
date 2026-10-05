@@ -55,9 +55,10 @@ sealed class Source with _$Source {
 
     /// «Solo el libro» (F30, decisión 68): el texto se soltó a propósito y
     /// queda el archivo, que **no se vuelve a extraer solo**. Lo pone y lo
-    /// saca quien suelta y recupera el texto —la papelera del contenido— o
-    /// «Volver a extraer»; guardar el elemento no lo escribe, para que una
-    /// foto vieja del elemento no lo pise.
+    /// saca la papelera del contenido, al soltar y al recuperar el texto.
+    /// Guardar el elemento nunca lo pone —una foto vieja del elemento no lo
+    /// pisa—; solo lo saca si se guarda con texto, que es lo que trae
+    /// «Volver a extraer».
     @Default(false) bool onlyFile,
   }) = _Source;
 }

@@ -13,7 +13,14 @@ class TransformerRegistry {
   final List<Transformer> _transformers;
 
   /// El primero que tenga algo que hacer con [item], o `null` si ninguno.
+  ///
+  /// Ninguno para lo que es «solo el libro» (F30, decisión 68): el texto se
+  /// soltó a propósito, y cada transformador lee «sin texto» como «por
+  /// leer» —un documento sin formas es uno que todavía no se extrajo—. Acá y
+  /// no en cada uno, para que ninguno se olvide. «Volver a extraer», pedido a
+  /// mano, lo resuelve como si no tuviera la marca: ver `ProcessItemUseCase`.
   Transformer? resolve(KnowledgeItem item) {
+    if (item.source.onlyFile) return null;
     for (final transformer in _transformers) {
       if (transformer.canTransform(item)) return transformer;
     }

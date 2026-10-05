@@ -234,6 +234,86 @@ void main() {
     });
   });
 
+  group('«solo el libro» (F30, decisión 68)', () {
+    /// Un libro cuyo texto se soltó a propósito: el archivo sin formas, con
+    /// la marca. Como lo deja la papelera del contenido.
+    Future<KnowledgeItem> seedOnlyFile() async {
+      final item = KnowledgeItem(
+        id: 'libro',
+        title: 'Historia de Roma',
+        source: Source(
+          id: 'libro',
+          kind: SourceKind.document,
+          capturedAt: now,
+          originalFilePath: 'originales/libro/roma.pdf',
+        ),
+        processingState: ProcessingState.ready,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await repository.save(item);
+      await (db.update(db.knowledgeSources)
+            ..where((s) => s.itemId.equals(item.id)))
+          .write(const KnowledgeSourcesCompanion(onlyFile: Value(true)));
+      return reload(item.id);
+    }
+
+    test('la cola no le vuelve a extraer el texto sola, aunque no tenga '
+        'ninguno', () async {
+      final item = await seedOnlyFile();
+      expect(item.source.onlyFile, isTrue);
+      final transformer = _LikeARealOne('El texto de Roma.');
+
+      await ProcessingStateRepositoryImpl(db).requeue(item.id);
+      await build(TransformerRegistry([transformer]))(item.id);
+
+      expect(transformer.calls, 0);
+      final after = await reload(item.id);
+      expect(after.renditions, isEmpty);
+      expect(after.source.onlyFile, isTrue);
+      expect(after.processingState, ProcessingState.ready);
+    });
+
+    test('«Volver a extraer», pedido a mano, sí: trae el texto y saca la '
+        'marca', () async {
+      final item = await seedOnlyFile();
+      final states = ProcessingStateRepositoryImpl(db);
+      await states.save(
+        item.id,
+        ProcessingCheckpointKind.reextract,
+        position: 0,
+        content: '',
+      );
+      await states.requeue(item.id);
+      final transformer = _LikeARealOne('El texto de Roma.');
+
+      await build(TransformerRegistry([transformer]))(item.id);
+
+      expect(transformer.calls, 1);
+      final after = await reload(item.id);
+      expect(primaryTextOf(after)!.content, 'El texto de Roma.');
+      expect(after.source.onlyFile, isFalse);
+    });
+
+    test('y si el motor no trae texto, la marca queda', () async {
+      final item = await seedOnlyFile();
+      final states = ProcessingStateRepositoryImpl(db);
+      await states.save(
+        item.id,
+        ProcessingCheckpointKind.reextract,
+        position: 0,
+        content: '',
+      );
+      await states.requeue(item.id);
+
+      await build(TransformerRegistry([_LikeARealOne('  ')]))(item.id);
+
+      final after = await reload(item.id);
+      expect(after.renditions, isEmpty);
+      expect(after.source.onlyFile, isTrue);
+    });
+  });
+
   group('sin transformador que aplique', () {
     test(
       'lo marca listo para que no siga apareciendo como pendiente',

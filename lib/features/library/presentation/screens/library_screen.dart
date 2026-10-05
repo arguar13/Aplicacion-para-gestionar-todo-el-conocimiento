@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
+import 'package:sinapsis/features/content_trash/presentation/providers/content_trash_providers.dart';
 import 'package:sinapsis/features/export/domain/entities/notebooklm_export_result.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/health/presentation/widgets/health_panel.dart';
@@ -112,9 +113,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     //
     // Diferido al post-frame por la regla de Riverpod de no tocar providers
     // mientras se construye el árbol de widgets.
+    //
+    // Lo mismo con la papelera del contenido (F30, decisión 68): lo que lleva
+    // más de 30 días se borra de verdad. Acá y no al montar la app: recién
+    // con la bóveda abierta hay base que barrer.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(ref.read(processingQueueProvider.notifier).resume());
+      unawaited(sweepContentTrash(ref.read));
     });
   }
 

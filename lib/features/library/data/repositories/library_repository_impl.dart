@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/bulk_writer_holder.dart';
+import 'package:sinapsis/core/database/file_references.dart';
 import 'package:sinapsis/core/database/inline_link_sync.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_mirror_mapping.dart';
@@ -634,26 +635,28 @@ class LibraryRepositoryImpl implements LibraryRepository {
       // disco no es transaccional, y que uno se resista a borrarse no
       // debería deshacer el borrado de los demás que sí funcionaron.
       //
-      // `_originalFilePathOf` se pregunta por cada id ANTES de borrar esa
-      // fila, dentro del mismo recorrido: si dos de los [ids] comparten
-      // fuente —el mismo PDF capturado dos veces—, la pregunta para el
-      // segundo ya ve borrada la fila del primero, así que el archivo se
-      // borra una sola vez, no cero ni dos. Cuenta lo que esté en la
-      // papelera o no: un archivo que usa algo que todavía se puede
-      // restaurar no se borra.
+      // Los archivos de cada elemento —su original, su «Contenido» (F30) y lo
+      // que espera en la papelera del contenido (F30, decisión 68)— se anotan
+      // ANTES de borrar su fila, y se borran del disco solo si DESPUÉS nada
+      // de la base los usa (`isFileReferenced`). Si dos de los [ids] comparten
+      // archivo —el mismo PDF capturado dos veces—, al borrar el primero el
+      // segundo todavía lo usa, y al borrar el segundo ya no: se borra una
+      // sola vez, no cero ni dos. Cuenta lo que esté en la papelera o no: un
+      // archivo que usa algo que todavía se puede restaurar no se borra.
       final filesToDelete = <(String id, String path)>[];
       await _db.transaction(() async {
         for (final id in ids) {
-          final filePath = await _originalFilePathOf(id);
-          final contentFiles = await _contentFilesOf(id);
-          // Las formas, vínculos, tarjetas, subrayados, chunks y la fuente o
-          // nota se van solos por las cascadas del esquema (ver `PRAGMA
-          // foreign_keys` en AppDatabase): todo cuelga de la fila de `item`.
-          // Lo que sigue vivo no se borra: el escritor lo rechaza.
+          final paths = await _filesOf(id);
+          // Las formas, vínculos, tarjetas, subrayados, chunks, la papelera
+          // del contenido y la fuente o nota se van solos por las cascadas del
+          // esquema (ver `PRAGMA foreign_keys` en AppDatabase): todo cuelga de
+          // la fila de `item`. Lo que sigue vivo no se borra: el escritor lo
+          // rechaza.
           if (!await _writer.purge(id)) continue;
-          if (filePath != null) filesToDelete.add((id, filePath));
-          for (final path in contentFiles) {
-            filesToDelete.add((id, path));
+          for (final path in paths) {
+            if (!await isFileReferenced(_db, path)) {
+              filesToDelete.add((id, path));
+            }
           }
         }
       });
@@ -721,45 +724,30 @@ class LibraryRepositoryImpl implements LibraryRepository {
     }, hint: 'LibraryRepositoryImpl.watchTrash');
   }
 
-  /// Los archivos del «Contenido» bajado de [id] (F30) que ningún otro
-  /// elemento usa: se borran del disco con él.
-  Future<List<String>> _contentFilesOf(String id) async {
+  /// Los archivos de [id] en el disco: su original, los de su «Contenido»
+  /// bajado (F30) y los que esperan en la papelera del contenido (F30,
+  /// decisión 68). Sin repetir.
+  Future<Set<String>> _filesOf(String id) async {
     final rows = await _db
         .customSelect(
           '''
-          SELECT DISTINCT f.relative_path AS path FROM renditions f
-           WHERE f.item_id = ? AND f.position IS NOT NULL
-             AND f.relative_path IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM renditions o
-                              WHERE o.relative_path = f.relative_path
-                                AND o.item_id <> f.item_id)''',
+          SELECT original_blob_path AS path FROM source
+           WHERE item_id = ?1 AND original_blob_path IS NOT NULL
+          UNION
+          SELECT relative_path FROM renditions
+           WHERE item_id = ?1 AND relative_path IS NOT NULL
+          UNION
+          SELECT relative_path FROM content_trash
+           WHERE item_id = ?1 AND relative_path IS NOT NULL''',
           variables: [Variable.withString(id)],
-          readsFrom: {_db.renditions},
+          readsFrom: {
+            _db.knowledgeSources,
+            _db.renditions,
+            _db.trashedContents,
+          },
         )
         .get();
-    return [for (final row in rows) row.read<String>('path')];
-  }
-
-  /// La ruta del archivo original de un elemento, si tenía uno.
-  ///
-  /// El mismo archivo puede estar en varios elementos —el mismo PDF capturado
-  /// dos veces— así que solo se borra cuando nadie más lo referencia. Borrarlo
-  /// sin mirar dejaría al otro elemento apuntando a un archivo que ya no está.
-  Future<String?> _originalFilePathOf(String id) async {
-    final source = await (_db.select(
-      _db.knowledgeSources,
-    )..where((s) => s.itemId.equals(id))).getSingleOrNull();
-
-    final path = source?.originalBlobPath;
-    if (path == null) return null;
-
-    final others =
-        await (_db.select(_db.knowledgeSources)..where(
-              (s) => s.originalBlobPath.equals(path) & s.itemId.isNotValue(id),
-            ))
-            .get();
-
-    return others.isEmpty ? path : null;
+    return {for (final row in rows) row.read<String>('path')};
   }
 
   @override

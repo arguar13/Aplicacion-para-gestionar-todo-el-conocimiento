@@ -12,6 +12,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/services/reference_codec.dart';
 import 'package:sinapsis/core/domain/services/reference_normalizer.dart';
 import 'package:sinapsis/core/util/clock.dart';
@@ -911,8 +913,9 @@ class KnowledgeEntryWriter {
   ///
   /// No sube el `rev` ni registra una versión: es una decisión de este
   /// dispositivo sobre su copia, no un campo que se fusione —ver
-  /// `KnowledgeSources.onlyFile`—. Por eso tampoco la escribe [upsert]: solo
-  /// quien suelta o recupera el texto, y «Volver a extraer».
+  /// `KnowledgeSources.onlyFile`—. Por eso [upsert] no la pone nunca: una
+  /// foto vieja del elemento no la pisa. Solo la saca, cuando la fuente se
+  /// guarda con texto —lo que trae «Volver a extraer»—.
   Future<bool> setOnlyFile(String itemId, {required bool onlyFile}) async {
     final written =
         await (_db.update(_db.knowledgeSources)
@@ -1018,11 +1021,25 @@ class KnowledgeEntryWriter {
             capturedAt: item.source.capturedAt,
             originalBlobPath: Value(item.source.originalFilePath),
             language: Value(item.source.language),
+            // «Solo el libro» no se escribe desde el elemento —ver
+            // [setOnlyFile]—, salvo para sacarlo: una fuente que se guarda con
+            // texto ya no es solo el archivo. Es lo que hace que volver a
+            // extraer un libro sin texto le quite la marca.
+            onlyFile: _hasOwnText(item)
+                ? const Value(false)
+                : const Value.absent(),
             contentHash: existingSource?.contentHash ?? '',
             processingStatus: sourceProcessingStatusFor(item.processingState),
           ),
         );
   }
+
+  /// Si [item] trae un texto propio que no está vacío —no uno del
+  /// «Contenido», que no viaja en el elemento, ni una nota de bloques—.
+  static bool _hasOwnText(KnowledgeItem item) =>
+      item.renditions.whereType<TextRendition>().any(
+        (r) => r.kind != RenditionKind.blocks && r.content.trim().isNotEmpty,
+      );
 
   /// Registra que [field] de [itemId] cambió ahora, en este dispositivo. En
   /// modo lote ([runBulk]) no escribe nada: guarda el valor en memoria, y

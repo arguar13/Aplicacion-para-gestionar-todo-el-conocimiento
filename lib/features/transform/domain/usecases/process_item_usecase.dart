@@ -201,12 +201,20 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   }) async {
     // Volver a extraer (F22): el transformador se elige como si el
     // elemento no tuviera texto —todos piden eso para correr—, pero recibe
-    // el elemento entero, y el texto nuevo toma el lugar del viejo.
+    // el elemento entero, y el texto nuevo toma el lugar del viejo. También
+    // en lo que es «solo el libro» (F30): la cola no le saca el texto sola,
+    // pero la persona sí puede pedirlo; con el texto nuevo guardado, la marca
+    // se va sola (`KnowledgeEntryWriter.upsert`).
     final reextract = !onlyAttachments && await _reextractionRequested(item.id);
     var transformer = onlyAttachments
         ? null
         : _registry.resolve(
-            reextract ? item.copyWith(renditions: const []) : item,
+            reextract
+                ? item.copyWith(
+                    renditions: const [],
+                    source: item.source.copyWith(onlyFile: false),
+                  )
+                : item,
           );
     // Sin otro trabajo, el del «Contenido», si queda (F30).
     final attachmentWork = _attachmentWork;
