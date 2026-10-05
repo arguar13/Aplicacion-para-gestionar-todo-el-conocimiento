@@ -992,6 +992,39 @@ elegidos con un selector arriba:
 5. El ícono de reloj abre el historial de conversaciones guardadas; podés
    empezar una nueva o borrar una vieja.
 
+### La respuesta, a medida que se escribe
+
+- **Las palabras aparecen mientras el modelo las escribe**: no hace falta
+  esperar la respuesta entera. Lo que más tarda es la primera palabra —el
+  modelo lee tu mensaje y las fuentes antes de empezar—; después sigue
+  solo. Si estás mirando el final de la charla, la pantalla baja con la
+  respuesta; si subiste a releer algo, te deja ahí.
+- **Detener**: mientras escribe, el botón de enviar se vuelve un cuadrado.
+  Tocalo y para en el acto; queda guardado lo que alcanzó a escribir. Salir
+  del chat o cambiar de conversación también la detiene y la guarda.
+- Si algo falla a mitad, queda lo que escribió y un aviso debajo.
+- **Cada respuesta tiene un largo máximo** (unas 350 palabras): si querés
+  más, pedile que siga.
+- **El modelo se carga al abrir el chat**, mientras escribís tu pregunta: la
+  primera respuesta ya no espera esa carga.
+- **Con el chat abierto, la IA que organiza sola espera**, y si estaba
+  escribiendo algo cuando mandás un mensaje, se corta y lo repite después.
+  El modelo de vínculos también espera.
+- En modo "Con mi bóveda", el chat le da al modelo **el pasaje de cada
+  fuente donde está lo que preguntaste** (hasta cuatro fuentes), no el
+  principio de cada una. Al tocar la fuente, la cita apunta a ese pasaje.
+- **Conversaciones largas**: el modelo lee una cantidad limitada de texto
+  de una vez. Cuando la charla se llena, sigue sola con un resumen de lo
+  conversado —los últimos intercambios que entren—; no se corta ni da error.
+  Si un mensaje solo ya es demasiado largo (por ejemplo, un texto enorme
+  pegado), te lo dice.
+- **Fotos**: podés adjuntar **una foto por mensaje** y el modelo la mira de
+  verdad. La primera foto tarda un poco más: el modelo se vuelve a cargar
+  con la parte que mira imágenes (no se carga antes para no ocupar memoria).
+  Si en tu teléfono no puede, te lo dice; nunca contesta como si la foto no
+  estuviera. De los documentos adjuntos lee el principio (unos 1.800
+  caracteres entre todos).
+
 ### Si no descargaste el modelo de lenguaje todavía
 
 En modo "Con mi bóveda", el chat igual funciona como buscador: te muestra
@@ -1227,6 +1260,24 @@ teléfono (`Android/data/…`, la única donde el sistema puede bajarlos por la
 app); los que bajaste antes siguen donde estaban y se usan desde ahí, sin
 volver a bajarlos. Se borran si desinstalás la app, como siempre. En la
 computadora, la descarga la hace la app y sigue mientras esté abierta.
+
+**La memoria del teléfono.** El modelo de lenguaje ocupa unos 4 GB de RAM
+mientras está cargado. La app lo **suelta sola** —y también el de
+relaciones— cuando Android avisa que falta memoria (eso incluye salir de la
+app, si la IA no está trabajando en ese momento) y después de unos minutos
+en segundo plano sin usarse. Se vuelve a cargar solo cuando hace falta: al
+abrir el chat o cuando la IA retoma. Volver a cargarlo tarda unos segundos.
+
+**Cómo anda en este teléfono.** Con el modelo de lenguaje descargado, su
+pantalla (Ajustes → "IA y modelos" → modelo de lenguaje) muestra lo medido
+desde que abriste la app: cuánto tardó en cargar, si corre en la **GPU** o
+en la **CPU** (más lenta), cuánto tardó la primera palabra de la última
+respuesta y cuántas palabras por segundo escribe. Debajo dice dónde corre y
+por qué, y el botón **"Medir GPU y CPU"** prueba las dos —y, en la más
+rápida, la *decodificación especulativa*—, le pide a cada una el mismo
+párrafo y se queda con la que más rápido escribe. Tarda uno o dos minutos;
+el resultado queda guardado. Si la GPU no arranca en tu teléfono, la app lo
+recuerda y usa la CPU directamente.
 
 ### Transcripción de audio y video
 

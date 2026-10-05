@@ -5060,6 +5060,72 @@ la pidiera únicamente cuando apague el móvil o se reinicie, o cuando cierre se
   pidió; la protección de ese caso queda en el bloqueo del propio teléfono. La clave no cifra la
   base —solo abre la puerta de la interfaz—, así que recordar la sesión no debilita ningún cifrado.
 
+### 64. F30: el chat rápido sin cambiar el modelo, y los modelos fuera de la RAM cuando sobran
+
+Pedidos del usuario, probando la app en su teléfono (Redmi Note 13 Pro+, Dimensity 7200): *"el chat
+es ultra lento: demora como un minuto por cada mensaje; no quiero cambiar el modelo (Gemma 4 E4B),
+pero si se puede que sea más rápido"* y *"que la app sea eficiente con la RAM de mi móvil"*.
+
+- **Medir antes que nada.** El modelo cargado pasa a `GemmaEngine`, que mide cada carga —cuánto
+  tarda y si quedó en la GPU o cayó a la CPU, que `flutter_gemma` hace sin avisar—, y cada respuesta
+  sale por `generateChatResponseAsync` (`measuredReply`): espera hasta la primera palabra, tokens y
+  palabras por segundo. Se mide también en producción (`gemmaLog` solo existe en depuración) y se
+  muestra en la pantalla del modelo de lenguaje.
+- **La respuesta de a pedazos.** `FreeConversation.send` y `VaultConversation.send` dan un
+  `ChatReplyStream`: el texto completo hasta ahí, cada vez más largo. Cortarlo es dejar de
+  escucharlo: `stopGeneration` termina la generación limpia y la sesión anota lo escrito. Se lee
+  siempre hasta el final —si no, `flutter_gemma` no anota la respuesta en su historial—. La
+  pantalla guarda el mensaje al terminar, al cortarlo o ante un error a mitad (con lo escrito).
+- **La ventana la cuenta la sesión, no `flutter_gemma`.** El recorte del paquete solo suma los
+  tokens que escribe el modelo —nunca los del pedido— y, al pasarse, junta todo lo conversado en
+  un solo mensaje: nunca se activaba y el chat con la bóveda desbordaba los 2048 tokens a los dos o
+  tres mensajes. `GemmaChatSession` cuenta con el tokenizador del modelo la instrucción, cada
+  mensaje y cada respuesta; antes de mandar, verifica que entren el mensaje y la respuesta más
+  larga posible. Si no entran, abre una sesión nueva con lo conversado que entre (la misma
+  transcripción de F27, ahora recortada por tokens). Un mensaje que no entra ni solo falla con
+  `ChatMessageTooLongException`, sin tocar la sesión. El recorte del paquete se apaga
+  (`tokenBuffer: 0`).
+- **Un tope por uso** (`maxOutputTokens`): 512 para el chat y los resúmenes, 48 para elegir un tema
+  o un padre, 192 para propiedades y la introducción del mapa, 768 para los derivados, y según la
+  cantidad pedida para tarjetas, preguntas y vínculos.
+- **La persona primero, de verdad.** `LanguageModelGate` ahora corta lo que la cola de la IA esté
+  escribiendo cuando la persona pide el modelo (`onPreempt` → `stopGeneration`); el paso descarta
+  su respuesta a medias y se repite entero (`GemmaChatModel._withTurn`): cada paso abre su propia
+  sesión, así que repetirlo es seguro. No se puede cortar la lectura del pedido (el «prefill»): el
+  motor la hace de una vez; eso es lo peor que espera la persona. El chat a la vista cuenta como
+  uso aunque no haya mensajes, y el modelo de vínculos —que no usa el turno pero compite por
+  procesador y memoria— espera antes de cada tanda (`whenUserIdle`).
+- **Precarga.** El chat pide `ChatModel.warmUp` al abrirse y al volver a verse: carga el modelo sin
+  cortar a nadie, mientras la persona escribe.
+- **Contexto justo.** `ChunkPassageRetriever` reemplaza a `LibraryVaultRetriever`: las palabras de
+  la pregunta sin las vacías, unidas con `OR` en una sola consulta a `chunk_search` y
+  `item_search`, sin armar elementos; de cada fuente, el pasaje de hasta 600 caracteres que más
+  palabras junta, con su posición real (la cita apunta ahí). Como mucho cuatro fuentes; con
+  documentos adjuntos, dos, y los adjuntos 1.800 caracteres entre todos (eran 6.000 por documento).
+- **Fotos.** Se descartaban en silencio: el modelo se cargaba sin la parte que mira imágenes y
+  `flutter_gemma` las tira en `addQueryChunk`. Ahora la primera foto vuelve a cargar el modelo con
+  ella (`supportImage`, una imagen por mensaje) y queda hasta que se suelte; no se carga antes
+  porque ocupa memoria. Una sesión abierta con otra carga (`GemmaEngine.loadCount`) sigue en una
+  nueva con lo conversado. Si no se puede cargar, queda sin ella y la respuesta es
+  `ChatImagesUnsupportedException`.
+- **GPU o CPU.** Se pide la GPU; si cae a la CPU, se recuerda por modelo y las cargas siguientes van
+  directo a la CPU. «Medir GPU y CPU» (`LanguageModelBenchmark`) carga cada forma, le pide el mismo
+  párrafo y elige la de más tokens por segundo; en la ganadora prueba además
+  `enableSpeculativeDecoding`. Se eligió un botón y no una prueba automática: cada carga son
+  segundos de pantalla quieta y ~4 GB, y medir sin que la persona lo pida sería hacerla esperar sin
+  aviso.
+- **La RAM.** `ModelMemoryKeeper` saca de la memoria Gemma y el modelo de vínculos cuando Android
+  avisa que falta (`didHaveMemoryPressure`) y tras tres minutos sin uso con la app en segundo plano.
+  Flutter da ese aviso desde `TRIM_MEMORY_RUNNING_LOW`, que incluye `TRIM_MEMORY_UI_HIDDEN`: salir
+  de la app también suelta lo que no se esté usando. Es lo buscado: con la app oculta, ~4 GB sin
+  uso es lo primero que hace que Android la cierre. Gemma se suelta solo en un turno libre
+  (`runIfFree`); las charlas abiertas cierran su sesión y la retoman. El de vínculos, solo si
+  ningún pedido lo usa.
+- **Lo que falta medir en el teléfono**: la primera palabra y las palabras por segundo antes y
+  después, GPU o CPU, si la decodificación especulativa rinde con este archivo del modelo, y la RAM
+  con la app en segundo plano. En el emulador no entra el modelo (3,7 GB); todo esto se probó con
+  dobles.
+
 ## Estado y orden de construcción
 
 ### Construido
