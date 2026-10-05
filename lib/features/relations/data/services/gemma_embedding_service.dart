@@ -22,7 +22,8 @@ import 'package:sinapsis/features/relations/domain/services/embedding_service.da
 /// —indexar, buscar vínculos, la IA que organiza—, y compite con el modelo de
 /// lenguaje por el procesador y la memoria. Antes de cada pedido espera a
 /// que la persona no esté usando el de lenguaje (`waitForUser`,
-/// `LanguageModelGate.whenUserIdle`): con el chat a la vista, no corre.
+/// `LanguageModelGate.whenUserIdle`): con el chat a la vista, no corre. La
+/// excepción es [embedQuery], lo que busca la persona: lo pide ella.
 class GemmaEmbeddingService implements EmbeddingService {
   GemmaEmbeddingService({
     required Future<bool> Function() ensureReady,
@@ -86,10 +87,21 @@ class GemmaEmbeddingService implements EmbeddingService {
         model.generateEmbeddings(texts, taskType: TaskType.retrievalDocument),
   );
 
+  /// Lo que busca la persona (F30): del lado de la pregunta
+  /// (`retrievalQuery`), contra fragmentos guardados del lado del documento.
+  /// Sin esperar: es ella quien lo pide. `retrievalQuery` es el tipo por
+  /// defecto de `generateEmbedding`.
+  @override
+  Future<List<double>> embedQuery(String text) =>
+      _using((model) => model.generateEmbedding(text), forUser: true);
+
   /// Corre [work] con el modelo, cuando la persona no está usando el de
-  /// lenguaje, y anota el uso.
-  Future<T> _using<T>(Future<T> Function(EmbeddingModel model) work) async {
-    await _waitForUser();
+  /// lenguaje —salvo que lo pida ella ([forUser])—, y anota el uso.
+  Future<T> _using<T>(
+    Future<T> Function(EmbeddingModel model) work, {
+    bool forUser = false,
+  }) async {
+    if (!forUser) await _waitForUser();
     _inUse++;
     try {
       return await work(await _activeModel());

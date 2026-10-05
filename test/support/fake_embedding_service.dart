@@ -41,6 +41,17 @@ class FakeEmbeddingService implements EmbeddingService {
     return texts.map(vectorFor).toList();
   }
 
+  /// Cada búsqueda de la persona que se pidió embeber (F30), en orden.
+  final queryRequests = <String>[];
+
+  @override
+  Future<List<double>> embedQuery(String text) async {
+    queryRequests.add(text);
+    final err = error;
+    if (err != null) throw err;
+    return vectorFor(text);
+  }
+
   /// Cuántas veces se pidió sacarlo de la memoria.
   int releases = 0;
 

@@ -77,6 +77,25 @@ void main() {
     expect(asked, 1);
   });
 
+  test('lo que busca la persona no espera a que suelte el modelo de '
+      'lenguaje, y va del lado de la pregunta (F30)', () async {
+    final model = _FakeEmbedder();
+    final forUser = GemmaEmbeddingService(
+      ensureReady: () async => true,
+      load: () async => model,
+      // Nunca se suelta: si la búsqueda esperara, no terminaría.
+      waitForUser: () => Completer<void>().future,
+    );
+
+    expect(await forUser.embedQuery('mi tesis sobre Roma'), [1.0]);
+    expect(model.taskTypes, [TaskType.retrievalQuery]);
+
+    final background = forUser.embed('un fragmento');
+    await pumpEventQueue();
+    expect(model.taskTypes, hasLength(1), reason: 'el de fondo sí espera');
+    unawaited(background);
+  });
+
   group('sacarlo de la memoria (F30)', () {
     late List<_FakeEmbedder> loaded;
     late DateTime now;
@@ -141,11 +160,17 @@ class _FakeEmbedder extends Fake implements EmbeddingModel {
   /// Si está, el próximo lote espera a que se complete.
   Completer<void>? pending;
 
+  /// Con qué tipo de tarea se pidió cada vector suelto.
+  final taskTypes = <TaskType>[];
+
   @override
   Future<List<double>> generateEmbedding(
     String text, {
     TaskType taskType = TaskType.retrievalQuery,
-  }) async => [1.0];
+  }) async {
+    taskTypes.add(taskType);
+    return [1.0];
+  }
 
   @override
   Future<List<List<double>>> generateEmbeddings(

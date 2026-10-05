@@ -9,11 +9,13 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/relations/data/services/chunk_embedding_indexer_impl.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/data/services/gemma_embedding_service.dart';
+import 'package:sinapsis/features/relations/data/services/item_vector_index_impl.dart';
 import 'package:sinapsis/features/relations/data/services/relation_candidate_selector_impl.dart';
 import 'package:sinapsis/features/relations/data/usecases/backfill_embeddings_usecase_impl.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_service.dart';
+import 'package:sinapsis/features/relations/domain/services/item_vector_index.dart';
 import 'package:sinapsis/features/relations/domain/services/relation_candidate_selector.dart';
 import 'package:sinapsis/features/relations/domain/usecases/backfill_embeddings_usecase.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -72,6 +74,12 @@ final relationCandidateSelectorProvider = Provider<RelationCandidateSelector>((
     database: ref.watch(appDatabaseProvider),
   );
 });
+
+/// Los vectores ya guardados de cada elemento, para buscar por sentido y
+/// elegir lo más representativo de un conjunto (F30, los cuadernos con IA).
+final itemVectorIndexProvider = Provider<ItemVectorIndex>(
+  (ref) => ItemVectorIndexImpl(database: ref.watch(appDatabaseProvider)),
+);
 
 final backfillEmbeddingsUseCaseProvider =
     Provider.autoDispose<BackfillEmbeddingsUseCase>((ref) {
