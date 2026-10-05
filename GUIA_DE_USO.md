@@ -385,15 +385,18 @@ De arriba hacia abajo, vas a encontrar:
    puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
 10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
     vinculás se ve acá sin tener que bajar hasta el final.
-11. El **contenido/texto** extraído. En un PDF, un libro o un Word está
+11. El **«Contenido»**, si es una página o una publicación que trae archivos:
+    sus fotos, documentos, audios y videos, cada uno con su texto (ver
+    [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)).
+12. El **contenido/texto** extraído. En un PDF, un libro o un Word está
     plegado bajo **"Texto extraído"**: tocalo para verlo.
-12. Sus **tarjetas de repaso**, si generaste alguna.
-13. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
+13. Sus **tarjetas de repaso**, si generaste alguna.
+14. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
     Relacionado, Contradice, Continúa, Cita, Resume, etc.; y corregir o
     borrar los que ya hay).
-14. Sus **datos bibliográficos**, si corresponde.
-15. **"De dónde salió"**: el tipo de fuente, el autor si lo tiene, cuándo lo
+15. Sus **datos bibliográficos**, si corresponde.
+16. **"De dónde salió"**: el tipo de fuente, el autor si lo tiene, cuándo lo
     guardaste, y el enlace o archivo original.
 
 ### El panel del elemento
@@ -533,6 +536,62 @@ Para que esto funcione con lo que ya tenías guardado de antes, bajá el
 modelo de transcripción nuevo (Ajustes → IA y modelos) y usá **Más → Volver
 a extraer el texto** en ese elemento: así se guardan los tiempos de cada
 palabra.
+
+### Todo lo que trae una página: el «Contenido»
+
+Cuando guardás una **página web** o una **publicación**, Sinapsis no se
+queda solo con el texto: baja también lo que la página ofrece, **en su
+formato original**, y lo guarda adentro del mismo elemento.
+
+- **Qué se baja:** las fotos del artículo (en su mejor tamaño, también las
+  que la página carga recién al bajar y los dibujos SVG), los **archivos que
+  enlaza el texto** —un PDF, un libro EPUB, un Word, un MP3, un MP4…—, los
+  videos y audios que la página trae incrustados, y **todas las fotos de un
+  carrusel** (en TikTok; en Instagram solo la primera, porque las demás no
+  se ven sin iniciar sesión). Solo lo que está en el cuerpo del artículo: no
+  el menú, ni la barra de costado, ni el pie de la página.
+- **Los .zip se abren solos:** cada archivo de adentro queda como un
+  archivo más. Un .zip sospechoso —que intenta escribir fuera de su lugar,
+  que se infla miles de veces o que trae demasiados archivos— no se abre:
+  queda guardado tal cual.
+- **Un enlace directo a un archivo** (por ejemplo, a un PDF o a un MP3) se
+  guarda como ese archivo —un documento, un audio— y no como una página.
+
+En el detalle del elemento aparece la sección **«Contenido»**, arriba del
+texto, con los archivos **agrupados: documentos, audios, videos e
+imágenes** (las fotos, en miniatura). Cada archivo dice su tipo, cuánto
+pesa, de qué sitio salió y si ya tiene **su propio texto**: lo que dice un
+libro o un documento, la transcripción de un audio o un video, o lo que se
+lee en una foto. Tocá un archivo para **verlo** (una foto), **abrirlo** con
+la app del teléfono que corresponda, o **leer su texto**. Nada se abre
+solo.
+
+Todo se baja después de guardar el artículo, en segundo plano —el
+artículo se puede leer mientras tanto— y **de a un archivo por sitio**,
+esperando si el sitio pide más calma. Para cuidar tu teléfono:
+
+- **Hay un tope por elemento: 500 MB** (lo cambiás en Ajustes → Bóveda →
+  **"Lo que se baja de una página"**). Si una página ofrece más, se baja lo
+  que entra en este orden: **primero los documentos, después los audios,
+  las imágenes y por último los videos**. Lo que quedó afuera se dice en el
+  «Contenido», con cuánto pesa, y el botón **"Bajar el resto"** lo baja sin
+  tope.
+- Si **no queda lugar** en el teléfono, lo que no entró espera; "Bajar el
+  resto" lo vuelve a intentar.
+- **Nada de tu red de casa:** un enlace que apunta al router, a una
+  impresora o al propio teléfono no se baja nunca.
+- **Solo lo público:** lo que pide iniciar sesión, está detrás de un muro de
+  pago o tiene protección anticopia no se baja. Lo que un sitio no dio
+  queda en la cuenta de **"no se pudieron bajar"**, y "Bajar el resto" lo
+  reintenta.
+- Para transcribir los audios y videos hace falta el modelo de
+  transcripción (Ajustes → IA y modelos); sin él quedan con **"Texto
+  pendiente"** hasta que lo bajes.
+
+El texto de una página se lee limpio: sus enlaces se ven como su texto y
+sus imágenes como su descripción, sin direcciones ni símbolos de por medio.
+(En la versión web de Sinapsis no se baja el «Contenido»: el navegador no
+deja controlar a qué se conecta.)
 
 ---
 
@@ -1383,7 +1442,10 @@ modelo de relaciones.
 - **Segundo plano** (solo en Android): **"Que siga con la app cerrada"**,
   la ayuda para que el teléfono no frene a Sinapsis cuando la cerrás (ver
   [Que siga con la app cerrada](#que-siga-con-la-app-cerrada)).
-- **Bóveda:** accesos a Copia de seguridad, Espacio de la bóveda, Posibles
+- **Bóveda:** **"Lo que se baja de una página"**, el tope de lo que se baja
+  de cada página o publicación (500 MB de fábrica; ver
+  [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)),
+  y los accesos a Copia de seguridad, Espacio de la bóveda, Posibles
   duplicados, Vocabulario, Enlaces rotos, Papelera y Cambios para revisar —
   todos explicados en la siguiente sección.
 - **Hábito:** un interruptor para mostrar u ocultar la racha, las insignias y

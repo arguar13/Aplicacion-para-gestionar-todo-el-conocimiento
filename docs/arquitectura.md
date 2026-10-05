@@ -5191,6 +5191,88 @@ parafrasear.
 - **Practicar igual**: con Repasar vacío y tarjetas que todavía no tocan, se recorren todas sin
   calificar; ni SM-2 ni el historial de repasos cambian.
 
+### 66. F30: bajar todo de páginas y publicaciones, en el mismo elemento
+
+Pedido del usuario: *"cuando se trate de enlaces de publicaciones o páginas, que haga lo posible
+por descargar todo el contenido, ya sean libros enteros, imágenes o audios, y si tiene archivos
+zip que los descomprima automáticamente; que todo el contenido se conserve en el archivo creado
+en la app (…) bien acomodado en su formato original y que también haya una transcripción para
+cada elemento"*. Plan: `docs/planes/F30-repasar-cuadernos-bandeja-y-descargas.md`, decisiones D
+—todo adentro del mismo elemento— y E —tope de 500 MB por elemento—, con las recomendadas. Se
+descartó un elemento por archivo: llenaba la Biblioteca de sueltos.
+
+- **El Markdown crudo, de raíz.** `reader_mode` 0.2.3 con `ParserType.html` usa un adaptador
+  cuya `baseURI` es `''`: el paso de Readability que completa direcciones no hacía nada y
+  `//upload.wikimedia.org/…` o `/wiki/Roma` quedaban así en el Markdown (un `../` hasta se
+  perdía). Ahora la página se lee una vez con `package:html`, se le completan las direcciones
+  contra la de la página —o su `<base href>`, solo si es web—, también `srcset` y los atributos de
+  carga diferida, y recién entonces pasa por `Readability(HtmlDomDocument(…))`. Y
+  `RenderedMarkdown` lee lo que escribe `htmlToMarkdown`: un enlace como su texto, una imagen como
+  su `alt` (nada si es decorativa), el código sin comillas invertidas, el HTML en línea sin
+  etiquetas; lo visible es siempre un pedazo del crudo, así que los resaltados no se corren. La
+  Bandeja usa el mismo `RenderedMarkdown.excerpt`, que lee solo el principio del texto.
+- **El modelo: formas, no un elemento por archivo.** Cada archivo es una forma (`renditions`)
+  con `position` no nulo —eso es lo que la hace parte del «Contenido»—, título, dirección de
+  origen, tipo MIME y tamaño; su texto es otra forma con `text_of` apuntando al archivo (se va con
+  él). Esquema v36, aditivo. Se eligieron formas y no una tabla aparte porque así la copia de
+  seguridad, la fusión de bóvedas (`OriginalFilesMerge` copia todo `relative_path`) y el borrado
+  en cascada ya las cubren. Lo que no se quería es que se colaran donde se toma "el texto" del
+  elemento: el `KnowledgeItem` que carga la biblioteca **no las trae** (ni las borra al guardar),
+  `sourceTextRendition` las ignora y el «Contenido» se pide aparte (`AttachmentRepository`), con
+  el largo de cada texto calculado en la base y el texto recién al leerlo: una página con cien
+  fotos y tres libros no viaja en cada lista. La lista de trabajo —qué ofrece la página y en qué
+  quedó cada archivo: pendiente, bajado, afuera, sin lugar, fallido— es `attachment_download`,
+  estado de este dispositivo como `processing_checkpoint`: **no viaja al fusionar**. La fusión
+  copia las seis columnas nuevas (censo de `kRenditionColumns`), arma sus inserciones desde el
+  censo, pone cada archivo antes que su texto y, si el mismo archivo ya estaba con otro
+  identificador, apunta el texto de la copia al de acá; v18 reconstruye `renditions` con ellas.
+- **La cola, en dos tiempos.** El transformador de páginas anota lo que ofrece el cuerpo del
+  artículo (`findPageAttachments`, en el mismo isolate que la extracción) y guarda el artículo;
+  `ProcessItemUseCase` sigue en la misma vuelta con `AttachmentProcessor` —un `Transformer` del
+  carril largo, con el vigilante, la cancelación y el servicio de siempre— si queda algo
+  (`AttachmentWork.hasWork`), y lo corre solo cuando no hay otro trabajo: así «Bajar el resto» es
+  reencolar el elemento. Baja de a uno, documentos → audios → imágenes → videos (decisión E), con
+  el tope aplicado **mientras** baja; lo que no entra queda afuera y se sigue con lo siguiente,
+  que puede entrar. Después le saca el texto a cada archivo con los lectores, el transcriptor y
+  el OCR de siempre; lo que no tiene (una foto sin letras, un SVG, un formato que nadie lee)
+  queda con texto vacío —«se intentó»—, y lo que todavía no se puede (sin el modelo de
+  transcripción) queda pendiente sin volver a bajar nada. Un enlace directo a un archivo lo
+  detecta el cliente de páginas por el tipo —o la extensión, si el tipo no dice nada— **antes de
+  leer el cuerpo** (`NotAPageException`; antes se leía entero en memoria): el elemento pasa a ser
+  ese documento, foto, audio o video y en la misma vuelta le toca a su transformador.
+- **La red, desconfiada.** `HostGate` (salió de la biblioteca de ejemplo): de a un pedido por
+  servidor, con respiro, y la espera que pida un 429/503 con `Retry-After`. Solo internet: un
+  `connectionFactory` que resuelve el nombre, exige que **todas** sus IP sean públicas y se
+  conecta a la IP comprobada con TLS verificado contra el nombre —cada redirección pasa por lo
+  mismo, y un DNS que contesta distinto al conectar no lo saltea—. `BoundedDownloader` corta en
+  el byte en que se pasa del tope, mira el espacio libre (con 200 MB de reserva) antes y cada
+  16 MB, rechaza una página que se hace pasar por archivo sin bajarla y nunca tiene el archivo
+  en memoria. No se mandan cookies ni credenciales: lo que pide sesión o pago, o tiene DRM, no se
+  baja. En la web no se baja nada: el navegador no deja saber a qué IP se conecta.
+- **Los `.zip`, por streaming y sin confiar** (`ZipArchiveExpander`): zlib nativo por tandas
+  como en la bóveda (`archive` 4.0.9 junta cada entrada en memoria), CRC-32 de cada entrada;
+  ninguna entrada se escribe con su ruta —van saneadas a la carpeta del «Contenido», sin
+  pisarse— y no se sacan rutas con `..`, absolutas, con `\`, `:` o nulos, enlaces, cifradas ni
+  basura; se cortan las bombas por cantidad de entradas, profundidad, total descomprimido
+  (contado mientras sale) y proporción. Un `.zip` adentro de otro queda cerrado. Si algo salta, se
+  borra lo sacado y el `.zip` queda como archivo.
+- **Lo que se dejó afuera, a sabiendas:** los videos incrustados de YouTube o Vimeo (`<iframe>`)
+  —bajarlos es otra cosa que ya hace el transformador de YouTube—; los SVG incrustados en el
+  HTML; las demás fotos de un carrusel de Instagram, que su HTML público no trae sin sesión; y
+  retomar a mitad un archivo cortado: se retoma por archivo, no por bytes. La página archivada
+  (`HtmlPageArchiver`) sigue como antes, con sus imágenes incrustadas: es la foto de cómo se veía.
+
+Probado en la PC contra páginas reales: `es.wikipedia.org/wiki/Coliseo` (sin `//` ni enlaces
+crudos a la vista; 22 fotos en su versión de 500 px desde el `srcset`, sin la bandera de 20 px:
+2,9 MB en 29 s, de a una por servidor y sin un 429), `en.wikipedia.org/wiki/Gettysburg_Address`
+(fotos y los PDF de las referencias, sin repetir las copias del Internet Archive; con un tope de
+8 MB entraron todos los que se pudieron bajar y quedaron fallidos los que el sitio no dio o eran
+una página), un `.zip` real (Gutenberg `pg2000-h.zip`: 898 KB → 2,3 MB en dos archivos, el `.zip`
+borrado), un EPUB real (Gutenberg, 561 KB → 746.366 caracteres en 5 s) y un enlace directo a un
+PDF (W3C). Sin probar en el teléfono ni en el emulador (lo usaba otro trabajo): la sección
+«Contenido» en pantalla, la transcripción y el OCR de lo bajado con los modelos del teléfono, y
+el comportamiento con poco espacio libre de verdad.
+
 ## Estado y orden de construcción
 
 ### Construido
