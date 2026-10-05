@@ -30,6 +30,7 @@ const kAiRunColumns = [
   'flashcards_created',
   'properties_created',
   'content_simhash',
+  'scope',
 ];
 const kAiFieldChangeColumns = [
   'id',

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 
 /// Una pasada de la IA sobre un elemento (F27): todo lo que aplicó sola en esa
 /// vuelta —vínculos, tarjetas, propiedades— lleva su [id] en `ai_run_id`, y
@@ -55,6 +56,13 @@ class AiRuns extends Table {
   /// Viaja con la pasada: una nota organizada en otro dispositivo también
   /// sabe cómo era cuando la IA la vio.
   TextColumn get contentSimhash => text().nullable()();
+
+  /// Qué le pidieron a la pasada (v37): organizar el elemento o solo hacerle
+  /// tarjetas (F30). Una de solo tarjetas se deshace y se lista como
+  /// cualquiera, pero no cuenta como organizar el elemento: la cola lo sigue
+  /// teniendo pendiente. Viaja con la pasada en la fusión de bóvedas.
+  TextColumn get scope =>
+      textEnum<AiRunScope>().withDefault(Constant(AiRunScope.organize.name))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

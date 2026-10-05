@@ -50,6 +50,7 @@ import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // excluye los archivos generados. Solo se ve al compilar.
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
@@ -167,7 +168,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 36;
+  static const currentSchemaVersion = 37;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -773,6 +774,62 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(attachmentDownloads);
           await migrator.createIndex(idxAttachmentDownloadsItem);
           await _requireSameCounts(before, step: 'v36', tables: tables);
+        }
+
+        // Qué le pidieron a cada pasada de la IA (F30): organizar el elemento
+        // o solo hacerle tarjetas (`ai_runs.scope`). Hasta acá una pasada de
+        // solo tarjetas se marcaba con una fila de `ai_field_changes` con el
+        // campo `flashcardsOnly`, que no era un dato del elemento; esas
+        // marcas pasan a la columna y se borran. Todo lo demás, con los
+        // conteos como compuerta; `ai_field_changes` tiene que bajar
+        // exactamente en las marcas convertidas.
+        //
+        // La columna puede existir ya: el paso v34 crea `ai_runs` con su
+        // definición de hoy.
+        if (from < 37) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          final changesBefore = await _count('ai_field_changes');
+          if (!await _columnExists('ai_runs', aiRuns.scope.name)) {
+            await migrator.addColumn(aiRuns, aiRuns.scope);
+          }
+          final legacy = [Variable.withString(kLegacyFlashcardsOnlyField)];
+          final marks = (await customSelect(
+            'SELECT COUNT(*) AS n FROM ai_field_changes WHERE field = ?',
+            variables: legacy,
+          ).getSingle()).read<int>('n');
+          await customUpdate(
+            "UPDATE ai_runs SET scope = '${AiRunScope.flashcards.name}' "
+            'WHERE id IN (SELECT ai_run_id FROM ai_field_changes '
+            'WHERE field = ?)',
+            variables: legacy,
+            updates: {aiRuns},
+          );
+          await customUpdate(
+            'DELETE FROM ai_field_changes WHERE field = ?',
+            variables: legacy,
+            updates: {aiFieldChanges},
+            updateKind: UpdateKind.delete,
+          );
+          await _requireSameCounts(before, step: 'v37', tables: tables);
+          final changesAfter = await _count('ai_field_changes');
+          if (changesAfter != changesBefore - marks) {
+            throw StateError(
+              'La migración a v37 cambió la cantidad de filas de '
+              'ai_field_changes ($changesBefore → $changesAfter); tenía que '
+              'bajar solo en las $marks marcas de solo tarjetas.',
+            );
+          }
         }
       });
     },

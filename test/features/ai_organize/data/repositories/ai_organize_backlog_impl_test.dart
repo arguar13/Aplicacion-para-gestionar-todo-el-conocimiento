@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
@@ -138,7 +139,7 @@ void main() {
     Future<String> flashcardsOnlyRun(String itemId) async =>
         (await vault.runs.startRun(
           itemId,
-          flashcardsOnly: true,
+          scope: AiRunScope.flashcards,
         )).getOrElse((f) => fail('$f'));
 
     test('el elemento sigue pendiente, terminada o deshecha, y sin gastar '

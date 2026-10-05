@@ -136,12 +136,6 @@ class AiFieldLedger {
     return completed;
   }
 
-  /// Marca la pasada [runId] como un pedido de solo tarjetas (F30, ver
-  /// [AiChangedField.flashcardsOnly]). Corre dentro de la transacción de
-  /// quien la abre.
-  Future<void> markFlashcardsOnly(String runId) =>
-      _record(runId, AiChangedField.flashcardsOnly, null, kFlashcardsOnlyMark);
-
   /// Anota que la pasada [runId] creó su elemento como la nota mapa del tema
   /// [valueId]. Corre dentro de la transacción de quien la crea.
   Future<void> recordMapNote({
@@ -184,8 +178,6 @@ class AiFieldLedger {
     var dateRestored = false;
     var mapNotes = 0;
     for (final change in changes) {
-      // Una marca, no un dato: no hay nada que devolver.
-      if (change.field == AiChangedField.flashcardsOnly) continue;
       if (change.field == AiChangedField.mapNote) {
         if ((await _mapNoteOf(itemId)).keptByAi) {
           await _writer.trash([itemId]);
@@ -275,7 +267,6 @@ class AiFieldLedger {
     for (final change in changes) {
       final itemId = itemOfRun[change.aiRunId];
       if (itemId == null) continue;
-      if (change.field == AiChangedField.flashcardsOnly) continue;
       if (change.field == AiChangedField.mapNote) {
         if ((await _mapNoteOf(itemId)).keptByAi) {
           byRun[change.aiRunId] =
@@ -303,7 +294,6 @@ class AiFieldLedger {
   static AiRunTally _one(AiChangedField field) => switch (field) {
     AiChangedField.space => const AiRunTally(spaces: 1),
     AiChangedField.mapNote => const AiRunTally(mapNotes: 1),
-    AiChangedField.flashcardsOnly => const AiRunTally(),
     _ => const AiRunTally(referenceFields: 1),
   };
 
@@ -345,14 +335,13 @@ class AiFieldLedger {
           SELECT 1 FROM ai_field_changes c
             JOIN ai_runs r ON r.id = c.ai_run_id
            WHERE r.item_id = ? AND r.id <> ? AND r.undone_at IS NULL
-             AND c.field NOT IN (?, ?, ?)
+             AND c.field NOT IN (?, ?)
            LIMIT 1''',
           variables: [
             Variable.withString(itemId),
             Variable.withString(exceptRun),
             Variable.withString(AiChangedField.space.name),
             Variable.withString(AiChangedField.mapNote.name),
-            Variable.withString(AiChangedField.flashcardsOnly.name),
           ],
           readsFrom: {_db.aiFieldChanges, _db.aiRuns},
         )
@@ -481,9 +470,6 @@ String? _encode(
     AiChangedField.mapNote => throw StateError(
       'La nota mapa de una pasada no se codifica como un dato.',
     ),
-    AiChangedField.flashcardsOnly => throw StateError(
-      'La marca de solo tarjetas no es un dato que se compare.',
-    ),
     AiChangedField.space => spaceId,
     AiChangedField.referenceType => reference.type?.name,
     AiChangedField.contributors =>
@@ -529,11 +515,3 @@ String _seconds(DateTime? at) =>
     precision: PublicationPrecision.values.asNameMap()[precision],
   );
 }
-
-/// Si la pasada [runAlias] de una consulta fue un pedido de **solo tarjetas**
-/// (F30, [AiChangedField.flashcardsOnly]): un `EXISTS` por el índice de
-/// `ai_field_changes`. La cola no la cuenta como organizar el elemento.
-String flashcardsOnlyRunSql(String runAlias) =>
-    'EXISTS (SELECT 1 FROM ai_field_changes fo '
-    'WHERE fo.ai_run_id = $runAlias.id '
-    "AND fo.field = '${AiChangedField.flashcardsOnly.name}')";

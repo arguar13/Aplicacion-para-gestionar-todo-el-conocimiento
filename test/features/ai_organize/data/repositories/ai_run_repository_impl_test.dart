@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -302,13 +303,21 @@ void main() {
     );
   });
 
-  test('una pasada de solo tarjetas (F30) cuenta sus tarjetas, se deshace '
-      'como cualquiera, y la marca no es un dato', () async {
+  test('una pasada de solo tarjetas (F30) guarda su alcance, cuenta sus '
+      'tarjetas y se deshace como cualquiera', () async {
     final run = (await runs.startRun(
       'a',
       model: 'gemma',
-      flashcardsOnly: true,
+      scope: AiRunScope.flashcards,
     )).getOrElse((f) => fail('$f'));
+    expect(
+      (await (db.select(
+        db.aiRuns,
+      )..where((r) => r.id.equals(run))).getSingle()).scope,
+      AiRunScope.flashcards,
+    );
+    // El alcance es de la pasada: no deja nada en los datos que completó.
+    expect(await db.select(db.aiFieldChanges).get(), isEmpty);
     for (final question in ['¿Uno?', '¿Dos?']) {
       await flashcards.create(
         itemId: 'a',

@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -96,7 +97,7 @@ class FakeAiRunRepository implements AiRunRepository {
     String itemId, {
     String? model,
     String? contentSimhash,
-    bool flashcardsOnly = false,
+    AiRunScope scope = AiRunScope.organize,
   }) => throw UnimplementedError('Las pantallas no abren pasadas.');
 
   @override

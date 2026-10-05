@@ -5177,13 +5177,17 @@ parafrasear.
   `LongWorkDetail.flashcards`). Vive en memoria, como lo pedido a mano: si el sistema mata la app a
   mitad, lo hecho queda y el resto se vuelve a pedir.
 - **Una pasada de solo tarjetas no cuenta como organizar.** Si contara, pedir tarjetas de toda la
-  biblioteca la daría por organizada y nunca tendría sus vínculos, temas ni etiquetas. Sin cambiar
-  el esquema, la marca va en `ai_field_changes` (`AiChangedField.flashcardsOnly`, una fila por
-  pasada que viaja con ella en la fusión): lo pendiente de la cola, sus intentos, las notas que
-  cambiaron y «qué tiene deshecha su última pasada» no miran esas pasadas
-  (`flashcardsOnlyRunSql`). Se listan, cuentan y deshacen como cualquiera. Lo honesto sería una
-  columna de alcance en `ai_runs`; queda para cuando otra versión del esquema la justifique. Una
-  versión anterior de la app que reciba esa fila por la fusión no conoce el valor.
+  biblioteca la daría por organizada y nunca tendría sus vínculos, temas ni etiquetas. Cada
+  pasada guarda qué le pidieron en `ai_runs.scope` (`AiRunScope`: organizar o solo tarjetas, v37):
+  lo pendiente de la cola, sus intentos, las notas que cambiaron y «qué tiene deshecha su última
+  pasada» solo miran las de organizar (`organizeRunSql`). Se listan, cuentan y deshacen como
+  cualquiera, y la columna viaja con la pasada en la fusión (`kAiRunColumns`).
+
+  *Actualización (v37):* al construirse, para no cambiar el esquema —la v36 era de otra parte de
+  F30—, la marca iba como una fila de `ai_field_changes` con un campo `flashcardsOnly` que no era
+  un dato del elemento: seis lugares tenían que saltearla, y una versión vieja de la app no la
+  entendía al fusionar. La migración a v37 pasa esas marcas a la columna y las borra, con los
+  conteos de todo lo demás como compuerta y `ai_field_changes` bajando exactamente en las marcas.
 - **Repasar vacío dice por qué**: cuántos elementos con texto no tienen tarjetas y por qué la IA no
   las hizo —falta un modelo, está en pausa, la biblioteca existente espera el cargador, con lo que
   lo resuelve—, con el ✨ al lado; si las está haciendo, que están en camino; si no hay nada, el

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
@@ -666,10 +666,9 @@ void main() {
 
     Future<bool> flashcardsOnly(String runId) async =>
         (await (vault.db.select(
-          vault.db.aiFieldChanges,
-        )..where((c) => c.aiRunId.equals(runId))).get()).any(
-          (c) => c.field == AiChangedField.flashcardsOnly,
-        );
+          vault.db.aiRuns,
+        )..where((r) => r.id.equals(runId))).getSingle()).scope ==
+        AiRunScope.flashcards;
 
     test('las hace sin esperar el cargador, sin vínculos ni nada más, cada '
         'una en su pasada de solo tarjetas', () async {

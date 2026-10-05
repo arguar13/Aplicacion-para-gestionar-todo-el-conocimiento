@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -624,7 +625,7 @@ class AiOrganizeQueue {
           (await _runs.startRun(
             item.id,
             model: _modelName?.call(),
-            flashcardsOnly: true,
+            scope: AiRunScope.flashcards,
           )).fold((failure) {
             _telemetry.recordError(
               failure,

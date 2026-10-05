@@ -6,6 +6,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
@@ -16,6 +17,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
+import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_sql.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 
@@ -43,24 +45,22 @@ class AiRunRepositoryImpl implements AiRunRepository {
     String itemId, {
     String? model,
     String? contentSimhash,
-    bool flashcardsOnly = false,
+    AiRunScope scope = AiRunScope.organize,
   }) async {
     try {
       final id = _ids.next();
-      await _db.transaction(() async {
-        await _db
-            .into(_db.aiRuns)
-            .insert(
-              AiRunsCompanion.insert(
-                id: id,
-                itemId: itemId,
-                model: Value(model),
-                startedAt: _clock(),
-                contentSimhash: Value(contentSimhash),
-              ),
-            );
-        if (flashcardsOnly) await _fields.markFlashcardsOnly(id);
-      });
+      await _db
+          .into(_db.aiRuns)
+          .insert(
+            AiRunsCompanion.insert(
+              id: id,
+              itemId: itemId,
+              model: Value(model),
+              startedAt: _clock(),
+              contentSimhash: Value(contentSimhash),
+              scope: Value(scope),
+            ),
+          );
       return right(id);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
@@ -301,12 +301,12 @@ class AiRunRepositoryImpl implements AiRunRepository {
               FROM ai_runs r
              WHERE r.item_id IN (${List.filled(ids.length, '?').join(', ')})
                AND r.undone_at IS NOT NULL
-               AND NOT ${flashcardsOnlyRunSql('r')}
+               AND ${organizeRunSql('r')}
                AND NOT EXISTS (
                  SELECT 1 FROM ai_runs later
                   WHERE later.item_id = r.item_id
                     AND later.started_at > r.started_at
-                    AND NOT ${flashcardsOnlyRunSql('later')})''',
+                    AND ${organizeRunSql('later')})''',
             variables: [for (final id in ids) Variable.withString(id)],
             readsFrom: {_db.aiRuns, _db.aiFieldChanges},
           )
