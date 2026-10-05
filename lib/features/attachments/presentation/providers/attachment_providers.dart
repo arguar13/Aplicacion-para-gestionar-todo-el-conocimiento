@@ -7,6 +7,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/attachments/data/repositories/attachment_repository_impl.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/repositories/attachment_repository.dart';
+import 'package:sinapsis/features/attachments/domain/services/archive_expander.dart';
 import 'package:sinapsis/features/attachments/domain/services/linked_file_fetcher.dart';
 import 'package:sinapsis/features/attachments/presentation/providers/platform_linked_file_fetcher.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -55,4 +56,9 @@ final linkedFileFetcherProvider = Provider<LinkedFileFetcher?>(
       },
     ),
   ),
+);
+
+/// Quien descomprime los `.zip` del «Contenido», o `null` en la web.
+final archiveExpanderProvider = Provider<ArchiveExpander?>(
+  (ref) => createArchiveExpander(files: ref.watch(fileStoreProvider)),
 );

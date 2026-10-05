@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/network/public_network.dart';
 import 'package:sinapsis/features/attachments/data/services/attachment_processor.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
+import 'package:sinapsis/features/attachments/domain/services/archive_expander.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
@@ -65,13 +66,17 @@ void main() {
     cap = 1000;
   });
 
-  AttachmentProcessor processor({bool withFetcher = true}) =>
-      AttachmentProcessor(
-        attachments: attachments,
-        fetcher: withFetcher ? fetcher : null,
-        maxBytesPerItem: () => cap,
-        logger: const SilentLogger(),
-      );
+  AttachmentProcessor processor({
+    bool withFetcher = true,
+    ArchiveExpander? archives,
+  }) => AttachmentProcessor(
+    attachments: attachments,
+    fetcher: withFetcher ? fetcher : null,
+    maxBytesPerItem: () => cap,
+    logger: const SilentLogger(),
+    archives: archives,
+    files: files,
+  );
 
   Future<void> offer(List<(String, RenditionKind, int, String?)> files) =>
       attachments.plan(item.id, [
@@ -248,6 +253,57 @@ void main() {
     );
   });
 
+  group('un .zip', () {
+    setUp(() {
+      fetcher.served['https://x.org/datos.zip'] = const FakeServedFile([
+        1,
+        2,
+        3,
+        4,
+      ], contentType: 'application/zip');
+    });
+
+    test('se abre en el «Contenido» y el .zip se va', () async {
+      await offer([
+        ('https://x.org/datos.zip', RenditionKind.file, 4, 'Datos'),
+      ]);
+      final archives = _FakeExpander(files, {
+        'informe.pdf': [1, 1],
+        'fotos/roma.jpg': [2, 2, 2],
+      });
+
+      await processor(
+        archives: archives,
+      ).transform(item, context: _RecordingContext());
+
+      final saved = await attachments.attachmentsOf(item.id);
+      expect(saved.map((a) => (a.title, a.kind, a.position, a.sizeBytes)), [
+        ('informe.pdf', RenditionKind.pdf, 4, 2),
+        ('fotos/roma.jpg', RenditionKind.image, 4, 3),
+      ]);
+      expect(archives.maxBytes, 1000);
+      expect(
+        files.paths,
+        isNot(contains('originales/src/contenido/Datos.zip')),
+      );
+      expect(statuses().values.single, AttachmentDownloadStatus.done);
+      expect(await attachments.totalBytes(item.id), 5);
+    });
+
+    test('si es hostil o desmedido, queda cerrado, como archivo', () async {
+      await offer([('https://x.org/datos.zip', RenditionKind.file, 0, null)]);
+
+      await processor(
+        archives: _FakeExpander(files, const {}, refuse: true),
+      ).transform(item, context: _RecordingContext());
+
+      final saved = (await attachments.attachmentsOf(item.id)).single;
+      expect(saved.kind, RenditionKind.file);
+      expect(saved.relativePath, 'originales/src/contenido/datos.zip');
+      expect(files.paths, contains('originales/src/contenido/datos.zip'));
+    });
+  });
+
   test('cancelado, corta', () async {
     fetcher.served['https://x.org/a.pdf'] = FakeServedFile(
       const [1],
@@ -275,4 +331,39 @@ void main() {
     ).transform(item, context: _RecordingContext());
     expect(statuses().values.single, AttachmentDownloadStatus.pending);
   });
+}
+
+/// Abre cualquier `.zip` en lo que se le diga, o lo rechaza.
+class _FakeExpander implements ArchiveExpander {
+  _FakeExpander(this.files, this.entries, {this.refuse = false});
+
+  final InMemoryFileStore files;
+  final Map<String, List<int>> entries;
+  final bool refuse;
+  int? maxBytes;
+
+  @override
+  Future<List<ExpandedFile>> expand(
+    String zipPath, {
+    required String storeId,
+    required String folder,
+    required int maxBytes,
+  }) async {
+    this.maxBytes = maxBytes;
+    if (refuse) throw const UnsafeArchiveException('bomba');
+    return [
+      for (final MapEntry(:key, :value) in entries.entries)
+        ExpandedFile(
+          relativePath: await files.saveStream(
+            bytes: Stream.value(value),
+            suggestedName: key.split('/').last,
+            id: storeId,
+            folder: folder,
+            unique: true,
+          ),
+          entryName: key,
+          bytes: value.length,
+        ),
+    ];
+  }
 }

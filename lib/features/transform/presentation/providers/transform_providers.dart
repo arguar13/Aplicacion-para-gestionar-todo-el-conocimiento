@@ -298,5 +298,7 @@ final attachmentWorkProvider = Provider<AttachmentWork>(
     fetcher: ref.watch(linkedFileFetcherProvider),
     maxBytesPerItem: () => ref.read(attachmentCapProvider),
     logger: ref.watch(appLoggerProvider),
+    archives: ref.watch(archiveExpanderProvider),
+    files: ref.watch(fileStoreProvider),
   ),
 );

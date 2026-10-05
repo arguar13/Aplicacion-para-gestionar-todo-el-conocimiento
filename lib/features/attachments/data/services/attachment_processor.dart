@@ -4,9 +4,11 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/network/bounded_download.dart';
+import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
 import 'package:sinapsis/features/attachments/domain/repositories/attachment_repository.dart';
+import 'package:sinapsis/features/attachments/domain/services/archive_expander.dart';
 import 'package:sinapsis/features/attachments/domain/services/attachment_work.dart';
 import 'package:sinapsis/features/attachments/domain/services/linked_file_fetcher.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
@@ -42,13 +44,23 @@ class AttachmentProcessor implements AttachmentWork {
     required LinkedFileFetcher? fetcher,
     required int Function() maxBytesPerItem,
     required AppLogger logger,
+    ArchiveExpander? archives,
+    FileStore? files,
   }) : _attachments = attachments,
        _fetcher = fetcher,
+       _archives = archives,
+       _files = files,
        _maxBytesPerItem = maxBytesPerItem,
        _logger = logger;
 
   final AttachmentRepository _attachments;
   final LinkedFileFetcher? _fetcher;
+
+  /// Quien abre los `.zip`; sin él, se guardan cerrados.
+  final ArchiveExpander? _archives;
+
+  /// El almacén, para borrar un `.zip` ya descomprimido.
+  final FileStore? _files;
   final int Function() _maxBytesPerItem;
   final AppLogger _logger;
 
@@ -148,6 +160,18 @@ class AttachmentProcessor implements AttachmentWork {
         whenCancelled: context.whenCancelled,
         onProgress: onProgress,
       );
+      if (isZipArchive(
+        contentType: fetched.contentType,
+        fileName: fetched.fileName,
+      )) {
+        final expanded = await _expand(
+          item,
+          download,
+          fetched,
+          room: remaining,
+        );
+        if (expanded != null) return expanded;
+      }
       final kind =
           mediaKindOf(
             contentType: fetched.contentType,
@@ -202,6 +226,60 @@ class AttachmentProcessor implements AttachmentWork {
       );
     }
     return 0;
+  }
+
+  /// Descomprime un `.zip` recién bajado en el «Contenido» —cada archivo
+  /// con la ruta que traía adentro como título, en el lugar del `.zip` en
+  /// la página— y lo borra: lo que importa es lo de adentro, en su formato.
+  /// Devuelve cuánto ocupa lo sacado, o `null` si no se abrió —sin quien lo
+  /// abra, o porque era hostil o desmedido—: entonces queda el `.zip` tal
+  /// cual, como un archivo más.
+  ///
+  /// Lo descomprimido no pasa de [room], lo que quedaba del tope cuando se
+  /// lo empezó a bajar: el `.zip` se borra, y su lugar lo ocupa lo de
+  /// adentro.
+  Future<int?> _expand(
+    KnowledgeItem item,
+    AttachmentDownload download,
+    FetchedFile zip, {
+    required int room,
+  }) async {
+    final archives = _archives;
+    if (archives == null) return null;
+    final List<ExpandedFile> expanded;
+    try {
+      expanded = await archives.expand(
+        zip.relativePath,
+        storeId: item.source.id,
+        folder: kAttachmentsFolder,
+        maxBytes: room,
+      );
+    } on UnsafeArchiveException catch (e) {
+      _logger.warning('${download.url}: $e');
+      return null;
+    }
+
+    var bytes = 0;
+    for (final file in expanded) {
+      final name = file.entryName.split('/').last;
+      await _attachments.addAttachment(
+        itemId: item.id,
+        kind: mediaKindOf(fileName: name) ?? RenditionKind.file,
+        relativePath: file.relativePath,
+        position: download.position,
+        title: file.entryName,
+        originUrl: download.url.toString(),
+        sizeBytes: file.bytes,
+      );
+      bytes += file.bytes;
+    }
+    await _files?.delete(zip.relativePath);
+    await _attachments.markDownload(
+      download.id,
+      status: AttachmentDownloadStatus.done,
+      expectedBytes: zip.bytes,
+    );
+    return bytes;
   }
 
   /// El nombre con que se guarda: el texto del enlace para un documento,
