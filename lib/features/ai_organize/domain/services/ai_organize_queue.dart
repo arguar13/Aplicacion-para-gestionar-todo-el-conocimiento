@@ -151,6 +151,9 @@ class AiOrganizeQueue {
 
   /// Cómo va el pedido de tarjetas, o `null` si no hay ninguno a la vista.
   AiFlashcardsBatch? _batch;
+
+  /// Cuál pedido es: cambia con cada pedido nuevo y al cancelar.
+  var _batchSerial = 0;
   var _cardsPaused = false;
   final void Function(AiFlashcardsBatch? batch)? _onFlashcardsBatch;
 
@@ -262,11 +265,12 @@ class AiOrganizeQueue {
     }
     if (added == 0) return;
     final batch = _batch;
-    _publishBatch(
-      batch == null || batch.finished
-          ? AiFlashcardsBatch(total: added, paused: _cardsPaused)
-          : batch.copyWith(total: batch.total + added),
-    );
+    if (batch == null || batch.finished) {
+      _batchSerial++;
+      _publishBatch(AiFlashcardsBatch(total: added, paused: _cardsPaused));
+    } else {
+      _publishBatch(batch.copyWith(total: batch.total + added));
+    }
     unawaited(wake());
   }
 
@@ -292,6 +296,7 @@ class AiOrganizeQueue {
     _cardRequests.clear();
     _anotherBatch.clear();
     _cardsPaused = false;
+    _batchSerial++;
     _publishBatch(null);
   }
 
@@ -587,73 +592,75 @@ class AiOrganizeQueue {
   /// el paso de tarjetas como `AiFlashcardMaker`. Un fallo se registra y el
   /// pedido sigue con el próximo; el elemento cuenta como mirado igual.
   Future<void> _makeFlashcards(String itemId) async {
+    // De qué pedido es: si lo cancelan y piden otro mientras este corre, lo
+    // que dé no se le suma al nuevo.
+    final batchOf = _batchSerial;
     final anotherBatch = _anotherBatch.remove(itemId);
-    final item = await _find(itemId);
-    final maker = _steps().whereType<AiFlashcardMaker>().firstOrNull;
-    if (item == null || maker == null) {
-      _cardDone(AiStepReport.nothing);
-      return;
-    }
-
-    final epoch = await _epoch();
-    final quietBefore = _clock().subtract(_noteQuietPeriod);
-    final pending = math.max(0, await _pending(epoch, quietBefore));
-    final batch = _batch;
-    if (batch != null) {
-      _publishBatch(batch.copyWith(currentTitle: () => item.title));
-    }
-    _onStatus(
-      AiOrganizeWorking(
-        itemTitle: item.title,
-        source: AiWorkSource.flashcardsRequest,
-        pending: pending,
-      ),
-    );
-    _keepAlive(AiWorkSource.flashcardsRequest, pending);
-
-    final runId =
-        (await _runs.startRun(
-          item.id,
-          model: _modelName?.call(),
-          flashcardsOnly: true,
-        )).fold((failure) {
-          _telemetry.recordError(
-            failure,
-            StackTrace.current,
-            hint: 'AiOrganizeQueue: no se pudo abrir la pasada de tarjetas',
-          );
-          return null;
-        }, (id) => id);
-    if (runId == null) {
-      _cardDone(AiStepReport.nothing);
-      return;
-    }
-
     var report = AiStepReport.nothing;
+    // Pase lo que pase, el elemento cuenta como mirado: un pedido que no
+    // llega nunca al final se quedaría «creando tarjetas» para siempre.
     try {
-      report = await maker.makeFlashcards(
-        item,
-        runId: runId,
-        anotherBatch: anotherBatch,
+      final item = await _find(itemId);
+      final maker = _steps().whereType<AiFlashcardMaker>().firstOrNull;
+      if (item == null || maker == null) return;
+
+      final epoch = await _epoch();
+      final quietBefore = _clock().subtract(_noteQuietPeriod);
+      final pending = math.max(0, await _pending(epoch, quietBefore));
+      final batch = _batch;
+      if (batch != null && batchOf == _batchSerial) {
+        _publishBatch(batch.copyWith(currentTitle: () => item.title));
+      }
+      _onStatus(
+        AiOrganizeWorking(
+          itemTitle: item.title,
+          source: AiWorkSource.flashcardsRequest,
+          pending: pending,
+        ),
       );
-      // Como un paso de la pasada entera: el modelo es de terceros y falla
-      // de formas sin un tipo propio. Lo que ya creó queda, con su pasada.
-    } on Object catch (e, stackTrace) {
-      _telemetry.recordError(
-        e,
-        stackTrace,
-        hint: 'AiOrganizeQueue: tarjetas en ${item.id}',
+      _keepAlive(AiWorkSource.flashcardsRequest, pending);
+
+      final runId =
+          (await _runs.startRun(
+            item.id,
+            model: _modelName?.call(),
+            flashcardsOnly: true,
+          )).fold((failure) {
+            _telemetry.recordError(
+              failure,
+              StackTrace.current,
+              hint: 'AiOrganizeQueue: no se pudo abrir la pasada de tarjetas',
+            );
+            return null;
+          }, (id) => id);
+      if (runId == null) return;
+
+      try {
+        report = await maker.makeFlashcards(
+          item,
+          runId: runId,
+          anotherBatch: anotherBatch,
+        );
+        // Como un paso de la pasada entera: el modelo es de terceros y falla
+        // de formas sin un tipo propio. Lo que ya creó queda, con su pasada.
+      } on Object catch (e, stackTrace) {
+        _telemetry.recordError(
+          e,
+          stackTrace,
+          hint: 'AiOrganizeQueue: tarjetas en ${item.id}',
+        );
+      }
+      (await _runs.finishRun(runId)).match(
+        (failure) => _telemetry.recordError(
+          failure,
+          StackTrace.current,
+          hint: 'AiOrganizeQueue: no se pudo cerrar la pasada de tarjetas',
+        ),
+        (_) {},
       );
+    } finally {
+      if (batchOf == _batchSerial) _cardDone(report);
     }
-    (await _runs.finishRun(runId)).match(
-      (failure) => _telemetry.recordError(
-        failure,
-        StackTrace.current,
-        hint: 'AiOrganizeQueue: no se pudo cerrar la pasada de tarjetas',
-      ),
-      (_) {},
-    );
-    _cardDone(report);
   }
 
   /// Un elemento del pedido de tarjetas, mirado: suma lo que dio.

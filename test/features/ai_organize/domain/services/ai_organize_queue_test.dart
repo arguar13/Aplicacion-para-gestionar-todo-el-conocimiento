@@ -58,6 +58,10 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
   /// Si está, el pedido de este elemento lanza.
   String? failsOn;
 
+  /// Si está, el pedido de [heldItem] espera a que se complete.
+  Completer<void>? hold;
+  String? heldItem;
+
   @override
   Future<AiStepReport> makeFlashcards(
     KnowledgeItem item, {
@@ -65,6 +69,7 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
     bool anotherBatch = false,
   }) async {
     made.add((itemId: item.id, runId: runId, anotherBatch: anotherBatch));
+    if (item.id == heldItem) await hold!.future;
     if (item.id == failsOn) throw StateError('sin memoria');
     return const AiStepReport(applied: 2, forReview: 1);
   }
@@ -812,6 +817,31 @@ void main() {
           hint: 'AiOrganizeQueue: tarjetas en v1',
         ),
       ).called(1);
+    });
+
+    test('cancelar a mitad y pedir otro: lo del primero no se le suma al '
+        'segundo', () async {
+      cards
+        ..hold = Completer<void>()
+        ..heldItem = 'v1';
+      final ai = queue();
+      await ai.start();
+
+      ai.makeFlashcards(['v1']);
+      while (cards.made.isEmpty) {
+        await pumpEventQueue();
+      }
+      ai
+        ..cancelFlashcards()
+        ..makeFlashcards(['v2']);
+      cards.hold!.complete();
+      await ai.settled;
+
+      expect(cards.made.map((m) => m.itemId), ['v1', 'v2']);
+      expect(
+        batches.last,
+        const AiFlashcardsBatch(total: 1, done: 1, created: 2, forReview: 1),
+      );
     });
 
     test('mantiene viva la app con el avance del pedido', () async {
