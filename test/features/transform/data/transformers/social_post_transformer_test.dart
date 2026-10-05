@@ -16,6 +16,7 @@ import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.
 import 'package:sinapsis/features/transform/domain/repositories/processing_checkpoints.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 
+import '../../../../support/attachment_test_doubles.dart';
 import '../../../../support/fake_audio_transcriber.dart';
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/in_memory_file_store.dart';
@@ -486,6 +487,67 @@ void main() {
       );
 
       expect(files.deleted.single, endsWith('.mp4'));
+    });
+  });
+
+  group('un carrusel (F30)', () {
+    test(
+      'la primera es la foto del elemento; las demás, al «Contenido»',
+      () async {
+        final attachments = FakeAttachmentRepository();
+        final transformer = SocialPostTransformer(
+          client: FakeSocialPostClient(
+            data: SocialPostData(
+              caption: 'Tres fotos',
+              imageUrl: Uri.parse('https://cdn.org/1.jpg'),
+              moreImages: [
+                Uri.parse('https://cdn.org/2.jpg'),
+                Uri.parse('https://cdn.org/3.jpg'),
+              ],
+            ),
+          ),
+          fetcher: FakeResourceFetcher(
+            byUrl: {
+              'https://cdn.org/1.jpg': Uint8List.fromList([1, 2]),
+            },
+          ),
+          files: files,
+          ids: ids,
+          clock: () => now,
+          logger: const SilentLogger(),
+          attachments: attachments,
+        );
+
+        final result = await transformer.transform(postItem());
+
+        expect(result.source.originalFilePath, isNotNull);
+        expect(
+          attachments.downloads.map((d) => (d.url.toString(), d.position)),
+          [('https://cdn.org/2.jpg', 1), ('https://cdn.org/3.jpg', 2)],
+        );
+        expect(
+          attachments.downloads.map((d) => d.kind),
+          everyElement(RenditionKind.image),
+        );
+      },
+    );
+
+    test('sin «Contenido» (la web), solo la primera, como antes', () async {
+      final result = await build(
+        client: FakeSocialPostClient(
+          data: SocialPostData(
+            imageUrl: Uri.parse('https://cdn.org/1.jpg'),
+            moreImages: [Uri.parse('https://cdn.org/2.jpg')],
+          ),
+        ),
+        fetcher: FakeResourceFetcher(
+          byUrl: {
+            'https://cdn.org/1.jpg': Uint8List.fromList([1]),
+          },
+        ),
+      ).transform(postItem());
+
+      expect(result.source.originalFilePath, isNotNull);
     });
   });
 }

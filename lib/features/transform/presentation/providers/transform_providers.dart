@@ -170,6 +170,10 @@ final transformerRegistryProvider = Provider<TransformerRegistry>((ref) {
       logger: ref.watch(appLoggerProvider),
       transcriber: ref.watch(audioTranscriberProvider),
       checkpoints: ref.watch(processingStateRepositoryProvider),
+      // Sin quien baje (la web), no se anota nada.
+      attachments: ref.watch(linkedFileFetcherProvider) == null
+          ? null
+          : ref.watch(attachmentRepositoryProvider),
     ),
     WebArticleTransformer(
       client: ref.watch(webPageClientProvider),

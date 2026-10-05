@@ -8,6 +8,8 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
+import 'package:sinapsis/features/attachments/domain/repositories/attachment_repository.dart';
 import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
 import 'package:sinapsis/features/transform/domain/clients/social_post_client.dart';
 import 'package:sinapsis/features/transform/domain/entities/timed_text.dart';
@@ -50,7 +52,9 @@ class SocialPostTransformer implements Transformer {
     required AppLogger logger,
     AudioTranscriber? transcriber,
     ProcessingCheckpoints? checkpoints,
-  }) : _client = client,
+    AttachmentRepository? attachments,
+  }) : _attachments = attachments,
+       _client = client,
        _fetcher = fetcher,
        _files = files,
        _ids = ids,
@@ -73,6 +77,10 @@ class SocialPostTransformer implements Transformer {
   /// Dónde se guardan los tramos ya transcritos, para retomar si se
   /// interrumpe (F21). `null`: se transcribe de un tirón.
   final ProcessingCheckpoints? _checkpoints;
+
+  /// El «Contenido» de los elementos (F30): las demás fotos de un carrusel
+  /// van ahí. `null` donde no se baja nada (la web).
+  final AttachmentRepository? _attachments;
 
   /// El tramo corto: la publicación y su video o su foto. Transcribir el
   /// audio del video es trabajo largo, pero no corre bajo este tope: antes
@@ -131,6 +139,22 @@ class SocialPostTransformer implements Transformer {
             extension: 'jpg',
           )
         : null;
+
+    // Las demás fotos de un carrusel van al «Contenido» (F30): la primera
+    // es la foto del elemento; las demás se bajan después, en la cola.
+    final attachments = _attachments;
+    if (videoPath == null &&
+        post.moreImages.isNotEmpty &&
+        attachments != null) {
+      await attachments.plan(item.id, [
+        for (final (index, image) in post.moreImages.indexed)
+          AttachmentCandidate(
+            url: image,
+            kind: RenditionKind.image,
+            position: index + 1,
+          ),
+      ]);
+    }
 
     final spoken = videoPath == null
         ? null

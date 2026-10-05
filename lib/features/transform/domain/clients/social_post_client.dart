@@ -10,6 +10,7 @@ class SocialPostData {
     this.authorName,
     this.videoUrl,
     this.imageUrl,
+    this.moreImages = const [],
   });
 
   final String? caption;
@@ -20,12 +21,18 @@ class SocialPostData {
   /// tiene video — de `og:image`, la misma etiqueta que arma la vista
   /// previa cuando se comparte el enlace en cualquier otra parte.
   ///
-  /// Un carrusel con varias fotos solo entrega esta, la primera: el HTML
-  /// público de la página no trae las demás sin iniciar sesión, ni con
-  /// Open Graph ni con el JSON propio de la plataforma — verlas todas
-  /// pediría la API privada de cada red, algo que queda fuera de lo que
-  /// este cliente puede raspar del HTML.
+  /// En un carrusel es la primera; las demás van en [moreImages].
   final Uri? imageUrl;
+
+  /// Las demás fotos de un carrusel, en orden, después de [imageUrl] (F30):
+  /// las de una publicación de fotos de TikTok (su `imagePost`), o las
+  /// demás `og:image` de una página que declara varias. Vacío si no hay
+  /// más.
+  ///
+  /// Instagram no las da: su HTML público trae solo la primera sin iniciar
+  /// sesión, ni con Open Graph ni con su JSON —verlas todas pediría la API
+  /// privada de la red, y lo que no es público no se baja—.
+  final List<Uri> moreImages;
 }
 
 /// Trae lo que se pueda de una publicación de una red social.

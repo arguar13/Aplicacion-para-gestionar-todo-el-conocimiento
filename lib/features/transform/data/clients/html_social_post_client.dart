@@ -76,14 +76,21 @@ class HtmlSocialPostClient implements SocialPostClient {
           : null;
       final author = item['author'];
       final username = author is Map ? author['uniqueId'] : null;
+      // Una publicación de fotos —un carrusel— trae cada una en
+      // `imagePost.images[].imageURL.urlList`, con la primera dirección
+      // como la buena (F30).
+      final photos = _tikTokPhotos(item['imagePost']);
+      final hasVideo = playAddr is String && playAddr.isNotEmpty;
 
       return SocialPostData(
         caption: item['desc'] is String ? item['desc'] as String : null,
         authorName: username is String ? username : null,
-        videoUrl: playAddr is String ? Uri.tryParse(playAddr) : null,
-        imageUrl: playAddr == null && cover is String
-            ? Uri.tryParse(cover)
-            : null,
+        videoUrl: hasVideo ? Uri.tryParse(playAddr) : null,
+        imageUrl: hasVideo
+            ? null
+            : photos.firstOrNull ??
+                  (cover is String ? Uri.tryParse(cover) : null),
+        moreImages: hasVideo ? const [] : photos.skip(1).toList(),
       );
       // El JSON de una plataforma ajena puede cambiar de forma sin aviso:
       // cualquier tropiezo acá —una clave que ya no está, un tipo distinto
@@ -96,6 +103,17 @@ class HtmlSocialPostClient implements SocialPostClient {
 
   /// Recorre un mapa anidado por una lista de claves, sin lanzar si alguna
   /// falta en el camino.
+  /// Las fotos de un `imagePost` de TikTok, en orden.
+  List<Uri> _tikTokPhotos(Object? imagePost) {
+    final images = imagePost is Map ? imagePost['images'] : null;
+    if (images is! List) return const [];
+    return [
+      for (final image in images)
+        if (_dig(image, ['imageURL', 'urlList']) case [final String first, ...])
+          ?Uri.tryParse(first),
+    ];
+  }
+
   Object? _dig(Object? node, List<String> path) {
     var current = node;
     for (final key in path) {
@@ -116,10 +134,14 @@ class HtmlSocialPostClient implements SocialPostClient {
     // Solo se guarda si no hay video: entre las dos, el video es el
     // contenido más completo, y `og:image` en una publicación con video
     // suele ser apenas un fotograma de portada, no algo que valga la pena
-    // guardar aparte.
-    final imageUrl = videoUrl == null
-        ? _metaContent(document, 'og:image')
-        : null;
+    // guardar aparte. Una página puede declarar varias `og:image` —un
+    // carrusel, una galería—: todas cuentan, en orden y sin repetir (F30).
+    final images = videoUrl == null
+        ? {
+            for (final image in _metaContents(document, 'og:image'))
+              ?Uri.tryParse(image),
+          }.toList()
+        : const <Uri>[];
 
     return SocialPostData(
       caption: _metaContent(document, 'og:description'),
@@ -127,7 +149,8 @@ class HtmlSocialPostClient implements SocialPostClient {
       // Sin desescapar otra vez: el parser ya tradujo las entidades, y una
       // segunda pasada convertía un "&amp;lt;" en "<".
       videoUrl: videoUrl != null ? Uri.tryParse(videoUrl) : null,
-      imageUrl: imageUrl != null ? Uri.tryParse(imageUrl) : null,
+      imageUrl: images.firstOrNull,
+      moreImages: images.skip(1).toList(),
     );
   }
 
@@ -135,10 +158,12 @@ class HtmlSocialPostClient implements SocialPostClient {
   /// entidades ya traducidas por el parser, sin importar en qué orden vengan
   /// los atributos —ambos órdenes aparecen en la práctica según la
   /// plataforma— ni con qué comillas.
-  String? _metaContent(Document document, String property) => document
+  String? _metaContent(Document document, String property) =>
+      _metaContents(document, property).firstOrNull;
+
+  Iterable<String> _metaContents(Document document, String property) => document
       .querySelectorAll('meta')
       .where((meta) => meta.attributes['property'] == property)
       .map((meta) => meta.attributes['content'])
-      .nonNulls
-      .firstOrNull;
+      .nonNulls;
 }

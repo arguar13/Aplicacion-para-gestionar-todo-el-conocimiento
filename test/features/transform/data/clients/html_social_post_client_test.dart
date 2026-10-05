@@ -265,4 +265,77 @@ void main() {
       },
     );
   });
+
+  group('carruseles (F30)', () {
+    test('las fotos de una publicación de fotos de TikTok, todas', () async {
+      const html = '''
+<html><head></head><body>
+<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">
+{"__DEFAULT_SCOPE__":{"webapp.video-detail":{"itemInfo":{"itemStruct":{
+  "desc":"Tres fotos",
+  "video":{"cover":"https://p16.tiktokcdn.com/portada.jpg"},
+  "imagePost":{"images":[
+    {"imageURL":{"urlList":["https://p16.tiktokcdn.com/1.jpg","https://otro/1.jpg"]}},
+    {"imageURL":{"urlList":["https://p16.tiktokcdn.com/2.jpg"]}},
+    {"imageURL":{"urlList":[]}},
+    {"imageURL":{"urlList":["https://p16.tiktokcdn.com/3.jpg"]}}
+  ]}
+}}}}}
+</script>
+</body></html>
+''';
+
+      final data = await build(
+        html,
+      ).fetchPost(Uri.parse('https://www.tiktok.com/@alguien/photo/123'));
+
+      expect(data.videoUrl, isNull);
+      expect(data.imageUrl, Uri.parse('https://p16.tiktokcdn.com/1.jpg'));
+      expect(data.moreImages, [
+        Uri.parse('https://p16.tiktokcdn.com/2.jpg'),
+        Uri.parse('https://p16.tiktokcdn.com/3.jpg'),
+      ]);
+    });
+
+    test(
+      'las og:image de una página que declara varias, sin repetir',
+      () async {
+        const html = '''
+<html><head>
+<meta property="og:image" content="https://x.org/1.jpg">
+<meta property="og:image" content="https://x.org/2.jpg">
+<meta property="og:image" content="https://x.org/1.jpg">
+<meta property="og:image" content="https://x.org/3.jpg">
+</head><body></body></html>
+''';
+
+        final data = await build(
+          html,
+        ).fetchPost(Uri.parse('https://x.org/post/1'));
+
+        expect(data.imageUrl, Uri.parse('https://x.org/1.jpg'));
+        expect(data.moreImages, [
+          Uri.parse('https://x.org/2.jpg'),
+          Uri.parse('https://x.org/3.jpg'),
+        ]);
+      },
+    );
+
+    test('con video, ninguna foto', () async {
+      const html = '''
+<html><head>
+<meta property="og:video" content="https://x.org/v.mp4">
+<meta property="og:image" content="https://x.org/1.jpg">
+<meta property="og:image" content="https://x.org/2.jpg">
+</head><body></body></html>
+''';
+
+      final data = await build(
+        html,
+      ).fetchPost(Uri.parse('https://x.org/post/1'));
+
+      expect(data.imageUrl, isNull);
+      expect(data.moreImages, isEmpty);
+    });
+  });
 }
