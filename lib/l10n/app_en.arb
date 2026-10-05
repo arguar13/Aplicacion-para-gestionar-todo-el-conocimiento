@@ -7103,6 +7103,156 @@
   "@keepWorkingOfferLater": {
     "description": "Offer button that closes it; the help stays in Settings (F29)."
   },
+  "contentSectionTitle": "Content",
+  "@contentSectionTitle": {
+    "description": "Título de la sección con los archivos bajados de una página: fotos, documentos, audios y videos (F30)."
+  },
+  "contentGroupDocuments": "Documents",
+  "@contentGroupDocuments": {
+    "description": "Grupo de documentos del «Contenido» (F30)."
+  },
+  "contentGroupAudios": "Audio",
+  "@contentGroupAudios": {
+    "description": "Grupo de audios del «Contenido» (F30)."
+  },
+  "contentGroupVideos": "Videos",
+  "@contentGroupVideos": {
+    "description": "Grupo de videos del «Contenido» (F30)."
+  },
+  "contentGroupImages": "Images",
+  "@contentGroupImages": {
+    "description": "Grupo de imágenes del «Contenido» (F30)."
+  },
+  "contentGroupOthers": "Other files",
+  "@contentGroupOthers": {
+    "description": "Grupo de los demás archivos del «Contenido» (F30)."
+  },
+  "contentSummary": "{count, plural, =1{1 file} other{{count} files}} · {size}",
+  "@contentSummary": {
+    "description": "Cuántos archivos tiene el «Contenido» y cuánto pesan (F30).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "contentOpen": "Open",
+  "@contentOpen": {
+    "description": "Abre un archivo del «Contenido» con la app que corresponda (F30)."
+  },
+  "contentReadText": "Read the text",
+  "@contentReadText": {
+    "description": "Abre el texto que se sacó de un archivo del «Contenido» (F30)."
+  },
+  "contentHasText": "Has text",
+  "@contentHasText": {
+    "description": "El archivo ya tiene su texto: lo extraído, la transcripción, lo leído (F30)."
+  },
+  "contentNoText": "No text",
+  "@contentNoText": {
+    "description": "Se intentó sacarle el texto al archivo y no tenía (F30)."
+  },
+  "contentTextPending": "Text pending",
+  "@contentTextPending": {
+    "description": "Todavía no se le sacó el texto al archivo (F30)."
+  },
+  "contentFrom": "From {host}",
+  "@contentFrom": {
+    "description": "De qué sitio se bajó el archivo (F30).",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "contentDownloading": "{count, plural, =1{1 file left to download} other{{count} files left to download}}",
+  "@contentDownloading": {
+    "description": "Lo que la cola todavía tiene que bajar de la página (F30).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contentLeftOut": "{count, plural, =1{1 file was left out} other{{count} files were left out}}: they did not fit in the {cap} limit per item.",
+  "@contentLeftOut": {
+    "description": "Lo que no entró en el tope por elemento (F30, decisión E).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "cap": {
+        "type": "String"
+      }
+    }
+  },
+  "contentLeftOutSize": "They weigh {size} in total.",
+  "@contentLeftOutSize": {
+    "description": "Cuánto pesa, si se sabe, lo que quedó afuera (F30).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "contentNoSpace": "{count, plural, =1{1 file was not downloaded} other{{count} files were not downloaded}}: there was no space on the phone.",
+  "@contentNoSpace": {
+    "description": "Lo que no se bajó por falta de espacio (F30).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contentFailed": "{count, plural, =1{1 file could not be downloaded} other{{count} files could not be downloaded}}: the site did not serve it, it was not a file or it is not public.",
+  "@contentFailed": {
+    "description": "Lo que no se pudo bajar (F30).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "contentDownloadRest": "Download the rest",
+  "@contentDownloadRest": {
+    "description": "Baja lo que quedó afuera del «Contenido», sin tope (F30, decisión E)."
+  },
+  "contentDownloadRestStarted": "Downloading the rest…",
+  "@contentDownloadRestStarted": {
+    "description": "Aviso al tocar «Bajar el resto» (F30)."
+  },
+  "contentOpenFailed": "The file could not be opened.",
+  "@contentOpenFailed": {
+    "description": "Error al abrir un archivo del «Contenido» (F30)."
+  },
+  "contentNoAppToOpen": "There is no app to open this file.",
+  "@contentNoAppToOpen": {
+    "description": "Ninguna app del teléfono abre ese tipo de archivo (F30)."
+  },
+  "settingsAttachmentCapTitle": "What is downloaded from a page",
+  "@settingsAttachmentCapTitle": {
+    "description": "Ajuste del tope por elemento del «Contenido» (F30, decisión E)."
+  },
+  "settingsAttachmentCapSubtitle": "Up to {size} per item; the rest is left for «Download the rest».",
+  "@settingsAttachmentCapSubtitle": {
+    "description": "Subtítulo del ajuste del tope por elemento (F30).",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAttachmentCapDialogTitle": "Limit per item",
+  "@settingsAttachmentCapDialogTitle": {
+    "description": "Título del diálogo para elegir el tope por elemento (F30)."
+  },
+  "settingsAttachmentCapDialogBody": "How much each page or post can download at most: its documents, audio, images and videos, in that order.",
+  "@settingsAttachmentCapDialogBody": {
+    "description": "Explicación del tope por elemento (F30)."
+  },
   "inboxLinkNameTaken": "There is already an item called “{title}” that is not a note: choose another name.",
   "@inboxLinkNameTaken": {
     "description": "Bandeja: al crear una nota viva desde el selector, el nombre ya lo usa una fuente.",

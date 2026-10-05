@@ -20,6 +20,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organized_line.dart';
+import 'package:sinapsis/features/attachments/presentation/widgets/item_content_section.dart';
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
@@ -403,6 +404,11 @@ class _DetailBodyState extends State<_DetailBody> {
                 // dos cosas se ve acá sin bajar.
                 const SizedBox(height: 16),
                 LocalGraphPanel(item: item),
+
+                // Lo que se bajó de la página, en su formato y con su texto
+                // (F30): arriba del texto, que puede ser un libro entero. Sin
+                // nada bajado ni por bajar, no ocupa lugar.
+                ItemContentSection(item: item),
 
                 // El texto, salvo mientras se vuelve a extraer: ahí el panel
                 // cuenta cómo va, y el viejo deja de verse.

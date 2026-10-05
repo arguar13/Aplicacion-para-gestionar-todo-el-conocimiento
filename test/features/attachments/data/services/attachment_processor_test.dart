@@ -147,7 +147,7 @@ void main() {
       expect(photo.sizeBytes, 2);
       expect(photo.kind, RenditionKind.image);
       // La barra llega al final de las bajadas, y después a la de los textos.
-    expect(context.progress, contains((2000, 2000)));
+      expect(context.progress, contains((2000, 2000)));
     },
   );
 
