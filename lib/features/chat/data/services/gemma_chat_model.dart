@@ -20,6 +20,7 @@ import 'package:sinapsis/features/flashcards/domain/services/quiz_question_gener
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_parser.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
@@ -157,6 +158,19 @@ const _topicParentSystemInstruction =
     'Si no va bajo ninguno, respondé exactamente: PADRE: ninguno. Nunca '
     'inventes un tema que no esté en la lista. No respondas nada más.';
 
+/// Mismo criterio que `_spaceChoiceSystemInstruction` (F30, «Crear con IA»):
+/// elegir en una lista numerada, en una sola línea de formato exacto, sin
+/// inventar nada. Para el cuaderno que pidió la persona, no para clasificar.
+const _notebookPicksSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es decidir cuáles '
+    'elementos de una lista numerada sirven para un cuaderno sobre el tema '
+    'que pide la persona, basándote ÚNICAMENTE en sus títulos y fragmentos. '
+    'Un elemento sirve si trata del tema o de una parte de él, aunque no lo '
+    'nombre igual. Respondé UNA sola línea con este formato exacto, sin '
+    'Markdown:\nVAN: <números de los que sirven, separados por comas>\nSi '
+    'ninguno sirve, respondé exactamente: VAN: ninguno. No respondas nada '
+    'más.';
+
 /// La introducción de una nota mapa (F27, el Atlas): lo mismo que
 /// `_summarizationSystemInstruction` —nada que no esté en lo que se le da,
 /// texto corrido— pero sobre títulos y fragmentos, y sin corchetes: los
@@ -247,6 +261,9 @@ const kChoiceReplyTokens = 48;
 /// La introducción de una nota mapa: dos o tres oraciones.
 const kMapIntroReplyTokens = 192;
 
+/// Una línea `VAN:` con los números de una tanda (`kNotebookJudgeBatch`).
+const kNotebookPicksReplyTokens = 64;
+
 /// Una guía de estudio, preguntas, un esquema o una cronología: lo más largo
 /// que se le pide, con la frase de origen de cada afirmación.
 const kDerivedNoteReplyTokens = 768;
@@ -294,7 +311,8 @@ class GemmaChatModel
         SummarizationService,
         PropertySuggestionService,
         DerivedNoteGenerator,
-        QuizQuestionGenerator {
+        QuizQuestionGenerator,
+        NotebookCandidateJudge {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA.
@@ -749,6 +767,36 @@ class GemmaChatModel
     });
   }
 
+  /// Cuáles de [candidates] van en un cuaderno sobre [topic] (F30, «Crear con
+  /// IA»): lo pide la persona, así que va con su turno.
+  @override
+  Future<Set<int>?> judgeNotebookCandidates({
+    required String topic,
+    required List<({String title, String excerpt})> candidates,
+  }) {
+    if (candidates.isEmpty) return Future.value(const <int>{});
+
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _notebookPicksSystemInstruction,
+        maxOutputTokens: kNotebookPicksReplyTokens,
+      );
+
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text: buildNotebookPicksPrompt(topic, candidates),
+            isUser: true,
+          ),
+        );
+        final text = await _generate(chat);
+        return parseNotebookPicks(text, count: candidates.length);
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
   @override
   Future<DerivedNoteDraft> generateDerivedNote({
     required DerivedNoteType type,
@@ -882,6 +930,31 @@ String _buildDerivedPrompt(List<ChatSource> sources) {
   ].join('\n\n');
 
   return 'Fuentes:\n$context';
+}
+
+/// El pedido de «Crear con IA» (F30): el tema, de hasta 200 caracteres, y la
+/// lista numerada con el título y el fragmento de cada uno, ya cortos
+/// (`kNotebookExcerptChars`): una tanda entra holgada en la ventana.
+String buildNotebookPicksPrompt(
+  String topic,
+  List<({String title, String excerpt})> candidates,
+) {
+  final shortTopic = topic.trim().length <= 200
+      ? topic.trim()
+      : topic.trim().substring(0, 200);
+  final list = [
+    for (final (i, c) in candidates.indexed)
+      [
+        '${i + 1}. ${_short(c.title, 120)}',
+        _short(c.excerpt, kNotebookExcerptChars),
+      ].join('\n'),
+  ].join('\n\n');
+  return 'Tema del cuaderno: $shortTopic\n\nElementos:\n$list';
+}
+
+String _short(String text, int max) {
+  final trimmed = text.trim();
+  return trimmed.length <= max ? trimmed : '${trimmed.substring(0, max)}…';
 }
 
 /// La persona pidió el modelo mientras la cola de la IA lo usaba: el trabajo

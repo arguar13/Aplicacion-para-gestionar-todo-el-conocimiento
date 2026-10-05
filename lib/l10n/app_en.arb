@@ -7727,5 +7727,136 @@
   "pickItemsAlreadyIn": "Already in",
   "@pickItemsAlreadyIn": {
     "description": "Selector de varios elementos (F30): debajo de uno que ya está en el cuaderno."
+  },
+  "notebooksNewAction": "New notebook",
+  "@notebooksNewAction": {
+    "description": "Cuadernos (F30): el botón flotante y el título de la hoja que pregunta cómo crearlo."
+  },
+  "notebooksNewWithAi": "Create with AI",
+  "@notebooksNewWithAi": {
+    "description": "Cuadernos (F30): crear un cuaderno contándole a la IA de qué es."
+  },
+  "notebooksNewWithAiHint": "Say what it is about and the AI finds what fits in your library.",
+  "@notebooksNewWithAiHint": {
+    "description": "Cuadernos (F30): debajo de «Crear con IA»."
+  },
+  "notebooksNewManual": "By hand",
+  "@notebooksNewManual": {
+    "description": "Cuadernos (F30): crear un cuaderno eligiendo uno los elementos, o con una vista guardada."
+  },
+  "notebooksNewManualHint": "Pick the items yourself, or let a saved view decide.",
+  "@notebooksNewManualHint": {
+    "description": "Cuadernos (F30): debajo de «A mano»."
+  },
+  "aiNotebookTitle": "Create a notebook with AI",
+  "@aiNotebookTitle": {
+    "description": "Crear con IA (F30): el título de la hoja."
+  },
+  "aiNotebookIntro": "Say what the notebook is about. The AI searches your library and suggests items, already checked: uncheck what doesn't fit and you're done.",
+  "@aiNotebookIntro": {
+    "description": "Crear con IA (F30): qué hace."
+  },
+  "aiNotebookTopicHint": "For example: my thesis on Rome",
+  "@aiNotebookTopicHint": {
+    "description": "Crear con IA (F30): el ejemplo en el campo de qué es el cuaderno."
+  },
+  "aiNotebookSearch": "Search",
+  "@aiNotebookSearch": {
+    "description": "Crear con IA (F30): el botón que busca."
+  },
+  "aiNotebookSenseOn": "Searches by words and by meaning.",
+  "@aiNotebookSenseOn": {
+    "description": "Crear con IA (F30): con el modelo de vínculos bajado."
+  },
+  "aiNotebookSenseOff": "Searches by words. With the links model it would also search by meaning.",
+  "@aiNotebookSenseOff": {
+    "description": "Crear con IA (F30): sin el modelo de vínculos."
+  },
+  "aiNotebookReviewOn": "The AI reviews what it finds and checks what fits.",
+  "@aiNotebookReviewOn": {
+    "description": "Crear con IA (F30): con el modelo de lenguaje bajado."
+  },
+  "aiNotebookReviewOff": "Without the language model, the items that match the search stay checked.",
+  "@aiNotebookReviewOff": {
+    "description": "Crear con IA (F30): sin el modelo de lenguaje."
+  },
+  "aiNotebookSearching": "Searching your library…",
+  "@aiNotebookSearching": {
+    "description": "Crear con IA (F30): mientras busca."
+  },
+  "aiNotebookNothing": "I found nothing about “{topic}” in your library.",
+  "@aiNotebookNothing": {
+    "description": "Crear con IA (F30): la búsqueda no encontró nada.",
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "aiNotebookTryOther": "Try other words",
+  "@aiNotebookTryOther": {
+    "description": "Crear con IA (F30): volver a escribir de qué es."
+  },
+  "aiNotebookChangeSearch": "Change the search",
+  "@aiNotebookChangeSearch": {
+    "description": "Crear con IA (F30): el botón de volver, en lo encontrado."
+  },
+  "aiNotebookFound": "{count, plural, =1{1 suggested item} other{{count} suggested items}}",
+  "@aiNotebookFound": {
+    "description": "Crear con IA (F30): el título de lo encontrado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiNotebookNameLabel": "Notebook name",
+  "@aiNotebookNameLabel": {
+    "description": "Crear con IA (F30): el campo del nombre, ya propuesto."
+  },
+  "aiNotebookReviewing": "The AI is reviewing the suggestions ({reviewed} of {total})",
+  "@aiNotebookReviewing": {
+    "description": "Crear con IA (F30): la revisión, por tandas.",
+    "placeholders": {
+      "reviewed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "aiNotebookReviewed": "Reviewed by the AI: the ones that fit are checked.",
+  "@aiNotebookReviewed": {
+    "description": "Crear con IA (F30): la revisión terminó."
+  },
+  "aiNotebookReviewFailed": "The AI couldn't finish reviewing: the rest stayed as the search checked them.",
+  "@aiNotebookReviewFailed": {
+    "description": "Crear con IA (F30): la revisión falló a mitad."
+  },
+  "aiNotebookNotReviewed": "The items that match your search are checked.",
+  "@aiNotebookNotReviewed": {
+    "description": "Crear con IA (F30): sin el modelo de lenguaje, nadie revisó."
+  },
+  "aiNotebookSenseFailed": "Searching by meaning failed: it searched by words only.",
+  "@aiNotebookSenseFailed": {
+    "description": "Crear con IA (F30): el modelo de vínculos falló al buscar."
+  },
+  "aiNotebookFits": "The AI says it fits",
+  "@aiNotebookFits": {
+    "description": "Crear con IA (F30): debajo de un elemento que la IA aprobó."
+  },
+  "aiNotebookDoesNotFit": "The AI doesn't see it on topic",
+  "@aiNotebookDoesNotFit": {
+    "description": "Crear con IA (F30): debajo de un elemento que la IA no aprobó."
+  },
+  "aiNotebookCreate": "{count, plural, =0{Check at least one} =1{Create with 1 item} other{Create with {count} items}}",
+  "@aiNotebookCreate": {
+    "description": "Crear con IA (F30): el botón que crea el cuaderno.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

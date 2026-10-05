@@ -6709,5 +6709,136 @@
   "pickItemsAlreadyIn": "Ya está",
   "@pickItemsAlreadyIn": {
     "description": "Selector de varios elementos (F30): debajo de uno que ya está en el cuaderno."
+  },
+  "notebooksNewAction": "Nuevo cuaderno",
+  "@notebooksNewAction": {
+    "description": "Cuadernos (F30): el botón flotante y el título de la hoja que pregunta cómo crearlo."
+  },
+  "notebooksNewWithAi": "Crear con IA",
+  "@notebooksNewWithAi": {
+    "description": "Cuadernos (F30): crear un cuaderno contándole a la IA de qué es."
+  },
+  "notebooksNewWithAiHint": "Contás de qué lo querés y la IA busca en tu biblioteca lo que va.",
+  "@notebooksNewWithAiHint": {
+    "description": "Cuadernos (F30): debajo de «Crear con IA»."
+  },
+  "notebooksNewManual": "A mano",
+  "@notebooksNewManual": {
+    "description": "Cuadernos (F30): crear un cuaderno eligiendo uno los elementos, o con una vista guardada."
+  },
+  "notebooksNewManualHint": "Elegís vos los elementos, o que una vista guardada los decida.",
+  "@notebooksNewManualHint": {
+    "description": "Cuadernos (F30): debajo de «A mano»."
+  },
+  "aiNotebookTitle": "Crear un cuaderno con IA",
+  "@aiNotebookTitle": {
+    "description": "Crear con IA (F30): el título de la hoja."
+  },
+  "aiNotebookIntro": "Contá de qué querés el cuaderno. La IA busca en tu biblioteca y te propone los elementos ya marcados: sacás lo que no va y listo.",
+  "@aiNotebookIntro": {
+    "description": "Crear con IA (F30): qué hace."
+  },
+  "aiNotebookTopicHint": "Por ejemplo: mi tesis sobre Roma",
+  "@aiNotebookTopicHint": {
+    "description": "Crear con IA (F30): el ejemplo en el campo de qué es el cuaderno."
+  },
+  "aiNotebookSearch": "Buscar",
+  "@aiNotebookSearch": {
+    "description": "Crear con IA (F30): el botón que busca."
+  },
+  "aiNotebookSenseOn": "Busca por palabras y por sentido.",
+  "@aiNotebookSenseOn": {
+    "description": "Crear con IA (F30): con el modelo de vínculos bajado."
+  },
+  "aiNotebookSenseOff": "Busca por palabras. Con el modelo de vínculos buscaría también por sentido.",
+  "@aiNotebookSenseOff": {
+    "description": "Crear con IA (F30): sin el modelo de vínculos."
+  },
+  "aiNotebookReviewOn": "La IA revisa lo que encuentra y marca lo que va.",
+  "@aiNotebookReviewOn": {
+    "description": "Crear con IA (F30): con el modelo de lenguaje bajado."
+  },
+  "aiNotebookReviewOff": "Sin el modelo de lenguaje, quedan marcados los que coinciden con la búsqueda.",
+  "@aiNotebookReviewOff": {
+    "description": "Crear con IA (F30): sin el modelo de lenguaje."
+  },
+  "aiNotebookSearching": "Buscando en tu biblioteca…",
+  "@aiNotebookSearching": {
+    "description": "Crear con IA (F30): mientras busca."
+  },
+  "aiNotebookNothing": "No encontré nada sobre «{topic}» en tu biblioteca.",
+  "@aiNotebookNothing": {
+    "description": "Crear con IA (F30): la búsqueda no encontró nada.",
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "aiNotebookTryOther": "Probar con otras palabras",
+  "@aiNotebookTryOther": {
+    "description": "Crear con IA (F30): volver a escribir de qué es."
+  },
+  "aiNotebookChangeSearch": "Cambiar la búsqueda",
+  "@aiNotebookChangeSearch": {
+    "description": "Crear con IA (F30): el botón de volver, en lo encontrado."
+  },
+  "aiNotebookFound": "{count, plural, =1{1 elemento propuesto} other{{count} elementos propuestos}}",
+  "@aiNotebookFound": {
+    "description": "Crear con IA (F30): el título de lo encontrado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiNotebookNameLabel": "Nombre del cuaderno",
+  "@aiNotebookNameLabel": {
+    "description": "Crear con IA (F30): el campo del nombre, ya propuesto."
+  },
+  "aiNotebookReviewing": "La IA está revisando lo propuesto ({reviewed} de {total})",
+  "@aiNotebookReviewing": {
+    "description": "Crear con IA (F30): la revisión, por tandas.",
+    "placeholders": {
+      "reviewed": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "aiNotebookReviewed": "Revisado por la IA: están marcados los que van.",
+  "@aiNotebookReviewed": {
+    "description": "Crear con IA (F30): la revisión terminó."
+  },
+  "aiNotebookReviewFailed": "La IA no pudo terminar de revisar: lo que faltaba quedó como lo marcó la búsqueda.",
+  "@aiNotebookReviewFailed": {
+    "description": "Crear con IA (F30): la revisión falló a mitad."
+  },
+  "aiNotebookNotReviewed": "Están marcados los que coinciden con tu búsqueda.",
+  "@aiNotebookNotReviewed": {
+    "description": "Crear con IA (F30): sin el modelo de lenguaje, nadie revisó."
+  },
+  "aiNotebookSenseFailed": "La búsqueda por sentido falló: se buscó solo por palabras.",
+  "@aiNotebookSenseFailed": {
+    "description": "Crear con IA (F30): el modelo de vínculos falló al buscar."
+  },
+  "aiNotebookFits": "La IA dice que va",
+  "@aiNotebookFits": {
+    "description": "Crear con IA (F30): debajo de un elemento que la IA aprobó."
+  },
+  "aiNotebookDoesNotFit": "La IA no lo ve del tema",
+  "@aiNotebookDoesNotFit": {
+    "description": "Crear con IA (F30): debajo de un elemento que la IA no aprobó."
+  },
+  "aiNotebookCreate": "{count, plural, =0{Marcá al menos uno} =1{Crear con 1 elemento} other{Crear con {count} elementos}}",
+  "@aiNotebookCreate": {
+    "description": "Crear con IA (F30): el botón que crea el cuaderno.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

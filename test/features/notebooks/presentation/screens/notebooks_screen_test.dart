@@ -6,8 +6,10 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
@@ -16,12 +18,36 @@ import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
 
+/// Lo que «encuentra» Crear con IA: lo que la prueba le da.
+class _FakeFinder implements NotebookCandidateFinder {
+  List<NotebookCandidate> candidates = const [];
+  final topics = <String>[];
+
+  @override
+  Future<NotebookSearchResult> find(
+    String topic, {
+    int limit = kNotebookCandidateLimit,
+  }) async {
+    topics.add(topic);
+    return NotebookSearchResult(
+      candidates: candidates,
+      senseSearch: SenseSearch.unavailable,
+    );
+  }
+}
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
+  late _FakeFinder finder;
 
   setUp(() async {
-    harness = await LibraryHarness.create();
+    finder = _FakeFinder();
+    harness = await LibraryHarness.create(
+      extraOverrides: [
+        notebookCandidateFinderProvider.overrideWithValue(finder),
+      ],
+    );
   });
 
   GoRouter router() => GoRouter(
@@ -73,7 +99,9 @@ void main() {
     testWidgets('crear uno manual lo deja en la lista', (tester) async {
       await pumpNotebooks(tester);
 
-      await tester.tap(find.text(es.notebooksCreateAction).first);
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('notebook-new-manual')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('notebook-name-field')),
@@ -90,7 +118,9 @@ void main() {
         'disponible', (tester) async {
       await pumpNotebooks(tester);
 
-      await tester.tap(find.text(es.notebooksCreateAction).first);
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('notebook-new-manual')));
       await tester.pumpAndSettle();
 
       expect(
@@ -103,6 +133,95 @@ void main() {
             .enabled,
         isFalse,
       );
+    });
+
+    testWidgets('«Crear con IA»: se escribe de qué es, se destilda o tilda lo '
+        'propuesto y se crea con los marcados (F30)', (tester) async {
+      await harness.capture('El foro romano');
+      await harness.capture('El Senado');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final foro = items.firstWhere((i) => i.title == 'El foro romano');
+      final senado = items.firstWhere((i) => i.title == 'El Senado');
+      finder.candidates = [
+        NotebookCandidate(
+          itemId: foro.id,
+          title: foro.title,
+          excerpt: 'El centro de Roma.',
+          kind: SourceKind.webPage,
+          matchedText: true,
+        ),
+        NotebookCandidate(
+          itemId: senado.id,
+          title: senado.title,
+          excerpt: 'Trescientos miembros.',
+          kind: SourceKind.webPage,
+          similarity: 0.5,
+        ),
+      ];
+
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('notebook-new-ai')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('ai-notebook-topic')),
+        'mi tesis sobre Roma',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('ai-notebook-search')));
+      await tester.pumpAndSettle();
+
+      expect(finder.topics, ['mi tesis sobre Roma']);
+      expect(find.text(es.aiNotebookFound(2)), findsOneWidget);
+      expect(find.text('Mi tesis sobre Roma'), findsOneWidget);
+      // Sin el modelo de lenguaje: marcado lo que encontraron las palabras.
+      expect(find.text(es.aiNotebookNotReviewed), findsOneWidget);
+      CheckboxListTile tile(String id) => tester.widget<CheckboxListTile>(
+        find.byKey(Key('ai-notebook-pick-$id')),
+      );
+      expect(tile(foro.id).value, isTrue);
+      expect(tile(senado.id).value, isFalse);
+
+      await tester.tap(find.byKey(Key('ai-notebook-pick-${senado.id}')));
+      await tester.pump();
+      expect(find.text(es.aiNotebookCreate(2)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('ai-notebook-create')));
+      await tester.pumpAndSettle();
+
+      // Se abre el cuaderno nuevo, con los dos.
+      expect(find.text('Mi tesis sobre Roma'), findsOneWidget);
+      expect(find.text('El foro romano'), findsOneWidget);
+      expect(find.text('El Senado'), findsOneWidget);
+      final notebook =
+          (await harness.database.select(harness.database.notebooks).get())
+              .single;
+      expect(notebook.mode, NotebookMode.manual);
+      expect(
+        (await harness.container
+                .read(notebookRepositoryProvider)
+                .resolveQuery(notebook.id))
+            .ids,
+        {foro.id, senado.id},
+      );
+    });
+
+    testWidgets('sin ningún cuaderno, «Crear con IA» está a mano (F30)', (
+      tester,
+    ) async {
+      await pumpNotebooks(tester);
+
+      await tester.tap(find.byKey(const Key('notebooks-empty-ai')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiNotebookTitle), findsOneWidget);
+      expect(find.text(es.aiNotebookSenseOff), findsOneWidget);
+      expect(find.text(es.aiNotebookReviewOff), findsOneWidget);
     });
 
     testWidgets('borrar un cuaderno lo saca de la lista', (tester) async {

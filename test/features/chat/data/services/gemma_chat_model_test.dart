@@ -109,6 +109,30 @@ void main() {
     expect(model.chats.single.closed, isTrue);
   });
 
+  test('«Crear con IA» le pregunta cuáles van, con la lista numerada, y lee '
+      'su línea VAN (F30)', () async {
+    model = FakeInferenceModel(
+      newChat: (n) =>
+          FakeInferenceChat(id: n, answer: (_, _) => ['VAN: 1, ', '3']),
+    );
+
+    final picks = await gemma.judgeNotebookCandidates(
+      topic: 'mi tesis sobre Roma',
+      candidates: [
+        (title: 'El foro', excerpt: 'El centro de Roma.'),
+        (title: 'Recetas', excerpt: 'Una torta.'),
+        (title: 'El Senado', excerpt: 'Trescientos miembros.'),
+      ],
+    );
+
+    expect(picks, {0, 2});
+    expect(model.opened.single.maxOutputTokens, kNotebookPicksReplyTokens);
+    final sent = model.chats.single.received.single;
+    expect(sent, startsWith('Tema del cuaderno: mi tesis sobre Roma'));
+    expect(sent, contains('3. El Senado\nTrescientos miembros.'));
+    expect(model.chats.single.closed, isTrue);
+  });
+
   test('si la persona pide el modelo mientras la cola escribe, la cola se '
       'corta y repite su paso entero despuÃ©s (F30)', () async {
     model = FakeInferenceModel(
