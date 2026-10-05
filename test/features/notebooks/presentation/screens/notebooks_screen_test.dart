@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/library_view_mode.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -140,6 +141,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Un artículo cualquiera'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pick-items-confirm')));
+      await tester.pumpAndSettle();
 
       expect(find.text('Un artículo cualquiera'), findsOneWidget);
 
@@ -155,6 +158,56 @@ void main() {
               .getRight()
               .toNullable()!;
       expect(items, hasLength(1));
+    });
+
+    testWidgets('se agregan varios a la vez, y los que ya están se ven '
+        'marcados sin poder tocarlos (F30)', (tester) async {
+      await harness.capture('Roma antigua');
+      await harness.capture('El Senado');
+      await harness.capture('Las guerras púnicas');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      KnowledgeItem titled(String title) =>
+          items.firstWhere((i) => i.title == title);
+      final first = titled('Roma antigua');
+      final second = titled('El Senado');
+      final third = titled('Las guerras púnicas');
+      final repository = harness.container.read(notebookRepositoryProvider);
+      final notebook = await repository.create(
+        name: 'Roma',
+        mode: NotebookMode.manual,
+      );
+      await repository.addItem(notebookId: notebook.id, itemId: first.id);
+
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(Key('notebook-${notebook.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+
+      final already = tester.widget<CheckboxListTile>(
+        find.byKey(Key('pick-items-${first.id}')),
+      );
+      expect(already.value, isTrue);
+      expect(already.onChanged, isNull);
+      expect(find.text(es.pickItemsAlreadyIn), findsOneWidget);
+
+      await tester.tap(find.byKey(Key('pick-items-${second.id}')));
+      await tester.tap(find.byKey(Key('pick-items-${third.id}')));
+      await tester.pump();
+      expect(find.text(es.pickItemsAdd(2)), findsOneWidget);
+      await tester.tap(find.byKey(const Key('pick-items-confirm')));
+      await tester.pumpAndSettle();
+
+      expect((await repository.resolveQuery(notebook.id)).ids, {
+        first.id,
+        second.id,
+        third.id,
+      });
     });
 
     testWidgets('renombrar cambia el título de la pantalla', (tester) async {

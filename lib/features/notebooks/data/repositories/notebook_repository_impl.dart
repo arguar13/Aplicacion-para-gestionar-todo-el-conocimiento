@@ -146,6 +146,27 @@ class NotebookRepositoryImpl implements NotebookRepository {
   }
 
   @override
+  Future<void> addItems({
+    required String notebookId,
+    required Iterable<String> itemIds,
+  }) async {
+    final ids = itemIds.toSet();
+    if (ids.isEmpty) return;
+    await _db.transaction(() async {
+      await _db.batch((batch) {
+        batch.insertAll(_db.notebookItems, [
+          for (final itemId in ids)
+            NotebookItemsCompanion.insert(
+              notebookId: notebookId,
+              itemId: itemId,
+            ),
+        ], mode: InsertMode.insertOrIgnore);
+      });
+      await _touch(notebookId);
+    });
+  }
+
+  @override
   Future<void> removeItem({
     required String notebookId,
     required String itemId,

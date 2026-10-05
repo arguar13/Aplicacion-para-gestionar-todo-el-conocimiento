@@ -133,3 +133,129 @@ class _PickItemDialogState extends ConsumerState<PickItemDialog> {
     );
   }
 }
+
+/// Elige VARIOS elementos a la vez, buscando en toda la biblioteca (F30): lo
+/// que necesita un cuaderno para no agregar de a uno.
+///
+/// Lo elegido se mantiene aunque se cambie la búsqueda: se puede buscar
+/// «Roma», marcar tres, buscar «Senado» y marcar dos más. [alreadyIn] son los
+/// que ya están —se ven marcados y no se pueden tocar—. Devuelve los nuevos
+/// elegidos, o `null` si se canceló.
+class PickItemsDialog extends ConsumerStatefulWidget {
+  const PickItemsDialog({
+    required this.title,
+    this.alreadyIn = const {},
+    super.key,
+  });
+
+  final String title;
+  final Set<String> alreadyIn;
+
+  @override
+  ConsumerState<PickItemsDialog> createState() => _PickItemsDialogState();
+}
+
+class _PickItemsDialogState extends ConsumerState<PickItemsDialog> {
+  final _controller = TextEditingController();
+  final _chosen = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final searchText = _controller.text.trim();
+    final items =
+        ref
+            .watch(
+              libraryItemsProvider(
+                LibraryQuery(
+                  searchText: searchText.isEmpty ? null : searchText,
+                ),
+              ),
+            )
+            .valueOrNull ??
+        const <KnowledgeItem>[];
+
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 420,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: l10n.pickItemSearchHint,
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        searchText.isEmpty
+                            ? l10n.pickItemNoOthers
+                            : l10n.pickItemNoMatches(searchText),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: items.length,
+                      itemBuilder: (context, index) =>
+                          _tile(l10n, items[index]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          key: const Key('pick-items-confirm'),
+          onPressed: _chosen.isEmpty
+              ? null
+              : () => Navigator.of(context).pop(Set.of(_chosen)),
+          child: Text(l10n.pickItemsAdd(_chosen.length)),
+        ),
+      ],
+    );
+  }
+
+  Widget _tile(AppLocalizations l10n, KnowledgeItem item) {
+    final inside = widget.alreadyIn.contains(item.id);
+    return CheckboxListTile(
+      key: Key('pick-items-${item.id}'),
+      value: inside || _chosen.contains(item.id),
+      onChanged: inside
+          ? null
+          : (checked) => setState(() {
+              if (checked ?? false) {
+                _chosen.add(item.id);
+              } else {
+                _chosen.remove(item.id);
+              }
+            }),
+      secondary: Icon(item.source.kind.icon),
+      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: inside ? Text(l10n.pickItemsAlreadyIn) : null,
+    );
+  }
+}

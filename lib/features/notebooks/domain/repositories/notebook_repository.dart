@@ -34,6 +34,14 @@ abstract interface class NotebookRepository {
   /// no es un error: no hace nada.
   Future<void> addItem({required String notebookId, required String itemId});
 
+  /// [addItem] para varios a la vez (F30): una sola transacción —todos o
+  /// ninguno— y un solo aviso a quien mira el cuaderno, no uno por elemento.
+  /// Los que ya estaban adentro no cambian nada.
+  Future<void> addItems({
+    required String notebookId,
+    required Iterable<String> itemIds,
+  });
+
   /// Saca [itemId] de un cuaderno [NotebookMode.manual]. El elemento sigue
   /// existiendo en la bóveda; solo deja de contar como parte de este
   /// cuaderno.

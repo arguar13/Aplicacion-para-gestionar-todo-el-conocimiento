@@ -109,6 +109,54 @@ void main() {
       expect((await repository.resolveQuery(notebook.id)).ids, {'a'});
     });
 
+    test('addItems agrega varios de una vez, con un solo aviso, y los que '
+        'ya estaban no cambian nada (F30)', () async {
+      await insertItemRows(db, id: 'a', title: 'Uno');
+      await insertItemRows(db, id: 'b', title: 'Dos');
+      await insertItemRows(db, id: 'c', title: 'Tres');
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+      await repository.addItem(notebookId: notebook.id, itemId: 'a');
+
+      final emitted = <Set<String>>[];
+      final subscription = repository
+          .watchItemIds(notebook.id)
+          .listen(emitted.add);
+      await pumpEventQueue();
+      now = DateTime(2026, 9, 24, 12);
+
+      await repository.addItems(
+        notebookId: notebook.id,
+        itemIds: ['a', 'b', 'c', 'b'],
+      );
+      await pumpEventQueue();
+      await subscription.cancel();
+
+      expect((await repository.resolveQuery(notebook.id)).ids, {'a', 'b', 'c'});
+      expect(emitted, [
+        {'a'},
+        {'a', 'b', 'c'},
+      ]);
+      expect((await repository.watchAll().first).single.updatedAt, now);
+    });
+
+    test('addItems sin ninguno no toca el cuaderno', () async {
+      final notebook = await repository.create(
+        name: 'A mano',
+        mode: NotebookMode.manual,
+      );
+      now = DateTime(2026, 9, 24, 12);
+
+      await repository.addItems(notebookId: notebook.id, itemIds: const []);
+
+      expect(
+        (await repository.watchAll().first).single.updatedAt,
+        DateTime(2026, 9, 24, 10),
+      );
+    });
+
     test('agregar o sacar un elemento actualiza `updatedAt`', () async {
       await insertItemRows(db, id: 'a', title: 'Uno');
       final notebook = await repository.create(

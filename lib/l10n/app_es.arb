@@ -6692,5 +6692,22 @@
   "reviewPracticeStop": "Terminar",
   "@reviewPracticeStop": {
     "description": "Practicar igual: volver a Repasar. (F30)"
+  },
+  "notebookDetailAddItems": "Agregar elementos",
+  "@notebookDetailAddItems": {
+    "description": "Tooltip y título del selector para agregar varios elementos a la vez a un cuaderno manual. (F30)"
+  },
+  "pickItemsAdd": "{count, plural, =0{Agregar} =1{Agregar 1} other{Agregar {count}}}",
+  "@pickItemsAdd": {
+    "description": "Selector de varios elementos (F30): el botón que agrega los elegidos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pickItemsAlreadyIn": "Ya está",
+  "@pickItemsAlreadyIn": {
+    "description": "Selector de varios elementos (F30): debajo de uno que ya está en el cuaderno."
   }
 }

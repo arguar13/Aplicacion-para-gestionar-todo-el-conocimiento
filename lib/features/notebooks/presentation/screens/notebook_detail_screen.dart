@@ -56,7 +56,7 @@ class NotebookDetailScreen extends ConsumerWidget {
       floatingActionButton: notebook.mode == NotebookMode.manual
           ? FloatingActionButton(
               onPressed: () => _addItem(context, ref, notebook),
-              tooltip: l10n.notebookDetailAddItem,
+              tooltip: l10n.notebookDetailAddItems,
               child: const Icon(Icons.add),
             )
           : null,
@@ -133,14 +133,19 @@ class NotebookDetailScreen extends ConsumerWidget {
     Notebook notebook,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final itemId = await showDialog<String>(
+    final inside =
+        ref.read(notebookItemIdsProvider(notebook.id)).valueOrNull ?? const {};
+    final itemIds = await showDialog<Set<String>>(
       context: context,
-      builder: (context) => PickItemDialog(title: l10n.notebookDetailAddItem),
+      builder: (context) => PickItemsDialog(
+        title: l10n.notebookDetailAddItems,
+        alreadyIn: inside,
+      ),
     );
-    if (itemId == null) return;
+    if (itemIds == null || itemIds.isEmpty) return;
     await ref
         .read(notebookRepositoryProvider)
-        .addItem(notebookId: notebook.id, itemId: itemId);
+        .addItems(notebookId: notebook.id, itemIds: itemIds);
   }
 }
 
