@@ -627,7 +627,11 @@ sola.
 - **Tarjetas de repaso.** Arma las tarjetas de cada elemento, ancladas a la
   parte del texto de donde salen, y entran solas a tu repaso. Cuántas
   depende del largo: 3 para un artículo corto y más cuanto más largo, hasta
-  12 para un libro o un video de más de una hora.
+  12 para un libro o un video de más de una hora. Cada tarjeta dice de qué
+  frase sale; si la IA la cambia un poco al copiarla, igual la encuentra en
+  el texto. La que no encuentra en ningún lado —puede ser inventada— no
+  entra sola a tu repaso: te la deja en **"Para revisar"**, con su pregunta
+  y su respuesta, para que la aceptes o la descartes.
 - **Etiquetas y propiedades.** Si el valor ya existe en tu
   vocabulario, lo pone directamente; si sería uno nuevo, te lo deja en
   "Para revisar": inventar una palabra para tu vocabulario es justo lo que
@@ -672,7 +676,8 @@ falta un modelo. Debajo:
 
 - **"Para revisar"**: lo que la IA no aplicó porque no estaba segura —un
   vínculo dudoso, un valor nuevo para tu vocabulario, los datos de una
-  referencia—, agrupado por elemento. Cada cosa tiene **"Aceptar"** y
+  referencia, una tarjeta cuya frase no encontró en el texto—, agrupado por
+  elemento. Aceptar una tarjeta la suma a tu repaso como tuya. Cada cosa tiene **"Aceptar"** y
   **"Descartar"**, y arriba están **"Aceptar todo"** y **"Descartar todo"**,
   con unos segundos para **"Deshacer"** antes de que se apliquen.
 - **"Actividad"**: lo que hizo, por día y por elemento. Tocar un elemento lo
@@ -1133,7 +1138,12 @@ entran solas a tu repaso, con la marca **✨**. Las ves en la sección
 
 - Botón "✨ Generar con IA": para pedir **más**. La IA propone preguntas y
   respuestas a partir del contenido y te las muestra para que elijas cuáles
-  guardar antes de confirmarlas.
+  guardar antes de confirmarlas. Un texto largo —un libro, un video de
+  horas— lo lee **por partes**, repartidas por todo el texto, y debajo del
+  título ves cuál está leyendo ("Leyendo la parte 2 de 6…"). No te vuelve a
+  proponer una pregunta que el elemento ya tiene. Si falta bajar el modelo
+  de lenguaje te lo dice, con **"Bajarlo"**; si el modelo falla a mitad de
+  camino, te muestra lo que alcanzó a proponer y te avisa.
 - Botón "+" "Agregar tarjeta": para escribir una pregunta y respuesta vos
   mismo, a mano.
 - **Corregir una tarjeta:** el lápiz de cada tarjeta —tuya o de la IA— la
@@ -1164,8 +1174,52 @@ cuántas tarjetas tenés pendientes).
 5. Si la tarjeta sabe de dónde salió, hay un botón "Ver en la fuente" para
    volver al lugar exacto del texto original.
 
-Cuando no queda nada pendiente, la app te lo avisa y te invita a volver más
-tarde.
+### Crear tarjetas con IA, para muchos elementos a la vez
+
+**Cómo llegar:** pantalla "Repasar" → botón **✨** arriba ("Crear tarjetas
+con IA").
+
+1. Elegís **de qué**: **"Toda la biblioteca"**, **"Un tema"**, **"Una
+   etiqueta"** o **"Un cuaderno"** (y cuál).
+2. La hoja te dice cuántos elementos entran —los que tienen texto: una foto
+   sin texto leído o un audio sin transcribir no tienen de dónde sacar
+   preguntas— y cuántos **ya tienen tarjetas**.
+3. Por defecto se piden solo los que **no tienen ninguna**, así no se
+   duplica nada. Con **"También los que ya tienen tarjetas"**, a esos les
+   hace otra tanda, sin repetir preguntas.
+4. **"Crear tarjetas de N elementos"**. Podés seguir usando la app (o
+   salir): la IA trabaja en segundo plano, con su notificación ("Sinapsis
+   está creando tarjetas de repaso"), y **no espera al cargador**, aunque
+   sea la biblioteca que ya tenías.
+
+Arriba de Repasar ves cómo va: cuántos elementos lleva de cuántos, cuál está
+leyendo, cuántas tarjetas nuevas y cuántas quedaron "para revisar", con
+**"Pausar"**/**"Seguir"** y **"Cancelar"** (lo que ya hizo queda). Las
+tarjetas nuevas aparecen enseguida en tu repaso, con la marca ✨, y se
+deshacen como todo lo de la IA, desde [Lo que hizo la IA](#lo-que-hizo-la-ia).
+Si la IA está en pausa, el pedido espera y te ofrece **"Reanudar la IA"**.
+
+Solo hace tarjetas: no vincula ni etiqueta. Lo que todavía no estaba
+organizado se sigue organizando como siempre (lo de antes, con el cargador).
+Si mientras tanto estás usando el chat, la IA te deja pasar primero.
+
+### Cuando Repasar está vacío
+
+Toda tarjeta nueva está lista para repasar ese mismo día: si Repasar está
+vacío es porque no hay tarjetas pendientes. Si hay elementos con texto que
+todavía no tienen tarjetas, Repasar te dice **cuántos** y **por qué** la IA
+no las hizo sola —falta bajar el modelo de lenguaje o el de vínculos (con
+**"Bajarlo"**), la IA está en pausa (con **"Reanudar la IA"**), o la
+biblioteca que ya tenías espera el cargador—, con el botón **"Crear
+tarjetas con IA"** al lado. Si la IA ya las está haciendo, te avisa que
+están en camino. Si no hay nada que hacer, te invita a volver más tarde.
+
+### Practicar igual
+
+Con Repasar vacío y tarjetas que todavía no te tocan, **"Practicar igual"**
+te las muestra todas —primero las que vencen antes—, con "Mostrar
+respuesta" y **"Siguiente"**, **sin calificarlas**: no cambia cuándo vuelve
+cada una ni cuenta como repaso. **"Terminar"** vuelve a Repasar.
 
 ### Sesión de quiz suelta
 

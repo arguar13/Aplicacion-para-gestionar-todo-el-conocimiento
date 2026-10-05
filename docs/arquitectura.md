@@ -4885,6 +4885,9 @@ cita, la fecha de consulta y la exactitud de la fecha: ahora usa la misma regla 
 lo vacío—, y las pruebas de memoria de la copia y la fusión, que medían la memoria
 residente —el sistema la recorta con la máquina cargada— en vez de la comprometida.
 
+**Actualización (decisión 65):** la cita de una tarjeta ya no tiene que estar textual: se ubica
+aunque la IA la parafrasee, y la que no se ubica va a "Para revisar" en vez de descartarse.
+
 ### 61. F28: el Mapa muestra lo que hacés, y un solo «tema»
 
 Pedido del usuario: vincular dos cosas "no aparece nada en grafos ni en mapa conceptual". Plan:
@@ -5125,6 +5128,68 @@ pero si se puede que sea más rápido"* y *"que la app sea eficiente con la RAM 
   después, GPU o CPU, si la decodificación especulativa rinde con este archivo del modelo, y la RAM
   con la app en segundo plano. En el emulador no entra el modelo (3,7 GB); todo esto se probó con
   dobles.
+
+### 65. F30: Repasar con IA, y la cita que se parafrasea
+
+Pedido del usuario, mirando Repasar vacío: *"quiero que en la sesión de repasar también haya una
+opción que deje que la IA haga las flashcards o lo que sea necesario para repasar, además de la
+opción manual"*. Plan: `docs/planes/F30-repasar-cuadernos-bandeja-y-descargas.md`, decisión A
+aprobada con la recomendada, y el punto 2 de lo que se hacía sin esperar.
+
+Repasar vacío no era un problema de fechas —toda tarjeta nace con `dueAt` de hoy—: no había
+tarjetas. Los 80 recursos de ejemplo eran biblioteca existente, que la IA solo recorre con el
+cargador; y la IA descartaba toda tarjeta cuya cita no apareciera textual, cuando Gemma suele
+parafrasear.
+
+- **La cita se ubica aunque se parafrasee** (`anchorQuote`): primero textual (`locateQuote`, que
+  sigue exacto para el quiz y los derivados); después sin mayúsculas, acentos, puntuación ni
+  espacios; y por último por las palabras con contenido de la cita —sin artículos ni preposiciones,
+  por las primeras cinco letras—, dentro de **una oración** del texto y de no más del doble de largo:
+  el pasaje que reúna al menos el 60 % (`kQuoteAnchorMinRecall`). El rango guardado es el del pasaje
+  real, no el de la cita. El umbral se midió (`quote_anchor_test.dart`) con 24 citas cambiadas como
+  las cambia un modelo chico —tiempo verbal, sinónimos, orden, resumen, «753 a. C.» por «753 antes de
+  Cristo»— sobre tres textos, que reúnen de 0,60 a 1, contra 22 que no son de ningún pasaje
+  —inventadas sobre el tema, de otro texto o armadas con palabras de oraciones vecinas—, de 0 a
+  0,50. Sin el límite de una oración, las armadas con dos oraciones vecinas llegaban a 0,83. Lo que
+  no distingue: una cita que cambia el sujeto **dentro** de la oración de la que sale cae en esa
+  oración; ubicar el pasaje no dice si la tarjeta lo entendió bien, como tampoco lo decía la
+  búsqueda textual. Los ejemplos son representativos, escritos a mano, no capturados de Gemma en el
+  teléfono: el umbral se recalibra con lo que se vea ahí.
+- **Lo que no se ubica va a «Para revisar»** en vez de perderse: `Suggestion.flashcard`, sobre el
+  `SuggestionKind.flashcard` que existía sin uso (sin esquema nuevo: la columna es de texto y la
+  pregunta, la respuesta y la cita van en `payload_json`), hasta tres por pasada. Aceptarla crea la
+  tarjeta como de la persona, sin fragmento; descartarla la deja `rejected`, y la IA no repite una
+  pregunta que ya está para revisar o se descartó ahí. Nada sin pasaje entra solo al repaso.
+- **Por partes también a mano** (`generateFlashcardsByParts`): el ✨ del detalle mandaba el texto
+  entero al modelo (2048 tokens entre todo) y fallaba en un libro. Ahora lo lee por tramos de 3000
+  caracteres repartidos por el texto, como la IA automática, con la parte que va a la vista, y
+  distingue lo que pasó: falta el modelo (con su descarga), falló a mitad (ofrece lo que alcanzó),
+  o no propuso nada.
+- **El pedido de solo tarjetas** (`AiOrganizeQueue.makeFlashcards`): el ✨ de Repasar pide tarjetas
+  para toda la biblioteca, un tema (`LibraryQuery.spaceId`), una etiqueta (`tagIds`) o un cuaderno
+  (`NotebookRepository.resolveQuery`), y la hoja cuenta antes cuántos entran —vivos, listos y con
+  texto (`FlashcardCoverageReader`)— y cuántos ya tienen. Por defecto, solo los que no tienen; con
+  «también los que ya tienen», otra tanda sin repetir preguntas (`AiFlashcardMaker`, que implementa
+  el mismo paso de tarjetas). Va en la cola de la IA, después de lo pedido a mano y antes que lo
+  nuevo, **sin esperar el cargador**, con solo el modelo de lenguaje, respetando la pausa general y
+  el turno de la persona (`LanguageModelGate`, sin cambios); se pausa, sigue y cancela aparte, y
+  publica su avance (`AiFlashcardsBatch`) y su notificación («creando tarjetas de repaso»,
+  `LongWorkDetail.flashcards`). Vive en memoria, como lo pedido a mano: si el sistema mata la app a
+  mitad, lo hecho queda y el resto se vuelve a pedir.
+- **Una pasada de solo tarjetas no cuenta como organizar.** Si contara, pedir tarjetas de toda la
+  biblioteca la daría por organizada y nunca tendría sus vínculos, temas ni etiquetas. Sin cambiar
+  el esquema, la marca va en `ai_field_changes` (`AiChangedField.flashcardsOnly`, una fila por
+  pasada que viaja con ella en la fusión): lo pendiente de la cola, sus intentos, las notas que
+  cambiaron y «qué tiene deshecha su última pasada» no miran esas pasadas
+  (`flashcardsOnlyRunSql`). Se listan, cuentan y deshacen como cualquiera. Lo honesto sería una
+  columna de alcance en `ai_runs`; queda para cuando otra versión del esquema la justifique. Una
+  versión anterior de la app que reciba esa fila por la fusión no conoce el valor.
+- **Repasar vacío dice por qué**: cuántos elementos con texto no tienen tarjetas y por qué la IA no
+  las hizo —falta un modelo, está en pausa, la biblioteca existente espera el cargador, con lo que
+  lo resuelve—, con el ✨ al lado; si las está haciendo, que están en camino; si no hay nada, el
+  mensaje de siempre.
+- **Practicar igual**: con Repasar vacío y tarjetas que todavía no tocan, se recorren todas sin
+  calificar; ni SM-2 ni el historial de repasos cambian.
 
 ## Estado y orden de construcción
 
@@ -5516,6 +5581,10 @@ pero si se puede que sea más rápido"* y *"que la app sea eficiente con la RAM 
 - **F29, que siga con la app cerrada.** Las descargas de los modelos, con el gestor del sistema;
   el procesamiento y la IA, en un motor que sobrevive a la actividad; y una ayuda para "Inicio
   automático" y la batería en Xiaomi. Ver la decisión 62.
+- **F30, Repasar con IA.** El ✨ de Repasar pide solo tarjetas para la biblioteca, un tema, una
+  etiqueta o un cuaderno, sin esperar el cargador; la cita parafraseada se ubica, y lo que no, va
+  a "Para revisar"; el ✨ de cada elemento lee por partes; Repasar vacío dice por qué; practicar
+  igual. Ver la decisión 65.
 
 ### Por construir
 
