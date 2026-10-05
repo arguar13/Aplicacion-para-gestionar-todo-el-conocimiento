@@ -41,6 +41,7 @@ import 'package:sinapsis/core/database/tables/saved_views.dart';
 import 'package:sinapsis/core/database/tables/source_references.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
+import 'package:sinapsis/core/database/tables/trashed_contents.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
 import 'package:sinapsis/core/database/vocabulary_hierarchy.dart';
 // Los enums se importan acá aunque este archivo no los nombre: el código
@@ -75,6 +76,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
 import 'package:sinapsis/core/domain/entities/vocabulary_hierarchy.dart';
 import 'package:sinapsis/core/logging/console_app_logger.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
@@ -124,6 +126,7 @@ part 'app_database.g.dart';
     NoteEmbeddings,
     PropertyValueEmbeddings,
     AttachmentDownloads,
+    TrashedContents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -168,7 +171,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 37;
+  static const currentSchemaVersion = 38;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -830,6 +833,42 @@ class AppDatabase extends _$AppDatabase {
               'bajar solo en las $marks marcas de solo tarjetas.',
             );
           }
+        }
+
+        // La Bandeja de texto (F30, decisión 68): al triar un libro se elige
+        // qué pasa —el texto, el libro o los dos—, y lo que se suelta espera
+        // 30 días en la papelera del contenido (`content_trash`). «Solo el
+        // libro» deja una marca en la fuente (`source.only_file`) para que la
+        // cola no le vuelva a extraer el texto sola. Aditiva: una tabla nueva
+        // y vacía y una columna que en todo lo de antes dice «no» —nada se
+        // soltó todavía—. Los conteos de todo lo anterior son compuerta.
+        //
+        // La columna puede existir ya: los pasos que crean `source` lo hacen
+        // con su definición de hoy.
+        if (from < 38) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          if (!await _columnExists('source', knowledgeSources.onlyFile.name)) {
+            await migrator.addColumn(
+              knowledgeSources,
+              knowledgeSources.onlyFile,
+            );
+          }
+          await migrator.createTable(trashedContents);
+          await migrator.createIndex(idxContentTrashItem);
+          await migrator.createIndex(idxContentTrashTrashedAt);
+          await _requireSameCounts(before, step: 'v38', tables: tables);
         }
       });
     },

@@ -52,5 +52,12 @@ sealed class Source with _$Source {
     /// detectar solo confunde el español con el gallego y le quita las
     /// tildes (medido, F22).
     String? language,
+
+    /// «Solo el libro» (F30, decisión 68): el texto se soltó a propósito y
+    /// queda el archivo, que **no se vuelve a extraer solo**. Lo pone y lo
+    /// saca quien suelta y recupera el texto —la papelera del contenido— o
+    /// «Volver a extraer»; guardar el elemento no lo escribe, para que una
+    /// foto vieja del elemento no lo pise.
+    @Default(false) bool onlyFile,
   }) = _Source;
 }

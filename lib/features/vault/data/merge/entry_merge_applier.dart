@@ -44,6 +44,9 @@ const kSourceColumns = [
   'captured_at',
   'original_blob_path',
   'language',
+  // «Solo el libro» (F30, v38): viaja con un elemento nuevo, que llega sin
+  // texto. No es un campo con linaje: no cambia uno que ya está acá.
+  'only_file',
   'content_hash',
   'dedup_hash',
   'simhash',

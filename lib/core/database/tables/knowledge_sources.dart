@@ -40,6 +40,18 @@ class KnowledgeSources extends Table {
   /// `Source.language` (F22, esquema v32).
   TextColumn get language => text().nullable()();
 
+  /// «Solo el libro» (F30, v38, decisión 68): el texto se soltó a propósito y
+  /// queda el archivo. La cola no se lo vuelve a extraer sola —sin esta marca,
+  /// un documento sin texto es uno por leer—; «Volver a extraer», pedido a
+  /// mano, sí, y al traer el texto la quita. Ver `Source.onlyFile`.
+  ///
+  /// Es una decisión de este dispositivo sobre su copia y no un campo con
+  /// linaje: no se registra en `field_version` ni se fusiona campo a campo.
+  /// Viaja con un elemento NUEVO —su fila de `source` se copia entera, y
+  /// llega sin texto—, pero no cambia la de un elemento que la otra bóveda ya
+  /// tiene con su texto: una fusión no borra textos.
+  BoolColumn get onlyFile => boolean().withDefault(const Constant(false))();
+
   /// SHA-256 del texto de la forma principal SIN normalizar — sirve de guarda
   /// de idempotencia para el chunking (`chunkAndPersistSource`: "¿ya
   /// corrió?"), no para comparar contra otro elemento.

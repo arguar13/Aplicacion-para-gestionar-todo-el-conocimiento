@@ -89,6 +89,12 @@ class VaultCounts {
   /// lista, y esta tabla todavía no existía cuando corría.
   static const aiFieldChangeTables = <String>['ai_field_changes'];
 
+  /// La papelera del contenido (F30, v38): lo que se soltó de un elemento y
+  /// se recupera durante 30 días. Aparte por lo mismo que las anteriores: los
+  /// pasos hasta v38 cuentan las otras listas, y esta tabla todavía no
+  /// existía cuando corrían.
+  static const contentTrashTables = <String>['content_trash'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

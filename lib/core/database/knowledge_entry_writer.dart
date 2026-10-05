@@ -905,6 +905,22 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Pone o saca la marca de «solo el libro» de la fuente [itemId] (F30,
+  /// decisión 68): el texto se soltó a propósito y no se vuelve a extraer
+  /// solo. Devuelve `false`, sin tocar nada, si no es una fuente.
+  ///
+  /// No sube el `rev` ni registra una versión: es una decisión de este
+  /// dispositivo sobre su copia, no un campo que se fusione —ver
+  /// `KnowledgeSources.onlyFile`—. Por eso tampoco la escribe [upsert]: solo
+  /// quien suelta o recupera el texto, y «Volver a extraer».
+  Future<bool> setOnlyFile(String itemId, {required bool onlyFile}) async {
+    final written =
+        await (_db.update(_db.knowledgeSources)
+              ..where((s) => s.itemId.equals(itemId)))
+            .write(KnowledgeSourcesCompanion(onlyFile: Value(onlyFile)));
+    return written > 0;
+  }
+
   /// Borra [itemId] de la base, para siempre: la fila de `item` y, por las
   /// cascadas del esquema, todo lo que cuelga de ella —su fuente o nota, sus
   /// formas, subrayados, chunks, vínculos, tarjetas y versiones por campo—.

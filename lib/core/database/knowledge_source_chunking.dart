@@ -81,12 +81,21 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
   String reportedBy = 'f5_relation_engine',
   bool assignPages = false,
 }) async {
-  final source = await (db.select(
-    db.knowledgeSources,
-  )..where((s) => s.itemId.equals(itemId))).getSingleOrNull();
+  // Solo las dos columnas que hacen falta, y no la fila entera: esta función
+  // corre también en el paso v16 de la migración, sobre una `source` que
+  // todavía no tiene las columnas que se le sumaron después —`only_file`, de
+  // v38, no admite nulo—, y leer la fila tipada con ellas faltando la rompe.
+  final sources = db.knowledgeSources;
+  final source =
+      await (db.selectOnly(sources)
+            ..addColumns([sources.contentHash, sources.originalBlobPath])
+            ..where(sources.itemId.equals(itemId)))
+          .getSingleOrNull();
   // Una nota no tiene fila de fuente, y no se fragmenta: ver
   // `LibraryRepositoryImpl._syncChunks`.
   if (source == null) return SourceChunkingOutcome.alreadyDone;
+  final storedHash = source.read(sources.contentHash);
+  final originalPath = source.read(sources.originalBlobPath);
 
   final chosen = await sourceTextRendition(db, itemId);
   if (chosen == null) return SourceChunkingOutcome.noTextYet;
@@ -102,7 +111,7 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
           .get();
   final hasChunks = existing.isNotEmpty;
 
-  if (source.contentHash == contentHash && (hasChunks || fullText.isEmpty)) {
+  if (storedHash == contentHash && (hasChunks || fullText.isEmpty)) {
     return SourceChunkingOutcome.alreadyDone;
   }
 
@@ -112,7 +121,7 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
     chunks = chunker.chunk(
       fullText,
       kind: chosen.kind,
-      paged: assignPages && _isPdf(source),
+      paged: assignPages && _isPdf(originalPath),
     );
   } on Object catch (e) {
     await _reportIssue(
@@ -174,8 +183,8 @@ Future<SourceChunkingOutcome> chunkAndPersistSource(
 }
 
 /// Si el archivo original de la fuente es un PDF.
-bool _isPdf(KnowledgeSourceRow source) =>
-    source.originalBlobPath?.toLowerCase().endsWith('.pdf') ?? false;
+bool _isPdf(String? originalPath) =>
+    originalPath?.toLowerCase().endsWith('.pdf') ?? false;
 
 /// Se prefiere la rendition marcada como principal; sin ninguna marcada, la
 /// primera que se guardó.
