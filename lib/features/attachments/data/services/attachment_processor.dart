@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/network/bounded_download.dart';
+import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
@@ -11,7 +13,11 @@ import 'package:sinapsis/features/attachments/domain/repositories/attachment_rep
 import 'package:sinapsis/features/attachments/domain/services/archive_expander.dart';
 import 'package:sinapsis/features/attachments/domain/services/attachment_work.dart';
 import 'package:sinapsis/features/attachments/domain/services/linked_file_fetcher.dart';
+import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
+import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
+import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
 /// La subcarpeta de la del elemento donde va su «Contenido».
@@ -46,7 +52,13 @@ class AttachmentProcessor implements AttachmentWork {
     required AppLogger logger,
     ArchiveExpander? archives,
     FileStore? files,
-  }) : _attachments = attachments,
+    List<DocumentParser> parsers = const [],
+    AudioTranscriber? transcriber,
+    ImageTextExtractor? imageText,
+  }) : _parsers = parsers,
+       _transcriber = transcriber,
+       _imageText = imageText,
+       _attachments = attachments,
        _fetcher = fetcher,
        _archives = archives,
        _files = files,
@@ -59,8 +71,15 @@ class AttachmentProcessor implements AttachmentWork {
   /// Quien abre los `.zip`; sin él, se guardan cerrados.
   final ArchiveExpander? _archives;
 
-  /// El almacén, para borrar un `.zip` ya descomprimido.
+  /// El almacén: para borrar un `.zip` ya descomprimido y para leer cada
+  /// archivo al sacarle el texto.
   final FileStore? _files;
+
+  /// Los lectores de documentos, el que transcribe y el que lee las fotos:
+  /// los mismos de cada elemento, para el texto de cada archivo.
+  final List<DocumentParser> _parsers;
+  final AudioTranscriber? _transcriber;
+  final ImageTextExtractor? _imageText;
   final int Function() _maxBytesPerItem;
   final AppLogger _logger;
 
@@ -116,7 +135,145 @@ class AttachmentProcessor implements AttachmentWork {
       done += _steps;
       context.reportProgress(done, total);
     }
+
+    await _extractTexts(item, context);
     return item;
+  }
+
+  // --- El texto de cada archivo -------------------------------------------
+
+  /// Le saca el texto a cada archivo del «Contenido» que todavía no lo
+  /// tiene (decisión D): lo que dice un libro o un documento, la
+  /// transcripción de un audio o un video, lo que se lee en una foto. En el
+  /// orden de la decisión E, y de a uno: es trabajo largo, en el carril
+  /// largo.
+  ///
+  /// Lo que no tiene texto —una foto sin letras, un formato que nadie
+  /// lee— queda con un texto vacío: «se intentó». Lo que no se pudo hacer
+  /// todavía —el modelo de transcripción no está bajado— queda sin texto, y
+  /// se retoma la próxima vez que se procese el elemento.
+  Future<void> _extractTexts(
+    KnowledgeItem item,
+    TransformContext context,
+  ) async {
+    final files = _files;
+    if (files == null) return;
+    final pending =
+        [
+          for (final attachment in await _attachments.attachmentsOf(item.id))
+            if (attachment.canHaveText && !attachment.textAttempted) attachment,
+        ]..sort((a, b) {
+          final byGroup = a.group.index.compareTo(b.group.index);
+          return byGroup != 0 ? byGroup : a.position.compareTo(b.position);
+        });
+    for (final (index, attachment) in pending.indexed) {
+      context
+        ..throwIfCancelled()
+        ..reportProgress(index, pending.length);
+      try {
+        final text = await _textOf(attachment, item, files, context);
+        if (text == null) continue;
+        await _attachments.saveText(attachment.id, text.$1, kind: text.$2);
+      } on ProcessingCancelledException {
+        rethrow;
+      } on WhisperModelNotReadyException {
+        // Sin el modelo no se transcribe: queda para cuando esté.
+        _logger.info('Sin modelo para transcribir ${attachment.fileName}.');
+      } on Exception catch (e) {
+        if (context.isCancelled) throw const ProcessingCancelledException();
+        // Un archivo que no se deja leer —dañado, cifrado, un formato raro—
+        // no frena a los demás: queda intentado y sin texto.
+        _logger.warning('No se le sacó el texto a ${attachment.fileName}: $e');
+        await _attachments.saveText(attachment.id, '');
+      }
+    }
+    context.reportProgress(pending.length, pending.length);
+  }
+
+  /// El texto de [attachment] y su clase, o `null` si todavía no se puede.
+  Future<(String, RenditionKind)?> _textOf(
+    Attachment attachment,
+    KnowledgeItem item,
+    FileStore files,
+    TransformContext context,
+  ) async {
+    final path = attachment.relativePath;
+    switch (attachment.kind) {
+      case RenditionKind.image:
+        final reader = _imageText;
+        if (reader == null) return null;
+        // Un SVG es un dibujo vectorial: no hay foto que leer.
+        if (path.toLowerCase().endsWith('.svg')) {
+          return ('', RenditionKind.plainText);
+        }
+        final local = kIsWeb ? path : await files.resolve(path);
+        return (await reader.extractText(local), RenditionKind.plainText);
+      case RenditionKind.audio || RenditionKind.video:
+        final transcriber = _transcriber;
+        if (transcriber == null) return null;
+        await context.enterLongLane();
+        final local = kIsWeb ? path : await files.resolve(path);
+        final transcript = await transcriber.transcribe(
+          local,
+          language: item.source.language ?? defaultTranscriptionLanguage,
+          session: TranscriptionSession(context: context),
+        );
+        return (transcript.text, RenditionKind.plainText);
+      case RenditionKind.pdf || RenditionKind.document:
+        return _readDocument(path, files, context);
+      case _:
+        return null;
+    }
+  }
+
+  /// Lo que dice un documento, con el lector que le corresponda; vacío si
+  /// ninguno lo sabe leer (un `.doc` viejo, un `.odt`).
+  Future<(String, RenditionKind)> _readDocument(
+    String path,
+    FileStore files,
+    TransformContext context,
+  ) async {
+    final size = await files.sizeOf(path);
+    final head = await files.readHead(path, maxBytes: 64 * 1024);
+    if (size == null || head == null) throw MissingOriginalFileException(path);
+    final name = path.split('/').last;
+    final format = detectFileFormat(head, name: name);
+    final parser = _parsers.where((p) => p.canParse(format)).firstOrNull;
+    if (parser == null) return ('', RenditionKind.plainText);
+
+    final parsed = await parser.parse(
+      DocumentSource(
+        name: name,
+        size: size,
+        localPath: await files.localPathOf(path),
+        readAll: () async {
+          final bytes = await files.read(path);
+          if (bytes == null) throw MissingOriginalFileException(path);
+          return bytes;
+        },
+        readRange: (start, length) async {
+          final bytes = await files.readRange(
+            path,
+            start: start,
+            length: length,
+          );
+          if (bytes == null) throw MissingOriginalFileException(path);
+          return bytes;
+        },
+      ),
+      session: DocumentParseSession(context: context),
+    );
+    // Markdown solo lo que se convierte con esa forma, como en el
+    // transformador de documentos (F22).
+    final markdown = const {
+      FileFormat.docx,
+      FileFormat.epub,
+      FileFormat.markdown,
+    }.contains(format);
+    return (
+      parsed.markdown,
+      markdown ? RenditionKind.markdown : RenditionKind.plainText,
+    );
   }
 
   /// Primero los documentos, después los audios, las fotos y los videos; en

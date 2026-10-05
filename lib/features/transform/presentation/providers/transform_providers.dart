@@ -304,5 +304,8 @@ final attachmentWorkProvider = Provider<AttachmentWork>(
     logger: ref.watch(appLoggerProvider),
     archives: ref.watch(archiveExpanderProvider),
     files: ref.watch(fileStoreProvider),
+    parsers: ref.watch(documentParsersProvider),
+    transcriber: ref.watch(audioTranscriberProvider),
+    imageText: ref.watch(imageTextExtractorProvider),
   ),
 );

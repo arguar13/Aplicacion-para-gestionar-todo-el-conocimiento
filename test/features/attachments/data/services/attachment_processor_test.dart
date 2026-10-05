@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
@@ -10,10 +12,16 @@ import 'package:sinapsis/core/network/public_network.dart';
 import 'package:sinapsis/features/attachments/data/services/attachment_processor.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/services/archive_expander.dart';
+import 'package:sinapsis/features/transform/data/documents/plain_text_parser.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
+import 'package:sinapsis/features/transform/domain/services/audio_transcriber.dart';
+import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
+import 'package:sinapsis/features/transform/domain/services/whisper_model_manager.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transformer.dart';
 
 import '../../../../support/attachment_test_doubles.dart';
+import '../../../../support/fake_audio_transcriber.dart';
+import '../../../../support/fake_image_text_extractor.dart';
 import '../../../../support/in_memory_file_store.dart';
 import '../../../../support/silent_logger.dart';
 
@@ -69,6 +77,8 @@ void main() {
   AttachmentProcessor processor({
     bool withFetcher = true,
     ArchiveExpander? archives,
+    AudioTranscriber? transcriber,
+    ImageTextExtractor? imageText,
   }) => AttachmentProcessor(
     attachments: attachments,
     fetcher: withFetcher ? fetcher : null,
@@ -76,6 +86,9 @@ void main() {
     logger: const SilentLogger(),
     archives: archives,
     files: files,
+    parsers: const [PlainTextParser()],
+    transcriber: transcriber,
+    imageText: imageText,
   );
 
   Future<void> offer(List<(String, RenditionKind, int, String?)> files) =>
@@ -133,7 +146,8 @@ void main() {
       expect(photo.mimeType, 'image/jpeg');
       expect(photo.sizeBytes, 2);
       expect(photo.kind, RenditionKind.image);
-      expect(context.progress.last, (2000, 2000));
+      // La barra llega al final de las bajadas, y después a la de los textos.
+    expect(context.progress, contains((2000, 2000)));
     },
   );
 
@@ -301,6 +315,106 @@ void main() {
       expect(saved.kind, RenditionKind.file);
       expect(saved.relativePath, 'originales/src/contenido/datos.zip');
       expect(files.paths, contains('originales/src/contenido/datos.zip'));
+    });
+  });
+
+  group('el texto de cada archivo', () {
+    const notes = '# Notas\n\nLo que dice el texto.';
+
+    Future<void> serveAll() async {
+      fetcher.served
+        ..['https://x.org/charla.mp3'] = const FakeServedFile([
+          1,
+        ], contentType: 'audio/mpeg')
+        ..['https://x.org/cartel.jpg'] = const FakeServedFile([
+          2,
+        ], contentType: 'image/jpeg')
+        ..['https://x.org/plano.svg'] = const FakeServedFile([
+          3,
+        ], contentType: 'image/svg+xml')
+        ..['https://x.org/notas.md'] = FakeServedFile(
+          utf8.encode(notes),
+          contentType: 'text/markdown',
+        );
+      await offer([
+        ('https://x.org/charla.mp3', RenditionKind.audio, 0, null),
+        ('https://x.org/cartel.jpg', RenditionKind.image, 1, null),
+        ('https://x.org/plano.svg', RenditionKind.image, 2, null),
+        ('https://x.org/notas.md', RenditionKind.document, 3, null),
+      ]);
+    }
+
+    test('lo dicho, lo leído en la foto y lo que dice el documento', () async {
+      await serveAll();
+      final transcriber = FakeAudioTranscriber(text: 'Hola a todos.');
+      final reader = FakeImageTextExtractor(text: 'SE ALQUILA');
+
+      await processor(
+        transcriber: transcriber,
+        imageText: reader,
+      ).transform(item, context: _RecordingContext());
+
+      final byName = {
+        for (final a in await attachments.attachmentsOf(item.id)) a.fileName: a,
+      };
+      expect(
+        await attachments.textOf(byName['charla.mp3']!.id),
+        'Hola a todos.',
+      );
+      expect(await attachments.textOf(byName['cartel.jpg']!.id), 'SE ALQUILA');
+      // Un SVG no es una foto: se intenta y no tiene texto, sin leerlo.
+      expect(await attachments.textOf(byName['plano.svg']!.id), '');
+      expect(reader.requested, hasLength(1));
+      expect(await attachments.textOf(byName['notas.md']!.id), notes);
+      expect(await processor().hasWork(item.id), isFalse);
+    });
+
+    test(
+      'sin el modelo de transcripción, el audio queda para después',
+      () async {
+        await serveAll();
+        final transcriber = FakeAudioTranscriber()
+          ..error = const WhisperModelNotReadyException();
+
+        await processor(
+          transcriber: transcriber,
+          imageText: FakeImageTextExtractor(),
+        ).transform(item, context: _RecordingContext());
+
+        final audio = (await attachments.attachmentsOf(
+          item.id,
+        )).firstWhere((a) => a.kind == RenditionKind.audio);
+        expect(audio.textAttempted, isFalse);
+        expect(await processor().hasWork(item.id), isTrue);
+
+        // Con el modelo, la próxima vez se transcribe, sin volver a bajar.
+        fetcher.requested.clear();
+        transcriber
+          ..error = null
+          ..text = 'Ahora sí.';
+        await processor(
+          transcriber: transcriber,
+          imageText: FakeImageTextExtractor(),
+        ).transform(item, context: _RecordingContext());
+        expect(fetcher.requested, isEmpty);
+        expect(await attachments.textOf(audio.id), 'Ahora sí.');
+      },
+    );
+
+    test('un archivo que no se deja leer queda intentado, sin frenar a los '
+        'demás', () async {
+      await serveAll();
+      final reader = FakeImageTextExtractor()..error = const FormatException();
+
+      await processor(
+        transcriber: FakeAudioTranscriber(text: 'dicho'),
+        imageText: reader,
+      ).transform(item, context: _RecordingContext());
+
+      final all = await attachments.attachmentsOf(item.id);
+      expect(all.every((a) => a.textAttempted), isTrue);
+      final photo = all.firstWhere((a) => a.fileName == 'cartel.jpg');
+      expect(photo.hasText, isFalse);
     });
   });
 
