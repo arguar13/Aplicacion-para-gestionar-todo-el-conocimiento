@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 
 import '../../../../support/fake_inference_chat.dart';
 import '../../../../support/fake_inference_model.dart';
@@ -74,6 +76,37 @@ void main() {
       expect(model.opened.single.maxOutputTokens, kChatReplyTokens);
       await conversation.close();
     });
+  });
+
+  test('un derivado nunca le manda más de lo que entra en la ventana, '
+      'contado con su tokenizador (F30)', () async {
+    final sources = [
+      for (var i = 0; i < 10; i++)
+        ChatSource(
+          itemId: 'f$i',
+          itemTitle: 'Fuente $i',
+          excerpt: List.filled(200, 'roma ').join(),
+          sourceCharStart: 0,
+          sourceCharEnd: 1000,
+        ),
+    ];
+
+    final draft = await gemma.generateDerivedNote(
+      type: DerivedNoteType.studyGuide,
+      sources: sources,
+    );
+
+    expect(draft.isEmpty, isTrue);
+    final instruction = model.opened.single.instruction!;
+    final room =
+        kGemmaContextTokens -
+        kDerivedNoteReplyTokens -
+        (instruction.length / 4).ceil() -
+        kPromptMarginTokens;
+    final sent = model.chats.single.received.single;
+    expect((sent.length / 4).ceil(), lessThanOrEqualTo(room));
+    expect(sent, contains('Fuente 0'));
+    expect(model.chats.single.closed, isTrue);
   });
 
   test('si la persona pide el modelo mientras la cola escribe, la cola se '

@@ -17,7 +17,9 @@ import 'package:sinapsis/features/library/domain/repositories/library_repository
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/notes/domain/repositories/derived_note_repository.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
+import 'package:sinapsis/features/relations/domain/services/item_vector_index.dart';
 
 /// A qué generar un derivado (F16, 12b): de todo lo que resuelve un
 /// cuaderno, o de un único elemento. Nunca los dos ni ninguno —lo exige el
@@ -30,6 +32,7 @@ class GenerateDerivedNoteParams {
     required this.model,
     this.notebookId,
     this.itemId,
+    this.onProgress,
   }) : assert(
          (notebookId == null) != (itemId == null),
          'un derivado sale de un cuaderno o de un elemento, nunca los dos ni '
@@ -50,6 +53,11 @@ class GenerateDerivedNoteParams {
 
   final String? notebookId;
   final String? itemId;
+
+  /// Cuántas partes leyó el modelo de cuántas (F30), antes de cada una y al
+  /// final: un cuaderno grande se lee en varios pedidos, y esperar sin saber
+  /// cuánto falta es peor que esperar.
+  final void Function(int read, int total)? onProgress;
 }
 
 /// Genera un derivado —guía de estudio, preguntas abiertas, esquema o
@@ -62,6 +70,20 @@ class GenerateDerivedNoteParams {
 /// nota y cada relación `extractedFrom`— en una sola transacción. Si nada
 /// del modelo se pudo anclar, no se crea nada: "mejor ninguno que uno
 /// equivocado" (F11) también vale acá, un paso más arriba.
+///
+/// **Por partes** (F30). Hasta acá se le mandaban al modelo todas las fuentes
+/// de un cuaderno de una vez: con más de unas quince, el pedido no entraba en
+/// su ventana. Ahora:
+///
+/// - Solo van las fuentes que se pueden citar —con texto propio y su
+///   posición: una nota no se fragmenta, y lo que el modelo dijera de ella se
+///   descartaría igual al anclar—.
+/// - De un cuaderno grande, las más representativas primero
+///   ([ItemVectorIndex.representativeOrder]): lo más central y lo más
+///   distinto, no las primeras de la lista.
+/// - Se reparten en hasta [kDerivedNoteMaxParts] pedidos que entran en la
+///   ventana ([packDerivedSources]), y lo que dio cada uno se junta en una
+///   sola nota ([mergeDerivedSections]).
 class GenerateDerivedNoteUseCase
     implements UseCase<KnowledgeItem, GenerateDerivedNoteParams> {
   const GenerateDerivedNoteUseCase({
@@ -70,6 +92,7 @@ class GenerateDerivedNoteUseCase
     required OrganizeRepository organize,
     required DerivedNoteRepository derivedNotes,
     required DerivedNoteGenerator generator,
+    required ItemVectorIndex vectors,
     required IdGenerator ids,
     required Clock clock,
   }) : _library = library,
@@ -77,6 +100,7 @@ class GenerateDerivedNoteUseCase
        _organize = organize,
        _derivedNotes = derivedNotes,
        _generator = generator,
+       _vectors = vectors,
        _ids = ids,
        _clock = clock;
 
@@ -85,6 +109,7 @@ class GenerateDerivedNoteUseCase
   final OrganizeRepository _organize;
   final DerivedNoteRepository _derivedNotes;
   final DerivedNoteGenerator _generator;
+  final ItemVectorIndex _vectors;
   final IdGenerator _ids;
   final Clock _clock;
 
@@ -96,17 +121,23 @@ class GenerateDerivedNoteUseCase
     if (sources.isEmpty) {
       return left(
         const Failure.validation(
-          message: 'No hay fuentes de las que generar un derivado.',
+          message:
+              'No hay fuentes que se puedan citar para generar un derivado.',
         ),
       );
     }
 
-    final DerivedNoteDraft draft;
+    final parts = packDerivedSources(sources);
+    final sections = <List<DerivedSection>>[];
     try {
-      draft = await _generator.generateDerivedNote(
-        type: params.type,
-        sources: sources,
-      );
+      for (var i = 0; i < parts.length; i++) {
+        params.onProgress?.call(i, parts.length);
+        final draft = await _generator.generateDerivedNote(
+          type: params.type,
+          sources: parts[i],
+        );
+        sections.add(draft.sections);
+      }
       // El motor de inferencia es de terceros (flutter_gemma); puede fallar
       // de formas que no tienen un tipo propio en Dart —memoria
       // insuficiente, un error nativo de la biblioteca de inferencia—,
@@ -115,6 +146,11 @@ class GenerateDerivedNoteUseCase
     } catch (e) {
       return left(Failure.unexpected(message: e.toString()));
     }
+    params.onProgress?.call(parts.length, parts.length);
+    final draft = DerivedNoteDraft(
+      type: params.type,
+      sections: mergeDerivedSections(sections),
+    );
     if (draft.isEmpty) {
       return left(
         const Failure.validation(
@@ -176,25 +212,45 @@ class GenerateDerivedNoteUseCase
     });
   }
 
-  /// Las fuentes de un cuaderno —todo lo que resuelve, sin límite, mismo
-  /// camino que `ChatScreen._resolveScopeIds`— o de un único elemento.
+  /// Las fuentes que se pueden citar de un cuaderno —las más representativas
+  /// primero, como mucho [kDerivedNoteMaxSources]— o de un único elemento.
+  ///
+  /// Los ids salen sin traer los elementos (`matchingIds`), y se trae de a
+  /// uno solo lo que se va a leer: un cuaderno de cien libros no se carga
+  /// entero en memoria para usar el principio de dieciocho.
   Future<List<ChatSource>> _resolveSources(
     GenerateDerivedNoteParams params,
   ) async {
     final notebookId = params.notebookId;
-    if (notebookId != null) {
-      final query = await _notebooks.resolveQuery(notebookId);
-      final result = await _library.list(query);
-      return result.match(
-        (_) => const [],
-        (items) => items.map(buildChatSource).toList(),
-      );
+    if (notebookId == null) {
+      final source = await _citableSource(params.itemId!);
+      return source == null ? const [] : [source];
     }
 
-    final result = await _library.findById(params.itemId!);
-    return result.match((_) => const [], (item) {
-      return item == null ? const [] : [buildChatSource(item)];
-    });
+    final query = await _notebooks.resolveQuery(notebookId);
+    final ids = (await _library.matchingIds(query)).getOrElse((_) => const []);
+    final ordered = ids.length <= kDerivedNoteMaxSources
+        ? ids
+        : await _vectors.representativeOrder(ids, take: kDerivedNoteMaxSources);
+    final sources = <ChatSource>[];
+    for (final id in ordered) {
+      if (sources.length == kDerivedNoteMaxSources) break;
+      final source = await _citableSource(id);
+      if (source != null) sources.add(source);
+    }
+    return sources;
+  }
+
+  /// La fuente de [itemId], si se puede citar: con texto y con su posición en
+  /// él —una nota no tiene, y lo que el modelo dijera de ella no se anclaría—.
+  Future<ChatSource?> _citableSource(String itemId) async {
+    final item = (await _library.findById(itemId)).getOrElse((_) => null);
+    if (item == null) return null;
+    final source = buildChatSource(item);
+    if (source.sourceCharStart == null || source.excerpt.trim().isEmpty) {
+      return null;
+    }
+    return source;
   }
 
   List<ContentBlock> _blocksOf(DerivedNoteDraft draft) {

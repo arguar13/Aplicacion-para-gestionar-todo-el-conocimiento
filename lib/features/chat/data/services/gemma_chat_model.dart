@@ -22,6 +22,7 @@ import 'package:sinapsis/features/graph/domain/services/relation_suggestion_serv
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
+import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_response_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
@@ -249,6 +250,10 @@ const kMapIntroReplyTokens = 192;
 /// Una guía de estudio, preguntas, un esquema o una cronología: lo más largo
 /// que se le pide, con la frase de origen de cada afirmación.
 const kDerivedNoteReplyTokens = 768;
+
+/// Lo que se deja libre en la ventana, además de lo contado, para las marcas
+/// de turno que el formato del modelo agrega alrededor de cada mensaje.
+const kPromptMarginTokens = 32;
 
 /// [count] tarjetas o preguntas, con su respuesta y la frase de la que sale
 /// cada una: unos 96 tokens cada una, y un margen.
@@ -754,19 +759,38 @@ class GemmaChatModel
     }
 
     return _withTurn((model) async {
+      final instruction = _derivedSystemInstructionFor(type);
       final chat = await model.createChat(
-        systemInstruction: _derivedSystemInstructionFor(type),
+        systemInstruction: instruction,
         maxOutputTokens: kDerivedNoteReplyTokens,
       );
 
       try {
+        // Nunca más de lo que entra (F30): con el tokenizador del modelo, lo
+        // que queda de la ventana después de la instrucción y la respuesta
+        // más larga. Quien llama ya reparte en partes que suelen entrar;
+        // esto lo garantiza aunque el texto cuente más tokens de lo común.
+        final fitted = await fitSourcesToWindow(
+          sources,
+          roomTokens:
+              _engine.contextTokens -
+              kDerivedNoteReplyTokens -
+              await _countTokens(chat, instruction) -
+              kPromptMarginTokens,
+          countTokens: (text) => _countTokens(chat, text),
+          build: _buildDerivedPrompt,
+        );
+        if (fitted.isEmpty) {
+          return DerivedNoteDraft(type: type, sections: const []);
+        }
+
         await chat.addQueryChunk(
-          Message.text(text: _buildDerivedPrompt(sources), isUser: true),
+          Message.text(text: _buildDerivedPrompt(fitted), isUser: true),
         );
         final text = await _generate(chat);
 
         final raw = parseDerivedNoteResponse(text);
-        final sections = anchorDerivedClaims(raw, sources);
+        final sections = anchorDerivedClaims(raw, fitted);
         return DerivedNoteDraft(type: type, sections: sections);
       } finally {
         await chat.close();
