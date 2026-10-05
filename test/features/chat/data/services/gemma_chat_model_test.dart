@@ -133,6 +133,35 @@ void main() {
     expect(model.chats.single.closed, isTrue);
   });
 
+  test('los cuadernos sugeridos: le da cada tema con sus títulos de ejemplo '
+      'y lee una línea CUADERNO por tema (F30)', () async {
+    model = FakeInferenceModel(
+      newChat: (n) => FakeInferenceChat(
+        id: n,
+        answer: (_, _) => [
+          'CUADERNO: 1 | La república romana | Fuentes sobre su política\n',
+          'CUADERNO: 2 | Filosofía griega |',
+        ],
+      ),
+    );
+
+    final names = await gemma.nameNotebooks([
+      (topic: 'Roma', itemCount: 12, titles: ['El foro', 'El Senado']),
+      (topic: 'Filosofía', itemCount: 4, titles: <String>[]),
+    ]);
+
+    expect(names[0]?.name, 'La república romana');
+    expect(names[0]?.description, 'Fuentes sobre su política');
+    expect(names[1]?.name, 'Filosofía griega');
+    expect(names[1]?.description, isNull);
+    expect(model.opened.single.maxOutputTokens, notebookNamesReplyTokens(2));
+    final sent = model.chats.single.received.single;
+    expect(sent, startsWith('Temas:\n1. Roma (12 elementos)'));
+    expect(sent, contains('Ejemplos: El foro; El Senado'));
+    expect(sent, contains('2. Filosofía (4 elementos)'));
+    expect(model.chats.single.closed, isTrue);
+  });
+
   test('si la persona pide el modelo mientras la cola escribe, la cola se '
       'corta y repite su paso entero despuÃ©s (F30)', () async {
     model = FakeInferenceModel(

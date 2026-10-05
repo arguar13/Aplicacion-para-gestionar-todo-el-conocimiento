@@ -21,6 +21,7 @@ import 'package:sinapsis/features/graph/domain/services/relation_suggestion_pars
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
@@ -171,6 +172,19 @@ const _notebookPicksSystemInstruction =
     'ninguno sirve, respondé exactamente: VAN: ninguno. No respondas nada '
     'más.';
 
+/// El nombre de un cuaderno sugerido (F30): uno por tema de una lista
+/// numerada, en una línea de formato exacto cada uno, y sin inventar nada que
+/// no esté en lo que se le da.
+const _notebookNamesSystemInstruction =
+    'Respondé siempre en español. Tu única tarea es proponer, para cada tema '
+    'de una lista numerada, un nombre corto para un cuaderno que reúna sus '
+    'elementos (hasta seis palabras) y, solo si aporta algo, una línea de '
+    'hasta quince palabras que diga qué reúne, basándote ÚNICAMENTE en el '
+    'nombre del tema y en los títulos de ejemplo: nunca agregues datos que no '
+    'estén ahí. Respondé UNA línea por tema con este formato exacto, sin '
+    'Markdown:\nCUADERNO: <número> | <nombre> | <descripción>\nSi la '
+    'descripción no aporta, dejala vacía. No respondas nada más.';
+
 /// La introducción de una nota mapa (F27, el Atlas): lo mismo que
 /// `_summarizationSystemInstruction` —nada que no esté en lo que se le da,
 /// texto corrido— pero sobre títulos y fragmentos, y sin corchetes: los
@@ -264,6 +278,10 @@ const kMapIntroReplyTokens = 192;
 /// Una línea `VAN:` con los números de una tanda (`kNotebookJudgeBatch`).
 const kNotebookPicksReplyTokens = 64;
 
+/// Una línea `CUADERNO:` por cada uno de [count] temas: un nombre y una línea
+/// de descripción, unos 48 tokens, y un margen.
+int notebookNamesReplyTokens(int count) => (count * 48 + 32).clamp(96, 384);
+
 /// Una guía de estudio, preguntas, un esquema o una cronología: lo más largo
 /// que se le pide, con la frase de origen de cada afirmación.
 const kDerivedNoteReplyTokens = 768;
@@ -312,7 +330,8 @@ class GemmaChatModel
         PropertySuggestionService,
         DerivedNoteGenerator,
         QuizQuestionGenerator,
-        NotebookCandidateJudge {
+        NotebookCandidateJudge,
+        NotebookNamer {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA.
@@ -797,6 +816,32 @@ class GemmaChatModel
     });
   }
 
+  /// Un nombre —y, si aporta, una línea— para cada cuaderno sugerido (F30):
+  /// lo pide la persona al abrir los sugeridos, así que va con su turno.
+  @override
+  Future<Map<int, NotebookNaming>> nameNotebooks(
+    List<NotebookNamingInput> inputs,
+  ) {
+    if (inputs.isEmpty) return Future.value(const {});
+
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: _notebookNamesSystemInstruction,
+        maxOutputTokens: notebookNamesReplyTokens(inputs.length),
+      );
+
+      try {
+        await chat.addQueryChunk(
+          Message.text(text: buildNotebookNamesPrompt(inputs), isUser: true),
+        );
+        final text = await _generate(chat);
+        return parseNotebookNames(text, count: inputs.length);
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
   @override
   Future<DerivedNoteDraft> generateDerivedNote({
     required DerivedNoteType type,
@@ -950,6 +995,20 @@ String buildNotebookPicksPrompt(
       ].join('\n'),
   ].join('\n\n');
   return 'Tema del cuaderno: $shortTopic\n\nElementos:\n$list';
+}
+
+/// El pedido de nombres de cuadernos sugeridos (F30): cada tema, con cuántos
+/// elementos tiene y algunos títulos de ejemplo, cortos.
+String buildNotebookNamesPrompt(List<NotebookNamingInput> inputs) {
+  final list = [
+    for (final (i, input) in inputs.indexed)
+      [
+        '${i + 1}. ${_short(input.topic, 80)} (${input.itemCount} elementos)',
+        if (input.titles.isNotEmpty)
+          'Ejemplos: ${input.titles.map((t) => _short(t, 80)).join('; ')}',
+      ].join('\n'),
+  ].join('\n\n');
+  return 'Temas:\n$list';
 }
 
 String _short(String text, int max) {

@@ -34,6 +34,7 @@ import 'package:sinapsis/features/flashcards/domain/services/quiz_question_gener
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/domain/services/summarization_service.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
@@ -191,6 +192,12 @@ final derivedNoteGeneratorProvider = Provider<DerivedNoteGenerator>((ref) {
 /// Quien dice qué va en un cuaderno de «Crear con IA» (F30): el modelo de la
 /// persona, con su turno.
 final notebookCandidateJudgeProvider = Provider<NotebookCandidateJudge>((ref) {
+  return ref.watch(_gemmaModelProvider);
+});
+
+/// Quien propone nombre y descripción para los cuadernos sugeridos (F30): el
+/// modelo de la persona, con su turno.
+final notebookNamerProvider = Provider<NotebookNamer>((ref) {
   return ref.watch(_gemmaModelProvider);
 });
 
