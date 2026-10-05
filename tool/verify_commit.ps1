@@ -82,8 +82,20 @@ Remove-Item $tar
 New-Item -ItemType Directory -Force -Path (Join-Path $work '.dart_tool') | Out-Null
 Copy-Item '.dart_tool/package_config.json' (Join-Path $work '.dart_tool/package_config.json')
 
-$changed = @(git diff --name-only $Rev -- 'lib/*.dart' 'test/*.dart') +
-  @(git ls-files --others --exclude-standard -- 'lib/*.dart' 'test/*.dart')
+# Contra la carpeta de trabajo entera, también lo que no se commiteó. Con
+# cambios sin commitear, git avisa por stderr cosas como "LF will be replaced
+# by CRLF", y en PowerShell 5.1 eso corta el guion: lo que decide si git falló
+# es su código de salida, no el aviso.
+$previousPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+  $changed = @(git diff --name-only $Rev -- 'lib/*.dart' 'test/*.dart' 2>$null)
+  if ($LASTEXITCODE -ne 0) { throw "git diff falló contra $Rev." }
+  $changed += @(git ls-files --others --exclude-standard -- 'lib/*.dart' 'test/*.dart' 2>$null)
+  if ($LASTEXITCODE -ne 0) { throw 'git ls-files falló.' }
+} finally {
+  $ErrorActionPreference = $previousPreference
+}
 $generatorPart = "part '.*\.(g|freezed)\.dart'"
 
 # Si [path] es de los que generan código, en la carpeta de trabajo o en el
