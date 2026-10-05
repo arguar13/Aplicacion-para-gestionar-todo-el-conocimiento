@@ -10,6 +10,7 @@ import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/attachments/domain/services/attachment_work.dart';
 import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/reference/domain/services/metadata_suggestion_generator.dart';
@@ -58,8 +59,10 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
     required DuplicateSuggestionGenerator duplicateSuggestionGenerator,
     required MetadataSuggestionGenerator metadataSuggestionGenerator,
     TextAnchorRelocator? anchorRelocator,
+    AttachmentWork? attachmentWork,
     Duration longStallLimit = kLongTransformStallLimit,
   }) : _longStallLimit = longStallLimit,
+       _attachmentWork = attachmentWork,
        _anchorRelocator = anchorRelocator,
        _registry = registry,
        _repository = repository,
@@ -78,6 +81,12 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   /// extraer (F22). Sin él, volver a extraer igual conserva los subrayados
   /// —la forma no cambia de identificador—, pero sin moverlos.
   final TextAnchorRelocator? _anchorRelocator;
+
+  /// El «Contenido» bajado de una página (F30): corre después del
+  /// transformador del elemento, en la misma vuelta, si quedó algo por bajar
+  /// o algún archivo sin texto; y solo, cuando no hay otro trabajo —«Bajar
+  /// el resto»—. `null` donde no se baja nada.
+  final AttachmentWork? _attachmentWork;
   final TransformerRegistry _registry;
   final LibraryRepository _repository;
   final ProcessingStateRepository _processingStates;
@@ -187,15 +196,25 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
 
   Future<Either<Failure, KnowledgeItem>> _process(
     KnowledgeItem item,
-    TransformContext context,
-  ) async {
+    TransformContext context, {
+    bool onlyAttachments = false,
+  }) async {
     // Volver a extraer (F22): el transformador se elige como si el
     // elemento no tuviera texto —todos piden eso para correr—, pero recibe
     // el elemento entero, y el texto nuevo toma el lugar del viejo.
-    final reextract = await _reextractionRequested(item.id);
-    final transformer = _registry.resolve(
-      reextract ? item.copyWith(renditions: const []) : item,
-    );
+    final reextract = !onlyAttachments && await _reextractionRequested(item.id);
+    var transformer = onlyAttachments
+        ? null
+        : _registry.resolve(
+            reextract ? item.copyWith(renditions: const []) : item,
+          );
+    // Sin otro trabajo, el del «Contenido», si queda (F30).
+    final attachmentWork = _attachmentWork;
+    if (transformer == null &&
+        attachmentWork != null &&
+        await _hasAttachmentWork(item.id)) {
+      transformer = attachmentWork;
+    }
 
     if (transformer == null) {
       // Nada que hacer: ya está completo. Se marca listo para que no siga
@@ -282,6 +301,13 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
           _registry.resolve(saved) != null) {
         return await _process(saved, context);
       }
+      // Lo que la página ofrece para bajar, en la misma vuelta (F30): el
+      // artículo ya quedó guardado y se puede leer mientras tanto.
+      if (saved != null &&
+          !identical(transformer, attachmentWork) &&
+          await _hasAttachmentWork(saved.id)) {
+        return await _process(saved, context, onlyAttachments: true);
+      }
       _generateSuggestions(result);
       return result;
     } on ProcessingCancelledException {
@@ -352,6 +378,25 @@ class ProcessItemUseCase implements UseCase<KnowledgeItem, String> {
   /// propiedades, que antes se proponían acá, los hace la IA después, en su
   /// propia cola (F27, `AiOrganizeQueue`): el elemento queda listo sin
   /// esperarla.
+  /// Si al elemento le queda trabajo del «Contenido». Un fallo al
+  /// preguntarlo no frena al elemento: se registra y se sigue sin él.
+  Future<bool> _hasAttachmentWork(String itemId) async {
+    final work = _attachmentWork;
+    if (work == null) return false;
+    try {
+      return await work.hasWork(itemId);
+      // Ver el mismo resguardo en `_reextractionRequested`.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      _logger.error(
+        'No se pudo saber si a $itemId le queda algo por bajar.',
+        e,
+        stackTrace,
+      );
+      return false;
+    }
+  }
+
   void _generateSuggestions(Either<Failure, KnowledgeItem> result) {
     result.match((_) {}, (saved) {
       unawaited(

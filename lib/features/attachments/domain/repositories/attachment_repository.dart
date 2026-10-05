@@ -36,8 +36,9 @@ abstract interface class AttachmentRepository {
   });
 
   /// «Bajar el resto»: lo que quedó afuera por el tope vuelve a estar
-  /// pendiente y sin tope; lo que quedó afuera por falta de lugar, pendiente
-  /// otra vez (el lugar se vuelve a mirar). Devuelve cuántos.
+  /// pendiente y sin tope; lo que quedó afuera por falta de lugar o no se
+  /// pudo bajar, pendiente otra vez (el lugar y el servidor se vuelven a
+  /// probar). Devuelve cuántos.
   Future<int> requestRest(String itemId);
 
   // --- Los archivos ---------------------------------------------------------

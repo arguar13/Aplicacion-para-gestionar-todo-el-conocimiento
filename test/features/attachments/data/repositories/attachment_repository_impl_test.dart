@@ -79,8 +79,13 @@ void main() {
         candidate('https://x.org/a.mp4', RenditionKind.video, 0),
         candidate('https://x.org/b.mp4', RenditionKind.video, 1),
         candidate('https://x.org/c.pdf', RenditionKind.pdf, 2),
+        candidate('https://x.org/d.pdf', RenditionKind.pdf, 3),
       ]);
-      final [a, b, c] = await attachments.downloadsOf('pagina');
+      final [a, b, c, d] = await attachments.downloadsOf('pagina');
+      await attachments.markDownload(
+        d.id,
+        status: AttachmentDownloadStatus.failed,
+      );
       await attachments.markDownload(
         a.id,
         status: AttachmentDownloadStatus.leftOut,
@@ -96,7 +101,7 @@ void main() {
       );
 
       expect(await attachments.hasWork('pagina'), isFalse);
-      expect(await attachments.requestRest('pagina'), 2);
+      expect(await attachments.requestRest('pagina'), 3);
 
       final after = {
         for (final d in await attachments.downloadsOf('pagina')) d.id: d,
@@ -107,6 +112,8 @@ void main() {
       expect(after[b.id]!.status, AttachmentDownloadStatus.pending);
       expect(after[b.id]!.forced, isFalse);
       expect(after[c.id]!.status, AttachmentDownloadStatus.done);
+      expect(after[d.id]!.status, AttachmentDownloadStatus.pending);
+      expect(after[d.id]!.forced, isFalse);
       expect(await attachments.hasWork('pagina'), isTrue);
     });
   });

@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/attachments/domain/services/attachment_work.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/processing_state_repository_impl.dart';
 import 'package:sinapsis/features/transform/data/repositories/text_anchor_relocator_impl.dart';
@@ -56,7 +57,9 @@ void main() {
     FakeDuplicateSuggestionGenerator? duplicateSuggestionGenerator,
     FakeMetadataSuggestionGenerator? metadataSuggestionGenerator,
     Duration longStallLimit = const Duration(minutes: 10),
+    AttachmentWork? attachmentWork,
   }) => ProcessItemUseCase(
+    attachmentWork: attachmentWork,
     longStallLimit: longStallLimit,
     registry: registry,
     repository: repository,
@@ -703,6 +706,75 @@ void main() {
     });
   });
 
+  group('el «Contenido» bajado de una página (F30)', () {
+    test(
+      'corre en la misma vuelta, después del artículo ya guardado',
+      () async {
+        final item = await seedPending();
+        final work = _FakeAttachmentWork(pending: 1);
+        String? textWhenWorkStarted;
+        work.onTransform = (_) async {
+          textWhenWorkStarted = (await reload(
+            item.id,
+          )).renditions.firstOrNull?.searchableText;
+        };
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          attachmentWork: work,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+        expect(work.calls, 1);
+        // El artículo ya se podía leer mientras bajaba lo demás.
+        expect(textWhenWorkStarted, 'El contenido que se trajo.');
+        expect((await reload(item.id)).processingState, ProcessingState.ready);
+      },
+    );
+
+    test('solo, cuando no hay otro trabajo («Bajar el resto»)', () async {
+      final item = await seedPending();
+      final work = _FakeAttachmentWork(pending: 1);
+
+      await build(
+        TransformerRegistry([FakeTransformer(accepts: false)]),
+        attachmentWork: work,
+      )(item.id);
+
+      expect(work.calls, 1);
+    });
+
+    test('sin nada que bajar, no corre', () async {
+      final item = await seedPending();
+      final work = _FakeAttachmentWork(pending: 0);
+
+      await build(
+        TransformerRegistry([FakeTransformer()]),
+        attachmentWork: work,
+      )(item.id);
+
+      expect(work.calls, 0);
+    });
+
+    test(
+      'si no se puede saber si queda algo, el elemento sigue igual',
+      () async {
+        final item = await seedPending();
+        final work = _FakeAttachmentWork(pending: 1)
+          ..hasWorkError = StateError('base rota');
+
+        final result = await build(
+          TransformerRegistry([FakeTransformer()]),
+          attachmentWork: work,
+        )(item.id);
+
+        expect(result.isRight(), isTrue);
+        expect(work.calls, 0);
+        expect((await reload(item.id)).processingState, ProcessingState.ready);
+      },
+    );
+  });
+
   group('un enlace que resultó ser un archivo (F30)', () {
     test('en la misma vuelta le toca al transformador de esa clase', () async {
       final item = await seedPending();
@@ -843,5 +915,39 @@ class _LikeARealOne implements Transformer {
         ),
       ],
     );
+  }
+}
+
+/// Trabajo del «Contenido» de mentira: dice que queda [pending] por hacer y,
+/// cuando corre, lo hace.
+class _FakeAttachmentWork implements AttachmentWork {
+  _FakeAttachmentWork({required this.pending});
+
+  int pending;
+  int calls = 0;
+  Error? hasWorkError;
+  Future<void> Function(KnowledgeItem item)? onTransform;
+
+  @override
+  Duration? get timeLimit => null;
+
+  @override
+  bool canTransform(KnowledgeItem item) => true;
+
+  @override
+  Future<bool> hasWork(String itemId) async {
+    if (hasWorkError != null) throw hasWorkError!;
+    return pending > 0;
+  }
+
+  @override
+  Future<KnowledgeItem> transform(
+    KnowledgeItem item, {
+    TransformContext context = TransformContext.detached,
+  }) async {
+    calls++;
+    await onTransform?.call(item);
+    pending = 0;
+    return item;
   }
 }

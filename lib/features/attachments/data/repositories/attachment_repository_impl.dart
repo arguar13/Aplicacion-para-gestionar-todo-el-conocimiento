@@ -101,7 +101,10 @@ class AttachmentRepositoryImpl implements AttachmentRepository {
         await (_db.update(_downloads)..where(
               (d) =>
                   d.itemId.equals(itemId) &
-                  d.status.equalsValue(AttachmentDownloadStatus.noSpace),
+                  d.status.isInValues(const [
+                    AttachmentDownloadStatus.noSpace,
+                    AttachmentDownloadStatus.failed,
+                  ]),
             ))
             .write(
               const AttachmentDownloadsCompanion(

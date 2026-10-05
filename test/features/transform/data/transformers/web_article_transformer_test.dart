@@ -417,8 +417,9 @@ void main() {
           extractor: FakeArticleExtractor(
             article: const ExtractedArticle(
               contentHtml:
-                  '<p>Ver <a href="https://ejemplo.org/informe.pdf">el informe'
-                  '</a>.</p><img src="https://ejemplo.org/foto.jpg" alt="Foto">',
+                  '<p>Ver <a href="https://ejemplo.org/informe.pdf">el '
+                  'informe</a>.</p>'
+                  '<img src="https://ejemplo.org/foto.jpg" alt="Foto">',
               textContent: 'Ver el informe.',
             ),
           ),

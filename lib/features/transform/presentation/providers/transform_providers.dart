@@ -12,6 +12,8 @@ import 'package:sinapsis/core/network/network_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/attachments/data/services/attachment_processor.dart';
+import 'package:sinapsis/features/attachments/domain/services/attachment_work.dart';
 import 'package:sinapsis/features/attachments/presentation/providers/attachment_cap.dart';
 import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
@@ -284,5 +286,17 @@ final processItemUseCaseProvider = Provider<ProcessItemUseCase>((ref) {
     ),
     metadataSuggestionGenerator: ref.watch(metadataSuggestionGeneratorProvider),
     anchorRelocator: TextAnchorRelocatorImpl(ref.watch(appDatabaseProvider)),
+    attachmentWork: ref.watch(attachmentWorkProvider),
   );
 });
+
+/// El trabajo del «Contenido» de los elementos (F30): bajar lo que ofrece
+/// cada página y sacarle el texto a cada archivo.
+final attachmentWorkProvider = Provider<AttachmentWork>(
+  (ref) => AttachmentProcessor(
+    attachments: ref.watch(attachmentRepositoryProvider),
+    fetcher: ref.watch(linkedFileFetcherProvider),
+    maxBytesPerItem: () => ref.read(attachmentCapProvider),
+    logger: ref.watch(appLoggerProvider),
+  ),
+);

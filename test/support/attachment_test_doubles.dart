@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/network/bounded_download.dart';
@@ -51,7 +52,14 @@ class FakeLinkedFileFetcher implements LinkedFileFetcher {
   }) async {
     requested.add(url);
     final file = served['$url'];
-    if (file == null) throw StateError('404: $url');
+    if (file == null) {
+      final request = RequestOptions(path: '$url');
+      throw DioException.badResponse(
+        statusCode: 404,
+        requestOptions: request,
+        response: Response<void>(requestOptions: request, statusCode: 404),
+      );
+    }
     if (file.error != null) throw file.error!;
     if (accept != null && !accept(file.contentType)) {
       throw UnwantedContentException(file.contentType);
@@ -159,7 +167,8 @@ class FakeAttachmentRepository implements AttachmentRepository {
       final d = downloads[i];
       if (d.itemId != itemId) continue;
       if (d.status != AttachmentDownloadStatus.leftOut &&
-          d.status != AttachmentDownloadStatus.noSpace) {
+          d.status != AttachmentDownloadStatus.noSpace &&
+          d.status != AttachmentDownloadStatus.failed) {
         continue;
       }
       count++;
