@@ -23,12 +23,12 @@ import '../../../../support/library_harness.dart';
 class _FakeGenerateDerivedNoteUseCase implements GenerateDerivedNoteUseCase {
   _FakeGenerateDerivedNoteUseCase(this._result);
 
-  final Either<Failure, KnowledgeItem> Function(GenerateDerivedNoteParams)
+  final Either<Failure, DerivedNoteResult> Function(GenerateDerivedNoteParams)
   _result;
   GenerateDerivedNoteParams? paramsSeen;
 
   @override
-  Future<Either<Failure, KnowledgeItem>> call(
+  Future<Either<Failure, DerivedNoteResult>> call(
     GenerateDerivedNoteParams params,
   ) async {
     paramsSeen = params;
@@ -100,7 +100,8 @@ void main() {
     tester,
   ) async {
     final useCase = _FakeGenerateDerivedNoteUseCase(
-      (params) => right(_fixtureNote('nueva', params.title)),
+      (params) =>
+          right(DerivedNoteResult(note: _fixtureNote('nueva', params.title))),
     );
     await pumpButton(
       tester,
@@ -129,7 +130,8 @@ void main() {
     tester,
   ) async {
     final useCase = _FakeGenerateDerivedNoteUseCase(
-      (params) => right(_fixtureNote('nueva', params.title)),
+      (params) =>
+          right(DerivedNoteResult(note: _fixtureNote('nueva', params.title))),
     );
     await pumpButton(
       tester,

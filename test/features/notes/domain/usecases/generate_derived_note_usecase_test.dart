@@ -192,7 +192,7 @@ void main() {
         ),
       );
 
-      final saved = result.getRight().toNullable()!;
+      final saved = result.getRight().toNullable()!.note;
       expect(saved.title, 'Guía de estudio');
       expect(saved.source.kind, SourceKind.manualNote);
 
@@ -250,7 +250,7 @@ void main() {
       ),
     );
 
-    final saved = result.getRight().toNullable()!;
+    final saved = result.getRight().toNullable()!.note;
     final relations = await organize.watchRelationsForItem(saved.id).first;
     expect(relations, hasLength(1));
     expect(relations.single.otherItemId, 'a');
@@ -451,7 +451,7 @@ void main() {
       final parts = generator.calls.length;
       expect(progress, [for (var i = 0; i <= parts; i++) (i, parts)]);
 
-      final saved = result.getRight().toNullable()!;
+      final saved = result.getRight().toNullable()!.note;
       final blocks = decodeContentBlocks(
         saved.renditions.whereType<TextRendition>().single.content,
       );
@@ -535,6 +535,154 @@ void main() {
 
       expect(result.isLeft(), isTrue);
       expect(generator.calls, isEmpty);
+    });
+  });
+
+  group('queda adentro del cuaderno (F30)', () {
+    DerivedNoteDraft citeAll(List<ChatSource> sources) => DerivedNoteDraft(
+      type: DerivedNoteType.studyGuide,
+      sections: [
+        DerivedSection(
+          claims: [
+            for (final source in sources)
+              DerivedClaim(
+                text: 'de ${source.itemId}',
+                sourceItemId: source.itemId,
+                sourceCharStart: 0,
+                sourceCharEnd: 5,
+              ),
+          ],
+        ),
+      ],
+    );
+
+    Future<DerivedNoteResult> generateFrom(String notebookId) async {
+      final result =
+          await useCase(
+            FakeDerivedNoteGenerator(
+              const DerivedNoteDraft(
+                type: DerivedNoteType.studyGuide,
+                sections: [],
+              ),
+              draftFor: citeAll,
+            ),
+          )(
+            GenerateDerivedNoteParams(
+              type: DerivedNoteType.studyGuide,
+              title: 'Guía de estudio: Roma',
+              model: 'gemma-3n',
+              notebookId: notebookId,
+            ),
+          );
+      return result.getRight().toNullable()!;
+    }
+
+    test('en uno manual, se agrega a sus elementos', () async {
+      await seedSource('a', 'El Senado romano');
+      final notebook = await notebooks.create(
+        name: 'Roma',
+        mode: NotebookMode.manual,
+      );
+      await notebooks.addItem(notebookId: notebook.id, itemId: 'a');
+
+      final result = await generateFrom(notebook.id);
+
+      expect(result.inNotebook, isTrue);
+      expect((await notebooks.resolveQuery(notebook.id)).ids, {
+        'a',
+        result.note.id,
+      });
+    });
+
+    test('en uno por tema, la nota recibe el tema y entra sola', () async {
+      final space = (await organize.createSpace(
+        'Roma',
+      )).getRight().toNullable()!;
+      await seedSource('a', 'El Senado romano');
+      await library.assignSpace(itemId: 'a', spaceId: space.id);
+      final notebook = await notebooks.create(
+        name: 'Roma',
+        mode: NotebookMode.query,
+        query: LibraryQuery(spaceId: space.id),
+      );
+
+      final result = await generateFrom(notebook.id);
+
+      expect(result.inNotebook, isTrue);
+      expect(result.note.spaceId, space.id);
+      final inside = (await library.matchingIds(
+        LibraryQuery(spaceId: space.id),
+      )).getRight().toNullable()!;
+      expect(inside, contains(result.note.id));
+    });
+
+    test('en uno por etiqueta, la nota recibe la etiqueta', () async {
+      final tag = (await organize.getOrCreateTag(
+        'Roma',
+      )).getRight().toNullable()!;
+      final source = (await library.findById(
+        await seedSource('a', 'El Senado romano'),
+      )).getRight().toNullable()!;
+      await library.save(source.copyWith(tags: [tag]));
+      final notebook = await notebooks.create(
+        name: 'Roma',
+        mode: NotebookMode.query,
+        query: LibraryQuery(tagIds: {tag.id}),
+      );
+
+      final result = await generateFrom(notebook.id);
+
+      expect(result.inNotebook, isTrue);
+      final saved = (await library.findById(
+        result.note.id,
+      )).getRight().toNullable()!;
+      expect(saved.tags.map((t) => t.id), [tag.id]);
+    });
+
+    test('si la consulta pide algo que una nota no tiene, queda en la '
+        'Biblioteca y lo dice, sin tocarle el tema', () async {
+      final space = (await organize.createSpace(
+        'Roma',
+      )).getRight().toNullable()!;
+      await seedSource('a', 'El Senado romano');
+      await library.assignSpace(itemId: 'a', spaceId: space.id);
+      final notebook = await notebooks.create(
+        name: 'Solo páginas',
+        mode: NotebookMode.query,
+        query: LibraryQuery(
+          spaceId: space.id,
+          sourceKinds: const {SourceKind.webPage},
+        ),
+      );
+
+      final result = await generateFrom(notebook.id);
+
+      expect(result.inNotebook, isFalse);
+      expect(result.note.spaceId, isNull);
+    });
+
+    test('de un elemento suelto, no hay cuaderno que mirar', () async {
+      await seedSource('a', 'El Senado romano');
+
+      final result =
+          await useCase(
+            FakeDerivedNoteGenerator(
+              const DerivedNoteDraft(
+                type: DerivedNoteType.studyGuide,
+                sections: [],
+              ),
+              draftFor: citeAll,
+            ),
+          )(
+            GenerateDerivedNoteParams(
+              type: DerivedNoteType.studyGuide,
+              title: 'Guía',
+              model: 'gemma-3n',
+              itemId: 'a',
+            ),
+          );
+
+      expect(result.getRight().toNullable()!.inNotebook, isNull);
     });
   });
 }

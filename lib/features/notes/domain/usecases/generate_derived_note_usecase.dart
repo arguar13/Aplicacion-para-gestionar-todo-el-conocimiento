@@ -1,18 +1,22 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/tag.dart';
 import 'package:sinapsis/core/domain/services/chat_source_builder.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
 import 'package:sinapsis/features/notes/domain/repositories/derived_note_repository.dart';
@@ -60,6 +64,21 @@ class GenerateDerivedNoteParams {
   final void Function(int read, int total)? onProgress;
 }
 
+/// Lo que dejó un derivado: la nota, y si quedó adentro del cuaderno del que
+/// salió (F30).
+@immutable
+class DerivedNoteResult {
+  const DerivedNoteResult({required this.note, this.inNotebook});
+
+  final KnowledgeItem note;
+
+  /// `true` si la nota es parte del cuaderno del que salió; `false` si es un
+  /// cuaderno por consulta que pide algo que una nota no tiene —un texto, un
+  /// tipo de fuente— y quedó solo en la Biblioteca; `null` si salió de un
+  /// elemento.
+  final bool? inNotebook;
+}
+
 /// Genera un derivado —guía de estudio, preguntas abiertas, esquema o
 /// cronología— desde un cuaderno o un elemento, y lo guarda como una nota
 /// nueva, marcada, con sus afirmaciones ancladas a sus fuentes (F16, 12b).
@@ -84,8 +103,14 @@ class GenerateDerivedNoteParams {
 /// - Se reparten en hasta [kDerivedNoteMaxParts] pedidos que entran en la
 ///   ventana ([packDerivedSources]), y lo que dio cada uno se junta en una
 ///   sola nota ([mergeDerivedSections]).
+///
+/// **Queda adentro del cuaderno** (F30). En uno manual, se agrega a sus
+/// elementos en la misma transacción. En uno por consulta, la pertenencia la
+/// decide la consulta: si pide un tema o etiquetas —los cuadernos sugeridos—,
+/// la nota los recibe y entra sola; si pide algo que una nota no tiene, queda
+/// en la Biblioteca y el resultado lo dice ([DerivedNoteResult.inNotebook]).
 class GenerateDerivedNoteUseCase
-    implements UseCase<KnowledgeItem, GenerateDerivedNoteParams> {
+    implements UseCase<DerivedNoteResult, GenerateDerivedNoteParams> {
   const GenerateDerivedNoteUseCase({
     required LibraryRepository library,
     required NotebookRepository notebooks,
@@ -114,7 +139,7 @@ class GenerateDerivedNoteUseCase
   final Clock _clock;
 
   @override
-  Future<Either<Failure, KnowledgeItem>> call(
+  Future<Either<Failure, DerivedNoteResult>> call(
     GenerateDerivedNoteParams params,
   ) async {
     final sources = await _resolveSources(params);
@@ -161,6 +186,15 @@ class GenerateDerivedNoteUseCase
       );
     }
 
+    final notebookId = params.notebookId;
+    final notebook = notebookId == null
+        ? null
+        : await _notebooks.watchById(notebookId).first;
+    final joinQuery = notebook?.mode == NotebookMode.query
+        ? notebook!.query
+        : null;
+    final joinsByTopic = joinQuery != null && _joinsByTopic(joinQuery);
+
     final now = _clock();
     final itemId = _ids.next();
     final item = KnowledgeItem(
@@ -174,6 +208,8 @@ class GenerateDerivedNoteUseCase
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
+      spaceId: joinsByTopic ? joinQuery.spaceId : null,
+      tags: joinsByTopic ? await _tagsOf(joinQuery.tagIds) : const [],
       renditions: [
         Rendition.text(
           id: _ids.next(),
@@ -186,30 +222,81 @@ class GenerateDerivedNoteUseCase
       ],
     );
 
-    return _library.runInTransaction<Either<Failure, KnowledgeItem>>(() async {
-      final saveResult = await _library.save(item);
-      final saved = saveResult.getRight().toNullable();
-      if (saved == null) return saveResult;
+    final saved = await _library
+        .runInTransaction<Either<Failure, KnowledgeItem>>(() async {
+          final saveResult = await _library.save(item);
+          final saved = saveResult.getRight().toNullable();
+          if (saved == null) return saveResult;
 
-      await _derivedNotes.markGenerated(saved.id, model: params.model, at: now);
-
-      // Una relación `extractedFrom` por afirmación anclada: el generador
-      // (D6) ya garantiza como mucho una por fuente, así que ninguna de
-      // estas puede chocar con `UNIQUE(from_item_id, to_item_id, kind)`.
-      for (final section in draft.sections) {
-        for (final claim in section.claims) {
-          await _organize.createRelation(
-            fromItemId: saved.id,
-            toItemId: claim.sourceItemId,
-            kind: RelationKind.extractedFrom,
-            sourceCharStart: claim.sourceCharStart,
-            sourceCharEnd: claim.sourceCharEnd,
+          await _derivedNotes.markGenerated(
+            saved.id,
+            model: params.model,
+            at: now,
           );
-        }
-      }
 
-      return right(saved);
-    });
+          // Una relación `extractedFrom` por afirmación anclada: el generador
+          // (D6) ya garantiza como mucho una por fuente, así que ninguna de
+          // estas puede chocar con `UNIQUE(from_item_id, to_item_id, kind)`.
+          for (final section in draft.sections) {
+            for (final claim in section.claims) {
+              await _organize.createRelation(
+                fromItemId: saved.id,
+                toItemId: claim.sourceItemId,
+                kind: RelationKind.extractedFrom,
+                sourceCharStart: claim.sourceCharStart,
+                sourceCharEnd: claim.sourceCharEnd,
+              );
+            }
+          }
+
+          if (notebook?.mode == NotebookMode.manual) {
+            await _notebooks.addItem(
+              notebookId: notebook!.id,
+              itemId: saved.id,
+            );
+          }
+
+          return right(saved);
+        });
+
+    final failure = saved.getLeft().toNullable();
+    if (failure != null) return left(failure);
+    final note = saved.getRight().toNullable()!;
+    if (notebook == null) return right(DerivedNoteResult(note: note));
+
+    // En uno por consulta, se pregunta: la consulta es la que decide.
+    final query = joinQuery;
+    final inNotebook =
+        query == null ||
+        (await _library.matchingIds(
+          query.copyWith(ids: {note.id}, limit: null, offset: 0),
+        )).getOrElse((_) => const []).contains(note.id);
+    return right(DerivedNoteResult(note: note, inNotebook: inNotebook));
+  }
+
+  /// Si un cuaderno por consulta pide un tema o etiquetas y nada que una nota
+  /// generada no pueda tener: ahí la nota entra con solo recibirlos. Un texto
+  /// buscado, otro tipo de fuente, un estado o unos elementos puntuales no se
+  /// le pueden dar.
+  bool _joinsByTopic(LibraryQuery query) =>
+      (query.spaceId != null || query.tagIds.isNotEmpty) &&
+      !query.hasSearchText &&
+      (query.sourceKinds.isEmpty ||
+          query.sourceKinds.contains(SourceKind.manualNote)) &&
+      query.propertyValueIds.isEmpty &&
+      query.ids == null &&
+      (query.processingStates.isEmpty ||
+          query.processingStates.contains(ProcessingState.ready)) &&
+      query.inboxStatuses.isEmpty;
+
+  /// Las etiquetas de [tagIds] que existen, con su nombre.
+  Future<List<Tag>> _tagsOf(Set<String> tagIds) async {
+    if (tagIds.isEmpty) return const [];
+    final all = await _organize.watchAllTags().first;
+    return [
+      for (final tag in all)
+        if (tagIds.contains(tag.id)) tag,
+    ];
   }
 
   /// Las fuentes que se pueden citar de un cuaderno —las más representativas

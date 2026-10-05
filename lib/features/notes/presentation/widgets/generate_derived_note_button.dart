@@ -132,7 +132,8 @@ class _GenerateDerivedNoteButtonState
             SnackBar(content: Text(failure.localizedMessage(l10n))),
           );
       },
-      (saved) {
+      (result) {
+        final saved = result.note;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
