@@ -8,6 +8,7 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_settings_tiles.dart';
+import 'package:sinapsis/features/attachments/presentation/widgets/attachment_cap_tile.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
 import 'package:sinapsis/features/citations/domain/services/reference_styles.dart';
 import 'package:sinapsis/features/citations/presentation/citation_presentation.dart';
@@ -192,6 +193,8 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsSection(
             title: l10n.settingsVaultSection,
             children: [
+              // Cuánto se baja de cada página (F30, decisión E).
+              const AttachmentCapTile(),
               ListTile(
                 leading: const Icon(Icons.backup_outlined),
                 title: Text(l10n.libraryVaultBackupTooltip),
