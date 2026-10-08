@@ -8110,5 +8110,72 @@
         "type": "String"
       }
     }
+  },
+  "contentTrashFileMissing": "The file was no longer on the phone: there is nothing to recover",
+  "@contentTrashFileMissing": {
+    "description": "Aviso: el archivo soltado ya no estaba en el disco al recuperarlo. (F30)"
+  },
+  "contentTrashAlreadyHasFile": "The item already has another file: the one in the trash stays there",
+  "@contentTrashAlreadyHasFile": {
+    "description": "Aviso: no se recupera el archivo porque el elemento ya tiene otro. (F30)"
+  },
+  "inboxKeepTitle": "What moves on with this book?",
+  "@inboxKeepTitle": {
+    "description": "Bandeja, al triar un libro o documento: qué pasa a la siguiente fase. (F30, decisión 68)"
+  },
+  "inboxKeepBody": "The file and the text extracted from it were saved. Whatever doesn't move on goes to the app's trash for 30 days.",
+  "@inboxKeepBody": {
+    "description": "Bandeja, hoja de las tres opciones de un libro: qué significa elegir. (F30)"
+  },
+  "inboxKeepBoth": "Text and book",
+  "@inboxKeepBoth": {
+    "description": "Bandeja, hoja de un libro: seguir con los dos. (F30)"
+  },
+  "inboxKeepBothHint": "Both stay, as until now",
+  "@inboxKeepBothHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Texto y libro». (F30)"
+  },
+  "inboxKeepOnlyText": "Only the text",
+  "@inboxKeepOnlyText": {
+    "description": "Bandeja, hoja de un libro: seguir con el texto y soltar el archivo. (F30)"
+  },
+  "inboxKeepOnlyTextHint": "The file goes to the trash and frees up space",
+  "@inboxKeepOnlyTextHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», sin saber cuánto pesa. (F30)"
+  },
+  "inboxKeepOnlyTextSizeHint": "The file goes to the trash and frees up {megabytes} MB",
+  "@inboxKeepOnlyTextSizeHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», con cuánto libera. (F30)",
+    "placeholders": {
+      "megabytes": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxKeepOnlyFile": "Only the book",
+  "@inboxKeepOnlyFile": {
+    "description": "Bandeja, hoja de un libro: seguir con el archivo y soltar el texto. (F30)"
+  },
+  "inboxKeepOnlyFileHint": "The text goes to the trash; the book isn't read again on its own",
+  "@inboxKeepOnlyFileHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el libro». (F30)"
+  },
+  "inboxTriagedOnlyTextSnack": "Triaged, text only: {title}",
+  "@inboxTriagedOnlyTextSnack": {
+    "description": "Aviso tras triar un libro quedándose con el texto. (F30)",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxTriagedOnlyFileSnack": "Triaged, book only: {title}",
+  "@inboxTriagedOnlyFileSnack": {
+    "description": "Aviso tras triar un libro quedándose con el archivo. (F30)",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -7092,5 +7092,72 @@
         "type": "String"
       }
     }
+  },
+  "contentTrashFileMissing": "El archivo ya no estaba en el teléfono: no hay nada que recuperar",
+  "@contentTrashFileMissing": {
+    "description": "Aviso: el archivo soltado ya no estaba en el disco al recuperarlo. (F30)"
+  },
+  "contentTrashAlreadyHasFile": "El elemento ya tiene otro archivo: el de la papelera sigue ahí",
+  "@contentTrashAlreadyHasFile": {
+    "description": "Aviso: no se recupera el archivo porque el elemento ya tiene otro. (F30)"
+  },
+  "inboxKeepTitle": "¿Con qué sigue este libro?",
+  "@inboxKeepTitle": {
+    "description": "Bandeja, al triar un libro o documento: qué pasa a la siguiente fase. (F30, decisión 68)"
+  },
+  "inboxKeepBody": "Se guardaron el archivo y el texto que se le sacó. Lo que no siga va a la papelera de la app por 30 días.",
+  "@inboxKeepBody": {
+    "description": "Bandeja, hoja de las tres opciones de un libro: qué significa elegir. (F30)"
+  },
+  "inboxKeepBoth": "Texto y libro",
+  "@inboxKeepBoth": {
+    "description": "Bandeja, hoja de un libro: seguir con los dos. (F30)"
+  },
+  "inboxKeepBothHint": "Quedan los dos, como hasta ahora",
+  "@inboxKeepBothHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Texto y libro». (F30)"
+  },
+  "inboxKeepOnlyText": "Solo el texto",
+  "@inboxKeepOnlyText": {
+    "description": "Bandeja, hoja de un libro: seguir con el texto y soltar el archivo. (F30)"
+  },
+  "inboxKeepOnlyTextHint": "El archivo va a la papelera y libera espacio",
+  "@inboxKeepOnlyTextHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», sin saber cuánto pesa. (F30)"
+  },
+  "inboxKeepOnlyTextSizeHint": "El archivo va a la papelera y libera {megabytes} MB",
+  "@inboxKeepOnlyTextSizeHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el texto», con cuánto libera. (F30)",
+    "placeholders": {
+      "megabytes": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxKeepOnlyFile": "Solo el libro",
+  "@inboxKeepOnlyFile": {
+    "description": "Bandeja, hoja de un libro: seguir con el archivo y soltar el texto. (F30)"
+  },
+  "inboxKeepOnlyFileHint": "El texto va a la papelera; el libro no se vuelve a leer solo",
+  "@inboxKeepOnlyFileHint": {
+    "description": "Bandeja, hoja de un libro: qué hace «Solo el libro». (F30)"
+  },
+  "inboxTriagedOnlyTextSnack": "Triado, solo el texto: {title}",
+  "@inboxTriagedOnlyTextSnack": {
+    "description": "Aviso tras triar un libro quedándose con el texto. (F30)",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxTriagedOnlyFileSnack": "Triado, solo el libro: {title}",
+  "@inboxTriagedOnlyFileSnack": {
+    "description": "Aviso tras triar un libro quedándose con el archivo. (F30)",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   }
 }

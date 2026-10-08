@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fpdart/fpdart.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -12,10 +13,15 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/content_trash/domain/entities/trashed_content.dart';
+import 'package:sinapsis/features/content_trash/presentation/providers/content_trash_providers.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_intro_card.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/inbox_keep_sheet.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_queue_sheet.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pending_excerpt.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pending_facts.dart';
@@ -82,6 +88,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     required ItemState to,
     required String message,
     LinkedNote? linkedNote,
+    List<String> trashedContentIds = const [],
   }) async {
     final result = await ref
         .read(inboxRepositoryProvider)
@@ -100,6 +107,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       kind: kind,
       previousState: ItemState.processed,
       linkedNote: linkedNote,
+      trashedContentIds: trashedContentIds,
     );
     ref.read(inboxHistoryProvider.notifier).record(step);
     // La elegida de la cola ya se resolvió: el mazo vuelve a su orden.
@@ -170,12 +178,65 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     message: AppLocalizations.of(context)!.inboxDiscardedSnack(item.title),
   );
 
-  Future<void> _triage(KnowledgeItem item) => _decide(
-    item,
-    kind: InboxStepKind.triaged,
-    to: ItemState.triaged,
-    message: AppLocalizations.of(context)!.inboxTriagedSnack(item.title),
-  );
+  /// Tría la fuente. En un libro o un documento, antes pregunta qué pasa a la
+  /// siguiente fase (F30, decisión 68): el texto y el libro, solo el texto
+  /// —el archivo va a la papelera de la app, y libera su lugar— o solo el
+  /// libro —el texto va a la papelera y no se vuelve a extraer solo—. Cerrar
+  /// la hoja sin elegir deja la fuente en la Bandeja.
+  Future<void> _triage(KnowledgeItem item) async {
+    final l10n = AppLocalizations.of(context)!;
+    final keep = await _askWhatToKeep(item);
+    if (keep == null || !mounted) return;
+
+    final trashing = ref.read(contentTrashRepositoryProvider);
+    final dropped = switch (keep) {
+      InboxKeep.both => right<Failure, List<TrashedContent>>(const []),
+      InboxKeep.onlyText => await trashing.keepOnlyText(item.id),
+      InboxKeep.onlyFile => await trashing.keepOnlyFile(item.id),
+    };
+    if (!mounted) return;
+    if (dropped.getLeft().toNullable() case final failure?) {
+      _showSnack(failure.localizedMessage(l10n));
+      return;
+    }
+    final trashedIds = [
+      for (final content in dropped.getRight().getOrElse(() => const []))
+        content.id,
+    ];
+
+    final decided = await _decide(
+      item,
+      kind: InboxStepKind.triaged,
+      to: ItemState.triaged,
+      message: switch (keep) {
+        InboxKeep.both => l10n.inboxTriagedSnack(item.title),
+        InboxKeep.onlyText => l10n.inboxTriagedOnlyTextSnack(item.title),
+        InboxKeep.onlyFile => l10n.inboxTriagedOnlyFileSnack(item.title),
+      },
+      trashedContentIds: trashedIds,
+    );
+    // Si no se pudo triar, lo soltado vuelve: la fuente queda como estaba.
+    if (!decided) {
+      for (final id in trashedIds) {
+        await trashing.restore(id);
+      }
+    }
+  }
+
+  /// Qué pasa a la siguiente fase: [InboxKeep.both] sin preguntar si la
+  /// fuente no es un libro o un documento con su archivo y su texto —no hay
+  /// una mitad que soltar—, o lo elegido en la hoja; `null` si se la cerró.
+  Future<InboxKeep?> _askWhatToKeep(KnowledgeItem item) async {
+    final path = item.source.originalFilePath;
+    if (item.source.kind != SourceKind.document ||
+        path == null ||
+        !(extractableRendition(item)?.content.trim().isNotEmpty ?? false)) {
+      return InboxKeep.both;
+    }
+    final size = await ref.read(fileStoreProvider).sizeOf(path);
+    if (!mounted) return null;
+    return showInboxKeepSheet(context, fileBytes: size);
+  }
 
   /// Abre la fuente para sacarle notas: la deja triada y, si tiene texto,
   /// abre la vista de lectura para destilar; si no, su detalle.
@@ -424,7 +485,8 @@ class _InboxUndo {
   /// después.
   Future<void> call({InboxStep? only}) async {
     if (only != null && history.last != only) return;
-    final outcome = await history.undoLast();
+    final notRestored = <ContentRestoreOutcome>[];
+    final outcome = await history.undoLast(onNotRestored: notRestored.add);
     if (outcome == null) return;
 
     messenger.hideCurrentSnackBar();
@@ -439,6 +501,19 @@ class _InboxUndo {
           messenger.showSnackBar(
             SnackBar(content: Text(l10n.inboxUndoneNoteTrashed(title))),
           );
+        }
+        // Lo que ya no se pudo devolver de lo soltado al triar (F30).
+        for (final outcome in notRestored) {
+          final message = switch (outcome) {
+            ContentRestoreOutcome.fileMissing => l10n.contentTrashFileMissing,
+            ContentRestoreOutcome.alreadyHasFile =>
+              l10n.contentTrashAlreadyHasFile,
+            ContentRestoreOutcome.restored ||
+            ContentRestoreOutcome.gone => null,
+          };
+          if (message != null) {
+            messenger.showSnackBar(SnackBar(content: Text(message)));
+          }
         }
       },
     );

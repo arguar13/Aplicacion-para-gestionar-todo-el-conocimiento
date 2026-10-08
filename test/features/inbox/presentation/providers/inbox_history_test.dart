@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/content_trash/domain/entities/trashed_content.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -91,6 +92,33 @@ void main() {
     expect(await stateOf(first), ItemState.processed);
     expect(history().last, isNull);
   });
+
+  test(
+    'deshacer un triaje que soltó el archivo o el texto los recupera '
+    '(F30, decisión 68); lo que ya venció no impide devolver el resto',
+    () async {
+      final id = await seedSource();
+      history().record(
+        InboxStep(
+          itemId: id,
+          title: id,
+          kind: InboxStepKind.triaged,
+          previousState: ItemState.processed,
+          trashedContentIds: const ['vencido-hace-rato'],
+        ),
+      );
+      await harness.container
+          .read(inboxRepositoryProvider)
+          .transitionState(itemId: id, to: ItemState.triaged);
+      final notRestored = <ContentRestoreOutcome>[];
+
+      final undone = await history().undoLast(onNotRestored: notRestored.add);
+
+      expect(undone!.getRight().toNullable()!.itemId, id);
+      expect(await stateOf(id), ItemState.processed);
+      expect(notRestored, [ContentRestoreOutcome.gone]);
+    },
+  );
 
   test('recuerda hasta su capacidad: el más viejo se suelta', () async {
     for (var i = 0; i <= InboxHistory.capacity; i++) {

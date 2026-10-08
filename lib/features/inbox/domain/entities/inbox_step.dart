@@ -47,5 +47,9 @@ sealed class InboxStep with _$InboxStep {
 
     /// Con [InboxStepKind.linked], el vínculo que deshacer.
     LinkedNote? linkedNote,
+
+    /// Lo que se soltó del elemento al triarlo —su archivo o su texto, en la
+    /// papelera del contenido— (F30, decisión 68): deshacer lo recupera.
+    @Default(<String>[]) List<String> trashedContentIds,
   }) = _InboxStep;
 }
