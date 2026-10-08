@@ -812,27 +812,109 @@ dos, la otra deja de filtrar por él sola.
 
 ## Cuadernos
 
-Un cuaderno junta un subconjunto de lo que guardaste — a mano, elemento por
-elemento, o automáticamente a partir de una Vista guardada — para poder
-acotar cosas a solo ese grupo (por ejemplo, para que el Chat con la IA busque
-únicamente ahí adentro).
+Un cuaderno junta un subconjunto de lo que guardaste — a mano, con ayuda de la
+IA, o automáticamente a partir de un tema, una etiqueta o una Vista guardada —
+para poder acotar cosas a solo ese grupo (por ejemplo, para que el Chat con la
+IA busque únicamente ahí adentro).
 
 **Cómo llegar:** ítem **"Cuadernos"** en la navegación.
 
 ### Crear un cuaderno
 
-1. Botón flotante **"Crear"**.
-2. En el diálogo **"Cuaderno nuevo"**, escribí un nombre y elegí el modo:
-   - **"A mano"**: lo vas a ir armando tocando elementos uno por uno.
-   - **"Por consulta"**: se llena solo con lo que trae una Vista guardada que
-     elijas de una lista (necesitás tener guardada al menos una vista antes).
-3. Tocá **"Crear"**.
+Botón flotante **"Nuevo cuaderno"**. Te pregunta cómo:
 
-Dentro de un cuaderno hecho "a mano" hay un botón **"+"** para agregar
-elementos, y cada fila tiene una "X" para sacarlos (esto no borra el
-elemento de la bóveda, solo lo saca del cuaderno). Un cuaderno "por consulta"
-es de solo lectura: se actualiza solo, según lo que la vista guardada vaya
-trayendo.
+- **"Crear con IA"**: contás de qué lo querés y la IA lo arma. Ver
+  [más abajo](#crear-un-cuaderno-con-ia).
+- **"Sugeridos"**: cuadernos que la app te propone a partir de tus temas y
+  etiquetas. Aparece solo cuando hay alguno. Ver
+  [más abajo](#cuadernos-sugeridos).
+- **"A mano"**: se abre el diálogo **"Cuaderno nuevo"**. Escribí un nombre y
+  elegí el modo:
+  - **"A mano"**: lo vas a ir armando vos, elemento por elemento.
+  - **"Por consulta"**: se llena solo con lo que trae una Vista guardada que
+    elijas de una lista (necesitás tener guardada al menos una vista antes).
+
+  Y tocá **"Crear"**.
+
+Dentro de un cuaderno hecho "a mano" hay un botón **"+"** para **agregar
+elementos**: el selector deja tildar **varios a la vez** —lo tildado se
+mantiene aunque cambies la búsqueda, y lo que ya está en el cuaderno aparece
+marcado y no se puede tocar— y se agregan todos juntos con **"Agregar N"**. Cada
+fila tiene una "X" para sacarlos (esto no borra el elemento de la bóveda, solo
+lo saca del cuaderno). Un cuaderno "por consulta" es de solo lectura: se
+actualiza solo, según lo que la consulta vaya trayendo.
+
+### Crear un cuaderno con IA
+
+1. **"Nuevo cuaderno"** → **"Crear con IA"** (también está en la pantalla de
+   Cuadernos cuando todavía no hay ninguno).
+2. Escribí de qué lo querés, por ejemplo *"mi tesis sobre Roma"*. La hoja te
+   avisa qué modelos hay: con el **modelo de vínculos** busca también por
+   sentido —encuentra "el Senado" buscando "Roma" aunque no diga Roma—; con el
+   **modelo de lenguaje** la IA revisa lo que encontró. Sin ninguno de los dos
+   igual busca, por palabras.
+3. Te muestra los elementos que encontró, **ya marcados**. Las palabras de para
+   qué es el cuaderno ("tesis", "apuntes", "parcial") no se buscan: se busca de
+   qué trata. Con el modelo de lenguaje, la IA revisa los primeros 24 de a 8 y
+   debajo de cada uno dice si lo ve del tema; la lista aparece enseguida y las
+   marcas se van corrigiendo. **Lo que vos tocás ya no lo cambia la IA.** Podés
+   crear el cuaderno sin esperar a que termine.
+4. Destildá lo que no va, ajustá el nombre (ya viene propuesto) y tocá
+   **"Crear con N elementos"**: se crea un cuaderno "a mano" con los elegidos y
+   se abre.
+
+Si la búsqueda por sentido falla, la hoja lo dice y sigue con las palabras. Si
+no encuentra nada, te deja probar con otras palabras.
+
+### Cuadernos sugeridos
+
+La app mira tus **temas** y tus **etiquetas** y, cuando alguno junta **tres
+elementos o más**, te propone un cuaderno con ese nombre.
+
+- Arriba de la lista de Cuadernos aparece un aviso —*"2 cuadernos
+  sugeridos"*— con **"Ver"** y **"Ahora no"**. "Ahora no" lo deja de mostrar, y
+  la app lo recuerda: solo vuelve a avisar si aparece otro tema o etiqueta que
+  da para uno. También están en **"Nuevo cuaderno" → "Sugeridos"**.
+- En la hoja de sugeridos **elegís vos cuáles crear**: vienen sin marcar, con
+  de dónde salen ("Tema · 12 elementos", "Etiqueta · 5 elementos"). Con el modelo
+  de lenguaje, la IA propone un nombre y una línea que dice qué reúne cada uno
+  mientras mirás; sin él, o si falla, queda el nombre del tema o la etiqueta
+  (lo podés renombrar después).
+- Cada cuaderno sugerido es **por consulta**: un tema, o una etiqueta **con
+  todas sus ramas**. Por eso **se mantiene al día solo**: lo que guardes
+  después y entre en ese tema o etiqueta aparece en el cuaderno sin que hagas
+  nada.
+- No te sugiere lo que ya tenés: ni un cuaderno que ya pide ese tema o esa
+  etiqueta, ni uno con el mismo nombre. Una etiqueta que tiene lo mismo que la
+  de arriba tampoco, y un tema y una etiqueta con el mismo nombre dan un solo
+  cuaderno. Se sugieren como mucho 8 a la vez, los de más elementos.
+
+La línea de descripción que propone la IA es para ayudarte a elegir: el
+cuaderno no la guarda.
+
+### Llenar un cuaderno con IA
+
+El botón **✨ "Llenar con IA"** del detalle de un cuaderno arma, con lo que
+tiene adentro:
+
+- **Una nota de estudio**, que **queda adentro del cuaderno**. Por defecto es
+  una guía de estudio; también podés elegir preguntas abiertas, esquema o
+  cronología. Cada afirmación queda anclada a su fuente. Un cuaderno grande se
+  lee **por partes** (hasta tres, de las fuentes más representativas) y ves
+  cuántas lleva. En un cuaderno "a mano" la nota se agrega; en uno por tema o
+  etiqueta, recibe el tema o la etiqueta y entra sola. Si el cuaderno es por una
+  consulta que una nota no cumple (por ejemplo, solo páginas web), la nota queda
+  en la Biblioteca y la hoja te lo dice.
+- **Las tarjetas de repaso** de lo que todavía no tiene: es el mismo pedido de
+  "solo tarjetas" de [Repasar](#repasar-con-tarjetas-y-cuestionarios), se hace en
+  segundo plano y aparecen en Repasar. La hoja te cuenta antes cuántos
+  elementos entran y cuántos ya tienen. Las tarjetas se piden **antes** de
+  crear la nota, así la nota no da tarjetas de tarjetas.
+
+Podés elegir una cosa, la otra o las dos. Necesita el modelo de lenguaje (si
+falta, te ofrece bajarlo). Mientras la nota se genera, la hoja no se cierra por
+accidente; al terminar te dice qué quedó hecho, con **"Ver"** para abrir la
+nota.
 
 ---
 
@@ -1163,8 +1245,9 @@ alta"** en el menú (ver [Seleccionar texto: el menú](#seleccionar-texto-el-men
 Sinapsis puede generar, automáticamente, una nota nueva a partir de un
 elemento o de todo un cuaderno, en cuatro formas distintas.
 
-**Cómo llegar:** botón "✨ Generar derivado" en el detalle de un elemento o de
-un cuaderno.
+**Cómo llegar:** botón "✨ Generar derivado" en el detalle de un elemento. En
+un cuaderno, el botón es [**"✨ Llenar con IA"**](#llenar-un-cuaderno-con-ia),
+que además deja la nota adentro del cuaderno.
 
 1. Tocá el botón. Si el modelo de lenguaje no está descargado, te va a
    ofrecer descargarlo primero.
@@ -1172,6 +1255,10 @@ un cuaderno.
    **"Esquema"** o **"Cronología"**.
 3. Cuando termine, vas a poder tocar **"Ver"** para abrir la nota nueva
    directamente.
+
+De un cuaderno con muchos elementos, la IA lee **por partes** (hasta tres, de
+los más representativos) y junta todo en una sola nota: antes, con más de unos
+quince elementos, se pasaba de lo que el modelo puede leer de una vez.
 
 La nota generada lleva siempre un aviso de que fue "Generada por IA", con la
 fecha y el modelo que la hizo, para que nunca se confunda con algo que

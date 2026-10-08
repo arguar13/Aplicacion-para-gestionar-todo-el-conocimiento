@@ -5289,6 +5289,87 @@ PDF (W3C). Sin probar en el teléfono ni en el emulador (lo usaba otro trabajo):
 «Contenido» en pantalla, la transcripción y el OCR de lo bajado con los modelos del teléfono, y
 el comportamiento con poco espacio libre de verdad.
 
+### 67. F30: cuadernos con IA —crear, sugerir y llenar— y la nota por partes
+
+Pedido del usuario: *"que la sección de cuadernos, además de ser manual, haya una opción donde la IA
+también me los haga de forma inteligente"*. Plan: `docs/planes/F30-repasar-cuadernos-bandeja-y-descargas.md`,
+decisión B aprobada con la recomendada: «Crear con IA», cuadernos sugeridos que se mantienen al día
+solos, y «Llenar». Sin cambios de esquema: un cuaderno sigue siendo `notebook` más `notebook_item`.
+
+**Lo que había, verificado.** El único botón de IA de un cuaderno era el de la nota derivada, que
+tenía dos errores. La nota no quedaba en el cuaderno. Y `_resolveSources` traía **todos** los
+elementos —libros enteros adentro— para usar 400 caracteres de cada uno y se los mandaba al modelo de
+una vez, sin tope: con más de unas quince fuentes el pedido no entraba en la ventana de 2048 tokens.
+
+- **La nota por partes, de raíz** (`derived_note_parts.dart`, `GenerateDerivedNoteUseCase`).
+  - Solo van al modelo las fuentes que se pueden citar —con texto propio y su posición—: una nota
+    manual no se fragmenta y lo que el modelo dijera de ella se descartaba igual al anclar.
+  - Los ids salen de `matchingIds` y se trae de a uno solo lo que se va a leer. Si el cuaderno
+    tiene más de 24, se eligen las más representativas (`ItemVectorIndex.representativeOrder`): el
+    elemento más central y, uno por vez, el más distinto de lo ya elegido —el recorrido del «punto
+    más lejano» sobre el centro de los vectores de cada elemento—; sin vectores, la lista repartida
+    parejo (`spreadOrder`) y no su principio.
+  - Se reparten en hasta tres pedidos de ~3000 caracteres (`kDerivedNotePartChars`, la misma cuenta
+    que las tarjetas por partes) y lo de cada uno se junta en una nota (`mergeDerivedSections`:
+    secciones del mismo título juntas, una afirmación por fuente como antes). Tres porque cada
+    pedido escribe hasta 768 tokens: más de un minuto de espera en el teléfono.
+  - Antes de mandar, el modelo **cuenta con su tokenizador** lo que queda de la ventana después de
+    la instrucción y de la respuesta más larga, y si no entra acorta los fragmentos por el final
+    —la cita sigue señalando el lugar exacto— o deja afuera la última fuente (`fitSourcesToWindow`).
+    La cuenta de caracteres reparte; el tokenizador garantiza.
+- **La nota queda adentro.** En un cuaderno manual se agrega a sus elementos en la misma
+  transacción que la guarda. En uno por consulta la pertenencia la decide la consulta: si pide un
+  tema o etiquetas —los sugeridos—, la nota los recibe y entra sola; si pide algo que una nota no
+  puede tener (un texto, un tipo de fuente), no se le toca nada y queda en la Biblioteca. El
+  resultado (`DerivedNoteResult.inNotebook`) lo **pregunta a la consulta** en vez de suponerlo.
+- **Crear con IA** (`NotebookCandidateFinderImpl`, `AiNotebookController`). Se busca por palabras con
+  el buscador del chat (`ChunkPassageRetriever`), sin las palabras de para qué es el cuaderno
+  —«tesis», «apuntes», «parcial» no dicen de qué trata—, y, si está el modelo de vínculos, por
+  sentido: el vector de lo escrito (`EmbeddingService.embedQuery`, del lado de la pregunta y **sin
+  esperar** a que la persona suelte el modelo de lenguaje, porque lo pide ella) contra los ya
+  guardados (`ItemVectorIndex.nearestTo`, el fragmento más parecido de cada elemento y no el
+  promedio: un libro que habla de Roma en un capítulo es de Roma). Las dos listas se juntan por
+  fusión de rangos recíprocos, que no necesita que un puntaje de BM25 y un coseno sean comparables.
+  Si buscar por sentido falla, se registra, se sigue con las palabras y la hoja lo dice.
+- **La IA revisa por tandas, la persona manda.** Con el modelo de lenguaje (con el turno de la
+  persona, `LanguageModelGate` sin cambios), revisa los primeros 24 de a 8 con una línea `VAN:`; la
+  lista se muestra apenas termina la búsqueda y cada tanda corrige las marcas, **salvo las que la
+  persona ya tocó**. Se puede crear en cualquier momento. Sin el modelo, quedan marcados los que
+  encontraron las palabras o se parecen mucho por sentido. Se crea un cuaderno manual con los
+  marcados, agregados de una vez (`NotebookRepository.addItems`, una transacción y un solo aviso).
+- **Sugeridos** (`suggestNotebooks`, `NotebookTopicReaderImpl`). Un tema o una etiqueta con al
+  menos 3 elementos vivos, hasta 8, de los de más a los de menos. La etiqueta cuenta lo de todas sus
+  ramas (`VocabularyTree`), en una pasada sobre las asignaciones y no una consulta por etiqueta. Cada
+  cuaderno nace **por consulta** (`LibraryQuery(spaceId)` o `tagIds`, que ya incluye las ramas), y
+  por eso se mantiene al día solo: no hay nada que sincronizar. Sin duplicar: ni un cuaderno que ya
+  pide esa consulta —comparada sin orden ni página— ni uno con el mismo nombre; una etiqueta con los
+  mismos elementos que la de arriba no suma; un tema y una etiqueta con el mismo nombre dan uno. La
+  persona elige cuáles crear (vienen sin marcar). «Ahora no» se recuerda por tema o etiqueta en
+  SharedPreferences, del teléfono y sin viajar en la fusión: lo que llegue a juntar elementos
+  después sí avisa.
+- **La IA nombra** (`GemmaChatModel.nameNotebooks`): un nombre corto y, si aporta, una línea por
+  tema, de a cinco, con cuántos elementos tiene y tres títulos de ejemplo, que se leen por consulta
+  y no del elemento entero. **La línea no se guarda**: un cuaderno no tiene descripción y agregarla
+  pide una columna; es para elegir. Sin el modelo, o si falla, queda el nombre del tema.
+- **Llenar** (`FillNotebookController`). Una hoja con la nota —la guía de estudio u otro de los
+  cuatro tipos— y las tarjetas, que reusan `AiOrganizeQueue.makeFlashcards` con el alcance del
+  cuaderno. Las tarjetas se piden **antes** de crear la nota y se cuentan antes: la guía es un
+  derivado y no tiene que dar tarjetas de tarjetas. Reemplaza al botón de derivado en el detalle de
+  un cuaderno; el del detalle de un elemento sigue.
+- **Los umbrales de parecido por sentido son de partida, no medidos** (`kNotebookMinSimilarity`
+  0,45; `kNotebookStrongSimilarity` 0,6): salen de que una consulta de pocas palabras contra un
+  documento da parecidos más bajos que dos documentos —los vínculos parten de 0,5—, y de nada más.
+  Con el modelo de lenguaje la revisión corrige lo que se pase o se quede corto; sin él, el umbral
+  decide qué viene marcado. Se recalibran mirando una biblioteca real en el teléfono.
+
+**Qué quedó probado y qué no.** Las pruebas usan dobles del modelo y SQLite real: la búsqueda por
+palabras con el índice de texto de verdad y vectores de juguete de tres dimensiones; la revisión por
+tandas, las marcas de la persona y los fallos; la ventana contada con un tokenizador de cuatro
+caracteres por token; la nota adentro del cuaderno por tema, etiqueta y consulta incompatible; los
+conteos de etiquetas con ramas; las hojas. **No se probó con Gemma ni con el modelo de vínculos
+reales, ni en el teléfono ni en el emulador**: cuánto tarda una nota de tres partes, qué tan bien
+nombra o revisa el modelo, y si los umbrales sirven, están sin medir.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5683,6 +5764,11 @@ el comportamiento con poco espacio libre de verdad.
   etiqueta o un cuaderno, sin esperar el cargador; la cita parafraseada se ubica, y lo que no, va
   a "Para revisar"; el ✨ de cada elemento lee por partes; Repasar vacío dice por qué; practicar
   igual. Ver la decisión 65.
+- **F30, Cuadernos con IA.** «Crear con IA» propone los elementos de un cuaderno buscando por
+  palabras y por sentido; los cuadernos sugeridos salen de los temas y las etiquetas, por consulta,
+  y se mantienen al día solos; «Llenar» arma una nota que queda adentro y las tarjetas; el selector
+  agrega varios a la vez; y la nota de un cuaderno grande se lee por partes sin pasarse de la
+  ventana. Ver la decisión 67.
 
 ### Por construir
 
