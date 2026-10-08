@@ -38,6 +38,10 @@ const _audioBytesPerMinute = 1200 * 1024;
 
 const _kb = 1024;
 
+/// Cuánto pesa cada artículo incluye lo que «Bajar todo» (F30) baja de él: sus
+/// fotos, los archivos que enlaza y los audios que trae, medidos el 08/10/2026
+/// con pedidos HEAD sobre los artículos reales. Casi todo son PDF: el del
+/// Imperio romano trae 237 MB y el de Sócrates 152. Cambia con la página.
 const _webArticles = <SampleLink>[
   SampleLink(
     id: 'web-imperio-romano',
@@ -45,7 +49,7 @@ const _webArticles = <SampleLink>[
     why: 'Artículo muy largo: modo lectura, índice y búsqueda en el texto.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Imperio_romano',
-    approxBytes: 1600 * _kb,
+    approxBytes: 244800 * _kb,
   ),
   SampleLink(
     id: 'web-agustin-de-hipona',
@@ -53,7 +57,7 @@ const _webArticles = <SampleLink>[
     why: 'Padre de la Iglesia: relaciones con las notas y con el video.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Agust%C3%ADn_de_Hipona',
-    approxBytes: 670 * _kb,
+    approxBytes: 3844 * _kb,
   ),
   SampleLink(
     id: 'web-tomas-de-aquino',
@@ -61,7 +65,7 @@ const _webArticles = <SampleLink>[
     why: 'Mismo tema en español y en inglés (SEP): posibles duplicados.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Tom%C3%A1s_de_Aquino',
-    approxBytes: 870 * _kb,
+    approxBytes: 10496 * _kb,
   ),
   SampleLink(
     id: 'web-socrates',
@@ -69,7 +73,7 @@ const _webArticles = <SampleLink>[
     why: 'Artículo mediano de filosofía: resumen y tarjetas de repaso.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/S%C3%B3crates',
-    approxBytes: 390 * _kb,
+    approxBytes: 156140 * _kb,
   ),
   SampleLink(
     id: 'web-revolucion-francesa',
@@ -77,7 +81,7 @@ const _webArticles = <SampleLink>[
     why: 'Muchas fechas: la línea de tiempo y el quiz.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Revoluci%C3%B3n_francesa',
-    approxBytes: 715 * _kb,
+    approxBytes: 21502 * _kb,
   ),
   SampleLink(
     id: 'web-fotosintesis',
@@ -85,7 +89,7 @@ const _webArticles = <SampleLink>[
     why: 'Ciencia con fórmulas e imágenes: el archivado de la página.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Fotos%C3%ADntesis',
-    approxBytes: 355 * _kb,
+    approxBytes: 1891 * _kb,
   ),
   SampleLink(
     id: 'web-agujero-negro',
@@ -93,7 +97,7 @@ const _webArticles = <SampleLink>[
     why: 'Astronomía: relaciones con los videos de agujeros negros.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Agujero_negro',
-    approxBytes: 335 * _kb,
+    approxBytes: 1461 * _kb,
   ),
   SampleLink(
     id: 'web-concilio-de-nicea',
@@ -101,7 +105,7 @@ const _webArticles = <SampleLink>[
     why: 'Mismo tema que una nota de ejemplo: sugerencias de vínculos.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Primer_Concilio_de_Nicea',
-    approxBytes: 215 * _kb,
+    approxBytes: 625 * _kb,
   ),
   SampleLink(
     id: 'web-benito-de-nursia',
@@ -109,7 +113,7 @@ const _webArticles = <SampleLink>[
     why: 'Santo: lo relaciona con la nota y el manuscrito de la Regla.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Benito_de_Nursia',
-    approxBytes: 295 * _kb,
+    approxBytes: 3777 * _kb,
   ),
   SampleLink(
     id: 'web-edad-media',
@@ -117,7 +121,7 @@ const _webArticles = <SampleLink>[
     why: 'Artículo largo de historia: la IA que organiza por temas.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Edad_Media',
-    approxBytes: 960 * _kb,
+    approxBytes: 8947 * _kb,
   ),
   SampleLink(
     id: 'web-platon',
@@ -125,7 +129,7 @@ const _webArticles = <SampleLink>[
     why: 'Filosofía: el mapa de temas junto a Sócrates y Aristóteles.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Plat%C3%B3n',
-    approxBytes: 1035 * _kb,
+    approxBytes: 19057 * _kb,
   ),
   SampleLink(
     id: 'web-aristoteles',
@@ -133,7 +137,7 @@ const _webArticles = <SampleLink>[
     why: 'Uno de los artículos más largos: fragmentado y chat con fuentes.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Arist%C3%B3teles',
-    approxBytes: 1540 * _kb,
+    approxBytes: 21713 * _kb,
   ),
   SampleLink(
     id: 'web-francisco-de-asis',
@@ -141,7 +145,7 @@ const _webArticles = <SampleLink>[
     why: 'Santo con video propio: relaciones entre tipos distintos.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Francisco_de_As%C3%ADs',
-    approxBytes: 695 * _kb,
+    approxBytes: 3869 * _kb,
   ),
   SampleLink(
     id: 'web-teresa-de-jesus',
@@ -149,7 +153,7 @@ const _webArticles = <SampleLink>[
     why: 'Santa y escritora: citas y referencias bibliográficas.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Teresa_de_Jes%C3%BAs',
-    approxBytes: 1375 * _kb,
+    approxBytes: 4447 * _kb,
   ),
   SampleLink(
     id: 'web-padres-de-la-iglesia',
@@ -157,7 +161,7 @@ const _webArticles = <SampleLink>[
     why: 'Panorama: la nota mapa y el Atlas de temas.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Padres_de_la_Iglesia',
-    approxBytes: 315 * _kb,
+    approxBytes: 1237 * _kb,
   ),
   SampleLink(
     id: 'web-republica-romana',
@@ -165,7 +169,7 @@ const _webArticles = <SampleLink>[
     why: 'Historia de Roma junto al documental de dos horas.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Rep%C3%BAblica_romana',
-    approxBytes: 810 * _kb,
+    approxBytes: 46276 * _kb,
   ),
   SampleLink(
     id: 'web-carlomagno',
@@ -173,7 +177,7 @@ const _webArticles = <SampleLink>[
     why: 'Puede completar el enlace roto de una nota de ejemplo.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Carlomagno',
-    approxBytes: 535 * _kb,
+    approxBytes: 2890 * _kb,
   ),
   SampleLink(
     id: 'web-toma-de-la-bastilla',
@@ -181,7 +185,7 @@ const _webArticles = <SampleLink>[
     why: 'Artículo corto: procesamiento rápido y una fecha para repasar.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Toma_de_la_Bastilla',
-    approxBytes: 245 * _kb,
+    approxBytes: 2191 * _kb,
   ),
   SampleLink(
     id: 'web-sistema-solar',
@@ -189,7 +193,7 @@ const _webArticles = <SampleLink>[
     why: 'Astronomía con tablas: cómo se ven en el modo lectura.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Sistema_solar',
-    approxBytes: 540 * _kb,
+    approxBytes: 4841 * _kb,
   ),
   SampleLink(
     id: 'web-evolucion-biologica',
@@ -197,7 +201,7 @@ const _webArticles = <SampleLink>[
     why: 'El más pesado de los artículos: archivado completo de la página.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Evoluci%C3%B3n_biol%C3%B3gica',
-    approxBytes: 1910 * _kb,
+    approxBytes: 12252 * _kb,
   ),
   SampleLink(
     id: 'web-adn',
@@ -205,7 +209,7 @@ const _webArticles = <SampleLink>[
     why: 'Biología: relaciones con la teoría celular y la fotosíntesis.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/%C3%81cido_desoxirribonucleico',
-    approxBytes: 915 * _kb,
+    approxBytes: 6137 * _kb,
   ),
   SampleLink(
     id: 'web-jeronimo',
@@ -213,7 +217,7 @@ const _webArticles = <SampleLink>[
     why: 'El traductor de la Vulgata: relaciones con la nota de los Padres.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Jer%C3%B3nimo_de_Estrid%C3%B3n',
-    approxBytes: 435 * _kb,
+    approxBytes: 4224 * _kb,
   ),
   SampleLink(
     id: 'web-escolastica',
@@ -221,7 +225,7 @@ const _webArticles = <SampleLink>[
     why: 'Filosofía medieval: el puente entre los temas de la IA.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Escol%C3%A1stica',
-    approxBytes: 295 * _kb,
+    approxBytes: 1524 * _kb,
   ),
   SampleLink(
     id: 'web-galileo',
@@ -229,7 +233,7 @@ const _webArticles = <SampleLink>[
     why: 'Astronomía e historia a la vez: un elemento con dos temas.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Galileo_Galilei',
-    approxBytes: 555 * _kb,
+    approxBytes: 2705 * _kb,
   ),
   SampleLink(
     id: 'web-charles-darwin',
@@ -237,7 +241,7 @@ const _webArticles = <SampleLink>[
     why: 'Relaciones con la portada de El origen de las especies.',
     kind: SampleLinkKind.webArticle,
     url: 'https://es.wikipedia.org/wiki/Charles_Darwin',
-    approxBytes: 910 * _kb,
+    approxBytes: 3060 * _kb,
   ),
   SampleLink(
     id: 'web-allegory-of-the-cave',
@@ -245,7 +249,7 @@ const _webArticles = <SampleLink>[
     why: 'En inglés: el idioma de la fuente, la traducción y el vocabulario.',
     kind: SampleLinkKind.webArticle,
     url: 'https://en.wikipedia.org/wiki/Allegory_of_the_cave',
-    approxBytes: 290 * _kb,
+    approxBytes: 802 * _kb,
   ),
   SampleLink(
     id: 'web-sep-aquinas',

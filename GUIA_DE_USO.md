@@ -1612,9 +1612,11 @@ modelo de relaciones.
   francesa, filosofía y ciencia, para recorrer toda la app sin cargar nada a
   mano. Al tocarla te dice qué se va a guardar —solo lo que falta, por tipo
   y cuántos de cada uno, por ejemplo «1 PDF y 1 nota»— y cuánto se baja (la
-  primera vez, unos 80 MB de archivos al cargarlos y unos 600 MB más
-  mientras se procesan, casi todo el audio de los videos; si ya no queda
-  nada por bajar, no lo menciona) y, si aceptás, carga por tandas en
+  primera vez, unos 80 MB de archivos al cargarlos y cerca de 1,2 GB más
+  mientras se procesan: unos 600 MB del audio de los videos y otros 600 MB
+  de lo que traen los artículos —fotos y, sobre todo, los PDF que enlazan; el
+  de Imperio romano solo trae 237 MB—; si ya no queda nada por bajar, no lo
+  menciona) y, si aceptás, carga por tandas en
   segundo plano: podés salir
   de Ajustes y seguir usando el teléfono, con una notificación que dice
   cuántos van. La fila muestra el avance y un botón **Cancelar**. Al
