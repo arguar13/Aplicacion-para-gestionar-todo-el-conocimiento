@@ -427,6 +427,30 @@ void main() {
       expect(find.text('foto.png'), findsOneWidget);
     });
 
+    // Una foto adjunta son millones de píxeles; el chip es de 24×24 puntos.
+    testWidgets('el chip de la imagen la decodifica al tamaño de su recuadro, '
+        'no entera', (tester) async {
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await pumpChat(
+        tester,
+        chosenFile: CapturedFile(name: 'foto.png', bytes: _pngBytes),
+      );
+
+      await openAttachMenu(tester);
+      await tester.tap(find.text(es.chatAttachImageAction));
+      await tester.pumpAndSettle();
+
+      final chip = find.descendant(
+        of: find.byType(InputChip),
+        matching: find.byType(Image),
+      );
+      final image = tester.widget<Image>(chip).image;
+      expect(image, isA<ResizeImage>());
+      // 24 puntos × 3 de densidad × 2.
+      expect((image as ResizeImage).width, 144);
+    });
+
     testWidgets(
       'adjuntar un documento le extrae el texto y lo suma al mensaje que '
       've el modelo, sin mostrarlo en lo que escribió la persona',

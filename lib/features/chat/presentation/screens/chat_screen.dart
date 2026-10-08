@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/thumbnail_decode.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/chat_attachment.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation.dart';
@@ -1470,6 +1471,9 @@ class _AttachmentPreview extends ConsumerWidget {
                   width: 96,
                   height: 96,
                   fit: BoxFit.cover,
+                  // Una foto adjunta son millones de píxeles: se decodifica
+                  // al tamaño de la miniatura, no entera.
+                  cacheWidth: thumbnailDecodeWidth(context, 96),
                   // Bytes corruptos o truncados no deberían tirar abajo el
                   // mensaje entero: un ícono genérico es peor que una
                   // miniatura, pero mucho mejor que una pantalla roja.
@@ -1591,6 +1595,7 @@ class _AttachmentChips extends StatelessWidget {
                         width: 24,
                         height: 24,
                         fit: BoxFit.cover,
+                        cacheWidth: thumbnailDecodeWidth(context, 24),
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.image_outlined, size: 18),
                       ),
