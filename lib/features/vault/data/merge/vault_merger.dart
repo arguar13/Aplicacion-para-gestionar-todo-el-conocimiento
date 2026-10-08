@@ -143,6 +143,7 @@ class VaultMerger {
         _db.sourceContributors,
         _db.fieldVersions,
         _db.mergeConflicts,
+        _db.trashedContents,
       ]);
       return result;
       // Cualquier fallo —una compuerta, la base, el disco— deja los archivos
@@ -174,7 +175,11 @@ class VaultMerger {
     final fields = await EntryMergePlanner(_db).plan(spaces, known: known);
     final texts = await RenditionMergePlanner(_db).plan(known: known);
 
-    final entries = EntryMergeApplier(database: _db, conflicts: conflicts);
+    final entries = EntryMergeApplier(
+      database: _db,
+      conflicts: conflicts,
+      clock: _clock,
+    );
     await entries.addSpaces(spaces);
     final itemsAdded = await entries.addItems(spaces);
     final renditions = await RenditionMergeApplier(
@@ -182,6 +187,8 @@ class VaultMerger {
       conflicts: conflicts,
       ids: _ids,
     ).apply(texts);
+    // Lo que recibió texto de la copia deja de ser «solo el libro».
+    await entries.clearOnlyFileWithText();
     await entries.updateFields(fields);
     // Cada elemento que cambió, una vez, aunque hayan cambiado un campo y un
     // texto.

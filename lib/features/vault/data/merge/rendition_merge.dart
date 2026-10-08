@@ -134,6 +134,9 @@ class RenditionMergePlanner {
     final rows = await _db.customSelect('''
       SELECT r.id AS r_id, r.item_id AS item_id, m.id AS m_id,
              mi.kind AS item_kind,
+             EXISTS (SELECT 1 FROM main.content_trash t
+                      WHERE t.kind = 'text' AND t.rendition_id = r.id)
+               AS dropped_here,
              (SELECT x.id FROM main.renditions x
                WHERE x.item_id = r.item_id AND x.id <> r.id
                  AND x.content IS r.content
@@ -167,6 +170,16 @@ class RenditionMergePlanner {
       final sameContent = row.read<String?>('same_content_id');
       if (sameContent != null) {
         notPlaced[incomingId] = sameContent;
+        continue;
+      }
+
+      // El texto que se soltó ACÁ y espera en la papelera del contenido
+      // (F30, decisión 68) no vuelve con la fusión: la persona lo sacó de
+      // este elemento, y traerlo de nuevo desharía su decisión. Si lo quiere
+      // de vuelta, lo recupera de la papelera; si ya venció y el otro lado
+      // todavía lo tiene, entra como un texto más.
+      if (row.read<bool>('dropped_here')) {
+        notPlaced[incomingId] = null;
         continue;
       }
 

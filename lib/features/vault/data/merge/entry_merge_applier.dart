@@ -1,5 +1,6 @@
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/vault/data/merge/entry_merge_planner.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
@@ -111,11 +112,14 @@ class EntryMergeApplier {
   EntryMergeApplier({
     required AppDatabase database,
     required MergeConflictLog conflicts,
+    Clock clock = DateTime.now,
   }) : _db = database,
-       _log = conflicts;
+       _log = conflicts,
+       _clock = clock;
 
   final AppDatabase _db;
   final MergeConflictLog _log;
+  final Clock _clock;
 
   static const _incoming = kIncomingSchema;
 
@@ -211,6 +215,9 @@ class EntryMergeApplier {
           });
         }
       } else {
+        if (field.name == EntryField.originalBlobPath) {
+          await _trashReplacedFiles([for (final c in changes) c.itemId]);
+        }
         await _forChunks([for (final c in changes) c.itemId], (marks, chunk) {
           return _db.customStatement('''
             UPDATE main.${field.table} SET ${field.column} = (
@@ -242,6 +249,48 @@ class EntryMergeApplier {
       });
     }
   }
+
+  /// El archivo original que la fusión deja de usar en [itemIds] —la copia lo
+  /// soltó («solo el texto») o lo cambió por otro— va a la papelera del
+  /// contenido de acá (F30, decisión 68), en vez de quedar en el disco sin
+  /// que nada lo use: se puede recuperar durante 30 días, y pasado ese
+  /// tiempo se borra de verdad. Una fusión no borra archivos.
+  ///
+  /// La papelera del contenido es de cada dispositivo y no viaja: lo soltado
+  /// en la copia no se trae, y lo de acá no se lleva. Lo único que cruza es
+  /// la decisión, por la versión del campo `originalBlobPath`.
+  Future<void> _trashReplacedFiles(List<String> itemIds) =>
+      _forChunks(itemIds, (marks, chunk) {
+        return _db.customStatement(
+          '''
+        INSERT INTO main.content_trash
+               (id, item_id, kind, relative_path, trashed_at)
+        SELECT lower(hex(randomblob(16))), m.item_id, 'file',
+               m.original_blob_path, ?
+          FROM main.source m
+         WHERE m.item_id IN ($marks)
+           AND m.original_blob_path IS NOT NULL
+           AND m.original_blob_path IS NOT
+               (SELECT x.original_blob_path FROM $_incoming.source x
+                 WHERE x.item_id = m.item_id)''',
+          // Como las guarda drift: segundos desde 1970.
+          [_clock().millisecondsSinceEpoch ~/ 1000, ...chunk],
+        );
+      });
+
+  /// Saca la marca de «solo el libro» a lo que, después de fusionar, tiene
+  /// texto (F30, decisión 68): un elemento que recibe de la copia un texto
+  /// que acá se había soltado —y ya venció, o nunca estuvo— deja de ser solo
+  /// el archivo. La marca dice «sin texto a propósito», y con texto ya no es
+  /// cierto.
+  Future<void> clearOnlyFileWithText() => _db.customStatement('''
+    UPDATE main.source SET only_file = 0
+     WHERE only_file = 1
+       AND EXISTS (SELECT 1 FROM main.renditions r
+                    WHERE r.item_id = source.item_id
+                      AND r.text_of IS NULL AND r.position IS NULL
+                      AND r.content IS NOT NULL AND r.kind <> 'blocks'
+                      AND trim(r.content) <> '')''');
 
   /// Pone en las fuentes de acá la referencia de la copia en cada una donde
   /// ganó (F15): sus datos, sus personas y su versión. Reemplaza lo que había.
