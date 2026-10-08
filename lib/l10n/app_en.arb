@@ -8298,5 +8298,23 @@
         "type": "String"
       }
     }
+  },
+  "reviewIntervalMinutes": "{count} min",
+  "@reviewIntervalMinutes": {
+    "description": "Review: how long until a card that is being learned comes back, under each grade button, in minutes (it comes back within the same session).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalHours": "{count} h",
+  "@reviewIntervalHours": {
+    "description": "Review: how long until the card comes back, in hours.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

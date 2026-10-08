@@ -7280,5 +7280,23 @@
         "type": "String"
       }
     }
+  },
+  "reviewIntervalMinutes": "{count} min",
+  "@reviewIntervalMinutes": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta que se está aprendiendo, bajo cada botón de calificar, en minutos (vuelve dentro de la misma sesión).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalHours": "{count} h",
+  "@reviewIntervalHours": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta, en horas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

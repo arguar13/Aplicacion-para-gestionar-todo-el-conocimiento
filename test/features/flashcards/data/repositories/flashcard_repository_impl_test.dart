@@ -148,7 +148,10 @@ void main() {
         front: 'Antes',
         back: 'Antes',
       )).getRight().toNullable()!;
-      await repository.review(id: created.id, grade: ReviewGrade.good);
+      final reviewed = (await repository.review(
+        id: created.id,
+        grade: ReviewGrade.easy,
+      )).getRight().toNullable()!;
 
       final result = await repository.update(
         id: created.id,
@@ -159,7 +162,9 @@ void main() {
       final updated = result.getRight().toNullable()!;
       expect(updated.front, 'Después');
       expect(updated.back, 'También después');
-      expect(updated.repetitions, 1);
+      expect(updated.repetitions, 2);
+      expect(updated.intervalDays, reviewed.intervalDays);
+      expect(updated.dueAt, reviewed.dueAt);
     });
 
     test('una que ya no existe devuelve un fallo, no revienta', () async {
@@ -195,7 +200,8 @@ void main() {
   });
 
   group('repasar', () {
-    test('aplica el SM-2 y guarda la nueva fecha de vencimiento', () async {
+    test('aplica el calendario y guarda la nueva fecha de vencimiento: una '
+        'nueva contestada «Bien» vuelve en 10 minutos (F31)', () async {
       final itemId = await seedItem();
       final created = (await repository.create(
         itemId: itemId,
@@ -209,10 +215,31 @@ void main() {
       );
 
       final reviewed = result.getRight().toNullable()!;
+      expect(reviewed.learningStep, 1);
+      expect(reviewed.repetitions, 0);
+      expect(reviewed.dueAt, now.add(const Duration(minutes: 10)));
+      expect(reviewed.lastReviewedAt, now);
+    });
+
+    test('y al segundo «Bien» se gradúa: 1 día y 1 repetición', () async {
+      final itemId = await seedItem();
+      final created = (await repository.create(
+        itemId: itemId,
+        front: 'a',
+        back: 'b',
+      )).getRight().toNullable()!;
+      await repository.review(id: created.id, grade: ReviewGrade.good);
+      now = now.add(const Duration(minutes: 10));
+
+      final reviewed = (await repository.review(
+        id: created.id,
+        grade: ReviewGrade.good,
+      )).getRight().toNullable()!;
+
+      expect(reviewed.learningStep, isNull);
       expect(reviewed.repetitions, 1);
       expect(reviewed.intervalDays, 1);
       expect(reviewed.dueAt, now.add(const Duration(days: 1)));
-      expect(reviewed.lastReviewedAt, now);
     });
 
     test('queda guardado: releerla trae el resultado del repaso', () async {
@@ -222,12 +249,28 @@ void main() {
         front: 'a',
         back: 'b',
       )).getRight().toNullable()!;
-      await repository.review(id: created.id, grade: ReviewGrade.good);
+      await repository.review(id: created.id, grade: ReviewGrade.easy);
 
       final reloaded = (await repository.watchForItem(itemId).first).single;
 
-      expect(reloaded.repetitions, 1);
-      expect(reloaded.intervalDays, 1);
+      expect(reloaded.repetitions, 2);
+      expect(reloaded.intervalDays, 4);
+      expect(reloaded.learningStep, isNull);
+    });
+
+    test('el paso de aprendizaje también queda guardado', () async {
+      final itemId = await seedItem();
+      final created = (await repository.create(
+        itemId: itemId,
+        front: 'a',
+        back: 'b',
+      )).getRight().toNullable()!;
+      await repository.review(id: created.id, grade: ReviewGrade.again);
+
+      final reloaded = (await repository.watchForItem(itemId).first).single;
+
+      expect(reloaded.learningStep, 0);
+      expect(reloaded.dueAt, now.add(const Duration(minutes: 1)));
     });
 
     test('una que ya no existe devuelve un fallo, no revienta', () async {
@@ -502,9 +545,10 @@ void main() {
       expect(row.reviewedAt, now);
       expect(row.grade, 'good');
       expect(row.quality, 4);
-      // Una tarjeta nueva parte de intervalo 0 y termina en 1 día.
+      // Una tarjeta nueva parte de intervalo 0 y, contestada «Bien», pasa al
+      // paso de 10 minutos: sigue sin intervalo en días.
       expect(row.intervalBefore, 0);
-      expect(row.intervalAfter, 1);
+      expect(row.intervalAfter, 0);
       expect(row.easeBefore, 2.5);
       expect(row.easeAfter, 2.5);
       expect(row.deviceId, 'unspecified');
@@ -515,16 +559,18 @@ void main() {
       final id = await newCard();
 
       await repository.review(id: id, grade: ReviewGrade.good);
+      now = now.add(const Duration(minutes: 10));
+      await repository.review(id: id, grade: ReviewGrade.good);
       now = now.add(const Duration(days: 1));
       await repository.review(id: id, grade: ReviewGrade.good);
       now = now.add(const Duration(days: 6));
       await repository.review(id: id, grade: ReviewGrade.again);
 
       final rows = await log();
-      expect(rows.map((r) => r.grade), ['good', 'good', 'again']);
-      expect(rows.map((r) => r.quality), [4, 4, 0]);
-      expect(rows.map((r) => r.intervalBefore), [0, 1, 6]);
-      expect(rows.map((r) => r.intervalAfter), [1, 6, 1]);
+      expect(rows.map((r) => r.grade), ['good', 'good', 'good', 'again']);
+      expect(rows.map((r) => r.quality), [4, 4, 4, 0]);
+      expect(rows.map((r) => r.intervalBefore), [0, 0, 1, 6]);
+      expect(rows.map((r) => r.intervalAfter), [0, 1, 6, 1]);
       // Una tarjeta que se olvidó pierde facilidad.
       expect(rows.last.easeAfter, lessThan(rows.last.easeBefore));
     });
@@ -535,22 +581,36 @@ void main() {
         final id = await newCard();
         final first = now;
         await repository.review(id: id, grade: ReviewGrade.good);
-        now = now.add(const Duration(days: 1));
+        final second = now.add(const Duration(minutes: 10));
+        now = second;
         await repository.review(id: id, grade: ReviewGrade.good);
+        final third = now.add(const Duration(days: 1));
+        now = third;
+        await repository.review(id: id, grade: ReviewGrade.again);
 
         final rows = await log();
         // La primera respuesta parte de una tarjeta nueva, sin nada anterior.
-        expect(rows.first.phaseBefore, CardPhase.newCard);
-        expect(rows.first.dueBefore, first);
-        expect(rows.first.lastReviewedBefore, isNull);
-        expect(rows.first.repetitionsBefore, 0);
-        expect(rows.first.stepBefore, isNull);
-        // La segunda, de una que ya se repasa, con la fecha y el repaso de
-        // antes.
-        expect(rows.last.phaseBefore, CardPhase.review);
-        expect(rows.last.lastReviewedBefore, first);
-        expect(rows.last.repetitionsBefore, 1);
-        expect(rows.last.dueBefore, first.add(const Duration(days: 1)));
+        expect(rows[0].phaseBefore, CardPhase.newCard);
+        expect(rows[0].dueBefore, first);
+        expect(rows[0].lastReviewedBefore, isNull);
+        expect(rows[0].repetitionsBefore, 0);
+        expect(rows[0].stepBefore, isNull);
+        expect(rows[0].stepAfter, 1);
+        // La segunda, de una que se está aprendiendo, en el paso de 10
+        // minutos.
+        expect(rows[1].phaseBefore, CardPhase.learning);
+        expect(rows[1].stepBefore, 1);
+        expect(rows[1].stepAfter, isNull);
+        expect(rows[1].lastReviewedBefore, first);
+        expect(rows[1].dueBefore, second);
+        // La tercera, de una que ya se repasa por días: se olvida y pasa a
+        // reaprender.
+        expect(rows[2].phaseBefore, CardPhase.review);
+        expect(rows[2].repetitionsBefore, 1);
+        expect(rows[2].lastReviewedBefore, second);
+        expect(rows[2].dueBefore, second.add(const Duration(days: 1)));
+        expect(rows[2].stepBefore, isNull);
+        expect(rows[2].stepAfter, 0);
       },
     );
 

@@ -301,14 +301,22 @@ void main() {
     testWidgets('cada uno dice cuándo vuelve la tarjeta', (tester) async {
       await openCard(tester);
 
-      // Una tarjeta nueva: todas vuelven mañana.
-      for (final grade in ['again', 'hard', 'good', 'easy']) {
+      // Una tarjeta nueva (F31): vuelve en minutos dentro de la sesión, salvo
+      // «Fácil», que se gradúa a 4 días.
+      final expected = {
+        'again': es.reviewIntervalMinutes(1),
+        'hard': es.reviewIntervalMinutes(6),
+        'good': es.reviewIntervalMinutes(10),
+        'easy': es.reviewIntervalDays(4),
+      };
+      for (final entry in expected.entries) {
         expect(
           find.descendant(
-            of: button(grade),
-            matching: find.text(es.reviewIntervalDays(1)),
+            of: button(entry.key),
+            matching: find.text(entry.value),
           ),
           findsOneWidget,
+          reason: entry.key,
         );
       }
     });

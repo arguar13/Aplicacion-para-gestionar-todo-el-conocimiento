@@ -508,6 +508,8 @@ class _GradeRow extends ConsumerWidget {
 
   String _intervalText(AppLocalizations l10n, ReviewInterval interval) =>
       switch (interval.unit) {
+        IntervalUnit.minutes => l10n.reviewIntervalMinutes(interval.count),
+        IntervalUnit.hours => l10n.reviewIntervalHours(interval.count),
         IntervalUnit.days => l10n.reviewIntervalDays(interval.count),
         IntervalUnit.weeks => l10n.reviewIntervalWeeks(interval.count),
         IntervalUnit.months => l10n.reviewIntervalMonths(interval.count),
