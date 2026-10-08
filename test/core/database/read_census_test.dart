@@ -76,6 +76,11 @@ void main() {
         'watch() nombra la tabla solo para suscribirse a sus cambios, igual '
         'que vault_merger.dart: no lee ninguna fila —el helper que sí lee, '
         'habit_activity_days.dart, ya está en la lista—',
+    'lib/features/flashcards/data/repositories/study_repository_impl.dart':
+        'nombra la tabla solo para suscribirse a sus cambios y declarar de '
+        'qué lee cada consulta (F31); lo que se lee de `item` —dejar afuera '
+        'la papelera con `deleted_at`— está en `study_queue_sql.dart`, que '
+        'arma todas las consultas de la cola y SÍ decide',
     'lib/features/habit/data/services/habit_activity_days.dart':
         'cuenta el día en que se extrajo una nota atómica para la racha y '
         'las insignias (F17, D6), viva o en la papelera: es un hecho '

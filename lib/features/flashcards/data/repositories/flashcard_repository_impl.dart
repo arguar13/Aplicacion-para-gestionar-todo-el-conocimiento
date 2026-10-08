@@ -16,6 +16,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/flashcards/data/repositories/flashcard_row_mapping.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
@@ -644,30 +645,7 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     return row?.id;
   }
 
-  Flashcard _toEntity(FlashcardRow row) => Flashcard(
-    id: row.id,
-    itemId: row.itemId,
-    front: row.front,
-    back: row.back,
-    dueAt: row.dueAt,
-    createdAt: row.createdAt,
-    easeFactor: row.easeFactor,
-    intervalDays: row.intervalDays,
-    repetitions: row.repetitions,
-    lastReviewedAt: row.lastReviewedAt,
-    kind: row.kind,
-    sourceChunkId: row.sourceChunkId,
-    sourceCharStart: row.sourceCharStart,
-    sourceCharEnd: row.sourceCharEnd,
-    lastExportedAt: row.lastExportedAt,
-    origin: row.origin,
-    aiRunId: row.aiRunId,
-    suspended: row.suspended,
-    buriedUntil: row.buriedUntil,
-    learningStep: row.learningStep,
-    groupId: row.groupId,
-    clozeIndex: row.clozeIndex,
-  );
+  Flashcard _toEntity(FlashcardRow row) => flashcardFromRow(row);
 
   FlashcardOption _toOptionEntity(FlashcardOptionRow row) => FlashcardOption(
     id: row.id,
