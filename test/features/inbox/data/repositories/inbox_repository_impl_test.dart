@@ -567,6 +567,54 @@ void main() {
     });
   });
 
+  group('cuánto es (F30, decisión 68)', () {
+    Future<void> seedChunk(String itemId, int seq, {int? page, int? endMs}) =>
+        db
+            .into(db.chunks)
+            .insert(
+              ChunksCompanion.insert(
+                id: 'chunk-$itemId-$seq',
+                itemId: itemId,
+                seq: seq,
+                content: 'Un fragmento.',
+                charStart: seq * 20,
+                charEnd: seq * 20 + 13,
+                pageNumber: Value(page),
+                endMs: Value(endMs),
+              ),
+            );
+
+    test('un PDF tiene las páginas de su último fragmento', () async {
+      final id = await seedEntry();
+      await seedChunk(id, 0, page: 1);
+      await seedChunk(id, 1, page: 248);
+
+      final extent = await repository.watchExtent(id).first;
+
+      expect(extent.pages, 248);
+      expect(extent.duration, isNull);
+    });
+
+    test('un audio dura hasta donde termina su último fragmento', () async {
+      final id = await seedEntry();
+      await seedChunk(id, 0, endMs: 60000);
+      await seedChunk(id, 1, endMs: 42 * 60 * 1000);
+
+      final extent = await repository.watchExtent(id).first;
+
+      expect(extent.duration, const Duration(minutes: 42));
+      expect(extent.pages, isNull);
+    });
+
+    test('un artículo no tiene ninguna de las dos: no se inventa', () async {
+      final id = await seedEntry();
+      await seedChunk(id, 0);
+
+      expect((await repository.watchExtent(id).first).isEmpty, isTrue);
+      expect((await repository.watchExtent('no-existe').first).isEmpty, isTrue);
+    });
+  });
+
   group('quién y cuándo (F11)', () {
     Future<KnowledgeEntryRow> entryOf(String id) => (db.select(
       db.knowledgeEntries,

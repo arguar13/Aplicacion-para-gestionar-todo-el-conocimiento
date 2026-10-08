@@ -12,12 +12,13 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_step.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_history.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_intro_card.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/inbox_queue_sheet.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/pending_excerpt.dart';
+import 'package:sinapsis/features/inbox/presentation/widgets/pending_facts.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/pick_living_note_dialog.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/suggested_property_chips.dart';
 import 'package:sinapsis/features/inbox/presentation/widgets/swipe_card.dart';
@@ -25,7 +26,6 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/reading/presentation/screens/reading_screen.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/metadata_suggestion_banner.dart';
@@ -469,14 +469,6 @@ class _PendingItemCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final rendition = extractableRendition(item);
-    // El texto como se lee, no su Markdown (F30): una página web traía
-    // `[![](//upload.wikimedia.org/…)](…)` en las primeras líneas.
-    final excerpt = rendition == null
-        ? null
-        : RenderedMarkdown.excerpt(
-            rendition.content,
-            markdown: extractedTextIsMarkdown(item.source),
-          );
     final pending =
         ref.watch(pendingSuggestionsProvider(item.id)).valueOrNull ?? const [];
     // Un duplicado queda afuera del diálogo de revisión genérico (D4, F7):
@@ -558,14 +550,13 @@ class _PendingItemCard extends ConsumerWidget {
                         ),
                       ),
                     ],
+                    // Autor, fecha, sitio, páginas o duración e idioma (F30,
+                    // decisión 68): lo que se sabe de lo que se va a triar.
+                    PendingFactsLine(item: item),
                     const SizedBox(height: 12),
-                    if (excerpt != null)
-                      Text(
-                        excerpt,
-                        style: theme.textTheme.bodyMedium,
-                        maxLines: 8,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    // El texto como se lee, no su Markdown ni un reproductor:
+                    // la Bandeja trabaja con texto.
+                    PendingExcerpt(item: item),
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,

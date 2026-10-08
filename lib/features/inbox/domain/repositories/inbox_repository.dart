@@ -6,6 +6,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
+import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 
 /// El lado del espejo `item`/`source`/`note` (ver la decisión sobre F3 en
 /// docs/arquitectura.md) que sirve a la Bandeja de entrada: qué queda por
@@ -27,6 +28,11 @@ abstract interface class InboxRepository {
   /// `null` si no tiene nada que ver con ella —una nota, una fuente que
   /// todavía se procesa, algo que ya no existe—. Ver [InboxStanding].
   Stream<InboxStanding?> watchStanding(String itemId);
+
+  /// Cuánto es [itemId]: las páginas de un PDF o lo que dura un audio o un
+  /// video, para la línea de datos de la tarjeta (F30, decisión 68). Ver
+  /// [SourceExtent]; sin ninguna de las dos, [SourceExtent.none].
+  Stream<SourceExtent> watchExtent(String itemId);
 
   /// Cambia el estado de un elemento. Sin una máquina de estados
   /// completa: los llamadores son las acciones de la Bandeja

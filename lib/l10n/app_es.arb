@@ -7033,5 +7033,64 @@
   "fillNotebookGuideNothingToCite": "No hay nada que se pueda citar en este cuaderno: la nota necesita elementos con texto.",
   "@fillNotebookGuideNothingToCite": {
     "description": "Llenar un cuaderno (F30): no se pudo armar la nota porque ningún elemento tiene texto citable, o ninguna afirmación se pudo anclar."
+  },
+  "inboxFactPages": "{count, plural, =1{1 página} other{{count} páginas}}",
+  "@inboxFactPages": {
+    "description": "Tarjeta de la Bandeja: cuántas páginas tiene un PDF. (F30)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inboxFactHoursMinutes": "{hours} h {minutes} min",
+  "@inboxFactHoursMinutes": {
+    "description": "Tarjeta de la Bandeja: cuánto dura un audio o un video de una hora o más. (F30)",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "inboxFactMinutes": "{minutes} min",
+  "@inboxFactMinutes": {
+    "description": "Tarjeta de la Bandeja: cuánto dura un audio o un video de menos de una hora. (F30)",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "inboxFactAuthor": "Autor",
+  "@inboxFactAuthor": {
+    "description": "Tarjeta de la Bandeja: rótulo para lectores de pantalla del autor. (F30)"
+  },
+  "inboxFactPublished": "Publicado",
+  "@inboxFactPublished": {
+    "description": "Tarjeta de la Bandeja: rótulo para lectores de pantalla de la fecha de publicación. (F30)"
+  },
+  "inboxFactSite": "Sitio",
+  "@inboxFactSite": {
+    "description": "Tarjeta de la Bandeja: rótulo para lectores de pantalla del sitio o dominio. (F30)"
+  },
+  "inboxFactLength": "Extensión",
+  "@inboxFactLength": {
+    "description": "Tarjeta de la Bandeja: rótulo para lectores de pantalla de las páginas o la duración. (F30)"
+  },
+  "inboxFactLanguage": "Idioma",
+  "@inboxFactLanguage": {
+    "description": "Tarjeta de la Bandeja: rótulo para lectores de pantalla del idioma. (F30)"
+  },
+  "inboxTextFromAttachment": "Del «Contenido»: {name}",
+  "@inboxTextFromAttachment": {
+    "description": "Tarjeta de la Bandeja: el texto que se muestra es el de un archivo bajado de la página, no el del elemento. (F30)",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

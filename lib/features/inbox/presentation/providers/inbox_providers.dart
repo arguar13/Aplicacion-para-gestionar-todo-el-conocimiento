@@ -7,10 +7,12 @@ import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/attachments/presentation/providers/attachment_providers.dart';
 import 'package:sinapsis/features/inbox/data/repositories/inbox_repository_impl.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
+import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
 /// Cascada de inyección del feature. La capa de presentación depende de
@@ -52,6 +54,34 @@ final inboxFocusedIdProvider = StateProvider<String?>((ref) => null);
 final inboxStandingProvider = StreamProvider.autoDispose
     .family<InboxStanding?, String>((ref, itemId) {
       return ref.watch(inboxRepositoryProvider).watchStanding(itemId);
+    });
+
+/// Cuánto es lo que espera en la Bandeja —las páginas, lo que dura—, para la
+/// línea de datos de la tarjeta (F30, decisión 68).
+final inboxExtentProvider = StreamProvider.autoDispose
+    .family<SourceExtent, String>((ref, itemId) {
+      return ref.watch(inboxRepositoryProvider).watchExtent(itemId);
+    });
+
+/// El texto de un archivo del «Contenido» de `itemId`, con su nombre: lo que
+/// la tarjeta de la Bandeja muestra cuando el elemento en sí no tiene texto
+/// (F30, decisión 68) —una publicación sin pie de foto cuyas fotos traen
+/// texto, una página que solo enlaza un PDF—. `null` si ningún archivo lo
+/// tiene.
+///
+/// El primero en el orden de la página que tenga algo que leer: la tarjeta
+/// muestra un fragmento, no el «Contenido» entero.
+final inboxContentTextProvider = FutureProvider.autoDispose
+    .family<({String name, String text})?, String>((ref, itemId) async {
+      final attachments = ref.watch(attachmentRepositoryProvider);
+      for (final attachment in await attachments.attachmentsOf(itemId)) {
+        if (!attachment.hasText) continue;
+        final text = await attachments.textOf(attachment.id);
+        if (text != null && text.trim().isNotEmpty) {
+          return (name: attachment.displayName, text: text);
+        }
+      }
+      return null;
     });
 
 /// Si ya se leyó —y se cerró— la tarjeta que explica qué es triar (F28),

@@ -17,6 +17,7 @@ import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/features/inbox/domain/entities/inbox_standing.dart';
 import 'package:sinapsis/features/inbox/domain/entities/note_reference.dart';
 import 'package:sinapsis/features/inbox/domain/entities/pending_source.dart';
+import 'package:sinapsis/features/inbox/domain/entities/source_extent.dart';
 import 'package:sinapsis/features/inbox/domain/repositories/inbox_repository.dart';
 
 class InboxRepositoryImpl implements InboxRepository {
@@ -143,6 +144,36 @@ class InboxRepositoryImpl implements InboxRepository {
       },
       telemetry: _telemetry,
       hint: 'InboxRepositoryImpl.watchStanding',
+    );
+  }
+
+  @override
+  Stream<SourceExtent> watchExtent(String itemId) {
+    return watchQuery(
+      db: _db,
+      tables: [_db.chunks],
+      read: () async {
+        // De los fragmentos del texto del elemento, que ya llevan la página
+        // de cada uno y el momento en que termina: ver [SourceExtent].
+        final row = await _db
+            .customSelect(
+              'SELECT MAX(page_number) AS pages, MAX(end_ms) AS end_ms '
+              'FROM chunks WHERE item_id = ?',
+              variables: [Variable.withString(itemId)],
+              readsFrom: {_db.chunks},
+            )
+            .getSingle();
+        final pages = row.readNullable<int>('pages');
+        final endMs = row.readNullable<int>('end_ms');
+        return SourceExtent(
+          pages: pages == null || pages <= 0 ? null : pages,
+          duration: endMs == null || endMs <= 0
+              ? null
+              : Duration(milliseconds: endMs),
+        );
+      },
+      telemetry: _telemetry,
+      hint: 'InboxRepositoryImpl.watchExtent',
     );
   }
 
