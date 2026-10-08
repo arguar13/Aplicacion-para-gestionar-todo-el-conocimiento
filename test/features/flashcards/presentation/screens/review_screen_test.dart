@@ -14,6 +14,8 @@ import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_an
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
@@ -348,14 +350,203 @@ void main() {
       expect(reveal.height, tester.getSize(button('good')).height);
     });
 
-    testWidgets('tocar uno califica la tarjeta', (tester) async {
+    testWidgets('tocar uno califica la tarjeta: «Fácil» la gradúa y no queda '
+        'nada', (tester) async {
+      await openCard(tester);
+
+      await tester.tap(button('easy'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('grade-easy')), findsNothing);
+      expect(find.text(es.reviewAllDone), findsOneWidget);
+    });
+
+    testWidgets('«Bien» en una nueva la deja para dentro de 10 minutos: la '
+        'sesión espera y lo dice (F31)', (tester) async {
       await openCard(tester);
 
       await tester.tap(button('good'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('grade-good')), findsNothing);
+      expect(find.byKey(const Key('review-waiting')), findsOneWidget);
+      expect(find.text(es.reviewWaitMessage(1, 10)), findsOneWidget);
+      expect(find.text(es.reviewAllDone), findsNothing);
+    });
+  });
+
+  // La sesión sigue la cola de estudio (F31): lo que toca lo decide ella tras
+  // cada respuesta, con los pasos de aprendizaje y los límites del día.
+  group('la sesión sigue la cola de estudio (F31)', () {
+    late String itemId;
+
+    Future<void> addCards(List<String> fronts) async {
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      itemId = items.single.id;
+      for (final front in fronts) {
+        await harness.container
+            .read(flashcardRepositoryProvider)
+            .create(itemId: itemId, front: front, back: 'R de $front');
+      }
+    }
+
+    Future<void> grade(WidgetTester tester, String grade) async {
+      await tester.tap(find.byKey(const Key('review-show-answer')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('grade-$grade')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('dice cuántas quedan y baja con cada una que se termina', (
+      tester,
+    ) async {
+      await addCards(['¿Uno?', '¿Dos?', '¿Tres?']);
+      await pumpReview(tester);
+      expect(find.text(es.reviewRemaining(3)), findsOneWidget);
+
+      await grade(tester, 'easy');
+
+      expect(find.text(es.reviewRemaining(2)), findsOneWidget);
+    });
+
+    testWidgets('«De nuevo» la deja para dentro de 1 minuto: pasa a la '
+        'siguiente, y al no haber más espera y deja volver ya', (tester) async {
+      await addCards(['¿Uno?', '¿Dos?']);
+      await pumpReview(tester);
+      expect(find.text('¿Uno?'), findsOneWidget);
+
+      await grade(tester, 'again');
+      // La que olvidó no vuelve enseguida: toca la otra.
+      expect(find.text('¿Dos?'), findsOneWidget);
+      expect(find.text('¿Uno?'), findsNothing);
+
+      await grade(tester, 'easy');
+      // No queda nada más que esa que vuelve en 1 minuto.
+      expect(find.byKey(const Key('review-waiting')), findsOneWidget);
+      expect(find.text(es.reviewWaitMessage(1, 1)), findsOneWidget);
+
+      await tester.tap(find.text(es.reviewWaitNow));
+      await tester.pumpAndSettle();
+
+      expect(find.text('¿Uno?'), findsOneWidget);
+      // Y los botones dicen lo que de verdad pasa con una que se está
+      // aprendiendo en su primer paso.
+      await tester.tap(find.byKey(const Key('review-show-answer')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('grade-good')),
+          matching: find.text(es.reviewIntervalMinutes(10)),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('al llegar al límite de nuevas de hoy lo dice, y «Estudiar más '
+        'hoy» sigue', (tester) async {
+      await harness.container
+          .read(studyLimitsProvider.notifier)
+          .setNewPerDay(1);
+      await addCards(['¿Uno?', '¿Dos?', '¿Tres?']);
+      await pumpReview(tester);
+      expect(find.text(es.reviewRemaining(1)), findsOneWidget);
+
+      await grade(tester, 'easy');
+
+      expect(find.byKey(const Key('review-limit-reached')), findsOneWidget);
+      expect(find.text(es.reviewLimitTitle), findsOneWidget);
+      expect(find.text(es.reviewLimitMessage(2, 0)), findsOneWidget);
+      expect(find.text(es.reviewAllDone), findsNothing);
+
+      await tester.tap(find.text(es.reviewLimitMore));
+      await tester.pumpAndSettle();
+
+      expect(find.text('¿Dos?'), findsOneWidget);
+    });
+
+    testWidgets('una tarjeta pausada no se muestra', (tester) async {
+      await addCards(['¿Uno?']);
+      final card =
+          (await harness.container.read(flashcardRepositoryProvider).getAll())
+              .getRight()
+              .toNullable()!
+              .single;
+      await harness.container.read(flashcardRepositoryProvider).suspend([
+        card.id,
+      ]);
+
+      await pumpReview(tester);
+
+      expect(find.text('¿Uno?'), findsNothing);
       expect(find.text(es.reviewAllDone), findsOneWidget);
+    });
+
+    testWidgets('si aparece una tarjeta mientras no había nada, la sesión la '
+        'toma sola', (tester) async {
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      await pumpReview(tester);
+      expect(find.text('¿Nueva?'), findsNothing);
+      expect(find.byKey(const Key('review-show-answer')), findsNothing);
+
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(flashcardRepositoryProvider)
+          .create(itemId: items.single.id, front: '¿Nueva?', back: 'R');
+      await tester.pumpAndSettle();
+
+      expect(find.text('¿Nueva?'), findsOneWidget);
+    });
+  });
+
+  group('la insignia de Repasar en la navegación (F31)', () {
+    testWidgets('cuenta lo que hay para estudiar hoy, respetando los límites '
+        'y lo pausado', (tester) async {
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      final cards = harness.container.read(flashcardRepositoryProvider);
+      for (final front in ['¿1?', '¿2?', '¿3?']) {
+        await cards.create(itemId: items.single.id, front: front, back: 'R');
+      }
+      Future<int> badge() async {
+        final sub = harness.container.listen(
+          studyDueTodayCountProvider,
+          (_, _) {},
+        );
+        addTearDown(sub.close);
+        await tester.pumpAndSettle();
+        return sub.read().valueOrNull ?? -1;
+      }
+
+      expect(await badge(), 3);
+
+      await harness.container
+          .read(studyLimitsProvider.notifier)
+          .setNewPerDay(2);
+      expect(await badge(), 2);
+
+      final all = (await cards.getAll()).getRight().toNullable()!;
+      await cards.suspend([all.first.id]);
+      expect(await badge(), 2);
+      await harness.container
+          .read(studyLimitsProvider.notifier)
+          .setNewPerDay(20);
+      expect(await badge(), 2);
     });
   });
 

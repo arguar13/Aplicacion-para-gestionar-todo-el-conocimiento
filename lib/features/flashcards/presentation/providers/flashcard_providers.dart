@@ -61,18 +61,6 @@ final itemFlashcardsProvider = StreamProvider.autoDispose
       return ref.watch(flashcardRepositoryProvider).watchForItem(itemId);
     });
 
-/// Las tarjetas que ya toca repasar, en toda la bóveda.
-final dueFlashcardsProvider = StreamProvider.autoDispose<List<Flashcard>>((
-  ref,
-) {
-  return ref.watch(flashcardRepositoryProvider).watchDue();
-});
-
-/// Cuántas hay para repasar, para la insignia del ícono en la biblioteca.
-final dueFlashcardCountProvider = StreamProvider.autoDispose<int>((ref) {
-  return ref.watch(flashcardRepositoryProvider).watchDueCount();
-});
-
 /// Las opciones de una tarjeta de opción múltiple, en el orden guardado.
 /// Vacía para lo que no es de opción múltiple, o si la lectura falló —una
 /// falla acá no debería trabar la presentación de la tarjeta, solo dejarla

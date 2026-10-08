@@ -328,53 +328,6 @@ void main() {
     });
   });
 
-  group('tarjetas que tocan repasar', () {
-    test('solo trae las que ya vencieron', () async {
-      final itemId = await seedItem();
-      final due = (await repository.create(
-        itemId: itemId,
-        front: 'vencida',
-        back: 'b',
-      )).getRight().toNullable()!;
-      final notDueYet = (await repository.create(
-        itemId: itemId,
-        front: 'todavía no',
-        back: 'b',
-      )).getRight().toNullable()!;
-      // Repasarla con "bien" la empuja un día al futuro, así deja de ser
-      // parte de lo que toca hoy.
-      await repository.review(id: notDueYet.id, grade: ReviewGrade.good);
-
-      final cards = await repository.watchDue().first;
-
-      expect(cards.map((c) => c.id), [due.id]);
-    });
-
-    test('el contador refleja la misma cantidad', () async {
-      final itemId = await seedItem();
-      await repository.create(itemId: itemId, front: 'a', back: 'b');
-      await repository.create(itemId: itemId, front: 'c', back: 'd');
-
-      expect(await repository.watchDueCount().first, 2);
-    });
-
-    test(
-      'repasar una tarjeta la saca de las que tocan, si queda a futuro',
-      () async {
-        final itemId = await seedItem();
-        final created = (await repository.create(
-          itemId: itemId,
-          front: 'a',
-          back: 'b',
-        )).getRight().toNullable()!;
-
-        await repository.review(id: created.id, grade: ReviewGrade.good);
-
-        expect(await repository.watchDue().first, isEmpty);
-      },
-    );
-  });
-
   group('todas las tarjetas', () {
     test('trae las de toda la bóveda, no solo las que vencieron', () async {
       final itemA = await seedItem();
@@ -465,38 +418,6 @@ void main() {
   group('la papelera (F11)', () {
     Future<void> card(String itemId, String front) =>
         repository.create(itemId: itemId, front: front, back: 'respuesta');
-
-    test('las tarjetas de algo en la papelera no tocan repasar, y vuelven al '
-        'restaurarlo', () async {
-      final trashed = await seedItem();
-      final live = await seedItem();
-      await card(trashed, 'de lo borrado');
-      await card(live, 'de lo vivo');
-      final queue = StreamQueue(repository.watchDue());
-      addTearDown(queue.cancel);
-      expect((await queue.next).map((c) => c.front), hasLength(2));
-
-      await trashItemRows(db, trashed);
-      var due = await queue.next;
-      while (due.length != 1) {
-        due = await queue.next.timeout(const Duration(seconds: 5));
-      }
-      expect(due.single.front, 'de lo vivo');
-
-      await restoreItemRows(db, trashed);
-      due = await queue.next;
-      while (due.length != 2) {
-        due = await queue.next.timeout(const Duration(seconds: 5));
-      }
-    });
-
-    test('el contador de pendientes tampoco las cuenta', () async {
-      final trashed = await seedItem();
-      await card(trashed, 'de lo borrado');
-      await trashItemRows(db, trashed);
-
-      expect(await repository.watchDueCount().first, 0);
-    });
 
     test('la exportación —todas las tarjetas— las deja afuera', () async {
       final trashed = await seedItem();

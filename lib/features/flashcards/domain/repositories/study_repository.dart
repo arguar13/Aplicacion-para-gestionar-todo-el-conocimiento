@@ -46,9 +46,11 @@ abstract interface class StudyRepository {
     required StudyLimits limits,
   });
 
-  /// [counts], actualizándose solo: ante cualquier cambio de tarjetas, repasos,
-  /// elementos o cuadernos, y cuando llega el momento en que vuelve la
-  /// próxima tarjeta en aprendizaje o cambia el día de estudio.
+  /// [counts], actualizándose solo ante cualquier cambio de tarjetas, repasos,
+  /// elementos o de lo que compone un recorte. Lo que cambia con el reloj sin
+  /// que nada se escriba —empieza otro día de estudio— no lo detecta el
+  /// repositorio: lo avisa `StudyDayWatcher`, y `studyCountsProvider` vuelve a
+  /// pedir el stream.
   Stream<StudyCounts> watchCounts(
     StudyScope scope, {
     required StudyLimits limits,

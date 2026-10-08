@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
@@ -13,8 +14,13 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_counts.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_next.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/domain/services/review_interval.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
@@ -42,6 +48,121 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   var _revealed = false;
   var _grading = false;
   var _exporting = false;
+
+  /// Qué se estudia: por ahora, todo. La cola (`StudyRepository`) ya admite
+  /// recortes; la pantalla de entrada que los elige es de otra tanda.
+  static const _scope = StudyScope.all();
+
+  /// Qué toca ahora (F31): lo decide la cola de estudio tras cada respuesta, no
+  /// una lista que la pantalla recorre. `null` mientras carga.
+  StudyNext? _next;
+
+  /// Cuánto antes de su hora se trae una tarjeta en aprendizaje. Cero hasta que
+  /// la persona toca «Seguir ahora» en la espera.
+  var _learnAhead = Duration.zero;
+
+  /// Cuánto se amplió el límite de hoy con «Estudiar más hoy».
+  var _extraNew = 0;
+  var _extraReviews = 0;
+
+  /// Despierta la sesión cuando vuelve la próxima tarjeta en aprendizaje.
+  Timer? _wakeUp;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _wakeUp?.cancel();
+    super.dispose();
+  }
+
+  /// Pregunta a la cola qué sigue. Si no hay nada y una tarjeta vuelve en unos
+  /// minutos, deja un despertador para ese momento.
+  Future<void> _load() async {
+    _wakeUp?.cancel();
+    final limits = ref
+        .read(studyLimitsProvider)
+        .extendedBy(newCards: _extraNew, reviews: _extraReviews);
+    final result = await ref
+        .read(studyRepositoryProvider)
+        .next(_scope, limits: limits, learnAhead: _learnAhead);
+    if (!mounted) return;
+    final next = result.fold((failure) => null, (next) => next);
+    setState(() {
+      _next = next ?? const StudyNextDone();
+      _revealed = false;
+    });
+    if (next is StudyNextWait) {
+      final wait = next.until.difference(ref.read(clockProvider)());
+      _wakeUp = Timer(
+        wait.isNegative ? Duration.zero : wait,
+        () => unawaited(_load()),
+      );
+    }
+  }
+
+  /// Lo que muestra la sesión según lo que dice la cola.
+  Widget _session(AppLocalizations l10n, StudyCounts? counts) {
+    final next = _next;
+    if (next == null) return const CircularProgressIndicator();
+    switch (next) {
+      case StudyNextCard(:final card):
+        return _CardView(
+          // La misma tarjeta vuelve en un minuto: otra clave, otro estado.
+          key: ValueKey(
+            '${card.id}:${card.lastReviewedAt?.millisecondsSinceEpoch}',
+          ),
+          card: card,
+          revealed: _revealed,
+          grading: _grading,
+          remaining: counts?.total ?? 1,
+          onReveal: () => setState(() => _revealed = true),
+          onGrade: (grade) => _grade(card.id, grade),
+        );
+      case StudyNextWait(:final until, :final learningLeft):
+        final wait = until.difference(ref.read(clockProvider)());
+        final minutes = (wait.inSeconds / 60).ceil().clamp(1, 24 * 60);
+        return EmptyStateView(
+          key: const Key('review-waiting'),
+          icon: Icons.hourglass_bottom,
+          title: l10n.reviewWaitTitle,
+          message: l10n.reviewWaitMessage(learningLeft, minutes),
+          actionLabel: l10n.reviewWaitNow,
+          onAction: () {
+            _learnAhead = const Duration(days: 1);
+            unawaited(_load());
+          },
+        );
+      case StudyNextDone(
+        :final hitLimit,
+        :final newBeyondLimit,
+        :final reviewsBeyondLimit,
+      ):
+        if (hitLimit) {
+          return EmptyStateView(
+            key: const Key('review-limit-reached'),
+            icon: Icons.flag_outlined,
+            title: l10n.reviewLimitTitle,
+            message: l10n.reviewLimitMessage(
+              newBeyondLimit,
+              reviewsBeyondLimit,
+            ),
+            actionLabel: l10n.reviewLimitMore,
+            onAction: () {
+              _extraNew += 10;
+              _extraReviews += 50;
+              unawaited(_load());
+            },
+          );
+        }
+        // F30: si está vacío, dice por qué.
+        return ReviewEmptyState(onPractice: () => unawaited(_startPractice()));
+    }
+  }
 
   /// «Practicar igual» (F30): las tarjetas que se están practicando sin que
   /// les toque, y cuál va. `null` fuera de la práctica.
@@ -84,10 +205,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         .read(flashcardRepositoryProvider)
         .review(id: cardId, grade: grade);
     if (!mounted) return;
-    setState(() {
-      _revealed = false;
-      _grading = false;
-    });
+    await _load();
+    if (!mounted) return;
+    setState(() => _grading = false);
   }
 
   /// Pregunta el alcance (F17, D4) y el formato (commit 5) antes de
@@ -133,8 +253,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final due = ref.watch(dueFlashcardsProvider);
+    final counts = ref.watch(studyCountsProvider(_scope)).valueOrNull;
     final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
+    // Si no hay ninguna tarjeta a la vista y algo cambia (la IA hizo tarjetas,
+    // se restauró un elemento, pasó el día), se vuelve a preguntar.
+    ref.listen(studyCountsProvider(_scope), (previous, current) {
+      if (_next is! StudyNextCard && _practice == null) unawaited(_load());
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -190,41 +315,25 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
-                  child: due.when(
-                    loading: () => const CircularProgressIndicator(),
-                    error: (error, stackTrace) => Text('$error'),
-                    data: (cards) => _practice != null
-                        ? _CardView(
-                            key: ValueKey(
-                              'practice-${_practice![_practiceIndex].id}',
-                            ),
-                            card: _practice![_practiceIndex],
-                            revealed: _revealed,
-                            grading: false,
-                            remaining: 0,
-                            practice: (
-                              done: _practiceIndex,
-                              total: _practice!.length,
-                              onNext: _nextPractice,
-                              onStop: _stopPractice,
-                            ),
-                            onReveal: () => setState(() => _revealed = true),
-                            onGrade: (_) {},
-                          )
-                        : cards.isEmpty
-                        // F30: si está vacío, dice por qué.
-                        ? ReviewEmptyState(
-                            onPractice: () => unawaited(_startPractice()),
-                          )
-                        : _CardView(
-                            card: cards.first,
-                            revealed: _revealed,
-                            grading: _grading,
-                            remaining: cards.length,
-                            onReveal: () => setState(() => _revealed = true),
-                            onGrade: (grade) => _grade(cards.first.id, grade),
+                  child: _practice != null
+                      ? _CardView(
+                          key: ValueKey(
+                            'practice-${_practice![_practiceIndex].id}',
                           ),
-                  ),
+                          card: _practice![_practiceIndex],
+                          revealed: _revealed,
+                          grading: false,
+                          remaining: 0,
+                          practice: (
+                            done: _practiceIndex,
+                            total: _practice!.length,
+                            onNext: _nextPractice,
+                            onStop: _stopPractice,
+                          ),
+                          onReveal: () => setState(() => _revealed = true),
+                          onGrade: (_) {},
+                        )
+                      : _session(l10n, counts),
                 ),
               ),
             ),

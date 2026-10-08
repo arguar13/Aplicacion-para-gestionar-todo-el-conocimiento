@@ -8316,5 +8316,45 @@
         "type": "int"
       }
     }
+  },
+  "reviewWaitTitle": "Take a short break",
+  "@reviewWaitTitle": {
+    "description": "Review: title when nothing is left for now but a card being learned comes back in a few minutes."
+  },
+  "reviewWaitMessage": "{count, plural, =1{1 card comes back} other{{count} cards come back}} in {minutes} min.",
+  "@reviewWaitMessage": {
+    "description": "Review: how many learning cards come back and in how many minutes the first one does.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewWaitNow": "Keep going now",
+  "@reviewWaitNow": {
+    "description": "Review: button to skip the wait and see the card that comes back in a few minutes right away."
+  },
+  "reviewLimitTitle": "You reached today's limit",
+  "@reviewLimitTitle": {
+    "description": "Review: title when the session stopped because of the daily card limit."
+  },
+  "reviewLimitMessage": "Left for another day: {newCount} new and {reviewCount} reviews.",
+  "@reviewLimitMessage": {
+    "description": "Review: how many new cards and reviews were left out by today's limit.",
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "reviewCount": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewLimitMore": "Study more today",
+  "@reviewLimitMore": {
+    "description": "Review: button to raise today's card limit."
   }
 }

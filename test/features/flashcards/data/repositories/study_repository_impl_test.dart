@@ -992,31 +992,5 @@ void main() {
           .write(const FlashcardsCompanion(suspended: Value(true)));
       expect((await queue.next.timeout(const Duration(seconds: 5))).total, 0);
     });
-
-    test(
-      'al pasar el día de estudio vuelve a leer, sin que se escriba nada',
-      () async {
-        // Un segundo antes de las 4:00: la espera real es de unos 2 segundos.
-        now = DateTime(2026, 10, 9, 3, 59, 59);
-        await card('n', phase: CardPhase.newCard);
-        const one = StudyLimits(newPerDay: 1);
-        await answered(
-          'x',
-          phase: CardPhase.newCard,
-          at: DateTime(2026, 10, 9, 1),
-        );
-        final queue = StreamQueue(study.watchCounts(all, limits: one));
-        addTearDown(queue.cancel);
-        // Ayer ya se hizo la nueva: hoy (todavía) no queda ninguna.
-        expect((await queue.next).newCards, 0);
-
-        now = DateTime(2026, 10, 9, 4, 0, 1);
-
-        expect(
-          (await queue.next.timeout(const Duration(seconds: 10))).newCards,
-          1,
-        );
-      },
-    );
   });
 }

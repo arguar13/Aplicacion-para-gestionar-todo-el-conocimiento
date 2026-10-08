@@ -7298,5 +7298,45 @@
         "type": "int"
       }
     }
+  },
+  "reviewWaitTitle": "Descansá un momento",
+  "@reviewWaitTitle": {
+    "description": "Repasar: título cuando no queda nada por ahora pero una tarjeta que se está aprendiendo vuelve en unos minutos."
+  },
+  "reviewWaitMessage": "{count, plural, =1{Vuelve 1 tarjeta} other{Vuelven {count} tarjetas}} en {minutes} min.",
+  "@reviewWaitMessage": {
+    "description": "Repasar: cuántas tarjetas en aprendizaje vuelven y en cuántos minutos vuelve la primera.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewWaitNow": "Seguir ahora",
+  "@reviewWaitNow": {
+    "description": "Repasar: botón para no esperar y ver ya la tarjeta que vuelve en unos minutos."
+  },
+  "reviewLimitTitle": "Llegaste al límite de hoy",
+  "@reviewLimitTitle": {
+    "description": "Repasar: título cuando se cortó la sesión por el límite de tarjetas del día."
+  },
+  "reviewLimitMessage": "Quedan para otro día: {newCount} nuevas y {reviewCount} repasos.",
+  "@reviewLimitMessage": {
+    "description": "Repasar: cuántas tarjetas nuevas y cuántos repasos quedaron fuera por el límite de hoy.",
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "reviewCount": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewLimitMore": "Estudiar más hoy",
+  "@reviewLimitMore": {
+    "description": "Repasar: botón para ampliar por hoy el límite de tarjetas."
   }
 }

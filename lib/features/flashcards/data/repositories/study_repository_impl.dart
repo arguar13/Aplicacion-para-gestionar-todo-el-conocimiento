@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
@@ -122,54 +119,25 @@ class StudyRepositoryImpl implements StudyRepository {
     StudyScope scope, {
     required StudyLimits limits,
   }) {
-    Timer? dayChange;
-    StreamController<void>? wake;
-
-    // Lo único que cambia con el reloj, sin que nada se escriba, es el día de
-    // estudio: al llegar su fin se vuelve a leer (los límites empiezan de
-    // cero y lo pospuesto vuelve). El resto cambia por escrituras.
-    void scheduleDayChange(DateTime now) {
-      dayChange?.cancel();
-      final wait = _day.endOf(now).difference(now) + const Duration(seconds: 1);
-      dayChange = Timer(wait, () {
-        final controller = wake;
-        if (controller != null && !controller.isClosed) controller.add(null);
-      });
-    }
-
-    return watchReads<StudyCounts>(
-      changes: () {
-        StreamSubscription<void>? updates;
-        late final StreamController<void> controller;
-        controller = StreamController<void>(
-          onListen: () {
-            updates = _db
-                .tableUpdates(
-                  TableUpdateQuery.onAllTables([
-                    _db.flashcards,
-                    _db.reviewLogs,
-                    _db.knowledgeEntries,
-                    // De qué está hecho un recorte.
-                    _db.itemPropertyValues,
-                    _db.propertyValues,
-                    _db.spaces,
-                    _db.notebooks,
-                    _db.notebookItems,
-                  ]),
-                )
-                .listen((_) => controller.add(null));
-          },
-          onCancel: () async {
-            dayChange?.cancel();
-            await updates?.cancel();
-          },
-        );
-        wake = controller;
-        return controller.stream;
-      },
+    // Lo único que cambia con el reloj sin que se escriba nada es el día de
+    // estudio, y eso NO se resuelve acá: un temporizador de un repositorio
+    // sobrevive a la pantalla que lo pidió. Lo despierta `StudyDayWatcher`
+    // (presentación), que lo cancela con su widget, volviendo a crear el
+    // stream con el día nuevo.
+    return watchQuery<StudyCounts>(
+      db: _db,
+      tables: [
+        _db.flashcards,
+        _db.reviewLogs,
+        _db.knowledgeEntries,
+        // De qué está hecho un recorte.
+        _db.itemPropertyValues,
+        _db.propertyValues,
+        _db.spaces,
+        _db.notebooks,
+        _db.notebookItems,
+      ],
       read: () async {
-        final now = _clock();
-        scheduleDayChange(now);
         final result = await counts(scope, limits: limits);
         // Un fallo viaja por el stream, como en el resto de las lecturas.
         return result.getOrElse((failure) => throw StateError('$failure'));

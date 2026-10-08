@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/navigation/nav_destinations.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/study_day_watcher.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -37,7 +38,7 @@ class AdaptiveScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final dueCount = ref.watch(dueFlashcardCountProvider).valueOrNull ?? 0;
+    final dueCount = ref.watch(studyDueTodayCountProvider).valueOrNull ?? 0;
     final pendingInboxCount =
         ref.watch(inboxPendingIdsProvider).valueOrNull?.length ?? 0;
     final destinations = buildNavDestinations(
@@ -83,7 +84,7 @@ class AdaptiveScaffold extends ConsumerWidget {
               ],
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: navigationShell),
+            Expanded(child: StudyDayWatcher(child: navigationShell)),
           ],
         ),
       );
@@ -107,7 +108,7 @@ class AdaptiveScaffold extends ConsumerWidget {
         : (overflow.any((d) => d.branchIndex == current) ? moreIndex : 0);
 
     return Scaffold(
-      body: navigationShell,
+      body: StudyDayWatcher(child: navigationShell),
       bottomNavigationBar: NavigationBar(
         selectedIndex: barSelected,
         onDestinationSelected: (index) {

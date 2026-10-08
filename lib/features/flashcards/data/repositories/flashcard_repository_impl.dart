@@ -769,36 +769,6 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
   }
 
   @override
-  Stream<List<Flashcard>> watchDue() {
-    return watchQuery(
-      db: _db,
-      // `item` también: repasar tarjetas de algo que se mandó a la papelera
-      // —o volver a verlas si se lo restaura— cambia la lista.
-      tables: [_db.flashcards, _db.knowledgeEntries],
-      read: () async {
-        final now = _clock();
-        final rows =
-            await (_db.select(_db.flashcards)
-                  ..where(
-                    (f) =>
-                        f.dueAt.isSmallerOrEqualValue(now) &
-                        itemIsActive(_db, f.itemId),
-                  )
-                  ..orderBy([(f) => OrderingTerm(expression: f.dueAt)]))
-                .get();
-        return rows.map(_toEntity).toList();
-      },
-      telemetry: _telemetry,
-      hint: 'FlashcardRepositoryImpl.watchDue',
-    );
-  }
-
-  @override
-  Stream<int> watchDueCount() {
-    return watchDue().map((cards) => cards.length);
-  }
-
-  @override
   Future<Either<Failure, List<Flashcard>>> getAll() async {
     try {
       final rows =
