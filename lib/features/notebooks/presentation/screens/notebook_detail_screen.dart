@@ -8,7 +8,7 @@ import 'package:sinapsis/features/library/presentation/providers/library_provide
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
-import 'package:sinapsis/features/notes/presentation/widgets/generate_derived_note_button.dart';
+import 'package:sinapsis/features/notebooks/presentation/widgets/fill_notebook_sheet.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/pick_item_dialog.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -36,10 +36,7 @@ class NotebookDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(notebook.name),
         actions: [
-          GenerateDerivedNoteButton(
-            sourceTitle: notebook.name,
-            notebookId: notebook.id,
-          ),
+          FillNotebookButton(notebook: notebook),
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: l10n.notebooksRenameTooltip,

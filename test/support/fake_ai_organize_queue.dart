@@ -19,6 +19,13 @@ class FakeAiOrganizeQueue implements AiOrganizeQueue {
   void organizeAllNow(Iterable<String> itemIds) =>
       organizeNowCalls.addAll(itemIds);
 
+  /// Lo que se pidió hacer solo en tarjetas (F30), en orden.
+  final flashcardRequests = <List<String>>[];
+
+  @override
+  void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) =>
+      flashcardRequests.add(itemIds.toList());
+
   /// Cuántas veces se la despertó: la llegada de un modelo la despierta.
   int wakes = 0;
 

@@ -6942,5 +6942,96 @@
         "type": "int"
       }
     }
+  },
+  "fillNotebookTooltip": "Llenar con IA",
+  "@fillNotebookTooltip": {
+    "description": "Llenar un cuaderno (F30): el botón del detalle del cuaderno."
+  },
+  "fillNotebookTitle": "Llenar el cuaderno",
+  "@fillNotebookTitle": {
+    "description": "Llenar un cuaderno (F30): el título de la hoja."
+  },
+  "fillNotebookIntro": "La IA arma una nota con lo que dicen los elementos del cuaderno, que queda adentro, y las tarjetas para repasarlos.",
+  "@fillNotebookIntro": {
+    "description": "Llenar un cuaderno (F30): qué hace."
+  },
+  "fillNotebookGuideTitle": "Una nota de estudio",
+  "@fillNotebookGuideTitle": {
+    "description": "Llenar un cuaderno (F30): la opción de la nota."
+  },
+  "fillNotebookGuideHint": "Cada afirmación queda anclada a su fuente. Un cuaderno grande se lee por partes.",
+  "@fillNotebookGuideHint": {
+    "description": "Llenar un cuaderno (F30): debajo de la opción de la nota."
+  },
+  "fillNotebookCardsTitle": "Tarjetas de repaso",
+  "@fillNotebookCardsTitle": {
+    "description": "Llenar un cuaderno (F30): la opción de las tarjetas."
+  },
+  "fillNotebookCardsHint": "Se hacen en segundo plano, solo de lo que todavía no tiene.",
+  "@fillNotebookCardsHint": {
+    "description": "Llenar un cuaderno (F30): debajo de la opción de las tarjetas; sigue la cuenta de cuántos elementos entran."
+  },
+  "fillNotebookStart": "Llenar",
+  "@fillNotebookStart": {
+    "description": "Llenar un cuaderno (F30): el botón que empieza."
+  },
+  "fillNotebookClose": "Listo",
+  "@fillNotebookClose": {
+    "description": "Llenar un cuaderno (F30): el botón que cierra la hoja al terminar."
+  },
+  "fillNotebookPreparing": "Preparando lo que se va a leer…",
+  "@fillNotebookPreparing": {
+    "description": "Llenar un cuaderno (F30): antes de la primera parte."
+  },
+  "fillNotebookReading": "Leyendo las fuentes: {read} de {total} partes",
+  "@fillNotebookReading": {
+    "description": "Llenar un cuaderno (F30): el progreso de la nota.",
+    "placeholders": {
+      "read": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "fillNotebookCardsQueued": "{count, plural, =1{Se piden tarjetas de 1 elemento: se hacen en segundo plano y aparecen en Repasar.} other{Se piden tarjetas de {count} elementos: se hacen en segundo plano y aparecen en Repasar.}}",
+  "@fillNotebookCardsQueued": {
+    "description": "Llenar un cuaderno (F30): las tarjetas ya están pedidas a la cola de la IA.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fillNotebookCardsAlreadyHad": "Todo lo que puede tener tarjetas ya las tiene.",
+  "@fillNotebookCardsAlreadyHad": {
+    "description": "Llenar un cuaderno (F30): no hizo falta pedir tarjetas."
+  },
+  "fillNotebookCardsNothing": "Nada del cuaderno tiene texto de donde sacar tarjetas.",
+  "@fillNotebookCardsNothing": {
+    "description": "Llenar un cuaderno (F30): no hay con qué hacer tarjetas."
+  },
+  "fillNotebookGuideDone": "Se creó «{title}» y quedó adentro del cuaderno.",
+  "@fillNotebookGuideDone": {
+    "description": "Llenar un cuaderno (F30): la nota ya está en el cuaderno.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "fillNotebookGuideElsewhere": "Se creó «{title}», pero quedó en la Biblioteca: este cuaderno pide algo que una nota no tiene.",
+  "@fillNotebookGuideElsewhere": {
+    "description": "Llenar un cuaderno (F30): la nota no cumple la consulta del cuaderno.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "fillNotebookGuideNothingToCite": "No hay nada que se pueda citar en este cuaderno: la nota necesita elementos con texto.",
+  "@fillNotebookGuideNothingToCite": {
+    "description": "Llenar un cuaderno (F30): no se pudo armar la nota porque ningún elemento tiene texto citable, o ninguna afirmación se pudo anclar."
   }
 }
