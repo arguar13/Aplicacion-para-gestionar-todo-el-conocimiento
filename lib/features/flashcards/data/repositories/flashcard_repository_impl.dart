@@ -21,6 +21,7 @@ import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_dr
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/sm2_scheduler.dart';
+import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
 
 class FlashcardRepositoryImpl implements FlashcardRepository {
   const FlashcardRepositoryImpl({
@@ -28,15 +29,18 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     required TelemetryService telemetry,
     required IdGenerator ids,
     required Clock clock,
+    StudyDay day = const StudyDay(),
   }) : _db = database,
        _telemetry = telemetry,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _day = day;
 
   final AppDatabase _db;
   final TelemetryService _telemetry;
   final IdGenerator _ids;
   final Clock _clock;
+  final StudyDay _day;
 
   @override
   Future<Either<Failure, Flashcard>> create({
@@ -520,6 +524,161 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.review'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Flashcard>> undoLastReview({DateTime? since}) async {
+    try {
+      // El estado de la tarjeta y el renglón del historial vuelven juntos: o
+      // se deshace todo o no se toca nada.
+      return await _db.transaction(() async {
+        // La más reciente de este dispositivo. Si hay varias en el mismo
+        // segundo, la última que se escribió (`rowid`): el orden en que
+        // ocurrieron.
+        final latest =
+            await (_db.select(_db.reviewLogs)
+                  ..where((r) {
+                    final mine = r.deviceId.equals(_db.deviceId);
+                    return since == null
+                        ? mine
+                        : mine & r.reviewedAt.isBiggerOrEqualValue(since);
+                  })
+                  ..orderBy([
+                    (r) => OrderingTerm.desc(r.reviewedAt),
+                    (r) =>
+                        OrderingTerm.desc(const CustomExpression<int>('rowid')),
+                  ])
+                  ..limit(1))
+                .getSingleOrNull();
+        if (latest == null) {
+          return left(
+            const Failure.validation(
+              message: 'No hay ninguna respuesta para deshacer.',
+            ),
+          );
+        }
+        final dueBefore = latest.dueBefore;
+        if (dueBefore == null) {
+          return left(
+            const Failure.validation(
+              message:
+                  'Esa respuesta es de antes de que se guardara cómo estaba la '
+                  'tarjeta: no se puede deshacer.',
+            ),
+          );
+        }
+
+        final card = await (_db.select(
+          _db.flashcards,
+        )..where((f) => f.id.equals(latest.flashcardId))).getSingleOrNull();
+        if (card == null) {
+          return left(
+            const Failure.unexpected(
+              message: 'La tarjeta ya no existe; puede que se haya borrado.',
+            ),
+          );
+        }
+        // Que sea la última respuesta de ESA tarjeta, y que la tarjeta siga
+        // como la dejó: si no, restaurarla pisaría un repaso real.
+        final newestOfCard =
+            await (_db.select(_db.reviewLogs)
+                  ..where((r) => r.flashcardId.equals(card.id))
+                  ..orderBy([
+                    (r) => OrderingTerm.desc(r.reviewedAt),
+                    (r) =>
+                        OrderingTerm.desc(const CustomExpression<int>('rowid')),
+                  ])
+                  ..limit(1))
+                .getSingle();
+        if (newestOfCard.id != latest.id ||
+            card.lastReviewedAt != latest.reviewedAt) {
+          return left(
+            const Failure.validation(
+              message:
+                  'La tarjeta cambió después de esa respuesta: no se puede '
+                  'deshacer sin pisar un repaso más nuevo.',
+            ),
+          );
+        }
+
+        await (_db.update(
+          _db.flashcards,
+        )..where((f) => f.id.equals(card.id))).write(
+          FlashcardsCompanion(
+            easeFactor: Value(latest.easeBefore),
+            intervalDays: Value(latest.intervalBefore),
+            repetitions: Value(latest.repetitionsBefore ?? card.repetitions),
+            learningStep: Value(latest.stepBefore),
+            dueAt: Value(dueBefore),
+            lastReviewedAt: Value(latest.lastReviewedBefore),
+          ),
+        );
+        await (_db.delete(
+          _db.reviewLogs,
+        )..where((r) => r.id.equals(latest.id))).go();
+
+        final restored = await (_db.select(
+          _db.flashcards,
+        )..where((f) => f.id.equals(card.id))).getSingle();
+        return right(_toEntity(restored));
+      });
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.undoLastReview'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> suspend(Iterable<String> ids) => _write(
+    ids,
+    'FlashcardRepositoryImpl.suspend',
+    const FlashcardsCompanion(suspended: Value(true)),
+  );
+
+  @override
+  Future<Either<Failure, Unit>> unsuspend(Iterable<String> ids) => _write(
+    ids,
+    'FlashcardRepositoryImpl.unsuspend',
+    const FlashcardsCompanion(suspended: Value(false)),
+  );
+
+  @override
+  Future<Either<Failure, Unit>> buryUntilTomorrow(Iterable<String> ids) =>
+      _write(
+        ids,
+        'FlashcardRepositoryImpl.buryUntilTomorrow',
+        FlashcardsCompanion(buriedUntil: Value(_day.endOf(_clock()))),
+      );
+
+  @override
+  Future<Either<Failure, Unit>> unbury(Iterable<String> ids) => _write(
+    ids,
+    'FlashcardRepositoryImpl.unbury',
+    const FlashcardsCompanion(buriedUntil: Value(null)),
+  );
+
+  /// Escribe [values] en las tarjetas [ids], de una vez: pausar cien tarjetas
+  /// es una sola escritura y un solo aviso a quien mira.
+  Future<Either<Failure, Unit>> _write(
+    Iterable<String> ids,
+    String hint,
+    FlashcardsCompanion values,
+  ) async {
+    final wanted = ids.toSet();
+    if (wanted.isEmpty) return right(unit);
+    try {
+      await (_db.update(
+        _db.flashcards,
+      )..where((f) => f.id.isIn(wanted))).write(values);
+      return right(unit);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(_unexpected(e, stackTrace, hint));
     }
   }
 

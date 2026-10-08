@@ -97,6 +97,50 @@ abstract interface class FlashcardRepository {
     required ReviewGrade grade,
   });
 
+  /// Deshace la última respuesta (F31): devuelve la tarjeta EXACTAMENTE a como
+  /// estaba antes —facilidad, intervalo, repeticiones, paso de aprendizaje,
+  /// cuándo tocaba y cuándo se había repasado— y borra el renglón de
+  /// `review_log` de esa respuesta.
+  ///
+  /// La racha y las insignias no necesitan un trato aparte: salen de
+  /// `review_log` (ver `HabitActivityDays`), así que al borrarse el renglón,
+  /// un día que solo tenía esa respuesta deja de contar, y «100 repasos»
+  /// vuelve a 99. Lo mismo la cola de estudio: el límite del día recupera la
+  /// tarjeta nueva o el repaso, y sus hermanas vuelven a aparecer hoy.
+  ///
+  /// «La última» es la más reciente de ESTE dispositivo. Con [since], solo si
+  /// es de ese momento en adelante —la pantalla pasa cuándo empezó la
+  /// sesión—, para no deshacer algo de ayer al abrir el repaso. Se rechaza, sin
+  /// tocar nada, si:
+  ///
+  /// - no hay respuesta que deshacer;
+  /// - es de antes de v39, que no guardó cómo estaba la tarjeta;
+  /// - la tarjeta ya cambió después de esa respuesta (por ejemplo, otra
+  ///   respuesta más nueva llegada de otro dispositivo, o ya se deshizo):
+  ///   restaurarla pisaría un repaso real.
+  ///
+  /// Se puede llamar varias veces seguidas: deshace una respuesta tras otra,
+  /// de la más nueva a la más vieja.
+  Future<Either<Failure, Flashcard>> undoLastReview({DateTime? since});
+
+  /// Pausa las tarjetas [ids] (F31): no entran en ninguna sesión hasta
+  /// reactivarlas con [unsuspend]. Su calendario no cambia, y exportadas a Anki
+  /// salen como suspendidas.
+  Future<Either<Failure, Unit>> suspend(Iterable<String> ids);
+
+  /// Reactiva las tarjetas [ids] pausadas: vuelven con el calendario que
+  /// tenían.
+  Future<Either<Failure, Unit>> unsuspend(Iterable<String> ids);
+
+  /// Pospone las tarjetas [ids] hasta el próximo día de estudio (F31): hoy no
+  /// aparecen más, y mañana desde las 4:00 vuelven solas (`StudyDay`). No
+  /// cambia su calendario.
+  Future<Either<Failure, Unit>> buryUntilTomorrow(Iterable<String> ids);
+
+  /// Quita la posposición de [ids]: vuelven a entrar hoy. Para deshacer un
+  /// [buryUntilTomorrow].
+  Future<Either<Failure, Unit>> unbury(Iterable<String> ids);
+
   /// Las tarjetas de un elemento, en el orden en que se crearon.
   Stream<List<Flashcard>> watchForItem(String itemId);
 
