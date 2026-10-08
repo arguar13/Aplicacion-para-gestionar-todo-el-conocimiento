@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
@@ -8,9 +9,11 @@ import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/services/review_interval.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
@@ -308,7 +311,7 @@ class _CardView extends ConsumerWidget {
   Widget _answered() {
     final current = practice;
     return current == null
-        ? _GradeRow(grading: grading, onGrade: onGrade)
+        ? _GradeRow(card: card, grading: grading, onGrade: onGrade)
         : _PracticeRow(onNext: current.onNext, onStop: current.onStop);
   }
 
@@ -441,7 +444,9 @@ class _CardView extends ConsumerWidget {
                 ),
                 if (revealed) ...[const SizedBox(height: 16), _answered()],
               ] else if (!revealed)
-                OutlinedButton(
+                FilledButton.tonal(
+                  key: const Key('review-show-answer'),
+                  style: _reviewWideButtonStyle(),
                   onPressed: onReveal,
                   child: Text(l10n.reviewShowAnswer),
                 )
@@ -458,22 +463,34 @@ class _CardView extends ConsumerWidget {
 /// Los cuatro botones de calificación del algoritmo SM-2 —iguales sea cual
 /// sea la forma de la tarjeta, la calificación es cuánto costó recordar, no
 /// algo que la corrección de una opción múltiple pueda decidir sola—.
-class _GradeRow extends StatelessWidget {
-  const _GradeRow({required this.grading, required this.onGrade});
+class _GradeRow extends ConsumerWidget {
+  const _GradeRow({
+    required this.card,
+    required this.grading,
+    required this.onGrade,
+  });
 
+  final Flashcard card;
   final bool grading;
   final ValueChanged<ReviewGrade> onGrade;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    // Lo que pasaría con cada respuesta, calculado con el mismo planificador
+    // que la aplica de verdad.
+    final intervals = previewIntervals(card, now: ref.read(clockProvider)());
+
     return Row(
       children: [
         for (final grade in ReviewGrade.values) ...[
           Expanded(
-            child: OutlinedButton(
+            child: _GradeButton(
+              key: Key('grade-${grade.name}'),
+              grade: grade,
+              label: _labelFor(l10n, grade),
+              interval: _intervalText(l10n, intervals[grade]!),
               onPressed: grading ? null : () => onGrade(grade),
-              child: Text(_labelFor(l10n, grade)),
             ),
           ),
           if (grade != ReviewGrade.values.last) const SizedBox(width: 8),
@@ -488,7 +505,124 @@ class _GradeRow extends StatelessWidget {
     ReviewGrade.good => l10n.reviewGradeGood,
     ReviewGrade.easy => l10n.reviewGradeEasy,
   };
+
+  String _intervalText(AppLocalizations l10n, ReviewInterval interval) =>
+      switch (interval.unit) {
+        IntervalUnit.days => l10n.reviewIntervalDays(interval.count),
+        IntervalUnit.weeks => l10n.reviewIntervalWeeks(interval.count),
+        IntervalUnit.months => l10n.reviewIntervalMonths(interval.count),
+        IntervalUnit.years => l10n.reviewIntervalYears(interval.count),
+      };
 }
+
+/// Un botón de calificar: el nombre en una sola línea y, debajo, cuándo vuelve
+/// la tarjeta.
+///
+/// Los cuatro miden lo mismo y tienen la misma forma. Antes eran
+/// `OutlinedButton`s con el relleno lateral estándar: en un teléfono a cada
+/// uno le quedaban unos 40 puntos para el texto, y «De nuevo» se partía letra
+/// por letra y estiraba su botón. Acá el texto se achica para entrar antes
+/// que partirse, y el color dice de qué se trata antes de leerlo.
+class _GradeButton extends StatelessWidget {
+  const _GradeButton({
+    required this.grade,
+    required this.label,
+    required this.interval,
+    required this.onPressed,
+    super.key,
+  });
+
+  final ReviewGrade grade;
+  final String label;
+  final String interval;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final (background, foreground) = switch (grade) {
+      ReviewGrade.again => (colors.errorContainer, colors.onErrorContainer),
+      ReviewGrade.hard => (
+        colors.tertiaryContainer,
+        colors.onTertiaryContainer,
+      ),
+      ReviewGrade.good => (colors.primaryContainer, colors.onPrimaryContainer),
+      ReviewGrade.easy => (
+        colors.secondaryContainer,
+        colors.onSecondaryContainer,
+      ),
+    };
+    final enabled = onPressed != null;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: l10n.reviewGradeSemantics(label, interval),
+      excludeSemantics: true,
+      child: Material(
+        color: enabled ? background : background.withValues(alpha: 0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled
+              ? () {
+                  unawaited(HapticFeedback.selectionClick());
+                  onPressed!();
+                }
+              : null,
+          child: SizedBox(
+            height: _kReviewButtonHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      interval,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: foreground.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La altura de todos los botones grandes de repasar: calificar, mostrar la
+/// respuesta, seguir practicando.
+const _kReviewButtonHeight = 64.0;
+
+/// El estilo de los botones anchos de repasar —«Mostrar respuesta»,
+/// «Practicar igual»—: la misma forma y altura que los de calificar.
+ButtonStyle _reviewWideButtonStyle() => FilledButton.styleFrom(
+  minimumSize: const Size.fromHeight(_kReviewButtonHeight),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+);
 
 /// En «Practicar igual» (F30): la siguiente, o terminar. No califica: el
 /// calendario de la tarjeta no cambia.
@@ -506,6 +640,12 @@ class _PracticeRow extends StatelessWidget {
         Expanded(
           child: OutlinedButton(
             key: const Key('practice-stop'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(_kReviewButtonHeight),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
             onPressed: onStop,
             child: Text(l10n.reviewPracticeStop),
           ),
@@ -514,6 +654,7 @@ class _PracticeRow extends StatelessWidget {
         Expanded(
           child: FilledButton.tonal(
             key: const Key('practice-next'),
+            style: _reviewWideButtonStyle(),
             onPressed: onNext,
             child: Text(l10n.reviewPracticeNext),
           ),

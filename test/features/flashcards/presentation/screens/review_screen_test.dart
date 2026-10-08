@@ -242,6 +242,115 @@ void main() {
     );
   });
 
+  // Los botones de calificar eran `OutlinedButton`s con el relleno lateral
+  // estándar: en un teléfono a cada uno le quedaban unos 40 puntos para el
+  // texto, «De nuevo» se partía letra por letra y estiraba su botón.
+  group('los botones de calificar', () {
+    Future<void> openCard(WidgetTester tester, {double width = 360}) async {
+      tester.view.physicalSize = Size(width * 3, 780 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(flashcardRepositoryProvider)
+          .create(
+            itemId: items.single.id,
+            front: '¿Qué hizo Teodora?',
+            back: 'Lo ayudó a escapar.',
+          );
+      await pumpReview(tester);
+      await tester.tap(find.text(es.reviewShowAnswer));
+      await tester.pumpAndSettle();
+    }
+
+    Finder button(String grade) => find.byKey(Key('grade-$grade'));
+
+    for (final width in [320.0, 360.0, 412.0]) {
+      testWidgets('miden lo mismo, y el texto entra sin partirse, en un '
+          'teléfono de $width puntos', (tester) async {
+        await openCard(tester, width: width);
+
+        final sizes = [
+          for (final grade in ['again', 'hard', 'good', 'easy'])
+            tester.getSize(button(grade)),
+        ];
+        // El mismo ancho y el mismo alto, los cuatro.
+        expect(sizes.map((s) => s.width).toSet().length, 1, reason: '$sizes');
+        expect(sizes.map((s) => s.height).toSet().length, 1, reason: '$sizes');
+
+        // Ninguna palabra partida: cada nombre es una sola línea, más baja
+        // que dos renglones de su fuente.
+        for (final label in [
+          es.reviewGradeAgain,
+          es.reviewGradeHard,
+          es.reviewGradeGood,
+          es.reviewGradeEasy,
+        ]) {
+          final text = tester.getSize(find.text(label));
+          expect(text.height, lessThan(24), reason: '«$label» se partió');
+        }
+      });
+    }
+
+    testWidgets('cada uno dice cuándo vuelve la tarjeta', (tester) async {
+      await openCard(tester);
+
+      // Una tarjeta nueva: todas vuelven mañana.
+      for (final grade in ['again', 'hard', 'good', 'easy']) {
+        expect(
+          find.descendant(
+            of: button(grade),
+            matching: find.text(es.reviewIntervalDays(1)),
+          ),
+          findsOneWidget,
+        );
+      }
+    });
+
+    testWidgets('«Mostrar respuesta» tiene la misma altura y forma', (
+      tester,
+    ) async {
+      await harness.capture('Una fuente\n\nCon un texto largo para señalar.');
+      final items =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .list(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(flashcardRepositoryProvider)
+          .create(itemId: items.single.id, front: '¿P?', back: 'R.');
+      tester.view.physicalSize = const Size(360 * 3, 780 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await pumpReview(tester);
+
+      final reveal = tester.getSize(
+        find.byKey(const Key('review-show-answer')),
+      );
+      await tester.tap(find.byKey(const Key('review-show-answer')));
+      await tester.pumpAndSettle();
+
+      expect(reveal.height, tester.getSize(button('good')).height);
+    });
+
+    testWidgets('tocar uno califica la tarjeta', (tester) async {
+      await openCard(tester);
+
+      await tester.tap(button('good'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('grade-good')), findsNothing);
+      expect(find.text(es.reviewAllDone), findsOneWidget);
+    });
+  });
+
   group('ver de dónde salió la tarjeta (F11)', () {
     /// Guarda una fuente y le crea una tarjeta; con [range], dice de qué
     /// fragmento sale.

@@ -7232,5 +7232,53 @@
   "sourcePanelOnlyFileAction": "Volver a extraer el texto",
   "@sourcePanelOnlyFileAction": {
     "description": "Panel de la fuente: botón de un documento «solo el libro» para traer su texto de nuevo. (F30)"
+  },
+  "reviewIntervalDays": "{count} d",
+  "@reviewIntervalDays": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta, bajo cada botón de calificar, en días.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalWeeks": "{count} sem",
+  "@reviewIntervalWeeks": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta, en semanas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalMonths": "{count} m",
+  "@reviewIntervalMonths": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta, en meses.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalYears": "{count} a",
+  "@reviewIntervalYears": {
+    "description": "Repasar: cuánto falta para que vuelva la tarjeta, en años.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewGradeSemantics": "{grade}, vuelve en {interval}",
+  "@reviewGradeSemantics": {
+    "description": "Repasar: lo que lee el lector de pantalla en cada botón de calificar: el nombre y cuándo vuelve la tarjeta.",
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      },
+      "interval": {
+        "type": "String"
+      }
+    }
   }
 }

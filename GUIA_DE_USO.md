@@ -1376,7 +1376,10 @@ cuántas tarjetas tenés pendientes).
 2. Tocás la tarjeta (o el botón "Mostrar respuesta") para revelarla.
 3. Si es una tarjeta simple, aparecen 4 botones para calificar qué tan bien
    te acordaste: **"De nuevo"**, **"Difícil"**, **"Bien"**, **"Fácil"** — esa
-   elección decide cuándo te la vuelve a mostrar.
+   elección decide cuándo te la vuelve a mostrar. Los cuatro miden lo mismo,
+   cada uno con su color, y **bajo el nombre dice cuándo vuelve la tarjeta**
+   si elegís esa respuesta (por ejemplo *"6 d"*, *"2 sem"* o *"3 m"*), así
+   sabés qué te cuesta cada una antes de tocarla.
 4. Si es de opción múltiple, en vez de "revelar" tocás directamente una
    opción: se colorea al instante (verde si acertaste, roja si no), y
    después igualmente calificás con los mismos 4 botones.

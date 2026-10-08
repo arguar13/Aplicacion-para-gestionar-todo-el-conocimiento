@@ -8250,5 +8250,53 @@
   "sourcePanelOnlyFileAction": "Extract the text again",
   "@sourcePanelOnlyFileAction": {
     "description": "Panel de la fuente: botón de un documento «solo el libro» para traer su texto de nuevo. (F30)"
+  },
+  "reviewIntervalDays": "{count} d",
+  "@reviewIntervalDays": {
+    "description": "Review: how long until the card comes back, under each grade button, in days.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalWeeks": "{count} wk",
+  "@reviewIntervalWeeks": {
+    "description": "Review: how long until the card comes back, in weeks.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalMonths": "{count} mo",
+  "@reviewIntervalMonths": {
+    "description": "Review: how long until the card comes back, in months.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewIntervalYears": "{count} y",
+  "@reviewIntervalYears": {
+    "description": "Review: how long until the card comes back, in years.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewGradeSemantics": "{grade}, back in {interval}",
+  "@reviewGradeSemantics": {
+    "description": "Review: what the screen reader says on each grade button: its name and when the card comes back.",
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      },
+      "interval": {
+        "type": "String"
+      }
+    }
   }
 }
