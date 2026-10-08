@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
+import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_more.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
@@ -217,7 +218,22 @@ class _ProcessingStatus extends ConsumerWidget {
               progress: activeProgress,
               kind: item.source.kind,
             );
-      status = hasText
+      // «Solo el libro» (F30, decisión 68): sin texto a propósito. No es que
+      // falte —no hay nada que esperar—: se dice, y se ofrece traerlo.
+      final onlyFile =
+          item.source.onlyFile && !hasText && !item.isBeingProcessed;
+      status = onlyFile
+          ? SourcePanelStatus(
+              icon: Icons.menu_book_outlined,
+              message: l10n.sourcePanelOnlyFile,
+              messageKey: const Key('only-file-status'),
+              action: SourcePanelStatusButton(
+                icon: Icons.refresh,
+                label: l10n.sourcePanelOnlyFileAction,
+                onPressed: () => unawaited(reextractText(context, ref, item)),
+              ),
+            )
+          : hasText
           // Volviendo a extraer: el texto viejo ya no se muestra —el usuario
           // lo pidió así: que no quede a la vista algo que se está
           // reemplazando—, pero sigue guardado hasta que el nuevo está

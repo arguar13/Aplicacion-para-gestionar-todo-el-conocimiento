@@ -6,14 +6,15 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/extracted_text_format.dart';
 import 'package:sinapsis/core/util/transcript_timestamps.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
+import 'package:sinapsis/features/content_trash/presentation/content_trash_actions.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/reextract_text.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
+import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -32,8 +33,14 @@ enum SourceMoreAction {
   /// Quitar las marcas de tiempo de una transcripción (F22).
   removeTimestamps,
 
-  /// Borrar el archivo pesado y quedarse con el texto.
+  /// Borrar el archivo pesado y quedarse con el texto: el archivo va a la
+  /// papelera de la app por 30 días (F30, decisión 68).
   deleteOriginalFile,
+
+  /// Borrar el texto de un libro o un documento y quedarse con el archivo: el
+  /// texto va a la papelera de la app por 30 días y no se vuelve a extraer
+  /// solo (F30, decisión 68).
+  deleteText,
 
   /// El documento original a pantalla completa.
   fullScreen,
@@ -50,7 +57,10 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
     // procesar sería vincular y hacer tarjetas de un texto que va a cambiar.
     if (item.processingState == ProcessingState.ready)
       SourceMoreAction.organizeWithAi,
-    if (hasText && canReextractText(item)) SourceMoreAction.reextract,
+    // También en «solo el libro» (F30, decisión 68): sin texto a propósito,
+    // la persona sí puede pedir que se vuelva a extraer.
+    if ((hasText || item.source.onlyFile) && canReextractText(item))
+      SourceMoreAction.reextract,
     // Mientras se vuelve a extraer, el texto no se ve y va a ser
     // reemplazado: ni quitarle las marcas ni soltar el archivo que se está
     // leyendo de nuevo.
@@ -58,6 +68,8 @@ List<SourceMoreAction> sourceMoreActionsFor(KnowledgeItem item) {
       SourceMoreAction.removeTimestamps,
     if (!item.isBeingProcessed && canKeepOnlyText(item))
       SourceMoreAction.deleteOriginalFile,
+    if (!item.isBeingProcessed && canKeepOnlyFile(item))
+      SourceMoreAction.deleteText,
     if (item.source.kind == SourceKind.document &&
         item.source.originalFilePath != null)
       SourceMoreAction.fullScreen,
@@ -80,24 +92,39 @@ List<TextRendition> _timestamped(KnowledgeItem item) {
 
 /// Si tiene sentido ofrecer "borrar el archivo, quedarme con el texto".
 ///
-/// Hace falta que el original sea video o audio —los formatos pesados,
-/// donde soltar el archivo cambia algo— y que ya haya una forma de texto
-/// primaria guardada aparte: sin ella, borrar el archivo se llevaría todo
-/// el contenido del elemento.
+/// Hace falta que el original sea un video, un audio, una publicación o un
+/// libro o documento (F30) —los formatos pesados, donde soltar el archivo
+/// cambia algo— y que ya haya un texto guardado aparte: sin él, soltar el
+/// archivo se llevaría todo el contenido del elemento.
 bool canKeepOnlyText(KnowledgeItem item) {
   const keepable = {
     SourceKind.youtube,
     SourceKind.audio,
     SourceKind.video,
     SourceKind.socialPost,
+    SourceKind.document,
   };
   if (!keepable.contains(item.source.kind)) return false;
   // Sin archivo no hay nada que soltar: un video de YouTube cuyo audio no se
   // bajó —ya no se baja solo (F21)— tiene transcripción pero ningún archivo.
   if (item.source.originalFilePath == null) return false;
 
-  return item.renditions.whereType<TextRendition>().any((r) => r.isPrimary);
+  return _hasOwnText(item);
 }
+
+/// Si tiene sentido ofrecer "borrar el texto, quedarme con el libro" (F30,
+/// decisión 68): un libro o un documento con su archivo y con un texto que
+/// soltar. Solo ahí: el texto de un audio o de una página no se puede volver
+/// a sacar de nada que la persona quiera conservar como «el libro».
+bool canKeepOnlyFile(KnowledgeItem item) =>
+    item.source.kind == SourceKind.document &&
+    item.source.originalFilePath != null &&
+    _hasOwnText(item);
+
+/// Si el elemento tiene un texto propio con algo escrito: el mismo que se
+/// lee y del que se sacan notas, no el de un archivo de su «Contenido».
+bool _hasOwnText(KnowledgeItem item) =>
+    extractableRendition(item)?.content.trim().isNotEmpty ?? false;
 
 /// Abre la hoja "Más" con [actions] y hace la que se elija.
 ///
@@ -124,7 +151,9 @@ Future<void> showSourceMoreSheet(
     case SourceMoreAction.removeTimestamps:
       await _removeTimestamps(context, ref, item);
     case SourceMoreAction.deleteOriginalFile:
-      await _deleteOriginalFile(context, ref, item);
+      await trashOriginalFile(context, ref, item);
+    case SourceMoreAction.deleteText:
+      await trashExtractedText(context, ref, item);
     case SourceMoreAction.fullScreen:
       await openDocumentViewer(context, ref, item);
   }
@@ -162,7 +191,9 @@ class _SourceMoreSheet extends StatelessWidget {
                     ? const AiSparkCircle(size: 40)
                     : SourcePanelIconCircle(
                         icon: action.icon,
-                        tone: action == SourceMoreAction.deleteOriginalFile
+                        tone:
+                            action == SourceMoreAction.deleteOriginalFile ||
+                                action == SourceMoreAction.deleteText
                             ? SourcePanelTone.error
                             : SourcePanelTone.neutral,
                       ),
@@ -183,6 +214,7 @@ extension on SourceMoreAction {
     SourceMoreAction.reextract => Icons.refresh,
     SourceMoreAction.removeTimestamps => Icons.timer_off_outlined,
     SourceMoreAction.deleteOriginalFile => Icons.delete_sweep_outlined,
+    SourceMoreAction.deleteText => Icons.notes_outlined,
     SourceMoreAction.fullScreen => Icons.open_in_full,
   };
 
@@ -191,6 +223,7 @@ extension on SourceMoreAction {
     SourceMoreAction.reextract => l10n.detailReextract,
     SourceMoreAction.removeTimestamps => l10n.detailRemoveTimestamps,
     SourceMoreAction.deleteOriginalFile => l10n.detailDeleteOriginalFile,
+    SourceMoreAction.deleteText => l10n.detailDeleteText,
     SourceMoreAction.fullScreen => l10n.detailExpandViewer,
   };
 
@@ -198,7 +231,8 @@ extension on SourceMoreAction {
     SourceMoreAction.organizeWithAi => l10n.sourcePanelOrganizeWithAiHint,
     SourceMoreAction.reextract => l10n.sourcePanelReextractHint,
     SourceMoreAction.removeTimestamps => l10n.sourcePanelRemoveTimestampsHint,
-    SourceMoreAction.deleteOriginalFile => l10n.sourcePanelDeleteFileHint,
+    SourceMoreAction.deleteOriginalFile => l10n.sourcePanelTrashFileHint,
+    SourceMoreAction.deleteText => l10n.sourcePanelDeleteTextHint,
     SourceMoreAction.fullScreen => l10n.sourcePanelFullScreenHint,
   };
 }
@@ -233,51 +267,5 @@ Future<void> _removeTimestamps(
     (_) => ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(l10n.detailTimestampsRemoved))),
-  );
-}
-
-/// Suelta el archivo pesado y se queda solo con el texto ya extraído, con
-/// una confirmación antes: no se puede deshacer.
-Future<void> _deleteOriginalFile(
-  BuildContext context,
-  WidgetRef ref,
-  KnowledgeItem item,
-) async {
-  final l10n = AppLocalizations.of(context)!;
-
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      content: Text(l10n.detailDeleteOriginalFileConfirm),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.commonCancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.detailDelete),
-        ),
-      ],
-    ),
-  );
-  if (confirmed != true || !context.mounted) return;
-
-  final relativePath = item.source.originalFilePath!;
-  await ref.read(fileStoreProvider).delete(relativePath);
-
-  final updated = item.copyWith(
-    source: item.source.copyWith(originalFilePath: null),
-  );
-  final result = await ref.read(libraryRepositoryProvider).save(updated);
-  if (!context.mounted) return;
-
-  result.match(
-    (failure) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n)))),
-    (_) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.detailOriginalFileDeleted))),
   );
 }

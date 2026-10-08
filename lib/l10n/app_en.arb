@@ -8177,5 +8177,78 @@
         "type": "String"
       }
     }
+  },
+  "contentTrashTitle": "In the app's trash",
+  "@contentTrashTitle": {
+    "description": "Detalle de un elemento: lo que se soltó de él —el archivo o el texto— y se puede recuperar durante 30 días. (F30, decisión 68)"
+  },
+  "contentTrashFile": "The original file",
+  "@contentTrashFile": {
+    "description": "Papelera del contenido: el archivo que se soltó para quedarse con el texto. (F30)"
+  },
+  "contentTrashText": "The extracted text",
+  "@contentTrashText": {
+    "description": "Papelera del contenido: el texto que se soltó para quedarse con el libro. (F30)"
+  },
+  "contentTrashExpires": "Deleted for good on {date}",
+  "@contentTrashExpires": {
+    "description": "Papelera del contenido: cuándo vence y se borra de verdad. (F30)",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "contentTrashRestoreFile": "Recover the file",
+  "@contentTrashRestoreFile": {
+    "description": "Papelera del contenido: devolver el archivo original al elemento. (F30)"
+  },
+  "contentTrashRestoreText": "Recover the text",
+  "@contentTrashRestoreText": {
+    "description": "Papelera del contenido: devolver el texto al elemento, con sus subrayados. (F30)"
+  },
+  "contentTrashFileRestored": "The file is back in the item",
+  "@contentTrashFileRestored": {
+    "description": "Aviso: se recuperó el archivo de la papelera del contenido. (F30)"
+  },
+  "contentTrashTextRestored": "The text is back in the item, with its highlights",
+  "@contentTrashTextRestored": {
+    "description": "Aviso: se recuperó el texto de la papelera del contenido. (F30)"
+  },
+  "contentTrashGone": "It was no longer in the trash",
+  "@contentTrashGone": {
+    "description": "Aviso: lo que se quería recuperar ya se recuperó o venció. (F30)"
+  },
+  "detailOriginalFileTrashed": "The file went to the app's trash for 30 days",
+  "@detailOriginalFileTrashed": {
+    "description": "Aviso tras «Borrar archivo, quedarme con el texto»: se puede deshacer y recuperar. (F30)"
+  },
+  "detailTextTrashed": "The text went to the app's trash for 30 days",
+  "@detailTextTrashed": {
+    "description": "Aviso tras «Borrar el texto, quedarme con el libro»: se puede deshacer y recuperar. (F30)"
+  },
+  "contentTrashUndo": "Undo",
+  "@contentTrashUndo": {
+    "description": "Acción del aviso: devolver lo que se acaba de mandar a la papelera del contenido. (F30)"
+  },
+  "detailDeleteText": "Delete the text, keep the book",
+  "@detailDeleteText": {
+    "description": "Hoja «Más» de un documento: soltar el texto y quedarse con el archivo. (F30)"
+  },
+  "sourcePanelDeleteTextHint": "The text goes to the trash for 30 days; the book isn't read again on its own",
+  "@sourcePanelDeleteTextHint": {
+    "description": "Hoja «Más»: qué hace soltar el texto de un documento. (F30)"
+  },
+  "sourcePanelTrashFileHint": "The file goes to the trash for 30 days; the text stays",
+  "@sourcePanelTrashFileHint": {
+    "description": "Hoja «Más»: qué hace soltar el archivo original. (F30)"
+  },
+  "sourcePanelOnlyFile": "Only the book was kept: its text isn't extracted again on its own.",
+  "@sourcePanelOnlyFile": {
+    "description": "Panel de la fuente: un documento sin texto porque se lo soltó a propósito al triar (solo el libro). (F30, decisión 68)"
+  },
+  "sourcePanelOnlyFileAction": "Extract the text again",
+  "@sourcePanelOnlyFileAction": {
+    "description": "Panel de la fuente: botón de un documento «solo el libro» para traer su texto de nuevo. (F30)"
   }
 }

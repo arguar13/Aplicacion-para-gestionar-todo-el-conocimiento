@@ -24,6 +24,7 @@ import 'package:sinapsis/features/attachments/presentation/widgets/item_content_
 import 'package:sinapsis/features/blocks/presentation/widgets/block_view.dart';
 import 'package:sinapsis/features/citations/presentation/export_bibliography_action.dart';
 import 'package:sinapsis/features/citations/presentation/widgets/citation_section.dart';
+import 'package:sinapsis/features/content_trash/presentation/widgets/content_trash_section.dart';
 import 'package:sinapsis/features/duplicates/domain/entities/merged_provenance.dart';
 import 'package:sinapsis/features/duplicates/presentation/providers/duplicate_providers.dart';
 import 'package:sinapsis/features/export/domain/entities/export_format.dart';
@@ -404,6 +405,11 @@ class _DetailBodyState extends State<_DetailBody> {
                 // dos cosas se ve acá sin bajar.
                 const SizedBox(height: 16),
                 LocalGraphPanel(item: item),
+
+                // Lo que se soltó del elemento —su archivo o su texto— y se
+                // puede recuperar durante 30 días (F30, decisión 68). Sin
+                // nada en la papelera, no ocupa lugar.
+                ContentTrashSection(itemId: item.id),
 
                 // Lo que se bajó de la página, en su formato y con su texto
                 // (F30): arriba del texto, que puede ser un libro entero. Sin

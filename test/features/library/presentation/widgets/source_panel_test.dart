@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -334,12 +335,14 @@ void main() {
       );
       expect(find.text(es.sourcePanelReextractHint), findsOneWidget);
       expect(find.text(es.sourcePanelRemoveTimestampsHint), findsOneWidget);
-      expect(find.text(es.sourcePanelDeleteFileHint), findsOneWidget);
+      expect(find.text(es.sourcePanelTrashFileHint), findsOneWidget);
+      // El texto de una transcripción no se suelta: no queda un «libro».
+      expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
     });
 
-    testWidgets('un documento: "Más" ofrece volver a extraer y verlo a '
-        'pantalla completa, nada de marcas de tiempo ni de soltar el '
-        'archivo', (tester) async {
+    testWidgets('un documento: "Más" ofrece volver a extraer, verlo a '
+        'pantalla completa y soltar el archivo o el texto (F30), nada de '
+        'marcas de tiempo', (tester) async {
       await pumpPanel(
         tester,
         _source(
@@ -363,8 +366,10 @@ void main() {
       );
       expect(
         find.byKey(const Key('source-more-deleteOriginalFile')),
-        findsNothing,
+        findsOneWidget,
       );
+      expect(find.byKey(const Key('source-more-deleteText')), findsOneWidget);
+      expect(find.text(es.sourcePanelDeleteTextHint), findsOneWidget);
     });
 
     testWidgets('un video: arriba, el audio con su encabezado y los controles '
@@ -862,5 +867,92 @@ void main() {
         });
       }
     }
+  });
+
+  group('lo que se suelta va a la papelera de la app (F30, decisión 68)', () {
+    const path = 'originales/$_id/libro.pdf';
+
+    /// Un libro con su archivo guardado de verdad en el almacén de la
+    /// prueba, y su texto.
+    Future<void> pumpBook(WidgetTester tester) => pumpPanel(
+      tester,
+      _source(SourceKind.document, file: path, texts: ['Roma, un libro.']),
+      beforeShow: () async {
+        await harness.files.save(
+          bytes: Uint8List.fromList([1, 2, 3]),
+          suggestedName: 'libro.pdf',
+          id: _id,
+        );
+      },
+    );
+
+    Future<KnowledgeSourceRow> sourceRow() => (harness.database.select(
+      harness.database.knowledgeSources,
+    )..where((s) => s.itemId.equals(_id))).getSingle();
+
+    Future<int> textCount() async => (await (harness.database.select(
+      harness.database.renditions,
+    )..where((r) => r.itemId.equals(_id))).get()).length;
+
+    testWidgets('«Borrar archivo»: sin preguntar, el archivo queda en el '
+        'disco y se puede recuperar desde el aviso', (tester) async {
+      await pumpBook(tester);
+
+      await openMore(tester);
+      await tester.tap(find.byKey(const Key('source-more-deleteOriginalFile')));
+      await tester.pumpAndSettle();
+
+      expect((await sourceRow()).originalBlobPath, isNull);
+      expect(harness.files.deleted, isEmpty);
+      expect(harness.files.paths, contains(path));
+      expect(find.text(es.detailOriginalFileTrashed), findsOneWidget);
+
+      await tester.tap(find.text(es.contentTrashUndo));
+      await tester.pumpAndSettle();
+
+      expect((await sourceRow()).originalBlobPath, path);
+      expect(find.text(es.contentTrashFileRestored), findsOneWidget);
+    });
+
+    testWidgets('«Borrar el texto»: el libro no se vuelve a extraer solo, se '
+        'dice en el panel, y «Volver a extraer» sigue ahí', (tester) async {
+      await pumpBook(tester);
+
+      await openMore(tester);
+      await tester.tap(find.byKey(const Key('source-more-deleteText')));
+      await tester.pumpAndSettle();
+
+      expect(await textCount(), 0);
+      expect((await sourceRow()).onlyFile, isTrue);
+      expect(find.text(es.detailTextTrashed), findsOneWidget);
+      expect(find.byKey(const Key('only-file-status')), findsOneWidget);
+      expect(find.text(es.sourcePanelOnlyFile), findsOneWidget);
+      // La IA y las acciones del texto no tienen de qué trabajar.
+      expect(enabled(tester, 'source-panel-read'), isFalse);
+
+      await openMore(tester);
+      expect(find.byKey(const Key('source-more-reextract')), findsOneWidget);
+      expect(
+        find.byKey(const Key('source-more-deleteOriginalFile')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('source-more-deleteText')), findsNothing);
+    });
+
+    testWidgets('el aviso de «Borrar el texto» lo devuelve, con la marca '
+        'sacada', (tester) async {
+      await pumpBook(tester);
+      await openMore(tester);
+      await tester.tap(find.byKey(const Key('source-more-deleteText')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(es.contentTrashUndo));
+      await tester.pumpAndSettle();
+
+      expect(await textCount(), 1);
+      expect((await sourceRow()).onlyFile, isFalse);
+      expect(find.byKey(const Key('only-file-status')), findsNothing);
+      expect(enabled(tester, 'source-panel-read'), isTrue);
+    });
   });
 }
