@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
 import 'package:sinapsis/features/export/domain/services/anki_text_export.dart';
 
@@ -210,6 +211,34 @@ void main() {
       final text = decode(AnkiTextFormat.tsv, [export()]);
 
       expect(text, contains('Pregunta\tRespuesta\t'));
+    });
+  });
+
+  // El texto plano de Anki no tiene dónde decir «suspendida», ni el tipo de
+  // nota, ni el calendario (F31): las formas y estados nuevos siguen
+  // exportándose como una fila más, sin perder la tarjeta.
+  group('las tarjetas nuevas de F31', () {
+    test('una pausada, una de huecos y una que se aprende salen igual: una '
+        'fila cada una', () {
+      final cards = [
+        export(card_: card(id: 'pausada').copyWith(suspended: true)),
+        export(
+          card_: card(
+            id: 'hueco',
+            front: 'El {{c1::Imperio}} cayó',
+            back: '',
+          ).copyWith(kind: FlashcardKind.cloze, clozeIndex: 1, groupId: 'g'),
+        ),
+        export(card_: card(id: 'aprendiendo').copyWith(learningStep: 1)),
+      ];
+
+      for (final format in AnkiTextFormat.values) {
+        final lines = decode(format, cards).split('\n');
+
+        // Los cuatro encabezados y una fila por tarjeta.
+        expect(lines, hasLength(4 + 3), reason: format.name);
+        expect(lines.any((l) => l.contains('{{c1::Imperio}}')), isTrue);
+      }
     });
   });
 }

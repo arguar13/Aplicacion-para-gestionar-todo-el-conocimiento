@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
+import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
@@ -17,24 +18,42 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 /// `collection.anki21b` comprimido en zstd, pensado para sincronizar con
 /// AnkiWeb y no para un archivo suelto.
 ///
-/// El estado de repaso (SM-2, ver [Flashcard]) de cada tarjeta se traduce a
-/// los campos de Anki: una tarjeta sin repasos todavía (`repetitions == 0`)
-/// queda como tarjeta "nueva"; el resto, como tarjeta "de repaso", con su
-/// intervalo y factor de facilidad ya cargados — así seguir repasando en
-/// Anki continúa donde quedó, en vez de reiniciar el progreso.
+/// El estado de repaso (SM-2 con pasos de aprendizaje, ver [Flashcard]) de
+/// cada tarjeta se traduce a los campos de Anki según su etapa
+/// (`Flashcard.phase`, F31):
 ///
-/// DOS modelos de nota en el mismo paquete (F20, commit 9): el básico
-/// (`Front`/`Back`) para `freeRecall`/`trueFalse`, y uno propio para
+/// - nueva → `type 0`, cola de nuevas;
+/// - aprendiendo → `type 1`, cola de aprendizaje, con la fecha en que vuelve
+///   (`due` en segundos) y los pasos que le faltan (`left`);
+/// - en repaso → `type 2`, cola de repaso, con su intervalo y factor de
+///   facilidad ya cargados;
+/// - reaprendiendo (se olvidó) → `type 3`, cola de aprendizaje, con su
+///   intervalo y la fecha en que vuelve;
+/// - pausada (`Flashcard.suspended`) → cola `-1`, cualquiera sea la etapa: en
+///   Anki sale como "suspendida" y conserva el resto de su calendario.
+///
+/// Así seguir repasando en Anki continúa donde quedó, en vez de reiniciar el
+/// progreso. (Una pospuesta hasta mañana sale como cualquier otra: es un "hoy
+/// no" que Anki ni siquiera guarda entre días.)
+///
+/// CUATRO modelos de nota en el mismo paquete (F20, commit 9; F31): el básico
+/// (`Front`/`Back`) para `freeRecall`/`trueFalse`; uno propio para
 /// `multipleChoice` —`Question`/`Answer`/`Distractor1..3`, la pregunta con
-/// distractores reales, nunca degradada al modelo de dos campos—. El
-/// formato clásico de Anki ya admite varios modelos en una misma colección
-/// (`col.models` es un mapa `{modelId: definición}`, cada nota declara el
-/// suyo en `notes.mid`); no hace falta tocar el esquema SQL para esto.
+/// distractores reales, nunca degradada al modelo de dos campos—; el `Cloze`
+/// de Anki para los huecos (`cloze`), con UNA nota por texto y una carta por
+/// hueco —las hermanas de un `group_id` comparten nota, y `cloze_index - 1` es
+/// el `ord` de la carta—; y uno de "escribí la respuesta" (`typedAnswer`), el
+/// básico con `{{type:Back}}`. El formato clásico de Anki ya admite varios
+/// modelos en una misma colección (`col.models` es un mapa `{modelId:
+/// definición}`, cada nota declara el suyo en `notes.mid`); no hace falta
+/// tocar el esquema SQL para esto.
 class AnkiPackageBuilder implements AnkiDeckBuilder {
   const AnkiPackageBuilder();
 
   static const _modelName = 'Sinapsis básico';
   static const _multipleChoiceModelName = 'Sinapsis opción múltiple';
+  static const _clozeModelName = 'Sinapsis huecos';
+  static const _typedAnswerModelName = 'Sinapsis escribí la respuesta';
   static const _defaultDeckId = 1;
   static const _defaultConfId = 1;
 
@@ -96,6 +115,8 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     };
     final modelId = newId();
     final multipleChoiceModelId = newId();
+    final clozeModelId = newId();
+    final typedAnswerModelId = newId();
 
     db.execute(
       'INSERT INTO col '
@@ -125,6 +146,14 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
             modelId: multipleChoiceModelId,
             deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
           ),
+          ..._clozeModel(
+            modelId: clozeModelId,
+            deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
+          ),
+          ..._typedAnswerModel(
+            modelId: typedAnswerModelId,
+            deckId: deckIdByPath.values.firstOrNull ?? _defaultDeckId,
+          ),
         }),
         jsonEncode(_decks(deckIdByPath)),
         jsonEncode(_dconf()),
@@ -141,48 +170,70 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
       'INSERT INTO cards '
       '(id, nid, did, ord, mod, usn, type, queue, due, ivl, factor, reps, '
       'lapses, left, odue, odid, flags, data) '
-      'VALUES (?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?)',
+      'VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, ?, 0, 0, 0, ?)',
     );
+
+    // Las hermanas de huecos comparten UNA nota de Anki: la primera la crea.
+    final clozeNoteByGroup = <String, int>{};
 
     try {
       for (final export in cards) {
         final card = export.card;
-        final noteId = newId();
         final cardId = newId();
         final reviewedOrCreatedAt = card.lastReviewedAt ?? card.createdAt;
         final noteModSeconds =
             reviewedOrCreatedAt.millisecondsSinceEpoch ~/ 1000;
         final front = card.front.trim();
-        final isMultipleChoice = card.kind == FlashcardKind.multipleChoice;
-        final noteModelId = isMultipleChoice ? multipleChoiceModelId : modelId;
-        final String flds;
-        if (isMultipleChoice) {
-          flds = _multipleChoiceFields(export);
-        } else {
-          final back = _backWithProvenance(
-            export.answer.trim(),
-            export.provenance,
-          );
-          flds = '$front\u001f$back';
-        }
+        final isCloze = card.kind == FlashcardKind.cloze;
+        final groupId = card.groupId;
+        // La carta de un hueco es la `ord` = hueco - 1 de su nota.
+        final ord = isCloze ? (card.clozeIndex ?? 1) - 1 : 0;
 
-        insertNote.execute([
-          noteId,
-          card.id,
-          noteModelId,
-          noteModSeconds,
-          '',
-          flds,
-          front,
-          _fieldChecksum(front),
-          '',
-        ]);
+        final existingClozeNote = isCloze && groupId != null
+            ? clozeNoteByGroup[groupId]
+            : null;
+        final noteId = existingClozeNote ?? newId();
+
+        if (existingClozeNote == null) {
+          // Frente y reverso (en los huecos: el texto entero con sus
+          // `{{cN::…}}`, que es la sintaxis de Anki, y el complemento en
+          // "Back Extra").
+          final twoFields =
+              '$front\u001f'
+              '${_backWithProvenance(export.answer.trim(), export.provenance)}';
+          final (noteModelId, flds) = switch (card.kind) {
+            FlashcardKind.multipleChoice => (
+              multipleChoiceModelId,
+              _multipleChoiceFields(export),
+            ),
+            FlashcardKind.cloze => (clozeModelId, twoFields),
+            FlashcardKind.typedAnswer => (typedAnswerModelId, twoFields),
+            FlashcardKind.freeRecall ||
+            FlashcardKind.trueFalse => (modelId, twoFields),
+          };
+
+          insertNote.execute([
+            noteId,
+            // El guid es el de la primera tarjeta del grupo: estable entre
+            // exportaciones.
+            card.id,
+            noteModelId,
+            noteModSeconds,
+            '',
+            flds,
+            front,
+            _fieldChecksum(front),
+            '',
+          ]);
+          if (isCloze && groupId != null) clozeNoteByGroup[groupId] = noteId;
+        }
 
         final scheduling = _scheduling(card, collectionCreatedAt: createdAt);
         insertCard.execute([
           cardId,
           noteId,
           deckIdByPath[export.deckPath],
+          ord,
           noteModSeconds,
           scheduling.type,
           scheduling.queue,
@@ -190,6 +241,7 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
           scheduling.ivl,
           scheduling.factor,
           card.repetitions,
+          scheduling.left,
           '',
         ]);
       }
@@ -203,30 +255,58 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
     Flashcard card, {
     required DateTime collectionCreatedAt,
   }) {
-    if (card.repetitions <= 0) {
-      // Tarjeta nueva: sin repasos todavía, Anki la mete en la cola de
-      // tarjetas nuevas y el "due" ahí es una posición relativa, no una
-      // fecha.
-      return const _CardScheduling(
-        type: 0,
-        queue: 0,
-        due: 0,
-        ivl: 0,
-        factor: 0,
-      );
-    }
+    final base = _schedulingOf(card, collectionCreatedAt: collectionCreatedAt);
+    // Pausada: la cola de Anki es -1 sea cual sea la etapa; el resto de su
+    // calendario (tipo, intervalo, factor, fecha) se conserva para cuando se
+    // la reactive allá.
+    return card.suspended ? base.suspended() : base;
+  }
 
-    final dueInDays = card.dueAt.difference(collectionCreatedAt).inDays;
-    return _CardScheduling(
-      type: 2,
-      queue: 2,
-      // Ya estaba vencida al momento de exportar: que aparezca para repasar
-      // hoy mismo en vez de con un "due" negativo, que Anki no espera ver
-      // en una tarjeta de repaso.
-      due: dueInDays < 1 ? 1 : dueInDays,
-      ivl: card.intervalDays < 1 ? 1 : card.intervalDays,
-      factor: (card.easeFactor * 1000).round(),
-    );
+  _CardScheduling _schedulingOf(
+    Flashcard card, {
+    required DateTime collectionCreatedAt,
+  }) {
+    switch (card.phase) {
+      case CardPhase.newCard:
+        // Tarjeta nueva: sin repasos todavía, Anki la mete en la cola de
+        // tarjetas nuevas y el "due" ahí es una posición relativa, no una
+        // fecha.
+        return const _CardScheduling(
+          type: 0,
+          queue: 0,
+          due: 0,
+          ivl: 0,
+          factor: 0,
+          left: 0,
+        );
+      case CardPhase.learning:
+      case CardPhase.relearning:
+        // En la cola de aprendizaje el "due" es el momento en que vuelve, en
+        // segundos desde 1970, y "left" cuántos pasos le faltan.
+        final learning = card.phase == CardPhase.learning;
+        final stepsLeft = learning ? 2 - (card.learningStep ?? 0) : 1;
+        return _CardScheduling(
+          type: learning ? 1 : 3,
+          queue: 1,
+          due: card.dueAt.millisecondsSinceEpoch ~/ 1000,
+          ivl: learning ? 0 : (card.intervalDays < 1 ? 1 : card.intervalDays),
+          factor: (card.easeFactor * 1000).round(),
+          left: stepsLeft < 1 ? 1 : stepsLeft,
+        );
+      case CardPhase.review:
+        final dueInDays = card.dueAt.difference(collectionCreatedAt).inDays;
+        return _CardScheduling(
+          type: 2,
+          queue: 2,
+          // Ya estaba vencida al momento de exportar: que aparezca para
+          // repasar hoy mismo en vez de con un "due" negativo, que Anki no
+          // espera ver en una tarjeta de repaso.
+          due: dueInDays < 1 ? 1 : dueInDays,
+          ivl: card.intervalDays < 1 ? 1 : card.intervalDays,
+          factor: (card.easeFactor * 1000).round(),
+          left: 0,
+        );
+    }
   }
 
   /// El reverso con la procedencia debajo, separada por una línea en
@@ -298,6 +378,58 @@ class AnkiPackageBuilder implements AnkiDeckBuilder {
             '{{Distractor1}}{{/Distractor1}} '
             '{{#Distractor2}}<br>{{Distractor2}}{{/Distractor2}} '
             '{{#Distractor3}}<br>{{Distractor3}}{{/Distractor3}}',
+      ),
+    };
+  }
+
+  /// Huecos para completar (F31): el modelo `Cloze` de Anki (`type: 1`), con
+  /// los campos `Text` —el texto entero con sus `{{cN::…}}`— y `Back Extra`.
+  /// Anki arma una carta por cada hueco.
+  Map<String, dynamic> _clozeModel({
+    required int modelId,
+    required int deckId,
+  }) {
+    return {
+      '$modelId': {
+        ..._modelDefinition(
+          modelId: modelId,
+          deckId: deckId,
+          name: _clozeModelName,
+          fieldNames: const ['Text', 'Back Extra'],
+          qfmt: '{{cloze:Text}}',
+          afmt: '{{cloze:Text}}<br>\n{{Back Extra}}',
+        ),
+        'type': 1,
+        'css':
+            '.card {\n'
+            ' font-family: arial;\n'
+            ' font-size: 20px;\n'
+            ' text-align: center;\n'
+            ' color: black;\n'
+            ' background-color: white;\n'
+            '}\n'
+            '.cloze {\n'
+            ' font-weight: bold;\n'
+            ' color: blue;\n'
+            '}\n',
+      },
+    };
+  }
+
+  /// "Escribí la respuesta" (F31): el básico con `{{type:Back}}`, que en Anki
+  /// pide escribir la respuesta y la compara con la correcta.
+  Map<String, dynamic> _typedAnswerModel({
+    required int modelId,
+    required int deckId,
+  }) {
+    return {
+      '$modelId': _modelDefinition(
+        modelId: modelId,
+        deckId: deckId,
+        name: _typedAnswerModelName,
+        fieldNames: const ['Front', 'Back'],
+        qfmt: '{{Front}}\n\n{{type:Back}}',
+        afmt: '{{Front}}\n\n<hr id="answer">\n\n{{type:Back}}',
       ),
     };
   }
@@ -568,6 +700,7 @@ class _CardScheduling {
     required this.due,
     required this.ivl,
     required this.factor,
+    required this.left,
   });
 
   final int type;
@@ -575,4 +708,18 @@ class _CardScheduling {
   final int due;
   final int ivl;
   final int factor;
+
+  /// Los pasos de aprendizaje que le faltan (0 fuera de la cola de
+  /// aprendizaje).
+  final int left;
+
+  /// La misma tarjeta, suspendida en Anki (cola -1).
+  _CardScheduling suspended() => _CardScheduling(
+    type: type,
+    queue: -1,
+    due: due,
+    ivl: ivl,
+    factor: factor,
+    left: left,
+  );
 }

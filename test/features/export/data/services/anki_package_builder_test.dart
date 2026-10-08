@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/features/export/data/services/anki_package_builder.dart';
 import 'package:sinapsis/features/export/domain/services/anki_deck_builder.dart';
+import 'package:sqlite3/common.dart' show Row;
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 /// No hay forma de probar un import de verdad contra la aplicación Anki en
@@ -299,11 +300,17 @@ void main() {
           final col = db.select('SELECT * FROM col').single;
           final models =
               jsonDecode(col['models'] as String) as Map<String, dynamic>;
-          // Dos modelos en la misma colección: el básico y este.
-          expect(models, hasLength(2));
+          // Los modelos de la colección: el básico, este, el de huecos y el
+          // de "escribí la respuesta" (F31).
+          expect(models, hasLength(4));
           expect(
             models.values.map((m) => (m as Map)['name']),
-            contains('Sinapsis opción múltiple'),
+            containsAll([
+              'Sinapsis básico',
+              'Sinapsis opción múltiple',
+              'Sinapsis huecos',
+              'Sinapsis escribí la respuesta',
+            ]),
           );
 
           final note = db.select('SELECT * FROM notes').single;
@@ -343,6 +350,284 @@ void main() {
         db.close();
       }
     });
+  });
+
+  // Repasar sin depender de Anki (F31): lo que Sinapsis sabe de una tarjeta
+  // —en qué etapa está, si está pausada, a qué grupo pertenece— sale al
+  // `.apkg` con su equivalente de Anki, así seguir allá continúa donde quedó.
+  group('el calendario nuevo en Anki (F31)', () {
+    final reviewed = DateTime.now().subtract(const Duration(hours: 1));
+
+    Future<Row> exportedCard(Flashcard card) async {
+      final db = await _openCollection(await builder.build([export(card)]));
+      try {
+        return db.select('SELECT * FROM cards').single;
+      } finally {
+        db.close();
+      }
+    }
+
+    test('una que se está aprendiendo va a la cola de aprendizaje, con la '
+        'hora en que vuelve y los pasos que le faltan', () async {
+      final backAt = DateTime.now().add(const Duration(minutes: 10));
+
+      final exported = await exportedCard(
+        card(
+          id: 'c1',
+          front: 'P',
+          back: 'R',
+          dueAt: backAt,
+          lastReviewedAt: reviewed,
+        ).copyWith(learningStep: 1),
+      );
+
+      expect(exported['type'], 1);
+      expect(exported['queue'], 1);
+      expect(exported['due'], backAt.millisecondsSinceEpoch ~/ 1000);
+      expect(exported['left'], 1);
+      expect(exported['ivl'], 0);
+    });
+
+    test('una que se olvidó y se reaprende es de tipo 3, con su intervalo y '
+        'su facilidad', () async {
+      final backAt = DateTime.now().add(const Duration(minutes: 10));
+
+      final exported = await exportedCard(
+        card(
+          id: 'c1',
+          front: 'P',
+          back: 'R',
+          intervalDays: 1,
+          easeFactor: 1.7,
+          dueAt: backAt,
+          lastReviewedAt: reviewed,
+        ).copyWith(learningStep: 0),
+      );
+
+      expect(exported['type'], 3);
+      expect(exported['queue'], 1);
+      expect(exported['ivl'], 1);
+      expect(exported['factor'], 1700);
+      expect(exported['due'], backAt.millisecondsSinceEpoch ~/ 1000);
+    });
+
+    test('una a la que le dijeron «De nuevo» antes de F31 (intervalo 1, cero '
+        'repeticiones) sigue de repaso: no se reinicia como nueva', () async {
+      final exported = await exportedCard(
+        card(
+          id: 'c1',
+          front: 'P',
+          back: 'R',
+          intervalDays: 1,
+          dueAt: DateTime.now().add(const Duration(days: 1)),
+          lastReviewedAt: reviewed,
+        ),
+      );
+
+      expect(exported['type'], 2);
+      expect(exported['queue'], 2);
+      expect(exported['ivl'], 1);
+    });
+
+    test('una pausada sale como suspendida, conservando el resto de su '
+        'calendario', () async {
+      for (final (label, base) in [
+        ('nueva', card(id: 'n', front: 'P', back: 'R')),
+        (
+          'de repaso',
+          card(
+            id: 'r',
+            front: 'P',
+            back: 'R',
+            repetitions: 3,
+            intervalDays: 6,
+            easeFactor: 2.2,
+            dueAt: DateTime.now().add(const Duration(days: 4)),
+            lastReviewedAt: reviewed,
+          ),
+        ),
+        (
+          'aprendiendo',
+          card(
+            id: 'a',
+            front: 'P',
+            back: 'R',
+            dueAt: DateTime.now().add(const Duration(minutes: 5)),
+            lastReviewedAt: reviewed,
+          ).copyWith(learningStep: 0),
+        ),
+      ]) {
+        final normal = await exportedCard(base);
+        final suspended = await exportedCard(base.copyWith(suspended: true));
+
+        expect(normal['queue'], isNot(-1), reason: label);
+        expect(suspended['queue'], -1, reason: label);
+        // Lo demás es igual: al reactivarla en Anki vuelve como estaba.
+        expect(suspended['type'], normal['type'], reason: label);
+        expect(suspended['ivl'], normal['ivl'], reason: label);
+        expect(suspended['factor'], normal['factor'], reason: label);
+        expect(suspended['due'], normal['due'], reason: label);
+      }
+    });
+
+    test('una pospuesta hasta mañana sale como cualquier otra', () async {
+      final base = card(id: 'c1', front: 'P', back: 'R');
+
+      final buried = await exportedCard(
+        base.copyWith(
+          buriedUntil: DateTime.now().add(const Duration(hours: 6)),
+        ),
+      );
+
+      expect(buried['queue'], 0);
+    });
+  });
+
+  group('las formas nuevas en Anki (F31)', () {
+    const clozeText = 'El {{c1::Imperio romano}} cayó en {{c2::476}}';
+
+    Flashcard clozeCard(String id, int index, {String? groupId = 'g'}) =>
+        Flashcard(
+          id: id,
+          itemId: 'item-1',
+          front: clozeText,
+          back: 'Fecha clásica',
+          kind: FlashcardKind.cloze,
+          clozeIndex: index,
+          groupId: groupId,
+          dueAt: DateTime.now(),
+          createdAt: DateTime.now(),
+        );
+
+    test('los huecos de un texto son UNA nota de tipo Cloze con una carta por '
+        'hueco', () async {
+      final bytes = await builder.build([
+        export(clozeCard('h1', 1)),
+        export(clozeCard('h2', 2)),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        final notes = db.select('SELECT * FROM notes');
+        final cards = db.select('SELECT * FROM cards ORDER BY ord');
+
+        expect(notes, hasLength(1));
+        expect(notes.single['flds'], '$clozeTextFecha clásica');
+        expect(cards, hasLength(2));
+        expect(cards.map((c) => c['ord']), [0, 1]);
+        expect(cards.map((c) => c['nid']).toSet(), {notes.single['id']});
+
+        final models =
+            jsonDecode(
+                  db.select('SELECT * FROM col').single['models'] as String,
+                )
+                as Map<String, dynamic>;
+        final model = models['${notes.single['mid']}'] as Map;
+        expect(model['name'], 'Sinapsis huecos');
+        // `type: 1` es el modelo Cloze de Anki.
+        expect(model['type'], 1);
+        expect(
+          ((model['tmpls'] as List).single as Map)['qfmt'],
+          '{{cloze:Text}}',
+        );
+      } finally {
+        db.close();
+      }
+    });
+
+    test('dos textos con huecos son dos notas', () async {
+      final bytes = await builder.build([
+        export(clozeCard('a1', 1, groupId: 'g1')),
+        export(clozeCard('a2', 2, groupId: 'g1')),
+        export(clozeCard('b1', 1, groupId: 'g2')),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        expect(db.select('SELECT * FROM notes'), hasLength(2));
+        expect(db.select('SELECT * FROM cards'), hasLength(3));
+      } finally {
+        db.close();
+      }
+    });
+
+    test('un hueco suelto, sin grupo, es su propia nota', () async {
+      final bytes = await builder.build([
+        export(clozeCard('h1', 2, groupId: null)),
+      ]);
+
+      final db = await _openCollection(bytes);
+      try {
+        expect(db.select('SELECT * FROM notes'), hasLength(1));
+        expect(db.select('SELECT * FROM cards').single['ord'], 1);
+      } finally {
+        db.close();
+      }
+    });
+
+    test(
+      '«escribí la respuesta» usa su propio modelo, con {{type:Back}}',
+      () async {
+        final typed = Flashcard(
+          id: 't1',
+          itemId: 'item-1',
+          front: '¿Año de la caída?',
+          back: '476',
+          kind: FlashcardKind.typedAnswer,
+          dueAt: DateTime.now(),
+          createdAt: DateTime.now(),
+        );
+        final bytes = await builder.build([export(typed)]);
+
+        final db = await _openCollection(bytes);
+        try {
+          final note = db.select('SELECT * FROM notes').single;
+          expect(note['flds'], '¿Año de la caída?476');
+          final models =
+              jsonDecode(
+                    db.select('SELECT * FROM col').single['models'] as String,
+                  )
+                  as Map<String, dynamic>;
+          final model = models['${note['mid']}'] as Map;
+          expect(model['name'], 'Sinapsis escribí la respuesta');
+          expect(
+            ((model['tmpls'] as List).single as Map)['qfmt'] as String,
+            contains('{{type:Back}}'),
+          );
+        } finally {
+          db.close();
+        }
+      },
+    );
+
+    test(
+      'las dos direcciones de una pregunta salen como dos notas básicas',
+      () async {
+        Flashcard direction(String id, String front, String back) => Flashcard(
+          id: id,
+          itemId: 'item-1',
+          front: front,
+          back: back,
+          groupId: 'g',
+          dueAt: DateTime.now(),
+          createdAt: DateTime.now(),
+        );
+        final bytes = await builder.build([
+          export(direction('ida', '¿Capital de Italia?', 'Roma')),
+          export(direction('vuelta', 'Roma', '¿Capital de Italia?')),
+        ]);
+
+        final db = await _openCollection(bytes);
+        try {
+          final notes = db.select('SELECT * FROM notes ORDER BY rowid');
+          expect(notes, hasLength(2));
+          expect(notes.first['flds'], '¿Capital de Italia?Roma');
+          expect(notes.last['flds'], 'Roma¿Capital de Italia?');
+        } finally {
+          db.close();
+        }
+      },
+    );
   });
 }
 
