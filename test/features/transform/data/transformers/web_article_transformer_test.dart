@@ -9,6 +9,8 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/logging/app_logger.dart';
+import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/transform/data/clients/reader_mode_article_extractor.dart';
 import 'package:sinapsis/features/transform/data/transformers/web_article_transformer.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
@@ -304,6 +306,78 @@ void main() {
     );
   });
 
+  // Lo que ofrece una página para bajar es un extra: que su búsqueda falle
+  // —una dirección mal escrita, un error de programación— no puede costarle a
+  // la persona el artículo.
+  group('si falla la búsqueda de lo que ofrece la página (F30)', () {
+    WebArticleTransformer build({
+      required String contentHtml,
+      required String text,
+      required FakeAttachmentRepository attachments,
+      AppLogger logger = const SilentLogger(),
+      List<AttachmentCandidate> Function(String)? attachmentFinder,
+    }) => WebArticleTransformer(
+      client: FakeWebPageClient(html: '<html></html>'),
+      extractor: FakeArticleExtractor(
+        article: ExtractedArticle(contentHtml: contentHtml, textContent: text),
+      ),
+      archiver: FakePageArchiver(),
+      files: files,
+      ids: ids,
+      clock: () => now,
+      logger: logger,
+      fileFetcher: FakeLinkedFileFetcher(files),
+      attachments: attachments,
+      attachmentFinder: attachmentFinder,
+    );
+
+    test('el artículo se guarda igual, sin archivos, y el fallo se '
+        'registra', () async {
+      final logger = _RecordingLogger();
+      final attachments = FakeAttachmentRepository();
+      final transformer = build(
+        contentHtml: '<p>El cuerpo del artículo.</p>',
+        text: 'El cuerpo del artículo.',
+        attachments: attachments,
+        logger: logger,
+        attachmentFinder: _explodingFinder,
+      );
+
+      final result = await transformer.transform(webItem());
+
+      expect(
+        result.renditions.whereType<TextRendition>().single.content,
+        contains('El cuerpo del artículo.'),
+      );
+      expect(await attachments.downloadsOf(result.id), isEmpty);
+      expect(
+        logger.warnings.single,
+        allOf(contains('No se pudo buscar'), contains('dirección rota')),
+      );
+    });
+
+    test('un enlace con la dirección mal escrita no le cuesta el artículo '
+        'a la página (el caso de Teresa de Jesús)', () async {
+      final attachments = FakeAttachmentRepository();
+      final transformer = build(
+        contentHtml:
+            '<p>Santa Teresa.</p> '
+            '<a href="https://es.wikipedia.org/wiki/Teresa%E3%A.pdf">Obras</a>',
+        text: 'Santa Teresa.',
+        attachments: attachments,
+      );
+
+      final result = await transformer.transform(webItem());
+
+      expect(
+        result.renditions.whereType<TextRendition>().single.content,
+        contains('Santa Teresa.'),
+      );
+      // La dirección rota no se pierde: queda anotada para bajarla.
+      expect(await attachments.downloadsOf(result.id), hasLength(1));
+    });
+  });
+
   group('un enlace directo a un archivo (F30)', () {
     late FakeAttachmentRepository attachments;
     late FakeLinkedFileFetcher fetcher;
@@ -469,4 +543,18 @@ void main() {
       },
     );
   });
+}
+
+/// Lo que se le pide al buscador cuando falla; una función de nivel superior
+/// porque viaja al otro isolate.
+List<AttachmentCandidate> _explodingFinder(String contentHtml) =>
+    throw const FormatException('dirección rota');
+
+/// Un registro que se queda con los avisos.
+class _RecordingLogger extends SilentLogger {
+  final warnings = <String>[];
+
+  @override
+  void warning(String message, [Object? error, StackTrace? stackTrace]) =>
+      warnings.add(message);
 }

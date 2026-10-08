@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:sinapsis/core/network/host_gate.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/core/util/lenient_uri.dart';
 
 /// Lo que dejó una bajada acotada.
 class BoundedDownloadResult {
@@ -300,8 +301,4 @@ String? _fileNameFromDisposition(String? header) {
   return name == null || name.isEmpty ? null : name;
 }
 
-String _fileNameFromUrl(Uri url) {
-  final segments = url.pathSegments.where((s) => s.isNotEmpty);
-  if (segments.isEmpty) return url.host;
-  return segments.last;
-}
+String _fileNameFromUrl(Uri url) => lastPathSegmentOf(url) ?? url.host;

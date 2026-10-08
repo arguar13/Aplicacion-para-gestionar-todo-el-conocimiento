@@ -116,4 +116,26 @@ void main() {
     expect(findPageAttachments(html, maxCandidates: 120), hasLength(120));
     expect(findPageAttachments(html), hasLength(kMaxPageAttachments));
   });
+
+  // Wikipedia tiene enlaces con un `%E3%A` suelto: el buscador lanzaba una
+  // `FormatException` y, como corre junto con la extracción del texto, el
+  // artículo entero (el de Teresa de Jesús) no se guardaba.
+  group('con direcciones mal escritas', () {
+    test('no lanza, y la dirección rota igual es un candidato', () {
+      const html = '''
+<p><a href="https://es.wikipedia.org/wiki/Teresa%E3%A.pdf">Obras</a></p>
+<p><img src="https://up.org/Teresa%E3%A.jpg" alt="Retrato"></p>
+<p><a href="https://up.org/libro.pdf">Un libro</a></p>
+''';
+
+      expect(() => findPageAttachments(html), returnsNormally);
+      final found = findPageAttachments(html);
+      expect(found.map((c) => c.kind), [
+        RenditionKind.pdf,
+        RenditionKind.image,
+        RenditionKind.pdf,
+      ]);
+      expect(found.last.url.toString(), 'https://up.org/libro.pdf');
+    });
+  });
 }

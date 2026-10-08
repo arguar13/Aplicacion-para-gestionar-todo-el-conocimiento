@@ -11,6 +11,7 @@ import 'package:sinapsis/core/network/bounded_download.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/core/util/lenient_uri.dart';
 import 'package:sinapsis/features/attachments/data/services/page_attachment_finder.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
@@ -73,8 +74,10 @@ class WebArticleTransformer implements Transformer {
     LinkedFileFetcher? fileFetcher,
     AttachmentRepository? attachments,
     int Function()? maxBytesPerItem,
+    List<AttachmentCandidate> Function(String contentHtml)? attachmentFinder,
   }) : _fileFetcher = fileFetcher,
        _attachments = attachments,
+       _attachmentFinder = attachmentFinder ?? findPageAttachments,
        _maxBytesPerItem = maxBytesPerItem ?? _defaultMaxBytesPerItem,
        _client = client,
        _extractor = extractor,
@@ -97,6 +100,12 @@ class WebArticleTransformer implements Transformer {
 
   /// El «Contenido» de los elementos (F30), o `null` donde no se baja nada.
   final AttachmentRepository? _attachments;
+
+  /// Qué ofrece el artículo para bajar. Una función de nivel superior, que
+  /// viaja al otro isolate; se inyecta solo para probar que, si falla, el
+  /// artículo se guarda igual.
+  final List<AttachmentCandidate> Function(String contentHtml)
+  _attachmentFinder;
 
   /// El tope por elemento de hoy (decisión E de F30), leído cada vez: se
   /// puede cambiar en Ajustes mientras la cola trabaja.
@@ -142,18 +151,44 @@ class WebArticleTransformer implements Transformer {
     // Ahí mismo se anota lo que el artículo ofrece para bajar (F30): sus
     // fotos, los archivos que enlaza y lo que incrusta. Solo si hay quien
     // lo baje: en la web no se anota nada.
+    //
+    // La búsqueda de lo que se puede bajar es un extra: si falla, el artículo
+    // se guarda igual, sin sus archivos —y el motivo vuelve como texto, que
+    // el registro de la app no viaja entre isolates—. Antes, una dirección
+    // mal escrita en un enlace sin importancia le costaba a la persona el
+    // artículo entero.
     final extractor = _extractor;
+    final finder = _attachmentFinder;
     final findAttachments = _fileFetcher != null && _attachments != null;
-    final (article, markdown, candidates) = await Isolate.run(() {
-      final extracted = extractor.extract(html, baseUri: url);
-      return (
-        extracted,
-        extracted == null ? null : htmlToMarkdown(extracted.contentHtml),
-        extracted == null || !findAttachments
-            ? const <AttachmentCandidate>[]
-            : findPageAttachments(extracted.contentHtml),
+    final (article, markdown, candidates, searchFailure) = await Isolate.run(
+      () {
+        final extracted = extractor.extract(html, baseUri: url);
+        var found = const <AttachmentCandidate>[];
+        String? failure;
+        if (extracted != null && findAttachments) {
+          try {
+            found = finder(extracted.contentHtml);
+            // Ver arriba: cualquier fallo, del tipo que sea, deja sin archivos
+            // a la página y nada más.
+            // ignore: avoid_catches_without_on_clauses
+          } catch (e) {
+            failure = '$e';
+          }
+        }
+        return (
+          extracted,
+          extracted == null ? null : htmlToMarkdown(extracted.contentHtml),
+          found,
+          failure,
+        );
+      },
+    );
+    if (searchFailure != null) {
+      _logger.warning(
+        'No se pudo buscar lo que ofrece la página $url para bajar: '
+        '$searchFailure',
       );
-    });
+    }
 
     if (article == null || markdown == null) {
       // La página no tenía ni una letra que leer —vacía, o armada entera con
@@ -217,10 +252,7 @@ class WebArticleTransformer implements Transformer {
       throw NoArticleFoundException(file.url);
     }
 
-    final name =
-        file.fileName ??
-        file.url.pathSegments.where((s) => s.isNotEmpty).lastOrNull ??
-        file.url.host;
+    final name = file.fileName ?? lastPathSegmentOf(file.url) ?? file.url.host;
     final kind =
         mediaKindOf(contentType: file.contentType, fileName: name) ??
         RenditionKind.file;

@@ -5,6 +5,7 @@ import 'package:sinapsis/core/error/exceptions.dart';
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/network/bounded_download.dart';
 import 'package:sinapsis/core/network/dio_exception_mapper.dart';
+import 'package:sinapsis/core/util/lenient_uri.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
 import 'package:sinapsis/features/transform/data/clients/html_text_decoder.dart';
 import 'package:sinapsis/features/transform/domain/clients/web_page_client.dart';
@@ -59,10 +60,7 @@ class DioWebPageClient implements WebPageClient {
       final offeredName = fileNameFromContentDisposition(
         response.headers.value('content-disposition'),
       );
-      final name =
-          offeredName ??
-          finalUrl.pathSegments.where((s) => s.isNotEmpty).lastOrNull ??
-          '';
+      final name = offeredName ?? lastPathSegmentOf(finalUrl) ?? '';
       if (isFileResponse(contentType: contentType, fileName: name)) {
         await body.stream.listen(null).cancel();
         throw NotAPageException(

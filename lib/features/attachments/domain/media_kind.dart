@@ -1,5 +1,6 @@
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/util/lenient_uri.dart';
 
 /// Qué es un archivo, por el tipo que dijo el servidor y por su nombre (F30):
 /// un PDF, otro documento, una foto, un audio, un video, otra clase de
@@ -136,7 +137,7 @@ const _byExtension = <String, RenditionKind?>{
 /// sugiere ninguna —una página, o una dirección sin extensión—. Es lo que se
 /// sabe de un enlace antes de pedirlo.
 RenditionKind? mediaKindOfUrl(Uri url) {
-  final last = url.pathSegments.where((s) => s.isNotEmpty).lastOrNull;
+  final last = lastPathSegmentOf(url);
   if (last == null) return null;
   return _byExtension[p.extension(last).toLowerCase()];
 }

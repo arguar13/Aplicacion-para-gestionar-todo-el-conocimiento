@@ -5289,6 +5289,20 @@ PDF (W3C). Sin probar en el teléfono ni en el emulador (lo usaba otro trabajo):
 «Contenido» en pantalla, la transcripción y el OCR de lo bajado con los modelos del teléfono, y
 el comportamiento con poco espacio libre de verdad.
 
+- **Una dirección rota no cuesta el artículo.** Wikipedia tiene enlaces con un `%E3%A` suelto
+  (el artículo de Teresa de Jesús). `Uri.pathSegments` lanza `FormatException` ante eso, y la
+  búsqueda de lo que ofrece la página corre en el mismo isolate que extrae el texto: el artículo
+  entero no se guardaba por un enlace sin importancia. Dos arreglos: (1) `decodePercentLenient` y
+  `lastPathSegmentOf` (`lib/core/util/lenient_uri.dart`), que decodifican lo que se puede y dejan
+  lo demás, en los cinco lugares que sacaban un nombre o una clase de una dirección ajena
+  (la clase por extensión, el cliente de páginas, el transformador, la bajada acotada y el
+  manifiesto de un EPUB); (2) la búsqueda de adjuntos es un extra y si falla, por lo que sea, el
+  artículo se guarda sin archivos y el motivo se registra. Cada uno con su prueba, comprobadas
+  deshaciendo el arreglo. La medición que lo encontró (28 artículos de la biblioteca de ejemplo
+  con pedidos HEAD, 2026-10-08): unos 555 MB de archivos, casi todo PDF enlazado (465 MB; el
+  artículo del Imperio romano trae 237 MB y el de Sócrates 152), 66 MB de fotos y 24 MB de audio,
+  con mediana de 3,1 MB por artículo.
+
 ### 67. F30: cuadernos con IA —crear, sugerir y llenar— y la nota por partes
 
 Pedido del usuario: *"que la sección de cuadernos, además de ser manual, haya una opción donde la IA

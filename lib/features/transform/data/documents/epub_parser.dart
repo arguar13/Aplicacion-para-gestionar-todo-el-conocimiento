@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:sinapsis/core/logging/app_logger.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
+import 'package:sinapsis/core/util/lenient_uri.dart';
 import 'package:sinapsis/features/transform/data/clients/html_text_decoder.dart';
 import 'package:sinapsis/features/transform/data/documents/html_to_markdown.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
@@ -214,7 +215,9 @@ class EpubParser implements DocumentParser {
   /// son URL: un capítulo llamado `El niño.xhtml` aparece como
   /// `El%20ni%C3%B1o.xhtml` y no encontraría su archivo sin desescaparlo.
   static String _resolve(String base, String href) {
-    final decoded = Uri.decodeComponent(href.split('#').first);
+    // Tolerante: el manifiesto de un EPUB puede traer un `%` suelto, y un
+    // capítulo con la ruta mal escrita no puede costarle el libro entero.
+    final decoded = decodePercentLenient(href.split('#').first);
     return base.isEmpty ? decoded : p.url.normalize(p.url.join(base, decoded));
   }
 
