@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The daily review reminder (F31): see StudyReminder. -->
+<resources>
+    <!-- The notification channel name, as shown in the system settings. -->
+    <string name="study_reminder_channel">Review</string>
+    <string name="study_reminder_title">Time to review</string>
+    <plurals name="study_reminder_text">
+        <item quantity="one">You have %d flashcard to review</item>
+        <item quantity="other">You have %d flashcards to review</item>
+    </plurals>
+    <!-- When the app has not counted them yet. -->
+    <string name="study_reminder_text_unknown">It\'s the time you chose to review your flashcards</string>
+</resources>

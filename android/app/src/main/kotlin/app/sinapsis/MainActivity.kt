@@ -2,6 +2,7 @@ package app.sinapsis
 
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -29,11 +30,32 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         try {
             super.onNewIntent(intent)
+            // El toque a la notificación del aviso de repaso (F31).
+            StudyReminderChannel.onIntent(intent)
         } catch (e: SecurityException) {
             Log.w(TAG, "Intent de compartir descartado: sin permiso para leer el URI", e)
         } catch (e: IllegalArgumentException) {
             Log.w(TAG, "Intent de compartir descartado: URI inválido o ya no existe", e)
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // El aviso diario de repaso (F31): al abrir la app se vuelve a poner la
+        // alarma por si el sistema la perdió, y si se abrió tocando la
+        // notificación, queda pedido mostrar Repasar.
+        StudyReminder.rearm(applicationContext)
+        StudyReminderChannel.onIntent(intent)
+    }
+
+    // La respuesta del diálogo del permiso de notificaciones del aviso (F31).
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        StudyReminderChannel.onPermissionsResult(requestCode, grantResults)
     }
 
     // El motor es el del proceso (F29), no uno propio: sobrevive a esta

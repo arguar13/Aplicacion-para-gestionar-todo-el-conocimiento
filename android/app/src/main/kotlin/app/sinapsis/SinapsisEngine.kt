@@ -146,6 +146,13 @@ object SinapsisEngine {
         MethodChannel(messenger, SystemDownloadsChannel.CHANNEL)
             .setMethodCallHandler(SystemDownloadsChannel(context))
 
+        // El aviso diario para repasar (F31): Dart lo programa y le cuenta
+        // cuántas tarjetas hay; Android lo hace sonar con la app cerrada.
+        // Ver `StudyReminder`.
+        val studyReminder = MethodChannel(messenger, StudyReminderChannel.CHANNEL)
+        studyReminder.setMethodCallHandler(StudyReminderChannel(context))
+        StudyReminderChannel.install(studyReminder)
+
         // Los ajustes que deciden si el sistema deja seguir el trabajo con
         // la app cerrada (F29): "Inicio automático" y el ahorro de batería.
         MethodChannel(messenger, BackgroundSettingsChannel.CHANNEL)

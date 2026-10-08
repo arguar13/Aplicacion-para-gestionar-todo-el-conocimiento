@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El aviso diario para repasar (F31): ver StudyReminder. -->
+<resources>
+    <!-- El nombre del canal de notificaciones, como se ve en los ajustes del sistema. -->
+    <string name="study_reminder_channel">Repaso</string>
+    <string name="study_reminder_title">Hora de repasar</string>
+    <plurals name="study_reminder_text">
+        <item quantity="one">Tenés %d tarjeta para repasar</item>
+        <item quantity="other">Tenés %d tarjetas para repasar</item>
+    </plurals>
+    <!-- Cuando la app todavía no contó cuántas hay. -->
+    <string name="study_reminder_text_unknown">Es la hora que elegiste para repasar tus tarjetas</string>
+</resources>
