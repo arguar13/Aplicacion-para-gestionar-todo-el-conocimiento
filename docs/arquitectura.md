@@ -5370,6 +5370,108 @@ conteos de etiquetas con ramas; las hojas. **No se probó con Gemma ni con el mo
 reales, ni en el teléfono ni en el emulador**: cuánto tarda una nota de tres partes, qué tan bien
 nombra o revisa el modelo, y si los umbrales sirven, están sin medir.
 
+### 68. F30: la Bandeja de texto, y la papelera del contenido
+
+Pedido del usuario: *"en la sección de bandeja, quiero que utilice los textos, no audio ni video,
+solamente que trabaje con texto ahí para ser procesado, con su metadata correspondiente por
+supuesto; en el caso de libros que dé la opción de que pase el texto o solo el libro o ambos, esas
+tres opciones, que las deje disponibles para que el contenido pase a la siguiente fase"*. Plan:
+`docs/planes/F30-repasar-cuadernos-bandeja-y-descargas.md`, decisión C, con la recomendada (lo
+borrado va a una papelera de 30 días y no se borra de golpe). Esquema v38.
+
+- **Entra solo lo que ya tiene texto** (`hasTextSql`, un único lugar). El mazo, la lista de «N
+  pendientes», la insignia de la navegación, el panel de salud y la sección «Bandeja» de Filtros
+  (`library_query_sql`) cuentan lo mismo, porque salen de la misma condición: una fuente en
+  `processed`, viva y con alguna forma de texto que no esté en blanco. Un audio sin transcribir,
+  una foto sin leer y una página sin cuerpo siguen en la Biblioteca, y entran solos cuando lo
+  tienen (la consulta escucha `renditions`). Lo ya triado o descartado sigue siéndolo tenga texto
+  o no, pero **«Volver a la Bandeja» solo se ofrece si tiene texto** (`InboxStanding.hasText`). No
+  cuenta una nota de bloques —es de las notas— ni «se intentó y no tenía» (una foto sin letras).
+  **Criterio sobre el «Contenido»** (decisión 66): **sí cuenta**. Una publicación sin pie de foto
+  cuyas fotos traen texto, o una página que solo enlaza un PDF, tienen algo que leer; dejarlas
+  afuera por no tener cuerpo las escondería justo cuando lo que traen es lo valioso. La tarjeta
+  muestra entonces el texto de uno de esos archivos y dice de cuál es (`inboxContentTextProvider`);
+  «Extraer nota» queda apagado, porque la lectura para destilar trabaja sobre el texto del
+  elemento (`extractableRendition`).
+- **La tarjeta: texto limpio y metadatos, nunca un reproductor.** El principio del texto como se
+  lee (`RenderedMarkdown.excerpt`; en una transcripción, además sin los minutos de cada línea) y
+  una línea con autor, fecha de publicación, sitio (el dominio de la dirección, sin `www.`),
+  páginas o duración, e idioma —solo los que se saben—, cada uno anunciado con su rótulo para los
+  lectores de pantalla. Las páginas y la duración no se guardan en ningún lado: salen de los
+  fragmentos del texto, que ya llevan la página (`page_number`, solo en los PDF) y el momento en
+  que terminan (`end_ms`), con `watchExtent`; un artículo o un Word no tienen ninguna de las dos y
+  no se inventa una.
+- **Triar un libro pregunta qué sigue** (`showInboxKeepSheet`). Solo en un `document` con su
+  archivo y su texto, y solo al tocar «Triado» (botón, gesto o flecha): «Extraer nota» y «Vincular
+  a nota viva» conservan los dos, porque leer y citar necesitan el texto y el libro es de donde
+  sale. Tres opciones: **Texto y libro** (lo de hoy), **Solo el texto** (el archivo va a la
+  papelera y se libera su lugar; la hoja dice cuánto) y **Solo el libro** (el texto va a la
+  papelera y el libro no se vuelve a extraer solo). Cerrar la hoja sin elegir deja la fuente en
+  la Bandeja. El paso del historial recuerda los ids de lo soltado (`InboxStep.trashedContentIds`)
+  y «Deshacer» —botón, Ctrl+Z o el aviso— lo recupera; si triar falla, lo soltado vuelve.
+- **La papelera del contenido** (`content_trash`, v38). Distinta de la papelera de elementos
+  (`item.deleted_at`): el elemento sigue vivo, con lo que se quedó. Un **archivo** no se mueve:
+  queda en el disco donde estaba, la fuente deja de apuntarle (por el escritor, así que
+  `originalBlobPath` lleva su versión y una fusión se entera) y la fila guarda su ruta y su peso.
+  Un **texto** se guarda entero —contenido, clase, si era el principal, cuándo se escribió, los
+  tiempos de cada palabra— con sus **subrayados** en JSON (en la base cuelgan de la forma y se
+  irían en cascada); también se borran sus chunks, que describen un texto que ya no está.
+  Recuperarlo vuelve a poner la misma forma con el **mismo identificador** (valen de nuevo los
+  subrayados y lo que apuntaba a ese texto), rehace los chunks y saca la marca; si el elemento
+  mientras tanto consiguió otro texto principal, el recuperado no le saca el lugar. Un archivo se
+  recupera si el elemento no tiene otro y el archivo sigue en el disco; si no, lo dice. **El
+  barrido** (`purgeExpired`) corre al abrir la Biblioteca, junto a la cola —no al montar la app:
+  recién ahí hay una bóveda abierta, y `widget_test` lo mostró—, borra la fila y **después** el
+  archivo, y solo si nada más lo usa (`isFileReferenced` mira `source`, `renditions` y la propia
+  papelera: el mismo PDF capturado dos veces no queda sin archivo). Nada se borra antes de los 30
+  días. Borrar un elemento para siempre se lleva también lo que tenía en la papelera
+  (`purge` junta los archivos de los tres lugares y borra los que ya nadie usa).
+- **«Solo el libro» no se vuelve a extraer solo** (`source.only_file`). Sin la marca, la cola
+  leería «documento sin texto» como «por leer» —`canTransform` pide `renditions.isEmpty`— y lo
+  extraería de nuevo. En vez de tocar los cinco transformadores, `TransformerRegistry.resolve`
+  devuelve `null` si la fuente es `onlyFile`: un solo lugar, que ninguno se puede olvidar.
+  **«Volver a extraer»**, pedido a mano, lo resuelve como si no tuviera la marca
+  (`ProcessItemUseCase`), y la marca se va sola cuando la fuente se guarda con texto
+  (`KnowledgeEntryWriter.upsert` la saca, nunca la pone: una foto vieja del elemento no la pisa;
+  la ponen solo `setOnlyFile` y la papelera). **La IA que organiza** trabaja sobre el texto
+  guardado (`searchableText`): sin texto no hay vínculos, tarjetas ni propiedades que sacar, y
+  ningún paso extrae texto del archivo; solo el paso de la referencia sigue leyendo del archivo
+  el autor o el año, que son datos del libro y no su texto. Se eligió una columna en `source` y no
+  un campo con linaje: es una decisión de este dispositivo sobre su copia, y registrarla en
+  `field_version` haría que una fusión la tratara como una edición a fusionar.
+- **La hoja «Más» y la Bandeja, un solo camino.** «Borrar archivo, quedarme con el texto» ya no
+  borra del disco ni pide confirmación: usa la misma papelera de 30 días y el aviso trae
+  «Deshacer». `canKeepOnlyText` ahora incluye los documentos, y se suma «Borrar el texto,
+  quedarme con el libro» (solo documentos con archivo y texto propio: el texto de un audio no
+  tiene un «libro» al que volver). Un documento «solo el libro» lo dice en el panel en vez de
+  «todavía no hay contenido», y «Volver a extraer» sigue en «Más». El detalle trae la sección
+  «En la papelera de la app» con «Recuperar el archivo» / «Recuperar el texto».
+- **La fusión de bóvedas.** La papelera del contenido es **de cada dispositivo** —el archivo vive
+  en su disco—: no viaja, como `attachment_download` y `processing_checkpoint` (el censo de
+  tablas no la lista, y una prueba lo comprueba en las dos direcciones). Lo que cruza es la
+  decisión, y una fusión sigue sin borrar nada: (1) si la copia soltó el archivo de un elemento o
+  lo cambió, el que esta bóveda deja de usar va a **su** papelera del contenido en vez de quedar
+  en el disco sin dueño; (2) el texto que se soltó acá **no vuelve** con la fusión, ni los
+  subrayados de la copia que cuelgan de él (`notPlaced`), porque traerlo desharía lo que la
+  persona hizo; si ya venció y la otra bóveda todavía lo tiene, entra como un texto más;
+  (3) lo que tiene texto después de fusionar deja de ser `only_file` (`clearOnlyFileWithText`: la
+  marca dice «sin texto a propósito»); (4) un elemento nuevo llega con la marca que traía. Los
+  backups copian la base y los archivos tal cual, así que llevan la papelera y lo soltado.
+- **Censos.** `kSourceColumns` (la fusión) y los `newColumns` de la reconstrucción de `source` del
+  paso **v19** —no v18: `source` se reconstruye en `drop_legacy_model_v19`—; `VaultCounts` suma
+  `contentTrashTables` (compuerta de la migración a v38, aditiva: una tabla vacía y una columna
+  que en lo de antes dice «no»). `chunkAndPersistSource` lee de `source` solo las dos columnas que
+  usa: corre también en el paso v16, sobre una tabla que todavía no tiene `only_file`, y la fila
+  tipada la rompía. Las escrituras de `source` siguen en `KnowledgeEntryWriter` y
+  `EntryMergeApplier` (el censo de escrituras no cambia). Sin `skip` ni pruebas aflojadas; las
+  semillas de la Bandeja ahora traen texto, que es lo que la define.
+
+Sin probar en el teléfono ni en el emulador (el pedido era solo de pruebas de Dart): la hoja de
+las tres opciones y la tarjeta con datos en pantalla real, y el barrido con archivos de verdad de
+cientos de MB. Sin medir el costo del criterio de texto con diez mil elementos: agrega un `EXISTS`
+por `renditions.item_id` (indexado) a cada consulta de la Bandeja y la insignia, y el `GLOB`
+se detiene en el primer carácter que no es blanco, pero no hay cifra.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -5769,6 +5871,11 @@ nombra o revisa el modelo, y si los umbrales sirven, están sin medir.
   y se mantienen al día solos; «Llenar» arma una nota que queda adentro y las tarjetas; el selector
   agrega varios a la vez; y la nota de un cuaderno grande se lee por partes sin pasarse de la
   ventana. Ver la decisión 67.
+
+- **F30, la Bandeja de texto.** A la Bandeja entra solo lo que ya tiene texto, con su texto limpio
+  y sus datos; al triar un libro se elige qué sigue —texto y libro, solo el texto o solo el libro—
+  y lo soltado espera 30 días en la papelera de la app, recuperable desde el detalle. Ver la
+  decisión 68.
 
 ### Por construir
 

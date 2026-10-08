@@ -300,7 +300,7 @@ El botón con forma de perilla, al lado del buscador, abre el panel
 2. **"Tipo"** (Video, Página web, Publicación, Documento, Imagen, Audio,
    Nota, Referencia).
 3. **"Bandeja"**: lo que decidiste en la [Bandeja de entrada](#bandeja-de-entrada)
-   — **"Por revisar"** (lo que todavía espera), **"Triado"** y
+   — **"Por revisar"** (lo que todavía espera y ya tiene texto), **"Triado"** y
    **"Descartado"**. Así encontrás lo que ya pasó por la Bandeja: nada de lo
    que triás o descartás se borra, sigue en la Biblioteca.
 4. **"Etiquetas"**.
@@ -368,8 +368,10 @@ De arriba hacia abajo, vas a encontrar:
 2. **Título** y, si tiene, un subtítulo. Si es una fuente, debajo dice qué
    decidiste con ella en la Bandeja: **"Triado el 3 oct"** o **"Descartado
    el…"**, con el botón **"Volver a la Bandeja"** (la devuelve para decidir
-   de nuevo); o **"En la Bandeja"**, con **"Triar ahora"**, que abre la
-   Bandeja con esa fuente arriba de todo.
+   de nuevo; solo si ya tiene texto); o **"En la Bandeja"**, con **"Triar
+   ahora"**, que abre la Bandeja con esa fuente arriba de todo. Una fuente
+   que todavía no tiene texto —un audio sin transcribir— no dice nada: no
+   está en la Bandeja.
 3. Si es una nota propia: chips para su **madurez** ("Semilla" / "En
    desarrollo" / "Madura" — más sobre esto en
    [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios))
@@ -426,7 +428,15 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
      - **Quitar marcas de tiempo**: saca las marcas "[3:15]" de una
        transcripción.
      - **Borrar archivo, quedarme con el texto**: libera espacio en un
-       audio o video largo, conservando lo transcripto.
+       audio, un video, una publicación o un libro, conservando el texto.
+       No pregunta ni borra de una vez: el archivo va a la
+       [papelera de la app](#la-papelera-de-la-app) por 30 días, y el aviso
+       trae **"Deshacer"**.
+     - **Borrar el texto, quedarme con el libro**, en libros y documentos:
+       el texto va a la papelera de la app por 30 días y el libro **no se
+       vuelve a leer solo**. El panel lo dice (*"Dejaste solo el libro…"*) y
+       ofrece **"Volver a extraer el texto"**, que sí podés pedir cuando
+       quieras.
      - **Ver a pantalla completa**, en los documentos.
 
    En una nota de bloques, en vez de **Más** aparece **Editar**.
@@ -944,14 +954,27 @@ Sirve para revisar, de a una, las fuentes que ya terminaron de procesarse (no
 las notas que escribís vos) y decidir rápido qué hacer con cada una — como un
 mazo de tarjetas para ir descartando.
 
+**La Bandeja trabaja con texto.** Una fuente entra cuando ya tiene su texto:
+un audio o un video, cuando ya está su transcripción; una foto, cuando ya se
+leyó lo que dice. Mientras tanto sigue en la Biblioteca —con su reproductor y
+todo— pero no aparece en la Bandeja, ni cuenta en el *"N pendientes"*, ni en
+el número de la navegación, ni en **Filtros → "Bandeja" → "Por revisar"**; entra
+sola apenas tiene texto. En la Bandeja nunca vas a ver un reproductor: solo
+el texto y sus datos. Si una página o una publicación no tiene texto propio
+pero trae archivos con texto (una foto con un cartel, un PDF), la tarjeta
+muestra el de uno de ellos y dice de cuál es.
+
 **Cómo llegar:** ítem **"Bandeja"** en la navegación.
 
 **Triar** es decidir qué hacés con cada cosa que guardaste. La primera vez que
 abrís la Bandeja, una tarjeta corta lo explica; se cierra con **"Entendido"** y
 no vuelve a aparecer.
 
-Cada fuente aparece como una tarjeta grande, con un extracto de su texto. La
-podés resolver de tres formas:
+Cada fuente aparece como una tarjeta grande, con el principio de su texto tal
+como se lee —sin marcas de formato ni los minutos de una transcripción— y,
+arriba, sus datos: **autor**, **fecha de publicación**, **sitio**, **páginas**
+(en un PDF) o **duración** (en un audio o un video) e **idioma**, los que se
+sepan. La podés resolver de tres formas:
 
 - **Arrastrando la tarjeta**: a la izquierda para "Descartar", a la derecha
   para "Triado" (ya la revisaste, queda para trabajarla), hacia arriba para
@@ -960,6 +983,22 @@ podés resolver de tres formas:
   (para conectarla con una nota tuya) y, si hay, "Revisar sugerencias".
 - **Con el teclado**, en computadora: flecha izquierda = Descartar, derecha =
   Triado, arriba = Extraer, Ctrl+Z = deshacer.
+
+**Libros y documentos: ¿con qué seguís?** Al tocar **"Triado"** en un EPUB,
+un PDF, un Word… se abre una hoja que pregunta qué pasa a la siguiente fase:
+
+- **Texto y libro**: se guardan los dos, como hasta ahora.
+- **Solo el texto**: el archivo va a la papelera de la app y se libera su
+  lugar (la hoja dice cuántos MB). Queda el texto.
+- **Solo el libro**: el texto va a la papelera de la app, con sus
+  subrayados, y queda el archivo. Sinapsis **no vuelve a extraer el texto
+  solo**; si lo querés de nuevo, usás **"Volver a extraer el texto"**.
+
+Si cerrás la hoja sin elegir, no pasa nada: la fuente sigue en la Bandeja.
+Lo que se suelta no se borra: espera 30 días en la
+[papelera de la app](#la-papelera-de-la-app) y **"Deshacer"** lo trae de
+vuelta. **"Extraer nota"** y **"Vincular a nota viva"** conservan siempre los
+dos.
 
 **Nada se pierde.** Lo triado y lo descartado no se borran: siguen en la
 Biblioteca, y los encontrás en **Filtros → "Bandeja"** (ver
@@ -993,6 +1032,30 @@ Lo que la [IA que organiza sola](#la-ia-que-organiza-sola) deja sin aplicar
 porque dudaba son estas mismas sugerencias: las ves acá, en la tarjeta de
 cada fuente, y también todas juntas en **"Para revisar"**, arriba de "Lo que
 hizo la IA". Aceptarlas o descartarlas en un lugar las resuelve en los dos.
+
+### La papelera de la app
+
+Cuando al triar un libro elegís **"Solo el texto"** o **"Solo el libro"**, o
+usás **"Borrar archivo…"** / **"Borrar el texto…"** en **Más**, lo que
+soltás no se borra: va a la papelera de la app y espera **30 días**. Es
+distinta de la [Papelera](#papelera) de los elementos: el elemento sigue en
+la Biblioteca, con lo que se quedó.
+
+En el detalle del elemento aparece la sección **"En la papelera de la app"**,
+con lo que soltaste (el archivo original o el texto extraído), cuánto pesa,
+el día en que se borra del todo y el botón **"Recuperar el archivo"** o
+**"Recuperar el texto"**. Recuperar el texto devuelve el mismo texto con sus
+subrayados.
+
+- Pasados los 30 días se borra de verdad: la app lo hace sola al abrirse.
+  Nunca antes.
+- Si el archivo ya no estaba en el teléfono (por ejemplo, vaciaste el
+  almacenamiento de la app), el aviso lo dice y no hay nada que recuperar.
+- Esta papelera es de cada dispositivo, porque el archivo vive en su disco:
+  **no se junta** al combinar con la copia de otro teléfono. Sí cruza la
+  decisión: si en el otro dejaste solo el texto, acá el archivo también va a
+  la papelera por 30 días —nunca se borra de golpe—, y un texto que soltaste
+  acá no vuelve con la fusión.
 
 ### Revisar sugerencias en lote
 
