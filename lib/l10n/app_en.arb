@@ -7858,5 +7858,107 @@
         "type": "int"
       }
     }
+  },
+  "notebooksSuggestedBannerTitle": "{count, plural, =1{1 suggested notebook} other{{count} suggested notebooks}}",
+  "@notebooksSuggestedBannerTitle": {
+    "description": "Cuadernos sugeridos (F30): el título del aviso arriba de la lista.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notebooksSuggestedBannerBody": "Built from your topics and tags. The ones you create stay up to date on their own.",
+  "@notebooksSuggestedBannerBody": {
+    "description": "Cuadernos sugeridos (F30): el texto del aviso."
+  },
+  "notebooksSuggestedView": "View",
+  "@notebooksSuggestedView": {
+    "description": "Cuadernos sugeridos (F30): el botón del aviso que abre la hoja."
+  },
+  "notebooksSuggestedNotNow": "Not now",
+  "@notebooksSuggestedNotNow": {
+    "description": "Cuadernos sugeridos (F30): deja de avisar de los que hay ahora."
+  },
+  "notebooksNewSuggested": "Suggested",
+  "@notebooksNewSuggested": {
+    "description": "Cuadernos (F30): la opción de «Nuevo cuaderno» que abre los sugeridos."
+  },
+  "notebooksNewSuggestedHint": "{count, plural, =1{One built from your topics and tags} other{{count} built from your topics and tags}}",
+  "@notebooksNewSuggestedHint": {
+    "description": "Cuadernos (F30): debajo de «Sugeridos».",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestedNotebooksTitle": "Suggested notebooks",
+  "@suggestedNotebooksTitle": {
+    "description": "Cuadernos sugeridos (F30): el título de la hoja."
+  },
+  "suggestedNotebooksIntro": "Pick which ones to create. Each gathers a topic or a tag and stays up to date on its own: whatever you save later joins in.",
+  "@suggestedNotebooksIntro": {
+    "description": "Cuadernos sugeridos (F30): qué son."
+  },
+  "suggestedNotebooksEmpty": "There are no notebooks to suggest right now. They show up when a topic or a tag gathers three items.",
+  "@suggestedNotebooksEmpty": {
+    "description": "Cuadernos sugeridos (F30): la hoja sin ninguno."
+  },
+  "suggestedNotebooksNaming": "The AI is suggesting names…",
+  "@suggestedNotebooksNaming": {
+    "description": "Cuadernos sugeridos (F30): mientras la IA nombra."
+  },
+  "suggestedNotebooksNamingFailed": "The AI couldn't suggest names: each topic or tag keeps its own.",
+  "@suggestedNotebooksNamingFailed": {
+    "description": "Cuadernos sugeridos (F30): la IA falló al nombrar."
+  },
+  "suggestedNotebooksNoModel": "Without the language model, each notebook is named after its topic or tag.",
+  "@suggestedNotebooksNoModel": {
+    "description": "Cuadernos sugeridos (F30): sin el modelo de lenguaje."
+  },
+  "suggestedNotebooksKindSpace": "{count, plural, =1{Topic · 1 item} other{Topic · {count} items}}",
+  "@suggestedNotebooksKindSpace": {
+    "description": "Cuadernos sugeridos (F30): de dónde sale uno que viene de un tema.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestedNotebooksKindTag": "{count, plural, =1{Tag · 1 item} other{Tag · {count} items}}",
+  "@suggestedNotebooksKindTag": {
+    "description": "Cuadernos sugeridos (F30): de dónde sale uno que viene de una etiqueta.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestedNotebooksSelectAll": "Check all",
+  "@suggestedNotebooksSelectAll": {
+    "description": "Cuadernos sugeridos (F30): marca todos los de la lista."
+  },
+  "suggestedNotebooksSelectNone": "Uncheck all",
+  "@suggestedNotebooksSelectNone": {
+    "description": "Cuadernos sugeridos (F30): desmarca todos los de la lista."
+  },
+  "suggestedNotebooksCreate": "{count, plural, =0{Check at least one} =1{Create 1 notebook} other{Create {count} notebooks}}",
+  "@suggestedNotebooksCreate": {
+    "description": "Cuadernos sugeridos (F30): el botón que crea los marcados.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "suggestedNotebooksCreated": "{count, plural, =1{1 notebook created} other{{count} notebooks created}}",
+  "@suggestedNotebooksCreated": {
+    "description": "Cuadernos sugeridos (F30): el aviso al crear varios.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

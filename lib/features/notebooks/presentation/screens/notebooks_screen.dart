@@ -6,9 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
+import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
+import 'package:sinapsis/features/notebooks/presentation/providers/notebook_suggestions_controller.dart';
 import 'package:sinapsis/features/notebooks/presentation/widgets/ai_notebook_sheet.dart';
 import 'package:sinapsis/features/notebooks/presentation/widgets/create_notebook_dialog.dart';
+import 'package:sinapsis/features/notebooks/presentation/widgets/notebook_suggestions_sheet.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Todos los cuadernos (F16, D1): un subconjunto con nombre de la bóveda,
@@ -20,19 +23,34 @@ class NotebooksScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final notebooks = ref.watch(notebooksProvider).valueOrNull ?? const [];
+    final suggestions = ref.watch(notebookSuggestionsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.navNotebooks)),
-      body: notebooks.isEmpty
-          ? _EmptyState(
-              l10n: l10n,
-              onCreateWithAi: () => _open(context, _NewNotebook.withAi),
-            )
-          : ListView.builder(
-              itemCount: notebooks.length,
-              itemBuilder: (context, index) =>
-                  _NotebookTile(notebook: notebooks[index]),
+      body: Column(
+        children: [
+          if (suggestions.isNotEmpty)
+            _SuggestionsBanner(
+              suggestions: suggestions,
+              onView: () => _open(context, _NewNotebook.suggested),
+              onNotNow: () => ref
+                  .read(notebookSuggestionDismissalsProvider.notifier)
+                  .dismiss([for (final s in suggestions) s.key]),
             ),
+          Expanded(
+            child: notebooks.isEmpty
+                ? _EmptyState(
+                    l10n: l10n,
+                    onCreateWithAi: () => _open(context, _NewNotebook.withAi),
+                  )
+                : ListView.builder(
+                    itemCount: notebooks.length,
+                    itemBuilder: (context, index) =>
+                        _NotebookTile(notebook: notebooks[index]),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('notebook-new'),
         onPressed: () => _create(context),
@@ -54,28 +72,118 @@ class NotebooksScreen extends ConsumerWidget {
   }
 
   Future<void> _open(BuildContext context, _NewNotebook how) async {
+    if (how == _NewNotebook.suggested) return _openSuggested(context);
     final created = switch (how) {
       _NewNotebook.withAi => showAiNotebookSheet(context),
-      _NewNotebook.manual => showCreateNotebookDialog(context),
+      _ => showCreateNotebookDialog(context),
     };
     final notebook = await created;
     if (notebook == null || !context.mounted) return;
     unawaited(context.push(RoutePaths.notebookDetail(notebook.id)));
   }
+
+  /// Los sugeridos: si se crea uno solo, se abre; si son varios, se avisa
+  /// cuántos y quedan en la lista.
+  Future<void> _openSuggested(BuildContext context) async {
+    final created = await showNotebookSuggestionsSheet(context);
+    if (created.isEmpty || !context.mounted) return;
+    if (created.length == 1) {
+      unawaited(context.push(RoutePaths.notebookDetail(created.single.id)));
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(l10n.suggestedNotebooksCreated(created.length))),
+      );
+  }
 }
 
 /// Cómo crear un cuaderno nuevo.
-enum _NewNotebook { withAi, manual }
+enum _NewNotebook { withAi, suggested, manual }
 
-/// Las formas de crear un cuaderno (F30): con IA, que busca lo que va, o a
-/// mano —con una vista guardada, si se quiere—.
-class _NewNotebookSheet extends StatelessWidget {
-  const _NewNotebookSheet();
+/// El aviso de que hay cuadernos sugeridos (F30): con «Ver» se eligen, y con
+/// «Ahora no» se dejan; si después aparece un tema o una etiqueta nueva que da
+/// para uno, se vuelve a avisar.
+class _SuggestionsBanner extends StatelessWidget {
+  const _SuggestionsBanner({
+    required this.suggestions,
+    required this.onView,
+    required this.onNotNow,
+  });
+
+  final List<NotebookSuggestion> suggestions;
+  final VoidCallback onView;
+  final VoidCallback onNotNow;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card(
+      key: const Key('notebooks-suggestions-banner'),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: scheme.primaryContainer.withValues(alpha: 0.5),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: scheme.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.notebooksSuggestedBannerTitle(suggestions.length),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.notebooksSuggestedBannerBody,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  key: const Key('notebooks-suggestions-not-now'),
+                  onPressed: onNotNow,
+                  child: Text(l10n.notebooksSuggestedNotNow),
+                ),
+                FilledButton.tonal(
+                  key: const Key('notebooks-suggestions-view'),
+                  onPressed: onView,
+                  child: Text(l10n.notebooksSuggestedView),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Las formas de crear un cuaderno (F30): con IA, que busca lo que va, o a
+/// mano —con una vista guardada, si se quiere—.
+class _NewNotebookSheet extends ConsumerWidget {
+  const _NewNotebookSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
+    final suggested = ref.watch(notebookSuggestionsProvider).length;
 
     Widget option({
       required Key key,
@@ -123,6 +231,14 @@ class _NewNotebookSheet extends StatelessWidget {
               value: _NewNotebook.withAi,
               highlighted: true,
             ),
+            if (suggested > 0)
+              option(
+                key: const Key('notebook-new-suggested'),
+                icon: Icons.lightbulb_outline,
+                title: l10n.notebooksNewSuggested,
+                subtitle: l10n.notebooksNewSuggestedHint(suggested),
+                value: _NewNotebook.suggested,
+              ),
             option(
               key: const Key('notebook-new-manual'),
               icon: Icons.edit_note_outlined,

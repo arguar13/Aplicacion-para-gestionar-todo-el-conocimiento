@@ -11,8 +11,10 @@ import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
+import 'package:sinapsis/features/notebooks/presentation/providers/notebook_suggestions_controller.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebook_detail_screen.dart';
 import 'package:sinapsis/features/notebooks/presentation/screens/notebooks_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -208,6 +210,128 @@ void main() {
                 .resolveQuery(notebook.id))
             .ids,
         {foro.id, senado.id},
+      );
+    });
+
+    /// Un tema con [count] elementos, y la lista de cuadernos abierta.
+    Future<String> seedTopic(int count, {String name = 'Roma'}) async {
+      final space =
+          (await harness.container
+                  .read(organizeRepositoryProvider)
+                  .createSpace(name))
+              .getRight()
+              .toNullable()!;
+      for (var i = 0; i < count; i++) {
+        await harness.capture('$name $i');
+      }
+      final ids =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .matchingIds(const LibraryQuery()))
+              .getRight()
+              .toNullable()!;
+      await harness.container
+          .read(libraryRepositoryProvider)
+          .assignSpaceMany(itemIds: ids, spaceId: space.id);
+      return space.id;
+    }
+
+    testWidgets('un tema con elementos de sobra se sugiere: se avisa, se '
+        'elige y se crea un cuaderno por consulta que se abre (F30)', (
+      tester,
+    ) async {
+      final spaceId = await seedTopic(3);
+
+      await pumpNotebooks(tester);
+      expect(
+        find.byKey(const Key('notebooks-suggestions-banner')),
+        findsOneWidget,
+      );
+      expect(find.text(es.notebooksSuggestedBannerTitle(1)), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('notebooks-suggestions-view')));
+      await tester.pumpAndSettle();
+      // Sin el modelo de lenguaje, lleva el nombre del tema; sin marcar.
+      expect(find.text(es.suggestedNotebooksNoModel), findsOneWidget);
+      expect(find.text('Roma'), findsOneWidget);
+      expect(find.text(es.suggestedNotebooksKindSpace(3)), findsOneWidget);
+      final create = find.byKey(const Key('suggested-notebooks-create'));
+      expect(tester.widget<FilledButton>(create).onPressed, isNull);
+
+      await tester.tap(find.byKey(Key('suggested-notebook-space:$spaceId')));
+      await tester.pump();
+      expect(find.text(es.suggestedNotebooksCreate(1)), findsOneWidget);
+      await tester.tap(create);
+      await tester.pumpAndSettle();
+
+      final created = await harness.database
+          .select(harness.database.notebooks)
+          .get();
+      expect(created.single.name, 'Roma');
+      expect(created.single.mode, NotebookMode.query);
+      expect(
+        (await harness.container
+                .read(notebookRepositoryProvider)
+                .resolveQuery(created.single.id))
+            .spaceId,
+        spaceId,
+      );
+      // Con uno solo, se abre; sus elementos son los del tema.
+      expect(find.text('Roma 0'), findsOneWidget);
+    });
+
+    testWidgets('«Ahora no» deja de avisar de los que hay, y lo recuerda '
+        '(F30)', (tester) async {
+      await seedTopic(3);
+
+      await pumpNotebooks(tester);
+      await tester.tap(find.byKey(const Key('notebooks-suggestions-not-now')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('notebooks-suggestions-banner')),
+        findsNothing,
+      );
+      final dismissed = harness.container.read(
+        notebookSuggestionDismissalsProvider,
+      );
+      expect(dismissed, hasLength(1));
+      // Tampoco en «Nuevo cuaderno».
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('notebook-new-suggested')), findsNothing);
+    });
+
+    testWidgets('con pocos elementos no se sugiere nada, y «Nuevo cuaderno» '
+        'no ofrece los sugeridos (F30)', (tester) async {
+      await seedTopic(2);
+
+      await pumpNotebooks(tester);
+      expect(
+        find.byKey(const Key('notebooks-suggestions-banner')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('notebook-new')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('notebook-new-suggested')), findsNothing);
+    });
+
+    testWidgets('lo que ya es un cuaderno por esa consulta no se vuelve a '
+        'sugerir (F30)', (tester) async {
+      final spaceId = await seedTopic(3);
+      await harness.container
+          .read(notebookRepositoryProvider)
+          .create(
+            name: 'Otro nombre',
+            mode: NotebookMode.query,
+            query: LibraryQuery(spaceId: spaceId),
+          );
+
+      await pumpNotebooks(tester);
+
+      expect(
+        find.byKey(const Key('notebooks-suggestions-banner')),
+        findsNothing,
       );
     });
 
