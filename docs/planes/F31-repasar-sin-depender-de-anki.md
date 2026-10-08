@@ -1,6 +1,9 @@
 # F31 — Repasar sin depender de Anki, y una sesión que se disfruta
 
-> **Estado: propuesto** (2026-10-08). Esperando «aprobado» en el chat. Pedido del usuario, mirando
+> **Estado: aprobado** (2026-10-08), en el chat («aprobado»), con todas las recomendadas: **A**
+> SM-2 con pasos de aprendizaje, **B** 20 nuevas y 200 repasos por día, **C** las dos direcciones,
+> los huecos y «escribí la respuesta», **D** traer mazos de Anki, **E** un aviso diario opcional.
+> Pedido del usuario, mirando
 > la pantalla de repaso en su teléfono: *"a la sesión de flashcards hazla más interactiva y que los
 > botones tengan formas iguales y el texto se vea bien; haz que tenga todo lo necesario para no
 > depender de las apps de Anki, aunque también mantenga las funciones de exportar y compartir con
