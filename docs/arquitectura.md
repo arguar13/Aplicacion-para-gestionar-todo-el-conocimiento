@@ -5486,6 +5486,126 @@ cientos de MB. Sin medir el costo del criterio de texto con diez mil elementos: 
 por `renditions.item_id` (indexado) a cada consulta de la Bandeja y la insignia, y el `GLOB`
 se detiene en el primer carácter que no es blanco, pero no hay cifra.
 
+### 70. F31: las formas nuevas de tarjeta, traer mazos de Anki y el aviso diario
+
+Pedido del usuario: *"haz que tenga todo lo necesario para no depender de las apps de Anki,
+aunque también mantenga las funciones de exportar y compartir con Anki"*. Plan:
+`docs/planes/F31-repasar-sin-depender-de-anki.md`, tanda 4, con las recomendadas de las decisiones C
+(todas las formas), D (traer mazos) y E (aviso). Esta decisión es la parte **pura y sin pantallas**
+de la tanda: son piezas independientes del esquema v39 y de `ReviewScreen`, que las enchufan después.
+Todo devuelve tipos propios (nada depende de las columnas nuevas de tarjetas).
+
+- **Huecos para completar** (`cloze.dart`). El formato de Anki: `{{c1::respuesta}}` y
+  `{{c1::respuesta::pista}}`. `parseCloze` nunca lanza: lo que no es un hueco queda como texto y se
+  informa en `problems` (`noDeletions`, `unclosed`, `emptyAnswer`, `invalidNumber`; `validateCloze` +
+  `clozeProblemMessage` dan el mensaje en español). El hueco termina en el primer `}}` que no cierre
+  una llave abierta adentro (`{{c1::f(x) = {a}}}` → `f(x) = {a}`); uno anidado no genera tarjeta
+  propia y queda revelado en la respuesta del de afuera. Por cada número: frente con `[...]` o
+  `[pista]` (los demás huecos, revelados), dorso con el hueco en negrita; también como `ClozeSegment`
+  (`plain`/`hidden`/`revealed`) para que la pantalla lo dibuje sin volver a leer Markdown. Los
+  delimitadores son ASCII, así que ningún acento ni emoji se parte; un millón de caracteres se lee
+  en el orden de lo que mide. Para la IA: `clozeSystemInstruction` + `buildClozeRequest` (en el
+  estilo de `_flashcardSystemInstruction`: formato `H:` y `C:` único y simple) y `parseClozeDrafts`,
+  tolerante como `parseFlashcardDrafts` pero que **descarta** la frase sin huecos o con uno roto.
+  No llama al modelo.
+- **«Escribí la respuesta»** (`typed_answer.dart`). `compareTypedAnswer` ignora mayúsculas, acentos
+  (la **ñ** no es una n: `año`≠`ano`), puntuación, espacios y el artículo del principio; **no ignora
+  los números** (`1492`≠`1493`; `3,14`=`3.14`; `1.000`=`1000`; el signo menos, `%`, `$`, `€`, `£`,
+  `°`, `+` y `#` cuentan). Tolerancia, medida con ejemplos reales de tarjetas (la tabla está en
+  `typed_answer_test.dart`): distancia de edición con transposiciones sobre el texto normalizado;
+  hasta 5 caracteres, **ninguna** (`pato`≠`gato`, `perro`≠`pero`); desde 6, el 15 % del largo, de
+  1 a 8 (`mitocondira` es «casi» de `mitocondria`; `Segunda guerra` no es `Segunda Guerra Mundial`:
+  le faltan 8). Una palabra de hasta 3 letras que sobra, falta o cambia **nunca** es un descuido
+  (`Juan Carlos I`≠`II`, `caída Bastilla`≠`caída de la Bastilla`); las mismas letras con los
+  espacios corridos (`sanfrancisco`) sí. Veredicto `match`/`close`/`mismatch`; un «casi» no tiene
+  por qué contar como acierto, lo decide la pantalla mostrando la diferencia. La diferencia son
+  `TypedAnswerSegment` (`same`/`missing`/`extra`) con el texto de cada lado
+  (`expectedText`/`typedText`: en un `same` pueden diferir en mayúsculas o acentos): palabra por
+  palabra, y por letra dentro de la palabra que se parece. Un artículo o una puntuación de más
+  nunca se marca. Aceptan `alternatives` y un paréntesis de la respuesta es opcional. Textos
+  grandes: se recorta el principio y el final que coinciden y, si queda mucho, una franja de
+  `2·límite+1` celdas (probada contra la tabla completa con 400 pares al azar); no hay cuadrático
+  que cuelgue un texto de 6.000 palabras. Con un texto enorme y casi todo distinto, `distance` es
+  una cota («más de lo que se tolera»).
+- **Traer un `.apkg`** (`anki_import/`). `SqliteAnkiPackageReader` (interfaz de dominio
+  `AnkiPackageReader`, `readFile(path)` y `readBytes`). **Qué archivo lee:** `collection.anki21`
+  primero, `collection.anki2` después; el esquema nuevo (`collection.anki21b`, zstd) **no se lee**
+  —Dart no trae zstd y agregar una dependencia nativa para un formato que Anki sigue pudiendo
+  exportar en el viejo no valía—: si es lo único real, error `newFormatOnly` que dice que lo
+  exporte con «Compatibilidad con versiones antiguas». Anki escribe junto al formato nuevo un
+  `collection.anki2` de relleno con una sola nota que pide actualizar; se reconoce y no cuenta.
+  **Memoria:** `archive` 4.0.9 junta cada entrada en memoria; se saca del zip solo la colección
+  (a un temporal, por tandas con zlib nativo y CRC-32, borrado al terminar, también si falla) y el
+  manifiesto `media`, que es un JSON; los medios no se tocan. Probado con un `.apkg` de 150 MB de
+  medios: la memoria comprometida no crece (tope de la prueba, 60 MB). Las tarjetas se leen con
+  `selectCursor` nota por nota, sin cargar la colección entera.
+  **Qué entiende:** en vez de adivinar por el nombre del tipo de nota (viene traducido), se
+  **renderiza la plantilla** (`AnkiTemplate`: `{{Campo}}`, `{{FrontSide}}`, condicionales
+  `#`/`^`, `type:`, `hint:`, `cloze:`, campos especiales) y el frente y el dorso salen de ahí, sin
+  HTML (`ankiHtmlToText`: `<br>`, `<div>`, `<p>`, listas con guion, entidades, negrita y cursiva
+  como Markdown con los espacios fuera de la marca). Tipos: `basic`, `reversed` (dos tarjetas
+  hermanas, **detectadas porque el frente de una es el dorso de la otra**), `cloze` (con
+  `parseCloze`; `clozeSource` + `clozeNumber`, y el «extra» debajo del dorso), `typed`
+  (`{{type:Campo}}`) y `multipleChoice` (el modelo propio de Sinapsis, para que ida y vuelta no lo
+  degrade). **Calendario a SM-2:** `easeFactor = factor/1000` (mínimo 1,3; 0 → 2,5),
+  `intervalDays = ivl` (negativo, que son segundos, → 0), `repetitions = reps` (al menos 1 si no es
+  nueva), `dueAt` = `crt` + `due` días **con el calendario local** (no por segundos: un cambio de
+  horario no corre un día) para repaso y aprendizaje por días, segundos desde 1970 para
+  aprendizaje del día, `null` para nuevas (con `newPosition`); `suspended` (`queue -1`),
+  `postponed` (`-2`/`-3`), `state` (nueva/aprendiendo/repaso/reaprendiendo), `lapses`, y el último
+  repaso del `revlog` (que además se devuelve entero en `reviews`, sin los reprogramados a mano). En
+  un mazo filtrado manda `odid`/`odue` (el mazo y el calendario originales) y se avisa.
+  **Medios:** se cuentan (`imageCount`, `audioCount`, `videoCount`, `referencedMedia`), se sacan
+  del texto y **no se importan**: la pantalla avisa que entran sin ellos. Errores:
+  `AnkiImportException` con `failure` (`emptyFile`, `notAnApkg`, `corrupt`, `newFormatOnly`,
+  `unsupportedSchema`, `unreadable`) y mensaje en español; **nunca** una excepción cruda del zip o
+  de SQLite (lo imprevisto se vuelve `corrupt` con la original en `cause`). Se probó de ida y vuelta
+  con `AnkiPackageBuilder` (mazos con `::`, nuevas, de repaso, vencidas, procedencia, opción
+  múltiple, 1.000 tarjetas) y con paquetes armados a mano que imitan a Anki (básico, dos
+  direcciones, invertida opcional, escribir, cloze con extra, suspendida, pospuesta, en
+  aprendizaje, filtrado, con etiquetas, HTML y medios, relleno del formato nuevo).
+  **Lo que no hace:** leer `collection.anki21b`; importar medios; la numeración de varias
+  plantillas que no sean la inversa (llegan como tarjetas básicas separadas); el CSS y el
+  JavaScript de las plantillas; `revlog` sin tabla (se avisa y se sigue).
+- **El aviso diario** (`study_reminder/`). **Nativo y sin dependencias nuevas**
+  (`flutter_local_notifications` hubiera sumado una dependencia grande para programar una alarma y
+  mostrar una notificación, que el sistema ya sabe hacer): `StudyReminder.kt`,
+  `StudyReminderReceiver.kt` y `StudyReminderChannel.kt` (canal `app.sinapsis/study_reminder`,
+  instalado en `SinapsisEngine`). **La alarma** es `setAndAllowWhileIdle`: inexacta (el sistema puede
+  correrla unos minutos), pero suena en reposo profundo y no pide el permiso de alarmas exactas,
+  que Android 12 reserva a despertadores y calendarios. No es `setInexactRepeating`, que no suena en
+  Doze: cada vez que suena programa la del día siguiente. Se reprograma al reiniciar el teléfono
+  (`RECEIVE_BOOT_COMPLETED`, permiso normal), al actualizar la app, al cambiar la hora o la zona
+  horaria, y al abrir la app (`MainActivity.onCreate`); poner la misma alarma dos veces la
+  reemplaza. **El texto:** el nativo no puede preguntarle a la base, así que la app le cuenta
+  cuántas hay (`updateStudyCount`, guardado en preferencias nativas) y el aviso dice lo último que
+  le contaron: «Tenés N tarjetas para repasar» (plural en `strings.xml`, es y en). **Con 0 no se
+  muestra** (la app avisó que no hay nada: una notificación vacía solo molesta); **con la cantidad
+  desconocida se muestra sin número** (nunca se contó: callarlo por un olvido de la app sería peor
+  que un aviso de más). Por eso se pide que se cuenten las que vencen **hasta la próxima hora del
+  aviso** (`ReminderTime.nextOccurrence`), no solo las vencidas ahora: el aviso suena horas después.
+  **Permiso:** `POST_NOTIFICATIONS` se pide **solo al prender el aviso** (`enable`), y la respuesta
+  del diálogo vuelve a Dart (`onRequestPermissionsResult`); si se rechazó dos veces el sistema ya no
+  pregunta y la pantalla manda a `openNotificationSettings`. **Al tocar la notificación** se abre la
+  app y llega `openReview` (con la app andando, `openRequests`) o queda pendiente para
+  `takePendingOpen` (arranque en frío); la ruta es `/review`, y qué hacer con eso es de la pantalla.
+  **Lo elegido** (prendido + hora, apagado por defecto, 20:00 si nunca se eligió) vive en
+  `SharedPreferences` (`PrefsStudyReminderSettings`); el nativo guarda una copia propia porque tiene
+  que sonar sin Dart, y `restore()` corrige una copia desparejada. En escritorio y la web,
+  `NullStudyReminder` (`isSupported` falso). `scheduled` en el estado se lee de que exista el
+  `PendingIntent` de la alarma, que es lo que Android deja consultar sin permisos especiales.
+- **Verificación.** Cada comportamiento clave se comprobó por mutación (se deshizo el código y la
+  prueba falló; se verificó que la mutación se aplicara; los que sobrevivieron en una primera
+  vuelta se atacaron con pruebas nuevas hasta matarlos). Quedan dos mutantes **equivalentes**, que
+  no se distinguen por el resultado: la salida anticipada de la franja de distancia (solo
+  velocidad) y quitar las marcas combinantes en `typed_answer.dart` (el filtro de puntuación ya
+  las saca). Para poder probar el tope de tamaño y el fallo del disco, el lector recibe
+  `maxCollectionBytes` y `workDirectory`. Kotlin compilado con
+  `:app:compileDevReleaseKotlin`. **Sin probar:** que la alarma suene, la notificación y el toque en
+  un teléfono o emulador (no se usó ninguno), ni con HyperOS u otras capas de ahorro de batería que
+  matan alarmas de apps cerradas (se espera lo mismo que con el trabajo largo, decisión 62); ningún
+  `.apkg` real de Anki (solo los armados a mano, por no poder instalarlo).
+
 ## Estado y orden de construcción
 
 ### Construido
