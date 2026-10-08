@@ -57,6 +57,18 @@ void main() {
             processingState: ProcessingState.ready,
             createdAt: now,
             updatedAt: now,
+            // Con texto: es lo que la hace entrar a la Bandeja (F30,
+            // decisión 68).
+            renditions: [
+              Rendition.text(
+                id: 'texto-$n',
+                itemId: 'fuente-$n',
+                kind: RenditionKind.plainText,
+                content: 'El texto de la fuente $n.',
+                isPrimary: true,
+                createdAt: now,
+              ),
+            ],
           ),
         );
   }

@@ -1,4 +1,5 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -9,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -44,11 +46,31 @@ void main() {
 
   tearDown(() => db.close());
 
+  Future<void> seedText(
+    String itemId,
+    String text, {
+    String? textOf,
+    RenditionKind kind = RenditionKind.plainText,
+  }) => db
+      .into(db.renditions)
+      .insert(
+        RenditionsCompanion.insert(
+          id: 'texto-${counter++}',
+          itemId: itemId,
+          kind: kind,
+          content: Value(text),
+          isPrimary: textOf == null,
+          createdAt: now,
+          textOf: Value(textOf),
+        ),
+      );
+
   Future<String> seedEntry({
     ItemKind kind = ItemKind.source,
     ItemState state = ItemState.processed,
     String title = 'Un elemento',
     DateTime? updatedAt,
+    String? text = 'Un texto para leer.',
   }) async {
     final id = 'item-${counter++}';
     await db
@@ -64,6 +86,9 @@ void main() {
             deviceId: 'test',
           ),
         );
+    // Una fuente entra a la Bandeja cuando ya tiene texto (F30, decisión 68):
+    // las de estas pruebas lo traen, salvo que se pida otra cosa.
+    if (kind == ItemKind.source && text != null) await seedText(id, text);
     return id;
   }
 
@@ -459,6 +484,86 @@ void main() {
       await repository.transitionState(itemId: id, to: ItemState.processed);
 
       expect((await queue.next)!.status, InboxStatus.pending);
+    });
+  });
+
+  group('solo lo que tiene texto (F30, decisión 68)', () {
+    test('un audio sin transcribir no espera en la Bandeja, ni cuenta, ni '
+        'figura en la cola; entra cuando tiene su transcripción', () async {
+      final audio = await seedEntry(title: 'Una clase', text: null);
+      await seedSourceRow(audio, kind: SourceKind.audio);
+      final articulo = await seedEntry(title: 'Un artículo');
+      await seedSourceRow(articulo);
+      final queue = StreamQueue(repository.watchPendingIds());
+      addTearDown(queue.cancel);
+      expect(await queue.next, [articulo]);
+      expect((await repository.watchPending().first).map((p) => p.id), [
+        articulo,
+      ]);
+      expect(await repository.watchStanding(audio).first, isNull);
+
+      await seedText(audio, '[0:00] Buenas tardes a todos.');
+
+      expect(await queue.next, unorderedEquals([audio, articulo]));
+      expect(
+        (await repository.watchStanding(audio).first)!.status,
+        InboxStatus.pending,
+      );
+    });
+
+    test(
+      'un texto en blanco no cuenta: se intentó leer y no tenía nada',
+      () async {
+        final foto = await seedEntry(title: 'Una foto', text: ' \n\t \r\n');
+
+        expect(await repository.watchPendingIds().first, isEmpty);
+        expect(await repository.watchStanding(foto).first, isNull);
+      },
+    );
+
+    test('una nota de bloques no es el texto de una fuente', () async {
+      final id = await seedEntry(text: null);
+      await seedText(id, '[]', kind: RenditionKind.blocks);
+
+      expect(await repository.watchPendingIds().first, isEmpty);
+    });
+
+    test('el texto de un archivo del «Contenido» cuenta: la página no tiene '
+        'cuerpo pero trae un PDF con texto', () async {
+      final id = await seedEntry(title: 'Una publicación', text: null);
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'archivo',
+              itemId: id,
+              kind: RenditionKind.pdf,
+              relativePath: const Value('originales/x/doc.pdf'),
+              isPrimary: false,
+              createdAt: now,
+              position: const Value(0),
+            ),
+          );
+      // El archivo solo, sin texto, no alcanza.
+      expect(await repository.watchPendingIds().first, isEmpty);
+
+      await seedText(id, 'El texto del PDF.', textOf: 'archivo');
+
+      expect(await repository.watchPendingIds().first, [id]);
+    });
+
+    test('lo ya triado o descartado sigue siendo lo que era, tenga texto o '
+        'no, pero «Volver a la Bandeja» solo con texto', () async {
+      final sinTexto = await seedEntry(state: ItemState.triaged, text: null);
+      final conTexto = await seedEntry(state: ItemState.discarded);
+
+      final a = (await repository.watchStanding(sinTexto).first)!;
+      final b = (await repository.watchStanding(conTexto).first)!;
+
+      expect(a.status, InboxStatus.triaged);
+      expect(a.hasText, isFalse);
+      expect(b.status, InboxStatus.discarded);
+      expect(b.hasText, isTrue);
     });
   });
 

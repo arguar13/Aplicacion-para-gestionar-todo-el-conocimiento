@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/text_presence.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
@@ -36,17 +37,21 @@ class InboxRepositoryImpl implements InboxRepository {
   KnowledgeEntryWriter get _writer => KnowledgeEntryWriter(_db, clock: _clock);
 
   /// Lo que espera en la Bandeja: una fuente en `processed`, fuera de la
-  /// papelera. Un solo criterio para el mazo y para la lista de la cola.
+  /// papelera y que ya tiene texto (F30, decisión 68). Un solo criterio para
+  /// el mazo, la lista de la cola, la insignia y el contador: lo que todavía
+  /// no tiene texto —un audio sin transcribir— sigue en la Biblioteca y entra
+  /// solo cuando lo tenga. Ver [hasTextSql].
   Expression<bool> _isPending($KnowledgeEntriesTable e) =>
       e.kind.equalsValue(ItemKind.source) &
       e.state.equalsValue(ItemState.processed) &
-      e.isActive;
+      e.isActive &
+      CustomExpression<bool>(hasTextSql('item'));
 
   @override
   Stream<List<String>> watchPendingIds() {
     return watchQuery(
       db: _db,
-      tables: [_db.knowledgeEntries],
+      tables: [_db.knowledgeEntries, _db.renditions],
       read: () async {
         final rows =
             await (_db.select(_db.knowledgeEntries)
@@ -66,7 +71,7 @@ class InboxRepositoryImpl implements InboxRepository {
     final sources = _db.knowledgeSources;
     return watchQuery(
       db: _db,
-      tables: [entries, sources],
+      tables: [entries, sources, _db.renditions],
       read: () async {
         // Un `innerJoin`: una fuente siempre tiene su fila de `source` —la
         // escriben juntas `save()` y el espejo—, y sin ella no habría tipo
@@ -97,7 +102,7 @@ class InboxRepositoryImpl implements InboxRepository {
   Stream<InboxStanding?> watchStanding(String itemId) {
     return watchQuery(
       db: _db,
-      tables: [_db.knowledgeEntries, _db.fieldVersions],
+      tables: [_db.knowledgeEntries, _db.fieldVersions, _db.renditions],
       read: () async {
         final entry = await (_db.select(
           _db.knowledgeEntries,
@@ -105,6 +110,21 @@ class InboxRepositoryImpl implements InboxRepository {
         if (entry == null) return null;
         final status = InboxStatus.of(entry.kind, entry.state);
         if (status == null) return null;
+
+        // Si ya tiene texto (F30, decisión 68): lo que todavía no lo tiene no
+        // está en la Bandeja —no se cuenta ni se muestra—, y lo que ya se
+        // trió no puede volver a ella.
+        final hasText =
+            (await _db
+                    .customSelect(
+                      'SELECT ${hasTextSql('item')} AS has_text FROM item '
+                      'WHERE item.id = ?',
+                      variables: [Variable.withString(itemId)],
+                      readsFrom: {_db.knowledgeEntries, _db.renditions},
+                    )
+                    .getSingle())
+                .read<bool>('has_text');
+        if (status == InboxStatus.pending && !hasText) return null;
 
         // Desde cuándo: la última vez que se cambió el estado, que ya
         // registra la versión por campo (F11) —ver [InboxStanding.since]—.
@@ -115,7 +135,11 @@ class InboxRepositoryImpl implements InboxRepository {
                       f.fieldName.equals(EntryField.state),
                 ))
                 .getSingleOrNull();
-        return InboxStanding(status: status, since: version?.updatedAt);
+        return InboxStanding(
+          status: status,
+          since: version?.updatedAt,
+          hasText: hasText,
+        );
       },
       telemetry: _telemetry,
       hint: 'InboxRepositoryImpl.watchStanding',

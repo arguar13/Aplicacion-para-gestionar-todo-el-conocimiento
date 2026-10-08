@@ -5,6 +5,8 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -17,6 +19,17 @@ import '../../../../support/library_harness.dart';
 
 /// El chip de la Bandeja en el detalle (F28): lo triado se reencuentra, y
 /// desde ahí vuelve a la Bandeja.
+/// El texto que hace que una fuente esté en la Bandeja (F30, decisión 68): a
+/// ella entra solo lo que ya tiene texto.
+Rendition _text(String itemId, DateTime at) => Rendition.text(
+  id: 'texto-$itemId',
+  itemId: itemId,
+  kind: RenditionKind.plainText,
+  content: 'El texto de $itemId.',
+  isPrimary: true,
+  createdAt: at,
+);
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -31,6 +44,7 @@ void main() {
   Future<String> seed({
     SourceKind kind = SourceKind.webPage,
     ItemState? state,
+    bool withText = true,
   }) async {
     final item = KnowledgeItem(
       id: 'item-1',
@@ -44,6 +58,7 @@ void main() {
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
+      renditions: [if (withText) _text('item-1', now)],
     );
     await harness.container.read(libraryRepositoryProvider).save(item);
     if (state != null) {
@@ -92,6 +107,26 @@ void main() {
     );
   });
 
+  testWidgets('lo triado sin texto lo dice, pero no ofrece volver a la '
+      'Bandeja: a ella solo entra lo que tiene texto (F30, decisión 68)', (
+    tester,
+  ) async {
+    final id = await seed(state: ItemState.triaged, withText: false);
+    await pumpDetail(tester, id);
+
+    expect(find.text(es.inboxStandingTriagedOn(day(now))), findsOneWidget);
+    expect(find.text(es.inboxBackToInbox), findsNothing);
+  });
+
+  testWidgets('una fuente que todavía no tiene texto no está en la Bandeja: '
+      'sin chip ni «Triar ahora»', (tester) async {
+    final id = await seed(withText: false);
+    await pumpDetail(tester, id);
+
+    expect(find.byKey(const Key('inbox-standing-chip')), findsNothing);
+    expect(find.text(es.inboxTriageNow), findsNothing);
+  });
+
   testWidgets('una descartada lo dice, también con la fecha', (tester) async {
     final id = await seed(state: ItemState.discarded);
     await pumpDetail(tester, id);
@@ -118,6 +153,7 @@ void main() {
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now.subtract(const Duration(days: 1)),
+      renditions: [_text('item-0', now)],
     );
     await harness.container.read(libraryRepositoryProvider).save(waiting);
     final id = await seed();

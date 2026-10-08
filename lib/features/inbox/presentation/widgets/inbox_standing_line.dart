@@ -84,7 +84,9 @@ class InboxStandingLine extends ConsumerWidget {
               icon: const Icon(Icons.inbox_outlined, size: 18),
               label: Text(l10n.inboxTriageNow),
             )
-          else
+          // Sin texto no hay nada que triar de nuevo: a la Bandeja solo
+          // entra lo que lo tiene (F30, decisión 68).
+          else if (standing.hasText)
             TextButton.icon(
               onPressed: () => _backToInbox(context, ref),
               icon: const Icon(Icons.undo, size: 18),

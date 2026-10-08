@@ -1095,8 +1095,17 @@ void main() {
   group('filtrar por lo decidido en la Bandeja (F28)', () {
     /// Una fuente lista —llega a la Bandeja— que después se pasa a [state],
     /// por el mismo escritor que usa la Bandeja.
-    Future<void> seedSource(String title, [ItemState? state]) async {
-      final item = buildItem(title: title);
+    Future<void> seedSource(
+      String title, {
+      ItemState? state,
+      bool withText = true,
+    }) async {
+      final base = buildItem(title: title);
+      final item = withText
+          ? base.copyWith(
+              renditions: [textRendition(base.id, 'El texto de $title.')],
+            )
+          : base;
       await repository.save(item);
       if (state != null) {
         await KnowledgeEntryWriter(db).setState(item.id, state);
@@ -1116,9 +1125,9 @@ void main() {
 
     Future<void> seed() async {
       await seedSource('Por revisar');
-      await seedSource('Triada', ItemState.triaged);
-      await seedSource('Destilada', ItemState.distilled);
-      await seedSource('Descartada', ItemState.discarded);
+      await seedSource('Triada', state: ItemState.triaged);
+      await seedSource('Destilada', state: ItemState.distilled);
+      await seedSource('Descartada', state: ItemState.discarded);
       // Una nota también queda `processed`, pero nunca esperó en la
       // Bandeja.
       await repository.save(
@@ -1130,6 +1139,33 @@ void main() {
       await seed();
 
       expect(await titlesOf({InboxStatus.pending}), ['Por revisar']);
+    });
+
+    test('por revisar es solo lo que ya tiene texto (F30, decisión 68): '
+        'lo que no, sigue en la Biblioteca y entra cuando lo tenga', () async {
+      await seed();
+      await seedSource('Sin transcribir', withText: false);
+      await seedSource(
+        'Triada sin texto',
+        state: ItemState.triaged,
+        withText: false,
+      );
+
+      expect(await titlesOf({InboxStatus.pending}), ['Por revisar']);
+      // Lo ya decidido no depende del texto.
+      expect(await titlesOf({InboxStatus.triaged}), [
+        'Destilada',
+        'Triada',
+        'Triada sin texto',
+      ]);
+      const query = LibraryQuery(
+        inboxStatuses: {InboxStatus.pending, InboxStatus.discarded},
+      );
+      expect(await titlesOf(query.inboxStatuses), [
+        'Descartada',
+        'Por revisar',
+      ]);
+      expect((await repository.count(query)).getRight().toNullable(), 2);
     });
 
     test('triado incluye lo destilado', () async {

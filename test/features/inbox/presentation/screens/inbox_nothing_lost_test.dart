@@ -11,6 +11,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/providers/inbox_providers.dart';
@@ -24,13 +26,23 @@ import 'package:sinapsis/features/library/presentation/screens/item_detail_scree
 import 'package:sinapsis/features/links/presentation/providers/link_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
-
 import '../../../../support/library_harness.dart';
 
 /// La Bandeja no se traga nada (F28): las acciones que se cancelan no
 /// deciden, cada decisión se avisa con «Ver» y «Deshacer», se deshace de a
 /// muchos pasos aunque se salga de la pantalla, «N pendientes» abre la cola,
 /// y la primera vez una tarjeta explica qué es triar.
+/// El texto que hace que una fuente esté en la Bandeja (F30, decisión 68): a
+/// ella entra solo lo que ya tiene texto.
+Rendition _text(String itemId, DateTime at) => Rendition.text(
+  id: 'texto-$itemId',
+  itemId: itemId,
+  kind: RenditionKind.plainText,
+  content: 'El texto de $itemId.',
+  isPrimary: true,
+  createdAt: at,
+);
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -61,6 +73,7 @@ void main() {
             processingState: ProcessingState.ready,
             createdAt: now,
             updatedAt: now,
+            renditions: [_text(id, now)],
           ),
         );
     return id;

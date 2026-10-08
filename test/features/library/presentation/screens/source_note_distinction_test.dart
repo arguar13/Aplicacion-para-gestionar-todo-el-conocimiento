@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
@@ -51,6 +53,17 @@ void main() {
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
+      // Con texto: es lo que la hace entrar a la Bandeja (F30, decisión 68).
+      renditions: [
+        Rendition.text(
+          id: 'texto-fuente',
+          itemId: 'fuente',
+          kind: RenditionKind.plainText,
+          content: 'El texto de la fuente.',
+          isPrimary: true,
+          createdAt: now,
+        ),
+      ],
     );
     await harness.container.read(libraryRepositoryProvider).save(item);
     return item;

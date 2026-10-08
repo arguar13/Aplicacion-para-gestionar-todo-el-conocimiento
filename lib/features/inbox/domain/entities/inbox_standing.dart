@@ -11,8 +11,15 @@ part 'inbox_standing.freezed.dart';
 /// falta una columna nueva —cada cambio de estado ya pasaba por
 /// `KnowledgeEntryWriter`, que lo registra—. Es `null` en lo que no cambió de
 /// estado desde antes de F11, cuando eso no se anotaba.
+///
+/// [hasText] dice si el elemento ya tiene texto (F30, decisión 68): a la
+/// Bandeja solo entra lo que lo tiene, así que «Volver a la Bandeja» no se
+/// ofrece en lo que no.
 @freezed
 sealed class InboxStanding with _$InboxStanding {
-  const factory InboxStanding({required InboxStatus status, DateTime? since}) =
-      _InboxStanding;
+  const factory InboxStanding({
+    required InboxStatus status,
+    DateTime? since,
+    @Default(true) bool hasText,
+  }) = _InboxStanding;
 }

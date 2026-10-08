@@ -37,7 +37,7 @@ void main() {
   /// hay de dónde extraer notas).
   Future<String> seedSource({
     String? title,
-    bool withText = false,
+    bool withText = true,
     DateTime? updatedAt,
   }) async {
     final n = counter++;
@@ -123,7 +123,7 @@ void main() {
     });
 
     testWidgets('hacia arriba la abre para extraer notas', (tester) async {
-      final id = await seedSource(withText: true);
+      final id = await seedSource();
       await pumpInbox(tester);
 
       await swipe(tester, const Offset(0, -300));
@@ -246,7 +246,7 @@ void main() {
     });
 
     testWidgets('Extraer como nota la abre para extraer', (tester) async {
-      final id = await seedSource(withText: true);
+      final id = await seedSource();
       await pumpInbox(tester);
 
       await tester.tap(find.text(es.inboxActionExtract));
@@ -277,7 +277,7 @@ void main() {
     });
 
     testWidgets('flecha arriba la abre para extraer', (tester) async {
-      final id = await seedSource(withText: true);
+      final id = await seedSource();
       await pumpInbox(tester);
 
       await key(tester, LogicalKeyboardKey.arrowUp);

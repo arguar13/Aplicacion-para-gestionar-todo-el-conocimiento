@@ -7,6 +7,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/person_name.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
@@ -16,6 +18,17 @@ import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/library_harness.dart';
+
+/// El texto que hace que una fuente esté en la Bandeja (F30, decisión 68): a
+/// ella entra solo lo que ya tiene texto.
+Rendition _text(String itemId, DateTime at) => Rendition.text(
+  id: 'texto-$itemId',
+  itemId: itemId,
+  kind: RenditionKind.plainText,
+  content: 'El texto de $itemId.',
+  isPrimary: true,
+  createdAt: at,
+);
 
 void main() {
   final es = AppLocalizationsEs();
@@ -47,6 +60,7 @@ void main() {
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
+      renditions: [_text('item-$n', now)],
     );
     await harness.container.read(libraryRepositoryProvider).save(item);
     return item.id;
@@ -103,6 +117,39 @@ void main() {
     await pumpInbox(tester);
 
     expect(find.text('Un artículo cualquiera'), findsOneWidget);
+    expect(find.text(es.inboxPendingCount(1)), findsOneWidget);
+  });
+
+  testWidgets('un audio que todavía no tiene su transcripción no está en la '
+      'Bandeja, ni cuenta; aparece cuando la tiene (F30, decisión 68)', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 18, 10);
+    final repository = harness.container.read(libraryRepositoryProvider);
+    final audio = KnowledgeItem(
+      id: 'audio',
+      title: 'Una clase grabada',
+      source: Source(
+        id: 'src-audio',
+        kind: SourceKind.audio,
+        capturedAt: now,
+        originalFilePath: 'originales/audio/clase.m4a',
+      ),
+      processingState: ProcessingState.ready,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await repository.save(audio);
+
+    await pumpInbox(tester);
+
+    expect(find.text('Una clase grabada'), findsNothing);
+    expect(find.text(es.inboxEmptyTitle), findsOneWidget);
+
+    await repository.save(audio.copyWith(renditions: [_text('audio', now)]));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Una clase grabada'), findsOneWidget);
     expect(find.text(es.inboxPendingCount(1)), findsOneWidget);
   });
 

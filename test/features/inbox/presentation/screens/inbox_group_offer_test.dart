@@ -4,6 +4,8 @@ import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/rendition.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -20,6 +22,17 @@ import '../../../../support/library_harness.dart';
 /// ser `Región: Roma`». Quien está triando una fuente por vez puede revisar el
 /// grupo entero sin salir de la Bandeja, y al volver la tarjeta sigue en su
 /// lugar.
+/// El texto que hace que una fuente esté en la Bandeja (F30, decisión 68): a
+/// ella entra solo lo que ya tiene texto.
+Rendition _text(String itemId, DateTime at) => Rendition.text(
+  id: 'texto-$itemId',
+  itemId: itemId,
+  kind: RenditionKind.plainText,
+  content: 'El texto de $itemId.',
+  isPrimary: true,
+  createdAt: at,
+);
+
 void main() {
   final es = AppLocalizationsEs();
   late LibraryHarness harness;
@@ -51,6 +64,7 @@ void main() {
             processingState: ProcessingState.ready,
             createdAt: now,
             updatedAt: now,
+            renditions: [_text(id, now)],
           ),
         );
     return id;

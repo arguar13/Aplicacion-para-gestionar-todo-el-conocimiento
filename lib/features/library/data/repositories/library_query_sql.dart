@@ -1,7 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/search_index.dart';
+import 'package:sinapsis/core/database/text_presence.dart';
+import 'package:sinapsis/core/domain/entities/inbox_status.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 
 /// Cuántos chunks puede tener una palabra para que valga la pena ordenar los
@@ -214,14 +217,22 @@ class LibraryQuerySql {
     if (query.inboxStatuses.isNotEmpty) {
       // Lo decidido en la Bandeja (F28): el estado de trabajo del elemento,
       // y solo de fuentes —una nota también está `processed`, pero nunca
-      // esperó en la Bandeja—.
-      final states = {
-        for (final status in query.inboxStatuses) ...status.itemStates,
+      // esperó en la Bandeja—. Lo pendiente, además, es lo que ya tiene texto
+      // (F30, decisión 68): el mismo criterio que el mazo, el contador y la
+      // insignia, para que cuenten lo mismo.
+      final others = {
+        for (final status in query.inboxStatuses)
+          if (status != InboxStatus.pending) ...status.itemStates,
       };
-      _where.add('item.kind = ? AND item.state IN (${_marks(states.length)})');
-      _args
-        ..add(Variable.withString(ItemKind.source.name))
-        ..addAll(states.map((s) => Variable.withString(s.name)));
+      final pending = query.inboxStatuses.contains(InboxStatus.pending);
+      final alternatives = [
+        if (pending) '(item.state = ? AND ${hasTextSql('item')})',
+        if (others.isNotEmpty) 'item.state IN (${_marks(others.length)})',
+      ];
+      _where.add('item.kind = ? AND (${alternatives.join(' OR ')})');
+      _args.add(Variable.withString(ItemKind.source.name));
+      if (pending) _args.add(Variable.withString(ItemState.processed.name));
+      _args.addAll(others.map((s) => Variable.withString(s.name)));
     }
     if (query.spaceId != null) {
       _where.add('item.space_id = ?');
