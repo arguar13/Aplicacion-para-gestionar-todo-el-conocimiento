@@ -1759,6 +1759,13 @@ sigue desde donde iba al volver a abrir Sinapsis.
 No hay forma de recuperarla — ni siquiera para quien hizo la app, porque nada
 sale de tu dispositivo. Guardala en un lugar seguro.
 
+**¿Me pide la clave cada vez que abro la app?**
+No. La pide **una vez por encendido del teléfono**: la primera vez que la
+abrís después de prender o reiniciar el teléfono. Mientras siga prendido,
+cerrarla o minimizarla no la vuelve a pedir. También la pide si tocás
+**Ajustes → "Bloquear bóveda"**. En la computadora la pide siempre. Más
+detalle en [Desbloquear la bóveda](#desbloquear-la-bóveda-una-vez-por-encendido-del-teléfono).
+
 **¿Necesito internet para usar la app?**
 No, salvo para descargar los modelos de IA la primera vez (y para pegar
 enlaces de video/web que la app tiene que ir a buscar). Una vez descargado lo
@@ -1785,7 +1792,9 @@ veces que haga falta; nunca se pierde nada de lo que ya tenías.
 **Si borro algo, ¿se pierde para siempre?**
 No de inmediato: pasa a la Papelera, donde lo podés restaurar cuando
 quieras. Solo se borra en serio si vos elegís "Borrar para siempre" ahí
-adentro.
+adentro. Lo mismo con lo que soltás de un libro —su archivo o su texto—:
+espera 30 días en [la papelera de la app](#la-papelera-de-la-app) y lo
+podés recuperar desde el detalle del elemento.
 
 **¿La IA cambia mis cosas sin preguntarme?**
 Organiza sola lo que guardás —vínculos, tarjetas, temas—, pero nunca pisa
