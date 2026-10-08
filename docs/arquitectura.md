@@ -5486,6 +5486,155 @@ cientos de MB. Sin medir el costo del criterio de texto con diez mil elementos: 
 por `renditions.item_id` (indexado) a cada consulta de la Bandeja y la insignia, y el `GLOB`
 se detiene en el primer carácter que no es blanco, pero no hay cifra.
 
+### 69. F31: Repasar sin depender de Anki —pasos de aprendizaje, el día de estudio, límites, la cola y deshacer—
+
+Pedido del usuario: *"haz que tenga todo lo necesario para no depender de las apps de Anki, aunque
+también mantenga las funciones de exportar y compartir con Anki"*. Plan:
+`docs/planes/F31-repasar-sin-depender-de-anki.md`, con las recomendadas de las cinco decisiones
+(SM-2 con pasos de aprendizaje; 20 nuevas y 200 repasos por día; todas las formas de tarjeta;
+traer mazos de Anki; aviso diario opcional). Esta decisión es la **base de dominio y de datos**
+—esquema v39, calendario, día de estudio, límites, cola, deshacer, exportación—; las pantallas
+nuevas (entrada a Repasar, «Mis tarjetas», estadísticas), la lógica de huecos y de «escribí la
+respuesta», traer mazos y el aviso diario se construyen encima y tienen su propia decisión.
+
+- **El esquema v39** (aditivo, con los conteos de todo lo anterior como compuerta).
+  `flashcards` gana `suspended` (pausada, falso), `buried_until` (pospuesta hasta una fecha),
+  `learning_step` (nulo = no se aprende; 0 y 1 = los pasos), `group_id` (las hermanas) y
+  `cloze_index`, con un índice por grupo; `FlashcardKind` gana `cloze` y `typedAnswer` (un
+  `textEnum`: no pide migración, y ningún `switch` del código lo recorría: el exportador a Anki
+  ahora tiene el suyo). **`review_log` gana la foto de partida de cada repaso**: `phase_before` (nueva,
+  aprendiendo, reaprendiendo, repaso), `step_before` / `step_after`, y lo que hace falta para
+  deshacer —`due_before`, `last_reviewed_before`, `repetitions_before`; el intervalo y la facilidad
+  de antes ya estaban—. Sin la etapa guardada habría que adivinar del intervalo de cada fila qué
+  cuenta contra el límite de nuevas y cuál contra el de repasos; guardarla es una columna. **La
+  etapa de una tarjeta NO es una columna**: `Flashcard.phase` la deduce de los campos —con paso:
+  aprende (intervalo 0) o reaprende (intervalo ≥ 1); sin paso, sin intervalo, sin repeticiones y
+  sin haberse contestado nunca: nueva; todo lo demás: repaso— y así lo programado antes de F31
+  tiene etapa sin migrar nada. La migración toca una sola fila de lo viejo: la primera respuesta
+  de cada tarjeta en `review_log` (`interval_before = 0`, que en el calendario viejo solo podía
+  ser la primera) pasa a `newCard`; el resto queda `review`, que es lo que todo era. `due_before`
+  nulo marca un repaso de antes: **no se puede deshacer**. **Censos**: `kFlashcardColumns` y
+  `kReviewLogColumns` (la fusión; una prueba exige que cubran las tablas enteras), los
+  `newColumns` de la reconstrucción de `flashcards` del paso **v18** y las guardas
+  `_columnExists` del paso v39 (el v18 y el v20 crean `flashcards` y `review_log` con la
+  definición de hoy). En la fusión: `suspended` viaja con la tarjeta (quien la pausó no la quería
+  ver en ningún lado); **`buried_until` no** (un «hoy no» de un dispositivo, y se pondría sola a
+  `NULL` al entrar); y el calendario del repaso más reciente trae también `learning_step`, o una
+  tarjeta quedaría «aprendiéndose» con la fecha de un repaso en días. `schema_v39` generado sin
+  reescribir los anteriores; `migration_v39_test` (desde v38 y desde v22).
+- **El calendario: SM-2 más los pasos de Anki** (`scheduleNext`, una máquina de estados sobre la
+  etapa; `LearningSteps.standard`: aprender 1 min y 10 min, reaprender 10 min, graduar a 1 día,
+  «Fácil» a 4). Con las respuestas en el orden De nuevo / Difícil / Bien / Fácil:
+
+  | Etapa | De nuevo | Difícil | Bien | Fácil |
+  |---|---|---|---|---|
+  | Nueva, o aprendiendo en el paso 0 | paso 0: 1 min | paso 0: 6 min | paso 1: 10 min | se gradúa: 4 d |
+  | Aprendiendo en el último paso | paso 0: 1 min | repite: 10 min | se gradúa: 1 d | se gradúa: 4 d |
+  | Repaso en días | olvido → reaprende: 10 min | SM-2 | SM-2 | SM-2 |
+  | Reaprendiendo | 10 min | 15 min | se gradúa: 1 d | se gradúa: 2 d |
+
+  «Se gradúa» es salir de los pasos: al graduar de aprender quedan 1 repetición (con «Bien») o 2
+  (con «Fácil», que se salta el escalón de 1 y 6 días); al de reaprender, 1. «Difícil» es el
+  promedio de los dos primeros pasos si está en el primero y hay más de uno (11 / 2 → 6 min), repite
+  si está en otro, y con un solo paso suma la mitad hasta un día: **«Difícil» nunca es igual a «De
+  nuevo»**. Aprender y reaprender no tocan la facilidad; el olvido de un repaso baja la facilidad
+  con la fórmula de SM-2 de siempre (piso de 1,3) y deja la tarjeta con 0 repeticiones y 1 día,
+  como antes —la diferencia es que ahora pasa por el paso de 10 minutos primero, y al salir ya
+  cuenta como la primera repetición, sin esperar un día de más—. **Lo ya programado no cambia**:
+  toda tarjeta de antes es de repaso o nueva, y el repaso en días es el mismo SM-2. Lo que sí se
+  corrigió: el intervalo no tenía tope, y contestar «Fácil» decenas de veces multiplicaba por 2,5
+  hasta desbordar los microsegundos de `Duration` y dejar la fecha en el pasado (la tarjeta
+  volvía YA); `kMaxIntervalDays` = 36.500, el `maxIvl` de Anki. Una tarjeta traída con intervalo
+  largo y pocas repeticiones no se achica al contestar bien. `previewIntervals` calcula con el
+  mismo `scheduleNext` y dice cuánto falta hasta la fecha que ese cálculo le da: «1 min», «10
+  min», «3 h», «6 d»; lo que se muestra bajo cada botón es lo que pasa.
+- **El día de estudio** (`StudyDay`): de las **4:00 a las 4:00, en hora local**, como Anki. Lo que
+  se estudia a las 00:30 es del día de ayer, con los límites de ayer. Los bordes son
+  `DateTime(año, mes, día, 4)` del calendario de la zona **actual**, no «86.400 segundos
+  después»: el día del cambio de horario mide 23 o 25 horas y empieza a las 4:00; un instante UTC
+  se pasa a local antes de decidir; si la persona viaja se recalcula con la zona nueva. Es el
+  «hoy» de los límites, de hasta cuándo vence un repaso para entrar en la sesión (todo lo que
+  vence antes de las 4:00 de mañana, no solo lo que ya venció: un repaso de las 22:00 de mañana
+  aparece desde la mañana, como en Anki), y de hasta cuándo se pospone una tarjeta
+  (`buryUntilTomorrow` deja las 4:00 del próximo día de estudio; de madrugada, las de esa misma
+  mañana). Cuando empieza otro día, `StudyDayWatcher` —un widget alrededor de la navegación, con
+  su temporizador cancelado al desmontarse— actualiza `studyDayStartProvider` y los conteos se
+  vuelven a leer. **Se probó con el reloj inyectado**, no con la zona del equipo: la prueba de
+  UTC no discrimina en una zona al oeste de Greenwich, y los cambios de horario de verano no se
+  pueden provocar sin controlar la zona (queda dicho).
+- **Los límites son globales, no «por mazo»** (desvío del plan, a propósito). Los mazos de
+  Sinapsis son recortes dinámicos —un tema, una etiqueta, un cuaderno—: una misma tarjeta cae en
+  varios a la vez, y un tope por recorte dejaría pasarse del total con solo cambiar de recorte.
+  `StudyLimits` (20 nuevas y 200 repasos, `studyLimitsProvider`, en SharedPreferences como el tema
+  y el idioma) topa **todo lo que se estudia en el día**, venga del recorte que venga; elegir un
+  recorte solo filtra qué entra dentro. «Lo que ya estudiaste hoy» sale de `review_log` en toda la
+  bóveda: una **nueva** cuenta al contestarla por primera vez (`phase_before = newCard`), un
+  **repaso** cuando la tarjeta ya estaba en repaso (`review`, el olvido incluido), y los pasos
+  cortos de aprender y reaprender **no tienen tope ni cuentan** —una tarjeta que se empezó se
+  termina—. `extendedBy` amplía el tope solo por hoy («Estudiar más hoy»), sin tocar lo guardado.
+- **La cola de estudio** (`StudyRepository`: `next`, `counts`, `watchCounts`). El estado vive en la
+  base, no en la pantalla: `next` se vuelve a llamar tras cada respuesta, así que una sesión se
+  retoma tal cual. Orden: (1) lo que se aprende o reaprende y ya volvió, la que venció antes
+  primero; (2) los repasos que vencen hoy, el más atrasado primero, hasta el límite; (3) las
+  nuevas, en el orden en que se crearon, hasta el límite. **Las nuevas van después de los repasos,
+  sin mezclarse** (Anki las mezcla): un repaso atrasado nunca queda sin hacer por haberse
+  entretenido con lo nuevo, y la regla no necesita saber cuánto se avanzó en la sesión. (4) Si no
+  queda nada y hay tarjetas que vuelven más tarde hoy: las que están a menos de `learnAhead` se
+  traen ya (cero por defecto, es decir esperan; con Anki serían 20 minutos, pero entonces el paso
+  de 10 minutos casi nunca esperaría y el usuario pidió que vuelva «en 10 minutos»), y si no,
+  `StudyNextWait(until, learningLeft)`; la pantalla elige entre esperar, «Seguir ahora» o cerrar.
+  Si se cortó por un límite, `StudyNextDone.hitLimit` lo dice con cuántas quedaron afuera: «llegaste
+  al límite de hoy» no es «no hay nada». Quedan afuera las pausadas, las pospuestas, las de
+  elementos en la papelera y, para nuevas y repasos, **las hermanas de una tarjeta contestada hoy**
+  (mismo `group_id`: una por grupo por día, deducido de `review_log`, así que deshacer la
+  respuesta devuelve a la hermana). `StudyScope`: todo, un espacio, un tema o etiqueta **con sus
+  ramas**, un cuaderno o un elemento; se resuelve a elementos con `LibraryRepository.matchingIds`
+  y `NotebookRepository.resolveQuery`, los mismos filtros de la Biblioteca (una sola respuesta a
+  «qué entra en Roma»). `StudyCounts` (nuevas / aprendiendo / por repasar, con y sin límite, lo
+  hecho hoy y cuándo vuelve la próxima) sale de **una** consulta con los mismos filtros que
+  `next`; una prueba comprueba que `next` entrega exactamente tantas tarjetas como dice el
+  conteo. Con 10.000 tarjetas en 1.000 elementos (escritorio, base en memoria): `next` 3,6 ms
+  (28 ms en frío), `counts` 6,6 ms, `counts` de un elemento 1,2 ms. Un recorte admite hasta
+  30.000 elementos (un parámetro por elemento; SQLite acepta 32.766). **La insignia de Repasar**
+  es `studyDueTodayCountProvider`: lo que hay para estudiar hoy, con límites y sin lo pausado; se
+  retiraron `watchDue`, `watchDueCount` y sus proveedores para no tener dos verdades de «qué toca».
+- **Deshacer, pausar y posponer** (`FlashcardRepository`). `undoLastReview({since})` devuelve la
+  tarjeta **exactamente** a como estaba (facilidad, intervalo, repeticiones, paso, cuándo tocaba y
+  cuándo se repasó) y borra el renglón de `review_log`, en una transacción; se puede repetir, de la
+  más nueva a la más vieja, aun con varias en el mismo segundo (desempata por `rowid`), y se
+  rechaza sin tocar nada si no hay respuesta, si es de antes de v39, o si la tarjeta cambió después
+  (un repaso más nuevo de otro dispositivo: restaurarla lo pisaría). **El hábito (F17) no necesita
+  un trato aparte, y es lo correcto**: la racha y las insignias se calculan de `review_log`
+  (`HabitActivityDays`; «cien repasos» cuenta sus filas) y repasar no escribe `habit_event`; al
+  borrarse el renglón, un día que solo tenía esa respuesta deja de contar y la insignia de los cien
+  se va si era el repaso 100 (dos pruebas). `suspend` / `unsuspend` / `buryUntilTomorrow` /
+  `unbury` escriben varias tarjetas de una vez y no tocan el calendario. Una prueba repasa y
+  deshace con cada respuesta en cada etapa y compara las tablas de tarjetas y de historial,
+  idénticas.
+- **Las formas nuevas.** `create` acepta `cloze` y `typedAnswer`, `groupId` y `clozeIndex`; una
+  tarjeta de huecos guarda en `front` el **texto entero con sus `{{cN::…}}`**, en `back` un
+  complemento que puede quedar vacío y en `cloze_index` cuál hueco tapa (desde 1; obligatorio con
+  `cloze`, prohibido en las demás). `createSiblings` crea un grupo de una vez, todas o ninguna
+  (`SiblingCardDraft.bothDirections`, `SiblingCardDraft.clozes`).
+- **Anki.** El `.apkg` pone cada tarjeta en la cola que le toca (nueva, aprendiendo con la hora en
+  que vuelve y los pasos que faltan, repaso, reaprendiendo); **las pausadas salen suspendidas**
+  (cola −1) con el resto del calendario; los huecos son **una nota Cloze con una carta por hueco**
+  (`ord = cloze_index − 1`); «escribí la respuesta» usa `{{type:Back}}`; la tarjeta contestada
+  «De nuevo» en el calendario viejo (intervalo 1, 0 repeticiones) ya no sale como nueva. TSV y
+  CSV no tienen dónde decir suspendida, tipo de nota ni calendario: las tarjetas salen como una
+  fila más, sin perderse (una prueba). **Sin probar contra la aplicación Anki** (como antes): se
+  verifica el esquema SQLite, los modelos y los campos de cada carta.
+- **`ReviewScreen`, lo mínimo.** Sigue la cola: «De nuevo» reaparece en 1 minuto dentro de la
+  sesión, los botones dicen minutos o días según lo que pasa, la espera («Descansá un momento»,
+  con «Seguir ahora» y un despertador) y el límite («Llegaste al límite de hoy», «Estudiar más
+  hoy») tienen su pantalla, y una pausada o pospuesta no aparece. Una tarjeta que aparece mientras
+  no había nada la toma sola; con una a la vista no se la cambia debajo de la persona. No se
+  rediseñó: la vuelta de tarjeta, los gestos, el resumen y los atajos son de la tanda de pantallas.
+- **Lo que no se hizo.** Sin probar en el teléfono ni en el emulador (el pedido era solo de pruebas
+  de Dart). Sin probar el cambio de horario de verano ni un viaje entre zonas. Sin pantalla de
+  Ajustes para los límites (el proveedor está) ni para elegir el recorte (la cola lo admite;
+  `ReviewScreen` usa «todo»). La guía de uso no cambió: no hay pantallas nuevas visibles.
+
 ### 70. F31: las formas nuevas de tarjeta, traer mazos de Anki y el aviso diario
 
 Pedido del usuario: *"haz que tenga todo lo necesario para no depender de las apps de Anki,
@@ -6010,6 +6159,12 @@ Todo devuelve tipos propios (nada depende de las columnas nuevas de tarjetas).
   y sus datos; al triar un libro se elige qué sigue —texto y libro, solo el texto o solo el libro—
   y lo soltado espera 30 días en la papelera de la app, recuperable desde el detalle. Ver la
   decisión 68.
+
+- **F31, Repasar sin depender de Anki (la base).** Las tarjetas se aprenden en pasos de 1 y 10
+  minutos dentro de la misma sesión antes de repasarse en días, con el día de estudio de 4:00 a
+  4:00, límites de 20 nuevas y 200 repasos, una cola de estudio con recortes (tema, etiqueta,
+  cuaderno, elemento), deshacer la última respuesta, pausar y posponer; el `.apkg` lleva las
+  pausadas, los pasos, los huecos y «escribí la respuesta». Esquema v39. Ver la decisión 69.
 
 ### Por construir
 
