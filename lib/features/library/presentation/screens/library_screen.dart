@@ -335,9 +335,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     List<KnowledgeItem> allItems,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final selected = allItems
-        .where((item) => _selectedIds.contains(item.id))
-        .toList();
+    // La lista no trae el texto de los elementos: se piden completos los
+    // elegidos antes de exportarlos.
+    final selectedIds = [
+      for (final item in allItems)
+        if (_selectedIds.contains(item.id)) item.id,
+    ];
+    final loaded = await ref
+        .read(libraryRepositoryProvider)
+        .findAllById(selectedIds);
+    if (!context.mounted) return;
+    final selected = loaded.getRight().toNullable();
+    if (selected == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              loaded.getLeft().toNullable()!.localizedMessage(l10n),
+            ),
+          ),
+        );
+      return;
+    }
 
     final result = await ref.read(exportNotebookLmPackageUseCaseProvider)(
       selected,

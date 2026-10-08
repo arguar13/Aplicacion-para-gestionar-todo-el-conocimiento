@@ -233,13 +233,31 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
-  Future<Either<Failure, List<KnowledgeItem>>> list(LibraryQuery query) async {
+  Future<Either<Failure, List<KnowledgeItem>>> list(
+    LibraryQuery query, {
+    bool withText = true,
+  }) async {
     try {
-      return right(await _list(query));
+      return right(await _list(query, withText: withText));
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'LibraryRepositoryImpl.list'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<KnowledgeItem>>> findAllById(
+    List<String> ids,
+  ) async {
+    try {
+      return right(await _itemsInOrder(ids));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.findAllById'),
+      );
     }
   }
 
@@ -298,7 +316,10 @@ class LibraryRepositoryImpl implements LibraryRepository {
     // recordar que quedó uno pendiente y volver a consultar al terminar. Eso
     // agrupa ráfagas de escrituras en una sola consulta y, sobre todo, no
     // pierde ninguna.
-    return _watching(() => _list(query), hint: 'LibraryRepositoryImpl.watch');
+    return _watching(
+      () => _list(query, withText: false),
+      hint: 'LibraryRepositoryImpl.watch',
+    );
   }
 
   /// La mecánica común de los dos métodos que observan cambios.
@@ -384,7 +405,10 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// citas se buscan aparte para esos elementos.
   Future<List<SearchHit>> _search(LibraryQuery query) async {
     if (!query.hasSearchText) {
-      return [for (final item in await _list(query)) SearchHit(item: item)];
+      return [
+        for (final item in await _list(query, withText: false))
+          SearchHit(item: item),
+      ];
     }
     final sql = await _sqlFor(query);
     if (sql.matchesNothing) return [];
@@ -392,7 +416,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
     if (!sql.canMerge) {
       // El plan del texto se decide una vez —cuesta unos milisegundos, con la
       // ventana— y sirve para los resultados y para sus citas.
-      final items = await _list(query, sql: sql);
+      final items = await _list(query, sql: sql, withText: false);
       final citations = await _citationsByRanking(
         sql.plan,
         query.searchText!,
@@ -424,7 +448,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         if (row.readNullable<int>('chunk_key') case final key?)
           row.read<String>('id'): key,
     };
-    final items = await _itemsInOrder(ids);
+    final items = await _itemsInOrder(ids, withText: false);
     final citations = await _citationsFor(query.searchText!, keys);
     return [
       for (final item in items)
@@ -1075,17 +1099,23 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<List<KnowledgeItem>> _list(
     LibraryQuery query, {
     LibraryQuerySql? sql,
-  }) async => _itemsInOrder(await _matchingIds(query, sql: sql));
+    bool withText = true,
+  }) async =>
+      _itemsInOrder(await _matchingIds(query, sql: sql), withText: withText);
 
-  /// Los elementos de [ids], armados, en ESE orden.
-  Future<List<KnowledgeItem>> _itemsInOrder(List<String> ids) async {
+  /// Los elementos de [ids], armados, en ESE orden. Sin el texto con
+  /// [withText] en `false`: ver `LibraryRepository.watch`.
+  Future<List<KnowledgeItem>> _itemsInOrder(
+    List<String> ids, {
+    bool withText = true,
+  }) async {
     if (ids.isEmpty) return [];
 
     final rows = await (_db.select(
       _db.knowledgeEntries,
     )..where((e) => e.id.isIn(ids) & e.isActive)).get();
 
-    final assembled = await _assemble(rows);
+    final assembled = await _assemble(rows, withText: withText);
 
     // `WHERE id IN (...)` no conserva el orden de la lista, así que se
     // reordena según los identificadores que ya venían ordenados. Importa
@@ -1168,9 +1198,14 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// clásico —una lista de cincuenta elementos disparando ciento cincuenta
   /// consultas— que no se nota en una prueba con tres filas y arruina la
   /// pantalla principal con una biblioteca de verdad.
+  ///
+  /// Con [withText] en `false` no trae las formas de texto —que son lo que
+  /// pesa: un libro entero cada una—, solo las de archivo. Quien arma una
+  /// lista no las lee, y se vuelve a armar con cada escritura.
   Future<List<KnowledgeItem>> _assemble(
-    List<KnowledgeEntryRow> itemRows,
-  ) async {
+    List<KnowledgeEntryRow> itemRows, {
+    bool withText = true,
+  }) async {
     if (itemRows.isEmpty) return [];
 
     final itemIds = itemRows.map((i) => i.id).toList();
@@ -1188,7 +1223,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
               (r) =>
                   r.itemId.isIn(itemIds) &
                   r.position.isNull() &
-                  r.textOf.isNull(),
+                  r.textOf.isNull() &
+                  (withText ? const Constant(true) : r.content.isNull()),
             ))
             .get();
     final renditionsByItem = <String, List<Rendition>>{};

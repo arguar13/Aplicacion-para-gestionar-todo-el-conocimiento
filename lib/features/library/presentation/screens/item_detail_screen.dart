@@ -793,8 +793,12 @@ class _BlocksRendition extends ConsumerWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final normalized = title.trim().toLowerCase();
+    // Sin el texto: solo se busca un título, y traer los libros enteros de
+    // toda la biblioteca para eso era memoria de más.
     final allItems =
-        (await ref.read(libraryRepositoryProvider).list(const LibraryQuery()))
+        (await ref
+                .read(libraryRepositoryProvider)
+                .list(const LibraryQuery(), withText: false))
             .getRight()
             .toNullable() ??
         const <KnowledgeItem>[];

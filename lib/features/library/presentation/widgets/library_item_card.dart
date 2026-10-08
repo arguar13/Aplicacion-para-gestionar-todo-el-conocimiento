@@ -365,8 +365,27 @@ class _ItemMenuButton extends ConsumerWidget {
   ) async {
     final l10n = AppLocalizations.of(context)!;
 
+    // La tarjeta viene de una lista, que no trae el texto: se pide el
+    // elemento completo antes de exportarlo.
+    final loaded = await ref.read(libraryRepositoryProvider).findAllById([
+      item.id,
+    ]);
+    if (!context.mounted) return;
+    final full = loaded.getRight().toNullable()?.firstOrNull;
+    if (full == null) {
+      // O falló la lectura, o el elemento ya no está (se borró desde otro
+      // lado mientras tanto): cada una con su aviso.
+      final message =
+          loaded.getLeft().toNullable()?.localizedMessage(l10n) ??
+          l10n.detailLinkNotFound(item.title);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
+
     final result = await ref.read(exportItemUseCaseProvider)(
-      ExportItemParams(item: item, format: format),
+      ExportItemParams(item: full, format: format),
     );
     if (!context.mounted) return;
 

@@ -5129,6 +5129,18 @@ pero si se puede que sea más rápido"* y *"que la app sea eficiente con la RAM 
   con la app en segundo plano. En el emulador no entra el modelo (3,7 GB); todo esto se probó con
   dobles.
 
+- **Las listas no traen el texto** (RAM): `LibraryRepository.watch`, la búsqueda y `list(withText:
+  false)` arman cada elemento sin sus formas de texto —un libro entero cada una—, que son lo que
+  más pesaba y que se volvía a leer con cada escritura (procesar, organizar con la IA). El detalle
+  (`findById`, `watchById`) y `findAllById` los traen completos. Dos lugares exportaban con el
+  elemento de la lista —el menú de la tarjeta y el paquete de NotebookLM—: sin cambios habrían
+  exportado solo el título, sin ningún error; ahora piden el elemento completo antes, con una
+  prueba por cada uno que mira el contenido exportado. El seguimiento de `[[enlaces]]` del detalle
+  ya no trae la biblioteca entera con todos sus textos para buscar un título. `list` sigue
+  completo por defecto: lo necesita, entre otros, el diálogo de vínculos con IA del grafo.
+- **Las miniaturas** se muestran desde el disco y se decodifican al doble de su recuadro (antes, la
+  foto entera: unos 48 MB por fila con una de 12 megapíxeles).
+
 ### 65. F30: Repasar con IA, y la cita que se parafrasea
 
 Pedido del usuario, mirando Repasar vacío: *"quiero que en la sesión de repasar también haya una

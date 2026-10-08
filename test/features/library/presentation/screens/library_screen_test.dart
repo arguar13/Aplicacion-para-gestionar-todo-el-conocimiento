@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1360,6 +1363,34 @@ void main() {
       expect(find.byIcon(Icons.checklist), findsOneWidget);
     });
 
+    // La lista no trae el texto de los elementos: la exportación lo pide
+    // completo antes de armar el paquete. Sin esto el paquete salía con los
+    // títulos y sin una sola línea de texto, sin ningún aviso.
+    testWidgets('el paquete lleva el texto de lo elegido, no solo los '
+        'títulos', (tester) async {
+      await harness.capture(
+        'Frase única del primer libro para NotebookLM.',
+        title: 'Uno',
+      );
+      harness.notebookLmDirectoryChooser.path = '/mi/carpeta';
+      await pumpLibrary(tester);
+
+      await tester.longPress(find.text('Uno'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.upload_file_outlined));
+      await tester.pumpAndSettle();
+
+      final written = harness.notebookLmDirectoryWriter.written;
+      final contents = [for (final bytes in written.values) utf8.decode(bytes)];
+      expect(
+        contents.any(
+          (c) => c.contains('Frase única del primer libro para NotebookLM.'),
+        ),
+        isTrue,
+        reason: 'ningún archivo del paquete trae el texto: $written',
+      );
+    });
+
     testWidgets(
       'cancelar el selector de carpeta no saca del modo de selección',
       (tester) async {
@@ -1577,6 +1608,32 @@ void main() {
       ]) {
         expect(find.text(es.libraryItemExportAs(removed)), findsNothing);
       }
+    });
+
+    // La tarjeta viene de una lista, que no trae el texto: exportar pide el
+    // elemento completo. Sin eso el Word salía con el título y nada más.
+    testWidgets('el Word exportado desde la tarjeta lleva el texto', (
+      tester,
+    ) async {
+      await harness.capture(
+        'Frase única que tiene que estar en el Word exportado.',
+        title: 'Para exportar',
+      );
+      await pumpLibrary(tester);
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(es.libraryItemExportAs(es.exportFormatDocx)));
+      await tester.pumpAndSettle();
+
+      final docx = ZipDecoder().decodeBytes(harness.fileSaver.savedBytes!);
+      final body = utf8.decode(
+        docx.findFile('word/document.xml')!.content as List<int>,
+      );
+      expect(
+        body,
+        contains('Frase única que tiene que estar en el Word exportado.'),
+      );
     });
 
     testWidgets('exportar pasa por el mismo selector de guardado', (

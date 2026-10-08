@@ -29,13 +29,35 @@ abstract interface class LibraryRepository {
   Future<Either<Failure, KnowledgeItem?>> findById(String id);
 
   /// Los elementos que cumplen [query].
-  Future<Either<Failure, List<KnowledgeItem>>> list(LibraryQuery query);
+  ///
+  /// Con [withText] en `false`, sin el texto de cada uno: lo que hace falta
+  /// para listarlos o buscarlos por título, sin traer a memoria los libros
+  /// enteros. Con el texto es lo que lee quien lo necesita —exportar, resumir,
+  /// proponer vínculos—.
+  Future<Either<Failure, List<KnowledgeItem>>> list(
+    LibraryQuery query, {
+    bool withText = true,
+  });
 
-  /// Lo mismo que [list], pero emitiendo de nuevo cada vez que algo cambia.
+  /// Los elementos [ids], con todo su texto, en ESE orden. Los que no existen
+  /// o están en la papelera no aparecen.
+  ///
+  /// Es lo que pide una acción sobre elementos de una lista —exportarlos, por
+  /// ejemplo— antes de actuar: [watch] y las búsquedas no traen el texto.
+  Future<Either<Failure, List<KnowledgeItem>>> findAllById(List<String> ids);
+
+  /// Lo mismo que [list], pero emitiendo de nuevo cada vez que algo cambia, y
+  /// **sin el texto** de cada elemento.
   ///
   /// Es lo que permite que una pantalla abierta se actualice sola cuando una
   /// transcripción termina en segundo plano, sin tener que preguntar cada
   /// tanto ni acordarse de refrescar.
+  ///
+  /// Sin texto a propósito: una lista se vuelve a consultar con cada
+  /// escritura —procesar, organizar con la IA—, y armar cada vez los libros
+  /// enteros de cien elementos eran cientos de MB de memoria para mostrar
+  /// títulos. El detalle ([watchById]) y las acciones que necesitan el texto
+  /// ([findAllById]) lo traen completo.
   Stream<List<KnowledgeItem>> watch(LibraryQuery query);
 
   /// Un elemento concreto, emitiendo de nuevo cada vez que cambia.

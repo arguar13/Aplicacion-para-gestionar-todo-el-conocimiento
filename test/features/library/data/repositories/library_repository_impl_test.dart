@@ -1386,6 +1386,98 @@ void main() {
     });
   });
 
+  // Una lista se vuelve a armar con cada escritura —procesar, organizar con la
+  // IA—: traerle a cada elemento sus libros enteros eran cientos de MB para
+  // mostrar títulos. Lo que necesita el texto lo pide completo.
+  group('listas sin texto, elementos completos', () {
+    late String bookId;
+
+    setUp(() async {
+      final book = buildItem(title: 'Un libro largo', id: 'libro');
+      bookId = book.id;
+      await repository.save(
+        book.copyWith(
+          renditions: [
+            textRendition(book.id, 'Capítulo uno. ' * 50, id: 'texto-libro'),
+            Rendition.file(
+              id: 'pagina-libro',
+              itemId: book.id,
+              kind: RenditionKind.html,
+              relativePath: 'originales/libro/pagina.html',
+              isPrimary: false,
+              createdAt: now,
+            ),
+          ],
+        ),
+      );
+    });
+
+    test('mirar una lista no trae el texto, pero sí los archivos', () async {
+      final items = await repository.watch(const LibraryQuery()).first;
+
+      final book = items.single;
+      expect(book.renditions.whereType<TextRendition>(), isEmpty);
+      expect(book.renditions.map((r) => r.id), ['pagina-libro']);
+      expect(book.title, 'Un libro largo');
+    });
+
+    test('buscar por título tampoco trae el texto', () async {
+      final hits = await repository
+          .watchSearch(const LibraryQuery(searchText: 'libro'))
+          .first;
+
+      expect(hits.single.item.id, bookId);
+      expect(hits.single.item.renditions.whereType<TextRendition>(), isEmpty);
+    });
+
+    test('«list» trae el texto, salvo que se pida sin él', () async {
+      final full = (await repository.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!;
+      final light = (await repository.list(
+        const LibraryQuery(),
+        withText: false,
+      )).getRight().toNullable()!;
+
+      expect(
+        full.single.renditions.whereType<TextRendition>().single.content,
+        startsWith('Capítulo uno.'),
+      );
+      expect(light.single.renditions.whereType<TextRendition>(), isEmpty);
+    });
+
+    test('«findAllById» trae los elementos completos, en el orden pedido, y '
+        'sin los que no existen', () async {
+      await repository.save(buildItem(title: 'Otro', id: 'otro'));
+
+      final items = (await repository.findAllById([
+        'otro',
+        'no-existe',
+        bookId,
+      ])).getRight().toNullable()!;
+
+      expect(items.map((i) => i.id), ['otro', bookId]);
+      expect(
+        items.last.renditions.whereType<TextRendition>().single.content,
+        startsWith('Capítulo uno.'),
+      );
+    });
+
+    test('«findById» y «watchById» siguen trayendo el texto', () async {
+      expect(
+        (await repository.findById(
+          bookId,
+        )).getRight().toNullable()!.renditions.whereType<TextRendition>(),
+        isNotEmpty,
+      );
+      expect(
+        (await repository.watchById(bookId).first)!.renditions
+            .whereType<TextRendition>(),
+        isNotEmpty,
+      );
+    });
+  });
+
   group('observar cambios', () {
     // Se usa `StreamQueue` y no `pumpEventQueue` ni `emitsInOrder` a secas.
     //
