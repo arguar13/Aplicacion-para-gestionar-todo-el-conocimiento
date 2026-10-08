@@ -19,6 +19,7 @@ import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_row_mapping.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/sibling_card_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
 import 'package:sinapsis/features/flashcards/domain/services/sm2_scheduler.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
@@ -51,13 +52,27 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     int? sourceCharEnd,
     FlashcardKind kind = FlashcardKind.freeRecall,
     AiProvenance? ai,
+    String? groupId,
+    int? clozeIndex,
   }) async {
     final trimmedFront = front.trim();
     final trimmedBack = back.trim();
-    if (trimmedFront.isEmpty || trimmedBack.isEmpty) {
+    // Una de huecos puede no traer complemento: la respuesta SON los huecos.
+    final backMayBeEmpty = kind == FlashcardKind.cloze;
+    if (trimmedFront.isEmpty || (trimmedBack.isEmpty && !backMayBeEmpty)) {
       return left(
         const Failure.validation(
           message: 'La pregunta y la respuesta no pueden quedar vacías.',
+        ),
+      );
+    }
+    if ((kind == FlashcardKind.cloze) != (clozeIndex != null) ||
+        (clozeIndex != null && clozeIndex < 1)) {
+      return left(
+        const Failure.validation(
+          message:
+              'Una tarjeta de huecos dice cuál hueco tapa (desde 1), y las '
+              'demás formas no.',
         ),
       );
     }
@@ -104,6 +119,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         sourceCharEnd: sourceCharEnd,
         origin: ai == null ? ContentOrigin.user : ContentOrigin.ai,
         aiRunId: ai?.runId,
+        groupId: groupId,
+        clozeIndex: clozeIndex,
       );
 
       await _db
@@ -122,6 +139,8 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
               sourceCharEnd: Value(card.sourceCharEnd),
               origin: Value(card.origin),
               aiRunId: Value(card.aiRunId),
+              groupId: Value(card.groupId),
+              clozeIndex: Value(card.clozeIndex),
             ),
           );
 
@@ -130,6 +149,55 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(_unexpected(e, stackTrace, 'FlashcardRepositoryImpl.create'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Flashcard>>> createSiblings({
+    required String itemId,
+    required List<SiblingCardDraft> drafts,
+    AiProvenance? ai,
+  }) async {
+    if (drafts.length < 2) {
+      return left(
+        const Failure.validation(
+          message: 'Un grupo de hermanas necesita al menos dos tarjetas.',
+        ),
+      );
+    }
+    final groupId = _ids.next();
+    try {
+      return await _db.transaction(() async {
+        final created = <Flashcard>[];
+        for (final draft in drafts) {
+          final result = await create(
+            itemId: itemId,
+            front: draft.front,
+            back: draft.back,
+            kind: draft.kind,
+            sourceCharStart: draft.sourceCharStart,
+            sourceCharEnd: draft.sourceCharEnd,
+            clozeIndex: draft.clozeIndex,
+            groupId: groupId,
+            ai: ai,
+          );
+          final failure = result.getLeft().toNullable();
+          if (failure != null) {
+            // Todas o ninguna: una hermana que falla deshace el grupo.
+            throw _SiblingFailed(failure);
+          }
+          created.add(result.getRight().toNullable()!);
+        }
+        return right<Failure, List<Flashcard>>(created);
+      });
+    } on _SiblingFailed catch (failed) {
+      return left(failed.failure);
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'FlashcardRepositoryImpl.createSiblings'),
+      );
     }
   }
 
@@ -826,6 +894,14 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     _telemetry.recordError(e, stackTrace, hint: hint);
     return Failure.unexpected(message: e.toString());
   }
+}
+
+/// Una hermana del grupo que falló al crearse: sale de la transacción para
+/// deshacerlas todas.
+class _SiblingFailed implements Exception {
+  const _SiblingFailed(this.failure);
+
+  final Failure failure;
 }
 
 /// Lo que se borra con una tarjeta de la IA al decir que «no era» (F27): la

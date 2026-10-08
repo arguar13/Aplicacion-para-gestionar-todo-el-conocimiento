@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/sibling_card_draft.dart';
 
 /// Crear, repasar y borrar tarjetas: todo lo que necesita esta parte de la
 /// app.
@@ -28,6 +29,13 @@ abstract interface class FlashcardRepository {
   /// no se crea acá: usa [createMultipleChoice], que además necesita sus
   /// opciones.
   ///
+  /// Las formas de F31: con `cloze`, [front] es el texto ENTERO con sus huecos
+  /// marcados, [back] un complemento que puede quedar vacío, y [clozeIndex]
+  /// (desde 1) dice cuál hueco tapa esta tarjeta —obligatorio con `cloze`,
+  /// prohibido con las demás—. `typedAnswer` es como `freeRecall`: [back] es la
+  /// respuesta con la que se compara lo que la persona escribe. [groupId] la
+  /// declara hermana de otras (ver [createSiblings], que lo arma solo).
+  ///
   /// Con [ai] la crea la IA (F27): queda marcada como suya, con su pasada. Se
   /// rechaza, sin escribir nada, si la persona ya dijo que esa pregunta
   /// —normalizada: sin mayúsculas, acentos ni signos— «no era» en este
@@ -39,6 +47,22 @@ abstract interface class FlashcardRepository {
     int? sourceCharStart,
     int? sourceCharEnd,
     FlashcardKind kind = FlashcardKind.freeRecall,
+    AiProvenance? ai,
+    String? groupId,
+    int? clozeIndex,
+  });
+
+  /// Crea varias tarjetas hermanas de una vez (F31): las dos direcciones de una
+  /// pregunta o los huecos de un texto (`SiblingCardDraft.bothDirections`,
+  /// `SiblingCardDraft.clozes`). Todas comparten un `group_id` nuevo; se crean
+  /// en UNA transacción —todas o ninguna— y se devuelven en el orden de
+  /// [drafts]. Hace falta al menos dos.
+  ///
+  /// Cada una pasa por las mismas validaciones que [create], y con [ai] por el
+  /// mismo filtro de lo que «no era».
+  Future<Either<Failure, List<Flashcard>>> createSiblings({
+    required String itemId,
+    required List<SiblingCardDraft> drafts,
     AiProvenance? ai,
   });
 
