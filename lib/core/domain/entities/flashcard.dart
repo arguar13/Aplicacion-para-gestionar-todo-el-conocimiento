@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 
@@ -53,6 +54,27 @@ sealed class Flashcard with _$Flashcard {
 
     /// La pasada de la IA que la creó. `null` en las de la persona.
     String? aiRunId,
+
+    /// Pausada (F31): no entra en ninguna sesión hasta que se la reactive; su
+    /// calendario no se toca.
+    @Default(false) bool suspended,
+
+    /// Pospuesta hasta esta fecha (F31): no entra en ninguna sesión mientras
+    /// sea futura. `null` = no está pospuesta.
+    DateTime? buriedUntil,
+
+    /// El paso de aprendizaje en el que está (F31): `null` = no se aprende ni
+    /// se reaprende (nueva, o en repaso por días); 0 = el primer paso, 1 = el
+    /// segundo. Ver [phase].
+    int? learningStep,
+
+    /// Las hermanas (F31): las tarjetas de un mismo grupo —las dos direcciones
+    /// de una pregunta, los huecos de un texto— comparten este id y no se
+    /// estudian el mismo día. `null` = sin hermanas.
+    String? groupId,
+
+    /// En una tarjeta `cloze`, cuál hueco tapa (desde 1). `null` en las demás.
+    int? clozeIndex,
   }) = _Flashcard;
 
   const Flashcard._();
@@ -65,4 +87,30 @@ sealed class Flashcard with _$Flashcard {
 
   /// Si ya toca repasarla.
   bool isDue(DateTime now) => !dueAt.isAfter(now);
+
+  /// En qué etapa del calendario está (F31). Se DEDUCE de los campos, sin una
+  /// columna propia, para que lo programado antes de F31 tenga etapa sin
+  /// migrarse:
+  ///
+  /// - con [learningStep]: se aprende (si nunca se graduó: intervalo 0) o se
+  ///   reaprende (si ya tuvo intervalo y se olvidó);
+  /// - sin paso, sin intervalo, sin repeticiones y sin haberse contestado
+  ///   nunca: nueva;
+  /// - todo lo demás: en repaso por días. Incluye la tarjeta de antes de F31
+  ///   a la que le dijeron «De nuevo» (intervalo 1, repeticiones 0).
+  CardPhase get phase {
+    if (learningStep != null) {
+      return intervalDays == 0 ? CardPhase.learning : CardPhase.relearning;
+    }
+    if (repetitions == 0 && intervalDays == 0 && lastReviewedAt == null) {
+      return CardPhase.newCard;
+    }
+    return CardPhase.review;
+  }
+
+  /// Si está en un paso corto (se aprende o se reaprende): vuelve en minutos.
+  bool get isInLearningSteps => learningStep != null;
+
+  /// Si la pospusieron y todavía no llegó el momento de volver a verla.
+  bool isBuriedAt(DateTime now) => buriedUntil?.isAfter(now) ?? false;
 }

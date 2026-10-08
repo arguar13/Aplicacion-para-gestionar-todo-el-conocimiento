@@ -84,6 +84,12 @@ const kFlashcardColumns = [
   // Quién la hizo y en qué pasada de la IA (F27).
   'origin',
   'ai_run_id',
+  // Pausada, pospuesta, en qué paso de aprendizaje va y con qué hermanas (F31).
+  'suspended',
+  'buried_until',
+  'learning_step',
+  'group_id',
+  'cloze_index',
 ];
 const kFlashcardOptionColumns = [
   'id',
@@ -107,6 +113,13 @@ const kReviewLogColumns = [
   'ease_before',
   'ease_after',
   'device_id',
+  // De qué etapa partió el repaso y lo necesario para deshacerlo (F31).
+  'phase_before',
+  'step_before',
+  'step_after',
+  'due_before',
+  'last_reviewed_before',
+  'repetitions_before',
 ];
 const kProvenanceColumns = [
   'id',
@@ -220,6 +233,11 @@ class SetUnionMerge {
     // lo que diga la incoming, o la próxima exportación incremental la
     // saltearía creyendo que ya está en el Anki de este dispositivo.
     // Una de la IA que acá alguien dijo que «no era» no vuelve (F27).
+    //
+    // Pausada, pospuesta y en qué paso de aprendizaje va (F31): `suspended`
+    // viaja con la tarjeta, porque quien la pausó en la otra bóveda no la
+    // quería ver acá tampoco; `buried_until` NO: es un «hoy no» de un
+    // dispositivo, y a la tarjeta que llega le toca estudiarse cuando le toque.
     final flashcards = await _union(
       _db.flashcards,
       'flashcards',
@@ -234,6 +252,7 @@ class SetUnionMerge {
             'CASE WHEN EXISTS (SELECT 1 FROM main.chunks c '
             'WHERE c.id = x.source_chunk_id) THEN x.source_chunk_id END',
         'last_exported_at': 'NULL',
+        'buried_until': 'NULL',
         'ai_run_id': AiProvenanceMerge.runOrNull('x.ai_run_id'),
       },
     );
@@ -251,13 +270,17 @@ class SetUnionMerge {
     );
 
     // Una tarjeta que las dos tienen: el calendario es el del repaso más
-    // reciente. El texto de la tarjeta no se toca.
+    // reciente, con su paso de aprendizaje (F31): el paso va con la fecha, o
+    // una tarjeta quedaría «aprendiéndose» con la fecha de un repaso en días.
+    // El texto de la tarjeta, si está pausada y si está pospuesta no se tocan:
+    // son decisiones de quien la usa en cada lugar.
     final flashcardsUpdated = await _db.customUpdate(
       '''
       UPDATE main.flashcards SET
         ease_factor = x.ease_factor,
         interval_days = x.interval_days,
         repetitions = x.repetitions,
+        learning_step = x.learning_step,
         due_at = x.due_at,
         last_reviewed_at = x.last_reviewed_at
        FROM $_incoming.flashcards x

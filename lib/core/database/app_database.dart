@@ -53,6 +53,7 @@ import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/attachment_download_status.dart';
+import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
@@ -171,7 +172,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 38;
+  static const currentSchemaVersion = 39;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -869,6 +870,68 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createIndex(idxContentTrashItem);
           await migrator.createIndex(idxContentTrashTrashedAt);
           await _requireSameCounts(before, step: 'v38', tables: tables);
+        }
+
+        // Repasar sin depender de Anki (F31, decisión 69): las tarjetas ganan
+        // lo que hace falta para pausarlas, posponerlas, aprenderlas en pasos
+        // cortos y agruparlas con sus hermanas (`suspended`, `buried_until`,
+        // `learning_step`, `group_id`, `cloze_index`), y cada fila de
+        // `review_log` guarda de qué etapa partió el repaso y lo necesario
+        // para deshacerlo. Aditiva: en todo lo de antes, «no pausada, no
+        // pospuesta, sin paso, sin hermanas» —el calendario programado sigue
+        // igual—. La única fila que se toca es la etapa de los repasos viejos:
+        // la primera respuesta de cada tarjeta (`interval_before = 0`) pasa a
+        // `newCard`, para que los límites del día cuenten bien desde el primer
+        // día. Los conteos de todo lo anterior son compuerta.
+        //
+        // Las columnas pueden existir ya: el paso v18 reconstruye `flashcards`
+        // y el v20 crea `review_log` con su definición de hoy.
+        if (from < 39) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          for (final column in [
+            flashcards.suspended,
+            flashcards.buriedUntil,
+            flashcards.learningStep,
+            flashcards.groupId,
+            flashcards.clozeIndex,
+          ]) {
+            if (!await _columnExists('flashcards', column.name)) {
+              await migrator.addColumn(flashcards, column);
+            }
+          }
+          await migrator.createIndex(idxFlashcardsGroup);
+          final reviewLogColumns = <GeneratedColumn>[
+            reviewLogs.phaseBefore,
+            reviewLogs.stepBefore,
+            reviewLogs.stepAfter,
+            reviewLogs.dueBefore,
+            reviewLogs.lastReviewedBefore,
+            reviewLogs.repetitionsBefore,
+          ];
+          for (final column in reviewLogColumns) {
+            if (!await _columnExists('review_log', column.name)) {
+              await migrator.addColumn(reviewLogs, column);
+            }
+          }
+          await customUpdate(
+            "UPDATE review_log SET phase_before = '${CardPhase.newCard.name}' "
+            'WHERE interval_before = 0',
+            updates: {reviewLogs},
+          );
+          await _requireSameCounts(before, step: 'v39', tables: tables);
         }
       });
     },

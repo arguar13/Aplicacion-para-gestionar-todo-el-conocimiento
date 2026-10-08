@@ -465,13 +465,15 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
         if (row == null) return null;
 
         final now = _clock();
-        final next = scheduleNext(_toEntity(row), grade, now: now);
+        final before = _toEntity(row);
+        final next = scheduleNext(before, grade, now: now);
 
         await (_db.update(_db.flashcards)..where((f) => f.id.equals(id))).write(
           FlashcardsCompanion(
             easeFactor: Value(next.easeFactor),
             intervalDays: Value(next.intervalDays),
             repetitions: Value(next.repetitions),
+            learningStep: Value(next.learningStep),
             dueAt: Value(next.dueAt),
             lastReviewedAt: Value(next.lastReviewedAt),
           ),
@@ -492,6 +494,13 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
                 easeBefore: row.easeFactor,
                 easeAfter: next.easeFactor,
                 deviceId: _db.deviceId,
+                // De dónde partió, y lo necesario para deshacerlo (F31).
+                phaseBefore: Value(before.phase),
+                stepBefore: Value(row.learningStep),
+                stepAfter: Value(next.learningStep),
+                dueBefore: Value(row.dueAt),
+                lastReviewedBefore: Value(row.lastReviewedAt),
+                repetitionsBefore: Value(row.repetitions),
               ),
             );
         return next;
@@ -653,6 +662,11 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
     lastExportedAt: row.lastExportedAt,
     origin: row.origin,
     aiRunId: row.aiRunId,
+    suspended: row.suspended,
+    buriedUntil: row.buriedUntil,
+    learningStep: row.learningStep,
+    groupId: row.groupId,
+    clozeIndex: row.clozeIndex,
   );
 
   FlashcardOption _toOptionEntity(FlashcardOptionRow row) => FlashcardOption(

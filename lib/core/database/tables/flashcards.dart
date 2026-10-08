@@ -16,6 +16,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 @TableIndex(name: 'idx_flashcards_item', columns: {#itemId})
 @TableIndex(name: 'idx_flashcards_due_at', columns: {#dueAt})
 @TableIndex(name: 'idx_flashcards_ai_run', columns: {#aiRunId})
+@TableIndex(name: 'idx_flashcards_group', columns: {#groupId})
 class Flashcards extends Table {
   TextColumn get id => text()();
 
@@ -84,6 +85,31 @@ class Flashcards extends Table {
   /// en las de la persona y en las que la persona adoptó.
   TextColumn get aiRunId =>
       text().nullable().references(AiRuns, #id, onDelete: KeyAction.setNull)();
+
+  /// Pausada (F31, v39): no entra en ninguna sesión hasta que se la reactive.
+  /// Su calendario no se toca. Falso en todo lo de antes.
+  BoolColumn get suspended => boolean().withDefault(const Constant(false))();
+
+  /// Pospuesta (F31, v39): no entra en ninguna sesión mientras `ahora` sea
+  /// anterior a esta fecha —el comienzo del próximo día de estudio, que
+  /// `StudyDay` calcula—. Se «despospone» sola al llegar; nada la limpia. Nula
+  /// en todo lo de antes.
+  DateTimeColumn get buriedUntil => dateTime().nullable()();
+
+  /// En qué paso de aprendizaje está (F31, v39): nulo = no se está aprendiendo
+  /// ni reaprendiendo (nueva, o ya en repaso por días); 0 = el primer paso
+  /// (1 min), 1 = el segundo (10 min). Los pasos de reaprendizaje usan la misma
+  /// columna: ver `CardPhase` y `scheduleNext`. Nulo en todo lo de antes.
+  IntColumn get learningStep => integer().nullable()();
+
+  /// A qué grupo de tarjetas hermanas pertenece (F31, v39): las dos direcciones
+  /// de una pregunta, los huecos de un mismo texto. La cola no muestra dos
+  /// hermanas el mismo día. Nulo = sin hermanas, en todo lo de antes.
+  TextColumn get groupId => text().nullable()();
+
+  /// Cuál hueco tapa (F31, v39), contando desde 1, en una tarjeta `cloze`. Nulo
+  /// en cualquier otra forma.
+  IntColumn get clozeIndex => integer().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

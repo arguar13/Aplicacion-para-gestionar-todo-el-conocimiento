@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -182,6 +183,83 @@ void main() {
       // .apkg, así que no hereda la fecha de la incoming.
       expect(card.lastExportedAt, isNull);
     });
+
+    test('una tarjeta nueva llega pausada, con su paso y sus hermanas; la '
+        'pospuesta, no (F31)', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addFlashcard('fc', 'a', kind: FlashcardKind.cloze);
+      await pc.db.customStatement(
+        'UPDATE flashcards SET suspended = 1, learning_step = 1, '
+        "group_id = 'g1', cloze_index = 2, buried_until = 1789000000",
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      final card = await tel.db.select(tel.db.flashcards).getSingle();
+      expect(card.suspended, isTrue);
+      expect(card.learningStep, 1);
+      expect(card.groupId, 'g1');
+      expect(card.clozeIndex, 2);
+      // «Hoy no» es de un dispositivo: no viaja.
+      expect(card.buriedUntil, isNull);
+    });
+
+    test('el calendario del repaso más reciente trae también su paso de '
+        'aprendizaje, y deja lo que cada lugar decidió (F31)', () async {
+      await shareItems();
+      tel.at(3);
+      await tel.addFlashcard('fc', 'a');
+      await tel.db.customStatement(
+        'UPDATE flashcards SET suspended = 1, buried_until = 1789000000',
+      );
+      pc.at(4);
+      await pc.mergeFrom(tel);
+      pc.at(20);
+      await pc.reviewCard('fc');
+      await pc.db.customStatement(
+        'UPDATE flashcards SET learning_step = 1, suspended = 0',
+      );
+
+      tel.at(30);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.flashcardsUpdated, 1);
+      final card = await tel.db.select(tel.db.flashcards).getSingle();
+      expect(card.learningStep, 1);
+      // Pausarla o posponerla es decisión de cada lugar: acá sigue como estaba.
+      expect(card.suspended, isTrue);
+      expect(card.buriedUntil, isNotNull);
+    });
+
+    test(
+      'los repasos de la copia traen de qué etapa partieron (F31)',
+      () async {
+        await shareItems();
+        pc.at(5);
+        await pc.addFlashcard('fc', 'a');
+        await pc.db.customStatement(
+          'INSERT INTO review_log (id, flashcard_id, reviewed_at, grade, '
+          'quality, interval_before, interval_after, ease_before, ease_after, '
+          'device_id, phase_before, step_before, step_after, due_before, '
+          'last_reviewed_before, repetitions_before) VALUES '
+          "('rv', 'fc', 1789000000, 'good', 4, 0, 0, 2.5, 2.5, 'pc', "
+          "'learning', 0, 1, 1788990000, NULL, 0)",
+        );
+
+        tel.at(9);
+        await tel.mergeFrom(pc);
+
+        final log = await tel.db.select(tel.db.reviewLogs).getSingle();
+        expect(log.phaseBefore, CardPhase.learning);
+        expect(log.stepBefore, 0);
+        expect(log.stepAfter, 1);
+        expect(log.dueBefore, isNotNull);
+        expect(log.lastReviewedBefore, isNull);
+        expect(log.repetitionsBefore, 0);
+      },
+    );
 
     test('con un fragmento que acá existe, lo conserva', () async {
       await shareItems();

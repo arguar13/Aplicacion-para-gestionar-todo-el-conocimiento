@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/card_phase.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -527,6 +528,31 @@ void main() {
       // Una tarjeta que se olvidó pierde facilidad.
       expect(rows.last.easeAfter, lessThan(rows.last.easeBefore));
     });
+
+    test(
+      'guarda de qué etapa partió y lo necesario para deshacerlo (F31)',
+      () async {
+        final id = await newCard();
+        final first = now;
+        await repository.review(id: id, grade: ReviewGrade.good);
+        now = now.add(const Duration(days: 1));
+        await repository.review(id: id, grade: ReviewGrade.good);
+
+        final rows = await log();
+        // La primera respuesta parte de una tarjeta nueva, sin nada anterior.
+        expect(rows.first.phaseBefore, CardPhase.newCard);
+        expect(rows.first.dueBefore, first);
+        expect(rows.first.lastReviewedBefore, isNull);
+        expect(rows.first.repetitionsBefore, 0);
+        expect(rows.first.stepBefore, isNull);
+        // La segunda, de una que ya se repasa, con la fecha y el repaso de
+        // antes.
+        expect(rows.last.phaseBefore, CardPhase.review);
+        expect(rows.last.lastReviewedBefore, first);
+        expect(rows.last.repetitionsBefore, 1);
+        expect(rows.last.dueBefore, first.add(const Duration(days: 1)));
+      },
+    );
 
     test('lo que guarda coincide con lo que quedó en la tarjeta', () async {
       final id = await newCard();
