@@ -14,6 +14,8 @@ import 'package:sinapsis/features/chat/domain/entities/language_model_performanc
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
+import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
+import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_draft_parser.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quiz_question_generator.dart';
@@ -325,6 +327,7 @@ class GemmaChatModel
     implements
         ChatModel,
         FlashcardGenerator,
+        ClozeGenerator,
         RelationSuggestionService,
         SummarizationService,
         PropertySuggestionService,
@@ -529,6 +532,33 @@ class GemmaChatModel
         final text = await _generate(chat);
 
         return parseFlashcardDrafts(text).take(count).toList();
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  @override
+  Future<List<ClozeDraft>> generateClozes({
+    required String content,
+    int count = 5,
+  }) {
+    return _withTurn((model) async {
+      final chat = await model.createChat(
+        systemInstruction: clozeSystemInstruction,
+        maxOutputTokens: draftsReplyTokens(count),
+      );
+
+      try {
+        await chat.addQueryChunk(
+          Message.text(
+            text: buildClozeRequest(content: content, count: count),
+            isUser: true,
+          ),
+        );
+        final text = await _generate(chat);
+
+        return parseClozeDrafts(text).take(count).toList();
       } finally {
         await chat.close();
       }
