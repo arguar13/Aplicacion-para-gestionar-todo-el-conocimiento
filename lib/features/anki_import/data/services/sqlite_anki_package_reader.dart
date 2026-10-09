@@ -245,7 +245,7 @@ class SqliteAnkiPackageReader implements AnkiPackageReader {
       'n.flds AS flds, c.id AS cid, c.did AS did, c.ord AS ord, '
       'c.type AS type, c.queue AS queue, c.due AS due, c.ivl AS ivl, '
       'c.factor AS factor, c.reps AS reps, c.lapses AS lapses, '
-      'c.odue AS odue, c.odid AS odid '
+      'c.odue AS odue, c.odid AS odid, c."left" AS stepsleft '
       'FROM cards c JOIN notes n ON n.id = c.nid '
       'ORDER BY n.id, c.ord',
     );
@@ -283,6 +283,7 @@ class SqliteAnkiPackageReader implements AnkiPackageReader {
             lapses: _int(r['lapses']),
             originalDue: _int(r['odue']),
             originalDeckId: _int(r['odid']),
+            left: _int(r['stepsleft']),
           ),
         );
       }

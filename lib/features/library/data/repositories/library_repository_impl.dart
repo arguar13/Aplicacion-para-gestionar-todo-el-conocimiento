@@ -208,11 +208,19 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// hash anterior primero: a diferencia del chunking de F5, acá el
   /// cálculo es tan barato que no vale la pena optimizar recalcularlo en
   /// cada guardado.
+  ///
+  /// Corre en la zona raíz, no en la de quien guarda: si `save` se llama dentro
+  /// de una transacción de quien lo usa (`runInTransaction`, p. ej. al traer un
+  /// mazo de Anki), un futuro sin esperar que hereda esa zona seguiría
+  /// hablándole a la transacción ya cerrada, y fallaría siempre. Afuera de ella
+  /// espera su turno y lee lo ya confirmado.
   void _generateDuplicateSuggestionForNote(KnowledgeItem item) {
     if (itemKindFor(item.source.kind) != ItemKind.note) return;
     final generator = _duplicateSuggestionGenerator;
     if (generator == null) return;
-    unawaited(generator.generate(item).catchError((_, __) {}));
+    unawaited(
+      Zone.root.run(() => generator.generate(item).catchError((_, __) {})),
+    );
   }
 
   @override

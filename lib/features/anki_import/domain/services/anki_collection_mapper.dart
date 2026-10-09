@@ -81,6 +81,7 @@ class AnkiCardRow {
     required this.lapses,
     this.originalDue = 0,
     this.originalDeckId = 0,
+    this.left = 0,
   });
 
   final int id;
@@ -98,6 +99,11 @@ class AnkiCardRow {
   /// filtrado (0 si no está en uno).
   final int originalDue;
   final int originalDeckId;
+
+  /// `left`: en una tarjeta que se aprende, cuántos pasos le faltan. Anki lo
+  /// guarda como `pasos_para_graduar * 1000 + pasos_de_hoy`; lo que sirve son
+  /// los últimos tres dígitos. Sinapsis lo escribe sin multiplicar (1 o 2).
+  final int left;
 }
 
 /// Los tipos de nota de `col.models` (un JSON `{id: definición}`).
@@ -498,6 +504,10 @@ class AnkiCollectionMapper {
       lastReviewedAt: lastMs == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(lastMs),
+      learningStepsLeft:
+          state == AnkiCardState.learning || state == AnkiCardState.relearning
+          ? row.left % 1000
+          : 0,
       suspended: row.queue == -1,
       postponed: row.queue == -2 || row.queue == -3,
       inFilteredDeck: inFiltered,

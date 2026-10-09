@@ -152,6 +152,7 @@ class FixtureCard {
     this.factor = 0,
     this.reps = 0,
     this.lapses = 0,
+    this.left = 0,
     this.odue = 0,
     this.odid = 0,
   });
@@ -167,6 +168,7 @@ class FixtureCard {
   final int factor;
   final int reps;
   final int lapses;
+  final int left;
   final int odue;
   final int odid;
 }
@@ -249,7 +251,7 @@ Uint8List collectionBytes({
       for (final c in cards) {
         db.execute(
           'INSERT INTO cards VALUES '
-          '(?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?)',
+          '(?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)',
           [
             c.id,
             c.noteId,
@@ -262,6 +264,7 @@ Uint8List collectionBytes({
             c.factor,
             c.reps,
             c.lapses,
+            c.left,
             c.odue,
             c.odid,
             '',

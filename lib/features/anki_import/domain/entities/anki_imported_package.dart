@@ -56,6 +56,7 @@ class AnkiCardSchedule {
     this.dueAt,
     this.newPosition,
     this.lastReviewedAt,
+    this.learningStepsLeft = 0,
     this.suspended = false,
     this.postponed = false,
     this.inFilteredDeck = false,
@@ -87,6 +88,11 @@ class AnkiCardSchedule {
 
   /// El último repaso, si el paquete trae el historial (`revlog`).
   final DateTime? lastReviewedAt;
+
+  /// En una tarjeta que se aprende o se reaprende, cuántos pasos le faltan
+  /// (`left` de Anki, la parte de «hoy»): con 2 pasos, 2 es que está en el
+  /// primero y 1 que está en el segundo. 0 si no se sabe o no aplica.
+  final int learningStepsLeft;
 
   /// Pausada (suspendida) en Anki: no se muestra hasta que se reactive.
   final bool suspended;
