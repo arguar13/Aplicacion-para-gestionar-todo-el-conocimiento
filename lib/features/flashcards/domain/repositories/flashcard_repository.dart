@@ -92,6 +92,11 @@ abstract interface class FlashcardRepository {
   ///
   /// Editar es adoptar (F27): una que hizo la IA pasa a ser de la persona, sin
   /// pasada, y «deshacer todo» ya no se la lleva.
+  ///
+  /// La respuesta puede quedar vacía en una tarjeta de huecos (la respuesta son
+  /// los huecos) y en una de opción múltiple (vive en sus opciones); en las
+  /// demás, no. El texto de una de huecos tiene que seguir teniendo el hueco
+  /// que esa tarjeta tapa, bien escrito: si no, se rechaza sin tocar nada.
   Future<Either<Failure, Flashcard>> update({
     required String id,
     required String front,

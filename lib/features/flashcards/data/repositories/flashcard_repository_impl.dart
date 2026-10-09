@@ -21,6 +21,7 @@ import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_dr
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/sibling_card_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
+import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/sm2_scheduler.dart';
 import 'package:sinapsis/features/flashcards/domain/services/study_day.dart';
 
@@ -351,15 +352,48 @@ class FlashcardRepositoryImpl implements FlashcardRepository {
   }) async {
     final trimmedFront = front.trim();
     final trimmedBack = back.trim();
-    if (trimmedFront.isEmpty || trimmedBack.isEmpty) {
-      return left(
-        const Failure.validation(
-          message: 'La pregunta y la respuesta no pueden quedar vacías.',
-        ),
-      );
-    }
 
     try {
+      final existing = await (_db.select(
+        _db.flashcards,
+      )..where((f) => f.id.equals(id))).getSingleOrNull();
+      if (existing == null) {
+        return left(
+          const Failure.unexpected(
+            message: 'La tarjeta ya no existe; puede que se haya borrado.',
+          ),
+        );
+      }
+      // Una de huecos puede no traer complemento (la respuesta SON los
+      // huecos), y la de opción múltiple tampoco: su respuesta vive en las
+      // opciones (ver `createMultipleChoice`). Pedirle una a cada una haría
+      // imposible editar lo que se creó así.
+      final backMayBeEmpty =
+          existing.kind == FlashcardKind.cloze ||
+          existing.kind == FlashcardKind.multipleChoice;
+      if (trimmedFront.isEmpty || (trimmedBack.isEmpty && !backMayBeEmpty)) {
+        return left(
+          const Failure.validation(
+            message: 'La pregunta y la respuesta no pueden quedar vacías.',
+          ),
+        );
+      }
+      // El texto de una tarjeta de huecos tiene que seguir teniendo el hueco
+      // que ella tapa: sin él la tarjeta pregunta por nada.
+      if (existing.kind == FlashcardKind.cloze) {
+        final text = parseCloze(trimmedFront);
+        if (!text.isValid || !text.numbers.contains(existing.clozeIndex)) {
+          return left(
+            Failure.validation(
+              message:
+                  'El texto tiene que seguir teniendo el hueco '
+                  '{{c${existing.clozeIndex}::…}} que esta tarjeta tapa, bien '
+                  'escrito.',
+            ),
+          );
+        }
+      }
+
       final updated =
           await (_db.update(
             _db.flashcards,

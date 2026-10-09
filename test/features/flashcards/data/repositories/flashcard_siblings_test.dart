@@ -5,6 +5,7 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/sibling_card_draft.dart';
 
@@ -195,6 +196,118 @@ void main() {
 
       expect(result.isLeft(), isTrue);
       expect(await db.select(db.flashcards).get(), isEmpty);
+    });
+  });
+
+  // Editar desde el repaso (F31, ola 2): lo que se creó sin complemento tiene
+  // que poder editarse sin inventarle uno.
+  group('actualizar una tarjeta de una forma nueva', () {
+    Future<String> clozeCard({int index = 2}) async => (await repository.create(
+      itemId: 'item',
+      front: cloze,
+      back: '',
+      kind: FlashcardKind.cloze,
+      clozeIndex: index,
+    )).getRight().toNullable()!.id;
+
+    test(
+      'una de huecos se edita sin complemento y conserva su hueco',
+      () async {
+        final id = await clozeCard();
+
+        final result = await repository.update(
+          id: id,
+          front: 'El {{c1::Imperio}} cayó en {{c2::476 d. C.}}',
+          back: '',
+        );
+
+        final card = result.getRight().toNullable()!;
+        expect(card.front, 'El {{c1::Imperio}} cayó en {{c2::476 d. C.}}');
+        expect(card.back, isEmpty);
+        expect(card.kind, FlashcardKind.cloze);
+        expect(card.clozeIndex, 2);
+      },
+    );
+
+    test('una de huecos no puede perder el hueco que tapa', () async {
+      final id = await clozeCard();
+
+      final result = await repository.update(
+        id: id,
+        front: 'El {{c1::Imperio romano}} cayó',
+        back: '',
+      );
+
+      expect(result.isLeft(), isTrue);
+      final stored = await db.select(db.flashcards).getSingle();
+      expect(stored.front, cloze);
+    });
+
+    test('una de huecos no acepta un hueco mal escrito', () async {
+      final id = await clozeCard();
+
+      final result = await repository.update(
+        id: id,
+        front: 'El {{c1::Imperio romano}} cayó en {{c2::476',
+        back: '',
+      );
+
+      expect(result.isLeft(), isTrue);
+      final stored = await db.select(db.flashcards).getSingle();
+      expect(stored.front, cloze);
+    });
+
+    test('una de opción múltiple se edita sin respuesta propia', () async {
+      final id = (await repository.createMultipleChoice(
+        itemId: 'item',
+        front: '¿Capital de Italia?',
+        options: const [
+          FlashcardOptionDraft(content: 'Roma', isCorrect: true),
+          FlashcardOptionDraft(content: 'Milán', isCorrect: false),
+        ],
+      )).getRight().toNullable()!.id;
+
+      final result = await repository.update(
+        id: id,
+        front: '¿Cuál es la capital de Italia?',
+        back: '',
+      );
+
+      expect(
+        result.getRight().toNullable()!.front,
+        '¿Cuál es la capital de Italia?',
+      );
+    });
+
+    test('las formas que sí tienen respuesta siguen exigiéndola', () async {
+      final typed = (await repository.create(
+        itemId: 'item',
+        front: '¿Año de la caída?',
+        back: '476',
+        kind: FlashcardKind.typedAnswer,
+      )).getRight().toNullable()!;
+      final free = (await repository.create(
+        itemId: 'item',
+        front: '¿Capital?',
+        back: 'Roma',
+      )).getRight().toNullable()!;
+
+      expect(
+        (await repository.update(
+          id: typed.id,
+          front: '¿Año?',
+          back: '  ',
+        )).isLeft(),
+        isTrue,
+      );
+      expect(
+        (await repository.update(
+          id: free.id,
+          front: '¿Capital?',
+          back: '',
+        )).isLeft(),
+        isTrue,
+      );
     });
   });
 }
