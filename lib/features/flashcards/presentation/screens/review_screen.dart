@@ -1,173 +1,76 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
-import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
-import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
 import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
-import 'package:sinapsis/features/flashcards/domain/entities/study_counts.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_next.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
-import 'package:sinapsis/features/flashcards/domain/services/review_interval.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/study_session_controller.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_card.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_progress.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_summary.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
-import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
-import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
-import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar las tarjetas que ya tocan, de a una: se lee la pregunta, se
 /// intenta responder de memoria, se toca para revelar la respuesta, y se
 /// califica qué tan bien salió. Esa calificación es lo único que decide
 /// cuándo vuelve a aparecer (algoritmo SM-2, ver `scheduleNext`).
+///
+/// Qué toca lo decide la cola de estudio (`StudyRepository`) para [scope], y
+/// el estado de la sesión vive en `StudySessionController`: esta pantalla lo
+/// dibuja y le avisa lo que la persona hace.
 class ReviewScreen extends ConsumerStatefulWidget {
-  const ReviewScreen({super.key});
+  const ReviewScreen({
+    this.scope = const StudyScope.all(),
+    this.startInPractice = false,
+    super.key,
+  });
+
+  /// Qué se estudia.
+  final StudyScope scope;
+
+  /// Empezar directamente en «Practicar igual» (F30): repasar todas las
+  /// tarjetas aunque no les toque, sin tocar su calendario.
+  final bool startInPractice;
 
   @override
   ConsumerState<ReviewScreen> createState() => _ReviewScreenState();
 }
 
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
-  var _revealed = false;
-  var _grading = false;
   var _exporting = false;
-
-  /// Qué se estudia: por ahora, todo. La cola (`StudyRepository`) ya admite
-  /// recortes; la pantalla de entrada que los elige es de otra tanda.
-  static const _scope = StudyScope.all();
-
-  /// Qué toca ahora (F31): lo decide la cola de estudio tras cada respuesta, no
-  /// una lista que la pantalla recorre. `null` mientras carga.
-  StudyNext? _next;
-
-  /// Cuánto antes de su hora se trae una tarjeta en aprendizaje. Cero hasta que
-  /// la persona toca «Seguir ahora» en la espera.
-  var _learnAhead = Duration.zero;
-
-  /// Cuánto se amplió el límite de hoy con «Estudiar más hoy».
-  var _extraNew = 0;
-  var _extraReviews = 0;
-
-  /// Despierta la sesión cuando vuelve la próxima tarjeta en aprendizaje.
-  Timer? _wakeUp;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  @override
-  void dispose() {
-    _wakeUp?.cancel();
-    super.dispose();
-  }
-
-  /// Pregunta a la cola qué sigue. Si no hay nada y una tarjeta vuelve en unos
-  /// minutos, deja un despertador para ese momento.
-  Future<void> _load() async {
-    _wakeUp?.cancel();
-    final limits = ref
-        .read(studyLimitsProvider)
-        .extendedBy(newCards: _extraNew, reviews: _extraReviews);
-    final result = await ref
-        .read(studyRepositoryProvider)
-        .next(_scope, limits: limits, learnAhead: _learnAhead);
-    if (!mounted) return;
-    final next = result.fold((failure) => null, (next) => next);
-    setState(() {
-      _next = next ?? const StudyNextDone();
-      _revealed = false;
-    });
-    if (next is StudyNextWait) {
-      final wait = next.until.difference(ref.read(clockProvider)());
-      _wakeUp = Timer(
-        wait.isNegative ? Duration.zero : wait,
-        () => unawaited(_load()),
-      );
-    }
-  }
-
-  /// Lo que muestra la sesión según lo que dice la cola.
-  Widget _session(AppLocalizations l10n, StudyCounts? counts) {
-    final next = _next;
-    if (next == null) return const CircularProgressIndicator();
-    switch (next) {
-      case StudyNextCard(:final card):
-        return _CardView(
-          // La misma tarjeta vuelve en un minuto: otra clave, otro estado.
-          key: ValueKey(
-            '${card.id}:${card.lastReviewedAt?.millisecondsSinceEpoch}',
-          ),
-          card: card,
-          revealed: _revealed,
-          grading: _grading,
-          remaining: counts?.total ?? 1,
-          onReveal: () => setState(() => _revealed = true),
-          onGrade: (grade) => _grade(card.id, grade),
-        );
-      case StudyNextWait(:final until, :final learningLeft):
-        final wait = until.difference(ref.read(clockProvider)());
-        final minutes = (wait.inSeconds / 60).ceil().clamp(1, 24 * 60);
-        return EmptyStateView(
-          key: const Key('review-waiting'),
-          icon: Icons.hourglass_bottom,
-          title: l10n.reviewWaitTitle,
-          message: l10n.reviewWaitMessage(learningLeft, minutes),
-          actionLabel: l10n.reviewWaitNow,
-          onAction: () {
-            _learnAhead = const Duration(days: 1);
-            unawaited(_load());
-          },
-        );
-      case StudyNextDone(
-        :final hitLimit,
-        :final newBeyondLimit,
-        :final reviewsBeyondLimit,
-      ):
-        if (hitLimit) {
-          return EmptyStateView(
-            key: const Key('review-limit-reached'),
-            icon: Icons.flag_outlined,
-            title: l10n.reviewLimitTitle,
-            message: l10n.reviewLimitMessage(
-              newBeyondLimit,
-              reviewsBeyondLimit,
-            ),
-            actionLabel: l10n.reviewLimitMore,
-            onAction: () {
-              _extraNew += 10;
-              _extraReviews += 50;
-              unawaited(_load());
-            },
-          );
-        }
-        // F30: si está vacío, dice por qué.
-        return ReviewEmptyState(onPractice: () => unawaited(_startPractice()));
-    }
-  }
 
   /// «Practicar igual» (F30): las tarjetas que se están practicando sin que
   /// les toque, y cuál va. `null` fuera de la práctica.
   List<Flashcard>? _practice;
   var _practiceIndex = 0;
+  var _practiceRevealed = false;
+
+  StudySessionController get _session =>
+      ref.read(studySessionProvider(widget.scope).notifier);
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_session.start());
+    if (widget.startInPractice) unawaited(_startPractice());
+  }
 
   /// Practica todas las tarjetas, aunque no les toque: la que vence antes,
   /// primero. No califica: el calendario de cada una (SM-2) no cambia.
@@ -180,12 +83,12 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     setState(() {
       _practice = cards;
       _practiceIndex = 0;
-      _revealed = false;
+      _practiceRevealed = false;
     });
   }
 
   void _nextPractice() => setState(() {
-    _revealed = false;
+    _practiceRevealed = false;
     final cards = _practice!;
     if (_practiceIndex + 1 >= cards.length) {
       _practice = null;
@@ -196,19 +99,28 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   void _stopPractice() => setState(() {
     _practice = null;
-    _revealed = false;
+    _practiceRevealed = false;
   });
 
-  Future<void> _grade(String cardId, ReviewGrade grade) async {
-    setState(() => _grading = true);
-    await ref
-        .read(flashcardRepositoryProvider)
-        .review(id: cardId, grade: grade);
-    if (!mounted) return;
-    await _load();
-    if (!mounted) return;
-    setState(() => _grading = false);
+  void _showFailure(Failure failure) {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
   }
+
+  Future<void> _grade(ReviewGrade grade) async {
+    final failure = await _session.grade(grade);
+    if (failure != null && mounted) _showFailure(failure);
+  }
+
+  Future<void> _undo() async {
+    final failure = await _session.undo();
+    if (failure != null && mounted) _showFailure(failure);
+  }
+
+  /// Cierra la sesión.
+  void _finish() => unawaited(Navigator.of(context).maybePop());
 
   /// Pregunta el alcance (F17, D4) y el formato (commit 5) antes de
   /// exportar: incremental por defecto —solo lo que nunca se exportó—, con
@@ -250,21 +162,119 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     );
   }
 
+  /// Lo que muestra la sesión según lo que dice la cola.
+  Widget _body(AppLocalizations l10n, StudySessionState session) {
+    final practice = _practice;
+    if (practice != null) {
+      return ReviewSessionCard(
+        key: ValueKey('practice-${practice[_practiceIndex].id}'),
+        card: practice[_practiceIndex],
+        revealed: _practiceRevealed,
+        grading: false,
+        practice: (
+          done: _practiceIndex,
+          total: practice.length,
+          onNext: _nextPractice,
+          onStop: _stopPractice,
+        ),
+        onReveal: () => setState(() => _practiceRevealed = true),
+        onGrade: (_) {},
+      );
+    }
+
+    final next = session.next;
+    if (next == null) {
+      final failure = session.failure;
+      if (failure == null) return const CircularProgressIndicator();
+      return EmptyStateView(
+        key: const Key('review-load-failed'),
+        icon: Icons.error_outline,
+        title: l10n.reviewSessionLoadFailed,
+        message: failure.localizedMessage(l10n),
+        actionLabel: l10n.reviewSessionRetry,
+        onAction: () => unawaited(_session.retry()),
+      );
+    }
+    switch (next) {
+      case StudyNextCard(:final card):
+        return ReviewSessionCard(
+          // La misma tarjeta vuelve en un minuto: otra clave, otro estado.
+          key: ValueKey(
+            '${card.id}:${card.lastReviewedAt?.millisecondsSinceEpoch}',
+          ),
+          card: card,
+          revealed: session.revealed,
+          grading: session.busy,
+          onReveal: _session.reveal,
+          onGrade: (grade) => unawaited(_grade(grade)),
+        );
+      case StudyNextWait(:final until, :final learningLeft):
+        if (session.answered > 0) return _summary(session);
+        final wait = until.difference(ref.read(clockProvider)());
+        final minutes = (wait.inSeconds / 60).ceil().clamp(1, 24 * 60);
+        return EmptyStateView(
+          key: const Key('review-waiting'),
+          icon: Icons.hourglass_bottom,
+          title: l10n.reviewWaitTitle,
+          message: l10n.reviewWaitMessage(learningLeft, minutes),
+          actionLabel: l10n.reviewWaitNow,
+          onAction: () => unawaited(_session.continueNow()),
+        );
+      case StudyNextDone(
+        :final hitLimit,
+        :final newBeyondLimit,
+        :final reviewsBeyondLimit,
+      ):
+        if (session.answered > 0) return _summary(session);
+        if (hitLimit) {
+          return EmptyStateView(
+            key: const Key('review-limit-reached'),
+            icon: Icons.flag_outlined,
+            title: l10n.reviewLimitTitle,
+            message: l10n.reviewLimitMessage(
+              newBeyondLimit,
+              reviewsBeyondLimit,
+            ),
+            actionLabel: l10n.reviewLimitMore,
+            onAction: () => unawaited(_session.studyMore()),
+          );
+        }
+        // F30: si está vacío, dice por qué.
+        return ReviewEmptyState(onPractice: () => unawaited(_startPractice()));
+    }
+  }
+
+  Widget _summary(StudySessionState session) => ReviewSessionSummary(
+    session: session,
+    onFinish: _finish,
+    onUndo: () => unawaited(_undo()),
+    onStudyMore: () => unawaited(_session.studyMore()),
+    onContinueNow: () => unawaited(_session.continueNow()),
+  );
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final counts = ref.watch(studyCountsProvider(_scope)).valueOrNull;
+    final session = ref.watch(studySessionProvider(widget.scope));
     final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
     // Si no hay ninguna tarjeta a la vista y algo cambia (la IA hizo tarjetas,
     // se restauró un elemento, pasó el día), se vuelve a preguntar.
-    ref.listen(studyCountsProvider(_scope), (previous, current) {
-      if (_next is! StudyNextCard && _practice == null) unawaited(_load());
+    ref.listen(studyCountsProvider(widget.scope), (previous, current) {
+      if (_practice == null) _session.onStudyDataChanged();
     });
+    final inSession = _practice == null && session.card != null;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.reviewTitle),
         actions: [
+          if (_practice == null)
+            IconButton(
+              key: const Key('review-undo'),
+              icon: const Icon(Icons.undo),
+              tooltip: l10n.reviewSessionUndoTooltip,
+              onPressed: _session.canUndo ? () => unawaited(_undo()) : null,
+            ),
           // F17, D9: el interruptor único de Ajustes apaga las tres de una
           // vez, no montando estos widgets en absoluto —así ni siquiera
           // consultan la base mientras está apagado—.
@@ -311,29 +321,18 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 child: const AiFlashcardsBanner(),
               ),
             ),
+            if (inSession)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: ReviewSessionProgress(session: session),
+                ),
+              ),
             Expanded(
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
-                  child: _practice != null
-                      ? _CardView(
-                          key: ValueKey(
-                            'practice-${_practice![_practiceIndex].id}',
-                          ),
-                          card: _practice![_practiceIndex],
-                          revealed: _revealed,
-                          grading: false,
-                          remaining: 0,
-                          practice: (
-                            done: _practiceIndex,
-                            total: _practice!.length,
-                            onNext: _nextPractice,
-                            onStop: _stopPractice,
-                          ),
-                          onReveal: () => setState(() => _revealed = true),
-                          onGrade: (_) {},
-                        )
-                      : _session(l10n, counts),
+                  child: _body(l10n, session),
                 ),
               ),
             ),
@@ -381,420 +380,6 @@ class _StreakIndicator extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Lo que necesita una tarjeta en «Practicar igual» (F30): cuántas van de
-/// cuántas, y pasar a la siguiente o terminar, en vez de calificarla.
-typedef _Practice = ({
-  int done,
-  int total,
-  VoidCallback onNext,
-  VoidCallback onStop,
-});
-
-class _CardView extends ConsumerWidget {
-  const _CardView({
-    required this.card,
-    required this.revealed,
-    required this.grading,
-    required this.remaining,
-    required this.onReveal,
-    required this.onGrade,
-    this.practice,
-    super.key,
-  });
-
-  /// En «Practicar igual»: sin calificar.
-  final _Practice? practice;
-
-  final Flashcard card;
-  final bool revealed;
-  final bool grading;
-  final int remaining;
-  final VoidCallback onReveal;
-  final ValueChanged<ReviewGrade> onGrade;
-
-  /// Con la respuesta a la vista: calificarla, o —practicando— seguir.
-  Widget _answered() {
-    final current = practice;
-    return current == null
-        ? _GradeRow(card: card, grading: grading, onGrade: onGrade)
-        : _PracticeRow(onNext: current.onNext, onStop: current.onStop);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isMultipleChoice = card.kind == FlashcardKind.multipleChoice;
-    // back queda vacío en una tarjeta de opción múltiple
-    // (FlashcardRepositoryImpl.createMultipleChoice): la respuesta sale de
-    // sus opciones, no de acá.
-    final showsBack = revealed && !isMultipleChoice;
-    final frontKey = 'card:${card.id}:front';
-    final backKey = 'card:${card.id}:back';
-
-    // Lo que se lee en voz alta (F25): la pregunta y, ya revelada, la
-    // respuesta. Revelarla es otro texto —otro `id`—: el lector vuelve a
-    // empezar por la pregunta en vez de seguir donde terminó. Dos textos
-    // cortos: armarlos acá cuesta nada, y esto se reconstruye solo al
-    // revelar o al pasar de tarjeta.
-    final readable = documentFrom(
-      showsBack ? 'review:${card.id}:answer' : 'review:${card.id}',
-      l10n.reviewTitle,
-      [
-        (
-          sourceKey: frontKey,
-          text: card.front,
-          markdown: false,
-          transcript: false,
-        ),
-        if (showsBack)
-          (
-            sourceKey: backKey,
-            text: card.back,
-            markdown: false,
-            transcript: false,
-          ),
-      ],
-    );
-
-    return ReadableRegion(
-      document: readable,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        // De opción múltiple, la pregunta + hasta cuatro opciones + los
-        // cuatro botones de calificar a la vez pueden pasarse de la altura
-        // disponible en una pantalla chica —a diferencia de la tarjeta
-        // simple, que nunca mostraba las dos cosas juntas—. Se desplaza en
-        // vez de recortarse.
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                practice == null
-                    ? l10n.reviewRemaining(remaining)
-                    : l10n.reviewPracticeProgress(
-                        practice!.done + 1,
-                        practice!.total,
-                      ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 24),
-              GestureDetector(
-                // De opción múltiple no se "revela" tocando la caja: se
-                // contesta tocando una opción, más abajo.
-                onTap: (revealed || isMultipleChoice) ? null : onReveal,
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 200),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.6,
-                      ),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ReadAloudText(
-                        card.front,
-                        sourceKey: frontKey,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      if (showsBack) ...[
-                        const SizedBox(height: 16),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        ReadAloudText(
-                          card.back,
-                          sourceKey: backKey,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Con la respuesta a la vista, se puede ir a ver de dónde salió
-              // —de opción múltiple, cada opción ya trae la suya propia más
-              // abajo, `card.hasSourceRange` es siempre falso para esta
-              // forma—.
-              if (revealed && card.hasSourceRange) ...[
-                TextButton.icon(
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  label: Text(l10n.flashcardsViewSource),
-                  onPressed: () => openFlashcardSource(context, card),
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (isMultipleChoice) ...[
-                // Montado siempre, contestada o no —así conserva su propio
-                // estado de qué se tocó al revelar, en vez de perderlo
-                // cuando `revealed` cambia y esta sección se arma de
-                // nuevo—: las opciones, ya coloreadas, se quedan a la vista
-                // mientras se califica.
-                _MultipleChoiceAnswer(
-                  flashcardId: card.id,
-                  onAnswered: (_) => onReveal(),
-                ),
-                if (revealed) ...[const SizedBox(height: 16), _answered()],
-              ] else if (!revealed)
-                FilledButton.tonal(
-                  key: const Key('review-show-answer'),
-                  style: _reviewWideButtonStyle(),
-                  onPressed: onReveal,
-                  child: Text(l10n.reviewShowAnswer),
-                )
-              else
-                _answered(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Los cuatro botones de calificación del algoritmo SM-2 —iguales sea cual
-/// sea la forma de la tarjeta, la calificación es cuánto costó recordar, no
-/// algo que la corrección de una opción múltiple pueda decidir sola—.
-class _GradeRow extends ConsumerWidget {
-  const _GradeRow({
-    required this.card,
-    required this.grading,
-    required this.onGrade,
-  });
-
-  final Flashcard card;
-  final bool grading;
-  final ValueChanged<ReviewGrade> onGrade;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    // Lo que pasaría con cada respuesta, calculado con el mismo planificador
-    // que la aplica de verdad.
-    final intervals = previewIntervals(card, now: ref.read(clockProvider)());
-
-    return Row(
-      children: [
-        for (final grade in ReviewGrade.values) ...[
-          Expanded(
-            child: _GradeButton(
-              key: Key('grade-${grade.name}'),
-              grade: grade,
-              label: _labelFor(l10n, grade),
-              interval: _intervalText(l10n, intervals[grade]!),
-              onPressed: grading ? null : () => onGrade(grade),
-            ),
-          ),
-          if (grade != ReviewGrade.values.last) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-
-  String _labelFor(AppLocalizations l10n, ReviewGrade grade) => switch (grade) {
-    ReviewGrade.again => l10n.reviewGradeAgain,
-    ReviewGrade.hard => l10n.reviewGradeHard,
-    ReviewGrade.good => l10n.reviewGradeGood,
-    ReviewGrade.easy => l10n.reviewGradeEasy,
-  };
-
-  String _intervalText(AppLocalizations l10n, ReviewInterval interval) =>
-      switch (interval.unit) {
-        IntervalUnit.minutes => l10n.reviewIntervalMinutes(interval.count),
-        IntervalUnit.hours => l10n.reviewIntervalHours(interval.count),
-        IntervalUnit.days => l10n.reviewIntervalDays(interval.count),
-        IntervalUnit.weeks => l10n.reviewIntervalWeeks(interval.count),
-        IntervalUnit.months => l10n.reviewIntervalMonths(interval.count),
-        IntervalUnit.years => l10n.reviewIntervalYears(interval.count),
-      };
-}
-
-/// Un botón de calificar: el nombre en una sola línea y, debajo, cuándo vuelve
-/// la tarjeta.
-///
-/// Los cuatro miden lo mismo y tienen la misma forma. Antes eran
-/// `OutlinedButton`s con el relleno lateral estándar: en un teléfono a cada
-/// uno le quedaban unos 40 puntos para el texto, y «De nuevo» se partía letra
-/// por letra y estiraba su botón. Acá el texto se achica para entrar antes
-/// que partirse, y el color dice de qué se trata antes de leerlo.
-class _GradeButton extends StatelessWidget {
-  const _GradeButton({
-    required this.grade,
-    required this.label,
-    required this.interval,
-    required this.onPressed,
-    super.key,
-  });
-
-  final ReviewGrade grade;
-  final String label;
-  final String interval;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final (background, foreground) = switch (grade) {
-      ReviewGrade.again => (colors.errorContainer, colors.onErrorContainer),
-      ReviewGrade.hard => (
-        colors.tertiaryContainer,
-        colors.onTertiaryContainer,
-      ),
-      ReviewGrade.good => (colors.primaryContainer, colors.onPrimaryContainer),
-      ReviewGrade.easy => (
-        colors.secondaryContainer,
-        colors.onSecondaryContainer,
-      ),
-    };
-    final enabled = onPressed != null;
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: l10n.reviewGradeSemantics(label, interval),
-      excludeSemantics: true,
-      child: Material(
-        color: enabled ? background : background.withValues(alpha: 0.4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: enabled
-              ? () {
-                  unawaited(HapticFeedback.selectionClick());
-                  onPressed!();
-                }
-              : null,
-          child: SizedBox(
-            height: _kReviewButtonHeight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: textTheme.titleSmall?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      interval,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: textTheme.labelSmall?.copyWith(
-                        color: foreground.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// La altura de todos los botones grandes de repasar: calificar, mostrar la
-/// respuesta, seguir practicando.
-const _kReviewButtonHeight = 64.0;
-
-/// El estilo de los botones anchos de repasar —«Mostrar respuesta»,
-/// «Practicar igual»—: la misma forma y altura que los de calificar.
-ButtonStyle _reviewWideButtonStyle() => FilledButton.styleFrom(
-  minimumSize: const Size.fromHeight(_kReviewButtonHeight),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-);
-
-/// En «Practicar igual» (F30): la siguiente, o terminar. No califica: el
-/// calendario de la tarjeta no cambia.
-class _PracticeRow extends StatelessWidget {
-  const _PracticeRow({required this.onNext, required this.onStop});
-
-  final VoidCallback onNext;
-  final VoidCallback onStop;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            key: const Key('practice-stop'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(_kReviewButtonHeight),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onPressed: onStop,
-            child: Text(l10n.reviewPracticeStop),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: FilledButton.tonal(
-            key: const Key('practice-next'),
-            style: _reviewWideButtonStyle(),
-            onPressed: onNext,
-            child: Text(l10n.reviewPracticeNext),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Trae las opciones de [flashcardId] y las muestra con
-/// [MultipleChoiceOptions] apenas están listas —sin spinner propio: la
-/// tarjeta ya se ve, solo faltan sus opciones un instante—.
-class _MultipleChoiceAnswer extends ConsumerWidget {
-  const _MultipleChoiceAnswer({
-    required this.flashcardId,
-    required this.onAnswered,
-  });
-
-  final String flashcardId;
-  final ValueChanged<FlashcardOption> onAnswered;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final options = ref.watch(flashcardOptionsProvider(flashcardId));
-    return options.when(
-      loading: () => const SizedBox.shrink(),
-      error: (error, stackTrace) => const SizedBox.shrink(),
-      data: (options) =>
-          MultipleChoiceOptions(options: options, onAnswered: onAnswered),
     );
   }
 }

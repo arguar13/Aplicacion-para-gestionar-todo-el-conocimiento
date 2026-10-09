@@ -8982,5 +8982,112 @@
         "type": "String"
       }
     }
+  },
+  "reviewSessionQueueNew": "New",
+  "@reviewSessionQueueNew": {
+    "description": "Review: the counter of new cards that come in today."
+  },
+  "reviewSessionQueueLearning": "Learning",
+  "@reviewSessionQueueLearning": {
+    "description": "Review: the counter of cards being learned that come back in minutes."
+  },
+  "reviewSessionQueueReview": "To review",
+  "@reviewSessionQueueReview": {
+    "description": "Review: the counter of reviews due today."
+  },
+  "reviewSessionProgressSemantics": "{answered} of {total} cards answered",
+  "@reviewSessionProgressSemantics": {
+    "description": "Review: what the screen reader says for the session progress bar.",
+    "placeholders": {
+      "answered": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionUndoTooltip": "Undo the last answer",
+  "@reviewSessionUndoTooltip": {
+    "description": "Review: button to undo the last answer given in the session."
+  },
+  "reviewSessionLoadFailed": "Couldn't read what to study",
+  "@reviewSessionLoadFailed": {
+    "description": "Review: title when reading the study queue failed."
+  },
+  "reviewSessionRetry": "Try again",
+  "@reviewSessionRetry": {
+    "description": "Review: button to read the study queue again after a failure."
+  },
+  "reviewSessionSummaryTitle": "Session complete!",
+  "@reviewSessionSummaryTitle": {
+    "description": "Review: title of the summary screen when nothing is left for today."
+  },
+  "reviewSessionSummaryRest": "You're done for now. Keep it up tomorrow.",
+  "@reviewSessionSummaryRest": {
+    "description": "Review: summary message when nothing is left to study."
+  },
+  "reviewSessionStatCards": "Cards",
+  "@reviewSessionStatCards": {
+    "description": "Review: session summary, how many cards were answered."
+  },
+  "reviewSessionStatTime": "Time",
+  "@reviewSessionStatTime": {
+    "description": "Review: session summary, how long it took."
+  },
+  "reviewSessionStatCorrect": "Correct",
+  "@reviewSessionStatCorrect": {
+    "description": "Review: session summary, what share of the answers was not \"Again\"."
+  },
+  "reviewSessionStatStreak": "Streak",
+  "@reviewSessionStatStreak": {
+    "description": "Review: session summary, the days in a row."
+  },
+  "reviewSessionPercent": "{percent}%",
+  "@reviewSessionPercent": {
+    "description": "Review: a percentage, for example the share of correct answers.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionDurationSeconds": "{seconds} s",
+  "@reviewSessionDurationSeconds": {
+    "description": "Review: a duration under one minute.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionDurationMinutes": "{minutes} min {seconds} s",
+  "@reviewSessionDurationMinutes": {
+    "description": "Review: a duration of one minute or more.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionStreakDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@reviewSessionStreakDays": {
+    "description": "Review: the streak days in the session summary.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionFinish": "Finish",
+  "@reviewSessionFinish": {
+    "description": "Review: button that closes the session and goes back to the entry screen."
+  },
+  "reviewSessionSwipeHint": "Swipe the card: right \"Good\", left \"Again\", up \"Easy\", down \"Hard\".",
+  "@reviewSessionSwipeHint": {
+    "description": "Review: hint, once the card is flipped, of what each gesture does."
   }
 }

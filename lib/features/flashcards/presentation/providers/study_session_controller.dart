@@ -152,6 +152,14 @@ class StudySessionController
       _alive = false;
       _wakeUp?.cancel();
     });
+    // El despertador vive mientras alguien mira la sesión: al irse la pantalla
+    // se apaga en el acto (no cuando el proveedor se descarta, un rato
+    // después), y si vuelve a mirarse, se prende de nuevo.
+    ref.onCancel(() => _wakeUp?.cancel());
+    ref.onResume(() {
+      final next = state.next;
+      if (next is StudyNextWait) _wakeUpAt(next.until);
+    });
     return const StudySessionState();
   }
 
@@ -210,13 +218,18 @@ class StudySessionController
       answers: state.answers,
       shownAt: sameCard ? state.shownAt : ref.read(clockProvider)(),
     );
-    if (fresh is StudyNextWait) {
-      final wait = fresh.until.difference(ref.read(clockProvider)());
-      _wakeUp = Timer(
-        wait.isNegative ? Duration.zero : wait,
-        () => unawaited(load()),
-      );
-    }
+    if (fresh is StudyNextWait) _wakeUpAt(fresh.until);
+  }
+
+  /// Vuelve a preguntar cuando llega [until], que es cuando vuelve la próxima
+  /// tarjeta en aprendizaje.
+  void _wakeUpAt(DateTime until) {
+    _wakeUp?.cancel();
+    final wait = until.difference(ref.read(clockProvider)());
+    _wakeUp = Timer(
+      wait.isNegative ? Duration.zero : wait,
+      () => unawaited(load()),
+    );
   }
 
   /// Vuelve a leer solo cuánto hay, sin cambiar la tarjeta que se ve.

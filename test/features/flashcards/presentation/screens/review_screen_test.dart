@@ -358,7 +358,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('grade-easy')), findsNothing);
-      expect(find.text(es.reviewAllDone), findsOneWidget);
+      // Se contestó una: en vez del «no hay nada», el resumen de la sesión.
+      expect(find.byKey(const Key('review-summary')), findsOneWidget);
+      expect(find.text(es.reviewSessionSummaryTitle), findsOneWidget);
+      expect(find.text(es.reviewAllDone), findsNothing);
     });
 
     testWidgets('«Bien» en una nueva la deja para dentro de 10 minutos: la '

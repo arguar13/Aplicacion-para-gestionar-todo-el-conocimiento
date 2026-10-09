@@ -7964,5 +7964,112 @@
         "type": "String"
       }
     }
+  },
+  "reviewSessionQueueNew": "Nuevas",
+  "@reviewSessionQueueNew": {
+    "description": "Repasar: el contador de tarjetas nuevas que entran hoy."
+  },
+  "reviewSessionQueueLearning": "Aprendiendo",
+  "@reviewSessionQueueLearning": {
+    "description": "Repasar: el contador de tarjetas que se están aprendiendo y vuelven en minutos."
+  },
+  "reviewSessionQueueReview": "Por repasar",
+  "@reviewSessionQueueReview": {
+    "description": "Repasar: el contador de repasos que vencen hoy."
+  },
+  "reviewSessionProgressSemantics": "{answered} de {total} tarjetas contestadas",
+  "@reviewSessionProgressSemantics": {
+    "description": "Repasar: lo que lee el lector de pantalla de la barra de avance de la sesión.",
+    "placeholders": {
+      "answered": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionUndoTooltip": "Deshacer la última respuesta",
+  "@reviewSessionUndoTooltip": {
+    "description": "Repasar: botón para deshacer la última respuesta dada en la sesión."
+  },
+  "reviewSessionLoadFailed": "No se pudo leer qué toca estudiar",
+  "@reviewSessionLoadFailed": {
+    "description": "Repasar: título cuando falló la lectura de la cola de estudio."
+  },
+  "reviewSessionRetry": "Reintentar",
+  "@reviewSessionRetry": {
+    "description": "Repasar: botón para volver a leer la cola de estudio tras un fallo."
+  },
+  "reviewSessionSummaryTitle": "¡Sesión terminada!",
+  "@reviewSessionSummaryTitle": {
+    "description": "Repasar: título de la pantalla de resumen cuando ya no queda nada para hoy."
+  },
+  "reviewSessionSummaryRest": "Terminaste lo de ahora. Seguí así mañana.",
+  "@reviewSessionSummaryRest": {
+    "description": "Repasar: mensaje del resumen cuando ya no queda nada para estudiar."
+  },
+  "reviewSessionStatCards": "Tarjetas",
+  "@reviewSessionStatCards": {
+    "description": "Repasar: resumen de la sesión, cuántas tarjetas se contestaron."
+  },
+  "reviewSessionStatTime": "Tiempo",
+  "@reviewSessionStatTime": {
+    "description": "Repasar: resumen de la sesión, cuánto se tardó."
+  },
+  "reviewSessionStatCorrect": "Aciertos",
+  "@reviewSessionStatCorrect": {
+    "description": "Repasar: resumen de la sesión, qué parte de las respuestas no fue «De nuevo»."
+  },
+  "reviewSessionStatStreak": "Racha",
+  "@reviewSessionStatStreak": {
+    "description": "Repasar: resumen de la sesión, los días seguidos de constancia."
+  },
+  "reviewSessionPercent": "{percent} %",
+  "@reviewSessionPercent": {
+    "description": "Repasar: un porcentaje, por ejemplo el de aciertos.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionDurationSeconds": "{seconds} s",
+  "@reviewSessionDurationSeconds": {
+    "description": "Repasar: una duración de menos de un minuto.",
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionDurationMinutes": "{minutes} min {seconds} s",
+  "@reviewSessionDurationMinutes": {
+    "description": "Repasar: una duración de un minuto o más.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionStreakDays": "{count, plural, =1{1 día} other{{count} días}}",
+  "@reviewSessionStreakDays": {
+    "description": "Repasar: los días de racha en el resumen de la sesión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionFinish": "Terminar",
+  "@reviewSessionFinish": {
+    "description": "Repasar: botón que cierra la sesión y vuelve a la entrada."
+  },
+  "reviewSessionSwipeHint": "Deslizá la tarjeta: derecha «Bien», izquierda «De nuevo», arriba «Fácil», abajo «Difícil».",
+  "@reviewSessionSwipeHint": {
+    "description": "Repasar: pista, una vez dada la vuelta a la tarjeta, de qué hace cada gesto."
   }
 }
