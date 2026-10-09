@@ -6,6 +6,7 @@ import 'package:sinapsis/core/domain/entities/flashcard_option.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
 import 'package:sinapsis/features/flashcards/domain/services/typed_answer.dart';
+import 'package:sinapsis/features/flashcards/domain/services/typed_answer_alternatives.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
@@ -82,8 +83,15 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
   /// respuesta.
   void _check() {
     if (widget.revealed) return;
+    // Las alternativas viajan en `back`, una por renglón (decisión 73): lo
+    // correcto es la primera línea, y las demás también valen.
+    final spec = TypedAnswerSpec.parse(_card.back);
     setState(() {
-      _result = compareTypedAnswer(typed: _typed.text, correct: _card.back);
+      _result = compareTypedAnswer(
+        typed: _typed.text,
+        correct: spec.answer,
+        alternatives: spec.alternatives,
+      );
     });
     widget.onReveal();
   }
@@ -138,7 +146,7 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
         ? card.front
         : join(clozeCard.question);
     final spokenBack = clozeCard == null
-        ? card.back
+        ? (isTyped ? TypedAnswerSpec.parse(card.back).answer : card.back)
         : [
             join(clozeCard.answer),
             if (card.back.trim().isNotEmpty) card.back,
@@ -233,7 +241,7 @@ class _ReviewSessionCardState extends ConsumerState<ReviewSessionCard> {
             ReviewTypedResult(result: _result!)
           else
             ReadAloudText(
-              card.back,
+              isTyped ? TypedAnswerSpec.parse(card.back).answer : card.back,
               sourceKey: backKey,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge,

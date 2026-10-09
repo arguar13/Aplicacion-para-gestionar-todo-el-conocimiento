@@ -221,6 +221,47 @@ void main() {
       expect(find.byKey(const Key('review-typed-field')), findsNothing);
     });
 
+    testWidgets(
+      'una respuesta alternativa (en `back`, una por renglón) también '
+      'coincide',
+      (tester) async {
+        await addTyped(
+          '¿Cómo se llamaba la capital del Imperio?',
+          'Roma\nRoma antigua',
+        );
+        await pumpSession(tester);
+
+        await typeAndCheck(tester, 'roma antigua');
+
+        expect(
+          tester
+              .widget<Text>(find.byKey(const Key('review-typed-verdict')))
+              .data,
+          es.reviewSessionTypedMatch,
+        );
+      },
+    );
+
+    testWidgets('la respuesta principal sigue coincidiendo cuando hay '
+        'alternativas, y se muestra sin ellas', (tester) async {
+      await addTyped(
+        '¿Cómo se llamaba la capital del Imperio?',
+        'Roma\nRoma antigua',
+      );
+      await pumpSession(tester);
+
+      await typeAndCheck(tester, 'Roma');
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('review-typed-verdict'))).data,
+        es.reviewSessionTypedMatch,
+      );
+      expect(
+        plain(tester, 'review-typed-expected'),
+        isNot(contains('antigua')),
+      );
+    });
+
     testWidgets('un descuido de tipeo es «casi»: muestra la diferencia, y '
         'califica la persona', (tester) async {
       await addTyped('¿Orgánulo de la energía?', 'mitocondria');
