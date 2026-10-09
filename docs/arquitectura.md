@@ -5755,6 +5755,135 @@ Todo devuelve tipos propios (nada depende de las columnas nuevas de tarjetas).
   matan alarmas de apps cerradas (se espera lo mismo que con el trabajo largo, decisión 62); ningún
   `.apkg` real de Anki (solo los armados a mano, por no poder instalarlo).
 
+### 71. F31: la sesión interactiva de repaso, la entrada con «qué estudiar» y el aviso diario enchufado
+
+Pedido del usuario: *"a la sesión de flashcards hazla más interactiva … que sea elegante,
+interactivo y atractivo"*. Plan: `docs/planes/F31-repasar-sin-depender-de-anki.md`, tandas 1 y 2.
+Esta decisión son las **pantallas** que se montan sobre el dominio de las decisiones 69 y 70
+—sin tocar ese dominio, salvo un error real (el primero de abajo)—.
+
+- **Un error de raíz en `FlashcardRepository.update`.** Exigía una respuesta no vacía a toda
+  tarjeta, pero las de huecos pueden no traer complemento (la respuesta son los huecos) y las de
+  opción múltiple guardan la suya en las opciones: editarlas desde el repaso era imposible. Ahora
+  lee la forma de la tarjeta y deja el dorso vacío en esas dos; y el texto de una de huecos tiene
+  que seguir teniendo **el hueco que ella tapa**, bien escrito (`parseCloze`), o se rechaza sin
+  tocar nada. Queda dicho: cada tarjeta de huecos guarda el texto entero, así que editar una **no
+  actualiza a sus hermanas** (cada una sigue siendo válida por su cuenta).
+- **Las pantallas.** `/review` es ahora la **entrada** (`ReviewEntryScreen`, dentro del shell) y
+  la sesión (`ReviewScreen`) vive en **`/review/session?kind=…&id=…&practice=1`**, a pantalla
+  completa, fuera del shell. El recorte viaja en la dirección (`RoutePaths.reviewSessionFor`): un
+  tipo desconocido, o un tipo sin `id`, estudia **todo** —una dirección vieja o escrita a mano no
+  deja la pantalla sin tarjetas—. `kRouteCards = '/cards'` y `kRouteReviewStats =
+  '/review/stats'` son las rutas de «Mis tarjetas» y «Estadísticas» (de otra entrega); hasta que
+  existan las atiende `PendingDestinationScreen`, una pantalla provisoria que el router deja de
+  usar cuando llegan las de verdad. Las acciones de la barra de Repasar (racha, insignias,
+  historial, crear con IA, exportar a Anki) se mudaron a la entrada; la barra de la sesión tiene
+  deshacer y el menú de la tarjeta.
+- **El controlador de la sesión** (`StudySessionController`, `studySessionProvider`, familia por
+  `StudyScope`). Lo que antes vivía en el estado de la pantalla pasa a un notificador que se
+  prueba sin dibujar nada. **El estado verdadero sigue en la base**: tras cada respuesta se vuelve
+  a preguntar a `StudyRepository.next` y `counts`; acá solo vive lo que la base no sabe: si la
+  respuesta está a la vista, las respuestas **de esta sesión** (tarjeta, calificación y cuánto se
+  tardó, con un **tope de 2 minutos por respuesta**: un teléfono sobre la mesa no estudia dos
+  horas) y cuánto se amplió el límite. La primera lectura la pide quien abre la sesión
+  (`start()`): `build` no puede leer la base antes de que el estado exista, y un `scheduleMicrotask`
+  hacía que una lectura explícita se descartara como «vieja». Cada lectura lleva un número; la que
+  llega tarde se tira. Una falla de la cola **ya no se disfraza de «no hay nada»**: se guarda en
+  el estado y la pantalla lo dice y deja reintentar. El **despertador** de la espera
+  (`ref.onCancel` / `ref.onResume`) vive mientras alguien mira la sesión: apagarlo en el
+  `onDispose` dejaba un temporizador vivo un rato después de irse la pantalla. «Seguir ahora»
+  vale **una vez** (antes quedaba pegado y, con «De nuevo» en un minuto, nunca más se esperaba).
+- **Deshacer** usa `undoLastReview(since: inicio de la sesión)`: no alcanza lo de ayer. La lista
+  de respuestas de la sesión **tiene que seguir a la base**: borrar una tarjeta se lleva su
+  historial por cascada, y entonces «deshacer» alcanza a la respuesta anterior de otra tarjeta;
+  `deleteCurrent` saca de la lista las respuestas de la tarjeta borrada (probado). La tarjeta
+  deshecha se muestra de nuevo, sin la respuesta a la vista, y no se le pregunta a la cola cuál
+  toca (otra en aprendizaje podría ir antes).
+- **La vuelta de la tarjeta** (`ReviewFlipCard`): giro de 380 ms sobre el eje vertical; pasada la
+  mitad, de canto, se cambia de cara, y la de atrás se espeja otra vez para leerse derecha. Con
+  las animaciones del sistema apagadas es instantánea. **Trampa encontrada por la prueba**: si el
+  árbol de arriba cambia de forma al habilitarse el deslizar (con y sin `GestureDetector`), la
+  tarjeta de adentro se rehace y pierde la vuelta que estaba haciendo; `ReviewSwipeCard` siempre
+  tiene la misma forma. Lo mismo, a la inversa, con las **opciones de una opción múltiple**: lo
+  que se pinta antes de ellas cambia al revelar (la pista de deslizar) y sin clave perdían lo que
+  se tocó.
+- **Los gestos** (`ReviewSwipeCard`): derecha «Bien», izquierda «De nuevo», arriba «Fácil»,
+  abajo «Difícil»; manda el eje en el que más se movió. Umbral: el 30 % del ancho, entre 64 y 120
+  puntos; un gesto rápido (más de 900 puntos por segundo) con más del 40 % del umbral también
+  cuenta. Mientras se arrastra, un velo del color de la calificación (los mismos colores de los
+  botones) con su nombre y su ícono; pasado el umbral **vibra una vez** (`selectionClick`, y otra
+  si cambia de calificación) y al soltar `mediumImpact`. Solo se desliza con la respuesta a la
+  vista, sin otra respuesta en camino y fuera de la práctica. Si la respuesta no se pudo guardar,
+  la tarjeta vuelve. Los cuatro botones siguen, y cada calificación es además una
+  **`CustomSemanticsAction`** de la tarjeta para quien no puede arrastrar. **El gesto compite con
+  el desplazamiento vertical de la página**: si todo entra en la pantalla no hay desplazamiento y
+  los cuatro sentidos andan; con una tarjeta tan larga que la página se desplaza, arriba y abajo
+  desplazan en vez de calificar (los botones quedan). No se probó en un teléfono.
+- **El menú de la tarjeta** (`ReviewCardMenu`): editar (no en opción múltiple: sus opciones no se
+  editan desde acá; en una de huecos el diálogo habla de «texto con sus huecos» y «complemento
+  opcional»), pausar y posponer hasta mañana (con «Deshacer» en el aviso: son fáciles de tocar sin
+  querer y se revierten gratis), y borrar (con confirmación: se lleva el historial). Editar con la
+  respuesta a la vista la deja a la vista.
+- **Los atajos de teclado**: espacio da vuelta (en la práctica, da vuelta y después pasa a la
+  siguiente; **no** en opción múltiple ni en «escribí la respuesta»), 1 a 4 —y el teclado
+  numérico— califican, Z o Control+Z deshacen. Se ignoran con Control/Alt/Meta apretados (Ctrl+1
+  es de la compu), con un campo de texto en foco (escribir «zorro» no deshace) y los números antes
+  de dar vuelta la tarjeta o practicando. Se usa un `Focus` con `onKeyEvent` y no
+  `CallbackShortcuts` justamente para poder mirar si el foco es un `EditableText`.
+- **Las formas**. *Huecos*: `ReviewClozeText` dibuja `ClozeSegment` (el hueco que se pregunta
+  como `[...]` o `[pista]`, en negrita y con fondo; la respuesta, en negrita y con fondo), con
+  «Hueco 2 de 3» si hay varios; un texto que ya no tiene el hueco de su tarjeta se muestra tal
+  cual en vez de romperse. *Escribí la respuesta*: campo y «Comprobar» (o Enter) →
+  `compareTypedAnswer`; el veredicto en palabras, **lo escrito con lo que sobra tachado y rojo**
+  y **la respuesta con lo que faltó subrayado y resaltado** (no depende solo del color); un
+  «casi» no califica solo —lo decide la persona con los cuatro botones—; sin escribir nada
+  también vale y lo dice. *Las dos direcciones* son tarjetas de pregunta y respuesta comunes,
+  sin dibujo propio. La lectura en voz alta de una tarjeta de huecos lee el texto armado, **sin
+  el amarillo del resaltado** (que va sobre texto plano).
+- **La entrada** (`ReviewEntryScreen`): nuevas / aprendiendo / por repasar de hoy (con límites),
+  cuántas quedan afuera por el límite, en cuántos minutos vuelve la próxima en aprendizaje y
+  «Empezar». **Qué estudiar** (`StudyScopePicker`, `reviewEntryScopeProvider`): todo, un tema
+  (espacio), una **etiqueta** (valor del vocabulario, con sus ramas; solo los que algún elemento
+  usa), un cuaderno o un elemento; etiqueta y elemento con buscador. Lo elegido dura lo que la app
+  abierta. Un recorte que apunta a algo borrado lo dice («Ya no existe») y ofrece volver a
+  estudiar todo. Con nada para estudiar muestra el vacío de siempre (por qué no hay nada, crear
+  con IA, «Practicar igual»), que ahora abre la sesión en modo práctica y la cierra al terminar.
+  «Practicar igual» recorre **todas** las tarjetas, no solo las del recorte.
+- **El resumen** (`ReviewSessionSummary`) se muestra al terminar o al esperar **solo si se
+  contestó al menos una**: cuántas, tiempo, aciertos (todo lo que no fue «De nuevo») y racha (si
+  el hábito está prendido), con «Deshacer la última respuesta», «Terminar» y, según el caso,
+  «Seguir ahora» o «Estudiar más hoy». Sin haber contestado nada quedan las pantallas de siempre
+  (vacío, espera, límite).
+- **El aviso diario enchufado** (`StudyReminderBinding`, por encima de toda pantalla en
+  `app.dart`): `restore()` al abrir; mientras la bóveda está abierta y la plataforma tiene aviso,
+  `updateStudyCount(n)` con `studyReminderCountProvider`, que es **la misma cola de Repasar con
+  el reloj puesto en la próxima ocurrencia de la hora del aviso** (`ReminderTime.nextOccurrence`):
+  a las 21:00 con aviso a las 20:00 cuenta lo que vence hasta mañana a las 20:00 y con los
+  límites de **mañana** (probado: una tarjeta que vence mañana a las 12:00 no está en la insignia
+  de hoy y sí en el aviso). Se vuelve a contar al cambiar tarjetas, límites, día de estudio, hora
+  del aviso (se mira `studyReminderStateProvider`) y al volver la app al frente. El pedido de
+  abrir Repasar se escucha **del stream de la plataforma y no de
+  `studyReminderOpenRequestsProvider`**: un proveedor de `void` no avisa dos veces seguidas del
+  mismo valor y el segundo toque de la notificación se perdía; el arranque en frío usa
+  `takePendingOpen`. Con la bóveda cerrada el pedido **espera**: al abrirla va a `/review` y no a
+  la biblioteca. Se navega en un microtask, no en `addPostFrameCallback` (con la app quieta no hay
+  cuadro que lo dispare).
+- **Verificación.** Controlador, gestos, vuelta, vibración (`SystemChannels.platform`
+  interceptado), menú, atajos, formas, entrada con cada tipo de recorte, la dirección de la sesión
+  y el aviso se probaron con pruebas de widgets contra la base real en memoria. Cada comportamiento
+  clave se comprobó por mutación (se deshizo el código, la prueba falló, y se verificó que la
+  mutación se hubiera aplicado: un script que aplica y revierte y se niega si el texto no está o
+  es ambiguo). Sobrevivieron como **equivalentes**: las guardas de la pantalla que repiten las del
+  controlador (`revealed` al calificar con el teclado, `canUndo` al deshacer) y devolverle el foco
+  a la sesión tras un botón que desaparece (se probó que Flutter ya lo devuelve; el código se
+  quitó). **Sin probar:** en un teléfono o en el emulador (el pedido era solo pruebas de Dart), la
+  vibración real, el gesto contra el desplazamiento de una tarjeta larga, el aviso nativo, ni el
+  teclado de la compu fuera de las pruebas.
+- **Lo que no se hizo.** «Mis tarjetas» y las estadísticas (otra entrega). La pantalla de Ajustes
+  para prender el aviso y cambiar los límites por día: el proveedor de los límites y el del aviso
+  existen, pero ninguna pantalla los usa. Los mazos propios del plan se resolvieron como
+  recortes que se evalúan al estudiar (decisión 69).
+
 ### 72. F31, ola 2: «Mis tarjetas» y las estadísticas de repaso
 
 Plan: `docs/planes/F31-repasar-sin-depender-de-anki.md`, tanda 3. Se construyó sobre la

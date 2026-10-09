@@ -1370,21 +1370,93 @@ propuestas para que elijas cuáles guardar antes de confirmarlas.
 ### Repasar día a día
 
 **Cómo llegar:** ítem **"Repasar"** en la navegación (con un contador de
-cuántas tarjetas tenés pendientes).
+cuántas tarjetas tenés para hoy).
 
-1. Se muestra una tarjeta a la vez, con un contador de cuántas quedan.
-2. Tocás la tarjeta (o el botón "Mostrar respuesta") para revelarla.
-3. Si es una tarjeta simple, aparecen 4 botones para calificar qué tan bien
-   te acordaste: **"De nuevo"**, **"Difícil"**, **"Bien"**, **"Fácil"** — esa
-   elección decide cuándo te la vuelve a mostrar. Los cuatro miden lo mismo,
-   cada uno con su color, y **bajo el nombre dice cuándo vuelve la tarjeta**
-   si elegís esa respuesta (por ejemplo *"6 d"*, *"2 sem"* o *"3 m"*), así
-   sabés qué te cuesta cada una antes de tocarla.
-4. Si es de opción múltiple, en vez de "revelar" tocás directamente una
-   opción: se colorea al instante (verde si acertaste, roja si no), y
-   después igualmente calificás con los mismos 4 botones.
-5. Si la tarjeta sabe de dónde salió, hay un botón "Ver en la fuente" para
+#### La entrada
+
+Repasar abre en una pantalla que te dice **cuánto hay para hoy**: cuántas
+tarjetas **nuevas**, cuántas se están **aprendiendo** (vuelven en minutos) y
+cuántas **por repasar**. Si el límite de cada día deja algunas afuera, lo
+aclara ("2 nuevas más esperan: hoy no entran por el límite"). Desde acá:
+
+- **¿Qué estudiar?** Tocás el recuadro (o **"Cambiar"**) y elegís **todo**, **un
+  tema**, **una etiqueta** (con sus ramas: estudiar "Roma" incluye "Roma
+  republicana"), **un cuaderno** o **un elemento**. La etiqueta y el elemento
+  tienen buscador. Lo elegido queda mientras la app esté abierta, y los números
+  de arriba cambian al instante.
+- **Empezar** abre la sesión.
+- **Mis tarjetas** y **Estadísticas** llevan a esas pantallas.
+- Arriba: la racha, las insignias, el historial, **✨** para crear tarjetas
+  con IA y el botón de **exportar a Anki**.
+
+#### La sesión
+
+Se ve una tarjeta a la vez, con una **barra de avance**, cuántas quedan y los
+tres contadores (el de la cola de la tarjeta que ves va subrayado).
+
+1. Tocás la tarjeta (o **"Mostrar respuesta"**, o la barra espaciadora): se
+   **da vuelta**.
+2. Calificás qué tan bien te acordaste, de cualquiera de estas maneras:
+   - **Deslizando la tarjeta**: a la derecha **"Bien"**, a la izquierda
+     **"De nuevo"**, hacia arriba **"Fácil"**, hacia abajo **"Difícil"**. Mientras
+     la arrastrás se tiñe del color de la calificación con su nombre; al pasar
+     el umbral el teléfono **vibra** (queda armada) y al soltar se califica. Si
+     soltás antes, vuelve a su lugar.
+   - Con los **cuatro botones**, que miden lo mismo, cada uno con su color, y
+     **bajo el nombre dicen cuándo vuelve la tarjeta** si elegís esa respuesta
+     (por ejemplo *"10 min"*, *"4 d"* o *"3 m"*).
+   - Con el teclado de la compu: **1** "De nuevo", **2** "Difícil", **3** "Bien",
+     **4** "Fácil".
+3. Una tarjeta nueva, o una que olvidaste, **vuelve en 1 o en 10 minutos**
+   dentro de la misma sesión antes de pasar a repasarse en días. Si no queda
+   otra cosa, la sesión te dice *"Descansá un momento"* y espera; con **"Seguir
+   ahora"** la ves ya.
+4. **Deshacer**: el botón **↩** de arriba (o la tecla **Z**) deshace la última
+   respuesta y te devuelve la tarjeta tal como estaba; se puede repetir.
+5. El menú **⋮** de la tarjeta: **Editar** (sin salir del repaso),
+   **Pausar** (no vuelve hasta que la reactives), **Posponer hasta mañana** y
+   **Borrar** (pide confirmación: se lleva también su historial). Pausar y
+   posponer avisan con un **"Deshacer"**.
+6. Si la tarjeta sabe de dónde salió, hay un botón "Ver en la fuente" para
    volver al lugar exacto del texto original.
+
+Atajos de teclado: **espacio** da vuelta la tarjeta, **1 a 4** califican, **Z**
+(o Control+Z) deshace. No andan mientras escribís en un campo.
+
+**Las formas de tarjeta:**
+
+- **Pregunta y respuesta** (y verdadero o falso): la de siempre.
+- **Opción múltiple**: en vez de revelar, tocás una opción; se colorea al
+  instante (verde si acertaste, roja si no), y después igual calificás.
+- **Huecos para completar**: ves el texto con el hueco que se pregunta como
+  **[...]** (o con su pista, **[una ciudad]**), y los demás huecos ya
+  contestados. Al dar vuelta, la respuesta aparece **resaltada en su lugar**.
+  Si el texto tiene varios huecos, dice *"Hueco 2 de 3"*.
+- **Escribí la respuesta**: escribís en el campo y tocás **"Comprobar"** (o
+  Enter). Te dice **"Coincide"** (aunque cambien mayúsculas, acentos o
+  puntuación), **"Casi"** (un descuido de tipeo) o **"No coincide"**, y te
+  muestra **lo que escribiste con lo que sobra tachado** y **la respuesta
+  correcta con lo que faltó subrayado**. Un "casi" no se califica solo: la
+  diferencia la ves vos y elegís cómo calificarla.
+
+**Al terminar**, en vez de un "no hay nada" ves el **resumen**: cuántas
+tarjetas hiciste, cuánto tardaste, qué porcentaje no fue "De nuevo" y tu
+racha, con **"Deshacer la última respuesta"**, **"Terminar"** y, según el caso,
+**"Seguir ahora"** (si algo vuelve en unos minutos) o **"Estudiar más hoy"** (si
+llegaste al límite de nuevas o de repasos del día: amplía el límite solo por
+hoy, sin cambiar lo que tenés guardado).
+
+El día de estudio va **de las 4:00 a las 4:00**: lo que estudiás a las 00:30
+cuenta como de ayer.
+
+#### El aviso diario
+
+La app ya sabe mandarte, en Android, una notificación diaria a la hora que
+elijas con cuántas tarjetas vas a tener para repasar (si no habrá ninguna, no
+avisa), y **tocarla abre Repasar**. La cantidad se cuenta hasta la hora del
+aviso, no solo con lo que vence ahora. **Todavía no hay una pantalla en Ajustes
+para prenderlo**: llega en una próxima entrega, igual que cambiar el límite de
+tarjetas nuevas y de repasos por día (hoy son 20 y 200).
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
