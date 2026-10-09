@@ -1353,12 +1353,42 @@ entran solas a tu repaso, con la marca **✨**. Las ves en la sección
   proponer una pregunta que el elemento ya tiene. Si falta bajar el modelo
   de lenguaje te lo dice, con **"Bajarlo"**; si el modelo falla a mitad de
   camino, te muestra lo que alcanzó a proponer y te avisa.
-- Botón "+" "Agregar tarjeta": para escribir una pregunta y respuesta vos
-  mismo, a mano.
+- Botón "+" "Agregar tarjeta": para escribir una tarjeta vos mismo, a mano,
+  en la forma que quieras (ver [Las formas de tarjeta](#las-formas-de-tarjeta)).
 - **Corregir una tarjeta:** el lápiz de cada tarjeta —tuya o de la IA— la
-  abre para editar la pregunta y la respuesta. El menú "⋮" tiene
+  abre para editarla **en su forma**: una de huecos se edita como huecos y
+  una de "Escribí la respuesta" como tal. El menú "⋮" tiene
   **"Borrar"** y, en las de la IA, **"No era"**: la borra y la IA no la
   vuelve a proponer.
+
+### Las formas de tarjeta
+
+Al tocar **"+"** en las tarjetas de un elemento, arriba del formulario
+elegís la forma:
+
+- **Pregunta y respuesta:** la de siempre.
+- **Dos direcciones:** escribís pregunta y respuesta una sola vez y se crean
+  **dos tarjetas**: de la pregunta a la respuesta y de la respuesta a la
+  pregunta. Abajo ves cómo queda cada una ("Ida" y "Vuelta"). Las dos no se
+  estudian el mismo día.
+- **Huecos:** escribís un texto y tapás lo que querés recordar:
+  seleccionás una palabra o frase y tocás **"Tapar selección"**; queda como
+  `{{c1::Imperio romano}}` y el siguiente hueco usa el número que sigue
+  (`c2`, `c3`…). Cada número es una tarjeta distinta, y en la vista previa
+  ves cada una con su hueco tapado (`[...]`). Si algo está mal escrito (un
+  hueco sin cerrar, uno vacío) el formulario lo dice y no deja guardar. Hay
+  un campo "Complemento" opcional. Al **editarla**, ves el texto con sus
+  huecos; si sacás un hueco te avisa que se borra su tarjeta, y si agregás
+  uno se suma una tarjeta nueva. Las demás conservan su calendario.
+- **Escribí la respuesta:** en vez de revelarla, al repasar la escribís y se
+  compara con la correcta (sin importar mayúsculas, acentos ni puntuación).
+  Podés cargar **otras respuestas que también valen**, una por renglón.
+- **Opción múltiple:** la pregunta, la respuesta correcta y de una a tres
+  opciones incorrectas escritas por vos.
+- **Huecos con IA** (con el modelo de lenguaje bajado): **"Generar"** lee el
+  contenido del elemento por partes y propone frases con huecos; ves cada una
+  y elegís cuáles guardar antes de que se cree nada, con el pasaje de la
+  fuente del que salen.
 
 ### Generar un cuestionario (quiz de opción múltiple)
 
@@ -1616,6 +1646,61 @@ exportar tus tarjetas de repaso para abrirlas ahí.
 
 Después hay que abrir ese archivo desde la app Anki por fuera de Sinapsis —
 no hay una conexión directa entre las dos apps.
+
+También podés llegar desde **Ajustes → Repasar → "Exportar a Anki"**. El
+paquete lleva las tarjetas suspendidas, las que se están aprendiendo, las de
+huecos y las de escribir la respuesta.
+
+### Importar de Anki
+
+Para no perder lo que ya estudiaste en Anki, podés traer un mazo a
+Sinapsis, con su calendario de repaso.
+
+**Cómo llegar:** **Ajustes → Repasar → "Importar de Anki"** (en la app de
+Android y la de escritorio; no en la web).
+
+1. En Anki, exportá el mazo: Archivo → Exportar → **"Paquete de mazo de Anki
+   (\*.apkg)"**, con **"Compatibilidad con versiones antiguas"** marcada. Si
+   el archivo es del formato nuevo, Sinapsis te lo dice y te recuerda cómo
+   exportarlo.
+2. En la pantalla, **"Elegir archivo .apkg"**.
+3. Ves **qué trae**: cuántas tarjetas y mazos, de qué formas (preguntas,
+   dos direcciones, huecos, escribir la respuesta, opción múltiple), cuántas
+   son nuevas, se están aprendiendo o están en repaso, cuántas estaban
+   pausadas o pospuestas, y cuántas ya están en tu biblioteca de una
+   importación anterior.
+   **Los avisos importan:** las imágenes, los audios y los videos **no se
+   traen** (las tarjetas entran sin ellos); las de un mazo filtrado entran
+   en su mazo original, con su calendario original.
+4. Elegís **dónde guardarlas**: **"Un elemento por mazo"** (cada mazo es una
+   nota con su nombre, y sus niveles —*Historia::Roma*— son etiquetas) o
+   **"Todo en «Importado de Anki»"**.
+5. **"Importar N tarjetas"**: ves el avance y, al terminar, cuántas entraron.
+   Si algo falla no queda nada a medias y podés volver a intentar.
+
+Cada tarjeta sigue en el punto en que estaba: la nueva, la que se está
+aprendiendo (en su paso), la de repaso (con su intervalo y su fecha), la que
+olvidaste, la pausada y la pospuesta hasta mañana. **Traer el mismo archivo
+dos veces no duplica nada**, y lo que repasaste entre una y otra vez no se
+pisa. Tampoco duplica lo que Sinapsis mismo exportó. El historial de
+respuestas de Anki no se trae: tus estadísticas y tu racha arrancan con lo
+que repases acá.
+
+### Aviso diario y tarjetas por día (Ajustes → Repasar)
+
+**Cómo llegar:** **Ajustes → Repasar**.
+
+- **Aviso diario para repasar** (solo en Android): un interruptor, apagado de
+  entrada. Al prenderlo, Android te pide permiso para mostrar notificaciones;
+  elegís la **hora** (por defecto las 20:00) y todos los días suena una
+  notificación con cuántas tarjetas tenés. Con 0 no suena. Si rechazaste el
+  permiso, ves el aviso y el botón **"Abrir los ajustes del sistema"** para
+  concederlo desde ahí. Si tu teléfono ahorra batería de forma agresiva, el
+  aviso puede llegar tarde o no sonar con la app cerrada.
+- **Tarjetas nuevas por día** y **repasos por día:** por defecto 20 y 200.
+  Elegís otro valor o **"Sin límite"**. El día de estudio va de las 4:00 a
+  las 4:00.
+- **Importar de Anki** y **Exportar a Anki**, a un toque.
 
 ---
 

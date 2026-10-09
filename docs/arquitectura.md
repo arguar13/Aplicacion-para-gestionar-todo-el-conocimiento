@@ -5988,6 +5988,128 @@ integrador enchufa en la sesión. Sin dependencias nuevas.
   de un elemento); mover tarjetas a otro elemento; un deshacer para pausar y posponer (se
   reanudan con «Reanudar»); el tiempo estudiado.
 
+### 73. F31, ola 2: crear las formas nuevas a mano, traer un `.apkg` y la sección «Repasar» de Ajustes
+
+Pedido del usuario (F31): *"haz que tenga todo lo necesario para no depender de las apps de Anki,
+aunque también mantenga las funciones de exportar y compartir con Anki"*. Plan:
+`docs/planes/F31-repasar-sin-depender-de-anki.md`, tanda 4. Esta decisión pone **pantallas** sobre
+las piezas puras de la 70 (`cloze.dart`, `typed_answer.dart`, el lector de `.apkg`, el aviso
+diario) y sobre la base de la 69 (`createSiblings`, `StudyLimits`).
+
+- **El selector de forma** (`card_form_dialog.dart`, `showCardFormDialog`). Al tocar «+» en las
+  tarjetas de un elemento, fichas para elegir: pregunta y respuesta, dos direcciones, huecos,
+  «escribí la respuesta», opción múltiple y huecos con IA. Lo escrito sobrevive a cambiar de forma
+  (pregunta y respuesta, dos direcciones y escribir comparten los campos). El formulario no guarda:
+  devuelve un `CardForm` (`QaCardForm`, `BothDirectionsCardForm`, `ClozeCardForm`, `TypedCardForm`,
+  `MultipleChoiceCardForm`) y `CreateCardsFromFormUseCase` lo traduce a `create`, `createSiblings` o
+  `createMultipleChoice` —todas o ninguna—. Un texto con **un solo hueco** se guarda como tarjeta
+  suelta (un grupo pide al menos dos). **Huecos:** «Tapar selección» envuelve lo seleccionado con
+  `wrapAsCloze` y el `nextClozeNumber` (el cursor queda después del hueco), la vista previa es una
+  tarjeta por número dibujada desde `ClozeSegment`, y los errores salen de `clozeProblemMessage`
+  (solo se muestran con texto escrito, y mientras haya uno no se puede guardar). Dos direcciones
+  muestra «Ida» y «Vuelta».
+- **Editar vuelve a mostrar la forma.** El lápiz abre el formulario en la forma de la tarjeta (sin
+  fichas): huecos como huecos, «escribí la respuesta» como tal, el resto como pregunta y respuesta.
+  Una de opción múltiple sigue sin editarse acá. Como cada tarjeta de huecos guarda el **texto
+  entero** y las hermanas comparten grupo, editar una a una dejaría textos distintos:
+  `ClozeCardEditor` reconcilia el grupo en **una transacción**. El hueco que sigue recibe el texto
+  y el complemento nuevos **sin tocar su calendario**, el hueco agregado es una tarjeta nueva del
+  mismo grupo (una tarjeta suelta que gana huecos forma grupo con ellas), y el hueco que se sacó
+  **borra su tarjeta**: el formulario lo avisa antes de guardar. `FlashcardRepository.update` no
+  sirve para esto (exige un `back` no vacío y es de una sola fila). La lista de tarjetas muestra un
+  hueco como su pregunta con el hueco tapado y debajo lo que esconde, nunca las marcas `{{c1::…}}`.
+- **«Escribí la respuesta» y sus alternativas.** El esquema no tiene dónde guardarlas, así que
+  viajan en `back`, **una por renglón; la primera línea es LA respuesta** (`TypedAnswerSpec`). Una
+  tarjeta sin alternativas guarda una línea, exactamente como antes. Quien compare lo escrito tiene
+  que usar `TypedAnswerSpec.parse(back)` y pasarle `answer` y `alternatives` a `compareTypedAnswer`
+  (la pantalla de repaso no es de esta decisión). El `.apkg` exporta `back` tal cual: las
+  alternativas aparecen como renglones extra en el campo de Anki, que las muestra pero las compara
+  como un solo texto; al volver a traerlo se conservan.
+- **Huecos con IA** (`ClozeGenerator`, implementado por `GemmaChatModel` con
+  `clozeSystemInstruction`/`buildClozeRequest`/`parseClozeDrafts`). `ClozeAsFlashcardGenerator` lo
+  muestra como `FlashcardGenerator` (la frase con huecos en `front`, `back` vacío, la cita) y así
+  vale **tal cual** `generateFlashcardsByParts`: lee un texto largo por partes, ancla cada cita al
+  pasaje real y no repite lo que el elemento ya tiene. La persona **revisa cada frase** antes de que
+  exista una tarjeta (`ClozeDraftReviewDialog`, con su primera tarjeta dibujada) y se guarda con el
+  rango de la fuente si se ubicó. Sin el modelo, el mismo aviso con «Bajarlo» de las tarjetas con
+  IA. Como las tarjetas con IA existentes, las que se guardan tras la revisión son de la persona
+  (no llevan ✨): la persona las leyó y las eligió.
+- **Traer un `.apkg`** (`/settings/anki-import`, `kRouteAnkiImport`; no en la web: necesita SQLite
+  nativo). Flujo: `ApkgFileChooser` (devuelve la **ruta**, no los bytes: el lector saca del zip solo
+  la colección) → lectura en otro isolate (`IsolateAnkiPackageReader`: lo síncrono de SQLite
+  congelaría la pantalla; el error del lector viaja como dato porque su `cause` puede no cruzar el
+  isolate) → vista previa → destino → importar → resumen. La vista previa cuenta mazos y tarjetas,
+  formas, etapas (nuevas, aprendiéndose, en repaso), pausadas, pospuestas, **cuántas ya están**, y
+  avisa lo que no entra: **imágenes, audios y videos** (con cuántos), el mazo filtrado y las tarjetas
+  sin nada que mostrar. Los errores muestran el mensaje de `AnkiImportException` (el de
+  `newFormatOnly` ya dice que se exporte con «Compatibilidad con versiones antiguas», y la pantalla
+  repite cómo); si falla al escribir se dice que no quedó nada guardado.
+- **Dónde caen: lo más simple que sea coherente.** Dos opciones para todo el paquete: **un
+  elemento por mazo** (por defecto) —una *nota* con el nombre del mazo (`Historia::Roma` →
+  «Historia › Roma»), etiquetada «Importado de Anki» y con cada nivel del mazo como etiqueta
+  (`getOrCreateTag`: se reusa la que ya existe, sin distinguir mayúsculas)— o **todo en un solo
+  elemento «Importado de Anki»**. No se arma un árbol de Temas ni se dejan elegir destinos distintos
+  por mazo: las etiquetas ya son los temas (el filtro de Repasar por tema/etiqueta las incluye con
+  sus ramas) y el árbol se puede reordenar después desde Vocabulario. Lo que Sinapsis exporta
+  trae «Sinapsis::» de mazo raíz y «Sin tema»: se sacan, para que lo exportado y vuelto a traer no
+  quede etiquetado «Sinapsis».
+- **Sin duplicar, sin tocar el esquema v39.** La procedencia no es una columna: **es el `id`**.
+  Los ids de tarjeta, grupo y elemento son UUID v5 del `guid` de la nota de Anki (más la plantilla,
+  `ord`, para la tarjeta) en un espacio de nombres propio (`anki_import_ids.dart`). Traer dos veces
+  el mismo paquete da los mismos ids; `AnkiImportRepository.alreadyImported` pregunta cuáles ya
+  están (por tandas de 500, SQLite acepta 32.766 variables) y `insertCards` además **nunca pisa una
+  fila que existe**, así que lo repasado entre una importación y otra queda como está. Dos
+  dispositivos que traen el mismo paquete producen las mismas filas, que la fusión de bóvedas junta.
+  **Lo que Sinapsis mismo exportó** (el `guid` que escribe el exportador es el `id` de la tarjeta,
+  y en los huecos el de la primera del grupo) también se reconoce: traer el `.apkg` propio a la
+  misma bóveda no duplica ni las hermanas de huecos (se cubren los números del grupo). Un paquete
+  que se trae a una base limpia crea las tarjetas con ids derivados, no con los originales.
+  Un elemento que está en la papelera se **restaura** si llegan tarjetas nuevas para él.
+- **Atómica.** `ImportAnkiPackageUseCase` corre elementos, etiquetas y tarjetas en UNA transacción
+  (`runInTransaction`): un fallo —probado cortando a la mitad, con dos elementos— no deja ni un
+  elemento, ni una etiqueta, ni una tarjeta, y reintentar trae todo. Avisa el avance por tandas de
+  500 tarjetas.
+- **El calendario pasa a SM-2** (`planAnkiImport`, puro). Nueva: sin repasos, para hoy (la
+  posición en la cola de Anki no se usa: manda la **fecha de creación**, que sale del `id` de la
+  tarjeta de Anki —milisegundos— si es creíble). Repaso: intervalo, facilidad y repeticiones, y la
+  fecha **no cae antes de las 4:00 de su día** (los repasos de Anki son «de ese día» y el día de
+  estudio de Sinapsis empieza a esa hora; con el `crt` de Anki a las 4:00 no cambia nada, con la
+  medianoche del exportador evita adelantar un día). Aprendiendo: el **paso** sale de `left` de Anki
+  (se amplió el lector: `c.left`, últimos tres dígitos; con los dos pasos de Sinapsis, 2 es el
+  primero y 1 el segundo) y la hora a la que vuelve. Reaprendiendo: paso 0 e intervalo de al menos
+  1. **Pausada** sigue pausada; **pospuesta** (`-2`/`-3`) queda hasta el próximo día de estudio.
+  Las hermanas (dos direcciones, huecos) se enlazan aunque alguna ya esté importada. El «extra» de
+  una nota de huecos se separa del dorso que armó el lector. Opción múltiple sin distractores o
+  sin respuesta degrada a pregunta y respuesta; un frente o dorso que era solo un archivo queda como
+  `[imagen]`, `[audio]` o `[video]`.
+- **Ida y vuelta, probada** con `AnkiPackageBuilder`: exportar → importar a una base limpia da las
+  mismas tarjetas (formas, textos, opciones reales, alternativas, huecos con su grupo y su
+  complemento) y el mismo calendario —etapa deducida por `Flashcard.phase` incluida— en las cuatro
+  etapas más pausada; reimportar da cero duplicados; el paquete propio sobre la misma bóveda, cero.
+- **La sección «Repasar» de Ajustes** (`ReviewSettingsSection`). **Aviso diario**, solo si
+  `isSupported`: interruptor (apagado de entrada; al prenderlo se pide el permiso y se le cuenta al
+  aviso cuántas hay), hora con `showTimePicker`, estado del permiso con el botón **«Abrir los ajustes
+  del sistema»** (`openNotificationSettings`) cuando falta —por rechazo o porque se lo quitó
+  después, se vuelve a leer al volver a la app— y el aviso de que **con ahorro agresivo de batería
+  puede no sonar**. **Límites por día:** nuevas (5, 10, **20**, 30, 50, 100) y repasos (50, 100,
+  **200**, 300, 500, 1000), cada uno con «Sin límite» (el tope de 9999 de `StudyLimits`); un valor
+  guardado que no está en la lista aparece igual. **Importar y exportar de Anki** a un toque (la
+  exportación, con su diálogo de qué y en qué formato, reusa los textos de Repasar).
+- **Dos arreglos de raíz que salieron de esto.** (1) `LibraryRepositoryImpl.save` dispara la
+  búsqueda de duplicados de una nota **sin esperarla**; dentro de `runInTransaction` ese futuro
+  heredaba la zona de la transacción y le hablaba ya cerrada (error en el registro por cada
+  nota). Ahora corre en la zona raíz (prueba nueva: sin el arreglo falla). (2) El lector de `.apkg`
+  no leía `left`.
+- **Verificación.** Cada comportamiento clave se comprobó por mutación (deshecho el código, la
+  prueba falló, y se verificó que la mutación se aplicara con un guion que aborta si no encuentra
+  el texto). Quedó un mutante superviviente en una primera vuelta —el tamaño de las tandas de
+  `alreadyImported`— y se mató con una prueba en los bordes de tanda. **Sin probar:** en el teléfono
+  ni en el emulador (no se usó ninguno), contra un `.apkg` real de Anki, ni con la pantalla de
+  repaso nueva; las pruebas de pantalla bajo `testWidgets` necesitan que la búsqueda de duplicados
+  esté apagada (corre en la zona real y trabaría la base), y la lectura del paquete, `runAsync`.
+  **Lo que no hace:** traer el historial de respuestas (`revlog`: contaría para el límite de hoy y
+  la racha), los medios, un destino distinto por mazo, ni editar una tarjeta de opción múltiple.
+
 ## Estado y orden de construcción
 
 ### Construido
