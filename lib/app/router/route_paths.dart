@@ -1,6 +1,9 @@
 /// Paths y nombres de ruta centralizados. Cada feature nuevo añade sus
 /// constantes aquí (o expone su propio archivo `xxx_route_paths.dart` que
 /// este archivo re-exporta) para que las URLs web queden en un solo lugar.
+/// La ruta de «Importar de Anki» (F31, decisión 73).
+const kRouteAnkiImport = '/settings/anki-import';
+
 abstract final class RoutePaths {
   static const splash = '/splash';
 
@@ -203,6 +206,10 @@ abstract final class RoutePaths {
   /// la bóveda, todo junto.
   static const settings = '/settings';
 
+  /// Traer un mazo de Anki (`.apkg`) con su calendario (F31). Se llega desde
+  /// Ajustes › Repasar.
+  static const ankiImport = kRouteAnkiImport;
+
   /// Lo que se borró y todavía se puede restaurar (F11).
   static const trash = '/trash';
 
@@ -257,6 +264,7 @@ abstract final class RouteNames {
   static const reviewBadges = 'review-badges';
   static const reviewHistory = 'review-history';
   static const settings = 'settings';
+  static const ankiImport = 'anki-import';
   static const trash = 'trash';
   static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';

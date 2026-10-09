@@ -8411,5 +8411,324 @@
         "type": "int"
       }
     }
+  },
+  "ankiImportTitle": "Importar de Anki",
+  "@ankiImportTitle": {
+    "description": "Importar de Anki: título de la pantalla."
+  },
+  "ankiImportIntro": "Traé un mazo de Anki (.apkg) con su calendario de repaso: cada tarjeta sigue donde la dejaste.",
+  "@ankiImportIntro": {
+    "description": "Importar de Anki: qué hace la pantalla."
+  },
+  "ankiImportHowTo": "En Anki: Archivo › Exportar. Elegí «Paquete de mazo de Anki (*.apkg)» y marcá «Compatibilidad con versiones antiguas». Las imágenes, los audios y los videos no se traen.",
+  "@ankiImportHowTo": {
+    "description": "Importar de Anki: cómo exportar el mazo desde Anki."
+  },
+  "ankiImportPick": "Elegir archivo .apkg",
+  "@ankiImportPick": {
+    "description": "Importar de Anki: botón que abre el selector de archivos."
+  },
+  "ankiImportReading": "Leyendo el archivo…",
+  "@ankiImportReading": {
+    "description": "Importar de Anki: mientras se lee el paquete."
+  },
+  "ankiImportWebUnavailable": "Importar de Anki está disponible en la app de Android y de escritorio, no en la web.",
+  "@ankiImportWebUnavailable": {
+    "description": "Importar de Anki: aviso en la versión web."
+  },
+  "ankiImportPreviewTitle": "Qué trae el archivo",
+  "@ankiImportPreviewTitle": {
+    "description": "Importar de Anki: título de la vista previa."
+  },
+  "ankiImportSummary": "{cards, plural, =1{1 tarjeta} other{{cards} tarjetas}} en {decks, plural, =1{1 mazo} other{{decks} mazos}}",
+  "@ankiImportSummary": {
+    "description": "Importar de Anki: cuántas tarjetas y mazos trae el paquete.",
+    "placeholders": {
+      "cards": {
+        "type": "int"
+      },
+      "decks": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindBasic": "{count, plural, =1{1 de pregunta y respuesta} other{{count} de pregunta y respuesta}}",
+  "@ankiImportKindBasic": {
+    "description": "Importar de Anki: cuántas tarjetas básicas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindReversed": "{count, plural, =1{1 de dos direcciones} other{{count} de dos direcciones}}",
+  "@ankiImportKindReversed": {
+    "description": "Importar de Anki: cuántas tarjetas de dos direcciones.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindCloze": "{count, plural, =1{1 de huecos} other{{count} de huecos}}",
+  "@ankiImportKindCloze": {
+    "description": "Importar de Anki: cuántas tarjetas de huecos.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindTyped": "{count, plural, =1{1 de escribir la respuesta} other{{count} de escribir la respuesta}}",
+  "@ankiImportKindTyped": {
+    "description": "Importar de Anki: cuántas tarjetas de escribir la respuesta.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindChoice": "{count, plural, =1{1 de opción múltiple} other{{count} de opción múltiple}}",
+  "@ankiImportKindChoice": {
+    "description": "Importar de Anki: cuántas tarjetas de opción múltiple.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportStages": "{newCount} nuevas, {learning} aprendiéndose, {review} en repaso",
+  "@ankiImportStages": {
+    "description": "Importar de Anki: en qué etapa del calendario están las tarjetas.",
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "learning": {
+        "type": "int"
+      },
+      "review": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportSuspended": "{count, plural, =1{1 está pausada y sigue pausada} other{{count} están pausadas y siguen pausadas}}",
+  "@ankiImportSuspended": {
+    "description": "Importar de Anki: tarjetas suspendidas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportPostponed": "{count, plural, =1{1 estaba pospuesta: vuelve mañana} other{{count} estaban pospuestas: vuelven mañana}}",
+  "@ankiImportPostponed": {
+    "description": "Importar de Anki: tarjetas pospuestas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportMediaWarning": "Entran sin sus archivos: {images} imágenes, {audio} audios y {video} videos que usan las tarjetas no se traen.",
+  "@ankiImportMediaWarning": {
+    "description": "Importar de Anki: aviso de que los medios no se importan.",
+    "placeholders": {
+      "images": {
+        "type": "int"
+      },
+      "audio": {
+        "type": "int"
+      },
+      "video": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportFilteredWarning": "{count, plural, =1{1 tarjeta estaba en un mazo filtrado: entra en su mazo original, con su calendario original.} other{{count} tarjetas estaban en un mazo filtrado: entran en su mazo original, con su calendario original.}}",
+  "@ankiImportFilteredWarning": {
+    "description": "Importar de Anki: aviso de tarjetas en un mazo filtrado.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportSkipped": "{count, plural, =1{1 tarjeta no se puede traer: no tiene nada que mostrar.} other{{count} tarjetas no se pueden traer: no tienen nada que mostrar.}}",
+  "@ankiImportSkipped": {
+    "description": "Importar de Anki: tarjetas que se dejan afuera.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportAlready": "{count, plural, =1{1 ya está en tu biblioteca de una importación anterior: no se vuelve a traer.} other{{count} ya están en tu biblioteca de una importación anterior: no se vuelven a traer.}}",
+  "@ankiImportAlready": {
+    "description": "Importar de Anki: tarjetas que ya estaban.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportDestinationTitle": "Dónde guardarlas",
+  "@ankiImportDestinationTitle": {
+    "description": "Importar de Anki: título de la elección del destino."
+  },
+  "ankiImportDestPerDeck": "Un elemento por mazo",
+  "@ankiImportDestPerDeck": {
+    "description": "Importar de Anki: un elemento por cada mazo."
+  },
+  "ankiImportDestPerDeckHint": "Cada mazo es un elemento, y sus niveles (Historia::Roma) son etiquetas.",
+  "@ankiImportDestPerDeckHint": {
+    "description": "Importar de Anki: explicación de un elemento por mazo."
+  },
+  "ankiImportDestSingle": "Todo en «Importado de Anki»",
+  "@ankiImportDestSingle": {
+    "description": "Importar de Anki: un solo elemento con todo."
+  },
+  "ankiImportDestSingleHint": "Un solo elemento con todas las tarjetas.",
+  "@ankiImportDestSingleHint": {
+    "description": "Importar de Anki: explicación del elemento único."
+  },
+  "ankiImportStart": "{count, plural, =1{Importar 1 tarjeta} other{Importar {count} tarjetas}}",
+  "@ankiImportStart": {
+    "description": "Importar de Anki: botón que trae las tarjetas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportNothingNew": "No hay tarjetas nuevas para traer.",
+  "@ankiImportNothingNew": {
+    "description": "Importar de Anki: todo lo del paquete ya estaba."
+  },
+  "ankiImportChooseOther": "Elegir otro archivo",
+  "@ankiImportChooseOther": {
+    "description": "Importar de Anki: volver a elegir el archivo."
+  },
+  "ankiImportRunning": "Importando…",
+  "@ankiImportRunning": {
+    "description": "Importar de Anki: mientras se escriben las tarjetas."
+  },
+  "ankiImportProgress": "{done} de {total} tarjetas",
+  "@ankiImportProgress": {
+    "description": "Importar de Anki: avance de la importación.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportDoneTitle": "Listo",
+  "@ankiImportDoneTitle": {
+    "description": "Importar de Anki: título al terminar."
+  },
+  "ankiImportDoneCards": "{count, plural, =0{No se trajo ninguna tarjeta nueva.} =1{Se trajo 1 tarjeta.} other{Se trajeron {count} tarjetas.}}",
+  "@ankiImportDoneCards": {
+    "description": "Importar de Anki: cuántas tarjetas entraron.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportGoReview": "Ir a Repasar",
+  "@ankiImportGoReview": {
+    "description": "Importar de Anki: lleva a la pestaña Repasar."
+  },
+  "ankiImportFailedTitle": "No se pudo importar",
+  "@ankiImportFailedTitle": {
+    "description": "Importar de Anki: título del error."
+  },
+  "ankiImportFailedWrite": "No se guardó nada: podés volver a intentarlo.",
+  "@ankiImportFailedWrite": {
+    "description": "Importar de Anki: la escritura falló y se deshizo todo."
+  },
+  "ankiImportTryAgain": "Probar con otro archivo",
+  "@ankiImportTryAgain": {
+    "description": "Importar de Anki: tras un error, volver a empezar."
+  },
+  "reviewSettingsTitle": "Repasar",
+  "@reviewSettingsTitle": {
+    "description": "Ajustes, sección Repasar: título."
+  },
+  "reviewSettingsReminderTitle": "Aviso diario para repasar",
+  "@reviewSettingsReminderTitle": {
+    "description": "Ajustes, Repasar: interruptor del aviso diario."
+  },
+  "reviewSettingsReminderSubtitle": "Una notificación a la hora que elijas, con cuántas tarjetas tenés para repasar.",
+  "@reviewSettingsReminderSubtitle": {
+    "description": "Ajustes, Repasar: explicación del aviso diario."
+  },
+  "reviewSettingsReminderTime": "Hora del aviso",
+  "@reviewSettingsReminderTime": {
+    "description": "Ajustes, Repasar: elegir la hora del aviso."
+  },
+  "reviewSettingsReminderBattery": "Si el teléfono ahorra batería de forma agresiva, el aviso puede llegar tarde o no sonar si la app está cerrada.",
+  "@reviewSettingsReminderBattery": {
+    "description": "Ajustes, Repasar: advertencia sobre el ahorro de batería."
+  },
+  "reviewSettingsPermissionMissing": "El sistema no deja que Sinapsis muestre notificaciones: el aviso no va a sonar.",
+  "@reviewSettingsPermissionMissing": {
+    "description": "Ajustes, Repasar: falta el permiso de notificaciones."
+  },
+  "reviewSettingsPermissionOk": "Notificaciones permitidas",
+  "@reviewSettingsPermissionOk": {
+    "description": "Ajustes, Repasar: el permiso de notificaciones está concedido."
+  },
+  "reviewSettingsOpenSystemSettings": "Abrir los ajustes del sistema",
+  "@reviewSettingsOpenSystemSettings": {
+    "description": "Ajustes, Repasar: botón que lleva a los ajustes de notificaciones del sistema."
+  },
+  "reviewSettingsLimitsTitle": "Tarjetas por día",
+  "@reviewSettingsLimitsTitle": {
+    "description": "Ajustes, Repasar: encabezado de los límites diarios."
+  },
+  "reviewSettingsNewLimit": "Tarjetas nuevas por día",
+  "@reviewSettingsNewLimit": {
+    "description": "Ajustes, Repasar: límite de tarjetas nuevas."
+  },
+  "reviewSettingsReviewLimit": "Repasos por día",
+  "@reviewSettingsReviewLimit": {
+    "description": "Ajustes, Repasar: límite de repasos."
+  },
+  "reviewSettingsNoLimit": "Sin límite",
+  "@reviewSettingsNoLimit": {
+    "description": "Ajustes, Repasar: no hay tope."
+  },
+  "reviewSettingsLimitValue": "{count, plural, =1{1 por día} other{{count} por día}}",
+  "@reviewSettingsLimitValue": {
+    "description": "Ajustes, Repasar: valor de un límite diario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSettingsLimitsHint": "El día de estudio va de las 4:00 a las 4:00. Lo que se aprende en pasos de minutos no tiene tope.",
+  "@reviewSettingsLimitsHint": {
+    "description": "Ajustes, Repasar: aclaración de los límites."
+  },
+  "reviewSettingsImportAnki": "Importar de Anki",
+  "@reviewSettingsImportAnki": {
+    "description": "Ajustes, Repasar: abre la importación de un mazo de Anki."
+  },
+  "reviewSettingsImportAnkiSubtitle": "Traé un mazo .apkg con su calendario de repaso.",
+  "@reviewSettingsImportAnkiSubtitle": {
+    "description": "Ajustes, Repasar: explicación de importar de Anki."
+  },
+  "reviewSettingsExportAnki": "Exportar a Anki",
+  "@reviewSettingsExportAnki": {
+    "description": "Ajustes, Repasar: abre la exportación del mazo a Anki."
+  },
+  "reviewSettingsExportAnkiSubtitle": "Tus tarjetas en un archivo para Anki.",
+  "@reviewSettingsExportAnkiSubtitle": {
+    "description": "Ajustes, Repasar: explicación de exportar a Anki."
   }
 }

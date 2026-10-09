@@ -9429,5 +9429,324 @@
         "type": "int"
       }
     }
+  },
+  "ankiImportTitle": "Import from Anki",
+  "@ankiImportTitle": {
+    "description": "Anki import: screen title."
+  },
+  "ankiImportIntro": "Bring an Anki deck (.apkg) with its review schedule: every card stays where you left it.",
+  "@ankiImportIntro": {
+    "description": "Anki import: what the screen does."
+  },
+  "ankiImportHowTo": "In Anki: File › Export. Choose \"Anki Deck Package (*.apkg)\" and check \"Support older Anki versions\". Images, audio and video are not brought in.",
+  "@ankiImportHowTo": {
+    "description": "Anki import: how to export the deck from Anki."
+  },
+  "ankiImportPick": "Choose .apkg file",
+  "@ankiImportPick": {
+    "description": "Anki import: button that opens the file picker."
+  },
+  "ankiImportReading": "Reading the file…",
+  "@ankiImportReading": {
+    "description": "Anki import: while the package is read."
+  },
+  "ankiImportWebUnavailable": "Importing from Anki is available in the Android and desktop apps, not on the web.",
+  "@ankiImportWebUnavailable": {
+    "description": "Anki import: notice on the web version."
+  },
+  "ankiImportPreviewTitle": "What the file contains",
+  "@ankiImportPreviewTitle": {
+    "description": "Anki import: preview title."
+  },
+  "ankiImportSummary": "{cards, plural, =1{1 card} other{{cards} cards}} in {decks, plural, =1{1 deck} other{{decks} decks}}",
+  "@ankiImportSummary": {
+    "description": "Anki import: how many cards and decks the package has.",
+    "placeholders": {
+      "cards": {
+        "type": "int"
+      },
+      "decks": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindBasic": "{count, plural, =1{1 question and answer} other{{count} question and answer}}",
+  "@ankiImportKindBasic": {
+    "description": "Anki import: how many basic cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindReversed": "{count, plural, =1{1 two-direction} other{{count} two-direction}}",
+  "@ankiImportKindReversed": {
+    "description": "Anki import: how many two-direction cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindCloze": "{count, plural, =1{1 fill-in-the-blank} other{{count} fill-in-the-blank}}",
+  "@ankiImportKindCloze": {
+    "description": "Anki import: how many cloze cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindTyped": "{count, plural, =1{1 type-the-answer} other{{count} type-the-answer}}",
+  "@ankiImportKindTyped": {
+    "description": "Anki import: how many type-the-answer cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportKindChoice": "{count, plural, =1{1 multiple choice} other{{count} multiple choice}}",
+  "@ankiImportKindChoice": {
+    "description": "Anki import: how many multiple-choice cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportStages": "{newCount} new, {learning} learning, {review} in review",
+  "@ankiImportStages": {
+    "description": "Anki import: what stage of the schedule the cards are in.",
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "learning": {
+        "type": "int"
+      },
+      "review": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportSuspended": "{count, plural, =1{1 is paused and stays paused} other{{count} are paused and stay paused}}",
+  "@ankiImportSuspended": {
+    "description": "Anki import: suspended cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportPostponed": "{count, plural, =1{1 was postponed: it comes back tomorrow} other{{count} were postponed: they come back tomorrow}}",
+  "@ankiImportPostponed": {
+    "description": "Anki import: postponed cards.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportMediaWarning": "They come in without their files: {images} images, {audio} audio files and {video} videos used by the cards are not brought in.",
+  "@ankiImportMediaWarning": {
+    "description": "Anki import: notice that media is not imported.",
+    "placeholders": {
+      "images": {
+        "type": "int"
+      },
+      "audio": {
+        "type": "int"
+      },
+      "video": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportFilteredWarning": "{count, plural, =1{1 card was in a filtered deck: it goes into its original deck, with its original schedule.} other{{count} cards were in a filtered deck: they go into their original deck, with their original schedule.}}",
+  "@ankiImportFilteredWarning": {
+    "description": "Anki import: notice about cards in a filtered deck.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportSkipped": "{count, plural, =1{1 card cannot be brought in: it has nothing to show.} other{{count} cards cannot be brought in: they have nothing to show.}}",
+  "@ankiImportSkipped": {
+    "description": "Anki import: cards left out.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportAlready": "{count, plural, =1{1 is already in your library from a previous import: it is not brought in again.} other{{count} are already in your library from a previous import: they are not brought in again.}}",
+  "@ankiImportAlready": {
+    "description": "Anki import: cards that were already there.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportDestinationTitle": "Where to save them",
+  "@ankiImportDestinationTitle": {
+    "description": "Anki import: destination choice title."
+  },
+  "ankiImportDestPerDeck": "One item per deck",
+  "@ankiImportDestPerDeck": {
+    "description": "Anki import: one item for each deck."
+  },
+  "ankiImportDestPerDeckHint": "Each deck is an item, and its levels (History::Rome) are tags.",
+  "@ankiImportDestPerDeckHint": {
+    "description": "Anki import: explanation of one item per deck."
+  },
+  "ankiImportDestSingle": "Everything in \"Imported from Anki\"",
+  "@ankiImportDestSingle": {
+    "description": "Anki import: a single item with everything."
+  },
+  "ankiImportDestSingleHint": "A single item with all the cards.",
+  "@ankiImportDestSingleHint": {
+    "description": "Anki import: explanation of the single item."
+  },
+  "ankiImportStart": "{count, plural, =1{Import 1 card} other{Import {count} cards}}",
+  "@ankiImportStart": {
+    "description": "Anki import: button that brings the cards in.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportNothingNew": "There are no new cards to bring in.",
+  "@ankiImportNothingNew": {
+    "description": "Anki import: everything in the package was already there."
+  },
+  "ankiImportChooseOther": "Choose another file",
+  "@ankiImportChooseOther": {
+    "description": "Anki import: choose the file again."
+  },
+  "ankiImportRunning": "Importing…",
+  "@ankiImportRunning": {
+    "description": "Anki import: while the cards are written."
+  },
+  "ankiImportProgress": "{done} of {total} cards",
+  "@ankiImportProgress": {
+    "description": "Anki import: import progress.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportDoneTitle": "Done",
+  "@ankiImportDoneTitle": {
+    "description": "Anki import: title when finished."
+  },
+  "ankiImportDoneCards": "{count, plural, =0{No new cards were brought in.} =1{1 card was brought in.} other{{count} cards were brought in.}}",
+  "@ankiImportDoneCards": {
+    "description": "Anki import: how many cards came in.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ankiImportGoReview": "Go to Review",
+  "@ankiImportGoReview": {
+    "description": "Anki import: goes to the Review tab."
+  },
+  "ankiImportFailedTitle": "The import failed",
+  "@ankiImportFailedTitle": {
+    "description": "Anki import: error title."
+  },
+  "ankiImportFailedWrite": "Nothing was saved: you can try again.",
+  "@ankiImportFailedWrite": {
+    "description": "Anki import: writing failed and everything was undone."
+  },
+  "ankiImportTryAgain": "Try another file",
+  "@ankiImportTryAgain": {
+    "description": "Anki import: after an error, start over."
+  },
+  "reviewSettingsTitle": "Review",
+  "@reviewSettingsTitle": {
+    "description": "Settings, Review section: title."
+  },
+  "reviewSettingsReminderTitle": "Daily review reminder",
+  "@reviewSettingsReminderTitle": {
+    "description": "Settings, Review: daily reminder switch."
+  },
+  "reviewSettingsReminderSubtitle": "A notification at the time you choose, with how many cards you have to review.",
+  "@reviewSettingsReminderSubtitle": {
+    "description": "Settings, Review: daily reminder explanation."
+  },
+  "reviewSettingsReminderTime": "Reminder time",
+  "@reviewSettingsReminderTime": {
+    "description": "Settings, Review: choose the reminder time."
+  },
+  "reviewSettingsReminderBattery": "If your phone saves battery aggressively, the reminder may arrive late or not sound when the app is closed.",
+  "@reviewSettingsReminderBattery": {
+    "description": "Settings, Review: warning about battery saving."
+  },
+  "reviewSettingsPermissionMissing": "The system does not let Sinapsis show notifications: the reminder will not sound.",
+  "@reviewSettingsPermissionMissing": {
+    "description": "Settings, Review: notification permission is missing."
+  },
+  "reviewSettingsPermissionOk": "Notifications allowed",
+  "@reviewSettingsPermissionOk": {
+    "description": "Settings, Review: notification permission is granted."
+  },
+  "reviewSettingsOpenSystemSettings": "Open system settings",
+  "@reviewSettingsOpenSystemSettings": {
+    "description": "Settings, Review: button that goes to the system notification settings."
+  },
+  "reviewSettingsLimitsTitle": "Cards per day",
+  "@reviewSettingsLimitsTitle": {
+    "description": "Settings, Review: daily limits heading."
+  },
+  "reviewSettingsNewLimit": "New cards per day",
+  "@reviewSettingsNewLimit": {
+    "description": "Settings, Review: new cards limit."
+  },
+  "reviewSettingsReviewLimit": "Reviews per day",
+  "@reviewSettingsReviewLimit": {
+    "description": "Settings, Review: reviews limit."
+  },
+  "reviewSettingsNoLimit": "No limit",
+  "@reviewSettingsNoLimit": {
+    "description": "Settings, Review: there is no cap."
+  },
+  "reviewSettingsLimitValue": "{count, plural, =1{1 per day} other{{count} per day}}",
+  "@reviewSettingsLimitValue": {
+    "description": "Settings, Review: value of a daily limit.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSettingsLimitsHint": "The study day runs from 4:00 to 4:00. What is learned in steps of minutes has no cap.",
+  "@reviewSettingsLimitsHint": {
+    "description": "Settings, Review: note about the limits."
+  },
+  "reviewSettingsImportAnki": "Import from Anki",
+  "@reviewSettingsImportAnki": {
+    "description": "Settings, Review: opens the Anki deck import."
+  },
+  "reviewSettingsImportAnkiSubtitle": "Bring an .apkg deck with its review schedule.",
+  "@reviewSettingsImportAnkiSubtitle": {
+    "description": "Settings, Review: explanation of importing from Anki."
+  },
+  "reviewSettingsExportAnki": "Export to Anki",
+  "@reviewSettingsExportAnki": {
+    "description": "Settings, Review: opens the export of the deck to Anki."
+  },
+  "reviewSettingsExportAnkiSubtitle": "Your cards in a file for Anki.",
+  "@reviewSettingsExportAnkiSubtitle": {
+    "description": "Settings, Review: explanation of exporting to Anki."
   }
 }

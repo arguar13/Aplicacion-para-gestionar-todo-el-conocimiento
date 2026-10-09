@@ -8,6 +8,7 @@ import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
+import 'package:sinapsis/features/anki_import/presentation/screens/anki_import_screen.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/shared_content_controller.dart';
 import 'package:sinapsis/features/capture/presentation/screens/capture_screen.dart';
@@ -215,6 +216,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.graphTension,
         name: RouteNames.graphTension,
         builder: (context, state) => const TensionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.ankiImport,
+        name: RouteNames.ankiImport,
+        builder: (context, state) => const AnkiImportScreen(),
       ),
       GoRoute(
         path: RoutePaths.reviewBadges,

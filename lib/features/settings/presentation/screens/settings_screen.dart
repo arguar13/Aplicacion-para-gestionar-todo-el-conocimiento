@@ -17,6 +17,7 @@ import 'package:sinapsis/features/dev_seed/presentation/providers/sample_library
 import 'package:sinapsis/features/dev_seed/presentation/widgets/sample_library_tile.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/keep_working/presentation/providers/keep_working_providers.dart';
+import 'package:sinapsis/features/settings/presentation/widgets/review_settings_section.dart';
 import 'package:sinapsis/features/vault/domain/entities/compaction_assessment.dart';
 import 'package:sinapsis/features/vault/presentation/providers/merge_conflict_providers.dart';
 import 'package:sinapsis/features/vault/presentation/providers/vault_compaction_providers.dart';
@@ -189,6 +190,9 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ],
+          const SizedBox(height: 24),
+          // F31: el aviso diario, cuántas tarjetas por día y el camino a Anki.
+          const ReviewSettingsSection(),
           const SizedBox(height: 24),
           _SettingsSection(
             title: l10n.settingsVaultSection,
