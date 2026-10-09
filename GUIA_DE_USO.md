@@ -33,7 +33,7 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 24. [Notas generadas por IA](#notas-generadas-por-ia)
 25. [Repasar con tarjetas y cuestionarios](#repasar-con-tarjetas-y-cuestionarios)
 26. [Tu hábito de repaso](#tu-hábito-de-repaso)
-27. [Exportar a Anki](#exportar-a-anki)
+27. [Anki: exportar e importar](#anki-exportar-e-importar)
 28. [Los modelos de IA descargables](#los-modelos-de-ia-descargables)
 29. [Ajustes](#ajustes)
 30. [Mantenimiento de la bóveda](#mantenimiento-de-la-bóveda)
@@ -1481,12 +1481,12 @@ cuenta como de ayer.
 
 #### El aviso diario
 
-La app ya sabe mandarte, en Android, una notificación diaria a la hora que
-elijas con cuántas tarjetas vas a tener para repasar (si no habrá ninguna, no
-avisa), y **tocarla abre Repasar**. La cantidad se cuenta hasta la hora del
-aviso, no solo con lo que vence ahora. **Todavía no hay una pantalla en Ajustes
-para prenderlo**: llega en una próxima entrega, igual que cambiar el límite de
-tarjetas nuevas y de repasos por día (hoy son 20 y 200).
+Si lo prendés, la app te manda en Android una notificación diaria a la hora
+que elijas con cuántas tarjetas vas a tener para repasar (si no habrá
+ninguna, no avisa), y **tocarla abre Repasar**. La cantidad se cuenta hasta la
+hora del aviso, no solo con lo que vence ahora. Se prende, se elige la hora y
+se cambian los límites de tarjetas por día en [Aviso diario y tarjetas por
+día](#aviso-diario-y-tarjetas-por-día-ajustes--repasar).
 
 ### Crear tarjetas con IA, para muchos elementos a la vez
 
@@ -1610,6 +1610,22 @@ final te muestra tu puntaje y, si te equivocaste en algo, qué etiquetas
 concentraron más errores, con un acceso directo a la nota correspondiente
 para repasarla.
 
+### Aviso diario y tarjetas por día (Ajustes → Repasar)
+
+**Cómo llegar:** **Ajustes → Repasar**.
+
+- **Aviso diario para repasar** (solo en Android): un interruptor, apagado de
+  entrada. Al prenderlo, Android te pide permiso para mostrar notificaciones;
+  elegís la **hora** (por defecto las 20:00) y todos los días suena una
+  notificación con cuántas tarjetas tenés. Con 0 no suena. Si rechazaste el
+  permiso, ves el aviso y el botón **"Abrir los ajustes del sistema"** para
+  concederlo desde ahí. Si tu teléfono ahorra batería de forma agresiva, el
+  aviso puede llegar tarde o no sonar con la app cerrada.
+- **Tarjetas nuevas por día** y **repasos por día:** por defecto 20 y 200.
+  Elegís otro valor o **"Sin límite"**. El día de estudio va de las 4:00 a
+  las 4:00.
+- **Importar de Anki** y **Exportar a Anki**, a un toque.
+
 ---
 
 ## Tu hábito de repaso
@@ -1629,7 +1645,7 @@ Si no te interesa esta parte, la podés apagar desde
 
 ---
 
-## Exportar a Anki
+## Anki: exportar e importar
 
 Si además usás la app Anki (por fuera de Sinapsis) para estudiar, podés
 exportar tus tarjetas de repaso para abrirlas ahí.
@@ -1685,22 +1701,6 @@ dos veces no duplica nada**, y lo que repasaste entre una y otra vez no se
 pisa. Tampoco duplica lo que Sinapsis mismo exportó. El historial de
 respuestas de Anki no se trae: tus estadísticas y tu racha arrancan con lo
 que repases acá.
-
-### Aviso diario y tarjetas por día (Ajustes → Repasar)
-
-**Cómo llegar:** **Ajustes → Repasar**.
-
-- **Aviso diario para repasar** (solo en Android): un interruptor, apagado de
-  entrada. Al prenderlo, Android te pide permiso para mostrar notificaciones;
-  elegís la **hora** (por defecto las 20:00) y todos los días suena una
-  notificación con cuántas tarjetas tenés. Con 0 no suena. Si rechazaste el
-  permiso, ves el aviso y el botón **"Abrir los ajustes del sistema"** para
-  concederlo desde ahí. Si tu teléfono ahorra batería de forma agresiva, el
-  aviso puede llegar tarde o no sonar con la app cerrada.
-- **Tarjetas nuevas por día** y **repasos por día:** por defecto 20 y 200.
-  Elegís otro valor o **"Sin límite"**. El día de estudio va de las 4:00 a
-  las 4:00.
-- **Importar de Anki** y **Exportar a Anki**, a un toque.
 
 ---
 
