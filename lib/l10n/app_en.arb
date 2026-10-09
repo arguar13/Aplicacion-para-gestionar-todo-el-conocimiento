@@ -8356,5 +8356,631 @@
   "reviewLimitMore": "Study more today",
   "@reviewLimitMore": {
     "description": "Review: button to raise today's card limit."
+  },
+  "myCardsTitle": "My cards",
+  "@myCardsTitle": {
+    "description": "Mis tarjetas (F31): título de la pantalla con todas las tarjetas."
+  },
+  "myCardsEntryTooltip": "My cards",
+  "@myCardsEntryTooltip": {
+    "description": "Mis tarjetas: ayuda del botón que abre la pantalla desde Repasar."
+  },
+  "myCardsSearchHint": "Search the front and the back",
+  "@myCardsSearchHint": {
+    "description": "Mis tarjetas: texto de ayuda del campo de búsqueda."
+  },
+  "myCardsSearchClear": "Clear the search",
+  "@myCardsSearchClear": {
+    "description": "Mis tarjetas: ayuda del botón que vacía el campo de búsqueda."
+  },
+  "myCardsCount": "{count, plural, =1{1 card} other{{count} cards}}",
+  "@myCardsCount": {
+    "description": "Mis tarjetas: cuántas tarjetas cumplen los filtros.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsStatusAll": "All",
+  "@myCardsStatusAll": {
+    "description": "Mis tarjetas: filtro que no restringe por estado."
+  },
+  "myCardsStatusNew": "New",
+  "@myCardsStatusNew": {
+    "description": "Mis tarjetas: filtro de las que nunca se contestaron."
+  },
+  "myCardsStatusLearning": "Learning",
+  "@myCardsStatusLearning": {
+    "description": "Mis tarjetas: filtro de las que están en pasos de aprendizaje."
+  },
+  "myCardsStatusDue": "Due",
+  "@myCardsStatusDue": {
+    "description": "Mis tarjetas: filtro de las que ya tocan hoy."
+  },
+  "myCardsStatusSuspended": "Paused",
+  "@myCardsStatusSuspended": {
+    "description": "Mis tarjetas: filtro de las pausadas."
+  },
+  "myCardsStatusBuried": "Postponed",
+  "@myCardsStatusBuried": {
+    "description": "Mis tarjetas: filtro de las pospuestas hasta mañana."
+  },
+  "myCardsStatusYoung": "Young",
+  "@myCardsStatusYoung": {
+    "description": "Mis tarjetas: filtro de las que se repasan en días y llevan menos de 21 de intervalo."
+  },
+  "myCardsStatusMature": "Mature",
+  "@myCardsStatusMature": {
+    "description": "Mis tarjetas: filtro de las que llevan 21 días o más de intervalo."
+  },
+  "myCardsStatusChip": "{label} ({count})",
+  "@myCardsStatusChip": {
+    "description": "Mis tarjetas: un filtro con cuántas tarjetas tiene.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsScopeTitle": "Which cards to show",
+  "@myCardsScopeTitle": {
+    "description": "Mis tarjetas: título de la hoja para elegir un tema, etiqueta o cuaderno."
+  },
+  "myCardsScopeAll": "All cards",
+  "@myCardsScopeAll": {
+    "description": "Mis tarjetas: sin recorte."
+  },
+  "myCardsScopeThisItem": "A single item",
+  "@myCardsScopeThisItem": {
+    "description": "Mis tarjetas: recorte a las tarjetas de un elemento, al llegar desde él."
+  },
+  "myCardsScopeSpaces": "Topics",
+  "@myCardsScopeSpaces": {
+    "description": "Mis tarjetas: encabezado de la lista de temas en la hoja de recortes."
+  },
+  "myCardsScopeTags": "Tags",
+  "@myCardsScopeTags": {
+    "description": "Mis tarjetas: encabezado de la lista de etiquetas en la hoja de recortes."
+  },
+  "myCardsScopeNotebooks": "Notebooks",
+  "@myCardsScopeNotebooks": {
+    "description": "Mis tarjetas: encabezado de la lista de cuadernos en la hoja de recortes."
+  },
+  "myCardsScopeNone": "There are no topics, tags or notebooks yet.",
+  "@myCardsScopeNone": {
+    "description": "Mis tarjetas: la hoja de recortes cuando no hay nada que elegir."
+  },
+  "myCardsScopeMissing": "No longer exists",
+  "@myCardsScopeMissing": {
+    "description": "Mis tarjetas: el recorte apunta a algo que se borró."
+  },
+  "myCardsScopeClear": "Remove the filter",
+  "@myCardsScopeClear": {
+    "description": "Mis tarjetas: ayuda del botón que deja el recorte en «todas»."
+  },
+  "myCardsSortTooltip": "Sort",
+  "@myCardsSortTooltip": {
+    "description": "Mis tarjetas: ayuda del botón de orden."
+  },
+  "myCardsSortDue": "Due date",
+  "@myCardsSortDue": {
+    "description": "Mis tarjetas: ordenar por cuándo toca repasarla."
+  },
+  "myCardsSortCreated": "Created",
+  "@myCardsSortCreated": {
+    "description": "Mis tarjetas: ordenar por cuándo se creó."
+  },
+  "myCardsSortEase": "Ease",
+  "@myCardsSortEase": {
+    "description": "Mis tarjetas: ordenar por el factor de facilidad."
+  },
+  "myCardsSortInterval": "Interval",
+  "@myCardsSortInterval": {
+    "description": "Mis tarjetas: ordenar por el intervalo en días."
+  },
+  "myCardsSortLapses": "Lapses",
+  "@myCardsSortLapses": {
+    "description": "Mis tarjetas: ordenar por las veces que se olvidó."
+  },
+  "myCardsSortAscending": "Ascending",
+  "@myCardsSortAscending": {
+    "description": "Mis tarjetas: lectura de la flecha del orden actual."
+  },
+  "myCardsSortDescending": "Descending",
+  "@myCardsSortDescending": {
+    "description": "Mis tarjetas: lectura de la flecha del orden actual."
+  },
+  "myCardsStageNew": "New",
+  "@myCardsStageNew": {
+    "description": "Mis tarjetas: etapa de una tarjeta que nunca se contestó."
+  },
+  "myCardsStageLearning": "Learning",
+  "@myCardsStageLearning": {
+    "description": "Mis tarjetas: etapa de una tarjeta en pasos de aprendizaje."
+  },
+  "myCardsStageRelearning": "Relearning",
+  "@myCardsStageRelearning": {
+    "description": "Mis tarjetas: etapa de una tarjeta que se olvidó y vuelve en minutos."
+  },
+  "myCardsStageYoung": "Young",
+  "@myCardsStageYoung": {
+    "description": "Mis tarjetas: etapa de un repaso con menos de 21 días de intervalo."
+  },
+  "myCardsStageMature": "Mature",
+  "@myCardsStageMature": {
+    "description": "Mis tarjetas: etapa de un repaso con 21 días o más de intervalo."
+  },
+  "myCardsStageSuspended": "Paused",
+  "@myCardsStageSuspended": {
+    "description": "Mis tarjetas: una tarjeta pausada, sea cual sea su etapa."
+  },
+  "myCardsStageBuried": "Postponed until tomorrow",
+  "@myCardsStageBuried": {
+    "description": "Mis tarjetas: marca de una tarjeta pospuesta."
+  },
+  "myCardsInterval": "{days, plural, =1{1 day} other{{days} days}}",
+  "@myCardsInterval": {
+    "description": "Mis tarjetas: el intervalo actual de una tarjeta.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDueNone": "Not scheduled",
+  "@myCardsDueNone": {
+    "description": "Mis tarjetas: una tarjeta nueva no tiene fecha de repaso."
+  },
+  "myCardsDueToday": "Due today",
+  "@myCardsDueToday": {
+    "description": "Mis tarjetas: la tarjeta toca en el día de estudio de hoy."
+  },
+  "myCardsDueTomorrow": "Due tomorrow",
+  "@myCardsDueTomorrow": {
+    "description": "Mis tarjetas: la tarjeta toca mañana."
+  },
+  "myCardsDueIn": "Due in {days} days",
+  "@myCardsDueIn": {
+    "description": "Mis tarjetas: la tarjeta toca dentro de varios días (dos o más).",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDueAgo": "{days, plural, =1{1 day overdue} other{{days} days overdue}}",
+  "@myCardsDueAgo": {
+    "description": "Mis tarjetas: la tarjeta tocaba antes de hoy.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsKindCloze": "Cloze",
+  "@myCardsKindCloze": {
+    "description": "Mis tarjetas: forma de tarjeta con huecos para completar."
+  },
+  "myCardsKindTyped": "Type the answer",
+  "@myCardsKindTyped": {
+    "description": "Mis tarjetas: forma de tarjeta en la que se escribe la respuesta."
+  },
+  "myCardsKindMultipleChoice": "Multiple choice",
+  "@myCardsKindMultipleChoice": {
+    "description": "Mis tarjetas: forma de tarjeta de opción múltiple."
+  },
+  "myCardsKindTrueFalse": "True or false",
+  "@myCardsKindTrueFalse": {
+    "description": "Mis tarjetas: forma de tarjeta de verdadero o falso."
+  },
+  "myCardsSiblings": "With siblings",
+  "@myCardsSiblings": {
+    "description": "Mis tarjetas: una tarjeta común que tiene hermanas (las dos direcciones)."
+  },
+  "myCardsKindWithSiblings": "{kind}, with siblings",
+  "@myCardsKindWithSiblings": {
+    "description": "Mis tarjetas: una forma de tarjeta que además tiene hermanas.",
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      }
+    }
+  },
+  "myCardsLapses": "{count, plural, =1{1 lapse} other{{count} lapses}}",
+  "@myCardsLapses": {
+    "description": "Mis tarjetas: las veces que se olvidó una tarjeta.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsSelectedCount": "{count, plural, =1{1 selected} other{{count} selected}}",
+  "@myCardsSelectedCount": {
+    "description": "Mis tarjetas: título mientras se eligen tarjetas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsSelectAll": "Select all {count}",
+  "@myCardsSelectAll": {
+    "description": "Mis tarjetas: ayuda del botón que elige todas las que cumplen los filtros.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsClearSelection": "Cancel the selection",
+  "@myCardsClearSelection": {
+    "description": "Mis tarjetas: ayuda del botón que sale de la selección."
+  },
+  "myCardsActionSuspend": "Pause",
+  "@myCardsActionSuspend": {
+    "description": "Mis tarjetas: acción que pausa las elegidas."
+  },
+  "myCardsActionUnsuspend": "Resume",
+  "@myCardsActionUnsuspend": {
+    "description": "Mis tarjetas: acción que reactiva las pausadas elegidas."
+  },
+  "myCardsActionBury": "Postpone until tomorrow",
+  "@myCardsActionBury": {
+    "description": "Mis tarjetas: acción que pospone las elegidas."
+  },
+  "myCardsActionReset": "Reset to new",
+  "@myCardsActionReset": {
+    "description": "Mis tarjetas: acción que reinicia el calendario de las elegidas."
+  },
+  "myCardsActionDelete": "Delete",
+  "@myCardsActionDelete": {
+    "description": "Mis tarjetas: acción que borra las elegidas."
+  },
+  "myCardsDoneSuspended": "{count, plural, =1{1 card paused} other{{count} cards paused}}",
+  "@myCardsDoneSuspended": {
+    "description": "Mis tarjetas: aviso tras pausar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDoneUnsuspended": "{count, plural, =1{1 card resumed} other{{count} cards resumed}}",
+  "@myCardsDoneUnsuspended": {
+    "description": "Mis tarjetas: aviso tras reanudar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDoneBuried": "{count, plural, =1{1 card postponed until tomorrow} other{{count} cards postponed until tomorrow}}",
+  "@myCardsDoneBuried": {
+    "description": "Mis tarjetas: aviso tras posponer.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDoneReset": "{count, plural, =1{1 card is new again} other{{count} cards are new again}}",
+  "@myCardsDoneReset": {
+    "description": "Mis tarjetas: aviso tras reiniciar el calendario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDoneDeleted": "{count, plural, =1{1 card deleted} other{{count} cards deleted}}",
+  "@myCardsDoneDeleted": {
+    "description": "Mis tarjetas: aviso tras borrar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsResetTitle": "Reset to new?",
+  "@myCardsResetTitle": {
+    "description": "Mis tarjetas: título de la confirmación de reiniciar el calendario."
+  },
+  "myCardsResetBody": "{count, plural, =1{The selected card loses its schedule (interval, ease and date) and is studied as new. Its text and review history stay.} other{The {count} selected cards lose their schedule (interval, ease and date) and are studied as new. Their text and review history stay.}}",
+  "@myCardsResetBody": {
+    "description": "Mis tarjetas: qué pasa al reiniciar el calendario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsResetConfirm": "Reset to new",
+  "@myCardsResetConfirm": {
+    "description": "Mis tarjetas: botón que confirma el reinicio."
+  },
+  "myCardsDeleteTitle": "{count, plural, =1{Delete 1 card?} other{Delete {count} cards?}}",
+  "@myCardsDeleteTitle": {
+    "description": "Mis tarjetas: título de la confirmación de borrar.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "myCardsDeleteBody": "They are deleted for good, along with their review history. This cannot be undone.",
+  "@myCardsDeleteBody": {
+    "description": "Mis tarjetas: qué pasa al borrar."
+  },
+  "myCardsDeleteConfirm": "Delete",
+  "@myCardsDeleteConfirm": {
+    "description": "Mis tarjetas: botón que confirma el borrado."
+  },
+  "myCardsCancel": "Cancel",
+  "@myCardsCancel": {
+    "description": "Mis tarjetas: botón que cierra una confirmación sin hacer nada."
+  },
+  "myCardsEmptyVault": "There are no cards yet. Create some from an item's detail.",
+  "@myCardsEmptyVault": {
+    "description": "Mis tarjetas: no hay ninguna tarjeta en la bóveda."
+  },
+  "myCardsEmptyFilter": "No card matches what you asked for.",
+  "@myCardsEmptyFilter": {
+    "description": "Mis tarjetas: los filtros no dejan ninguna tarjeta."
+  },
+  "myCardsClearFilters": "Clear the filters",
+  "@myCardsClearFilters": {
+    "description": "Mis tarjetas: botón que deja la lista sin filtros."
+  },
+  "myCardsLoadError": "The cards could not be read.",
+  "@myCardsLoadError": {
+    "description": "Mis tarjetas: falló la lectura."
+  },
+  "myCardsRetry": "Try again",
+  "@myCardsRetry": {
+    "description": "Mis tarjetas: botón que vuelve a leer tras un fallo."
+  },
+  "cardStatsTitle": "Statistics",
+  "@cardStatsTitle": {
+    "description": "Estadísticas de repaso (F31): título de la pantalla."
+  },
+  "cardStatsEntryTooltip": "Review statistics",
+  "@cardStatsEntryTooltip": {
+    "description": "Estadísticas de repaso: ayuda del botón que abre la pantalla desde Repasar."
+  },
+  "cardStatsLoadError": "The statistics could not be read.",
+  "@cardStatsLoadError": {
+    "description": "Estadísticas de repaso: falló la lectura."
+  },
+  "cardStatsStreakDays": "{days, plural, =0{No streak yet} =1{1 day streak} other{{days} day streak}}",
+  "@cardStatsStreakDays": {
+    "description": "Estadísticas de repaso: la racha de hoy.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsBadgesAction": "Badges",
+  "@cardStatsBadgesAction": {
+    "description": "Estadísticas de repaso: botón que abre las insignias."
+  },
+  "cardStatsForecastTitle": "What's coming",
+  "@cardStatsForecastTitle": {
+    "description": "Estadísticas de repaso: título del pronóstico."
+  },
+  "cardStatsForecastEmpty": "No reviews are scheduled in the next 30 days.",
+  "@cardStatsForecastEmpty": {
+    "description": "Estadísticas de repaso: el pronóstico no tiene nada."
+  },
+  "cardStatsForecastToday": "{count, plural, =0{None due today} =1{1 due today} other{{count} due today}}",
+  "@cardStatsForecastToday": {
+    "description": "Estadísticas de repaso: cuántas vencen hoy.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastOverdue": "{count, plural, =1{1 overdue} other{{count} overdue}}",
+  "@cardStatsForecastOverdue": {
+    "description": "Estadísticas de repaso: cuántas de las de hoy estaban atrasadas.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastTotal": "{total, plural, =1{1 card in the next 30 days} other{{total} cards in the next 30 days}}",
+  "@cardStatsForecastTotal": {
+    "description": "Estadísticas de repaso: cuántas vencen en total en el pronóstico.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastPeak": "Most in one day: {count}",
+  "@cardStatsForecastPeak": {
+    "description": "Estadísticas de repaso: el día con más tarjetas, sobre el gráfico.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastBar": "{date}: {count, plural, =0{none} =1{1 card} other{{count} cards}}",
+  "@cardStatsForecastBar": {
+    "description": "Estadísticas de repaso: ayuda de cada columna del pronóstico.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastAxisToday": "Today",
+  "@cardStatsForecastAxisToday": {
+    "description": "Estadísticas de repaso: rótulo del primer día del eje."
+  },
+  "cardStatsForecastAxisDays": "In {days} days",
+  "@cardStatsForecastAxisDays": {
+    "description": "Estadísticas de repaso: rótulo de un día del eje.",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastChartLabel": "Column chart of the cards due on each of the next 30 days: {total} in total, with at most {peak} in one day",
+  "@cardStatsForecastChartLabel": {
+    "description": "Estadísticas de repaso: lectura del gráfico para lectores de pantalla.",
+    "placeholders": {
+      "total": {
+        "type": "int"
+      },
+      "peak": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsForecastTable": "See the numbers",
+  "@cardStatsForecastTable": {
+    "description": "Estadísticas de repaso: abre la lista de los 30 días del pronóstico."
+  },
+  "cardStatsDistributionTitle": "How your cards are doing",
+  "@cardStatsDistributionTitle": {
+    "description": "Estadísticas de repaso: título del reparto por etapa."
+  },
+  "cardStatsDistributionEmpty": "There are no cards yet.",
+  "@cardStatsDistributionEmpty": {
+    "description": "Estadísticas de repaso: el reparto no tiene nada."
+  },
+  "cardStatsDistributionTotal": "{count, plural, =1{1 card in total} other{{count} cards in total}}",
+  "@cardStatsDistributionTotal": {
+    "description": "Estadísticas de repaso: total de tarjetas del reparto.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsDistributionRow": "{label}: {count}, {percent}%",
+  "@cardStatsDistributionRow": {
+    "description": "Estadísticas de repaso: lectura de una fila del reparto.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsStageNew": "New",
+  "@cardStatsStageNew": {
+    "description": "Estadísticas de repaso: tarjetas que nunca se contestaron."
+  },
+  "cardStatsStageLearning": "Learning",
+  "@cardStatsStageLearning": {
+    "description": "Estadísticas de repaso: tarjetas en pasos de aprendizaje."
+  },
+  "cardStatsStageYoung": "Young (under 21 days)",
+  "@cardStatsStageYoung": {
+    "description": "Estadísticas de repaso: repasos con menos de 21 días de intervalo."
+  },
+  "cardStatsStageMature": "Mature (21 days or more)",
+  "@cardStatsStageMature": {
+    "description": "Estadísticas de repaso: repasos con 21 días o más de intervalo."
+  },
+  "cardStatsStageSuspended": "Paused",
+  "@cardStatsStageSuspended": {
+    "description": "Estadísticas de repaso: tarjetas pausadas."
+  },
+  "cardStatsButtonsTitle": "How you answer",
+  "@cardStatsButtonsTitle": {
+    "description": "Estadísticas de repaso: título del uso de los botones."
+  },
+  "cardStatsButtonsSubtitle": "Which button you pressed at each stage. Correct is anything that wasn't \"Again\".",
+  "@cardStatsButtonsSubtitle": {
+    "description": "Estadísticas de repaso: explica el uso de los botones y el acierto."
+  },
+  "cardStatsPeriod30": "30 days",
+  "@cardStatsPeriod30": {
+    "description": "Estadísticas de repaso: período de los botones."
+  },
+  "cardStatsPeriod90": "90 days",
+  "@cardStatsPeriod90": {
+    "description": "Estadísticas de repaso: período de los botones."
+  },
+  "cardStatsPeriodAll": "All",
+  "@cardStatsPeriodAll": {
+    "description": "Estadísticas de repaso: período de los botones, todo el historial."
+  },
+  "cardStatsButtonsOverall": "All stages",
+  "@cardStatsButtonsOverall": {
+    "description": "Estadísticas de repaso: fila con los botones de todas las etapas juntas."
+  },
+  "cardStatsButtonsEmpty": "You haven't answered any card in this period.",
+  "@cardStatsButtonsEmpty": {
+    "description": "Estadísticas de repaso: no hay respuestas para contar."
+  },
+  "cardStatsButtonsNoData": "No answers",
+  "@cardStatsButtonsNoData": {
+    "description": "Estadísticas de repaso: una etapa sin respuestas."
+  },
+  "cardStatsButtonsAccuracy": "{percent}% correct · {count, plural, =1{1 answer} other{{count} answers}}",
+  "@cardStatsButtonsAccuracy": {
+    "description": "Estadísticas de repaso: acierto y cantidad de respuestas de una etapa.",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsButtonsRowLabel": "{stage}: again {again}, hard {hard}, good {good}, easy {easy}; {percent}% correct",
+  "@cardStatsButtonsRowLabel": {
+    "description": "Estadísticas de repaso: lectura de una fila de botones.",
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      },
+      "again": {
+        "type": "int"
+      },
+      "hard": {
+        "type": "int"
+      },
+      "good": {
+        "type": "int"
+      },
+      "easy": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "cardStatsButtonsRowEmpty": "{stage}: no answers",
+  "@cardStatsButtonsRowEmpty": {
+    "description": "Estadísticas de repaso: lectura de una fila de botones sin respuestas.",
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
   }
 }

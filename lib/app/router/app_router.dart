@@ -16,6 +16,8 @@ import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
+import 'package:sinapsis/features/flashcards/presentation/my_cards_route.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/my_cards_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
 import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
@@ -220,6 +222,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.reviewHistory,
         name: RouteNames.reviewHistory,
         builder: (context, state) => const ReviewHistoryScreen(),
+      ),
+      GoRoute(
+        path: kRouteCards,
+        name: kRouteNameCards,
+        builder: (context, state) => MyCardsScreen(
+          initialScope: myCardsScopeFromQuery(state.uri.queryParameters),
+        ),
       ),
       GoRoute(
         path: RoutePaths.graphLocalPattern,

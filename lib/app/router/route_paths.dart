@@ -237,3 +237,17 @@ abstract final class RouteNames {
   static const aiActivity = 'ai-activity';
   static const conflicts = 'conflicts';
 }
+
+/// «Mis tarjetas» (F31, ola 2): todas las tarjetas, con búsqueda, filtros y
+/// acciones en lote. Admite un recorte en la consulta (`?item=`, `?space=`,
+/// `?value=` o `?notebook=` con el identificador). Ruta plana, mismo criterio
+/// que [RoutePaths.reviewHistory].
+const kRouteCards = '/cards';
+
+/// Las estadísticas de repaso (F31, ola 2): pronóstico, reparto por etapa y
+/// botones usados, con lo que ya había (racha, constancia, retención).
+const kRouteReviewStats = '/review/stats';
+
+/// Los nombres de esas dos rutas.
+const kRouteNameCards = 'cards';
+const kRouteNameReviewStats = 'review-stats';
