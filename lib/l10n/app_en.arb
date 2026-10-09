@@ -9240,5 +9240,49 @@
   "reviewSessionPlaceholder": "This screen arrives in the next delivery.",
   "@reviewSessionPlaceholder": {
     "description": "Provisional screen for a destination that doesn't exist yet (My cards, Statistics)."
+  },
+  "reviewSessionClozeBadge": "Blank {number} of {total}",
+  "@reviewSessionClozeBadge": {
+    "description": "Review: which blank of a text with several is being studied.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionTypedHint": "Type the answer",
+  "@reviewSessionTypedHint": {
+    "description": "Review: hint of the field where the answer of a type-the-answer card is typed."
+  },
+  "reviewSessionTypedCheck": "Check",
+  "@reviewSessionTypedCheck": {
+    "description": "Review: button that compares what was typed with the correct answer."
+  },
+  "reviewSessionTypedYours": "Your answer",
+  "@reviewSessionTypedYours": {
+    "description": "Review: label of what the person typed, with what is extra marked."
+  },
+  "reviewSessionTypedExpected": "The correct answer",
+  "@reviewSessionTypedExpected": {
+    "description": "Review: label of the correct answer, with what was missing marked."
+  },
+  "reviewSessionTypedMatch": "Match",
+  "@reviewSessionTypedMatch": {
+    "description": "Review: what was typed is the correct answer (apart from case, accents or punctuation)."
+  },
+  "reviewSessionTypedClose": "Close: look at the difference and grade it yourself",
+  "@reviewSessionTypedClose": {
+    "description": "Review: what was typed has a typo; the person decides how to grade it."
+  },
+  "reviewSessionTypedMismatch": "No match",
+  "@reviewSessionTypedMismatch": {
+    "description": "Review: what was typed is not the correct answer."
+  },
+  "reviewSessionTypedBlank": "You didn't type anything",
+  "@reviewSessionTypedBlank": {
+    "description": "Review: it was checked without typing anything."
   }
 }

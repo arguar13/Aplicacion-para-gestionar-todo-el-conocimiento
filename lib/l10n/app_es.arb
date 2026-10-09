@@ -8222,5 +8222,49 @@
   "reviewSessionPlaceholder": "Esta pantalla llega en la próxima entrega.",
   "@reviewSessionPlaceholder": {
     "description": "Pantalla provisoria de un destino que todavía no existe (Mis tarjetas, Estadísticas)."
+  },
+  "reviewSessionClozeBadge": "Hueco {number} de {total}",
+  "@reviewSessionClozeBadge": {
+    "description": "Repasar: qué hueco de un texto con varios se está estudiando.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewSessionTypedHint": "Escribí la respuesta",
+  "@reviewSessionTypedHint": {
+    "description": "Repasar: pista del campo donde se escribe la respuesta de una tarjeta de «escribí la respuesta»."
+  },
+  "reviewSessionTypedCheck": "Comprobar",
+  "@reviewSessionTypedCheck": {
+    "description": "Repasar: botón que compara lo escrito con la respuesta correcta."
+  },
+  "reviewSessionTypedYours": "Tu respuesta",
+  "@reviewSessionTypedYours": {
+    "description": "Repasar: rótulo de lo que la persona escribió, con lo que sobra marcado."
+  },
+  "reviewSessionTypedExpected": "La respuesta correcta",
+  "@reviewSessionTypedExpected": {
+    "description": "Repasar: rótulo de la respuesta correcta, con lo que faltó marcado."
+  },
+  "reviewSessionTypedMatch": "Coincide",
+  "@reviewSessionTypedMatch": {
+    "description": "Repasar: lo escrito es la respuesta correcta (salvo mayúsculas, acentos o puntuación)."
+  },
+  "reviewSessionTypedClose": "Casi: mirá la diferencia y calificá vos",
+  "@reviewSessionTypedClose": {
+    "description": "Repasar: lo escrito tiene un descuido de tipeo; la persona decide cómo calificarla."
+  },
+  "reviewSessionTypedMismatch": "No coincide",
+  "@reviewSessionTypedMismatch": {
+    "description": "Repasar: lo escrito no es la respuesta correcta."
+  },
+  "reviewSessionTypedBlank": "No escribiste nada",
+  "@reviewSessionTypedBlank": {
+    "description": "Repasar: se comprobó sin haber escrito nada."
   }
 }
