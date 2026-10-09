@@ -8071,5 +8071,156 @@
   "reviewSessionSwipeHint": "Deslizá la tarjeta: derecha «Bien», izquierda «De nuevo», arriba «Fácil», abajo «Difícil».",
   "@reviewSessionSwipeHint": {
     "description": "Repasar: pista, una vez dada la vuelta a la tarjeta, de qué hace cada gesto."
+  },
+  "reviewSessionMenuTooltip": "Más acciones de esta tarjeta",
+  "@reviewSessionMenuTooltip": {
+    "description": "Repasar: botón del menú con las acciones sobre la tarjeta que se ve."
+  },
+  "reviewSessionMenuEdit": "Editar",
+  "@reviewSessionMenuEdit": {
+    "description": "Repasar: opción del menú de la tarjeta para editar su texto sin salir del repaso."
+  },
+  "reviewSessionMenuSuspend": "Pausar",
+  "@reviewSessionMenuSuspend": {
+    "description": "Repasar: opción del menú de la tarjeta para pausarla (no vuelve hasta reactivarla)."
+  },
+  "reviewSessionMenuBury": "Posponer hasta mañana",
+  "@reviewSessionMenuBury": {
+    "description": "Repasar: opción del menú de la tarjeta para no verla más hoy."
+  },
+  "reviewSessionMenuDelete": "Borrar",
+  "@reviewSessionMenuDelete": {
+    "description": "Repasar: opción del menú de la tarjeta para borrarla."
+  },
+  "reviewSessionSuspended": "Tarjeta pausada",
+  "@reviewSessionSuspended": {
+    "description": "Repasar: aviso tras pausar una tarjeta."
+  },
+  "reviewSessionBuried": "Tarjeta pospuesta hasta mañana",
+  "@reviewSessionBuried": {
+    "description": "Repasar: aviso tras posponer una tarjeta hasta el próximo día de estudio."
+  },
+  "reviewSessionUndoAction": "Deshacer",
+  "@reviewSessionUndoAction": {
+    "description": "Repasar: acción del aviso tras pausar o posponer una tarjeta, para volver atrás."
+  },
+  "reviewSessionDeleteTitle": "¿Borrar esta tarjeta?",
+  "@reviewSessionDeleteTitle": {
+    "description": "Repasar: título del diálogo que confirma borrar la tarjeta que se ve."
+  },
+  "reviewSessionDeleteMessage": "Se borra con su historial de repasos. No se puede deshacer.",
+  "@reviewSessionDeleteMessage": {
+    "description": "Repasar: mensaje del diálogo que confirma borrar la tarjeta que se ve."
+  },
+  "reviewSessionDeleteConfirm": "Borrar",
+  "@reviewSessionDeleteConfirm": {
+    "description": "Repasar: botón que confirma borrar la tarjeta."
+  },
+  "reviewSessionClozeTextHint": "Texto con sus huecos",
+  "@reviewSessionClozeTextHint": {
+    "description": "Repasar: pista del campo de texto al editar una tarjeta de huecos."
+  },
+  "reviewSessionClozeExtraHint": "Complemento (opcional)",
+  "@reviewSessionClozeExtraHint": {
+    "description": "Repasar: pista del campo que se muestra junto a la respuesta al editar una tarjeta de huecos."
+  },
+  "reviewEntryTodayTitle": "Para hoy",
+  "@reviewEntryTodayTitle": {
+    "description": "Repasar, entrada: título de la tarjeta con cuántas tarjetas hay para estudiar hoy."
+  },
+  "reviewEntryScopeTitle": "¿Qué estudiar?",
+  "@reviewEntryScopeTitle": {
+    "description": "Repasar, entrada: título del selector de qué estudiar."
+  },
+  "reviewEntryScopeAll": "Todo",
+  "@reviewEntryScopeAll": {
+    "description": "Repasar, entrada: estudiar todas las tarjetas."
+  },
+  "reviewEntryScopeSpace": "Un tema",
+  "@reviewEntryScopeSpace": {
+    "description": "Repasar, entrada: estudiar las tarjetas de un tema (espacio)."
+  },
+  "reviewEntryScopeValue": "Una etiqueta",
+  "@reviewEntryScopeValue": {
+    "description": "Repasar, entrada: estudiar las tarjetas de una etiqueta o valor del vocabulario, con sus ramas."
+  },
+  "reviewEntryScopeNotebook": "Un cuaderno",
+  "@reviewEntryScopeNotebook": {
+    "description": "Repasar, entrada: estudiar las tarjetas de un cuaderno."
+  },
+  "reviewEntryScopeItem": "Un elemento",
+  "@reviewEntryScopeItem": {
+    "description": "Repasar, entrada: estudiar las tarjetas de un solo elemento."
+  },
+  "reviewEntryScopeChange": "Cambiar",
+  "@reviewEntryScopeChange": {
+    "description": "Repasar, entrada: botón para cambiar qué se estudia."
+  },
+  "reviewEntryScopeSheetTitle": "Elegí qué estudiar",
+  "@reviewEntryScopeSheetTitle": {
+    "description": "Repasar, entrada: título de la hoja donde se elige qué estudiar."
+  },
+  "reviewEntryScopeSearch": "Buscar",
+  "@reviewEntryScopeSearch": {
+    "description": "Repasar, entrada: pista del campo de búsqueda al elegir un elemento o una etiqueta."
+  },
+  "reviewEntryScopeNothing": "No hay nada para elegir todavía.",
+  "@reviewEntryScopeNothing": {
+    "description": "Repasar, entrada: no hay temas, etiquetas, cuadernos ni elementos que elegir."
+  },
+  "reviewEntryScopeMissing": "Ya no existe",
+  "@reviewEntryScopeMissing": {
+    "description": "Repasar, entrada: nombre del recorte elegido cuando lo que apuntaba se borró."
+  },
+  "reviewEntryStart": "Empezar",
+  "@reviewEntryStart": {
+    "description": "Repasar, entrada: botón que empieza la sesión de estudio."
+  },
+  "reviewEntryNewBeyond": "{count, plural, =1{1 nueva más espera: hoy no entra por el límite} other{{count} nuevas más esperan: hoy no entran por el límite}}",
+  "@reviewEntryNewBeyond": {
+    "description": "Repasar, entrada: cuántas tarjetas nuevas quedan afuera hoy por el límite diario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryReviewsBeyond": "{count, plural, =1{1 repaso más espera: hoy no entra por el límite} other{{count} repasos más esperan: hoy no entran por el límite}}",
+  "@reviewEntryReviewsBeyond": {
+    "description": "Repasar, entrada: cuántos repasos quedan afuera hoy por el límite diario.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryNextLearning": "Una tarjeta en aprendizaje vuelve en {minutes} min.",
+  "@reviewEntryNextLearning": {
+    "description": "Repasar, entrada: en cuántos minutos vuelve la próxima tarjeta que se está aprendiendo.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryMyCards": "Mis tarjetas",
+  "@reviewEntryMyCards": {
+    "description": "Repasar, entrada: botón que abre la lista de todas las tarjetas."
+  },
+  "reviewEntryStats": "Estadísticas",
+  "@reviewEntryStats": {
+    "description": "Repasar, entrada: botón que abre las estadísticas de estudio."
+  },
+  "reviewEntryCountFailed": "No se pudo contar lo que hay para estudiar.",
+  "@reviewEntryCountFailed": {
+    "description": "Repasar, entrada: falló el conteo de tarjetas del recorte elegido."
+  },
+  "reviewEntryScopeReset": "Estudiar todo",
+  "@reviewEntryScopeReset": {
+    "description": "Repasar, entrada: botón que vuelve a estudiar todo cuando el recorte elegido falló."
+  },
+  "reviewSessionPlaceholder": "Esta pantalla llega en la próxima entrega.",
+  "@reviewSessionPlaceholder": {
+    "description": "Pantalla provisoria de un destino que todavía no existe (Mis tarjetas, Estadísticas)."
   }
 }

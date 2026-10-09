@@ -2,29 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
-import 'package:sinapsis/features/export/domain/usecases/export_flashcards_to_anki_usecase.dart';
-import 'package:sinapsis/features/export/presentation/providers/export_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_next.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_session_controller.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_banner.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/ai_flashcards_sheet.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_card.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_progress.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_summary.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
-import 'package:sinapsis/features/habit/presentation/providers/habit_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Repasar las tarjetas que ya tocan, de a una: se lee la pregunta, se
@@ -54,8 +46,6 @@ class ReviewScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
-  var _exporting = false;
-
   /// «Practicar igual» (F30): las tarjetas que se están practicando sin que
   /// les toque, y cuál va. `null` fuera de la práctica.
   List<Flashcard>? _practice;
@@ -87,20 +77,27 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     });
   }
 
-  void _nextPractice() => setState(() {
-    _practiceRevealed = false;
+  void _nextPractice() {
     final cards = _practice!;
     if (_practiceIndex + 1 >= cards.length) {
-      _practice = null;
+      _stopPractice();
     } else {
-      _practiceIndex++;
+      setState(() {
+        _practiceRevealed = false;
+        _practiceIndex++;
+      });
     }
-  });
+  }
 
-  void _stopPractice() => setState(() {
-    _practice = null;
-    _practiceRevealed = false;
-  });
+  /// Termina de practicar. Una pantalla que se abrió solo para practicar se
+  /// cierra y vuelve a la entrada; si no, sigue la sesión de siempre.
+  void _stopPractice() {
+    setState(() {
+      _practice = null;
+      _practiceRevealed = false;
+    });
+    if (widget.startInPractice) _finish();
+  }
 
   void _showFailure(Failure failure) {
     final l10n = AppLocalizations.of(context)!;
@@ -121,46 +118,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   /// Cierra la sesión.
   void _finish() => unawaited(Navigator.of(context).maybePop());
-
-  /// Pregunta el alcance (F17, D4) y el formato (commit 5) antes de
-  /// exportar: incremental por defecto —solo lo que nunca se exportó—, con
-  /// «todo el mazo» como interruptor aparte, y el `.apkg` completo por
-  /// defecto, con TSV/CSV como camino alternativo (D5). No distingue
-  /// "canceló el diálogo de guardado" de "lo guardó" — igual que el resto
-  /// de las exportaciones de la app (ver `ExportItemUseCase`). Solo avisa
-  /// cuando algo salió mal de verdad.
-  Future<void> _exportToAnki() async {
-    final l10n = AppLocalizations.of(context)!;
-    final scope = await _chooseExportScope(context, l10n);
-    if (scope == null || !mounted) return;
-
-    setState(() => _exporting = true);
-
-    final result = await ref.read(exportFlashcardsToAnkiUseCaseProvider)(
-      ExportFlashcardsToAnkiParams(
-        exportAll: scope.exportAll,
-        format: scope.format,
-      ),
-    );
-    if (!mounted) return;
-    setState(() => _exporting = false);
-
-    result.match((failure) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(failure.localizedMessage(l10n))));
-    }, (_) {});
-  }
-
-  Future<({bool exportAll, AnkiExportFormat format})?> _chooseExportScope(
-    BuildContext context,
-    AppLocalizations l10n,
-  ) {
-    return showDialog(
-      context: context,
-      builder: (context) => _ExportScopeDialog(l10n: l10n),
-    );
-  }
 
   /// Lo que muestra la sesión según lo que dice la cola.
   Widget _body(AppLocalizations l10n, StudySessionState session) {
@@ -256,7 +213,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final session = ref.watch(studySessionProvider(widget.scope));
-    final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
     // Si no hay ninguna tarjeta a la vista y algo cambia (la IA hizo tarjetas,
     // se restauró un elemento, pasó el día), se vuelve a preguntar.
     ref.listen(studyCountsProvider(widget.scope), (previous, current) {
@@ -275,52 +231,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               tooltip: l10n.reviewSessionUndoTooltip,
               onPressed: _session.canUndo ? () => unawaited(_undo()) : null,
             ),
-          // F17, D9: el interruptor único de Ajustes apaga las tres de una
-          // vez, no montando estos widgets en absoluto —así ni siquiera
-          // consultan la base mientras está apagado—.
-          if (habitFeaturesEnabled) ...[
-            const _StreakIndicator(),
-            IconButton(
-              icon: const Icon(Icons.military_tech_outlined),
-              tooltip: l10n.reviewBadgesTooltip,
-              onPressed: () => context.push(RoutePaths.reviewBadges),
-            ),
-            IconButton(
-              icon: const Icon(Icons.query_stats_outlined),
-              tooltip: l10n.reviewHistoryTooltip,
-              onPressed: () => context.push(RoutePaths.reviewHistory),
-            ),
-          ],
-          // F30: que la IA haga las tarjetas, además de a mano.
-          IconButton(
-            key: const Key('review-ai-create'),
-            icon: const Icon(Icons.auto_awesome_outlined),
-            tooltip: l10n.reviewAiCreateTooltip,
-            onPressed: () => unawaited(showAiFlashcardsSheet(context)),
-          ),
-          IconButton(
-            icon: _exporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.ios_share),
-            tooltip: l10n.reviewExportToAnkiTooltip,
-            onPressed: _exporting ? null : _exportToAnki,
-          ),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Cómo va el pedido de tarjetas con IA (F30), si hay uno.
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: const AiFlashcardsBanner(),
-              ),
-            ),
             if (inSession)
               Center(
                 child: ConstrainedBox(
@@ -341,127 +256,4 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       ),
     );
   }
-}
-
-/// La racha (F17, D3/D6/commit 8): oculto sin ninguna, mismo criterio que
-/// la insignia de pendientes de `dueFlashcardCountProvider` —nada que
-/// mostrar, nada que ocupar lugar—. El color marca si hoy ya cuenta o si
-/// todavía hace falta hacer algo para mantenerla.
-class _StreakIndicator extends ConsumerWidget {
-  const _StreakIndicator();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final streak = ref.watch(currentStreakProvider).valueOrNull;
-    if (streak == null || streak.days == 0) return const SizedBox.shrink();
-
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final color = streak.activeToday
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurfaceVariant;
-
-    return Tooltip(
-      message: streak.activeToday
-          ? l10n.reviewStreakActiveTooltip(streak.days)
-          : l10n.reviewStreakPendingTooltip(streak.days),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          key: const Key('review-streak-indicator'),
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.local_fire_department, size: 18, color: color),
-            const SizedBox(width: 4),
-            Text(
-              '${streak.days}',
-              style: theme.textTheme.labelLarge?.copyWith(color: color),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// El interruptor de F17, D4 —«exportar todo» empieza apagado, el camino
-/// incremental es el que se ofrece por defecto— y el formato de F17,
-/// commit 5 —el `.apkg` completo por defecto, TSV/CSV como camino
-/// alternativo (D5)—.
-class _ExportScopeDialog extends StatefulWidget {
-  const _ExportScopeDialog({required this.l10n});
-
-  final AppLocalizations l10n;
-
-  @override
-  State<_ExportScopeDialog> createState() => _ExportScopeDialogState();
-}
-
-class _ExportScopeDialogState extends State<_ExportScopeDialog> {
-  var _exportAll = false;
-  var _format = AnkiExportFormat.apkg;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = widget.l10n;
-    final theme = Theme.of(context);
-    return AlertDialog(
-      title: Text(l10n.reviewExportToAnkiTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile(
-            key: const Key('review-export-all-switch'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.reviewExportToAnkiExportAll),
-            value: _exportAll,
-            onChanged: (value) => setState(() => _exportAll = value),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.reviewExportToAnkiFormatTitle,
-            style: theme.textTheme.labelLarge,
-          ),
-          RadioGroup<AnkiExportFormat>(
-            groupValue: _format,
-            onChanged: (value) => setState(() => _format = value!),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final format in AnkiExportFormat.values)
-                  RadioListTile<AnkiExportFormat>(
-                    key: Key('review-export-format-${format.name}'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: Text(_formatLabel(l10n, format)),
-                    value: format,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
-        ),
-        FilledButton(
-          key: const Key('review-export-confirm'),
-          onPressed: () => Navigator.of(
-            context,
-          ).pop((exportAll: _exportAll, format: _format)),
-          child: Text(l10n.reviewExportToAnkiConfirm),
-        ),
-      ],
-    );
-  }
-
-  String _formatLabel(AppLocalizations l10n, AnkiExportFormat format) =>
-      switch (format) {
-        AnkiExportFormat.apkg => l10n.reviewExportToAnkiFormatApkg,
-        AnkiExportFormat.tsv => l10n.reviewExportToAnkiFormatTsv,
-        AnkiExportFormat.csv => l10n.reviewExportToAnkiFormatCsv,
-      };
 }

@@ -176,6 +176,29 @@ abstract final class RoutePaths {
   /// criterio que [reviewBadges].
   static const reviewHistory = '$review/history';
 
+  /// La sesión de repaso (F31, ola 2): estudiar de a una tarjeta. Pantalla
+  /// completa, sin la barra de navegación. Se arma con [reviewSessionFor].
+  static const reviewSession = '$review/session';
+
+  /// La sesión de repaso de un recorte: [kind] es el nombre de un
+  /// `StudyScopeKind` (`all`, `space`, `value`, `notebook`, `item`) e [id] el
+  /// del espacio, valor, cuaderno o elemento. Con [practice], «Practicar
+  /// igual»: repasar todas las tarjetas sin tocar su calendario.
+  static String reviewSessionFor({
+    String kind = 'all',
+    String? id,
+    bool practice = false,
+  }) {
+    final query = <String, String>{
+      if (kind != 'all') 'kind': kind,
+      if (id != null) 'id': id,
+      if (practice) 'practice': '1',
+    };
+    return query.isEmpty
+        ? reviewSession
+        : Uri(path: reviewSession, queryParameters: query).toString();
+  }
+
   /// Idioma, tema, modelo de transcripción, copia de seguridad y bloqueo de
   /// la bóveda, todo junto.
   static const settings = '/settings';
@@ -230,6 +253,7 @@ abstract final class RouteNames {
   static const graphTension = 'graph-tension';
   static const graphLocal = 'graph-local';
   static const review = 'review';
+  static const reviewSession = 'review-session';
   static const reviewBadges = 'review-badges';
   static const reviewHistory = 'review-history';
   static const settings = 'settings';

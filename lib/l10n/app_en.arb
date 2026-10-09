@@ -9089,5 +9089,156 @@
   "reviewSessionSwipeHint": "Swipe the card: right \"Good\", left \"Again\", up \"Easy\", down \"Hard\".",
   "@reviewSessionSwipeHint": {
     "description": "Review: hint, once the card is flipped, of what each gesture does."
+  },
+  "reviewSessionMenuTooltip": "More actions for this card",
+  "@reviewSessionMenuTooltip": {
+    "description": "Review: button of the menu with the actions on the card being shown."
+  },
+  "reviewSessionMenuEdit": "Edit",
+  "@reviewSessionMenuEdit": {
+    "description": "Review: card menu option to edit its text without leaving the review."
+  },
+  "reviewSessionMenuSuspend": "Pause",
+  "@reviewSessionMenuSuspend": {
+    "description": "Review: card menu option to pause it (it doesn't come back until reactivated)."
+  },
+  "reviewSessionMenuBury": "Postpone until tomorrow",
+  "@reviewSessionMenuBury": {
+    "description": "Review: card menu option to not see it again today."
+  },
+  "reviewSessionMenuDelete": "Delete",
+  "@reviewSessionMenuDelete": {
+    "description": "Review: card menu option to delete it."
+  },
+  "reviewSessionSuspended": "Card paused",
+  "@reviewSessionSuspended": {
+    "description": "Review: notice after pausing a card."
+  },
+  "reviewSessionBuried": "Card postponed until tomorrow",
+  "@reviewSessionBuried": {
+    "description": "Review: notice after postponing a card to the next study day."
+  },
+  "reviewSessionUndoAction": "Undo",
+  "@reviewSessionUndoAction": {
+    "description": "Review: action of the notice after pausing or postponing a card, to go back."
+  },
+  "reviewSessionDeleteTitle": "Delete this card?",
+  "@reviewSessionDeleteTitle": {
+    "description": "Review: title of the dialog that confirms deleting the card being shown."
+  },
+  "reviewSessionDeleteMessage": "It's deleted along with its review history. This can't be undone.",
+  "@reviewSessionDeleteMessage": {
+    "description": "Review: message of the dialog that confirms deleting the card being shown."
+  },
+  "reviewSessionDeleteConfirm": "Delete",
+  "@reviewSessionDeleteConfirm": {
+    "description": "Review: button that confirms deleting the card."
+  },
+  "reviewSessionClozeTextHint": "Text with its blanks",
+  "@reviewSessionClozeTextHint": {
+    "description": "Review: hint of the text field when editing a fill-in-the-blank card."
+  },
+  "reviewSessionClozeExtraHint": "Extra note (optional)",
+  "@reviewSessionClozeExtraHint": {
+    "description": "Review: hint of the field shown next to the answer when editing a fill-in-the-blank card."
+  },
+  "reviewEntryTodayTitle": "For today",
+  "@reviewEntryTodayTitle": {
+    "description": "Review entry: title of the card with how many cards are there to study today."
+  },
+  "reviewEntryScopeTitle": "What to study?",
+  "@reviewEntryScopeTitle": {
+    "description": "Review entry: title of the what-to-study selector."
+  },
+  "reviewEntryScopeAll": "Everything",
+  "@reviewEntryScopeAll": {
+    "description": "Review entry: study all the cards."
+  },
+  "reviewEntryScopeSpace": "A topic",
+  "@reviewEntryScopeSpace": {
+    "description": "Review entry: study the cards of a topic (space)."
+  },
+  "reviewEntryScopeValue": "A tag",
+  "@reviewEntryScopeValue": {
+    "description": "Review entry: study the cards of a tag or vocabulary value, with its branches."
+  },
+  "reviewEntryScopeNotebook": "A notebook",
+  "@reviewEntryScopeNotebook": {
+    "description": "Review entry: study the cards of a notebook."
+  },
+  "reviewEntryScopeItem": "An item",
+  "@reviewEntryScopeItem": {
+    "description": "Review entry: study the cards of a single item."
+  },
+  "reviewEntryScopeChange": "Change",
+  "@reviewEntryScopeChange": {
+    "description": "Review entry: button to change what is studied."
+  },
+  "reviewEntryScopeSheetTitle": "Choose what to study",
+  "@reviewEntryScopeSheetTitle": {
+    "description": "Review entry: title of the sheet where what to study is chosen."
+  },
+  "reviewEntryScopeSearch": "Search",
+  "@reviewEntryScopeSearch": {
+    "description": "Review entry: hint of the search field when choosing an item or a tag."
+  },
+  "reviewEntryScopeNothing": "There's nothing to choose yet.",
+  "@reviewEntryScopeNothing": {
+    "description": "Review entry: there are no topics, tags, notebooks or items to choose."
+  },
+  "reviewEntryScopeMissing": "No longer exists",
+  "@reviewEntryScopeMissing": {
+    "description": "Review entry: name of the chosen scope when what it pointed to was deleted."
+  },
+  "reviewEntryStart": "Start",
+  "@reviewEntryStart": {
+    "description": "Review entry: button that starts the study session."
+  },
+  "reviewEntryNewBeyond": "{count, plural, =1{1 more new card is waiting: it doesn't fit today's limit} other{{count} more new cards are waiting: they don't fit today's limit}}",
+  "@reviewEntryNewBeyond": {
+    "description": "Review entry: how many new cards are left out today by the daily limit.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryReviewsBeyond": "{count, plural, =1{1 more review is waiting: it doesn't fit today's limit} other{{count} more reviews are waiting: they don't fit today's limit}}",
+  "@reviewEntryReviewsBeyond": {
+    "description": "Review entry: how many reviews are left out today by the daily limit.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryNextLearning": "A card being learned comes back in {minutes} min.",
+  "@reviewEntryNextLearning": {
+    "description": "Review entry: in how many minutes the next card being learned comes back.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewEntryMyCards": "My cards",
+  "@reviewEntryMyCards": {
+    "description": "Review entry: button that opens the list of all the cards."
+  },
+  "reviewEntryStats": "Statistics",
+  "@reviewEntryStats": {
+    "description": "Review entry: button that opens the study statistics."
+  },
+  "reviewEntryCountFailed": "Couldn't count what there is to study.",
+  "@reviewEntryCountFailed": {
+    "description": "Review entry: counting the cards of the chosen scope failed."
+  },
+  "reviewEntryScopeReset": "Study everything",
+  "@reviewEntryScopeReset": {
+    "description": "Review entry: button that goes back to studying everything when the chosen scope failed."
+  },
+  "reviewSessionPlaceholder": "This screen arrives in the next delivery.",
+  "@reviewSessionPlaceholder": {
+    "description": "Provisional screen for a destination that doesn't exist yet (My cards, Statistics)."
   }
 }

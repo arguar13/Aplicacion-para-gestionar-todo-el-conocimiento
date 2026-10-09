@@ -16,6 +16,7 @@ import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_dr
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_limits_provider.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/habit/presentation/providers/habit_preferences.dart';
 import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
@@ -73,10 +74,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> pumpEntry(WidgetTester tester) async {
+    await tester.pumpWidget(
+      harness.wrap(
+        ProviderScope(
+          overrides: [
+            exportFlashcardsToAnkiUseCaseProvider.overrideWith(
+              (ref) => ExportFlashcardsToAnkiUseCase(
+                flashcards: ref.watch(flashcardRepositoryProvider),
+                topics: ref.watch(ankiTopicResolverProvider),
+                bibliography: ref.watch(bibliographyRepositoryProvider),
+                locator: ref.watch(fragmentLocatorResolverProvider),
+                citationStyle: ref.watch(defaultCitationStyleProvider),
+                citationLanguage: ref.watch(defaultCitationLanguageProvider),
+                builder: _FakeAnkiDeckBuilder(),
+                saver: ref.watch(fileSaverProvider),
+              ),
+            ),
+          ],
+          child: const ReviewEntryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('el botón de exportar a Anki aparece en la barra superior', (
     tester,
   ) async {
-    await pumpReview(tester);
+    await pumpEntry(tester);
 
     expect(find.byTooltip('Exportar mazo a Anki'), findsOneWidget);
   });
@@ -84,7 +110,7 @@ void main() {
   testWidgets('tocar el botón arma el .apkg y lo pasa al selector', (
     tester,
   ) async {
-    await pumpReview(tester);
+    await pumpEntry(tester);
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
@@ -100,7 +126,7 @@ void main() {
     tester,
   ) async {
     harness.fileSaver.error = StateError('el diálogo se cayó');
-    await pumpReview(tester);
+    await pumpEntry(tester);
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
@@ -111,7 +137,7 @@ void main() {
   });
 
   testWidgets('cancelar el diálogo no exporta nada', (tester) async {
-    await pumpReview(tester);
+    await pumpEntry(tester);
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
@@ -124,7 +150,7 @@ void main() {
   testWidgets('elegir TSV en el diálogo exporta un .tsv (F17, commit 5)', (
     tester,
   ) async {
-    await pumpReview(tester);
+    await pumpEntry(tester);
 
     await tester.tap(find.byTooltip('Exportar mazo a Anki'));
     await tester.pumpAndSettle();
@@ -177,7 +203,7 @@ void main() {
           .read(habitFeaturesEnabledProvider.notifier)
           .setEnabled(enabled: false);
 
-      await pumpReview(tester);
+      await pumpEntry(tester);
 
       expect(find.byKey(const Key('review-streak-indicator')), findsNothing);
       expect(find.byTooltip(es.reviewBadgesTooltip), findsNothing);
@@ -188,7 +214,7 @@ void main() {
 
   group('la racha en la barra superior (F17, D3/commit 8)', () {
     testWidgets('sin ninguna racha, no muestra nada', (tester) async {
-      await pumpReview(tester);
+      await pumpEntry(tester);
 
       expect(find.byKey(const Key('review-streak-indicator')), findsNothing);
     });
@@ -206,7 +232,7 @@ void main() {
             ),
           );
 
-      await pumpReview(tester);
+      await pumpEntry(tester);
 
       expect(find.byKey(const Key('review-streak-indicator')), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
@@ -229,7 +255,7 @@ void main() {
               ),
             );
 
-        await pumpReview(tester);
+        await pumpEntry(tester);
 
         expect(
           find.byKey(const Key('review-streak-indicator')),
@@ -580,7 +606,7 @@ void main() {
     Future<void> pumpRouted(WidgetTester tester) async {
       await tester.pumpWidget(harness.wrapWithAppRouter());
       await tester.pumpAndSettle();
-      harness.pushTo(RoutePaths.review);
+      harness.pushTo(RoutePaths.reviewSession);
       await tester.pumpAndSettle();
     }
 
@@ -671,7 +697,7 @@ void main() {
     Future<void> pumpRouted(WidgetTester tester) async {
       await tester.pumpWidget(harness.wrapWithAppRouter());
       await tester.pumpAndSettle();
-      harness.pushTo(RoutePaths.review);
+      harness.pushTo(RoutePaths.reviewSession);
       await tester.pumpAndSettle();
     }
 

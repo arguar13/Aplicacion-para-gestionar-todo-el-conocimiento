@@ -16,8 +16,10 @@ import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/duplicates/presentation/screens/possible_duplicates_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/my_cards_route.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/my_cards_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
@@ -224,6 +226,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.reviewHistory,
         builder: (context, state) => const ReviewHistoryScreen(),
       ),
+      // La sesión de repaso, a pantalla completa (F31, ola 2): sin la barra de
+      // navegación, con «atrás» para volver a la entrada.
+      GoRoute(
+        path: RoutePaths.reviewSession,
+        name: RouteNames.reviewSession,
+        builder: (context, state) => ReviewScreen(
+          scope: _studyScopeOf(state.uri.queryParameters),
+          startInPractice: state.uri.queryParameters['practice'] == '1',
+        ),
+      ),
       GoRoute(
         path: kRouteCards,
         name: kRouteNameCards,
@@ -323,7 +335,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.review,
                 name: RouteNames.review,
-                builder: (context, state) => const ReviewScreen(),
+                builder: (context, state) => const ReviewEntryScreen(),
               ),
             ],
           ),
@@ -415,5 +427,21 @@ String? _redirect({
     VaultUnlocked() when hasPendingShare && location != RoutePaths.capture =>
       RoutePaths.capture,
     VaultUnlocked() => null,
+  };
+}
+
+/// El recorte de estudio que dice la dirección: `?kind=space&id=…`. Sin
+/// `kind`, o con uno que no se conoce, o sin el `id` que ese recorte necesita,
+/// se estudia todo: una dirección vieja o escrita a mano no puede dejar la
+/// pantalla sin tarjetas por un error de tipeo.
+StudyScope _studyScopeOf(Map<String, String> query) {
+  final id = query['id'];
+  if (id == null || id.isEmpty) return const StudyScope.all();
+  return switch (query['kind']) {
+    'space' => StudyScope.space(id),
+    'value' => StudyScope.value(id),
+    'notebook' => StudyScope.notebook(id),
+    'item' => StudyScope.item(id),
+    _ => const StudyScope.all(),
   };
 }

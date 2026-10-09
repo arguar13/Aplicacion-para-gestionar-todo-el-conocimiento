@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -8,7 +9,7 @@ import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -90,7 +91,7 @@ void main() {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(harness.wrap(const ReviewScreen()));
+    await tester.pumpWidget(harness.wrap(const ReviewEntryScreen()));
     await tester.pumpAndSettle();
   }
 
@@ -401,7 +402,15 @@ void main() {
           row.id: row.dueAt,
       };
       final reviews = (await db.select(db.reviewLogs).get()).length;
-      await pumpReview(tester);
+      // Con el router de verdad: «Practicar igual» abre la sesión en su
+      // propia pantalla.
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.pushTo(RoutePaths.review);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('review-practice')));
       await tester.pumpAndSettle();
@@ -418,8 +427,9 @@ void main() {
       await tester.tap(find.byKey(const Key('practice-next')));
       await tester.pumpAndSettle();
 
-      // Terminó: vuelve a Repasar, vacío.
+      // Terminó: cierra la sesión y vuelve a la entrada de Repasar, vacía.
       expect(find.byKey(const Key('practice-next')), findsNothing);
+      expect(find.byKey(const Key('review-entry')), findsOneWidget);
       expect(find.text(es.reviewEmptyWithoutCards(1)), findsOneWidget);
       final after = {
         for (final row in await db.select(db.flashcards).get())
