@@ -7,7 +7,9 @@ import 'package:sinapsis/features/flashcards/domain/entities/review_grade.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/multiple_choice_options.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_flip_card.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_grade_row.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_swipe_card.dart';
 import 'package:sinapsis/features/narration/domain/read_aloud/readable_segments.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
@@ -117,25 +119,26 @@ class ReviewSessionCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 24),
               ],
-              GestureDetector(
-                // De opción múltiple no se "revela" tocando la caja: se
-                // contesta tocando una opción, más abajo.
-                onTap: (revealed || isMultipleChoice) ? null : onReveal,
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 200),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.6,
-                      ),
-                    ),
+              ReviewSwipeCard(
+                key: const Key('review-card'),
+                // Se desliza para calificar una vez dada la vuelta, y no
+                // practicando (ahí no se califica).
+                enabled: revealed && !grading && practice == null,
+                onSwiped: onGrade,
+                child: ReviewFlipCard(
+                  // De opción múltiple no se da vuelta: la respuesta son sus
+                  // opciones, más abajo.
+                  showBack: showsBack,
+                  // De opción múltiple no se "revela" tocando la caja: se
+                  // contesta tocando una opción.
+                  onTap: (revealed || isMultipleChoice) ? null : onReveal,
+                  front: ReadAloudText(
+                    card.front,
+                    sourceKey: frontKey,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge,
                   ),
-                  alignment: Alignment.center,
-                  child: Column(
+                  back: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ReadAloudText(
@@ -144,21 +147,30 @@ class ReviewSessionCard extends ConsumerWidget {
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleLarge,
                       ),
-                      if (showsBack) ...[
-                        const SizedBox(height: 16),
-                        const Divider(),
-                        const SizedBox(height: 16),
-                        ReadAloudText(
-                          card.back,
-                          sourceKey: backKey,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                      ],
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      ReadAloudText(
+                        card.back,
+                        sourceKey: backKey,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge,
+                      ),
                     ],
                   ),
                 ),
               ),
+              if (revealed && practice == null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l10n.reviewSessionSwipeHint,
+                  key: const Key('review-swipe-hint'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               // Con la respuesta a la vista, se puede ir a ver de dónde salió
               // —de opción múltiple, cada opción ya trae la suya propia más
@@ -179,6 +191,10 @@ class ReviewSessionCard extends ConsumerWidget {
                 // nuevo—: las opciones, ya coloreadas, se quedan a la vista
                 // mientras se califica.
                 _MultipleChoiceAnswer(
+                  // Con clave: lo que se muestra antes de estas opciones
+                  // cambia al revelar (la pista de deslizar, el enlace a la
+                  // fuente), y sin ella perderían lo que se tocó.
+                  key: ValueKey('options:${card.id}'),
                   flashcardId: card.id,
                   onAnswered: (_) => onReveal(),
                 ),
@@ -247,6 +263,7 @@ class _MultipleChoiceAnswer extends ConsumerWidget {
   const _MultipleChoiceAnswer({
     required this.flashcardId,
     required this.onAnswered,
+    super.key,
   });
 
   final String flashcardId;
