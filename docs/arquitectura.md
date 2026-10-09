@@ -5755,6 +5755,110 @@ Todo devuelve tipos propios (nada depende de las columnas nuevas de tarjetas).
   matan alarmas de apps cerradas (se espera lo mismo que con el trabajo largo, decisión 62); ningún
   `.apkg` real de Anki (solo los armados a mano, por no poder instalarlo).
 
+### 72. F31, ola 2: «Mis tarjetas» y las estadísticas de repaso
+
+Plan: `docs/planes/F31-repasar-sin-depender-de-anki.md`, tanda 3. Se construyó sobre la
+base de la decisión 69, **sin tocar el esquema v39 ni `ReviewScreen`, `FlashcardRepository`,
+`StudyRepository` ni Ajustes**: dos repositorios nuevos con su interfaz de dominio,
+implementación drift y proveedor propios, las pantallas, y dos botones sueltos que el
+integrador enchufa en la sesión. Sin dependencias nuevas.
+
+- **La consulta** (`CardBrowserRepository`, `CardBrowserSql`). SQL escrito a mano, con un
+  único `WHERE` que comparten contar, paginar, traer los ids y rotular los filtros, para
+  que no puedan discrepar. **Estados**: nuevas, aprendiendo, jóvenes (< 21 d), maduras
+  (≥ 21 d, el `is:mature` de Anki) y pausadas son una **partición** —la pausa gana a la
+  etapa—, la misma del reparto de las estadísticas (que le pide los números a
+  `statusCounts`: una sola respuesta a «cuántas son maduras»); «por repasar» y
+  «pospuestas» son transversales. «Por repasar» = no nueva, no pausada, y le toca antes del
+  fin del día de estudio de hoy (`StudyDay`, 4:00): incluye lo atrasado y lo que se
+  aprende. Una prueba compara el SQL con `Flashcard.phase` sobre una población con todas
+  las etapas. **Recorte**: el mismo `StudyScope` y `StudyScopeResolver` de la cola
+  (tema, etiqueta con sus ramas, cuaderno, elemento): lo que entra en «Roma» tiene una sola
+  respuesta. **Papelera**: las tarjetas de un elemento en la papelera no se ven (se
+  vuelven a ver al restaurarlo). **Texto**: SQLite compara sin distinguir mayúsculas solo
+  el ASCII y no sabe de acentos; sin funciones propias (no existen en la web) ni columna
+  normalizada, cada letra buscada se vuelve una **clase de `GLOB`** con todas sus formas
+  (`a` → `[aAáÁàÀäÄâ…]`), con los comodines escapados; las palabras se combinan con AND.
+  La **ñ no es n**, como en «escribí la respuesta». **Orden**: vencimiento, creación,
+  facilidad, intervalo y olvidos (un «De nuevo» sobre un repaso: `phase_before = review`;
+  el agregado solo se une al ordenar por él), siempre **total** (columna + id en el mismo
+  sentido). **Paginación por offset estable**, no por clave: el orden total garantiza que
+  dos páginas seguidas no repiten ni se saltean una tarjeta; el costo de un offset de
+  9.950 con 10.000 tarjetas es el de ordenarlas, que se mide abajo, y deja saltar a
+  cualquier lugar (la lista conoce el total y el scroll mide lo que corresponde).
+- **Escrituras en lote** (las únicas nuevas). `resetSchedule` («volver a nueva») deja
+  facilidad 2,5, intervalo 0, repeticiones 0, sin paso, sin haberse contestado, para
+  estudiar ya y sin posposición; **conserva la pausa, el texto y el historial de repasos**
+  (las estadísticas pasadas no se reescriben) y no toca `last_exported_at`, como `review`
+  tampoco. `deleteMany` borra con cascada (opciones e historial): **no hay papelera de
+  tarjetas** —la papelera es de elementos—, y es lo mismo que ya hacía
+  `FlashcardRepository.delete`. Las dos van por lotes de 500 **dentro de una transacción**:
+  todo o nada (una prueba hace fallar una fila del segundo lote con un trigger y comprueba
+  que no cambió nada del primero). Pausar, reanudar y posponer siguen siendo de
+  `FlashcardRepository`.
+- **La lista** (`MyCardsController`, `MyCardsScreen`). Páginas de 50 y **a lo sumo 6 en
+  memoria** (descarta la que hace más que no se mira): recorriendo las 10.000, el pico es de
+  **300 renglones cargados** (una prueba de widgets salta por toda la lista y lo mide; la de
+  controlador pide las 200 páginas). Renglones de alto fijo (crece con el tamaño de letra del
+  sistema), con una silueta mientras llega la página. Dos épocas: cambiar el **pedido**
+  descarta todo; cambiar los **datos** (el stream `changes()`, con 120 ms de espera para
+  agrupar ráfagas) conserva las páginas, relee el total y renueva cada página al mirarla, sin
+  parpadeo. Una lectura vieja que llega tarde se descarta; una página que **falla** no se
+  reintenta sola en cada armado (sería un bucle contra una base rota): hay «Reintentar».
+  «Elegir las N» trae los **ids** de todas las que cumplen el filtro, no las tarjetas.
+  Volver a nueva y borrar piden confirmar; tocar una tarjeta abre `showFlashcardEditDialog`.
+  `/cards` admite `?item=`, `?space=`, `?value=` o `?notebook=`; con la pantalla ya abierta,
+  un enlace a otro recorte lo aplica (`didUpdateWidget`).
+- **Las estadísticas** (`ReviewStatsRepository`, `ReviewStatsScreen`, `/review/stats`).
+  Se reutiliza lo de F17 —racha, insignias, constancia, retención, más difíciles— sin
+  duplicarlo: las secciones de `ReviewHistoryScreen` pasan a un widget público
+  (`ReviewHistorySections`) que ambas pantallas usan. Lo nuevo: **pronóstico de 30 días**
+  (hoy + 29; una consulta con un `CASE` de 31 bordes `DateTime(año, mes, día + k, 4)` del
+  calendario local, no sumas de 24 horas; lo atrasado cuenta en hoy y se dice cuánto; una
+  pospuesta cuenta el día en que **vuelve**, salvo que le toque más tarde; no cuenta
+  nuevas, pausadas ni la papelera), **reparto por etapa** y **botones apretados por etapa**
+  (nueva, aprendiendo/reaprendiendo, joven, madura —por `phase_before` e `interval_before`—)
+  con el porcentaje de acierto, a 30 días, 90 o todo. **Acierto = lo que no fue «De nuevo»**
+  (el «correcto» de Anki); no es la retención de la curva semanal de F17, que cuenta
+  «Bien» y «Fácil»: se rotulan distinto. Una etapa sin respuestas es «sin datos», no 0 %.
+  **Tiempo estudiado: no está.** `review_log` no guarda cuánto se tardó en cada respuesta
+  (ni la sesión), y calcularlo de las horas entre respuestas sería inventar; omitirlo es lo
+  honesto. Si se quiere, hace falta una columna de duración (un esquema nuevo, otra decisión).
+- **Gráficos** hechos a mano con widgets, sin librería. Una sola escala desde cero (la altura
+  es la cantidad), columnas con el extremo del dato redondeado y la línea de base, cuenta
+  y ayuda por columna, lectura completa para lectores de pantalla y «Ver los números»
+  (la vista de tabla de los 30 días). Colores validados con el validador del skill de
+  visualización, en claro y en oscuro (pasos propios de cada modo): etapas azul / naranja /
+  aguamarina / violeta (+ gris para las pausadas) y botones rojo / amarillo / aguamarina /
+  azul; en el claro el amarillo y el aguamarina quedan bajo 3:1 contra el fondo, por eso cada
+  tramo lleva su rótulo y su número al lado (el color nunca es lo único que dice qué es).
+  Probado en 320 px de ancho con letra a 1,6×, en claro y oscuro: encontró y corrigió dos
+  desbordes reales (el eje del pronóstico y el título de cada fila de botones).
+- **Botones y rutas.** `kRouteCards` (`/cards`) y `kRouteReviewStats` (`/review/stats`) en
+  `route_paths.dart`, registradas en `app_router.dart`; `MyCardsEntryButton` (con `scope`
+  opcional) y `ReviewStatsEntryButton`, listos para la barra de `ReviewScreen`, que **este
+  trabajo no editó**: falta enchufarlos.
+- **Cifras** (escritorio, base en memoria, 10.000 tarjetas en 1.000 elementos; una máquina
+  cargada las mueve): una página de 50 tarda 12–50 ms con cualquier orden y en cualquier
+  posición (182 ms una vez, ordenando por intervalo al final de la lista); los ids de las
+  10.000, 40 ms; los conteos por estado, 19 ms; buscar texto de tres palabras, 67 ms; contar un
+  elemento, 1 ms; volver a nueva las 10.000, 134 ms; borrarlas, 154 ms. Las estadísticas
+  completas, con 20.000 repasos: 24–46 ms según el período.
+- **Verificación.** Cada comportamiento clave se comprobó por **mutación** (se deshizo el
+  código, la prueba falló, y se verificó que la mutación se había aplicado y que el archivo
+  volvió a quedar como estaba): 59 mutantes en la consulta, las estadísticas, el controlador y
+  las pantallas. Tres sobrevivieron a la primera vuelta y se atacaron con pruebas nuevas hasta
+  matarlos: el orden por olvidos que contaba también los «De nuevo» de aprender (faltaba una
+  tarjeta que solo se equivocó aprendiendo), el reinicio que no limpiaba el paso de una
+  tarjeta que se reaprendía, y el total viejo que pisaba al nuevo. Queda sin cubrir que un
+  cambio de horario de verano mueva los bordes del pronóstico (los bordes usan el calendario
+  local, pero no se puede provocar sin controlar la zona; se probó con el reloj inyectado, no
+  con la zona del equipo). Sin probar en el teléfono ni en el emulador.
+- **Lo que no se hizo.** Enchufar los botones en la sesión; elegir un **elemento** desde la
+  hoja de recortes (se llega con `?item=`, y falta el botón «Ver sus tarjetas» en el detalle
+  de un elemento); mover tarjetas a otro elemento; un deshacer para pausar y posponer (se
+  reanudan con «Reanudar»); el tiempo estudiado.
+
 ## Estado y orden de construcción
 
 ### Construido

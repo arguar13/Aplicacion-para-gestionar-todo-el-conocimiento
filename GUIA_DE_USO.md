@@ -1433,6 +1433,74 @@ te las muestra todas —primero las que vencen antes—, con "Mostrar
 respuesta" y **"Siguiente"**, **sin calificarlas**: no cambia cuándo vuelve
 cada una ni cuenta como repaso. **"Terminar"** vuelve a Repasar.
 
+### Mis tarjetas: ver, buscar y ordenar todas
+
+**Cómo llegar:** pantalla "Repasar" → ícono de lista **"Mis tarjetas"** arriba.
+
+Una lista con **todas** tus tarjetas, de cualquier elemento, para encontrar
+una, ordenarlas o actuar sobre varias a la vez. Cada renglón muestra el frente
+de la tarjeta, **en qué etapa está** (nueva, aprendiendo, reaprendiendo, joven,
+madura, pausada), el **intervalo**, **cuándo vence** (hoy, mañana, en 5 días,
+o cuántos días de atraso lleva), su **forma** (huecos, escribir la respuesta,
+opción múltiple, verdadero o falso, o "con hermanas") y de qué elemento sale.
+Una tarjeta de huecos se ve con su hueco tapado (`El [...] cayó en 476`).
+
+- **Buscar:** el campo de arriba busca en el frente y en el dorso. No distingue
+  mayúsculas ni acentos (escribir `alvaro` encuentra "Álvaro"), pero **la ñ no
+  es una n** (`año` y `ano` son palabras distintas). Si escribís varias
+  palabras, tienen que estar todas, en cualquier orden.
+- **Filtrar por estado:** las pestañas de abajo (Todas, Nuevas, Aprendiendo,
+  Por repasar, Pausadas, Pospuestas, Jóvenes, Maduras) muestran **cuántas
+  tarjetas** tiene cada una. "Jóvenes" son las que se repasan con menos de 21
+  días de intervalo; "Maduras", 21 días o más. Una tarjeta pausada se cuenta
+  solo como pausada. Tocar la pestaña elegida otra vez la quita.
+- **Filtrar por tema, etiqueta o cuaderno:** el botón de arriba ("Todas las
+  tarjetas") abre una hoja para elegir un recorte. Es **el mismo recorte** que
+  usa la cola de repaso: lo que entra en "Roma" es lo mismo acá que allá (una
+  etiqueta incluye sus ramas). La X del recorte lo quita.
+- **Ordenar:** el ícono de ordenar elige por **vencimiento**, **creación**,
+  **facilidad**, **intervalo** u **olvidos** (las veces que dijiste "De nuevo"
+  sobre un repaso). Elegir el mismo criterio otra vez invierte el orden.
+- **Elegir varias:** mantené apretada una tarjeta y tocá las demás; **"Elegir
+  las N"** elige todas las que cumplen el filtro de ese momento, aunque no se
+  vean en pantalla. La X (o el botón de atrás) sale de la selección.
+  Con las elegidas podés **pausar**, **reanudar**, **posponer hasta mañana**,
+  **volver a nueva** (pierden su intervalo, su facilidad y su fecha, y se
+  estudian como nuevas; su texto y su historial de repasos se quedan) y
+  **borrar** (para siempre, con su historial; pide confirmar y no se puede
+  deshacer: las tarjetas no pasan por la papelera, que es de elementos).
+- **Tocar una tarjeta** abre el editor de siempre para cambiar su pregunta y
+  su respuesta.
+
+Las tarjetas de un elemento que está en la papelera no aparecen: vuelven con
+él si lo restaurás. Con miles de tarjetas la lista sigue ágil: se lee de a
+pocas y no las carga todas.
+
+### Estadísticas de repaso
+
+**Cómo llegar:** pantalla "Repasar" → ícono de gráfico **"Estadísticas de
+repaso"** arriba.
+
+- **Racha e insignias:** tu racha de hoy y un botón que abre las
+  [insignias](#tu-hábito-de-repaso).
+- **Lo que viene:** cuántas tarjetas vencen **cada uno de los próximos 30
+  días**, en columnas. "Hoy" incluye lo atrasado (y te dice cuántas son) y lo
+  que se está aprendiendo. Un día arranca a las 4:00 de la mañana, como el día
+  de estudio de Repasar. Pasá el dedo (o el mouse) por una columna para ver la
+  fecha y la cuenta, o abrí **"Ver los números"** para la lista de los 30 días.
+- **Cómo están tus tarjetas:** el reparto entre **nuevas, aprendiendo, jóvenes
+  (menos de 21 días), maduras (21 o más) y pausadas**, con la cuenta y el
+  porcentaje de cada una.
+- **Cómo respondés:** qué botón apretaste (De nuevo, Difícil, Bien, Fácil) en
+  cada etapa, y el **porcentaje de acierto** —lo que no fue "De nuevo"—. Se
+  puede mirar de los últimos 30 días, 90 días o todo el historial. Una etapa
+  sin respuestas dice "Sin respuestas", no "0 %".
+- Debajo está lo de siempre: la **constancia**, la **curva de retención** y las
+  **tarjetas más difíciles**.
+
+No hay "tiempo estudiado": Sinapsis no guarda cuánto tardás en cada respuesta,
+y prefiere no mostrarte un número inventado.
+
 ### Sesión de quiz suelta
 
 Sirve para practicar de punta a punta un lote de preguntas recién generado
