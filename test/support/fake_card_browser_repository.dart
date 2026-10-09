@@ -28,6 +28,7 @@ class FakeCardBrowserRepository implements CardBrowserRepository {
   /// Mientras esté puesto, las páginas esperan a que se complete.
   Completer<void>? pageGate;
   Completer<void>? idsGate;
+  Completer<void>? countGate;
 
   bool failPages = false;
   bool failCount = false;
@@ -60,8 +61,11 @@ class FakeCardBrowserRepository implements CardBrowserRepository {
   @override
   Future<Either<Failure, int>> count(CardBrowserQuery query) async {
     countCalls++;
+    final gate = countGate;
+    final answer = _totalOf(query);
+    if (gate != null) await gate.future;
     if (failCount) return left(const Failure.unexpected(message: 'falló'));
-    return right(_totalOf(query));
+    return right(answer);
   }
 
   @override

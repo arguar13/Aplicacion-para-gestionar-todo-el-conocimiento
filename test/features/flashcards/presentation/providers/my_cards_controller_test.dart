@@ -177,6 +177,31 @@ void main() {
       expect(controller().rowAt(0)!.card.id, 'nuevo0');
     });
 
+    test(
+      'un total viejo que llega tarde no pisa el del pedido nuevo',
+      () async {
+        await settle();
+        int totalOf(CardBrowserQuery query) =>
+            query.text == 'nuevo' ? 7 : 10000;
+        repo
+          ..totalFor = totalOf
+          ..countGate = Completer<void>();
+        controller().setText('viejo'); // su conteo queda esperando
+        await pumpEventQueue();
+        final waiting = repo.countGate!;
+        repo.countGate = null;
+        controller().setText('nuevo'); // y el pedido vuelve a cambiar
+        await settle();
+        expect(state().total, 7);
+
+        waiting.complete(); // llega el conteo del pedido anterior (10000)
+        await settle();
+
+        expect(state().total, 7);
+        expect(state().query.text, 'nuevo');
+      },
+    );
+
     test('setStatus, setScope y setText no hacen nada si no cambian', () async {
       await settle();
       final version = state().version;
