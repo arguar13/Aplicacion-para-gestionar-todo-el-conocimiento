@@ -7,6 +7,7 @@ import 'package:sinapsis/app/resume_model_downloads.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/app/router/back_navigation.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/app/study_reminder_binding.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
@@ -96,7 +97,12 @@ class _AppState extends ConsumerState<App> {
         onOpenHelp: () => unawaited(router.push(RoutePaths.keepWorking)),
         child: ReadAloudOverlay(
           router: router,
-          child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+          // El aviso diario para repasar (F31): se reprograma al abrir, cuenta
+          // cuántas tarjetas hay y lleva a Repasar al tocar la notificación.
+          child: StudyReminderBinding(
+            router: router,
+            child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );
