@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
@@ -53,8 +55,88 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   var _practiceIndex = 0;
   var _practiceRevealed = false;
 
+  /// Quien recibe el teclado de la sesión (espacio, 1 a 4, Z).
+  final _keys = FocusNode(debugLabel: 'Sesión de repaso');
+
   StudySessionController get _session =>
       ref.read(studySessionProvider(widget.scope).notifier);
+
+  @override
+  void dispose() {
+    _keys.dispose();
+    super.dispose();
+  }
+
+  /// Si lo que tiene el foco es un campo de texto: ahí se escribe, y las
+  /// teclas de la sesión (un «1», un espacio, una «z») son letras.
+  bool get _typing {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    return focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null);
+  }
+
+  /// Los atajos de teclado de la compu: espacio da vuelta la tarjeta, 1 a 4
+  /// califican («De nuevo», «Difícil», «Bien», «Fácil») y Z deshace.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || _typing) return KeyEventResult.ignored;
+    final keyboard = HardwareKeyboard.instance;
+    final key = event.logicalKey;
+    final session = ref.read(studySessionProvider(widget.scope));
+    final practicing = _practice != null;
+
+    // Deshacer: Z, o Control+Z / Cmd+Z.
+    if (key == LogicalKeyboardKey.keyZ &&
+        !keyboard.isAltPressed &&
+        !practicing) {
+      if (_session.canUndo) unawaited(_undo());
+      return KeyEventResult.handled;
+    }
+    // Con otro modificador (Ctrl+1 cambia de pestaña en un navegador), no.
+    if (keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isMetaPressed) {
+      return KeyEventResult.ignored;
+    }
+
+    final grade = switch (key) {
+      LogicalKeyboardKey.digit1 ||
+      LogicalKeyboardKey.numpad1 => ReviewGrade.again,
+      LogicalKeyboardKey.digit2 ||
+      LogicalKeyboardKey.numpad2 => ReviewGrade.hard,
+      LogicalKeyboardKey.digit3 ||
+      LogicalKeyboardKey.numpad3 => ReviewGrade.good,
+      LogicalKeyboardKey.digit4 ||
+      LogicalKeyboardKey.numpad4 => ReviewGrade.easy,
+      _ => null,
+    };
+    if (grade != null) {
+      if (!practicing && session.card != null && session.revealed) {
+        unawaited(_grade(grade));
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (key == LogicalKeyboardKey.space) {
+      if (practicing) {
+        _practiceRevealed ? _nextPractice() : _revealPractice();
+      } else {
+        final card = session.card;
+        // De opción múltiple se contesta tocando una opción, y «escribí la
+        // respuesta» se contesta escribiendo.
+        if (card != null &&
+            !session.revealed &&
+            card.kind != FlashcardKind.multipleChoice &&
+            card.kind != FlashcardKind.typedAnswer) {
+          _session.reveal();
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _revealPractice() => setState(() => _practiceRevealed = true);
 
   @override
   void initState() {
@@ -135,7 +217,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           onNext: _nextPractice,
           onStop: _stopPractice,
         ),
-        onReveal: () => setState(() => _practiceRevealed = true),
+        onReveal: _revealPractice,
         onGrade: (_) {},
       );
     }
@@ -221,40 +303,45 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     });
     final inSession = _practice == null && session.card != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.reviewTitle),
-        actions: [
-          if (_practice == null)
-            IconButton(
-              key: const Key('review-undo'),
-              icon: const Icon(Icons.undo),
-              tooltip: l10n.reviewSessionUndoTooltip,
-              onPressed: _session.canUndo ? () => unawaited(_undo()) : null,
-            ),
-          if (inSession)
-            ReviewCardMenu(scope: widget.scope, card: session.card!),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
+    return Focus(
+      focusNode: _keys,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.reviewTitle),
+          actions: [
+            if (_practice == null)
+              IconButton(
+                key: const Key('review-undo'),
+                icon: const Icon(Icons.undo),
+                tooltip: l10n.reviewSessionUndoTooltip,
+                onPressed: _session.canUndo ? () => unawaited(_undo()) : null,
+              ),
             if (inSession)
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: ReviewSessionProgress(session: session),
-                ),
-              ),
-            Expanded(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: _body(l10n, session),
-                ),
-              ),
-            ),
+              ReviewCardMenu(scope: widget.scope, card: session.card!),
           ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (inSession)
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: ReviewSessionProgress(session: session),
+                  ),
+                ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: _body(l10n, session),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
