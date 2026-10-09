@@ -8258,5 +8258,158 @@
   "reviewSessionTypedBlank": "No escribiste nada",
   "@reviewSessionTypedBlank": {
     "description": "Repasar: se comprobó sin haber escrito nada."
+  },
+  "cardFormKindQa": "Pregunta y respuesta",
+  "@cardFormKindQa": {
+    "description": "Formulario de tarjeta: la forma clásica, con una pregunta y su respuesta."
+  },
+  "cardFormKindBoth": "Dos direcciones",
+  "@cardFormKindBoth": {
+    "description": "Formulario de tarjeta: se crean dos tarjetas, de la pregunta a la respuesta y de la respuesta a la pregunta."
+  },
+  "cardFormKindCloze": "Huecos",
+  "@cardFormKindCloze": {
+    "description": "Formulario de tarjeta: un texto con huecos para completar."
+  },
+  "cardFormKindTyped": "Escribí la respuesta",
+  "@cardFormKindTyped": {
+    "description": "Formulario de tarjeta: la persona escribe la respuesta y se la compara con la correcta."
+  },
+  "cardFormKindChoice": "Opción múltiple",
+  "@cardFormKindChoice": {
+    "description": "Formulario de tarjeta: una pregunta con una respuesta correcta y opciones incorrectas."
+  },
+  "cardFormKindClozeAi": "Huecos con IA",
+  "@cardFormKindClozeAi": {
+    "description": "Formulario de tarjeta: el modelo de lenguaje propone frases con huecos a partir del contenido."
+  },
+  "cardFormBothHelp": "Se crean dos tarjetas: de la pregunta a la respuesta y de la respuesta a la pregunta. No se estudian el mismo día.",
+  "@cardFormBothHelp": {
+    "description": "Formulario de tarjeta, dos direcciones: qué se crea."
+  },
+  "cardFormPreviewTitle": "Así se van a ver",
+  "@cardFormPreviewTitle": {
+    "description": "Formulario de tarjeta: título de la vista previa de las tarjetas que se crean."
+  },
+  "cardFormBothForward": "Ida",
+  "@cardFormBothForward": {
+    "description": "Formulario de dos direcciones: la tarjeta que pregunta por la pregunta."
+  },
+  "cardFormBothBackward": "Vuelta",
+  "@cardFormBothBackward": {
+    "description": "Formulario de dos direcciones: la tarjeta que pregunta por la respuesta."
+  },
+  "cardFormTypedHelp": "Al repasar, escribís la respuesta y se la compara con la correcta: no cuentan las mayúsculas, los acentos ni la puntuación.",
+  "@cardFormTypedHelp": {
+    "description": "Formulario de «escribí la respuesta»: cómo funciona."
+  },
+  "cardFormTypedAnswerHint": "Respuesta que hay que escribir",
+  "@cardFormTypedAnswerHint": {
+    "description": "Formulario de «escribí la respuesta»: campo de la respuesta correcta."
+  },
+  "cardFormTypedAlternativesHint": "Otras respuestas que también valen (una por renglón)",
+  "@cardFormTypedAlternativesHint": {
+    "description": "Formulario de «escribí la respuesta»: campo de las respuestas alternativas aceptadas."
+  },
+  "cardFormChoiceHelp": "Escribí la respuesta correcta y al menos una opción incorrecta. Al repasar, las opciones aparecen mezcladas.",
+  "@cardFormChoiceHelp": {
+    "description": "Formulario de opción múltiple: qué hay que llenar."
+  },
+  "cardFormChoiceQuestionHint": "Pregunta",
+  "@cardFormChoiceQuestionHint": {
+    "description": "Formulario de opción múltiple: campo de la pregunta."
+  },
+  "cardFormChoiceCorrectHint": "Respuesta correcta",
+  "@cardFormChoiceCorrectHint": {
+    "description": "Formulario de opción múltiple: campo de la opción correcta."
+  },
+  "cardFormChoiceDistractorHint": "Opción incorrecta {number}",
+  "@cardFormChoiceDistractorHint": {
+    "description": "Formulario de opción múltiple: campo de una opción incorrecta.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeHelp": "Escribí el texto y tapá lo que querés recordar: seleccionalo y tocá «Tapar selección». Cada hueco es una tarjeta.",
+  "@cardFormClozeHelp": {
+    "description": "Formulario de huecos: cómo se arma."
+  },
+  "cardFormClozeTextHint": "Texto con lo que querés recordar",
+  "@cardFormClozeTextHint": {
+    "description": "Formulario de huecos: indicación dentro del campo del texto."
+  },
+  "cardFormClozeExtraHint": "Complemento (opcional)",
+  "@cardFormClozeExtraHint": {
+    "description": "Formulario de huecos: campo con un dato extra que se muestra al contestar."
+  },
+  "cardFormClozeCover": "Tapar selección",
+  "@cardFormClozeCover": {
+    "description": "Formulario de huecos: botón que convierte el texto seleccionado en el siguiente hueco."
+  },
+  "cardFormClozeCount": "{count, plural, =1{Se crea 1 tarjeta} other{Se crean {count} tarjetas}}",
+  "@cardFormClozeCount": {
+    "description": "Formulario de huecos: cuántas tarjetas salen del texto.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeCardTitle": "Tarjeta {number}",
+  "@cardFormClozeCardTitle": {
+    "description": "Formulario de huecos: título de la vista previa de la tarjeta de un hueco.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeRemovesCards": "{count, plural, =1{Al guardar se borra la tarjeta de un hueco que sacaste.} other{Al guardar se borran las tarjetas de {count} huecos que sacaste.}}",
+  "@cardFormClozeRemovesCards": {
+    "description": "Formulario de huecos al editar: aviso de las tarjetas que se borran porque su hueco ya no está.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeEdited": "{created, plural, =0{} =1{Tarjetas nuevas: 1. } other{Tarjetas nuevas: {created}. }}{removed, plural, =0{} =1{Tarjetas borradas: 1.} other{Tarjetas borradas: {removed}.}}",
+  "@cardFormClozeEdited": {
+    "description": "Aviso al editar una tarjeta de huecos cuando se agregaron o se sacaron huecos.",
+    "placeholders": {
+      "created": {
+        "type": "int"
+      },
+      "removed": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormAiHelp": "El modelo del teléfono propone frases con huecos a partir del contenido de este elemento. Vas a poder revisarlas antes de guardar nada.",
+  "@cardFormAiHelp": {
+    "description": "Formulario de tarjeta, huecos con IA: qué pasa al generar."
+  },
+  "cardFormAiGenerate": "Generar",
+  "@cardFormAiGenerate": {
+    "description": "Formulario de tarjeta, huecos con IA: botón para pedirle las frases al modelo."
+  },
+  "cardFormAiReviewTitle": "Revisar frases con huecos",
+  "@cardFormAiReviewTitle": {
+    "description": "Huecos con IA: título de la revisión de lo que propuso el modelo."
+  },
+  "cardFormAiNoContent": "Este elemento todavía no tiene contenido del que sacar frases con huecos.",
+  "@cardFormAiNoContent": {
+    "description": "Huecos con IA: el elemento no tiene texto."
+  },
+  "cardFormAiSavedCount": "{count, plural, =1{Se guardó 1 tarjeta de huecos} other{Se guardaron {count} tarjetas de huecos}}",
+  "@cardFormAiSavedCount": {
+    "description": "Huecos con IA: cuántas tarjetas quedaron guardadas después de la revisión.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

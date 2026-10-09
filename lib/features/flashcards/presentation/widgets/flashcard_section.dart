@@ -14,9 +14,15 @@ import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.d
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_badge.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/flashcards/domain/entities/card_form.dart';
+import 'package:sinapsis/features/flashcards/domain/services/cloze.dart';
+import 'package:sinapsis/features/flashcards/domain/services/cloze_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
+import 'package:sinapsis/features/flashcards/domain/services/typed_answer_alternatives.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/card_form_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
-import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_edit_dialog.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/card_form_cloze_review.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/card_form_dialog.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/open_flashcard_source.dart';
 import 'package:sinapsis/features/reading/domain/extractable_text.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -45,41 +51,102 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   /// Cuántas partes del texto lleva leídas el ✨, de cuántas.
   ({int read, int total})? _progress;
 
+  /// Agrega una tarjeta a mano, en la forma que se elija (F31): pregunta y
+  /// respuesta, dos direcciones, huecos, «escribí la respuesta» u opción
+  /// múltiple; o pide huecos al modelo de lenguaje.
   Future<void> _addManually() async {
     final l10n = AppLocalizations.of(context)!;
-    final result = await showFlashcardEditDialog(context);
-    if (result == null || !context.mounted) return;
-
-    final (front, back) = result;
-    final saved = await ref
-        .read(flashcardRepositoryProvider)
-        .create(itemId: widget.item.id, front: front, back: back);
-    if (!context.mounted) return;
-
-    saved.match(
-      (failure) => _showMessage(failure.localizedMessage(l10n)),
-      (_) {},
-    );
-  }
-
-  /// Edita [card]: guardar la adopta si era de la IA (F27). Sin cambios no se
-  /// escribe nada.
-  Future<void> _edit(Flashcard card) async {
-    final l10n = AppLocalizations.of(context)!;
-    final result = await showFlashcardEditDialog(context, card: card);
+    final result = await showCardFormDialog(context, aiAvailable: true);
     if (result == null || !mounted) return;
 
-    final (front, back) = result;
-    if (front.trim() == card.front && back.trim() == card.back) return;
-    final saved = await ref
-        .read(flashcardRepositoryProvider)
-        .update(id: card.id, front: front, back: back);
-    if (!mounted) return;
+    switch (result) {
+      case CardFormAiRequested():
+        await _generateWithAi(cloze: true);
+      case CardFormSubmitted(:final form):
+        final saved = await ref.read(createCardsFromFormProvider)(
+          itemId: widget.item.id,
+          form: form,
+        );
+        if (!mounted) return;
+        saved.match(
+          (failure) => _showMessage(failure.localizedMessage(l10n)),
+          (_) {},
+        );
+    }
+  }
 
-    saved.match(
-      (failure) => _showMessage(failure.localizedMessage(l10n)),
-      (_) {},
+  /// Edita [card] en su forma (F31): una de huecos se edita como huecos, una de
+  /// «escribí la respuesta» como tal. Guardar la adopta si era de la IA (F27).
+  /// Sin cambios no se escribe nada.
+  Future<void> _edit(Flashcard card) async {
+    final l10n = AppLocalizations.of(context)!;
+    final siblings =
+        ref.read(itemFlashcardsProvider(widget.item.id)).valueOrNull ??
+        const <Flashcard>[];
+    final result = await showCardFormDialog(
+      context,
+      card: card,
+      siblingNumbers: [
+        for (final other in siblings)
+          if (card.kind == FlashcardKind.cloze &&
+              other.kind == FlashcardKind.cloze &&
+              (other.id == card.id ||
+                  (card.groupId != null && other.groupId == card.groupId)) &&
+              other.clozeIndex != null)
+            other.clozeIndex!,
+      ],
     );
+    if (result is! CardFormSubmitted || !mounted) return;
+
+    final repository = ref.read(flashcardRepositoryProvider);
+    switch (result.form) {
+      case QaCardForm(:final front, :final back):
+        if (front.trim() == card.front && back.trim() == card.back) return;
+        final saved = await repository.update(
+          id: card.id,
+          front: front,
+          back: back,
+        );
+        if (!mounted) return;
+        saved.match(
+          (failure) => _showMessage(failure.localizedMessage(l10n)),
+          (_) {},
+        );
+      case final TypedCardForm typed:
+        if (typed.front.trim() == card.front && typed.back == card.back) {
+          return;
+        }
+        final saved = await repository.update(
+          id: card.id,
+          front: typed.front,
+          back: typed.back,
+        );
+        if (!mounted) return;
+        saved.match(
+          (failure) => _showMessage(failure.localizedMessage(l10n)),
+          (_) {},
+        );
+      case ClozeCardForm(:final text, :final extra):
+        if (text.trim() == card.front && extra.trim() == card.back) return;
+        final saved = await ref
+            .read(clozeCardEditorProvider)
+            .edit(cardId: card.id, text: text, extra: extra);
+        if (!mounted) return;
+        saved.match((failure) => _showMessage(failure.localizedMessage(l10n)), (
+          outcome,
+        ) {
+          if (outcome.created > 0 || outcome.removed > 0) {
+            _showMessage(
+              l10n.cardFormClozeEdited(outcome.created, outcome.removed),
+            );
+          }
+        });
+      // Estas dos formas no se editan: una es dos tarjetas ya hechas y la otra
+      // no tiene botón de editar.
+      case BothDirectionsCardForm():
+      case MultipleChoiceCardForm():
+        return;
+    }
   }
 
   /// «No era» (F27): la borra, la IA no la vuelve a proponer, y el aviso
@@ -128,7 +195,10 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   /// largo mandado entero fallaba. Cada parte que se lee se ve debajo del
   /// título. Si el modelo falla en el medio, se ofrece lo que alcanzó a
   /// proponer y se dice qué pasó: que falta bajarlo, o que falló.
-  Future<void> _generateWithAi() async {
+  ///
+  /// Con [cloze] pide frases con huecos en vez de preguntas y respuestas (F31):
+  /// el mismo recorrido por partes, otra revisión y otro guardado.
+  Future<void> _generateWithAi({bool cloze = false}) async {
     final l10n = AppLocalizations.of(context)!;
     // El mismo texto que abre la lectura —la forma principal que no es de
     // bloques—: el rango de una cita tiene que ser de ESE texto para que
@@ -137,7 +207,9 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
     final sourceText = extractableRendition(widget.item)?.content;
     final content = sourceText ?? widget.item.searchableText;
     if (content.trim().isEmpty) {
-      _showMessage(l10n.flashcardsNoContentToGenerate);
+      _showMessage(
+        cloze ? l10n.cardFormAiNoContent : l10n.flashcardsNoContentToGenerate,
+      );
       return;
     }
 
@@ -157,7 +229,9 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
     Object? failure;
     try {
       await generateFlashcardsByParts(
-        generator: ref.read(flashcardGeneratorProvider),
+        generator: cloze
+            ? ClozeAsFlashcardGenerator(ref.read(clozeGeneratorProvider))
+            : ref.read(flashcardGeneratorProvider),
         text: content,
         wanted: math.max(kManualFlashcardsWanted, flashcardTargetFor(content)),
         onDraft: (candidate) async {
@@ -199,9 +273,16 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
 
     final accepted = await showDialog<List<PartDraft>>(
       context: context,
-      builder: (context) => _FlashcardDraftReviewDialog(drafts: proposed),
+      builder: (context) => cloze
+          ? ClozeDraftReviewDialog(drafts: proposed)
+          : _FlashcardDraftReviewDialog(drafts: proposed),
     );
     if (accepted == null || accepted.isEmpty || !mounted) return;
+
+    if (cloze) {
+      await _saveClozeDrafts(accepted, sourceText != null);
+      return;
+    }
 
     final repository = ref.read(flashcardRepositoryProvider);
     for (final candidate in accepted) {
@@ -223,6 +304,35 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
         return;
       }
     }
+  }
+
+  /// Guarda las frases con huecos que la persona aceptó: cada una son las
+  /// tarjetas de sus huecos, enteras o ninguna, con el pasaje de la fuente del
+  /// que salen si se ubicó.
+  Future<void> _saveClozeDrafts(
+    List<PartDraft> accepted,
+    bool hasSourceText,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final create = ref.read(createCardsFromFormProvider);
+    var saved = 0;
+    for (final candidate in accepted) {
+      final anchor = hasSourceText ? candidate.anchor : null;
+      final result = await create(
+        itemId: widget.item.id,
+        form: ClozeCardForm(text: candidate.draft.front),
+        sourceCharStart: anchor?.start,
+        sourceCharEnd: anchor?.end,
+      );
+      if (!mounted) return;
+      final error = result.getLeft().toNullable();
+      if (error != null) {
+        _showMessage(error.localizedMessage(l10n));
+        return;
+      }
+      saved += result.getRight().toNullable()!.length;
+    }
+    _showMessage(l10n.cardFormAiSavedCount(saved));
   }
 
   /// Por qué no hubo tarjetas —o no todas—: falta bajar el modelo, el modelo
@@ -354,6 +464,37 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
   }
 }
 
+/// Qué se ve de una tarjeta en la lista, según su forma (F31): una de huecos
+/// muestra el frente con su hueco tapado y debajo lo que esconde, no el texto
+/// con las marcas `{{c1::…}}`; una de «escribí la respuesta», la respuesta sin
+/// sus alternativas.
+({String title, String subtitle}) _shownText(Flashcard card) {
+  switch (card.kind) {
+    case FlashcardKind.cloze:
+      final index = card.clozeIndex;
+      final parsed = parseCloze(card.front);
+      if (index == null || !parsed.numbers.contains(index)) {
+        return (title: card.front, subtitle: card.back);
+      }
+      return (
+        title: parsed.questionFor(index),
+        subtitle: [
+          for (final deletion in parsed.deletions)
+            if (deletion.number == index) deletion.answer,
+        ].join(', '),
+      );
+    case FlashcardKind.typedAnswer:
+      return (
+        title: card.front,
+        subtitle: TypedAnswerSpec.parse(card.back).answer,
+      );
+    case FlashcardKind.freeRecall:
+    case FlashcardKind.multipleChoice:
+    case FlashcardKind.trueFalse:
+      return (title: card.front, subtitle: card.back);
+  }
+}
+
 /// Lo que se puede hacer con una tarjeta desde su menú.
 enum _CardAction { reject, delete }
 
@@ -373,8 +514,9 @@ class _FlashcardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final shown = _shownText(card);
     final front = Text(
-      card.front,
+      shown.title,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
@@ -390,7 +532,9 @@ class _FlashcardTile extends StatelessWidget {
               ],
             )
           : front,
-      subtitle: Text(card.back, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: shown.subtitle.isEmpty
+          ? null
+          : Text(shown.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

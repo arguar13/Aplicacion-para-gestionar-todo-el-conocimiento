@@ -9276,5 +9276,158 @@
   "reviewSessionTypedBlank": "You didn't type anything",
   "@reviewSessionTypedBlank": {
     "description": "Review: it was checked without typing anything."
+  },
+  "cardFormKindQa": "Question and answer",
+  "@cardFormKindQa": {
+    "description": "Card form: the classic shape, a question and its answer."
+  },
+  "cardFormKindBoth": "Both directions",
+  "@cardFormKindBoth": {
+    "description": "Card form: two cards are created, question to answer and answer to question."
+  },
+  "cardFormKindCloze": "Fill in the blanks",
+  "@cardFormKindCloze": {
+    "description": "Card form: a text with blanks to fill in."
+  },
+  "cardFormKindTyped": "Type the answer",
+  "@cardFormKindTyped": {
+    "description": "Card form: the person types the answer and it is compared with the right one."
+  },
+  "cardFormKindChoice": "Multiple choice",
+  "@cardFormKindChoice": {
+    "description": "Card form: a question with one right answer and wrong options."
+  },
+  "cardFormKindClozeAi": "Blanks with AI",
+  "@cardFormKindClozeAi": {
+    "description": "Card form: the language model proposes sentences with blanks from the content."
+  },
+  "cardFormBothHelp": "Two cards are created: from the question to the answer and from the answer to the question. They are not studied on the same day.",
+  "@cardFormBothHelp": {
+    "description": "Card form, both directions: what gets created."
+  },
+  "cardFormPreviewTitle": "How they will look",
+  "@cardFormPreviewTitle": {
+    "description": "Card form: title of the preview of the cards that will be created."
+  },
+  "cardFormBothForward": "Forward",
+  "@cardFormBothForward": {
+    "description": "Both-directions form: the card that asks for the question's answer."
+  },
+  "cardFormBothBackward": "Backward",
+  "@cardFormBothBackward": {
+    "description": "Both-directions form: the card that asks for the question."
+  },
+  "cardFormTypedHelp": "When reviewing, you type the answer and it is compared with the right one: capital letters, accents and punctuation do not matter.",
+  "@cardFormTypedHelp": {
+    "description": "Type-the-answer form: how it works."
+  },
+  "cardFormTypedAnswerHint": "Answer to type",
+  "@cardFormTypedAnswerHint": {
+    "description": "Type-the-answer form: field for the right answer."
+  },
+  "cardFormTypedAlternativesHint": "Other accepted answers (one per line)",
+  "@cardFormTypedAlternativesHint": {
+    "description": "Type-the-answer form: field for the accepted alternative answers."
+  },
+  "cardFormChoiceHelp": "Write the right answer and at least one wrong option. When reviewing, the options appear shuffled.",
+  "@cardFormChoiceHelp": {
+    "description": "Multiple-choice form: what to fill in."
+  },
+  "cardFormChoiceQuestionHint": "Question",
+  "@cardFormChoiceQuestionHint": {
+    "description": "Multiple-choice form: question field."
+  },
+  "cardFormChoiceCorrectHint": "Right answer",
+  "@cardFormChoiceCorrectHint": {
+    "description": "Multiple-choice form: right option field."
+  },
+  "cardFormChoiceDistractorHint": "Wrong option {number}",
+  "@cardFormChoiceDistractorHint": {
+    "description": "Multiple-choice form: a wrong option field.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeHelp": "Write the text and cover what you want to remember: select it and tap \"Cover selection\". Each blank is a card.",
+  "@cardFormClozeHelp": {
+    "description": "Blanks form: how it is built."
+  },
+  "cardFormClozeTextHint": "Text with what you want to remember",
+  "@cardFormClozeTextHint": {
+    "description": "Blanks form: hint inside the text field."
+  },
+  "cardFormClozeExtraHint": "Extra (optional)",
+  "@cardFormClozeExtraHint": {
+    "description": "Blanks form: field with an extra note shown when answering."
+  },
+  "cardFormClozeCover": "Cover selection",
+  "@cardFormClozeCover": {
+    "description": "Blanks form: button that turns the selected text into the next blank."
+  },
+  "cardFormClozeCount": "{count, plural, =1{1 card is created} other{{count} cards are created}}",
+  "@cardFormClozeCount": {
+    "description": "Blanks form: how many cards come out of the text.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeCardTitle": "Card {number}",
+  "@cardFormClozeCardTitle": {
+    "description": "Blanks form: title of the preview of a blank's card.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeRemovesCards": "{count, plural, =1{Saving deletes the card of a blank you removed.} other{Saving deletes the cards of {count} blanks you removed.}}",
+  "@cardFormClozeRemovesCards": {
+    "description": "Blanks form when editing: warning about cards deleted because their blank is gone.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormClozeEdited": "{created, plural, =0{} =1{New cards: 1. } other{New cards: {created}. }}{removed, plural, =0{} =1{Deleted cards: 1.} other{Deleted cards: {removed}.}}",
+  "@cardFormClozeEdited": {
+    "description": "Notice after editing a blanks card when blanks were added or removed.",
+    "placeholders": {
+      "created": {
+        "type": "int"
+      },
+      "removed": {
+        "type": "int"
+      }
+    }
+  },
+  "cardFormAiHelp": "The language model on your phone proposes sentences with blanks from this item's content. You will be able to review them before anything is saved.",
+  "@cardFormAiHelp": {
+    "description": "Card form, blanks with AI: what happens when generating."
+  },
+  "cardFormAiGenerate": "Generate",
+  "@cardFormAiGenerate": {
+    "description": "Card form, blanks with AI: button that asks the model for sentences."
+  },
+  "cardFormAiReviewTitle": "Review sentences with blanks",
+  "@cardFormAiReviewTitle": {
+    "description": "Blanks with AI: title of the review of what the model proposed."
+  },
+  "cardFormAiNoContent": "This item has no content yet to take sentences with blanks from.",
+  "@cardFormAiNoContent": {
+    "description": "Blanks with AI: the item has no text."
+  },
+  "cardFormAiSavedCount": "{count, plural, =1{1 blanks card saved} other{{count} blanks cards saved}}",
+  "@cardFormAiSavedCount": {
+    "description": "Blanks with AI: how many cards were saved after the review.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
