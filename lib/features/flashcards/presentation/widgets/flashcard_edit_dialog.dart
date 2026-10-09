@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// Pide la pregunta y la respuesta de una tarjeta. Devuelve `(pregunta,
@@ -50,6 +51,9 @@ class _FlashcardEditDialogState extends State<_FlashcardEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Una tarjeta de huecos guarda el texto entero y un complemento, no una
+    // pregunta y una respuesta: las pistas lo dicen.
+    final isCloze = widget.card?.kind == FlashcardKind.cloze;
 
     return AlertDialog(
       title: Text(
@@ -65,14 +69,22 @@ class _FlashcardEditDialogState extends State<_FlashcardEditDialog> {
             autofocus: true,
             minLines: 1,
             maxLines: 4,
-            decoration: InputDecoration(hintText: l10n.flashcardsFrontHint),
+            decoration: InputDecoration(
+              hintText: isCloze
+                  ? l10n.reviewSessionClozeTextHint
+                  : l10n.flashcardsFrontHint,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _backController,
             minLines: 1,
             maxLines: 6,
-            decoration: InputDecoration(hintText: l10n.flashcardsBackHint),
+            decoration: InputDecoration(
+              hintText: isCloze
+                  ? l10n.reviewSessionClozeExtraHint
+                  : l10n.flashcardsBackHint,
+            ),
           ),
         ],
       ),

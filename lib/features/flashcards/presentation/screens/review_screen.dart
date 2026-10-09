@@ -13,6 +13,7 @@ import 'package:sinapsis/features/flashcards/domain/entities/study_scope.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/study_session_controller.dart';
+import 'package:sinapsis/features/flashcards/presentation/widgets/review_card_menu.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_empty_state.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_card.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/review_session_progress.dart';
@@ -231,6 +232,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               tooltip: l10n.reviewSessionUndoTooltip,
               onPressed: _session.canUndo ? () => unawaited(_undo()) : null,
             ),
+          if (inSession)
+            ReviewCardMenu(scope: widget.scope, card: session.card!),
         ],
       ),
       body: SafeArea(
