@@ -37,11 +37,28 @@ class _ReviewHistoryBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [ReviewHistorySections(history: history)],
+    );
+  }
+}
+
+/// Las tres secciones del historial, una debajo de la otra y SIN lista propia:
+/// para ponerlas en otra pantalla que ya se desplaza (las estadísticas de
+/// repaso de F31 las reutilizan en vez de repetirlas).
+class ReviewHistorySections extends StatelessWidget {
+  const ReviewHistorySections({required this.history, super.key});
+
+  final ReviewHistory history;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final hasRetention = history.retentionByWeek.any((w) => w.total > 0);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(l10n.reviewHistoryRetentionSectionTitle),
         const SizedBox(height: 12),
@@ -62,6 +79,26 @@ class _ReviewHistoryBody extends StatelessWidget {
           _HardestCardsList(cards: history.hardestCards),
       ],
     );
+  }
+}
+
+/// [ReviewHistorySections] ya conectadas a la base: carga, error y datos.
+class ReviewHistorySectionsView extends ConsumerWidget {
+  const ReviewHistorySectionsView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return ref
+        .watch(reviewHistoryProvider)
+        .when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (_, _) => _EmptyHint(l10n.reviewHistoryLoadError),
+          data: (history) => ReviewHistorySections(history: history),
+        );
   }
 }
 

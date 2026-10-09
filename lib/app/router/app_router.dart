@@ -19,6 +19,7 @@ import 'package:sinapsis/features/explorer/presentation/widgets/explorer_focus.d
 import 'package:sinapsis/features/flashcards/presentation/my_cards_route.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/my_cards_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_stats_screen.dart';
 import 'package:sinapsis/features/graph/presentation/screens/local_graph_screen.dart';
 import 'package:sinapsis/features/habit/presentation/screens/badges_screen.dart';
 import 'package:sinapsis/features/habit/presentation/screens/review_history_screen.dart';
@@ -229,6 +230,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => MyCardsScreen(
           initialScope: myCardsScopeFromQuery(state.uri.queryParameters),
         ),
+      ),
+      GoRoute(
+        path: kRouteReviewStats,
+        name: kRouteNameReviewStats,
+        builder: (context, state) => const ReviewStatsScreen(),
       ),
       GoRoute(
         path: RoutePaths.graphLocalPattern,
