@@ -2047,6 +2047,52 @@ void main() {
       expect(generator.calls, [note.id]);
     });
 
+    test('si la transacción se deshace, no se busca nada de las notas que no '
+        'quedaron', () async {
+      final generator = FakeDuplicateSuggestionGenerator();
+      final withGenerator = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        duplicateSuggestionGenerator: generator,
+      );
+
+      await expectLater(
+        withGenerator.runInTransaction<void>(() async {
+          await withGenerator.save(
+            buildItem(sourceKind: SourceKind.manualNote),
+          );
+          throw StateError('falla a mitad de camino');
+        }),
+        throwsStateError,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(generator.calls, isEmpty);
+    });
+
+    test('dentro de una transacción anidada, la busca una sola vez y al '
+        'confirmar la de más afuera', () async {
+      final generator = FakeDuplicateSuggestionGenerator();
+      final withGenerator = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        duplicateSuggestionGenerator: generator,
+      );
+      final note = buildItem(sourceKind: SourceKind.manualNote);
+
+      await withGenerator.runInTransaction<void>(() async {
+        await withGenerator.runInTransaction<void>(
+          () => withGenerator.save(note),
+        );
+        // La de afuera todavía no confirmó: nada se buscó.
+        expect(generator.calls, isEmpty);
+      });
+
+      expect(generator.calls, [note.id]);
+    });
+
     test('guardar una nota dentro de una transacción no deja al generador '
         'hablándole a la transacción ya cerrada', () async {
       Object? failure;

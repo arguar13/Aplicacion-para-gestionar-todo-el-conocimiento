@@ -209,18 +209,43 @@ class LibraryRepositoryImpl implements LibraryRepository {
   /// cálculo es tan barato que no vale la pena optimizar recalcularlo en
   /// cada guardado.
   ///
-  /// Corre en la zona raíz, no en la de quien guarda: si `save` se llama dentro
-  /// de una transacción de quien lo usa (`runInTransaction`, p. ej. al traer un
-  /// mazo de Anki), un futuro sin esperar que hereda esa zona seguiría
-  /// hablándole a la transacción ya cerrada, y fallaría siempre. Afuera de ella
-  /// espera su turno y lee lo ya confirmado.
+  /// Si `save` se llama dentro de una transacción de quien lo usa
+  /// (`runInTransaction` o `runBulk`, p. ej. al traer un mazo de Anki), un
+  /// futuro sin esperar que naciera ahí heredaría la zona de esa transacción y
+  /// le hablaría ya cerrada: fallaría siempre. Por eso, adentro de una, la nota
+  /// se anota y la búsqueda sale recién cuando la transacción confirma
+  /// ([_afterCommit]): lee lo ya confirmado, y si la transacción se deshace
+  /// no se busca nada de notas que no quedaron.
   void _generateDuplicateSuggestionForNote(KnowledgeItem item) {
     if (itemKindFor(item.source.kind) != ItemKind.note) return;
+    if (_duplicateSuggestionGenerator == null) return;
+    final pending = Zone.current[_afterCommitKey];
+    if (pending is List<KnowledgeItem>) {
+      pending.add(item);
+      return;
+    }
+    _launchDuplicateSuggestion(item);
+  }
+
+  void _launchDuplicateSuggestion(KnowledgeItem item) {
     final generator = _duplicateSuggestionGenerator;
     if (generator == null) return;
-    unawaited(
-      Zone.root.run(() => generator.generate(item).catchError((_, __) {})),
-    );
+    unawaited(generator.generate(item).catchError((_, __) {}));
+  }
+
+  /// La clave de zona con las notas que esperan a que confirme la transacción
+  /// de afuera.
+  static final Object _afterCommitKey = Object();
+
+  /// Corre [run] —una transacción— juntando las notas que se guardan adentro,
+  /// y lanza su búsqueda de duplicados solo si [run] termina bien y ya fuera
+  /// de la transacción. Anidada, la más externa es la que lanza.
+  Future<T> _afterCommit<T>(Future<T> Function() run) async {
+    if (Zone.current[_afterCommitKey] is List<KnowledgeItem>) return run();
+    final pending = <KnowledgeItem>[];
+    final result = await runZoned(run, zoneValues: {_afterCommitKey: pending});
+    pending.forEach(_launchDuplicateSuggestion);
+    return result;
   }
 
   @override
@@ -796,13 +821,15 @@ class LibraryRepositoryImpl implements LibraryRepository {
 
   @override
   Future<T> runInTransaction<T>(Future<T> Function() body) =>
-      _db.transaction(body);
+      _afterCommit(() => _db.transaction(body));
 
   @override
-  Future<T> runBulk<T>(Future<T> Function() body) => KnowledgeEntryWriter(
-    _db,
-    clock: _clock,
-  ).runBulk((bulkWriter) => _bulkWriter.runWith(bulkWriter, body));
+  Future<T> runBulk<T>(Future<T> Function() body) => _afterCommit(
+    () => KnowledgeEntryWriter(
+      _db,
+      clock: _clock,
+    ).runBulk((bulkWriter) => _bulkWriter.runWith(bulkWriter, body)),
+  );
 
   /// Borra el archivo sin dejar que un fallo del disco frustre el borrado.
   ///
