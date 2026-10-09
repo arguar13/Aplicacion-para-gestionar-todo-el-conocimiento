@@ -18,6 +18,7 @@ import 'package:sinapsis/core/domain/entities/item_property.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/item_state.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/duplicates/domain/services/duplicate_suggestion_generator.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
@@ -2046,6 +2047,26 @@ void main() {
       expect(generator.calls, [note.id]);
     });
 
+    test('guardar una nota dentro de una transacción no deja al generador '
+        'hablándole a la transacción ya cerrada', () async {
+      Object? failure;
+      final generator = _ReadsDatabaseLater(db, onError: (e) => failure = e);
+      final withGenerator = LibraryRepositoryImpl(
+        database: db,
+        telemetry: MockTelemetryService(),
+        files: files,
+        duplicateSuggestionGenerator: generator,
+      );
+
+      await withGenerator.runInTransaction(
+        () => withGenerator.save(buildItem(sourceKind: SourceKind.manualNote)),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(generator.reads, 1);
+      expect(failure, isNull);
+    });
+
     test(
       'editarla de nuevo también lo dispara, no solo la primera vez',
       () async {
@@ -2493,4 +2514,28 @@ void main() {
       expect(await referenceVersions(), hasLength(1));
     });
   });
+}
+
+/// Un generador de duplicados que, un rato después de que lo llaman, lee la
+/// base: como el de verdad. Si hereda la zona de una transacción que ya se
+/// cerró, esa lectura falla.
+class _ReadsDatabaseLater implements DuplicateSuggestionGenerator {
+  _ReadsDatabaseLater(this._db, {required this.onError});
+
+  final AppDatabase _db;
+  final void Function(Object error) onError;
+  int reads = 0;
+
+  @override
+  Future<void> generate(KnowledgeItem item) async {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    try {
+      await _db.select(_db.knowledgeEntries).get();
+      reads++;
+      // Cualquier fallo de la base se cuenta, sea del tipo que sea.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e) {
+      onError(e);
+    }
+  }
 }
