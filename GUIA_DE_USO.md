@@ -1507,7 +1507,7 @@ cada una ni cuenta como repaso. **"Terminar"** vuelve a Repasar.
 
 ### Mis tarjetas: ver, buscar y ordenar todas
 
-**Cómo llegar:** pantalla "Repasar" → ícono de lista **"Mis tarjetas"** arriba.
+**Cómo llegar:** pantalla "Repasar" → botón **"Mis tarjetas"**, abajo de todo.
 
 Una lista con **todas** tus tarjetas, de cualquier elemento, para encontrar
 una, ordenarlas o actuar sobre varias a la vez. Cada renglón muestra el frente
@@ -1550,8 +1550,7 @@ pocas y no las carga todas.
 
 ### Estadísticas de repaso
 
-**Cómo llegar:** pantalla "Repasar" → ícono de gráfico **"Estadísticas de
-repaso"** arriba.
+**Cómo llegar:** pantalla "Repasar" → botón **"Estadísticas"**, abajo de todo.
 
 - **Racha e insignias:** tu racha de hoy y un botón que abre las
   [insignias](#tu-hábito-de-repaso).

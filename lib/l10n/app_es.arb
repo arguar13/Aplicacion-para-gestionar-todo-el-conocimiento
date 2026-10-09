@@ -7343,10 +7343,6 @@
   "@myCardsTitle": {
     "description": "Mis tarjetas (F31): título de la pantalla con todas las tarjetas."
   },
-  "myCardsEntryTooltip": "Mis tarjetas",
-  "@myCardsEntryTooltip": {
-    "description": "Mis tarjetas: ayuda del botón que abre la pantalla desde Repasar."
-  },
   "myCardsSearchHint": "Buscar en el frente y el dorso",
   "@myCardsSearchHint": {
     "description": "Mis tarjetas: texto de ayuda del campo de búsqueda."
@@ -7729,10 +7725,6 @@
   "cardStatsTitle": "Estadísticas",
   "@cardStatsTitle": {
     "description": "Estadísticas de repaso (F31): título de la pantalla."
-  },
-  "cardStatsEntryTooltip": "Estadísticas de repaso",
-  "@cardStatsEntryTooltip": {
-    "description": "Estadísticas de repaso: ayuda del botón que abre la pantalla desde Repasar."
   },
   "cardStatsLoadError": "No se pudieron leer las estadísticas.",
   "@cardStatsLoadError": {
