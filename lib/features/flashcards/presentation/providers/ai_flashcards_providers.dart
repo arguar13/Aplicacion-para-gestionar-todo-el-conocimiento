@@ -4,7 +4,6 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/database_provider.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_coverage_reader_impl.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -28,11 +27,6 @@ final itemsWithoutCardsCountProvider = StreamProvider.autoDispose<int>(
 /// Si hay alguna tarjeta, le toque o no (F30): para «Practicar igual».
 final hasFlashcardsProvider = StreamProvider.autoDispose<bool>(
   (ref) => ref.watch(flashcardCoverageReaderProvider).watchHasCards(),
-);
-
-/// Si el modelo de lenguaje está bajado: sin él no hay tarjetas con IA.
-final languageModelReadyProvider = FutureProvider.autoDispose<bool>(
-  (ref) => ref.watch(chatModelManagerProvider).isReady(),
 );
 
 /// De qué elementos se piden las tarjetas con IA (F30): toda la biblioteca,

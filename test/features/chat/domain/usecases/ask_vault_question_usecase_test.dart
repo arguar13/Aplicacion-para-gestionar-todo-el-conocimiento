@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
-import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 
@@ -23,27 +22,6 @@ class _FakeVaultRetriever implements VaultRetriever {
     lastScopeIds = scopeIds;
     return sources;
   }
-}
-
-class _FakeChatModelManager implements ChatModelManager {
-  _FakeChatModelManager({required this.ready});
-
-  final bool ready;
-
-  @override
-  Future<bool> isReady() async => ready;
-
-  @override
-  Future<int?> downloadSizeInBytes() async => null;
-
-  @override
-  Stream<double> download({String? huggingFaceToken}) => const Stream.empty();
-
-  @override
-  Future<bool> isDownloading() async => false;
-
-  @override
-  Future<void> cancelDownload() async {}
 }
 
 class _FakeChatModel implements ChatModel {
@@ -94,7 +72,7 @@ void main() {
       final usecase = AskVaultQuestionUseCase(
         retriever: _FakeVaultRetriever(const []),
         model: model,
-        modelManager: _FakeChatModelManager(ready: true),
+        modelReady: () async => true,
       );
 
       final result = await usecase(
@@ -115,7 +93,7 @@ void main() {
       final usecase = AskVaultQuestionUseCase(
         retriever: _FakeVaultRetriever([source]),
         model: model,
-        modelManager: _FakeChatModelManager(ready: false),
+        modelReady: () async => false,
       );
 
       final result = await usecase(
@@ -135,7 +113,7 @@ void main() {
       final usecase = AskVaultQuestionUseCase(
         retriever: _FakeVaultRetriever([source]),
         model: _FakeChatModel(response: 'La respuesta redactada [1].'),
-        modelManager: _FakeChatModelManager(ready: true),
+        modelReady: () async => true,
       );
 
       final result = await usecase(
@@ -153,7 +131,7 @@ void main() {
     final usecase = AskVaultQuestionUseCase(
       retriever: retriever,
       model: _FakeChatModel(response: 'x'),
-      modelManager: _FakeChatModelManager(ready: true),
+      modelReady: () async => true,
     );
 
     await usecase(
@@ -168,7 +146,7 @@ void main() {
     final usecase = AskVaultQuestionUseCase(
       retriever: retriever,
       model: _FakeChatModel(response: 'x'),
-      modelManager: _FakeChatModelManager(ready: true),
+      modelReady: () async => true,
     );
 
     await usecase(
@@ -185,7 +163,7 @@ void main() {
     final usecase = AskVaultQuestionUseCase(
       retriever: _FakeVaultRetriever([source]),
       model: _FakeChatModel(error: StateError('el motor nativo explotó')),
-      modelManager: _FakeChatModelManager(ready: true),
+      modelReady: () async => true,
     );
 
     final result = await usecase(

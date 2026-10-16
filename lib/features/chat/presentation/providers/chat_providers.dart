@@ -283,7 +283,8 @@ final askVaultQuestionUseCaseProvider =
       (ref) => AskVaultQuestionUseCase(
         retriever: ref.watch(vaultRetrieverProvider),
         model: ref.watch(chatModelProvider),
-        modelManager: ref.watch(chatModelManagerProvider),
+        modelReady: () async =>
+            (await ref.read(languageModelStatusCheckProvider)()).isReady,
       ),
     );
 

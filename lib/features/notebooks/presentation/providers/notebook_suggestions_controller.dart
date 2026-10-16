@@ -275,7 +275,8 @@ final notebookSuggestionsControllerProvider =
         suggestions: ref.read(notebookSuggestionsProvider),
         reader: ref.watch(notebookTopicReaderProvider),
         namer: ref.watch(notebookNamerProvider),
-        languageModelReady: () => ref.read(chatModelManagerProvider).isReady(),
+        languageModelReady: () async =>
+            (await ref.read(languageModelStatusCheckProvider)()).isReady,
         notebooks: ref.watch(notebookRepositoryProvider),
         telemetry: ref.watch(telemetryServiceProvider),
       ),

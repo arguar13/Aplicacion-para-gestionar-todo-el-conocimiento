@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/fill_notebook_controller.dart';
-import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -54,10 +55,8 @@ class FillNotebookSheet extends ConsumerWidget {
     final controller = ref.read(
       fillNotebookControllerProvider(notebook.id).notifier,
     );
-    final modelReady = ref
-        .watch(notebookAiModelsProvider)
-        .valueOrNull
-        ?.language;
+    final modelStatus = ref.watch(languageModelStatusProvider).valueOrNull;
+    final modelReady = modelStatus?.isReady;
     final coverage = ref
         .watch(
           aiFlashcardsCoverageProvider(
@@ -151,7 +150,11 @@ class FillNotebookSheet extends ConsumerWidget {
               ),
               if (modelReady == false) ...[
                 const SizedBox(height: 8),
-                _ModelMissing(l10n: l10n),
+                LanguageModelMissingBanner(
+                  status: modelStatus!,
+                  downloadMessage: l10n.derivedNoteModelRequired,
+                  downloadLabel: l10n.derivedNoteDownloadAction,
+                ),
               ],
               if (state.running) ...[
                 const SizedBox(height: 12),
@@ -208,39 +211,6 @@ class FillNotebookSheet extends ConsumerWidget {
         DerivedNoteType.outline => l10n.derivedNoteTypeOutline,
         DerivedNoteType.timeline => l10n.derivedNoteTypeTimeline,
       };
-}
-
-/// Falta bajar el modelo de lenguaje: sin él no hay nota ni tarjetas.
-class _ModelMissing extends StatelessWidget {
-  const _ModelMissing({required this.l10n});
-
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.download_for_offline_outlined, color: scheme.error),
-          const SizedBox(width: 12),
-          Expanded(child: Text(l10n.derivedNoteModelRequired)),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              context.push(RoutePaths.chatModel);
-            },
-            child: Text(l10n.derivedNoteDownloadAction),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// Cómo va: las tarjetas se piden en el acto; la nota se lee por partes.

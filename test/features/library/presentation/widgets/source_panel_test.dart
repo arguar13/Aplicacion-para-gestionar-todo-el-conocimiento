@@ -16,10 +16,13 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/blocks/presentation/screens/block_editor_screen.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
@@ -775,6 +778,107 @@ void main() {
 
       expect(queue.organizeNowCalls, [_id]);
       expect(find.text(es.aiOrganizeNowPaused), findsOneWidget);
+    });
+
+    group('con la IA en la nube (F32)', () {
+      late List<bool> asked;
+
+      Future<void> pumpWithCloud(
+        WidgetTester tester,
+        LanguageModelStatus status,
+      ) async {
+        queue = FakeAiOrganizeQueue();
+        asked = [];
+        await pumpPanel(
+          tester,
+          _source(
+            SourceKind.webPage,
+            url: 'https://ejemplo.org/nota',
+            texts: ['Un artículo.'],
+          ),
+          extraOverrides: [
+            aiOrganizeQueueProvider.overrideWithValue(queue),
+            languageModelStatusCheckProvider.overrideWithValue(({
+              bool background = false,
+            }) async {
+              asked.add(background);
+              return status;
+            }),
+          ],
+          beforeShow: () async => harness.embeddingModelManager.ready = true,
+        );
+      }
+
+      testWidgets('lista, avisa que lo organiza y pregunta por la de fondo', (
+        tester,
+      ) async {
+        await pumpWithCloud(
+          tester,
+          const LanguageModelReady(provider: AiProvider.gemini),
+        );
+        await organize(tester);
+
+        expect(queue.organizeNowCalls, [_id]);
+        expect(find.text(es.aiOrganizeNowQueued), findsOneWidget);
+        // Lo hace la IA de fondo: con su tope del día, no con el de la
+        // persona.
+        expect(asked, [true]);
+      });
+
+      testWidgets('sin clave, lo pide igual y dice que falta la clave', (
+        tester,
+      ) async {
+        await pumpWithCloud(
+          tester,
+          const LanguageModelNeedsAccount(provider: AiProvider.gemini),
+        );
+        await organize(tester);
+
+        expect(queue.organizeNowCalls, [_id]);
+        expect(find.text(es.aiOrganizeNowNeedsKey), findsOneWidget);
+        expect(find.text(es.aiOrganizeNowNeedsModel), findsNothing);
+      });
+
+      for (final (name, status) in [
+        (
+          'sin cuota',
+          LanguageModelOutOfQuota(
+            provider: AiProvider.gemini,
+            accounts: 2,
+            resetsAt: DateTime(2026, 10, 17, 4),
+          ),
+        ),
+        (
+          'en el tope del día de la IA de fondo',
+          LanguageModelBackgroundCapReached(
+            provider: AiProvider.gemini,
+            cap: 200,
+            resetsAt: DateTime(2026, 10, 17, 4),
+          ),
+        ),
+      ]) {
+        testWidgets('$name, lo pide igual y dice que espera la cuota', (
+          tester,
+        ) async {
+          await pumpWithCloud(tester, status);
+          await organize(tester);
+
+          expect(queue.organizeNowCalls, [_id]);
+          expect(find.text(es.aiOrganizeNowWaits), findsOneWidget);
+        });
+      }
+
+      testWidgets('lista pero sin el modelo de búsqueda, dice que falta '
+          'bajarlo', (tester) async {
+        await pumpWithCloud(
+          tester,
+          const LanguageModelReady(provider: AiProvider.gemini),
+        );
+        harness.embeddingModelManager.ready = false;
+        await organize(tester);
+
+        expect(find.text(es.aiOrganizeNowNeedsModel), findsOneWidget);
+      });
     });
 
     testWidgets('mientras se procesa, no se ofrece', (tester) async {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
@@ -35,6 +36,8 @@ Future<void> organizeNowWithAi(
     message: (state) => switch (state) {
       _AiState.paused => l10n.aiOrganizeNowPaused,
       _AiState.needsModel => l10n.aiOrganizeNowNeedsModel,
+      _AiState.needsKey => l10n.aiOrganizeNowNeedsKey,
+      _AiState.waiting => l10n.aiOrganizeNowWaits,
       _AiState.ready => l10n.aiOrganizeNowQueued,
     },
   );
@@ -58,13 +61,17 @@ Future<void> organizeAllNowWithAi(
     message: (state) => switch (state) {
       _AiState.paused => l10n.aiOrganizeManyPaused(count),
       _AiState.needsModel => l10n.aiOrganizeManyNeedsModel(count),
+      _AiState.needsKey => l10n.aiOrganizeManyNeedsKey(count),
+      _AiState.waiting => l10n.aiOrganizeManyWaits(count),
       _AiState.ready => l10n.aiOrganizeManyQueued(count),
     },
   );
 }
 
-/// Si la IA va a poder hacer lo pedido ahora.
-enum _AiState { paused, needsModel, ready }
+/// Si la IA va a poder hacer lo pedido ahora: en pausa, falta bajar un
+/// modelo, falta una clave de la nube (F32), espera que vuelva la cuota o su
+/// tope del día (F32), o sí.
+enum _AiState { paused, needsModel, needsKey, waiting, ready }
 
 Future<void> _organizeWithAi(
   BuildContext context,
@@ -78,7 +85,7 @@ Future<void> _organizeWithAi(
   // Lo que hace falta de `ref` se toma antes de esperar: para cuando los
   // modelos contestan, quien lo pidió puede haberse ido.
   final enabled = ref.read(aiOrganizeSettingsProvider).enabled;
-  final chatModel = ref.read(chatModelManagerProvider);
+  final languageModel = ref.read(languageModelStatusCheckProvider);
   final embeddingModel = ref.read(embeddingModelManagerProvider);
   ref.read(aiOrganizeQueueProvider).organizeAllNow(itemIds);
 
@@ -86,11 +93,17 @@ Future<void> _organizeWithAi(
   if (!enabled) {
     state = _AiState.paused;
   } else {
-    final ready = await Future.wait([
-      chatModel.isReady(),
-      embeddingModel.isReady(),
-    ]);
-    state = ready.every((r) => r) ? _AiState.ready : _AiState.needsModel;
+    // Lo pedido lo hace la IA de fondo: con su tope del día.
+    final language = await languageModel(background: true);
+    final embeddingReady = await embeddingModel.isReady();
+    state = switch (language) {
+      _ when !embeddingReady => _AiState.needsModel,
+      LanguageModelNeedsDownload() => _AiState.needsModel,
+      LanguageModelNeedsAccount() => _AiState.needsKey,
+      LanguageModelOutOfQuota() ||
+      LanguageModelBackgroundCapReached() => _AiState.waiting,
+      LanguageModelReady() => _AiState.ready,
+    };
   }
 
   messenger

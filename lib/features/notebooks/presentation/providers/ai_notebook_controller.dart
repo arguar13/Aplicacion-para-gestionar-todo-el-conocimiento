@@ -249,7 +249,8 @@ final aiNotebookControllerProvider =
       (ref) => AiNotebookController(
         finder: ref.watch(notebookCandidateFinderProvider),
         judge: ref.watch(notebookCandidateJudgeProvider),
-        languageModelReady: () => ref.read(chatModelManagerProvider).isReady(),
+        languageModelReady: () async =>
+            (await ref.read(languageModelStatusCheckProvider)()).isReady,
         notebooks: ref.watch(notebookRepositoryProvider),
         telemetry: ref.watch(telemetryServiceProvider),
       ),

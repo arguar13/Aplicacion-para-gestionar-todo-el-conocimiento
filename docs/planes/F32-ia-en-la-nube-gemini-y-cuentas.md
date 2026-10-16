@@ -325,17 +325,55 @@ agregó su prueba). `tool/mutar.py` quedó en el repo: `python tool/mutar.py <mu
   `enterText` no redibuja; hay que hacer `pump()` antes de tocar un botón que se habilita con el
   texto.
 
+### Paso 4c — las pantallas preguntan qué le falta al modelo elegido (hecho)
+
+Antes, con Gemini elegido, los botones de la IA seguían preguntando si Gemma estaba bajado
+(`chatModelManagerProvider.isReady()`) y ofrecían bajarlo. Ahora todas preguntan
+`languageModelStatusCheckProvider` y dicen lo que de verdad falta.
+
+- `lib/features/ai_models/presentation/language_model_missing.dart` (nuevo):
+  `languageModelMissingMessage` (Gemma sin bajar → el texto propio de cada pantalla si lo hay;
+  sin clave → «es gratis y lleva un minuto» **solo** si el proveedor tiene capa gratis; claves
+  rechazadas → «Ninguna clave anda», no la cuota; sin cuota → hasta cuándo, sin inventar una hora
+  si no se sabe), `languageModelMissingAction` (`({label, route})`: bajar → `chatModel`; clave o
+  cuota → `languageModel`), `showLanguageModelMissing` (el aviso con su botón),
+  `ensureLanguageModelReady(context, ref, {downloadMessage, downloadLabel})` (lo usan los botones
+  antes de pedir) y `LanguageModelMissingBanner` (dentro de una hoja: el botón cierra la hoja antes
+  de ir).
+- Lo usan: `summarize_button.dart`, `generate_quiz_button.dart`,
+  `generate_derived_note_button.dart` (`ensureLanguageModelReady`); `ai_flashcards_sheet.dart` y
+  `fill_notebook_sheet.dart` (`LanguageModelMissingBanner`; se fue `languageModelReadyProvider`
+  de `ai_flashcards_providers.dart`); `ai_suggest_relations_dialog.dart`,
+  `notebook_providers.dart`, `ai_notebook_controller.dart`,
+  `notebook_suggestions_controller.dart` (el chequeo).
+- `AskVaultQuestionUseCase` recibe `modelReady: Future<bool> Function()` en vez del administrador
+  de Gemma: sin modelo, sigue mostrando las fuentes sin redactar.
+- Chat (`chat_screen.dart`): guarda el `LanguageModelStatus` (no un `bool`), **escucha
+  `languageModelStatusProvider`** —cargar una clave, cambiar de cuenta o quedarse sin cuota cambia
+  el aviso sin salir del chat— y el aviso de arriba dice lo que falta, con «Mientras, las
+  respuestas muestran las fuentes sin redactar» en el modo con la bóveda; su botón lleva a donde
+  se resuelve (`_openModelScreen(route)`). Solo al pasar de no listo a listo se precarga el modelo.
+- «Organizar con la IA» (`ai_organize_now.dart`): pregunta con `background: true` —lo hace la IA
+  de fondo, con su tope del día— y dice «Falta cargar una clave…» o «La IA espera que vuelva su
+  cuota…» además de los de siempre (pausa, falta bajar un modelo, en un momento). El modelo de
+  búsqueda sigue haciendo falta igual que antes.
+- 17 textos nuevos (es y en): `aiOrganizeNow/Many{NeedsKey,Waits}`, `chatSourcesMeanwhile` y
+  los `aiStatus*` que usa el paso siguiente (el estado de la cola en Repasar y en Ajustes).
+- Pruebas: `language_model_missing_test.dart` (10), 5 nuevas en `source_panel_test.dart`
+  (organizar con la nube) y 1 en `chat_screen_test.dart`. Mutaciones: 17/17 muertas (la de «el
+  botón de la hoja no la cierra» sobrevivió primero: la hoja quedaba abierta *debajo* de la
+  pantalla nueva, fuera de escena, y `find.byType` no mira ahí; ahora se busca con
+  `skipOffstage: false`).
+  Trampa: **no correr pruebas mientras `tool/mutar.py` trabaja en segundo plano**: cambia los
+  archivos de verdad y una prueba que corre a la vez falla por la mutación, no por el código.
+
 ### Lo que sigue
 
-2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
-   lenguaje» con proveedor, cuentas, «Probar», modelo y lo gastado, y el menú desplegable.
-3. ~~Gemini y la rotación~~ (hecho, ver arriba). Falta: el cliente `Dio` propio de la IA (sin
-   `NetworkLoggingInterceptor` ni `GlobalErrorInterceptor`) y los proveedores de Riverpod.
-4. ~~Elegir el motor~~ (hecho, 4a). Falta: que las pantallas pregunten
-   `languageModelStatusCheckProvider` en vez de `chatModelManagerProvider.isReady()` (hoy, con
-   Gemini elegido, siguen preguntando si Gemma está bajado) y digan lo que de verdad falta; la cola
-   de la IA de fondo con el estado nuevo (esperar la cuota o el tope sin perder trabajo); las
-   partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`, hoy 3.000
-   fijos).
+4. Falta: la cola de la IA de fondo con el estado nuevo —preguntar con `background: true`,
+   `AiOrganizeWaitingForModel` con el motivo (`AiModelWait`) y un temporizador para retomar; un
+   error de cuota, clave o red **pausa sin saltear** el elemento (las tarjetas pedidas vuelven al
+   frente)— y sus vistas (`ai_queue_status.dart`, `review_empty_state.dart`, con los `aiStatus*`
+   ya cargados); las partes por la ventana del modelo (`kFlashcardPartChars`,
+   `kDerivedNotePartChars`, hoy 3.000 fijos).
 5. `OpenAiBackend` y `AnthropicBackend`.
 6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.

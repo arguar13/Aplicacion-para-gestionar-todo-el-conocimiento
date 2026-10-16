@@ -1791,13 +1791,74 @@ modelo, para que también quede buscado por relaciones.
 
 ### Modelo de lenguaje (el del Chat y la IA que organiza sola)
 
-Redacta las respuestas del Chat, los resúmenes y las tarjetas, y es el que
-usa la IA que organiza sola. Se descarga desde Ajustes → "IA y modelos" →
-**"Modelo de lenguaje"**, desde dentro del Chat (ícono de robot arriba a la
-derecha) o desde el aviso de "Lo que hizo la IA" cuando falta. Hay tres variantes para elegir, con distinto tamaño y
-calidad de respuesta — la pantalla te explica el peso y las características
-de cada una antes de descargar. Pide el mismo token de Hugging Face que el
-modelo de relaciones.
+Redacta las respuestas del Chat, los resúmenes, las tarjetas y los quizzes,
+y es el que usa la IA que organiza sola. **Uno solo hace todo**: el que
+elijas en Ajustes → "IA y modelos" → **"Modelo de lenguaje"** (también se
+llega desde el ícono de robot del Chat). No hay un segundo modelo de
+respaldo: si al elegido le falta algo, la app te dice qué y cómo
+resolverlo, en vez de usar otro sin avisar.
+
+**De fábrica viene Gemini** (de Google, en la nube, gratis). Para usarlo:
+
+1. Sacá una clave gratis en Google AI Studio (aistudio.google.com → "Get API
+   key"). Lleva un minuto.
+2. En **"Modelo de lenguaje"**, tocá **"Agregar una cuenta"**. La primera vez
+   te explica **qué sale del teléfono**: solo el texto que la IA tiene que
+   leer en cada pedido y las fotos que mandes al Chat. Tu bóveda, tus
+   archivos y tus copias quedan en el teléfono. Ojo: en la capa gratuita,
+   Google puede usar lo que mandás para mejorar sus productos y personas de
+   Google pueden leerlo; no mandes nada que no quieras que se lea.
+3. Ponele un nombre a la cuenta (p. ej. "Personal") y pegá la clave. La app
+   **la prueba antes de guardarla**; si no anda, te dice por qué y no la
+   guarda.
+
+**Varias cuentas.** Podés cargar las cuentas de Google que quieras; cada
+una tiene su cuota gratis por día. En la pantalla ves cuánto gastó hoy cada
+una, si está **sin cuota** (y hasta qué hora, p. ej. "Sin cuota hasta las
+4:00 de mañana") o si su **clave fue rechazada**. Tocando una cuenta la
+elegís; desde su menú podés Probarla, Renombrarla, Cambiarle la clave o
+Borrarla.
+
+**Cambiar de cuenta con un toque.** Arriba de la pantalla, y en la barra
+del Chat, hay un menú desplegable con tus cuentas: elegí otra cuando
+quieras y vale desde el pedido siguiente ("Ahora con …").
+
+**Cuando una cuenta se queda sin cuota, la app pasa sola a la siguiente**
+y te avisa con un cartel abajo: qué cuenta se agotó, a cuál pasó y cuándo
+vuelve la primera. Si se agotan todas, te dice a qué hora vuelve la más
+cercana. También avisa si hay que esperar unos segundos (el tope por
+minuto), si una clave dejó de andar o por qué falló un pedido (sin
+conexión, el proveedor saturado…). Si no querés que cambie sola, apagá
+**"Pasar sola a otra cuenta"** en la sección de cuota (Google no permite
+usar varias cuentas para pasar su tope: usarlo es tu riesgo).
+
+**El tope de la IA de fondo.** La IA que organiza sola gasta de la misma
+cuota. Para que no te deje sin nada para lo que pedís vos, tiene un tope de
+pedidos por día (25, 50, 100, 200, 500 o sin tope). Cuando llega, espera al
+día siguiente; lo que pedís vos sigue andando.
+
+**Qué dicen los botones de la IA cuando falta algo.** Resumir, generar
+tarjetas o un quiz, una nota derivada, llenar un cuaderno, sugerir
+relaciones y el Chat te dicen lo que de verdad falta, con el botón que lo
+resuelve:
+
+- **"Hace falta cargar una clave de Gemini"** → **"Cargar una clave"** te
+  lleva a las cuentas.
+- **"Ninguna cuenta tiene cuota hasta las …"** o **"Ninguna clave anda"** →
+  **"Cuentas"**.
+- Con Gemma elegido y sin bajar → el botón para bajarlo, como siempre.
+
+En el Chat con tu bóveda, mientras falta la clave o la cuota, las
+respuestas igual **muestran las fuentes** que encontró, sin redactarlas; el
+aviso de arriba se va solo apenas cargás una clave o vuelve la cuota, sin
+salir del Chat. **"Organizar con la IA"** lo pide igual y te dice si espera
+una clave o que vuelva la cuota: no se pierde nada.
+
+**Gemma, en el teléfono.** Si preferís que nada salga del teléfono, elegí
+**Gemma** en la misma pantalla y tocá **"Bajar o cambiar el modelo"**. Hay
+tres variantes, con distinto tamaño y calidad de respuesta —la pantalla te
+explica el peso de cada una antes de descargar—. Pide el mismo token de
+Hugging Face que el modelo de relaciones.
 
 ---
 

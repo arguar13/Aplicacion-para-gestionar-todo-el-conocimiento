@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/graph/domain/services/relation_suggestion_service.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -39,15 +39,27 @@ Future<void> showAiSuggestRelationsDialog(
   required List<({String from, String to})> links,
 }) async {
   final l10n = AppLocalizations.of(context)!;
-  final ready = await ref.read(chatModelManagerProvider).isReady();
+  final status = await ref.read(languageModelStatusCheckProvider)();
   if (!context.mounted) return;
 
-  if (!ready) {
-    final goDownload = await showDialog<bool>(
+  if (!status.isReady) {
+    // Con Gemma sin bajar, lo de siempre; con la nube, lo que falta (F32).
+    final action = languageModelMissingAction(
+      l10n,
+      status,
+      downloadLabel: l10n.chatModelDownloadAction,
+    );
+    final resolve = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.graphAiModelRequiredTitle),
-        content: Text(l10n.graphAiModelRequiredMessage),
+        content: Text(
+          languageModelMissingMessage(
+            context,
+            status,
+            downloadMessage: l10n.graphAiModelRequiredMessage,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -55,13 +67,13 @@ Future<void> showAiSuggestRelationsDialog(
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.chatModelDownloadAction),
+            child: Text(action.label),
           ),
         ],
       ),
     );
-    if ((goDownload ?? false) && context.mounted) {
-      await context.push(RoutePaths.chatModel);
+    if ((resolve ?? false) && context.mounted) {
+      await context.push(action.route);
     }
     return;
   }

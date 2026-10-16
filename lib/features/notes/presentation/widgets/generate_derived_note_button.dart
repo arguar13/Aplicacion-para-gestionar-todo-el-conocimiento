@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
 import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
@@ -63,23 +63,13 @@ class _GenerateDerivedNoteButtonState
 
   Future<void> _start() async {
     final l10n = AppLocalizations.of(context)!;
-    final ready = await ref.read(chatModelManagerProvider).isReady();
-    if (!mounted) return;
-
-    if (!ready) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(l10n.derivedNoteModelRequired),
-            action: SnackBarAction(
-              label: l10n.derivedNoteDownloadAction,
-              onPressed: () => context.push(RoutePaths.chatModel),
-            ),
-          ),
-        );
-      return;
-    }
+    final ready = await ensureLanguageModelReady(
+      context,
+      ref,
+      downloadMessage: l10n.derivedNoteModelRequired,
+      downloadLabel: l10n.derivedNoteDownloadAction,
+    );
+    if (!ready || !mounted) return;
 
     final type = await _pickType(l10n);
     if (type == null || !mounted) return;

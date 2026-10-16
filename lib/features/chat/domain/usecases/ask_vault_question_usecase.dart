@@ -3,7 +3,6 @@ import 'package:sinapsis/core/domain/entities/chat_answer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
-import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 
 /// Le pregunta algo a la bóveda: busca qué es relevante y, si el modelo de
@@ -17,14 +16,17 @@ class AskVaultQuestionUseCase
   const AskVaultQuestionUseCase({
     required VaultRetriever retriever,
     required ChatModel model,
-    required ChatModelManager modelManager,
+    required Future<bool> Function() modelReady,
   }) : _retriever = retriever,
        _model = model,
-       _modelManager = modelManager;
+       _modelReady = modelReady;
 
   final VaultRetriever _retriever;
   final ChatModel _model;
-  final ChatModelManager _modelManager;
+
+  /// Si el modelo elegido puede contestar ahora (F32: bajado o en la nube,
+  /// con cuenta y cuota).
+  final Future<bool> Function() _modelReady;
 
   @override
   Future<Either<Failure, ChatAnswer>> call(
@@ -43,7 +45,7 @@ class AskVaultQuestionUseCase
       return right(const ChatAnswer());
     }
 
-    final modelReady = await _modelManager.isReady();
+    final modelReady = await _modelReady();
     if (!modelReady) {
       // Degradar antes que fallar (principio 4): sin el modelo, se listan
       // las fuentes igual, sin redactar nada. Buscar ya sirve de algo antes

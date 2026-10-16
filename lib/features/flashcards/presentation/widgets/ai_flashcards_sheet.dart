@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_coverage_reader.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -78,7 +78,8 @@ class _AiFlashcardsSheetState extends ConsumerState<AiFlashcardsSheet> {
     final coverage = scope == null
         ? null
         : ref.watch(aiFlashcardsCoverageProvider(scope));
-    final modelReady = ref.watch(languageModelReadyProvider).valueOrNull;
+    final modelStatus = ref.watch(languageModelStatusProvider).valueOrNull;
+    final modelReady = modelStatus?.isReady;
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -156,7 +157,11 @@ class _AiFlashcardsSheetState extends ConsumerState<AiFlashcardsSheet> {
               ),
               if (modelReady == false) ...[
                 const SizedBox(height: 8),
-                _ModelMissing(l10n: l10n),
+                LanguageModelMissingBanner(
+                  status: modelStatus!,
+                  downloadMessage: l10n.flashcardsModelMissing,
+                  downloadLabel: l10n.flashcardsDownloadModel,
+                ),
               ],
               const SizedBox(height: 16),
               _StartButton(
@@ -336,40 +341,6 @@ class _CoverageCounts extends StatelessWidget {
                   ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Falta bajar el modelo de lenguaje: sin él no hay tarjetas, y se ofrece
-/// bajarlo.
-class _ModelMissing extends StatelessWidget {
-  const _ModelMissing({required this.l10n});
-
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.download_for_offline_outlined, color: scheme.error),
-          const SizedBox(width: 12),
-          Expanded(child: Text(l10n.flashcardsModelMissing)),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              context.push(RoutePaths.chatModel);
-            },
-            child: Text(l10n.flashcardsDownloadModel),
           ),
         ],
       ),

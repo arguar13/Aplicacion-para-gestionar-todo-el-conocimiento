@@ -19,6 +19,8 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
@@ -99,7 +101,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   final List<_PendingAttachment> _pendingAttachments = [];
   var _mode = ChatConversationMode.vault;
-  var _modelReady = false;
+
+  /// Si el modelo elegido puede contestar y, si no, qué le falta (F32):
+  /// bajar Gemma, una clave, la cuota. `null` mientras se mira.
+  LanguageModelStatus? _modelStatus;
+  bool get _modelReady => _modelStatus?.isReady ?? false;
   var _asking = false;
   var _attaching = false;
 
@@ -210,10 +216,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _refreshModelStatus() async {
-    final ready = await ref.read(chatModelManagerProvider).isReady();
+    _showModelStatus(await ref.read(languageModelStatusCheckProvider)());
+  }
+
+  void _showModelStatus(LanguageModelStatus status) {
     if (!mounted) return;
-    setState(() => _modelReady = ready);
-    if (ready) unawaited(_warmUp());
+    final wasReady = _modelReady;
+    setState(() => _modelStatus = status);
+    if (status.isReady && !wasReady) unawaited(_warmUp());
   }
 
   /// Carga el modelo mientras la persona escribe (F30), en vez de con el
@@ -235,8 +245,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  Future<void> _openModelScreen() async {
-    await context.push(RoutePaths.languageModel);
+  /// La pantalla del modelo —o [route], la que resuelve lo que falta— y, al
+  /// volver, si ya puede contestar.
+  Future<void> _openModelScreen([
+    String route = RoutePaths.languageModel,
+  ]) async {
+    await context.push(route);
     if (!mounted) return;
     unawaited(_refreshModelStatus());
   }
@@ -775,7 +789,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         isUser: false,
         text: '',
         createdAt: clock(),
-        error: l10n.chatFreeModelRequired,
+        error: _modelStatus == null
+            ? l10n.chatFreeModelRequired
+            : languageModelMissingMessage(
+                context,
+                _modelStatus!,
+                downloadMessage: l10n.chatFreeModelRequired,
+              ),
       );
     }
 
@@ -824,6 +844,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final l10n = AppLocalizations.of(context)!;
     final isFree = _mode == ChatConversationMode.free;
     final conversationId = _currentConversationId;
+    // Elegir otra cuenta o proveedor, cargar una clave o quedarse sin cuota
+    // cambia lo que el chat puede hacer sin salir de él (F32).
+    ref.listen(languageModelStatusProvider, (_, next) {
+      if (next.valueOrNull case final status?) _showModelStatus(status);
+    });
 
     return Scaffold(
       key: _scaffoldKey,
@@ -900,12 +925,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (!_modelReady)
+            if (_modelStatus case final status? when !status.isReady)
               _ModelBanner(
-                message: isFree
-                    ? l10n.chatFreeModelRequired
-                    : l10n.chatModelNotReadyBanner,
-                actionLabel: l10n.chatModelDownloadAction,
+                message: switch (status) {
+                  LanguageModelNeedsDownload() =>
+                    isFree
+                        ? l10n.chatFreeModelRequired
+                        : l10n.chatModelNotReadyBanner,
+                  // Con la nube, lo que falta (F32); en el modo con la
+                  // bóveda, además, que mientras se ven las fuentes.
+                  _ => [
+                    languageModelMissingMessage(context, status),
+                    if (!isFree) l10n.chatSourcesMeanwhile,
+                  ].join(' '),
+                },
+                action: languageModelMissingAction(
+                  l10n,
+                  status,
+                  downloadLabel: l10n.chatModelDownloadAction,
+                ),
                 onDownload: _openModelScreen,
               ),
             Expanded(
@@ -1279,13 +1317,15 @@ class _MessagesList extends ConsumerWidget {
 class _ModelBanner extends StatelessWidget {
   const _ModelBanner({
     required this.message,
-    required this.actionLabel,
+    required this.action,
     required this.onDownload,
   });
 
   final String message;
-  final String actionLabel;
-  final VoidCallback onDownload;
+
+  /// Qué dice el botón y adónde lleva.
+  final ({String label, String route}) action;
+  final void Function(String route) onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -1298,7 +1338,10 @@ class _ModelBanner extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(message, style: theme.textTheme.bodySmall)),
-          TextButton(onPressed: onDownload, child: Text(actionLabel)),
+          TextButton(
+            onPressed: () => onDownload(action.route),
+            child: Text(action.label),
+          ),
         ],
       ),
     );

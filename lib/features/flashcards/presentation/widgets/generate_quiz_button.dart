@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/flashcard.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/quiz_review_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/quiz_session_screen.dart';
@@ -55,23 +53,13 @@ class _GenerateQuizButtonState extends ConsumerState<GenerateQuizButton> {
 
   Future<void> _start() async {
     final l10n = AppLocalizations.of(context)!;
-    final ready = await ref.read(chatModelManagerProvider).isReady();
-    if (!mounted) return;
-
-    if (!ready) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(l10n.quizModelRequired),
-            action: SnackBarAction(
-              label: l10n.derivedNoteDownloadAction,
-              onPressed: () => context.push(RoutePaths.chatModel),
-            ),
-          ),
-        );
-      return;
-    }
+    final ready = await ensureLanguageModelReady(
+      context,
+      ref,
+      downloadMessage: l10n.quizModelRequired,
+      downloadLabel: l10n.derivedNoteDownloadAction,
+    );
+    if (!ready || !mounted) return;
 
     setState(() => _loading = true);
     final result = await ref

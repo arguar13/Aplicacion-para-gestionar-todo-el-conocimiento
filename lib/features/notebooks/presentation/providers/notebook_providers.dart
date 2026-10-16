@@ -37,12 +37,13 @@ final notebookItemIdsProvider = StreamProvider.autoDispose
       return ref.watch(notebookRepositoryProvider).watchItemIds(notebookId);
     });
 
-/// Qué modelos hay bajados para los cuadernos con IA (F30): el de lenguaje
-/// revisa y nombra; el de vínculos busca por sentido.
+/// Qué modelos hay para los cuadernos con IA (F30): el de lenguaje —el
+/// elegido, bajado o en la nube (F32)— revisa y nombra; el de vínculos busca
+/// por sentido.
 final notebookAiModelsProvider =
     FutureProvider.autoDispose<({bool language, bool sense})>(
       (ref) async => (
-        language: await ref.watch(chatModelManagerProvider).isReady(),
+        language: (await ref.watch(languageModelStatusProvider.future)).isReady,
         sense: await ref.watch(embeddingModelManagerProvider).isReady(),
       ),
     );

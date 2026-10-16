@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
@@ -105,6 +107,33 @@ void main() {
 
       await tester.pumpWidget(harness.wrap(const SizedBox()));
       expect(gate.chatVisible, isFalse);
+    });
+  });
+
+  group('con la IA en la nube (F32)', () {
+    testWidgets('sin clave, dice que falta la clave —no que falta bajar '
+        'Gemma— y que mientras se ven las fuentes; al cargarla, se va sin '
+        'salir del chat', (tester) async {
+      harness = await LibraryHarness.create(
+        languageModelProvider: AiProvider.gemini,
+      );
+      await tester.pumpWidget(harness.wrap(const ChatScreen()));
+      await tester.pumpAndSettle();
+
+      final banner =
+          '${es.lmMissingAccount(es.lmProviderGemini)} '
+          '${es.chatSourcesMeanwhile}';
+      expect(find.text(banner), findsOneWidget);
+      expect(find.text(es.chatModelNotReadyBanner), findsNothing);
+      expect(find.text(es.lmActionAddKey), findsOneWidget);
+
+      await harness.container
+          .read(aiAccountRepositoryProvider)
+          .add(provider: AiProvider.gemini, key: 'una-clave', label: 'Mía');
+      await tester.pumpAndSettle();
+
+      expect(find.text(banner), findsNothing);
+      expect(find.text(es.lmActionAddKey), findsNothing);
     });
   });
 
