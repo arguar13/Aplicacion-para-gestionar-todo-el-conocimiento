@@ -137,7 +137,14 @@ desde F13):
   de Anki** sin duplicar (la procedencia es un UUID v5 del guid de la nota); **aviso diario**
   nativo opcional; sección «Repasar» en Ajustes.
 
-## 5. Estado actual (2026-10-09)
+## 5. Estado actual
+
+> **En curso desde el 2026-10-16: F32, la IA en la nube** (Gemini gratis por defecto, varias
+> cuentas que cambian solas al agotarse la cuota, OpenAI y Claude como opciones; el contenido
+> siempre guardado en el teléfono). Plan aprobado y su sección **«Avance»** con lo hecho y lo que
+> sigue: `docs/planes/F32-ia-en-la-nube-gemini-y-cuentas.md`. Lo de abajo es el estado al cerrar
+> F31 (2026-10-09).
+
 
 - `origin/main` = `8bce1cd`. Árbol limpio. **Suite: 7.845 pruebas pasan, 0 fallas, 77 omitidas**
   (las omitidas son de siempre). **Analizador: 19 avisos** — es la línea base de

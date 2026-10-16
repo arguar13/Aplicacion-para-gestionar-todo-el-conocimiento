@@ -156,3 +156,44 @@
   https://ai.google.dev/gemini-api/terms
 - Términos de las APIs de Google, sección 2(d) (no eludir los límites):
   https://developers.google.com/terms
+
+## Avance (para retomar en otra sesión)
+
+Se actualiza con cada commit. Lo que está acá es la verdad sobre en qué quedó F32.
+
+### Paso 1 — separar las tareas del motor (hecho, sin cambios visibles)
+
+- `lib/features/chat/domain/services/model_backend.dart`: el contrato del motor.
+  `ModelBackend` (`contextTokens`, `isWarm`, `warmUp`, `openExchange`, `openConversation`),
+  `ModelExchange` (un pedido de una vuelta: `countTokens`, `reply`, `stop`, `close`) y
+  `ModelConversation` (una charla con memoria: `send` → `ChatReplyStream`, `close`). El nombre
+  `LanguageModelBackend` NO se puede usar: ya es el enum GPU/CPU de F30
+  (`language_model_performance.dart`).
+- `lib/features/chat/data/services/language_model_tasks.dart`: `LanguageModelTasks`, las diez
+  interfaces de IA (`ChatModel`, `FlashcardGenerator`, `ClozeGenerator`,
+  `RelationSuggestionService`, `SummarizationService`, `PropertySuggestionService`,
+  `DerivedNoteGenerator`, `QuizQuestionGenerator`, `NotebookCandidateJudge`, `NotebookNamer`) más
+  `chooseSpace`, `chooseTopicParent` y `writeMapIntroduction`, con todos los prompts, los topes
+  de largo (`kChatReplyTokens`, `draftsReplyTokens`…), el turno (`LanguageModelGate`) y el corte
+  de la IA de fondo cuando la persona pide el modelo (`background`, `_preempt`). Se generó del
+  `GemmaChatModel` de antes con un script que exigía que cada patrón apareciera (12 tareas): los
+  prompts son textuales.
+- `lib/features/chat/data/services/gemma_backend.dart`: `GemmaBackend`, el motor de Gemma
+  (`GemmaEngine` + `createChat` + `collectReply`; las charlas son `GemmaChatSession`, que ahora
+  `implements ModelConversation`).
+- `gemma_chat_model.dart` quedó como `GemmaChatModel extends LanguageModelTasks` con el mismo
+  constructor de siempre (así sus pruebas siguen valiendo) y reexporta `language_model_tasks.dart`.
+- `backgroundLanguageModelProvider` ahora es `Provider<LanguageModelTasks>`.
+
+### Lo que sigue
+
+2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
+   lenguaje» con proveedor, cuentas, «Probar», modelo y lo gastado, y el menú desplegable.
+3. `GeminiBackend` sobre `dio` (`streamGenerateContent?alt=sse`, `x-goog-api-key`, `models.list`,
+   fotos `inline_data`), con el cambio automático de cuenta ante el 429 y el aviso visible.
+4. Elegir el motor en `_gemmaModelProvider` (`chat_providers.dart`) según el proveedor activo; los
+   quince avisos de «falta bajar el modelo» (`chatModelManagerProvider`); el tope diario de la IA de
+   fondo; las partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`,
+   hoy 3.000 fijos).
+5. `OpenAiBackend` y `AnthropicBackend`.
+6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.

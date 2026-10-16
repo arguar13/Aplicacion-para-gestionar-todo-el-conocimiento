@@ -154,7 +154,7 @@ final languageModelGateProvider = Provider<LanguageModelGate>(
 /// El mismo modelo ya cargado, con el turno de la cola de la IA (F27): espera
 /// a que la persona no lo esté usando. Solo para los pasos de la IA que
 /// organiza sola; la interfaz usa los de arriba.
-final backgroundLanguageModelProvider = Provider<GemmaChatModel>(
+final backgroundLanguageModelProvider = Provider<LanguageModelTasks>(
   (ref) => ref.watch(_gemmaModelProvider).background,
 );
 

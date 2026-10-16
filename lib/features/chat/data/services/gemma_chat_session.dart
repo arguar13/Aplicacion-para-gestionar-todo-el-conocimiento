@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/chat/domain/services/model_backend.dart';
 
 /// Lo que agrega la plantilla de la charla por cada intercambio —las marcas
 /// de turno de la persona y del modelo—, con margen.
@@ -52,7 +53,7 @@ Future<int> countGemmaTokens(InferenceChat chat, String text) =>
 /// con lo conversado: un solo mensaje de la persona, porque así lo entienden
 /// todos los formatos de `flutter_gemma` —un turno del modelo agregado a mano
 /// no lo leen igual un `.task` y un `.litertlm`—.
-class GemmaChatSession {
+class GemmaChatSession implements ModelConversation {
   GemmaChatSession(
     this._gate,
     this._open, {
@@ -148,6 +149,7 @@ class GemmaChatSession {
   /// Manda [prompt] —lo que [said] la persona, con lo que lo acompañe— y da
   /// la respuesta a medida que se escribe ([ChatReplyStream]). Cuenta como
   /// uso al mandarlo y al terminar.
+  @override
   ChatReplyStream send({
     required String prompt,
     required String said,
@@ -306,6 +308,7 @@ class GemmaChatSession {
 
   /// Termina la charla: corta lo que se esté escribiendo y cierra la sesión
   /// en un turno de la persona —nada usa el modelo mientras tanto—.
+  @override
   Future<void> close() async {
     _closed = true;
     await _writing?.stopGeneration();
