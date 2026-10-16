@@ -1,0 +1,146 @@
+# F32 — La IA en la nube: Gemini gratis por defecto, varias cuentas y un solo lugar
+
+> **Estado: propuesto** (2026-10-16). Se aprueba escribiendo «aprobado» en el chat, con las
+> decisiones de abajo (las recomendadas, o las que elijas).
+>
+> Pedido del usuario: *"quiero que usemos gemini la capa gratuita … la idea es usar api keys
+> generadas en google ai studio para que mi modelo central sea el de gemini así sea más rápido y
+> más inteligente … que me deje usar varias cuentas de google … un menú desplegable … con un solo
+> click cambie de cuenta pero todo mi backend y mi app no cambie … que eso del modelo y la api key
+> sea centralizado … que también sea compatible para cuentas de claude o de open ai, si el día de
+> mañana quiero pagar … pero por defecto quiero usar siempre gemini con la capa gratuita"*.
+
+## Lo que hay hoy (relevado en el código)
+
+| Qué | Cómo está |
+|---|---|
+| **El modelo de lenguaje** | Uno solo: Gemma 4 E4B, que se baja (~3,7 GB) y corre en el teléfono. Es opcional: sin él, la IA no hace nada. |
+| **Quién lo usa** | El chat, resumir, las tarjetas, los huecos con IA, el quiz, los vínculos sugeridos, las propiedades, las notas derivadas, los cuadernos con IA y **la IA que organiza sola** (de fondo, aun con la app cerrada). |
+| **Cómo está armado** | Cada una de esas funciones ya es una pieza aparte (una interfaz), y hoy **todas las cumple una sola clase**, la de Gemma. Las pantallas no saben qué modelo hay detrás: cambiar el motor no obliga a rehacerlas. |
+| **Textos largos** | Gemma lee de a poco (2.048 tokens de ventana): un libro se parte en pedazos de **3.000 caracteres**. Es lento y cada pedazo ve poco del resto. |
+| **Lo que no es de este modelo** | El motor de relaciones (los vectores de parecido y los duplicados), Whisper (transcribir) y el OCR son otros modelos, también locales. |
+
+## Lo que dice Google (verificado el 16/10/2026)
+
+- **No hace falta iniciar sesión con Google adentro de la app.** Alcanza con una **clave de API**
+  que se genera en Google AI Studio (aistudio.google.com) con cada cuenta. La app guarda las claves,
+  no tus contraseñas.
+- **La cuota se cuenta por proyecto, no por clave**: dos claves del mismo proyecto comparten el
+  mismo límite. Para tener otra cuota hace falta otro **proyecto** (en la práctica, otra cuenta).
+- **La capa gratuita es de los modelos «Flash»** (los «Pro» quedaron solo pagos), con un tope por
+  minuto y otro **por día** que Google cambió varias veces este año. Las cifras públicas no
+  coinciden entre sí; la app no las va a escribir en el código: le pregunta a Google qué modelos hay
+  y **mide lo que vos gastás**. Tu cuota real se ve en AI Studio.
+- **Lo que mandás a la capa gratuita, Google lo puede usar para mejorar sus productos, y personas
+  de Google pueden leerlo** («Do not submit sensitive, confidential, or personal information to the
+  Unpaid Services», términos de la API de Gemini). La capa paga no. Esto choca con el principio 1
+  de Sinapsis («todo ocurre en el dispositivo»): ver la decisión A.
+- **Rotar cuentas para estirar la cuota gratuita va contra los términos de las APIs de Google**
+  (sección 2(d): *"You agree to, and will not attempt to circumvent, such limitations"*), y Google
+  *"may suspend access to the APIs … without notice"*. Tener varias cuentas no está prohibido;
+  usarlas a propósito para pasar el tope, sí. Ver la decisión B: es tu riesgo, y te lo digo antes.
+
+## Qué se construye
+
+1. **Un solo lugar: Ajustes → «IA y modelos» → «Modelo de lenguaje».**
+   - Elegís el **proveedor**: **Gemini** (por defecto), **Gemma en el teléfono** (como hoy),
+     **OpenAI** o **Claude** (de pago, para el día que quieras comprar créditos).
+   - Cada proveedor tiene sus **cuentas**: un nombre que vos le ponés (*«armando@gmail.com»*,
+     *«cuenta 2»*) y su clave. **«Probar»** comprueba que la clave ande con un pedido mínimo.
+   - **El modelo** se elige de la lista que el propio proveedor devuelve con esa clave (no una lista
+     fija que envejece); por defecto, el Flash más nuevo de la capa gratuita.
+   - **Lo gastado hoy** con cada cuenta (pedidos y tokens, contados por la app) y el último aviso
+     de cuota agotada, con la hora a la que se renueva.
+2. **Cambiar de cuenta con un toque.** Un menú desplegable con todas tus cuentas, en ese lugar y
+   arriba del chat. Cambiar de cuenta **no cambia nada más**: tu bóveda, tus tarjetas, tu historial
+   y la configuración siguen iguales; solo cambia qué clave se usa desde el próximo pedido.
+3. **Todo lo que hoy hace Gemma lo hace el modelo elegido**, con respuesta a medida que se escribe
+   en el chat, fotos en el chat (Gemini, OpenAI y Claude las aceptan), y botón «Detener».
+4. **Textos largos de una sola vez.** Las partes se miden con la ventana del modelo elegido: con
+   Gemini, un capítulo o un libro chico entra entero en vez de en 3.000 caracteres; Gemma sigue
+   igual que hoy.
+5. **Cuando se agota la cuota, o no hay internet** (ver decisión B):
+   - La app te lo dice con claridad (*«Se terminó la cuota gratuita de "cuenta 1" por hoy; se renueva
+     a las 4:00»*) y te ofrece **cambiar de cuenta**.
+   - Si tenés Gemma bajado, lo que pediste **sigue con Gemma** en el teléfono, avisándolo.
+   - La IA de fondo **espera** a que vuelva la cuota (no se pierde nada: ya funciona así cuando el
+     modelo falta), y retoma sola.
+6. **La IA de fondo no te come la cuota.** Un tope de pedidos por día para la IA que organiza sola
+   (cambiable), para que siempre te quede para el chat y lo que pedís a mano; pasado el tope, sigue
+   al día siguiente o con Gemma si está bajado.
+7. **Avisos de privacidad donde corresponde**: la primera vez que elegís un proveedor en la nube, la
+   app te explica qué se manda (el texto de lo que la IA lee) y qué no (tu clave de la bóveda, tus
+   archivos que la IA no usa). En la pantalla del modelo queda a la vista si la IA es **local** o
+   **en la nube**.
+
+## Decisiones que necesito que confirmes
+
+- **A. Qué va a la nube.**
+  - *(Recomendado)* **Todo lo que hoy hace Gemma**, también la IA de fondo, con el tope diario del
+    punto 6. Es lo que hace la app más rápida e inteligente, que es lo que pediste. Sabiendo que,
+    en la capa gratuita, Google puede leer y usar lo que mandás.
+  - Alternativa: **solo lo que pedís vos** (chat, resumir, tarjetas, quiz…); la IA de fondo sigue
+    con Gemma local o no corre. Menos de tu bóveda sale del teléfono, y la cuota rinde más.
+- **B. Cuando se agota la cuota de una cuenta.**
+  - *(Recomendado)* **Te avisa y cambiás vos, con un toque**, y mientras tanto sigue con Gemma si
+    está bajado. Tener varias cuentas y elegir cuál usar es tuyo.
+  - Alternativa: **cambia sola a la siguiente cuenta** con cuota. Es lo que describiste, pero es
+    exactamente lo que la sección 2(d) de los términos de Google prohíbe, y Google puede cortar el
+    acceso a la API de esas cuentas sin aviso. Si la elegís, la construyo, y queda dicho en la guía.
+- **C. Dónde se guardan las claves.**
+  - *(Recomendado)* **En el almacén seguro del teléfono** (el mismo de la clave de la bóveda), fuera
+    de la base y de las copias de seguridad. Si desinstalás la app, se van con ella y hay que volver
+    a pegarlas (son fáciles de regenerar en AI Studio).
+  - Alternativa: **también viajan en la copia de seguridad de la bóveda, cifradas** con tu clave:
+    restaurar una copia trae las cuentas. Una copia robada junto con tu clave expondría tus claves.
+- **D. Los otros modelos locales.**
+  - *(Recomendado)* **Siguen en el teléfono**: el motor de relaciones (parecidos y duplicados),
+    Whisper y el OCR. Cambiarlos a Gemini obligaría a rehacer todo el índice de parecidos de tu
+    bóveda y gastaría la cuota en cada elemento nuevo.
+  - Alternativa: transcribir audios con Gemini (más rápido que Whisper en el teléfono), como una
+    opción más adelante, en otra tanda.
+- **E. OpenAI y Claude.**
+  - *(Recomendado)* **Incluidos ya**, en el mismo lugar y con el mismo menú de cuentas, sin usarse
+    hasta que los elijas. Son de pago: la app no tiene forma de saber tu saldo, solo lo que gastaste
+    con ella.
+  - Alternativa: solo Gemini por ahora, y los otros en otra tanda.
+
+## Lo que cambia por dentro
+
+- **Una sola forma de hablar con cualquier modelo.** Lo que hoy está metido en la clase de Gemma
+  —cómo se le pide cada tarea y cómo se lee lo que contesta— se separa del motor. Abajo quedan
+  motores intercambiables: Gemma (el de hoy), Gemini, OpenAI y Claude, que solo saben «mandar esto y
+  devolver lo que se escribe». Así las diez funciones se escriben **una vez** y valen para todos.
+- **Sin paquetes nuevos de cada empresa**: los tres proveedores en la nube se hablan por HTTP con
+  `dio`, que la app ya usa (decisión 3: librerías abiertas, nada que se rompa cuando un SDK cambia).
+- **El turno de uso** (la persona antes que la IA de fondo) sigue igual; con la nube, además, un
+  límite de pedidos por minuto para no recibir rechazos de Google.
+- **Los avisos de «falta bajar el modelo»** (están en quince pantallas) pasan a decir lo que de
+  verdad falta: bajar Gemma, o cargar una clave, o que no hay internet, o que se acabó la cuota.
+- **La base de datos no cambia.** Las cuentas y lo gastado van en el almacén seguro y en las
+  preferencias del teléfono.
+- **El principio 1 de la arquitectura** se reescribe: *todo ocurre en el dispositivo, salvo que vos
+  elijas un modelo en la nube*; la decisión 74 lo deja escrito.
+
+## Orden de trabajo
+
+1. Separar las tareas del motor, sin cambiar nada visible (con Gemma todo sigue igual; la suite lo
+   prueba).
+2. Las cuentas y las claves: el almacén seguro, la pantalla «Modelo de lenguaje», «Probar», el menú
+   desplegable.
+3. Gemini: pedidos con respuesta a medida que se escribe, fotos, la lista de modelos, la cuota y sus
+   errores, el límite por minuto, lo gastado hoy.
+4. Usar el modelo elegido en toda la app: los avisos de las quince pantallas, la IA de fondo con su
+   tope, seguir con Gemma cuando falta la nube, y las partes según la ventana.
+5. OpenAI y Claude.
+6. Pruebas (sin llamar de verdad a ninguna empresa: con respuestas grabadas), comprobadas por
+   mutación; la guía de uso; la decisión 74; y la prueba en tu teléfono contigo, con tu clave real.
+
+## Fuentes
+
+- Límites de la API de Gemini: https://ai.google.dev/gemini-api/docs/rate-limits («Rate limits are
+  applied per project, not per API key»).
+- Términos de la API de Gemini (uso de lo enviado en la capa gratuita, mayoría de edad, regiones):
+  https://ai.google.dev/gemini-api/terms
+- Términos de las APIs de Google, sección 2(d) (no eludir los límites):
+  https://developers.google.com/terms
