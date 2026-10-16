@@ -1,7 +1,17 @@
 # F32 — La IA en la nube: Gemini gratis por defecto, varias cuentas y un solo lugar
 
-> **Estado: propuesto** (2026-10-16). Se aprueba escribiendo «aprobado» en el chat, con las
-> decisiones de abajo (las recomendadas, o las que elijas).
+> **Estado: aprobado** (2026-10-16), en el chat, con estos cambios a las recomendadas:
+>
+> - **Nada del contenido se guarda en la nube**: la bóveda, los archivos, las copias y el historial
+>   quedan siempre en el teléfono. Lo único que sale es el texto que la IA tiene que leer en cada
+>   pedido (elegido por el usuario entre las opciones, sabiendo que en la capa gratuita Google puede
+>   guardarlo y leerlo).
+> - **Un solo modelo para todo**: el elegido hace todo lo que hoy hace Gemma, sin repartir tareas
+>   entre Gemma y la nube. Si se acaban las cuentas, se espera; no se cae a Gemma en silencio.
+> - **B, la alternativa**: al agotarse la cuota, **cambia sola a la siguiente cuenta y avisa**, con la
+>   mayor retroalimentación posible. El usuario conoce y acepta el riesgo de la sección 2(d).
+> - **Todo ultra elegante y visualmente cuidado.**
+> - A (con el tope de la IA de fondo), C, D y E: las recomendadas.
 >
 > Pedido del usuario: *"quiero que usemos gemini la capa gratuita … la idea es usar api keys
 > generadas en google ai studio para que mi modelo central sea el de gemini así sea más rápido y
@@ -62,12 +72,14 @@
 5. **Cuando se agota la cuota, o no hay internet** (ver decisión B):
    - La app te lo dice con claridad (*«Se terminó la cuota gratuita de "cuenta 1" por hoy; se renueva
      a las 4:00»*) y te ofrece **cambiar de cuenta**.
-   - Si tenés Gemma bajado, lo que pediste **sigue con Gemma** en el teléfono, avisándolo.
+   - **Decidido:** pasa sola a la siguiente cuenta con cuota y te avisa (qué cuenta se agotó, a cuál
+     pasó, cuándo se renueva la primera). Si no queda ninguna, te lo dice y espera; no cambia a
+     otro modelo sin que vos lo elijas.
    - La IA de fondo **espera** a que vuelva la cuota (no se pierde nada: ya funciona así cuando el
      modelo falta), y retoma sola.
 6. **La IA de fondo no te come la cuota.** Un tope de pedidos por día para la IA que organiza sola
    (cambiable), para que siempre te quede para el chat y lo que pedís a mano; pasado el tope, sigue
-   al día siguiente o con Gemma si está bajado.
+   al día siguiente.
 7. **Avisos de privacidad donde corresponde**: la primera vez que elegís un proveedor en la nube, la
    app te explica qué se manda (el texto de lo que la IA lee) y qué no (tu clave de la bóveda, tus
    archivos que la IA no usa). En la pantalla del modelo queda a la vista si la IA es **local** o
