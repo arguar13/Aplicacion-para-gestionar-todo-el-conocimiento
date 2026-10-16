@@ -32,6 +32,10 @@ enum CloudModelFailure {
   /// No hay ninguna cuenta con clave para el proveedor elegido.
   noAccount,
 
+  /// La IA de fondo llegó a su tope del día (`AiModelSettings
+  /// .backgroundDailyCap`): lo que queda de cuota es para la persona.
+  backgroundCap,
+
   /// Algo que no se esperaba: lo que dijo el proveedor está en
   /// [CloudModelException.detail].
   unknown,

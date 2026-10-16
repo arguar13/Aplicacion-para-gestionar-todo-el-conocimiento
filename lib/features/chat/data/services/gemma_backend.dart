@@ -38,6 +38,9 @@ class GemmaBackend implements ModelBackend {
   final GemmaTokenCounter _countTokens;
 
   @override
+  ModelBackend get forBackground => this;
+
+  @override
   int get contextTokens => _engine.contextTokens;
 
   @override

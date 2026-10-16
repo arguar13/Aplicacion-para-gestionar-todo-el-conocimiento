@@ -1,0 +1,581 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_catalog.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/cloud_wire.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_model_settings.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_notice.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/repositories/ai_account_repository.dart';
+import 'package:sinapsis/features/ai_models/domain/repositories/ai_usage_ledger.dart';
+import 'package:sinapsis/features/ai_models/domain/services/quota_day.dart';
+import 'package:sinapsis/features/chat/domain/entities/language_model_performance.dart';
+import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
+import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
+import 'package:sinapsis/features/chat/domain/services/model_backend.dart';
+
+/// La ventana que se supone si la lista del proveedor no la dijo: holgada para
+/// cualquier tarea de la app, y lejos de los topes por minuto de la capa
+/// gratuita.
+const kCloudDefaultContextTokens = 128000;
+
+/// Lo más que se espera en silencio por el tope por minuto antes de tomar la
+/// cuenta como agotada: más que eso, conviene probar con otra.
+const kMaxRateLimitWait = Duration(seconds: 60);
+
+/// Cuántas veces se espera el tope por minuto en un mismo pedido.
+const kRateLimitRetries = 3;
+
+/// Cuánto se deja de lado una cuenta cuya clave no anda, antes de volver a
+/// probarla (por si se arregló del lado del proveedor).
+const kRejectedKeyCooldown = Duration(minutes: 10);
+
+/// Cuánto se deja de lado una cuenta paga sin saldo antes de volver a probar.
+const kPaidQuotaCooldown = Duration(hours: 1);
+
+/// Lo que espera la app antes de reintentar cuando el proveedor está saturado.
+const kUnavailableRetryWait = Duration(seconds: 2);
+
+/// Espera [duration] o hasta que se corte [cancel]: `false` si se cortó.
+typedef CloudWait =
+    Future<bool> Function(Duration duration, CancelToken? cancel);
+
+/// [CloudWait] de verdad.
+Future<bool> waitOrCancel(Duration duration, CancelToken? cancel) async {
+  final done = Completer<bool>();
+  final timer = Timer(duration, () {
+    if (!done.isCompleted) done.complete(true);
+  });
+  unawaited(
+    cancel?.whenCancel.then((_) {
+      timer.cancel();
+      if (!done.isCompleted) done.complete(false);
+    }),
+  );
+  return done.future;
+}
+
+/// [ModelBackend] de un modelo en la nube (F32): Gemini por defecto, o OpenAI
+/// o Claude, según el [CloudWire] que tenga.
+///
+/// Además de mandar cada pedido, decide **con qué cuenta**:
+///
+/// - Usa la cuenta elegida del proveedor; si no hay, la primera.
+/// - Si el proveedor dice que se terminó la cuota del día (o el saldo), la
+///   marca agotada hasta su renovación y —si `autoSwitchAccounts`, la decisión
+///   B del usuario— pasa sola a la siguiente que tenga cuota, la deja como la
+///   elegida y avisa ([AccountSwitchedNotice]). Lo mismo si la clave no anda.
+/// - Si se pasó el tope por minuto, espera lo que pide el proveedor (hasta
+///   [kMaxRateLimitWait]) avisando cuánto ([RateLimitWaitNotice]).
+/// - Si no queda ninguna con cuota, lo dice ([AllAccountsExhaustedNotice]) y
+///   el pedido falla con la hora de la renovación más cercana. Nunca cambia de
+///   proveedor ni de modelo por su cuenta.
+/// - Nunca cambia de cuenta a mitad de una respuesta: si algo falla después de
+///   escribir, se informa el error y lo escrito queda.
+///
+/// Cuenta lo gastado de cada cuenta ([AiUsageLedger]) y, la de la IA de fondo
+/// ([forBackground]), lo topea por día.
+class CloudModelBackend implements ModelBackend {
+  CloudModelBackend({
+    required CloudWire wire,
+    required CloudModelCatalog catalog,
+    required AiAccountRepository accounts,
+    required AiUsageLedger usage,
+    required AiModelSettings Function() settings,
+    required Future<void> Function(AiModelSettings settings) saveSettings,
+    required void Function(AiNotice notice) notify,
+    required LanguageModelGate gate,
+    required LanguageModelMeter meter,
+    required Clock clock,
+    CloudWait wait = waitOrCancel,
+  }) : this._(
+         wire,
+         catalog,
+         accounts,
+         usage,
+         settings,
+         saveSettings,
+         notify,
+         gate,
+         meter,
+         clock,
+         wait,
+         background: false,
+       );
+
+  CloudModelBackend._(
+    this._wire,
+    this._catalog,
+    this._accounts,
+    this._usage,
+    this._settings,
+    this._saveSettings,
+    this._notify,
+    this._gate,
+    this._meter,
+    this._clock,
+    this._wait, {
+    required bool background,
+  }) : _background = background;
+
+  final CloudWire _wire;
+  final CloudModelCatalog _catalog;
+  final AiAccountRepository _accounts;
+  final AiUsageLedger _usage;
+  final AiModelSettings Function() _settings;
+  final Future<void> Function(AiModelSettings settings) _saveSettings;
+  final void Function(AiNotice notice) _notify;
+  final LanguageModelGate _gate;
+  final LanguageModelMeter _meter;
+  final Clock _clock;
+  final CloudWait _wait;
+  final bool _background;
+
+  AiProvider get provider => _wire.provider;
+
+  @override
+  late final ModelBackend forBackground = _background
+      ? this
+      : CloudModelBackend._(
+          _wire,
+          _catalog,
+          _accounts,
+          _usage,
+          _settings,
+          _saveSettings,
+          _notify,
+          _gate,
+          _meter,
+          _clock,
+          _wait,
+          background: true,
+        );
+
+  @override
+  int get contextTokens {
+    final model =
+        _settings().modelOf(provider) ?? _catalog.recommended(provider);
+    if (model == null) return kCloudDefaultContextTokens;
+    return _catalog.info(provider, model)?.inputTokens ??
+        kCloudDefaultContextTokens;
+  }
+
+  @override
+  bool get isWarm => true;
+
+  @override
+  Future<void> warmUp() async {}
+
+  @override
+  Future<ModelExchange> openExchange({
+    required String instruction,
+    required int maxOutputTokens,
+  }) async => _CloudExchange(this, instruction, maxOutputTokens);
+
+  @override
+  Future<ModelConversation> openConversation({
+    required String instruction,
+    required int maxOutputTokens,
+  }) async => _CloudConversation(this, instruction, maxOutputTokens);
+
+  /// La respuesta a [messages], con la cuenta que toque (ver la clase).
+  Stream<CloudDelta> run({
+    required String instruction,
+    required List<CloudMessage> messages,
+    required int maxOutputTokens,
+    required LanguageModelReplyKind kind,
+    CancelToken? cancel,
+  }) async* {
+    final tried = <String>{};
+    var rateWaits = 0;
+    var unavailableRetries = 0;
+    while (true) {
+      if (cancel?.isCancelled ?? false) return;
+      final pick = await _pick(tried);
+      if (_background) await _checkBackgroundCap();
+      final model = await _catalog.resolve(
+        provider,
+        _settings(),
+        key: pick.key,
+      );
+
+      final watch = Stopwatch()..start();
+      Duration? firstToken;
+      var wrote = false;
+      int? inputTokens;
+      int? outputTokens;
+      final text = StringBuffer();
+      try {
+        await for (final delta in _wire.stream(
+          CloudRequest(
+            model: model,
+            instruction: instruction,
+            messages: messages,
+            maxOutputTokens: maxOutputTokens,
+          ),
+          key: pick.key,
+          cancel: cancel,
+        )) {
+          if (delta.text.isNotEmpty) {
+            wrote = true;
+            firstToken ??= watch.elapsed;
+            text.write(delta.text);
+          }
+          inputTokens = delta.inputTokens ?? inputTokens;
+          outputTokens = delta.outputTokens ?? outputTokens;
+          yield delta;
+        }
+      } on CloudModelException catch (error) {
+        if (wrote) rethrow;
+        final now = _clock();
+        switch (error.failure) {
+          case CloudModelFailure.rateLimited:
+            final wait = error.retryAfter ?? const Duration(seconds: 5);
+            if (wait <= kMaxRateLimitWait && rateWaits < kRateLimitRetries) {
+              rateWaits++;
+              _notify(
+                RateLimitWaitNotice(at: now, account: pick.account, wait: wait),
+              );
+              if (!await _wait(wait, cancel)) return;
+              continue;
+            }
+            // Pide esperar demasiado: para esta respuesta, la cuenta está
+            // agotada.
+            await _exhaust(pick.account, now.add(wait), error.failure, tried);
+            if (!_settings().autoSwitchAccounts) rethrow;
+            continue;
+          case CloudModelFailure.quotaExhausted:
+            final until = now.add(error.retryAfter ?? _defaultQuotaWait(now));
+            await _exhaust(pick.account, until, error.failure, tried);
+            if (!_settings().autoSwitchAccounts) {
+              _notify(
+                AllAccountsExhaustedNotice(
+                  at: now,
+                  provider: provider,
+                  accounts: 1,
+                  resetsAt: until,
+                ),
+              );
+              rethrow;
+            }
+            continue;
+          case CloudModelFailure.invalidKey || CloudModelFailure.forbidden:
+            _notify(
+              AccountKeyRejectedNotice(
+                at: now,
+                account: pick.account,
+                reason: error.failure,
+              ),
+            );
+            await _exhaust(
+              pick.account,
+              now.add(kRejectedKeyCooldown),
+              error.failure,
+              tried,
+            );
+            if (!_settings().autoSwitchAccounts) rethrow;
+            continue;
+          case CloudModelFailure.unavailable:
+            if (unavailableRetries < 1) {
+              unavailableRetries++;
+              if (!await _wait(kUnavailableRetryWait, cancel)) return;
+              continue;
+            }
+            rethrow;
+          // Lo demás (el modelo no existe, el pedido no entra, sin red, lo
+          // bloqueado) no lo arregla otra cuenta: va a quien pidió.
+          // ignore: no_default_cases
+          default:
+            rethrow;
+        }
+      }
+
+      // Salió bien.
+      final now = _clock();
+      await _usage.recordRequest(
+        pick.account.id,
+        now: now,
+        inputTokens: inputTokens ?? 0,
+        outputTokens: outputTokens ?? 0,
+        background: _background,
+      );
+      await _usage.clearExhausted(pick.account.id, now: now);
+      watch.stop();
+      _meter.recordReply(
+        LanguageModelReply(
+          kind: kind,
+          firstToken: firstToken,
+          total: watch.elapsed,
+          tokens: outputTokens,
+          words: countWords(text.toString()),
+        ),
+      );
+      return;
+    }
+  }
+
+  Duration _defaultQuotaWait(DateTime now) => provider == AiProvider.gemini
+      ? nextQuotaReset(now).difference(now.toUtc())
+      : kPaidQuotaCooldown;
+
+  Future<void> _exhaust(
+    AiAccount account,
+    DateTime until,
+    CloudModelFailure failure,
+    Set<String> tried,
+  ) async {
+    tried.add(account.id);
+    await _usage.markExhausted(
+      account.id,
+      now: _clock(),
+      until: until,
+      failure: failure,
+    );
+  }
+
+  /// La cuenta con que se pide y su clave (ver la clase). [tried] son las que
+  /// ya fallaron en este mismo pedido.
+  Future<({AiAccount account, String key})> _pick(Set<String> tried) async {
+    final now = _clock();
+    final all = [
+      for (final account in await _accounts.list())
+        if (account.provider == provider) account,
+    ];
+    if (all.isEmpty) {
+      throw const CloudModelException(CloudModelFailure.noAccount);
+    }
+    final settings = _settings();
+    final activeId = settings.activeAccountOf(provider);
+    final start = all.indexWhere((a) => a.id == activeId);
+    final active = all[start < 0 ? 0 : start];
+
+    final candidates = settings.autoSwitchAccounts
+        ? [
+            ...all.skip(start < 0 ? 0 : start),
+            ...all.take(start < 0 ? 0 : start),
+          ]
+        : [active];
+    for (final account in candidates) {
+      if (tried.contains(account.id)) continue;
+      if (_usage.usageOf(account.id, now: now).isExhaustedAt(now)) continue;
+      final key = await _accounts.keyOf(account.id);
+      if (key == null) continue;
+      if (account.id != active.id) {
+        await _saveSettings(settings.withActiveAccount(provider, account.id));
+        final before = _usage.usageOf(active.id, now: now);
+        _notify(
+          AccountSwitchedNotice(
+            at: now,
+            from: active,
+            to: account,
+            reason: before.lastFailure ?? CloudModelFailure.quotaExhausted,
+            fromResetsAt: before.exhaustedUntil,
+          ),
+        );
+      }
+      return (account: account, key: key);
+    }
+
+    // Ninguna sirve: la renovación más cercana, si se sabe.
+    DateTime? resetsAt;
+    for (final account in candidates) {
+      final until = _usage.usageOf(account.id, now: now).exhaustedUntil;
+      if (until != null && until.isAfter(now.toUtc())) {
+        if (resetsAt == null || until.isBefore(resetsAt)) resetsAt = until;
+      }
+    }
+    _notify(
+      AllAccountsExhaustedNotice(
+        at: now,
+        provider: provider,
+        accounts: candidates.length,
+        resetsAt: resetsAt,
+      ),
+    );
+    final lastFailure = _usage.usageOf(active.id, now: now).lastFailure;
+    throw CloudModelException(
+      lastFailure == CloudModelFailure.invalidKey ||
+              lastFailure == CloudModelFailure.forbidden
+          ? lastFailure!
+          : CloudModelFailure.quotaExhausted,
+      retryAfter: resetsAt?.difference(now.toUtc()),
+    );
+  }
+
+  /// La IA de fondo no pasa de su tope del día, contando todas las cuentas del
+  /// proveedor: lo que queda es para la persona.
+  Future<void> _checkBackgroundCap() async {
+    final now = _clock();
+    final cap = _settings().backgroundDailyCap;
+    var used = 0;
+    for (final account in await _accounts.list()) {
+      if (account.provider != provider) continue;
+      used += _usage.usageOf(account.id, now: now).backgroundRequests;
+    }
+    if (used < cap) return;
+    final resetsAt = nextQuotaReset(now);
+    _notify(BackgroundCapReachedNotice(at: now, cap: cap, resetsAt: resetsAt));
+    throw CloudModelException(
+      CloudModelFailure.backgroundCap,
+      retryAfter: resetsAt.difference(now.toUtc()),
+    );
+  }
+}
+
+/// Lo que ocupa un texto en tokens, estimado sin el tokenizador del
+/// proveedor: unos tres caracteres por token en español, contando de más. Solo
+/// sirve para no pasarse de la ventana, que en la nube es enorme.
+int estimateCloudTokens(String text) => (text.length / 3).ceil();
+
+/// Un pedido de una vuelta en la nube.
+class _CloudExchange implements ModelExchange {
+  _CloudExchange(this._backend, this._instruction, this._maxOutputTokens);
+
+  final CloudModelBackend _backend;
+  final String _instruction;
+  final int _maxOutputTokens;
+  CancelToken? _cancel;
+
+  @override
+  Future<int> countTokens(String text) async => estimateCloudTokens(text);
+
+  @override
+  Future<String> reply(
+    String text, {
+    LanguageModelReplyKind kind = LanguageModelReplyKind.task,
+  }) async {
+    final cancel = _cancel = CancelToken();
+    final out = StringBuffer();
+    await for (final delta in _backend.run(
+      instruction: _instruction,
+      messages: [CloudMessage(role: CloudRole.user, text: text)],
+      maxOutputTokens: _maxOutputTokens,
+      kind: kind,
+      cancel: cancel,
+    )) {
+      out.write(delta.text);
+    }
+    return out.toString().trim();
+  }
+
+  @override
+  Future<void> stop() async => _cancel?.cancel();
+
+  @override
+  Future<void> close() async => _cancel?.cancel();
+}
+
+/// Una charla en la nube: el proveedor no recuerda nada (así no guarda nada),
+/// así que cada mensaje lleva lo conversado antes.
+class _CloudConversation implements ModelConversation {
+  _CloudConversation(this._backend, this._instruction, this._maxOutputTokens);
+
+  final CloudModelBackend _backend;
+  final String _instruction;
+  final int _maxOutputTokens;
+
+  final _turns = <({String said, String answer})>[];
+  CancelToken? _writing;
+  var _closed = false;
+
+  @override
+  ChatReplyStream send({
+    required String prompt,
+    required String said,
+    List<Uint8List> images = const [],
+  }) {
+    final cancel = CancelToken();
+    late final StreamController<String> out;
+    out = StreamController<String>(
+      onListen: () => unawaited(_write(prompt, said, images, out, cancel)),
+      onCancel: cancel.cancel,
+    );
+    return out.stream;
+  }
+
+  Future<void> _write(
+    String prompt,
+    String said,
+    List<Uint8List> images,
+    StreamController<String> out,
+    CancelToken cancel,
+  ) async {
+    final text = StringBuffer();
+    var last = '';
+    void give(String value) {
+      if (cancel.isCancelled || value == last) return;
+      last = value;
+      out.add(value);
+    }
+
+    try {
+      // En el turno de la persona: la IA de fondo espera mientras se escribe
+      // (con la nube no se pisan, pero comparten la cuota por minuto).
+      await _backend._gate.runForUser(() async {
+        if (_closed || cancel.isCancelled) return;
+        _writing = cancel;
+        try {
+          await for (final delta in _backend.run(
+            instruction: _instruction,
+            messages: [
+              for (final turn in _history()) ...[
+                CloudMessage(role: CloudRole.user, text: turn.said),
+                CloudMessage(role: CloudRole.model, text: turn.answer),
+              ],
+              CloudMessage(role: CloudRole.user, text: prompt, images: images),
+            ],
+            maxOutputTokens: _maxOutputTokens,
+            kind: LanguageModelReplyKind.chat,
+            cancel: cancel,
+          )) {
+            if (delta.text.isEmpty) continue;
+            text.write(delta.text);
+            give(text.toString().trimLeft());
+          }
+        } finally {
+          _writing = null;
+        }
+      });
+      final answer = text.toString().trim();
+      if (answer.isNotEmpty) {
+        give(answer);
+        _turns.add((
+          said: images.isEmpty ? said : '$said [con ${images.length} foto(s)]',
+          answer: answer,
+        ));
+      }
+      // El error va a quien escucha la respuesta, que es quien sabe mostrarlo.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (error, stackTrace) {
+      if (!cancel.isCancelled) out.addError(error, stackTrace);
+    } finally {
+      await out.close();
+    }
+  }
+
+  /// Lo conversado que entra con holgura en la ventana: de lo más nuevo a lo
+  /// más viejo, hasta la mitad de lo que el modelo lee de una vez.
+  List<({String said, String answer})> _history() {
+    var room = _backend.contextTokens ~/ 2;
+    final kept = <({String said, String answer})>[];
+    for (final turn in _turns.reversed) {
+      final cost =
+          estimateCloudTokens(turn.said) + estimateCloudTokens(turn.answer);
+      if (cost > room) break;
+      room -= cost;
+      kept.insert(0, turn);
+    }
+    return kept;
+  }
+
+  @override
+  Future<void> close() async {
+    _closed = true;
+    _writing?.cancel();
+  }
+}

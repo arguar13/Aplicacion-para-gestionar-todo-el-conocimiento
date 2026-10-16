@@ -235,12 +235,32 @@ nuevo. Pruebas: `gemini_wire_test.dart` con un Google falso (`HttpClientAdapter`
 11/11 muertas con `mutar.py` (en el scratchpad; el método: el texto debe aparecer una sola vez,
 se aplica, se corre, se cuenta y se restaura siempre).
 
+### Paso 3b — el motor en la nube con la rotación de cuentas (hecho)
+
+`lib/features/ai_models/data/cloud/cloud_model_backend.dart`: `CloudModelBackend implements
+ModelBackend` sobre cualquier `CloudWire`. Elige la cuenta (la elegida del proveedor o la
+primera; con `autoSwitchAccounts`, da la vuelta desde la elegida por las demás y saltea las
+agotadas); ante `quotaExhausted` marca la cuenta hasta su renovación (Gemini: medianoche del
+Pacífico; pagos: 1 h), pasa a la siguiente, **la guarda como elegida** y emite
+`AccountSwitchedNotice`; si no queda ninguna, `AllAccountsExhaustedNotice` y falla con la
+renovación más cercana; `rateLimited` ≤ 60 s espera avisando (`RateLimitWaitNotice`, hasta 3
+veces), más que eso cuenta como agotada; `invalidKey`/`forbidden` → `AccountKeyRejectedNotice`
+y la deja de lado 10 min; `unavailable` reintenta una vez a los 2 s; **nunca cambia de cuenta
+después de haber escrito texto**. `forBackground` (nuevo en `ModelBackend`; Gemma devuelve el
+mismo) cuenta aparte y topea `backgroundDailyCap` (`BackgroundCapReachedNotice`,
+`CloudModelFailure.backgroundCap`). Las charlas reenvían lo conversado (el proveedor no guarda
+nada), sin repetir eventos. `cloud_model_catalog.dart`: la lista de modelos guardada 3 días en
+`ai_models_cache_<proveedor>`, el elegido o el recomendado. Los avisos: `ai_notice.dart`
+(sealed). Pruebas: `cloud_model_backend_test.dart` (proveedor falso por clave). Mutaciones: 14/14
+muertas (una sobrevivió primero —el cambio automático apagado con la cuenta ya agotada— y se
+agregó su prueba). `tool/mutar.py` quedó en el repo: `python tool/mutar.py <mutaciones.json>`.
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
    lenguaje» con proveedor, cuentas, «Probar», modelo y lo gastado, y el menú desplegable.
-3. `GeminiBackend` sobre `dio` (`streamGenerateContent?alt=sse`, `x-goog-api-key`, `models.list`,
-   fotos `inline_data`), con el cambio automático de cuenta ante el 429 y el aviso visible.
+3. ~~Gemini y la rotación~~ (hecho, ver arriba). Falta: el cliente `Dio` propio de la IA (sin
+   `NetworkLoggingInterceptor` ni `GlobalErrorInterceptor`) y los proveedores de Riverpod.
 4. Elegir el motor en `_gemmaModelProvider` (`chat_providers.dart`) según el proveedor activo; los
    quince avisos de «falta bajar el modelo» (`chatModelManagerProvider`); el tope diario de la IA de
    fondo; las partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`,

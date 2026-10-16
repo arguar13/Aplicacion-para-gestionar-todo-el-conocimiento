@@ -348,7 +348,7 @@ class LanguageModelTasks
   /// los pasos de la IA que organiza sola; nunca la interfaz.
   late final LanguageModelTasks background = _inBackground
       ? this
-      : LanguageModelTasks._(_gate, _backend, inBackground: true);
+      : LanguageModelTasks._(_gate, _backend.forBackground, inBackground: true);
 
   /// Corre [work] en el turno que le toca a esta instancia. Todo método que
   /// abre un intercambio pasa por acá: dos a la vez se pisan la única sesión

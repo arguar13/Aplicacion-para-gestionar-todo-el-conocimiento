@@ -16,6 +16,11 @@ abstract interface class ModelBackend {
   /// la respuesta.
   int get contextTokens;
 
+  /// El mismo motor para la IA de fondo (F32): con un modelo en la nube, lo que
+  /// pide cuenta aparte —y tiene su tope por día— para que siempre quede cuota
+  /// para la persona. Gemma no distingue: devuelve el mismo.
+  ModelBackend get forBackground;
+
   /// Si ya está listo para escribir sin esperar: Gemma, con sus pesos ya en
   /// la memoria; un modelo en la nube, siempre.
   bool get isWarm;
