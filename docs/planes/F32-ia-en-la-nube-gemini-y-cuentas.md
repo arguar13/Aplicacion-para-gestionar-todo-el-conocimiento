@@ -204,6 +204,17 @@ charlas en los servidores de Google por defecto); `thinkingLevel: low` en Gemini
 `gemini-3.8-flash` general y `gemini-3.5-flash-lite` el más barato); cliente HTTP propio para la
 IA, sin el registro de red de la app, y la clave en la cabecera `x-goog-api-key`, nunca en la URL.
 
+### Paso 2b — guardar cuentas, lo gastado y lo elegido (hecho)
+
+`lib/features/ai_models/data/repositories/`: `SecureAiAccountRepository` (lista en
+`ai_accounts_v1` y cada clave en `ai_key_<id>` del almacén seguro; escrituras en fila;
+«Cuenta N» por proveedor si no hay nombre), `PrefsAiUsageLedger` (`ai_usage_<id>` en
+SharedPreferences, solo el día de cuota en curso; la marca de agotada cruza el día si el
+proveedor lo dijo) y `PrefsAiModelSettingsStore` (`ai_model_settings_v1`, un JSON; lo ilegible
+vuelve a lo de fábrica de a un campo). Pruebas: `test/features/ai_models/` (34). **Trampa del
+analizador:** un comentario cuya línea empieza con «Todo…» dispara `flutter_style_todos`
+(lo toma por un TODO): reformular.
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
