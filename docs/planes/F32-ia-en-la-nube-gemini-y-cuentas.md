@@ -215,6 +215,26 @@ vuelve a lo de fábrica de a un campo). Pruebas: `test/features/ai_models/` (34)
 analizador:** un comentario cuya línea empieza con «Todo…» dispara `flutter_style_todos`
 (lo toma por un TODO): reformular.
 
+### Paso 3a — el formato de Gemini (hecho)
+
+`lib/features/ai_models/data/cloud/`: `CloudWire` (el contrato de un proveedor en la nube:
+`listModels`, `recommendedModel`, `stream` de `CloudDelta`; `CloudRequest` / `CloudMessage`),
+`sse.dart` (lector de eventos SSE que no parte UTF-8, común a Gemini, OpenAI y Claude) y
+`GeminiWire`: `POST …/v1beta/models/<modelo>:streamGenerateContent?alt=sse`, clave en
+`x-goog-api-key`; cuerpo `systemInstruction` + `contents` (roles `user`/`model`, fotos en
+`inlineData`) + `generationConfig` (`maxOutputTokens` + 2048 de margen si el modelo piensa;
+`thinkingConfig`: `thinkingLevel: low` en 3/4, `thinkingBudget: 0` en 2.5 Flash/Lite, nada en
+2.5 Pro); se saltean las partes `thought: true`; los tokens salen de `usageMetadata` (con
+`thoughtsTokenCount`). Errores: 429 con `quotaId` «PerDay» → `quotaExhausted` hasta la
+medianoche del Pacífico; otro 429 → `rateLimited` con `RetryInfo.retryDelay`;
+`API_KEY_INVALID`/401 → `invalidKey`; 403 y `FAILED_PRECONDITION` (región) → `forbidden`;
+404 → `modelNotFound`; tokens de más → `tooLong`; 5xx → `unavailable`; sin red → `network`;
+`promptFeedback.blockReason` o un fin `SAFETY`… sin texto → `blocked`. La lista de modelos
+recorre todas las páginas y deja solo los de texto; el recomendado es el Flash estable más
+nuevo. Pruebas: `gemini_wire_test.dart` con un Google falso (`HttpClientAdapter`). Mutaciones:
+11/11 muertas con `mutar.py` (en el scratchpad; el método: el texto debe aparecer una sola vez,
+se aplica, se corre, se cuenta y se restaura siempre).
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
