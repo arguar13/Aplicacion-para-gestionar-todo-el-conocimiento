@@ -6,6 +6,7 @@ import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/config_providers.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
@@ -540,9 +541,14 @@ void main() {
     });
 
     testWidgets('el modelo de lenguaje se alcanza desde Ajustes, con el '
-        'router real', (tester) async {
+        'router real: el lugar único de F32 y, con Gemma, su descarga', (
+      tester,
+    ) async {
       await openFromSettings(tester, const Key('settings-chat-model'));
+      expect(find.byType(LanguageModelScreen), findsOneWidget);
 
+      await tester.tap(find.byKey(const Key('lm-gemma-manage')));
+      await tester.pumpAndSettle();
       expect(find.byType(ChatModelScreen), findsOneWidget);
     });
   });

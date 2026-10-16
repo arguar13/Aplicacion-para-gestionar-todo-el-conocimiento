@@ -14,6 +14,8 @@ import 'package:sinapsis/features/ai_models/data/repositories/secure_ai_account_
 import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_model_settings.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
 import 'package:sinapsis/features/ai_models/domain/repositories/ai_account_repository.dart';
 import 'package:sinapsis/features/ai_models/domain/repositories/ai_usage_ledger.dart';
 import 'package:sinapsis/features/ai_models/domain/services/ai_notice_bus.dart';
@@ -80,6 +82,18 @@ final cloudWiresProvider = Provider<Map<AiProvider, CloudWire>>((ref) {
   return {AiProvider.gemini: GeminiWire(dio: dio, clock: clock)};
 });
 
+/// Sube cada vez que se vuelve a traer una lista de modelos: lo que la
+/// muestra la vuelve a leer.
+final cloudCatalogRevisionProvider = StateProvider<int>((ref) => 0);
+
+/// Los modelos guardados de [AiProvider], al día con
+/// [cloudCatalogRevisionProvider].
+final cloudModelsProvider = Provider.autoDispose
+    .family<List<CloudModelInfo>, AiProvider>((ref, provider) {
+      ref.watch(cloudCatalogRevisionProvider);
+      return ref.watch(cloudModelCatalogProvider).cached(provider);
+    });
+
 /// La lista de modelos de cada proveedor y cuál usar.
 final cloudModelCatalogProvider = Provider<CloudModelCatalog>(
   (ref) => CloudModelCatalog(
@@ -136,6 +150,12 @@ class AiModelSettingsNotifier extends StateNotifier<AiModelSettings> {
     await save(state.withActiveAccount(provider, accountId));
   }
 
+  /// Se borró [accountId]: si era la elegida, deja de serlo.
+  Future<void> forgetAccount(AiProvider provider, String accountId) async {
+    if (state.activeAccountOf(provider) != accountId) return;
+    await save(state.withActiveAccount(provider, null));
+  }
+
   /// `null`: el recomendado.
   Future<void> chooseModel(AiProvider provider, String? model) =>
       save(state.withModel(provider, model));
@@ -148,4 +168,134 @@ class AiModelSettingsNotifier extends StateNotifier<AiModelSettings> {
       backgroundDailyCap: cap.clamp(0, AiModelSettings.maxDailyCap),
     ),
   );
+}
+
+/// Lo que se hace con las cuentas desde la pantalla del modelo.
+final aiAccountActionsProvider = Provider<AiAccountActions>(
+  (ref) => AiAccountActions(
+    accounts: ref.watch(aiAccountRepositoryProvider),
+    usage: ref.watch(aiUsageLedgerProvider),
+    catalog: ref.watch(cloudModelCatalogProvider),
+    settings: ref.watch(aiModelSettingsProvider.notifier),
+    currentSettings: () => ref.read(aiModelSettingsProvider),
+    clock: ref.watch(clockProvider),
+    onCatalogChanged: () =>
+        ref.read(cloudCatalogRevisionProvider.notifier).state++,
+  ),
+);
+
+/// Agregar, probar, renombrar, cambiar la clave y borrar cuentas (F32).
+///
+/// **Probar una clave es pedirle al proveedor su lista de modelos**: dice si
+/// la clave anda sin gastar cuota de respuestas, y de paso deja al día la
+/// lista con que se elige el modelo.
+class AiAccountActions {
+  AiAccountActions({
+    required AiAccountRepository accounts,
+    required AiUsageLedger usage,
+    required CloudModelCatalog catalog,
+    required AiModelSettingsNotifier settings,
+    required AiModelSettings Function() currentSettings,
+    required DateTime Function() clock,
+    void Function()? onCatalogChanged,
+  }) : _accounts = accounts,
+       _currentSettings = currentSettings,
+       _usage = usage,
+       _catalog = catalog,
+       _settings = settings,
+       _clock = clock,
+       _onCatalogChanged = onCatalogChanged;
+
+  final AiAccountRepository _accounts;
+  final AiUsageLedger _usage;
+  final CloudModelCatalog _catalog;
+  final AiModelSettingsNotifier _settings;
+  final AiModelSettings Function() _currentSettings;
+  final DateTime Function() _clock;
+  final void Function()? _onCatalogChanged;
+
+  /// Cuántos modelos hay con [key]; falla con `CloudModelException` si no
+  /// anda.
+  Future<int> testKey(AiProvider provider, String key) async {
+    final models = await _catalog.refresh(provider, key: key.trim());
+    _onCatalogChanged?.call();
+    return models.length;
+  }
+
+  /// Vuelve a traer la lista de modelos de [provider] con la cuenta elegida
+  /// (o la primera).
+  Future<void> refreshModels(AiProvider provider) async {
+    final accounts = [
+      for (final a in await _accounts.list())
+        if (a.provider == provider) a,
+    ];
+    if (accounts.isEmpty) {
+      throw const CloudModelException(CloudModelFailure.noAccount);
+    }
+    final activeId = _currentSettings().activeAccountOf(provider);
+    final account = accounts.firstWhere(
+      (a) => a.id == activeId,
+      orElse: () => accounts.first,
+    );
+    final key = await _accounts.keyOf(account.id);
+    if (key == null) {
+      throw const CloudModelException(CloudModelFailure.noAccount);
+    }
+    await testKey(provider, key);
+  }
+
+  /// Prueba [key] y, si anda, guarda la cuenta. La primera de un proveedor
+  /// queda como la elegida.
+  Future<AiAccount> add({
+    required AiProvider provider,
+    required String key,
+    String? label,
+  }) async {
+    await testKey(provider, key);
+    final hadOne = (await _accounts.list()).any((a) => a.provider == provider);
+    final account = await _accounts.add(
+      provider: provider,
+      key: key.trim(),
+      label: label,
+    );
+    if (!hadOne) await _settings.chooseAccount(provider, account.id);
+    return account;
+  }
+
+  /// Prueba la clave guardada de [account]. Si anda y estaba rechazada, deja
+  /// de estarlo (la cuota agotada no se toca: la lista de modelos anda igual
+  /// sin cuota).
+  Future<int> test(AiAccount account) async {
+    final key = await _accounts.keyOf(account.id);
+    if (key == null) {
+      throw const CloudModelException(CloudModelFailure.noAccount);
+    }
+    final count = await testKey(account.provider, key);
+    final now = _clock();
+    final last = _usage.usageOf(account.id, now: now).lastFailure;
+    if (last == CloudModelFailure.invalidKey ||
+        last == CloudModelFailure.forbidden) {
+      await _usage.clearExhausted(account.id, now: now);
+    }
+    return count;
+  }
+
+  /// Prueba [key] y, si anda, reemplaza la de [account]: lo que se sabía de
+  /// la clave vieja (agotada, rechazada) ya no vale.
+  Future<void> replaceKey(AiAccount account, String key) async {
+    await testKey(account.provider, key);
+    await _accounts.replaceKey(account.id, key.trim());
+    await _usage.clearExhausted(account.id, now: _clock());
+  }
+
+  Future<void> rename(AiAccount account, String label) =>
+      _accounts.rename(account.id, label);
+
+  /// Borra [account] y lo que se sabía de ella. Si era la elegida, pasa a
+  /// serlo la primera que quede.
+  Future<void> remove(AiAccount account) async {
+    await _accounts.remove(account.id);
+    await _usage.forget(account.id);
+    await _settings.forgetAccount(account.provider, account.id);
+  }
 }

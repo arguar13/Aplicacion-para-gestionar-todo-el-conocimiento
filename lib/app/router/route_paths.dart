@@ -153,6 +153,10 @@ abstract final class RoutePaths {
   /// Si el modelo de lenguaje del chat está descargado, y descargarlo.
   static const chatModel = '/chat/model';
 
+  /// Quién escribe las respuestas de la IA, con sus cuentas y su modelo
+  /// (F32): Gemini, Gemma en el teléfono, OpenAI o Claude.
+  static const languageModel = '/settings/language-model';
+
   /// Si el modelo de embeddings del motor de relaciones está descargado,
   /// y descargarlo. Ruta plana bajo `/relations`, mismo criterio que
   /// [chatModel]: es una lente sobre datos, no un destino de navegación.
@@ -254,6 +258,7 @@ abstract final class RouteNames {
   static const graph = 'graph';
   static const chat = 'chat';
   static const chatModel = 'chat-model';
+  static const languageModel = 'language-model';
   static const embeddingModel = 'embedding-model';
   static const keepWorking = 'keep-working';
   static const embeddingBackfill = 'embedding-backfill';

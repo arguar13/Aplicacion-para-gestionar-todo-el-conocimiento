@@ -7,6 +7,7 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/app/router/splash_screen.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
+import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
 import 'package:sinapsis/features/anki_import/presentation/screens/anki_import_screen.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
@@ -196,6 +197,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.chatModel,
         name: RouteNames.chatModel,
         builder: (context, state) => const ChatModelScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.languageModel,
+        name: RouteNames.languageModel,
+        builder: (context, state) => const LanguageModelScreen(),
       ),
       GoRoute(
         path: RoutePaths.embeddingModel,

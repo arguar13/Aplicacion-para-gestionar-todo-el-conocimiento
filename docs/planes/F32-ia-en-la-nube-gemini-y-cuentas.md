@@ -288,6 +288,43 @@ agregó su prueba). `tool/mutar.py` quedó en el repo: `python tool/mutar.py <mu
   del motor. Mutaciones: 14/14 muertas. `tool/mutar.py` estaba roto en el commit anterior (una
   barra sin escapar): arreglado.
 
+### Paso 4b — la pantalla «Modelo de lenguaje», el menú de cuentas y los avisos (hecho)
+
+- Ruta `RoutePaths.languageModel` (`/settings/language-model`): `LanguageModelScreen`
+  (`lib/features/ai_models/presentation/screens/`). Encabezado con degradé: proveedor, modelo,
+  «En la nube / En el teléfono», «Gratis / De pago», un punto de color con el estado
+  (`languageModelStatusProvider`) y el menú de cuentas. Tarjetas de proveedor (OpenAI y Claude
+  solo aparecen cuando `cloudWiresProvider` tiene su formato). En la nube: cuentas (tocar una la
+  elige; menú Probar / Renombrar / Cambiar la clave / Borrar; lo gastado hoy; «Sin cuota hasta las
+  4:00 de mañana»; «Clave rechazada»), el modelo de la lista del proveedor con «Actualizar», la
+  cuota (cambio automático con la advertencia de la sección 2(d) y el tope de la IA de fondo:
+  25/50/100/200/500/sin tope) y qué sale del teléfono. Con Gemma: «Bajar o cambiar el modelo»
+  lleva a la `ChatModelScreen` de siempre.
+- **El aviso de privacidad** sale la primera vez que se elige un proveedor en la nube **o que se
+  carga su primera clave** (Gemini viene elegido de fábrica: si no, nunca se vería). Se recuerda
+  en `ai_cloud_privacy_seen_<proveedor>`.
+- `widgets/ai_key_sheet.dart`: agregar una cuenta / cambiar la clave. **La clave se prueba antes
+  de guardarla pidiendo la lista de modelos** (no gasta cuota de respuestas); si no anda, se dice
+  por qué y no se guarda. Trampa: el controlador del campo avisa también al mover el cursor; el
+  error se borra solo si cambió el texto (`_lastKey`, con su prueba).
+- `widgets/ai_account_switcher.dart`: `AiAccountSwitcher` —el menú desplegable— en la pantalla y
+  (`dense`) en la barra del chat; `aiAccountsViewProvider`, `AiAccountAvatar` (inicial con un color
+  estable por cuenta). Elegir a mano vale desde el próximo pedido y dice «Ahora con …».
+- `widgets/ai_notice_listener.dart`: `AiNoticeListener` en `app.dart` (sobre
+  `GlobalErrorListener`): un aviso flotante con ícono y color por tipo para cada `AiNotice`, con
+  «Cuentas» cuando sirve; el mismo aviso no se repite en 20 s (`kAiNoticeRepeatWindow`).
+- `ai_model_texts.dart`: nombres, motivos de falla, la hora de renovación y los tokens cortos.
+- `AiAccountActions` (`ai_models_providers.dart`): `add` (la primera cuenta queda elegida),
+  `test` (si anda, le saca la marca de clave rechazada pero no la de cuota), `replaceKey` (la
+  prueba antes y olvida las marcas de la vieja), `rename`, `remove` (olvida lo gastado y deja de
+  estar elegida), `refreshModels`.
+- Ajustes › IA › «Modelo de lenguaje» lleva a la pantalla nueva, con el proveedor de subtítulo; el
+  ícono del chat también. 109 textos nuevos `lm*`/`notice*` (es y en).
+- Pruebas: `language_model_screen_test.dart` (8) y 4 más de las acciones. Mutaciones: 18/18
+  muertas (la del foco sobrevivió primero y se le agregó su prueba). Trampa de las pruebas:
+  `enterText` no redibuja; hay que hacer `pump()` antes de tocar un botón que se habilita con el
+  texto.
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de

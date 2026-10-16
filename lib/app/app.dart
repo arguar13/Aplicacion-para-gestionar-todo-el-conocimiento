@@ -13,6 +13,7 @@ import 'package:sinapsis/core/config/env_config.dart';
 import 'package:sinapsis/core/design/app_theme.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/ai_notice_listener.dart';
 import 'package:sinapsis/features/chat/presentation/providers/model_memory_providers.dart';
 import 'package:sinapsis/features/keep_working/presentation/widgets/keep_working_offer_listener.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_overlay.dart';
@@ -101,7 +102,15 @@ class _AppState extends ConsumerState<App> {
           // cuántas tarjetas hay y lleva a Repasar al tocar la notificación.
           child: StudyReminderBinding(
             router: router,
-            child: GlobalErrorListener(child: child ?? const SizedBox.shrink()),
+            // Los avisos de la IA en la nube (F32): qué cuenta se agotó, a
+            // cuál se pasó, cuándo vuelve.
+            child: AiNoticeListener(
+              onOpenAccounts: () =>
+                  unawaited(router.push(RoutePaths.languageModel)),
+              child: GlobalErrorListener(
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
           ),
         ),
       ),

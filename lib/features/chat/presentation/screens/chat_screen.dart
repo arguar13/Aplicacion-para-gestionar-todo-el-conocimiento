@@ -19,6 +19,7 @@ import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/domain/services/file_chooser.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -235,7 +236,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _openModelScreen() async {
-    await context.push(RoutePaths.chatModel);
+    await context.push(RoutePaths.languageModel);
     if (!mounted) return;
     unawaited(_refreshModelStatus());
   }
@@ -850,6 +851,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               tooltip: l10n.chatNewConversationTooltip,
               onPressed: _newConversation,
             ),
+          // F32: con un toque se cambia la cuenta que escribe, sin salir
+          // del chat. Con Gemma o sin cuentas no se dibuja.
+          const AiAccountSwitcher(dense: true),
           IconButton(
             icon: Icon(
               _modelReady ? Icons.smart_toy_outlined : Icons.download_outlined,

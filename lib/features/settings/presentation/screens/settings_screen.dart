@@ -7,6 +7,8 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/util/format_file_size.dart';
+import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_settings_tiles.dart';
 import 'package:sinapsis/features/attachments/presentation/widgets/attachment_cap_tile.dart';
 import 'package:sinapsis/features/citations/domain/entities/citation_source.dart';
@@ -56,6 +58,9 @@ class SettingsScreen extends ConsumerWidget {
     final localePreference = ref.watch(localeNotifierProvider);
     final effectiveLocale = ref.watch(effectiveLocaleProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
+    final languageProvider = ref.watch(
+      aiModelSettingsProvider.select((s) => s.provider),
+    );
     final citationStyle = ref.watch(defaultCitationStyleProvider);
     final citationLanguage = ref.watch(citationPreferencesProvider).language;
     final habitFeaturesEnabled = ref.watch(habitFeaturesEnabledProvider);
@@ -151,12 +156,23 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               const AiActivitySettingsTile(),
               const AiOrganizeSwitches(),
+              // F32: un solo lugar para quién escribe —Gemini, Gemma, OpenAI o
+              // Claude—, con qué cuenta y qué modelo.
               ListTile(
                 key: const Key('settings-chat-model'),
-                leading: const Icon(Icons.psychology_outlined),
+                leading: Icon(languageProvider.icon),
                 title: Text(l10n.chatModelTooltip),
+                subtitle: Text(
+                  [
+                    languageProvider.label(l10n),
+                    if (languageProvider.isCloud)
+                      l10n.lmBadgeCloud
+                    else
+                      l10n.lmBadgeLocal,
+                  ].join(' · '),
+                ),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(RoutePaths.chatModel),
+                onTap: () => context.push(RoutePaths.languageModel),
               ),
               ListTile(
                 leading: const Icon(Icons.mic_none_outlined),
