@@ -185,6 +185,25 @@ Se actualiza con cada commit. Lo que está acá es la verdad sobre en qué qued�
   constructor de siempre (así sus pruebas siguen valiendo) y reexporta `language_model_tasks.dart`.
 - `backgroundLanguageModelProvider` ahora es `Provider<LanguageModelTasks>`.
 
+### Paso 2a — el dominio de cuentas y cuota (hecho)
+
+Módulo nuevo `lib/features/ai_models/` (de acá en más, todo lo de F32 que no sea el motor vive acá):
+`AiProvider` (gemini, gemma, openAi, anthropic; `isCloud`, `keysUrl`, `storageKey` estable),
+`AiAccount` (id, proveedor, nombre, cuándo se agregó; **la clave no va en la entidad**),
+`AiModelSettings` (proveedor activo, cuenta activa y modelo por proveedor, `autoSwitchAccounts`
+= true, `backgroundDailyCap` = 100), `CloudModelInfo`, `CloudModelException` /
+`CloudModelFailure` (invalidKey, forbidden, rateLimited, quotaExhausted, modelNotFound,
+unavailable, blocked, network, tooLong, noAccount, unknown), `AccountUsage` (pedidos, tokens,
+`exhaustedUntil`), los contratos `AiAccountRepository` (claves en el almacén seguro) y
+`AiUsageLedger`, y `quota_day.dart`: la cuota de Gemini se renueva a la **medianoche del
+Pacífico** (UTC−8 / UTC−7 con el horario de verano de EE. UU.), calculada sin base de zonas.
+Decisiones técnicas tomadas: **`generateContent`** (no la API «Interactions», que guarda las
+charlas en los servidores de Google por defecto); `thinkingLevel: low` en Gemini 3/4 y
+`thinkingBudget: 0` en 2.5, con margen en el tope (el pensamiento cuenta dentro de
+`maxOutputTokens`); la lista de modelos se pide a Google (cambian cada pocos meses: hoy
+`gemini-3.8-flash` general y `gemini-3.5-flash-lite` el más barato); cliente HTTP propio para la
+IA, sin el registro de red de la app, y la clave en la cabecera `x-goog-api-key`, nunca en la URL.
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
