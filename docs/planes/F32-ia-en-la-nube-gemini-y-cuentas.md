@@ -255,15 +255,50 @@ nada), sin repetir eventos. `cloud_model_catalog.dart`: la lista de modelos guar
 muertas (una sobrevivió primero —el cambio automático apagado con la cuenta ya agotada— y se
 agregó su prueba). `tool/mutar.py` quedó en el repo: `python tool/mutar.py <mutaciones.json>`.
 
+### Paso 4a — el motor elegido en toda la app (hecho)
+
+- `lib/features/ai_models/presentation/providers/ai_models_providers.dart`: `aiDioProvider` (cliente
+  HTTP propio de la IA: sin `NetworkLoggingInterceptor` —no anota URLs— ni
+  `GlobalErrorInterceptor` —un 429 lo resuelve el motor—), `aiAccountRepositoryProvider`,
+  `aiAccountsProvider` (stream), `aiUsageLedgerProvider`, `aiUsageChangesProvider`,
+  `aiNoticeBusProvider` (`AiNoticeBus`, en `domain/services/`), `cloudWiresProvider` (hoy solo
+  Gemini), `cloudModelCatalogProvider` y `aiModelSettingsProvider` (`AiModelSettingsNotifier`:
+  `save`, `chooseProvider`, `chooseAccount` —**elegir a mano una cuenta le borra la marca de
+  agotada**: quien elige sabe algo que la app no—, `chooseModel`, `setAutoSwitch`,
+  `setBackgroundDailyCap`).
+- `chat_providers.dart`: `modelBackendProvider` elige `GemmaBackend` o `CloudModelBackend` según
+  el proveedor y **se rearma solo al cambiar de proveedor** (`select`); cambiar de cuenta o de
+  modelo vale desde el próximo pedido. Sobre él, `_languageModelProvider` (`LanguageModelTasks`)
+  reemplaza al `_gemmaModelProvider`. Si un proveedor no tiene `CloudWire`, `StateError`: no se
+  cae a Gemma en silencio.
+- `languageModelStatusCheckProvider` (`LanguageModelStatusCheck`, en
+  `domain/services/language_model_readiness.dart`) y `languageModelStatusProvider` (para dibujar):
+  `LanguageModelReady`, `LanguageModelNeedsDownload` (Gemma sin bajar),
+  `LanguageModelNeedsAccount`, `LanguageModelOutOfQuota` (con la renovación más cercana y si lo
+  que falla son las claves) y `LanguageModelBackgroundCapReached` (solo para la IA de fondo). Lo
+  calcula `AiLanguageModelReadiness` con las mismas reglas con que el motor elige la cuenta.
+- El motor avisa `AiRequestFailedNotice` cuando un pedido **de la persona** falla por algo que otra
+  cuenta no arregla (sin red, saturado, modelo inexistente, bloqueado, largo), también si falla
+  después de escribir; si eso fue la cuota, la cuenta queda marcada para el pedido siguiente. Sin
+  el cambio automático, un tope por minuto largo avisa `AllAccountsExhaustedNotice`.
+- `test/support/library_harness.dart` arranca con **Gemma** elegido (parámetro
+  `languageModelProvider`) y el almacén seguro en memoria: las pruebas de pantalla de siempre
+  siguen midiendo «con el modelo bajado / sin bajar».
+- Pruebas: `ai_language_model_readiness_test.dart`, `ai_models_providers_test.dart` y tres nuevas
+  del motor. Mutaciones: 14/14 muertas. `tool/mutar.py` estaba roto en el commit anterior (una
+  barra sin escapar): arreglado.
+
 ### Lo que sigue
 
 2. Cuentas y claves (almacén seguro, `flutter_secure_storage` ya está), la pantalla «Modelo de
    lenguaje» con proveedor, cuentas, «Probar», modelo y lo gastado, y el menú desplegable.
 3. ~~Gemini y la rotación~~ (hecho, ver arriba). Falta: el cliente `Dio` propio de la IA (sin
    `NetworkLoggingInterceptor` ni `GlobalErrorInterceptor`) y los proveedores de Riverpod.
-4. Elegir el motor en `_gemmaModelProvider` (`chat_providers.dart`) según el proveedor activo; los
-   quince avisos de «falta bajar el modelo» (`chatModelManagerProvider`); el tope diario de la IA de
-   fondo; las partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`,
-   hoy 3.000 fijos).
+4. ~~Elegir el motor~~ (hecho, 4a). Falta: que las pantallas pregunten
+   `languageModelStatusCheckProvider` en vez de `chatModelManagerProvider.isReady()` (hoy, con
+   Gemini elegido, siguen preguntando si Gemma está bajado) y digan lo que de verdad falta; la cola
+   de la IA de fondo con el estado nuevo (esperar la cuota o el tope sin perder trabajo); las
+   partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`, hoy 3.000
+   fijos).
 5. `OpenAiBackend` y `AnthropicBackend`.
 6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.

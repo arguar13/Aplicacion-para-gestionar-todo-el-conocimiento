@@ -231,8 +231,21 @@ class CloudModelBackend implements ModelBackend {
           yield delta;
         }
       } on CloudModelException catch (error) {
-        if (wrote) rethrow;
         final now = _clock();
+        if (wrote) {
+          // Lo escrito queda y no se sigue con otra cuenta; si fue la cuota,
+          // la cuenta queda marcada para el pedido siguiente.
+          if (error.failure == CloudModelFailure.quotaExhausted) {
+            await _exhaust(
+              pick.account,
+              now.add(error.retryAfter ?? _defaultQuotaWait(now)),
+              error.failure,
+              tried,
+            );
+          }
+          _failed(error);
+          rethrow;
+        }
         switch (error.failure) {
           case CloudModelFailure.rateLimited:
             final wait = error.retryAfter ?? const Duration(seconds: 5);
@@ -247,7 +260,17 @@ class CloudModelBackend implements ModelBackend {
             // Pide esperar demasiado: para esta respuesta, la cuenta está
             // agotada.
             await _exhaust(pick.account, now.add(wait), error.failure, tried);
-            if (!_settings().autoSwitchAccounts) rethrow;
+            if (!_settings().autoSwitchAccounts) {
+              _notify(
+                AllAccountsExhaustedNotice(
+                  at: now,
+                  provider: provider,
+                  accounts: 1,
+                  resetsAt: now.add(wait),
+                ),
+              );
+              rethrow;
+            }
             continue;
           case CloudModelFailure.quotaExhausted:
             final until = now.add(error.retryAfter ?? _defaultQuotaWait(now));
@@ -286,11 +309,13 @@ class CloudModelBackend implements ModelBackend {
               if (!await _wait(kUnavailableRetryWait, cancel)) return;
               continue;
             }
+            _failed(error);
             rethrow;
           // Lo demás (el modelo no existe, el pedido no entra, sin red, lo
           // bloqueado) no lo arregla otra cuenta: va a quien pidió.
           // ignore: no_default_cases
           default:
+            _failed(error);
             rethrow;
         }
       }
@@ -317,6 +342,19 @@ class CloudModelBackend implements ModelBackend {
       );
       return;
     }
+  }
+
+  /// Cuenta por qué falló un pedido de la persona; la IA de fondo no avisa:
+  /// su estado lo muestra la cola.
+  void _failed(CloudModelException error) {
+    if (_background) return;
+    _notify(
+      AiRequestFailedNotice(
+        at: _clock(),
+        provider: provider,
+        failure: error.failure,
+      ),
+    );
   }
 
   Duration _defaultQuotaWait(DateTime now) => provider == AiProvider.gemini

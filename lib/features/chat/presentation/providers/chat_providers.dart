@@ -12,20 +12,26 @@ import 'package:sinapsis/core/network/model_download_providers.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_backend.dart';
+import 'package:sinapsis/features/ai_models/data/services/ai_language_model_readiness.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
 import 'package:sinapsis/features/chat/data/services/chunk_passage_retriever.dart';
-import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
+import 'package:sinapsis/features/chat/data/services/gemma_backend.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model_manager.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/data/services/http_gemma_model_downloader.dart';
 import 'package:sinapsis/features/chat/data/services/language_model_backend_store.dart';
 import 'package:sinapsis/features/chat/data/services/language_model_benchmark.dart';
+import 'package:sinapsis/features/chat/data/services/language_model_tasks.dart';
 import 'package:sinapsis/features/chat/domain/repositories/chat_conversation_repository.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_meter.dart';
+import 'package:sinapsis/features/chat/domain/services/model_backend.dart';
 import 'package:sinapsis/features/chat/domain/services/vault_retriever.dart';
 import 'package:sinapsis/features/chat/domain/usecases/ask_vault_question_usecase.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
@@ -88,18 +94,78 @@ final gemmaModelDownloaderProvider = Provider<HttpGemmaModelDownloader>((ref) {
   );
 });
 
-/// El modelo de Gemma en sí queda cargado en memoria entre usos —ver
-/// `GemmaChatModel`—, así que tampoco es `autoDispose`: perderlo forzaría a
-/// recargar varios cientos de megas la próxima vez. Una sola instancia
-/// compartida entre el chat y el generador de tarjetas, para que las dos
-/// funciones usen el mismo modelo ya cargado en vez de cada una el suyo.
-final _gemmaModelProvider = Provider<GemmaChatModel>(
-  (ref) => GemmaChatModel(
+/// El motor que escribe todo lo que la app le pide a un modelo de lenguaje
+/// (F32): Gemma en el teléfono o el proveedor en la nube elegido en Ajustes ›
+/// IA y modelos. Uno solo hace todo —decisión del usuario—: si la nube no
+/// puede contestar, no se cae a Gemma en silencio.
+///
+/// Se rearma solo al cambiar de **proveedor**; cambiar de cuenta o de modelo
+/// vale desde el próximo pedido sin rearmar nada, porque el motor en la nube
+/// lee lo elegido al pedir. NO autoDispose: el de Gemma tiene cargados
+/// ~3,7 GB.
+final modelBackendProvider = Provider<ModelBackend>((ref) {
+  final provider = ref.watch(aiModelSettingsProvider.select((s) => s.provider));
+  final gate = ref.watch(languageModelGateProvider);
+  final meter = ref.watch(languageModelMeterProvider);
+  if (!provider.isCloud) {
+    return GemmaBackend(
+      gate: gate,
+      engine: ref.watch(gemmaEngineProvider),
+      meter: meter,
+    );
+  }
+  final wire = ref.watch(cloudWiresProvider)[provider];
+  if (wire == null) {
+    throw StateError('No hay cómo hablarle a ${provider.name}');
+  }
+  return CloudModelBackend(
+    wire: wire,
+    catalog: ref.watch(cloudModelCatalogProvider),
+    accounts: ref.watch(aiAccountRepositoryProvider),
+    usage: ref.watch(aiUsageLedgerProvider),
+    settings: () => ref.read(aiModelSettingsProvider),
+    saveSettings: (settings) =>
+        ref.read(aiModelSettingsProvider.notifier).save(settings),
+    notify: ref.watch(aiNoticeBusProvider).notify,
+    gate: gate,
+    meter: meter,
+    clock: ref.watch(clockProvider),
+  );
+});
+
+/// Las tareas de la app sobre [modelBackendProvider]: una sola instancia para
+/// todas las funciones, con un solo turno (`LanguageModelGate`).
+final _languageModelProvider = Provider<LanguageModelTasks>(
+  (ref) => LanguageModelTasks(
     gate: ref.watch(languageModelGateProvider),
-    engine: ref.watch(gemmaEngineProvider),
-    meter: ref.watch(languageModelMeterProvider),
+    backend: ref.watch(modelBackendProvider),
   ),
 );
+
+/// Si el modelo elegido puede contestar ahora y, si no, qué le falta (F32).
+/// Lo preguntan las pantallas antes de pedir algo y la cola de la IA de
+/// fondo antes de tomar un elemento.
+final languageModelStatusCheckProvider = Provider<LanguageModelStatusCheck>(
+  (ref) => AiLanguageModelReadiness(
+    settings: () => ref.read(aiModelSettingsProvider),
+    gemmaReady: () => ref.read(chatModelManagerProvider).isReady(),
+    accounts: ref.watch(aiAccountRepositoryProvider),
+    usage: ref.watch(aiUsageLedgerProvider),
+    clock: ref.watch(clockProvider),
+  ).status,
+);
+
+/// Lo mismo que [languageModelStatusCheckProvider] para dibujar: se vuelve a
+/// mirar cuando cambia lo elegido, las cuentas o lo gastado.
+final languageModelStatusProvider =
+    FutureProvider.autoDispose<LanguageModelStatus>((ref) {
+      ref
+        ..watch(aiModelSettingsProvider)
+        ..watch(aiAccountsProvider)
+        ..watch(aiUsageChangesProvider)
+        ..watch(chatModelManagerProvider);
+      return ref.watch(languageModelStatusCheckProvider)();
+    });
 
 /// El modelo de Gemma cargado en memoria, uno solo en toda la app (ver
 /// `GemmaEngine`). NO autoDispose: perderlo es volver a cargar ~3,7 GB.
@@ -155,55 +221,55 @@ final languageModelGateProvider = Provider<LanguageModelGate>(
 /// a que la persona no lo esté usando. Solo para los pasos de la IA que
 /// organiza sola; la interfaz usa los de arriba.
 final backgroundLanguageModelProvider = Provider<LanguageModelTasks>(
-  (ref) => ref.watch(_gemmaModelProvider).background,
+  (ref) => ref.watch(_languageModelProvider).background,
 );
 
 final chatModelProvider = Provider<ChatModel>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final flashcardGeneratorProvider = Provider<FlashcardGenerator>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final clozeGeneratorProvider = Provider<ClozeGenerator>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final quizQuestionGeneratorProvider = Provider<QuizQuestionGenerator>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final relationSuggestionServiceProvider = Provider<RelationSuggestionService>((
   ref,
 ) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final summarizationServiceProvider = Provider<SummarizationService>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final propertySuggestionServiceProvider = Provider<PropertySuggestionService>((
   ref,
 ) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 final derivedNoteGeneratorProvider = Provider<DerivedNoteGenerator>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 /// Quien dice qué va en un cuaderno de «Crear con IA» (F30): el modelo de la
 /// persona, con su turno.
 final notebookCandidateJudgeProvider = Provider<NotebookCandidateJudge>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 /// Quien propone nombre y descripción para los cuadernos sugeridos (F30): el
 /// modelo de la persona, con su turno.
 final notebookNamerProvider = Provider<NotebookNamer>((ref) {
-  return ref.watch(_gemmaModelProvider);
+  return ref.watch(_languageModelProvider);
 });
 
 /// El buscador del chat con la bóveda: los pasajes que hablan de lo

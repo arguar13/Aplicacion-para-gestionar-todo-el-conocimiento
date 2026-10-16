@@ -471,7 +471,16 @@ void main() {
 
     await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
     expect(wire.calls.map((c) => c.key), ['clave-1']);
-    expect(notices, isEmpty);
+    // Dice por qué, y la cuenta queda agotada para el pedido siguiente.
+    expect(
+      notices.single,
+      isA<AiRequestFailedNotice>().having(
+        (n) => n.failure,
+        'failure',
+        CloudModelFailure.quotaExhausted,
+      ),
+    );
+    expect(usage.usageOf(first.id, now: now).isExhaustedAt(now), isTrue);
   });
 
   test('si el proveedor está saturado, reintenta una vez', () async {
@@ -485,6 +494,57 @@ void main() {
 
     wire.scripts['clave-1'] = [busy, busy];
     await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+  });
+
+  test('lo que otra cuenta no arregla se le cuenta a la persona, con el '
+      'motivo; a la IA de fondo no', () async {
+    const offline = CloudModelException(CloudModelFailure.network);
+    wire.scripts['clave-1'] = [offline, offline];
+
+    await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+    expect(
+      notices.single,
+      isA<AiRequestFailedNotice>()
+          .having((n) => n.failure, 'failure', CloudModelFailure.network)
+          .having((n) => n.provider, 'provider', AiProvider.gemini),
+    );
+    // Sin red no se cambia de cuenta.
+    expect(wire.calls.map((c) => c.key), ['clave-1']);
+
+    notices.clear();
+    await expectLater(
+      ask(backend.forBackground),
+      throwsA(isA<CloudModelException>()),
+    );
+    expect(notices, isEmpty);
+  });
+
+  test('si falla después de escribir, también se dice por qué', () async {
+    wire.scripts['clave-1'] = [
+      const _Partial(['Roma '], CloudModelException(CloudModelFailure.network)),
+    ];
+    await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+    expect(notices.single, isA<AiRequestFailedNotice>());
+  });
+
+  test('sin el cambio automático, una cuenta con el tope por minuto largo '
+      'avisa que no queda ninguna', () async {
+    settings = settings.copyWith(autoSwitchAccounts: false);
+    wire.scripts['clave-1'] = [
+      const CloudModelException(
+        CloudModelFailure.rateLimited,
+        retryAfter: Duration(minutes: 5),
+      ),
+    ];
+    await expectLater(ask(backend), throwsA(isA<CloudModelException>()));
+    expect(
+      notices.single,
+      isA<AllAccountsExhaustedNotice>().having(
+        (n) => n.resetsAt,
+        'resetsAt',
+        now.add(const Duration(minutes: 5)),
+      ),
+    );
   });
 
   test('sin cuentas: «no hay cuenta»', () async {

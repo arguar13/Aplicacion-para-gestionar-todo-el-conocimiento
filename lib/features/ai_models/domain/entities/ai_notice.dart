@@ -91,3 +91,18 @@ final class BackgroundCapReachedNotice extends AiNotice {
   final int cap;
   final DateTime? resetsAt;
 }
+
+/// Un pedido de la persona falló por algo que otra cuenta no arregla: sin
+/// internet, el proveedor saturado, el modelo que ya no existe, el pedido
+/// bloqueado o demasiado largo. La pantalla que lo pidió dice que no se pudo;
+/// esto dice por qué.
+final class AiRequestFailedNotice extends AiNotice {
+  const AiRequestFailedNotice({
+    required super.at,
+    required this.provider,
+    required this.failure,
+  });
+
+  final AiProvider provider;
+  final CloudModelFailure failure;
+}

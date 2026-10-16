@@ -8,13 +8,12 @@ siempre (también si algo se corta). Una mutación que no hace fallar ninguna
 prueba se informa como SOBREVIVIÓ."""
 import io
 import json
+import os
 import re
 import subprocess
 import sys
 
-import os
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).replace('\', '/')
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).replace(os.sep, '/')
 
 mutations = json.load(io.open(sys.argv[1], encoding='utf-8'))
 results = []

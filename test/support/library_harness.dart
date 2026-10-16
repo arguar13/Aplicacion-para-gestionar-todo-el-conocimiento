@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/router/app_router.dart';
@@ -14,6 +16,7 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/logging/logger_provider.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/capture/domain/entities/capture_request.dart';
 import 'package:sinapsis/features/capture/domain/entities/captured_file.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
@@ -162,6 +165,11 @@ class LibraryHarness {
     /// chica de una prueba, los botones de la tarjeta quedan más abajo del
     /// borde—. Las pruebas de la tarjeta misma pasan `false`.
     bool inboxIntroDismissed = true,
+
+    /// Quién escribe las respuestas (F32). Gemma por defecto, no Gemini como
+    /// en la app: las pruebas de pantalla de siempre miden lo que pasa con el
+    /// modelo bajado o sin bajar (`chatModelReady`); las de la nube lo piden.
+    AiProvider languageModelProvider = AiProvider.gemma,
   }) async {
     // El router lee `EnvConfig.current` al construirse; mismo contrato que
     // cumplen los entry points de flavor.
@@ -170,7 +178,13 @@ class LibraryHarness {
       'app_locale': locale,
       'chat_model_option': initialChatModelOption.name,
       InboxIntroNotifier.prefsKey: inboxIntroDismissed,
+      'ai_model_settings_v1': jsonEncode({
+        'provider': languageModelProvider.storageKey,
+      }),
     });
+    // Las cuentas de la IA en la nube viven en el almacén seguro, que en una
+    // prueba no tiene sistema operativo detrás: uno en memoria, vacío.
+    FlutterSecureStorage.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
     final database = AppDatabase(NativeDatabase.memory());
