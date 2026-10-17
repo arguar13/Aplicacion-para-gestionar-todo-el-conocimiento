@@ -511,8 +511,15 @@ las pruebas, con respuestas grabadas, nunca llamadas reales.
   los tres formatos) y 1 en `language_model_screen_test.dart` (elegir Claude pide el aviso de
   pago y su clave). Mutaciones: 47/47 muertas.
 
+### Cierre (16/10/2026, después de `477d828`)
+
+- Suite entera: **8.035 pruebas en verde**, 77 salteadas (las de siempre), ninguna falla
+  (7 min 53 s). Analizador: 19, la línea base.
+- Limpieza: `flutter clean` + `flutter pub get`; el disco pasó de 62,88 a **68,01 GB libres**.
+  Quedaron solo los procesos de VS Code (analizador, DevTools, el daemon de Flutter y su `adb`).
+
 ### Lo que sigue
 
-5. La suite entera, y la limpieza final con el espacio en disco medido antes y después.
-6. La prueba en el teléfono con una clave real, solo si el usuario la pide.
-7. Después, F33 (`docs/planes/F33-revisar-con-otro-modelo.md`, aprobada).
+- **F32 está construida.** Falta solo probarla en el teléfono con una clave real, cuando el
+  usuario la pida (nunca se instala sin que lo pida).
+- Ahora, F33 (`docs/planes/F33-revisar-con-otro-modelo.md`, aprobada).

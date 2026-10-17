@@ -143,7 +143,7 @@ desde F13):
   (**dos direcciones, huecos `{{c1::…}}`, «escribí la respuesta»**, huecos con IA); **importar `.apkg`
   de Anki** sin duplicar (la procedencia es un UUID v5 del guid de la nota); **aviso diario**
   nativo opcional; sección «Repasar» en Ajustes.
-- **F32 (en curso)** — **la IA en la nube** (decisión 74): Gemini gratis por defecto, varias cuentas
+- **F32 (construida; falta la prueba en el teléfono con una clave real)** — **la IA en la nube** (decisión 74): Gemini gratis por defecto, varias cuentas
   con un menú para cambiar de un toque, que pasan solas a la siguiente al agotarse la cuota y avisan;
   la IA de fondo con su tope del día, que espera la cuota sin perder nada; OpenAI y Claude, de
   pago, por la misma puerta.

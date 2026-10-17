@@ -6592,7 +6592,7 @@ paso, con archivos y trampas.
   cuaderno, elemento), deshacer la última respuesta, pausar y posponer; el `.apkg` lleva las
   pausadas, los pasos, los huecos y «escribí la respuesta». Esquema v39. Ver la decisión 69.
 
-- **F32, la IA en la nube (en curso).** Un solo modelo de lenguaje, el elegido: Gemini gratis de
+- **F32, la IA en la nube (construida; falta probarla en el teléfono con una clave real).** Un solo modelo de lenguaje, el elegido: Gemini gratis de
   fábrica o Gemma en el teléfono; varias cuentas con un menú para cambiar de un toque, que pasan
   solas a la siguiente cuando se agota la cuota y avisan; la IA de fondo con su tope del día, que
   espera la cuota sin perder nada; los textos largos, de a un capítulo con Gemini; OpenAI y
