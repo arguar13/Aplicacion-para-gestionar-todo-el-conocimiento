@@ -6138,7 +6138,7 @@ paso, con archivos y trampas.
 - **Uno solo hace todo, sin respaldo silencioso.** Las diez tareas de IA (chat, tarjetas, huecos,
   vínculos, resumen, propiedades, derivados, quiz, cuadernos) más las del Atlas viven **una vez**
   en `LanguageModelTasks`, sobre un `ModelBackend` intercambiable (`GemmaBackend`,
-  `CloudModelBackend` + un `CloudWire` por proveedor; hoy `GeminiWire`). Si al elegido le falta
+  `CloudModelBackend` + un `CloudWire` por proveedor: `GeminiWire`, `OpenAiWire`, `AnthropicWire`). Si al elegido le falta
   algo, la app dice qué —`LanguageModelStatus`: bajar Gemma, una clave, la cuota, el tope de la IA
   de fondo— con el botón que lo resuelve; **nunca cae a Gemma sin que la persona lo elija**.
 - **Las cuentas y la cuota.** Las claves van en el almacén seguro (decisión C: fuera de la base y
@@ -6163,9 +6163,23 @@ paso, con archivos y trampas.
   grande, un cuarto de ella con tope de 60.000 caracteres —un capítulo: más gastaría de golpe el
   tope por minuto de la capa gratuita y dejaría menos partes de donde salen las tarjetas— y 8
   tarjetas por pedido. Se pregunta en cada elemento: cambiar de modelo vale en el acto.
-- **Lo que falta de F32.** Los formatos de OpenAI y Claude; la prueba en el teléfono con una
-  clave real. Las pruebas usan respuestas grabadas: nunca llaman de verdad
-  a ninguna empresa.
+- **OpenAI y Claude, de pago, por la misma puerta.** Cada formato solo traduce pedidos,
+  respuestas y errores (lo común, en `cloud_http.dart`); la rotación, la cuota y los avisos son los
+  mismos para los tres. OpenAI va por **Chat Completions** y no por «Responses», que guarda las
+  respuestas por defecto (como «Interactions» en Gemini): nada del contenido queda guardado
+  afuera. En los modelos que razonan (serie «o», GPT-5 en adelante salvo `-chat`) se pide
+  `reasoning_effort: low`, con 2.048 tokens de margen en el tope. **Un 429 de OpenAI se
+  distingue por su código**: sin saldo o pasado del tope de gasto (`insufficient_quota`,
+  `*_spend_limit_exceeded`…) es «agotada» y se pasa a otra cuenta; si no, es el tope por minuto y
+  se espera el `retry-after`. Claude va por la API de mensajes con HTTP directo (Dart no tiene
+  SDK oficial); en los 5.x, `output_config.effort: low` sin `thinking` (en Opus 5.5 no se apaga)
+  y el mismo margen. Recomendado: **`claude-opus-5-5`**. En Fable 5.1, Opus 5.5, Opus 5 y
+  Sonnet 5.5 va **`fallbacks: "default"`** (cabecera `server-side-fallback-2026-07-01`): si el
+  filtro de seguridad rechaza, otro modelo de Claude lo retoma en el mismo flujo; un `refusal`
+  final es «bloqueado» y lo escrito no vale. Las versiones de los modelos se comparan como
+  enteros («3.10» es más nueva que «3.9»), también en Gemini.
+- **Lo que falta de F32.** La prueba en el teléfono con una clave real. Las pruebas usan
+  respuestas grabadas: nunca llaman de verdad a ninguna empresa.
 
 ## Estado y orden de construcción
 
@@ -6581,8 +6595,8 @@ paso, con archivos y trampas.
 - **F32, la IA en la nube (en curso).** Un solo modelo de lenguaje, el elegido: Gemini gratis de
   fábrica o Gemma en el teléfono; varias cuentas con un menú para cambiar de un toque, que pasan
   solas a la siguiente cuando se agota la cuota y avisan; la IA de fondo con su tope del día, que
-  espera la cuota sin perder nada; los textos largos, de a un capítulo con Gemini. Faltan OpenAI
-  y Claude.
+  espera la cuota sin perder nada; los textos largos, de a un capítulo con Gemini; OpenAI y
+  Claude, de pago, con los mismos cambios de cuenta y avisos.
   Ver la decisión 74.
 
 ### Por construir

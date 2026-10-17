@@ -533,6 +533,10 @@ void main() {
         wire.recommendedModel(of(['gemini-3.5-flash-lite', 'gemini-4-argon'])),
         'gemini-3.5-flash-lite',
       );
+      expect(
+        wire.recommendedModel(of(['gemini-3.9-flash', 'gemini-3.10-flash'])),
+        'gemini-3.10-flash',
+      );
       expect(wire.recommendedModel(of(['gemini-4-argon'])), 'gemini-4-argon');
       expect(wire.recommendedModel(const []), isNull);
     });

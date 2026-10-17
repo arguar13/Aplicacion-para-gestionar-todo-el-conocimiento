@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/cloud_http.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_wire.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/sse.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
@@ -94,21 +95,29 @@ class GeminiWire implements CloudWire {
   @override
   String? recommendedModel(List<CloudModelInfo> models) {
     if (models.isEmpty) return null;
-    final flash = RegExp(r'^gemini-(\d+(?:\.\d+)?)-flash(-preview.*|-exp.*)?$');
+    final flash = RegExp(
+      r'^gemini-(\d+)(?:\.(\d+))?-flash(-preview.*|-exp.*)?$',
+    );
     final lite = RegExp(
-      r'^gemini-(\d+(?:\.\d+)?)-flash-lite(-preview.*|-exp.*)?$',
+      r'^gemini-(\d+)(?:\.(\d+))?-flash-lite(-preview.*|-exp.*)?$',
     );
     String? best(RegExp pattern) {
       String? winner;
-      var winnerKey = const (-1.0, 0);
+      var winnerKey = const (-1, -1, 0);
       for (final model in models) {
         final match = pattern.firstMatch(model.id);
         if (match == null) continue;
-        final version = double.tryParse(match.group(1)!) ?? 0;
-        final stable = match.group(2) == null ? 1 : 0;
-        final key = (version, stable);
+        // La versión como enteros: «3.10» es más nueva que «3.9».
+        final key = (
+          int.parse(match.group(1)!),
+          int.tryParse(match.group(2) ?? '') ?? 0,
+          match.group(3) == null ? 1 : 0,
+        );
         if (key.$1 > winnerKey.$1 ||
-            (key.$1 == winnerKey.$1 && key.$2 > winnerKey.$2)) {
+            (key.$1 == winnerKey.$1 && key.$2 > winnerKey.$2) ||
+            (key.$1 == winnerKey.$1 &&
+                key.$2 == winnerKey.$2 &&
+                key.$3 > winnerKey.$3)) {
           winner = model.id;
           winnerKey = key;
         }
@@ -277,45 +286,16 @@ class GeminiWire implements CloudWire {
     'SPII',
   }.contains(finish);
 
-  Options _options(String key, ResponseType type) => Options(
-    headers: {'x-goog-api-key': key, 'content-type': 'application/json'},
-    responseType: type,
-    // Los errores se leen y se traducen acá, no los tira Dio sin cuerpo.
-    validateStatus: (_) => true,
-  );
+  Options _options(String key, ResponseType type) =>
+      cloudOptions({'x-goog-api-key': key}, type);
 
   /// Manda el pedido y, si el proveedor contestó con un error, lo traduce.
-  Future<Response<T>> _send<T>(Future<Response<T>> Function() request) async {
-    final Response<T> response;
-    try {
-      response = await request();
-    } on DioException catch (error) {
-      if (CancelToken.isCancel(error)) rethrow;
-      throw CloudModelException(
-        CloudModelFailure.network,
-        detail: error.type.name,
+  Future<Response<T>> _send<T>(Future<Response<T>> Function() request) =>
+      sendCloudRequest(
+        request,
+        failureFrom: (status, body, _) =>
+            failureFrom(status, body, now: _clock()),
       );
-    }
-    final status = response.statusCode ?? 0;
-    if (status >= 200 && status < 300) return response;
-    throw failureFrom(status, await _decodeError(response.data), now: _clock());
-  }
-
-  static Future<Object?> _decodeError(Object? data) async {
-    try {
-      if (data is ResponseBody) {
-        final bytes = await data.stream.fold<List<int>>(
-          <int>[],
-          (all, chunk) => all..addAll(chunk),
-        );
-        return jsonDecode(utf8.decode(bytes, allowMalformed: true));
-      }
-      if (data is String) return jsonDecode(data);
-      return data;
-    } on FormatException {
-      return null;
-    }
-  }
 
   /// Traduce un error de Gemini (`{"error": {code, message, status,
   /// details}}`) a lo que la app sabe decidir.

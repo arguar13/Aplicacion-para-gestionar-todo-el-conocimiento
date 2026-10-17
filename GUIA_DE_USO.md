@@ -1884,6 +1884,27 @@ aviso de arriba se va solo apenas cargás una clave o vuelve la cuota, sin
 salir del Chat. **"Organizar con la IA"** lo pide igual y te dice si espera
 una clave o que vuelva la cuota: no se pierde nada.
 
+**OpenAI y Claude, de pago.** En la misma pantalla podés elegir **OpenAI**
+(los modelos GPT) o **Claude** (de Anthropic). Cada pedido se paga con los
+créditos de tu cuenta. Las claves se sacan en platform.openai.com → "API keys"
+y en console.anthropic.com → "API keys"; se cargan, se prueban y se cambian
+igual que las de Gemini, y también pueden ser varias. Al elegirlos, la app te
+explica qué sale del teléfono: lo mismo que con Gemini, pero con una cuenta de
+pago el proveedor no usa lo que mandás para entrenar sus modelos (lo puede
+guardar unas semanas para controlar abusos y después lo borra).
+
+- **Qué modelo usa.** El más capaz que ofrezca tu clave: con OpenAI, el GPT
+  más nuevo; con Claude, **Claude Opus 5.5**. Podés elegir otro de la lista.
+- **Cuando se acaba el saldo.** Si una cuenta se queda sin saldo o llega a
+  su tope de gasto, la app pasa sola a la siguiente, igual que cuando a
+  Gemini se le acaba la cuota. Si solo se pasó del tope por minuto, espera
+  los segundos que pida el proveedor y sigue con la misma.
+- **Si Claude se niega.** A veces el filtro de seguridad de Claude rechaza un
+  pedido inofensivo. Con los modelos que lo permiten (Opus 5.5, Opus 5,
+  Sonnet 5.5 y Fable 5.1), lo retoma solo otro modelo de Claude en el mismo
+  pedido, sin que hagas nada. Si se niegan todos, la app te dice que el
+  proveedor no quiso contestar.
+
 **Gemma, en el teléfono.** Si preferís que nada salga del teléfono, elegí
 **Gemma** en la misma pantalla y tocá **"Bajar o cambiar el modelo"**. Hay
 tres variantes, con distinto tamaño y calidad de respuesta —la pantalla te

@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/anthropic_wire.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_catalog.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_wire.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/gemini_wire.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/openai_wire.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/prefs_ai_model_settings_store.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/prefs_ai_usage_ledger.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/secure_ai_account_repository.dart';
@@ -79,7 +81,11 @@ final aiNoticeBusProvider = Provider<AiNoticeBus>((ref) {
 final cloudWiresProvider = Provider<Map<AiProvider, CloudWire>>((ref) {
   final dio = ref.watch(aiDioProvider);
   final clock = ref.watch(clockProvider);
-  return {AiProvider.gemini: GeminiWire(dio: dio, clock: clock)};
+  return {
+    AiProvider.gemini: GeminiWire(dio: dio, clock: clock),
+    AiProvider.openAi: OpenAiWire(dio: dio),
+    AiProvider.anthropic: AnthropicWire(dio: dio),
+  };
 });
 
 /// Sube cada vez que se vuelve a traer una lista de modelos: lo que la

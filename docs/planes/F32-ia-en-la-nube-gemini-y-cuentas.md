@@ -463,52 +463,56 @@ tres que tiene (`kMaxAiRunAttempts`).
   Mutaciones: 11/11 muertas. Dos conexiones no se mutan sin romper la compilación (las tarjetas a
   mano y el paso en la cola): las cubre el parámetro obligatorio y la prueba del proveedor.
 
-### Paso 5 — OpenAI y Claude (en curso)
+### Paso 5 — OpenAI y Claude (hecho, 11/N)
 
-Empezado: `lib/features/ai_models/data/cloud/cloud_http.dart` (sin commitear todavía):
-`cloudOptions`, `sendCloudRequest`, `decodeCloudErrorBody`, `retryAfterOf`, lo que comparten los
-tres formatos. Falta pasar `GeminiWire` a usarlo (sus `_send`/`_decodeError` son lo mismo).
+Diseño verificado en la guía de la API de Claude y en la documentación de OpenAI el 16/10/2026;
+las pruebas, con respuestas grabadas, nunca llamadas reales.
 
-Diseño decidido (verificado en la guía de la API de Claude y en la documentación de OpenAI el
-16/10/2026; las pruebas, con respuestas grabadas, nunca llamadas reales):
-
-- **`AnthropicWire`**: `POST https://api.anthropic.com/v1/messages`, cabeceras `x-api-key` y
-  `anthropic-version: 2023-06-01`; cuerpo `model`, `max_tokens` (+2048 de margen en los modelos 5.x,
-  que siempre piensan: lo pensado cuenta dentro del tope), `system`, `messages` (`user`/`assistant`,
-  fotos como `{type: image, source: {type: base64, media_type, data}}` antes del texto),
-  `stream: true`; en los 5.x `output_config: {effort: "low"}` (como Gemini, «pensamiento
-  mínimo»); **sin** `thinking` (en Opus 5.5 apagarlo es un 400). En `claude-fable-5-1`,
-  `claude-opus-5-5`, `claude-opus-5` y `claude-sonnet-5-5`: `fallbacks: "default"` con la
-  cabecera `anthropic-beta: server-side-fallback-2026-07-01` (si el filtro de seguridad rechaza,
-  lo reintenta otro modelo en el mismo flujo; el bloque `fallback` se ignora y el texto sigue).
-  Eventos: `message_start` (`usage.input_tokens`), `content_block_delta` con `text_delta` (lo
-  demás —pensamiento, firma— se saltea), `message_delta` (`stop_reason`, `usage.output_tokens`),
-  evento `error`. `stop_reason` `refusal` → `blocked`; `max_tokens` → cortada. Errores: 401
-  `invalidKey`, 403 `forbidden`, 404 `modelNotFound`, 413 o «prompt is too long» `tooLong`, 402
-  `billing_error` o «credit balance» `quotaExhausted`, 429 `rateLimited` con `retry-after`,
-  500/529 `unavailable`. Modelos: `GET /v1/models?limit=1000` con `after_id` mientras `has_more`
-  (`id`, `display_name`, `max_input_tokens`, `max_tokens`). Recomendado: `claude-opus-5-5` si
-  está; si no, el Opus más nuevo; si no, el primero.
-- **`OpenAiWire`**: `POST https://api.openai.com/v1/chat/completions`, `Authorization: Bearer`;
-  `messages` (`developer` en los que razonan —`o\d…`, `gpt-5` en adelante salvo `-chat`—,
-  `system` en los demás; fotos como `image_url` con `data:<mime>;base64,…`),
-  `max_completion_tokens` (incluye lo razonado: +2048 de margen en los que razonan),
-  `reasoning_effort: "low"` solo en los que razonan (en los otros es un 400), `stream: true`,
-  `stream_options: {include_usage: true}` (el último pedazo trae `usage.prompt_tokens` y
-  `completion_tokens`, con `choices` vacío), `data: [DONE]` cierra. `finish_reason` `length` →
-  cortada; `content_filter` o `delta.refusal` sin texto → `blocked`. Errores: mirar `error.code`
-  antes que el estado: 429 con `insufficient_quota`, `credit_balance_exhausted`,
-  `*_spend_limit_exceeded` o `*_usage_limit_exceeded` → `quotaExhausted` (reintentar no sirve);
-  otro 429 → `rateLimited` con `retry-after`; 401 `invalidKey`; 403 (país) `forbidden`; 404
-  `modelNotFound`; 400 `context_length_exceeded` → `tooLong`; 500/503 `unavailable`. Modelos:
-  `GET /v1/models` (sin topes de tokens: queda el de 128.000), solo `gpt-…` y `o\d…` de texto
-  (fuera audio, realtime, tts, transcribe, image, search, embedding, moderation, dall-e,
-  whisper, instruct, codex, `-pro`, deep-research, computer-use, y las fotos con fecha).
-  Recomendado: el `gpt-N(.M)` más nuevo sin sufijo; si no, el primero.
-- Después: sumarlos a `cloudWiresProvider` (así aparecen en la pantalla), revisar el aviso de
-  privacidad (el de la capa gratuita de Google no vale para los de pago), guía y decisión 74.
+- **`cloud_http.dart`**: `cloudOptions`, `sendCloudRequest`, `decodeCloudErrorBody`,
+  `retryAfterOf` (la cabecera `retry-after` en segundos, con decimales). `GeminiWire` pasó a
+  usarlo (se fueron sus `_send`/`_decodeError`, que eran lo mismo).
+- **`AnthropicWire`** (`anthropic_wire.dart`): `POST https://api.anthropic.com/v1/messages`,
+  cabeceras `x-api-key` y `anthropic-version: 2023-06-01`; cuerpo `model`, `max_tokens` (+2048
+  de margen en los 5.x, que siempre piensan: `isFifthGeneration`), `system`, `messages`
+  (`user`/`assistant`, fotos como bloque `image` base64 antes del texto), `stream: true`; en los
+  5.x `output_config: {effort: "low"}`; **sin** `thinking` (en Opus 5.5 apagarlo es un 400). En
+  `fallbackModels` (`claude-fable-5-1`, `claude-opus-5-5`, `claude-opus-5`, `claude-sonnet-5-5`):
+  `fallbacks: "default"` y `anthropic-beta: server-side-fallback-2026-07-01` (en Haiku 5.5 y los
+  4.x sería un 400); el bloque `fallback` llega como un `content_block_start` cualquiera y el
+  texto sigue. Eventos: `message_start` (tokens de entrada), `text_delta` (lo pensado y la firma
+  se saltean), `message_delta` (`stop_reason` y tokens de salida), `error` (se traduce por su
+  tipo). `refusal` → `blocked` **aunque haya escrito algo** (lo escrito no vale como respuesta);
+  `max_tokens` → cortada. Errores, por estado o por tipo: 402/`billing_error`/«credit balance» →
+  `quotaExhausted`; 429 → `rateLimited` con `retry-after`; 401 `invalidKey`; 403 `forbidden`; 404
+  `modelNotFound`; 413/«prompt is too long» `tooLong`; 5xx/529/`overloaded_error` `unavailable`.
+  Modelos: `GET /v1/models?limit=1000`, con `after_id` = `last_id` mientras `has_more`; trae
+  `max_input_tokens` (la ventana, que usa `textBudgetFor`) y `max_tokens`. Recomendado:
+  `claude-opus-5-5`; si no está, el Opus más nuevo; si no, el primero.
+- **`OpenAiWire`** (`openai_wire.dart`): Chat Completions (no «Responses», que guarda por
+  defecto). `Authorization: Bearer`; `developer` en los que razonan (`reasons`: `o\d…`, GPT-5 en
+  adelante salvo `-chat`), `system` en los demás; fotos como `image_url` con data URL;
+  `max_completion_tokens` (+2048 en los que razonan); `reasoning_effort: "low"` solo en esos;
+  `stream_options.include_usage`. `[DONE]` cierra; un `error` dentro del flujo se traduce.
+  `length` → cortada; `content_filter` o `refusal` sin texto → `blocked`. Errores: **el código
+  antes que el estado** (un 429 sin saldo no se arregla esperando). Modelos: `GET /v1/models`,
+  solo `gpt-…` y `o\d…` de texto (`isTextModel`: fuera voz, tiempo real, imágenes, búsqueda,
+  vectores, moderación, `-pro`, codex, deep-research, computer-use, instruct y las versiones con
+  fecha); el nombre, como lo escribe OpenAI («GPT-5.2 mini»). Recomendado: el `gpt-N(.M)` más
+  nuevo sin sufijo.
+- **Error encontrado y arreglado de raíz**: el recomendado comparaba versiones como número
+  decimal, y «gemini-3.10» quedaba por debajo de «3.9». Ahora son enteros (mayor, menor), en
+  los tres formatos.
+- `cloudWiresProvider` tiene los tres: OpenAI y Claude aparecen en «Modelo de lenguaje». El
+  aviso de privacidad de pago ahora dice además que el proveedor puede guardar lo mandado unas
+  semanas para controlar abusos. La tarjeta de OpenAI dice «Los modelos GPT» (ChatGPT es la app).
+- Pruebas: `anthropic_wire_test.dart` (17), `openai_wire_test.dart` (17), el servidor de mentira
+  compartido `test/support/fake_cloud_server.dart` (con cabeceras, para `retry-after`), 1 en
+  `gemini_wire_test.dart` (3.10 > 3.9), 1 en `ai_models_providers_test.dart` (la app real tiene
+  los tres formatos) y 1 en `language_model_screen_test.dart` (elegir Claude pide el aviso de
+  pago y su clave). Mutaciones: 47/47 muertas.
 
 ### Lo que sigue
 
-5. Terminar el paso 5 (arriba).
-6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.
+5. La suite entera, y la limpieza final con el espacio en disco medido antes y después.
+6. La prueba en el teléfono con una clave real, solo si el usuario la pide.
+7. Después, F33 (`docs/planes/F33-revisar-con-otro-modelo.md`, aprobada).

@@ -112,9 +112,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('con el modelo listo, deja pedir y no dice nada', (
-    tester,
-  ) async {
+  testWidgets('con el modelo listo, deja pedir y no dice nada', (tester) async {
     await pump(tester, const LanguageModelReady(provider: AiProvider.gemini));
     await ask(tester);
 

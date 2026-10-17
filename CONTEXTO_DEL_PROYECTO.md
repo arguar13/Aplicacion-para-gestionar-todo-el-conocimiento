@@ -66,7 +66,7 @@ jerárquico. *Cuaderno* = un subconjunto con nombre, fijo o por consulta.
 - **Modelo de lenguaje (F32, decisión 74):** **uno solo, el elegido** en Ajustes → «IA y modelos» →
   «Modelo de lenguaje»: **Gemini** en la nube (de fábrica, capa gratuita, varias cuentas con claves
   de AI Studio que rotan solas al agotarse la cuota) o **Gemma 4 E4B** en el teléfono
-  (`flutter_gemma`); OpenAI y Claude, previstos. Hace chat, resúmenes, tarjetas, huecos,
+  (`flutter_gemma`), u **OpenAI** o **Claude**, de pago, con las mismas cuentas que rotan. Hace chat, resúmenes, tarjetas, huecos,
   clasificación y la IA de fondo, sin caer a otro modelo en silencio. Módulo `ai_models`.
 - **IA local:** embeddings en el dispositivo para relaciones y duplicados; **Whisper small**
   multilingüe vía **sherpa-onnx** para transcribir. Los modelos **no vienen con la app**: se bajan
@@ -145,7 +145,8 @@ desde F13):
   nativo opcional; sección «Repasar» en Ajustes.
 - **F32 (en curso)** — **la IA en la nube** (decisión 74): Gemini gratis por defecto, varias cuentas
   con un menú para cambiar de un toque, que pasan solas a la siguiente al agotarse la cuota y avisan;
-  la IA de fondo con su tope del día, que espera la cuota sin perder nada.
+  la IA de fondo con su tope del día, que espera la cuota sin perder nada; OpenAI y Claude, de
+  pago, por la misma puerta.
 
 ## 5. Estado actual
 

@@ -6,8 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart'
     show sharedPreferencesProvider;
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/anthropic_wire.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_backend.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_wire.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/gemini_wire.dart';
+import 'package:sinapsis/features/ai_models/data/cloud/openai_wire.dart';
 import 'package:sinapsis/features/ai_models/data/repositories/prefs_ai_model_settings_store.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
@@ -59,6 +62,24 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+  });
+
+  test('la app sabe hablarles a Gemini, OpenAI y Claude, cada uno con su '
+      'formato', () {
+    final real = ProviderContainer();
+    addTearDown(real.dispose);
+    final wires = real.read(cloudWiresProvider);
+
+    expect(
+      wires.keys,
+      unorderedEquals(AiProvider.values.where((p) => p.isCloud)),
+    );
+    expect(wires[AiProvider.gemini], isA<GeminiWire>());
+    expect(wires[AiProvider.openAi], isA<OpenAiWire>());
+    expect(wires[AiProvider.anthropic], isA<AnthropicWire>());
+    for (final MapEntry(:key, :value) in wires.entries) {
+      expect(value.provider, key);
+    }
   });
 
   test('por defecto escribe Gemini, en la nube', () {

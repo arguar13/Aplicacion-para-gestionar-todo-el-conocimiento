@@ -24,10 +24,12 @@ import '../../../support/fake_chat_model_manager.dart';
 
 /// Un Google de mentira: la clave «buena» anda; cualquier otra no.
 class _FakeWire implements CloudWire {
+  _FakeWire([this.provider = AiProvider.gemini]);
+
   final keysTried = <String>[];
 
   @override
-  AiProvider get provider => AiProvider.gemini;
+  final AiProvider provider;
 
   @override
   Future<List<CloudModelInfo>> listModels(String key) async {
@@ -238,6 +240,47 @@ void main() {
     await tester.tap(find.byKey(const Key('lm-privacy-continue')));
     await tester.pumpAndSettle();
     expect(container.read(aiModelSettingsProvider).provider, AiProvider.gemini);
+  });
+
+  testWidgets('con cómo hablarles, se ofrecen OpenAI y Claude; elegir '
+      'Claude avisa que es de pago y pide su clave', (tester) async {
+    container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        clockProvider.overrideWithValue(() => now),
+        cloudWiresProvider.overrideWithValue({
+          AiProvider.gemini: wire,
+          AiProvider.openAi: _FakeWire(AiProvider.openAi),
+          AiProvider.anthropic: _FakeWire(AiProvider.anthropic),
+        }),
+        chatModelManagerProvider.overrideWithValue(FakeChatModelManager()),
+      ],
+    );
+    addTearDown(container.dispose);
+    await pump(tester);
+    expect(find.byKey(const Key('lm-provider-openai')), findsOneWidget);
+    expect(find.byKey(const Key('lm-provider-anthropic')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('lm-provider-anthropic')));
+    await tester.pumpAndSettle();
+    // El aviso es el de pago; el de la capa gratuita de Google sigue solo en
+    // la página de atrás, que todavía es la de Gemini.
+    final dialog = find.byType(AlertDialog);
+    Finder inDialog(String text) =>
+        find.descendant(of: dialog, matching: find.text(text));
+    expect(inDialog(l10n.lmPrivacyPaid), findsOneWidget);
+    expect(inDialog(l10n.lmPrivacyFreeTier), findsNothing);
+    await tester.tap(find.byKey(const Key('lm-privacy-continue')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(aiModelSettingsProvider).provider,
+      AiProvider.anthropic,
+    );
+    expect(
+      find.text(l10n.lmAccountsEmptyPaid(l10n.lmProviderAnthropic)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('borrar una cuenta pide confirmar y la saca', (tester) async {
