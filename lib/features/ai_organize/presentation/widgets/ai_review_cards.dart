@@ -275,6 +275,10 @@ class _ReviewRow extends StatelessWidget {
       DuplicateSuggestionEntry() => throw StateError(
         'Un duplicado no se revisa en «Para revisar»: tiene su pantalla.',
       ),
+      CorrectionSuggestion() => throw StateError(
+        'Una corrección (F33) no se revisa en «Para revisar»: se decide con '
+        'el antes y el después, en «Revisión».',
+      ),
     };
 
     return Padding(

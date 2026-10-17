@@ -102,3 +102,56 @@ falta para revisarlo.
 5. El aviso al cambiar de modelo.
 6. Pruebas con respuestas grabadas (nunca llamadas reales), comprobadas por mutación; la guía de
    uso; su decisión en `docs/arquitectura.md`.
+
+## Avance
+
+### Paso 1 (hecho): el revisor de tarjetas y las correcciones como sugerencias
+
+- **Sin migración.** `correction` es un valor nuevo de `SuggestionKind` y `review` uno de
+  `AiRunScope`, los dos en columnas de texto. Qué se corrige (`CorrectionSubject`), el antes, el
+  después, el porqué, el modelo y la pasada de revisión van en el `payload_json`.
+- **`Suggestion.correction`** (`CorrectionSuggestion`): `subject`, `subjectId`, `before`, `after`
+  (`null` = sacarlo), `reason`, `aiRunId` (la pasada de revisión), `model`.
+- **`lib/core/database/correction_suggestions.dart`**, compartido por los repositorios de
+  sugerencias y de pasadas, como `atlas_suggestions.dart`:
+  - **Aplicar al aceptar.** Solo si la tarjeta sigue siendo de la IA y está igual que cuando la
+    vio el modelo; si no, falla y no toca nada.
+  - **Corregir.** Cambia el texto y la tarjeta sigue siendo de la IA, de la pasada que la hizo.
+    Si cambió la pregunta, recuerda la de antes como «no era».
+  - **Sacar.** Guarda la tarjeta entera, con sus opciones y sus repasos, recuerda su pregunta
+    como «no era» y la borra.
+  - **Deshacer la pasada de revisión** (`undoAiCorrections`, desde `AiRunRepositoryImpl._undo`).
+    La tarjeta corregida vuelve a su texto si sigue como la dejó la corrección. La sacada vuelve
+    entera, salvo que la pasada que la hizo se haya deshecho. Olvida solo el «no era» que recordó
+    ella, y la corrección queda descartada, para que no se vuelva a proponer.
+  - **Contar** (`aiCorrectionCounts`). `AiRunTally.corrections` lleva lo aceptado (la historia) y
+    lo que sigue en pie.
+- **El revisor.**
+  - La interfaz es `FlashcardReviewer`, implementada en `LanguageModelTasks.reviewFlashcards` con
+    su instrucción y su tope (`flashcardReviewReplyTokens`).
+  - El formato es `TARJETA <n>: bien | corregir | sacar`, más `P:`, `R:` y `POR QUÉ:`.
+  - El lector, `parseFlashcardReview`, descarta lo que no entiende: un veredicto sin porqué, una
+    corrección incompleta o que no cambia nada, un número fuera de la lista. Si una tarjeta
+    aparece dos veces, vale la primera.
+  - `passageForReview` arma el pasaje de cada tarjeta alrededor de su cita.
+- **El paso** `ReviewFlashcardsStep.review(item, runId:, model:)`:
+  - Revisa solo las tarjetas de pregunta y respuesta que siguen siendo de la IA.
+  - Pide de a tantas como lee el modelo, con el pasaje repartido entre ellas, entre 400 y 2400
+    caracteres por tarjeta.
+  - No vuelve a revisar una tarjeta con una corrección pendiente, ni propone otra vez lo que la
+    persona descartó.
+- **Lo que no se ve todavía.** Las correcciones no entran en «Para revisar» ni en el diálogo de la
+  Bandeja: tienen su sección propia, que es el paso 2. Todavía no hay botón ni cola: eso es el
+  paso 3.
+- **Pruebas.** Lector y pasaje (16), aplicar, deshacer y contar contra SQLite en memoria (17), el
+  paso (7) y `reviewFlashcards` con un Gemma de mentira (2), todas con respuestas grabadas.
+- **Mutación: 33 de 34 muertas.** La que sobrevive, «cuenta como vigente una corrección
+  deshecha», es equivalente: una corrección aplicada solo queda descartada al deshacerse, y para
+  entonces la tarjeta ya volvió a como estaba (o volvió entera), así que no cuenta igual.
+- **Lo que sigue: el paso 2**, la sección «Revisión» en «Lo que hizo la IA».
+  - El antes y el después, resaltados palabra por palabra.
+  - Aceptar y descartar de a uno, y en bloque con «Deshacer» (el lote se aplica al cerrarse el
+    aviso, como en «Para revisar»).
+  - Agrupado por elemento y con quién lo propone.
+  - Se ocultan las correcciones de una tarjeta que ya cambió o que ya no es de la IA.
+  - Su número se suma al de Ajustes › IA.

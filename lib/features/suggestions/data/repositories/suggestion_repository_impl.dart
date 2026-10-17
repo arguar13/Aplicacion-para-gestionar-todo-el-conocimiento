@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
+import 'package:sinapsis/core/database/correction_suggestions.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/habit_event_recorder.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
@@ -12,6 +13,7 @@ import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/database/watching_query.dart';
 import 'package:sinapsis/core/domain/entities/contributor_role.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
@@ -531,6 +533,55 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   }
 
   @override
+  Future<Either<Failure, Suggestion>> createCorrectionSuggestion({
+    required String targetItemId,
+    required CorrectionSubject subject,
+    required String subjectId,
+    required Map<String, String> before,
+    required Map<String, String>? after,
+    required String reason,
+    required String aiRunId,
+    String? model,
+  }) async {
+    try {
+      final id = _ids.next();
+      await _db
+          .into(_db.suggestions)
+          .insert(
+            SuggestionsCompanion.insert(
+              id: id,
+              kind: SuggestionKind.correction,
+              targetItemId: targetItemId,
+              payloadJson: encodeCorrectionPayload(
+                subject: subject,
+                subjectId: subjectId,
+                before: before,
+                after: after,
+                reason: reason,
+                aiRunId: aiRunId,
+                model: model,
+              ),
+              createdAt: _clock(),
+            ),
+          );
+      final row = await (_db.select(
+        _db.suggestions,
+      )..where((s) => s.id.equals(id))).getSingle();
+      return right(correctionSuggestionOf(row));
+      // Ver `_unexpected`: un TypeError es Error, no Exception.
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e, stackTrace) {
+      return left(
+        _unexpected(
+          e,
+          stackTrace,
+          'SuggestionRepositoryImpl.createCorrectionSuggestion',
+        ),
+      );
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> accept(String id) async {
     try {
       final row = await (_db.select(
@@ -552,6 +603,9 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         SuggestionKind.topicParent => await _applyTopicParent(row),
         SuggestionKind.maturity => await _applyMaturity(row),
         SuggestionKind.flashcard => await _applyFlashcard(row),
+        SuggestionKind.correction => await _db.transaction(
+          () => applyCorrection(_db, row, ids: _ids, now: _clock()),
+        ),
       };
       final failure = applied.getLeft().toNullable();
       if (failure != null) return left(failure);
@@ -1173,6 +1227,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
         status: row.status,
         createdAt: row.createdAt,
       ),
+      SuggestionKind.correction => correctionSuggestionOf(row),
     };
   }
 

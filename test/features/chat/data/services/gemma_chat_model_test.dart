@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
@@ -131,6 +132,60 @@ void main() {
     expect(sent, startsWith('Tema del cuaderno: mi tesis sobre Roma'));
     expect(sent, contains('3. El Senado\nTrescientos miembros.'));
     expect(model.chats.single.closed, isTrue);
+  });
+
+  test('«Revisar con otro modelo» le da cada tarjeta numerada con su pasaje, '
+      'con su instrucción y su tope, y lee lo que propone (F33)', () async {
+    model = FakeInferenceModel(
+      newChat: (n) => FakeInferenceChat(
+        id: n,
+        answer: (_, _) => [
+          'TARJETA 1: bien\nTARJETA 2: corregir\nP: ¿Quién escribió el ',
+          'Quijote?\nR: Cervantes.\nPOR QUÉ: Lo dice el pasaje.\n',
+        ],
+      ),
+    );
+
+    final verdicts = await gemma.reviewFlashcards(const [
+      FlashcardToReview(
+        front: '¿Cuándo cayó Roma?',
+        back: 'En 476.',
+        passage: 'Roma cayó en 476.',
+      ),
+      FlashcardToReview(
+        front: '¿Quién escribió el Quijote?',
+        back: 'Lope de Vega.',
+        passage: 'El Quijote lo escribió Cervantes.',
+      ),
+    ]);
+
+    expect(verdicts, const [
+      FlashcardCorrection(
+        index: 1,
+        reason: 'Lo dice el pasaje.',
+        front: '¿Quién escribió el Quijote?',
+        back: 'Cervantes.',
+      ),
+    ]);
+    final opened = model.opened.single;
+    expect(opened.maxOutputTokens, flashcardReviewReplyTokens(2));
+    expect(opened.instruction, contains('TARJETA <número>: corregir'));
+    expect(opened.instruction, contains('No agregues tarjetas nuevas'));
+    final sent = model.chats.single.received.single;
+    expect(
+      sent,
+      contains(
+        'TARJETA 2\nP: ¿Quién escribió el Quijote?\nR: Lope de Vega.\n'
+        'PASAJE: El Quijote lo escribió Cervantes.',
+      ),
+    );
+    expect(sent, contains('TARJETA 1\nP: ¿Cuándo cayó Roma?'));
+    expect(model.chats.single.closed, isTrue);
+  });
+
+  test('sin tarjetas, la revisión no le pide nada al modelo (F33)', () async {
+    expect(await gemma.reviewFlashcards(const []), isEmpty);
+    expect(model.opened, isEmpty);
   });
 
   test('los cuadernos sugeridos: le da cada tema con sus títulos de ejemplo '

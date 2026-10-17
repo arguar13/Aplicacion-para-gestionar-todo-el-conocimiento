@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/note_maturity.dart';
@@ -150,4 +151,32 @@ sealed class Suggestion with _$Suggestion {
     String? quote,
     double? confidence,
   }) = FlashcardSuggestion;
+
+  /// Lo que un modelo propone corregir o sacar de algo que hizo la IA y que
+  /// sigue siendo suyo —F33, «Revisar con otro modelo»—: [subject] dice qué
+  /// es, y [subjectId], cuál.
+  ///
+  /// [before] es cómo estaba cuando el modelo lo revisó, y [after] cómo
+  /// quedaría; sin [after], la propuesta es sacarlo. Las claves de los dos
+  /// dependen de [subject] (`FlashcardCorrectionField` en una tarjeta).
+  /// [reason] es la línea en que el modelo dice por qué.
+  ///
+  /// [aiRunId] es la pasada de revisión del modelo [model] que la propuso:
+  /// aceptarla aplica el cambio dentro de esa pasada, y deshacer la pasada
+  /// lo devuelve a [before]. Si lo revisado cambió desde entonces —la persona
+  /// lo editó, o ya no está—, la corrección ya no vale y no se aplica.
+  const factory Suggestion.correction({
+    required String id,
+    required String targetItemId,
+    required CorrectionSubject subject,
+    required String subjectId,
+    required Map<String, String> before,
+    required String reason,
+    required String aiRunId,
+    required SuggestionStatus status,
+    required DateTime createdAt,
+    Map<String, String>? after,
+    String? model,
+    double? confidence,
+  }) = CorrectionSuggestion;
 }

@@ -43,9 +43,12 @@ final pendingReviewCountProvider = StreamProvider.autoDispose<int>((ref) {
 });
 
 /// Si [suggestion] se revisa en «Para revisar»: todo menos un duplicado, que
-/// tiene su pantalla porque fusionar borra un elemento.
+/// tiene su pantalla porque fusionar borra un elemento, y una corrección de
+/// «Revisar con otro modelo» (F33), que tiene su sección con el antes y el
+/// después.
 bool isReviewableSuggestion(Suggestion suggestion) =>
-    suggestion is! DuplicateSuggestionEntry;
+    suggestion is! DuplicateSuggestionEntry &&
+    suggestion is! CorrectionSuggestion;
 
 /// Las sugerencias pendientes de un elemento que van a «Para revisar».
 final itemReviewSuggestionsProvider = Provider.autoDispose

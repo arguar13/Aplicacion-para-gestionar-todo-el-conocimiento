@@ -4,6 +4,7 @@ import 'package:sinapsis/core/database/active_entries.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
+import 'package:sinapsis/core/database/correction_suggestions.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
@@ -124,10 +125,14 @@ class AiRunRepositoryImpl implements AiRunRepository {
     try {
       return await _db.transaction(() async {
         final placements = (await aiTopicPlacementCounts(_db, [runId]))[runId];
+        final corrections = (await aiCorrectionCounts(_db, [runId]))[runId];
         final tally =
             await _remainingOf(runId) +
             ((await _fields.remaining([runId]))[runId] ?? const AiRunTally()) +
-            AiRunTally(topicPlacements: placements?.remaining ?? 0);
+            AiRunTally(
+              topicPlacements: placements?.remaining ?? 0,
+              corrections: corrections?.remaining ?? 0,
+            );
         final updated =
             await (_db.update(
               _db.aiRuns,
@@ -201,11 +206,13 @@ class AiRunRepositoryImpl implements AiRunRepository {
 
       // El tema y la referencia se cuentan aparte: lo que todavía es de la IA
       // se mira contra el valor de hoy, de a una página. Los temas ubicados
-      // en el árbol, en su registro de sugerencias.
+      // en el árbol y las correcciones aceptadas de una revisión (F33), en su
+      // registro de sugerencias.
       final runIds = [for (final row in rows) row.read<String>('id')];
       final fieldsCreated = await _fields.created(runIds);
       final fieldsLeft = await _fields.remaining(runIds);
       final placements = await aiTopicPlacementCounts(_db, runIds);
+      final corrections = await aiCorrectionCounts(_db, runIds);
 
       return right([
         for (final row in rows)
@@ -227,6 +234,8 @@ class AiRunRepositoryImpl implements AiRunRepository {
                 AiRunTally(
                   topicPlacements:
                       placements[row.read<String>('id')]?.created ?? 0,
+                  corrections:
+                      corrections[row.read<String>('id')]?.created ?? 0,
                 ),
             remaining:
                 AiRunTally(
@@ -238,6 +247,8 @@ class AiRunRepositoryImpl implements AiRunRepository {
                 AiRunTally(
                   topicPlacements:
                       placements[row.read<String>('id')]?.remaining ?? 0,
+                  corrections:
+                      corrections[row.read<String>('id')]?.remaining ?? 0,
                 ),
           ),
       ]);
@@ -428,6 +439,9 @@ class AiRunRepositoryImpl implements AiRunRepository {
     // raíz. No tienen `ai_run_id` propio —el lugar de un tema es una columna
     // del vocabulario—: la pasada queda en su registro de sugerencias.
     final topicPlacements = await undoAiTopicPlacements(_db, run.id);
+    // Lo que una revisión corrigió (F33) vuelve a como estaba: la corrección
+    // no es una fila con `ai_run_id`, sino un cambio sobre lo que ya había.
+    final corrections = await undoAiCorrections(_db, run.id);
     if (run.undoneAt == null) {
       await (_db.update(_db.aiRuns)..where((r) => r.id.equals(run.id))).write(
         AiRunsCompanion(undoneAt: Value(_clock())),
@@ -439,6 +453,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
           // El tema de una nota mapa va con ella: ya cuenta en `fields`.
           properties: mapNote == null ? properties : 0,
           topicPlacements: topicPlacements,
+          corrections: corrections,
         ) +
         fields;
   }

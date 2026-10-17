@@ -130,6 +130,11 @@ class _SuggestionReviewDialogState extends State<_SuggestionReviewDialog> {
                 'Una sugerencia de referencia no debería llegar al diálogo '
                 'de revisión genérico.',
               ),
+              // F33: se decide con el antes y el después, en «Revisión».
+              CorrectionSuggestion() => throw StateError(
+                'Una corrección no debería llegar al diálogo de revisión '
+                'genérico.',
+              ),
             };
 
             return CheckboxListTile(

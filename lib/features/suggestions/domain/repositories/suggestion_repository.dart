@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/duplicate_match_kind.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
@@ -111,6 +112,22 @@ abstract interface class SuggestionRepository {
     String? quote,
   });
 
+  /// Deja en «Revisión» lo que un modelo propone corregir o sacar de algo que
+  /// hizo la IA en [targetItemId] (F33), en `status: pending`: ver
+  /// `Suggestion.correction`. [before] es como estaba cuando el modelo lo
+  /// revisó, y [after] cómo quedaría —`null` para sacarlo—. [aiRunId] es la
+  /// pasada de revisión de [model]. Genera `id`/`createdAt` internamente.
+  Future<Either<Failure, Suggestion>> createCorrectionSuggestion({
+    required String targetItemId,
+    required CorrectionSubject subject,
+    required String subjectId,
+    required Map<String, String> before,
+    required Map<String, String>? after,
+    required String reason,
+    required String aiRunId,
+    String? model,
+  });
+
   /// Aplica el payload de verdad —vía
   /// `OrganizeRepository.assignProperty` con `origin: suggestedAccepted`
   /// para una sugerencia de propiedad, `OrganizeRepository.createRelation`
@@ -118,7 +135,9 @@ abstract interface class SuggestionRepository {
   /// duplicado, o `KnowledgeEntryWriter.setReference` para una de
   /// referencia, completando solo lo que la referencia todavía no tenía, o
   /// crea la tarjeta de una de tarjeta, como de la persona y lista para
-  /// repasar— y marca `status: accepted`. Si la aplicación falla, la sugerencia
+  /// repasar—, o aplica la corrección de una de corrección dentro de su
+  /// pasada de revisión —si lo corregido sigue como el modelo lo vio— y
+  /// marca `status: accepted`. Si la aplicación falla, la sugerencia
   /// queda `pending`, reintentable.
   Future<Either<Failure, Unit>> accept(String id);
 

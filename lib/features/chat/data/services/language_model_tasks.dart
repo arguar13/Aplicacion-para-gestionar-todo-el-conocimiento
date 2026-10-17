@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/flashcard_review_parser.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
@@ -66,6 +68,24 @@ const _flashcardSystemInstruction =
     'ni comillas:\nP: <pregunta>\nR: <respuesta>\nC: <la frase del '
     'contenido de la que sale la respuesta, copiada TEXTUALMENTE, sin '
     'cambiar ni una palabra>';
+
+/// Revisar tarjetas que hizo otro modelo (F33): el formato exacto que lee
+/// `parseFlashcardReview`. Solo corregir o sacar —nunca agregar—, y contra el
+/// pasaje de cada una, no contra lo que el modelo sabe: una tarjeta «correcta»
+/// que el texto no dice tampoco sirve para estudiar ese texto.
+const _flashcardReviewSystemInstruction =
+    'Respondé siempre en español. Tu tarea es revisar tarjetas de estudio que '
+    'hizo otro modelo a partir de un texto. Cada tarjeta viene numerada, con '
+    'su pregunta (P:), su respuesta (R:) y el pasaje del texto del que sale '
+    '(PASAJE:). Revisá que la pregunta se entienda sola, que la respuesta sea '
+    'correcta y completa según el pasaje, y que no diga nada que el pasaje no '
+    'diga. Basate ÚNICAMENTE en el pasaje. Por cada tarjeta respondé con este '
+    'formato exacto, sin Markdown:\nTARJETA <número>: bien\nsi está bien; '
+    'si hay que corregirla:\nTARJETA <número>: corregir\nP: <la pregunta '
+    'corregida>\nR: <la respuesta corregida>\nPOR QUÉ: <una línea>\ny si '
+    'está mal sin arreglo, o el pasaje no la respalda:\nTARJETA <número>: '
+    'sacar\nPOR QUÉ: <una línea>\nCorregí solo lo que está mal: si está '
+    'bien, decí bien. No agregues tarjetas nuevas. No respondas nada más.';
 
 /// Mismo criterio que `_flashcardSystemInstruction`, para juzgar vínculos en
 /// vez de generar tarjetas: un formato exacto y estricto, para que un
@@ -291,6 +311,11 @@ const kPromptMarginTokens = 32;
 /// cada una: unos 96 tokens cada una, y un margen.
 int draftsReplyTokens(int count) => (count * 96 + 32).clamp(192, 1024);
 
+/// La revisión de [count] tarjetas (F33): lo más largo es corregirlas todas,
+/// con su pregunta, su respuesta y el porqué, unos 128 tokens cada una.
+int flashcardReviewReplyTokens(int count) =>
+    (count * 128 + 32).clamp(160, 1280);
+
 /// Una línea `SUGERENCIA:` por cada uno de [candidates] candidatos, como
 /// mucho.
 int relationsReplyTokens(int candidates) =>
@@ -316,6 +341,7 @@ class LanguageModelTasks
     implements
         ChatModel,
         FlashcardGenerator,
+        FlashcardReviewer,
         ClozeGenerator,
         RelationSuggestionService,
         SummarizationService,
@@ -461,6 +487,31 @@ class LanguageModelTasks
         );
 
         return parseFlashcardDrafts(text).take(count).toList();
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  @override
+  Future<List<FlashcardVerdict>> reviewFlashcards(
+    List<FlashcardToReview> cards,
+  ) async {
+    if (cards.isEmpty) return const [];
+    return _withTurn(() async {
+      final chat = await _backend.openExchange(
+        instruction: _flashcardReviewSystemInstruction,
+        maxOutputTokens: flashcardReviewReplyTokens(cards.length),
+      );
+
+      try {
+        final text = await _generate(chat, _buildReviewPrompt(cards));
+        return parseFlashcardReview(
+          text,
+          originals: [
+            for (final card in cards) (front: card.front, back: card.back),
+          ],
+        );
       } finally {
         await chat.close();
       }
@@ -861,11 +912,26 @@ class _VaultConversation implements VaultConversation {
   Future<void> close() => _session.close();
 }
 
+/// Las tarjetas que se le dan a revisar (F33), numeradas desde 1 como las lee
+/// `parseFlashcardReview`, cada una con su pasaje.
+String _buildReviewPrompt(List<FlashcardToReview> cards) {
+  final buffer = StringBuffer('Revisá estas tarjetas:\n');
+  for (final (index, card) in cards.indexed) {
+    buffer
+      ..write('\nTARJETA ${index + 1}\n')
+      ..write('P: ${card.front}\n')
+      ..write('R: ${card.back}\n')
+      ..write('PASAJE: ${card.passage}\n');
+  }
+  return buffer.toString();
+}
+
 /// El mensaje que de verdad se le manda al modelo: la pregunta o el pedido
 /// del usuario, más el contexto de la bóveda que se haya encontrado para
 /// esa vuelta —numerado, para que citar "[1]" en la respuesta señale
 /// exactamente cuál—. Sin fuentes, el contexto queda vacío y el modelo lo
 /// ve tal cual: nada que ocultarle sobre lo que sí o no se encontró.
+
 String _buildVaultPrompt(String message, List<ChatSource> sources) {
   if (sources.isEmpty) return message;
 

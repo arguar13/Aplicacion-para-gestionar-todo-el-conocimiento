@@ -3,8 +3,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'ai_run.freezed.dart';
 
 /// Cuánto de cada cosa (F27): vínculos, tarjetas, propiedades, el tema de la
-/// biblioteca, los datos de la referencia, los temas que ubicó en el árbol y
-/// las notas mapa que escribió.
+/// biblioteca, los datos de la referencia, los temas que ubicó en el árbol,
+/// las notas mapa que escribió y —en una pasada de revisión (F33)— las
+/// correcciones que la persona le aceptó.
 @freezed
 sealed class AiRunTally with _$AiRunTally {
   const factory AiRunTally({
@@ -28,6 +29,11 @@ sealed class AiRunTally with _$AiRunTally {
     /// la pasada le puso —su tema— va con ella y no se cuenta aparte. Deja de
     /// ser de la IA si la persona la editó o la borró.
     @Default(0) int mapNotes,
+
+    /// Lo que la persona le aceptó a una pasada de revisión (F33): cada
+    /// corrección o cada cosa que se sacó, de a una. Lo que todavía es de la
+    /// IA es lo que sigue como la dejó la corrección.
+    @Default(0) int corrections,
   }) = _AiRunTally;
 
   const AiRunTally._();
@@ -39,7 +45,8 @@ sealed class AiRunTally with _$AiRunTally {
       spaces +
       referenceFields +
       topicPlacements +
-      mapNotes;
+      mapNotes +
+      corrections;
 
   bool get isEmpty => total == 0;
 
@@ -51,6 +58,7 @@ sealed class AiRunTally with _$AiRunTally {
     referenceFields: referenceFields + other.referenceFields,
     topicPlacements: topicPlacements + other.topicPlacements,
     mapNotes: mapNotes + other.mapNotes,
+    corrections: corrections + other.corrections,
   );
 }
 

@@ -28,4 +28,9 @@ enum SuggestionKind {
   /// Subir la madurez de una nota viva que creció — F27, el Atlas. La IA
   /// nunca la cambia sola: es el juicio de la persona.
   maturity,
+
+  /// Lo que un modelo propone corregir o sacar de lo que hizo la IA antes
+  /// —F33, «Revisar con otro modelo»—, con el antes y el después. Nada cambia
+  /// hasta que la persona la acepta.
+  correction,
 }
