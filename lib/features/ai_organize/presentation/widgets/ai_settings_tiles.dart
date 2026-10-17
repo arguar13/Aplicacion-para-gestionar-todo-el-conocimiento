@@ -19,7 +19,7 @@ class AiActivitySettingsTile extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
     final view = ref.watch(aiQueueViewProvider);
-    final reviewCount = ref.watch(pendingReviewCountProvider).valueOrNull ?? 0;
+    final reviewCount = ref.watch(pendingDecisionsCountProvider);
     final queued = switch (view) {
       AiQueueWorkingView(:final pending) ||
       AiQueueChargerView(:final pending) ||

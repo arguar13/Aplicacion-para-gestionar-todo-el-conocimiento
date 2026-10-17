@@ -34,6 +34,7 @@ import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/duplicates/domain/usecases/merge_duplicate_items_usecase.dart';
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
@@ -210,6 +211,63 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       telemetry: _telemetry,
       hint: 'SuggestionRepositoryImpl.watchPendingReviewCount',
     );
+  }
+
+  @override
+  Stream<List<CorrectionReviewItem>> watchPendingCorrections() {
+    return watchQuery(
+      db: _db,
+      tables: [_db.suggestions, _db.knowledgeEntries, _db.flashcards],
+      read: _readPendingCorrections,
+      telemetry: _telemetry,
+      hint: 'SuggestionRepositoryImpl.watchPendingCorrections',
+    );
+  }
+
+  Future<List<CorrectionReviewItem>> _readPendingCorrections() async {
+    final rows = await _db
+        .customSelect(
+          '''
+          SELECT s.*, item.title AS item_title
+            FROM suggestions s
+            JOIN item ON item.id = s.target_item_id
+           WHERE s.status = ? AND s.kind = ? AND $kActiveItemSql
+           ORDER BY s.created_at, s.id''',
+          variables: [
+            Variable.withString(SuggestionStatus.pending.name),
+            Variable.withString(SuggestionKind.correction.name),
+          ],
+          readsFrom: {_db.suggestions, _db.knowledgeEntries},
+        )
+        .get();
+    final titles = <String, String>{};
+    final corrections = <CorrectionSuggestion>[];
+    for (final row in rows) {
+      final suggestion = correctionSuggestionOf(_db.suggestions.map(row.data));
+      titles[suggestion.targetItemId] = row.read<String>('item_title');
+      corrections.add(suggestion);
+    }
+
+    final byItem = <String, List<CorrectionSuggestion>>{};
+    for (final correction in await stillApplicableCorrections(
+      _db,
+      corrections,
+    )) {
+      byItem.putIfAbsent(correction.targetItemId, () => []).add(correction);
+    }
+    // El de la corrección más nueva primero; a igual momento, por título, para
+    // que la lista no baile entre una lectura y la siguiente.
+    return [
+      for (final MapEntry(key: itemId, value: list) in byItem.entries)
+        CorrectionReviewItem(
+          itemId: itemId,
+          itemTitle: titles[itemId]!,
+          corrections: List.unmodifiable(list),
+        ),
+    ]..sort((a, b) {
+      final byDate = b.latestAt.compareTo(a.latestAt);
+      return byDate != 0 ? byDate : a.itemTitle.compareTo(b.itemTitle);
+    });
   }
 
   Future<List<PendingReviewItem>> _readItemsWithPendingReview() async {

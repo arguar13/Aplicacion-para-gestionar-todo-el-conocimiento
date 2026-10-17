@@ -148,10 +148,32 @@ falta para revisarlo.
 - **Mutación: 33 de 34 muertas.** La que sobrevive, «cuenta como vigente una corrección
   deshecha», es equivalente: una corrección aplicada solo queda descartada al deshacerse, y para
   entonces la tarjeta ya volvió a como estaba (o volvió entera), así que no cuenta igual.
-- **Lo que sigue: el paso 2**, la sección «Revisión» en «Lo que hizo la IA».
-  - El antes y el después, resaltados palabra por palabra.
-  - Aceptar y descartar de a uno, y en bloque con «Deshacer» (el lote se aplica al cerrarse el
-    aviso, como en «Para revisar»).
-  - Agrupado por elemento y con quién lo propone.
-  - Se ocultan las correcciones de una tarjeta que ya cambió o que ya no es de la IA.
-  - Su número se suma al de Ajustes › IA.
+
+### Paso 2 (hecho): la sección «Revisión»
+
+- **`SuggestionRepository.watchPendingCorrections()`** trae las correcciones pendientes por
+  elemento (`CorrectionReviewItem`), el de la más nueva primero.
+  - Solo ofrece las que todavía valen (`stillApplicableCorrections`): una sobre una tarjeta que la
+    persona editó, borró o cambió se va sola, también mientras se mira.
+  - Las de un elemento en la papelera no se ofrecen.
+- **En «Lo que hizo la IA»**, después de «Para revisar» y con el mismo estilo
+  (`ai_correction_cards.dart`):
+  - Arriba, «Aceptar todo» y «Descartar todo» con «Deshacer». El lote se aplica cuando se cierra
+    el aviso, igual que en «Para revisar».
+  - Una tarjeta por elemento, con «Aceptar las N» cuando hay más de una.
+  - En cada corrección: qué propone (corregir o sacar la tarjeta) y quién lo propone, con el ✨ y
+    el nombre lindo del modelo (`modelLabel`: «Gemini 3.8 Flash», «Claude Opus 5.5»,
+    «GPT-5.2 mini»).
+  - La pregunta y la respuesta muestran el antes, con lo que se va tachado, y el después, con lo
+    que llega resaltado, palabra por palabra (`wordDiff`, la subsecuencia común más larga, sin
+    distinguir mayúsculas). Lo que no cambió se muestra una sola vez.
+  - Debajo va el porqué, y después Descartar y Aceptar.
+- **El número de Ajustes › IA** (`pendingDecisionsCountProvider`) suma «Para revisar» y «Revisión».
+- **Pruebas.** Diff (7), nombre del modelo (4), lo que lista «Revisión» (3) y la pantalla (9).
+- **Mutación: 17 de 17 muertas.**
+- **Lo que sigue: el paso 3.**
+  - El botón «Revisar con <modelo>» en «Lo que hizo la IA» y en cada elemento.
+  - Antes de empezar, cuánto va a costar.
+  - La revisión corre en la cola de fondo, con barra de avance, pausa y cancelar.
+  - Usa el turno de la cola, que cede el modelo cuando lo usás vos, pero gasta de tu cuota y no del tope de la IA de fondo.
+  - Al cambiar de modelo a mitad, espera y retoma.

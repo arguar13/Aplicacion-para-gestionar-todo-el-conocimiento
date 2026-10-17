@@ -17,6 +17,7 @@ import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 
@@ -40,6 +41,26 @@ final pendingReviewItemsProvider =
 /// acompaña a «Lo que hizo la IA» en Ajustes.
 final pendingReviewCountProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.watch(suggestionRepositoryProvider).watchPendingReviewCount();
+});
+
+/// Las correcciones de «Revisar con otro modelo» que esperan decisión (F33),
+/// por elemento: la sección «Revisión».
+final pendingCorrectionsProvider =
+    StreamProvider.autoDispose<List<CorrectionReviewItem>>((ref) {
+      return ref.watch(suggestionRepositoryProvider).watchPendingCorrections();
+    });
+
+/// Lo que espera que la persona decida en «Lo que hizo la IA»: lo de
+/// «Para revisar» más las correcciones de «Revisión» (F33). El número de
+/// Ajustes › IA.
+final pendingDecisionsCountProvider = Provider.autoDispose<int>((ref) {
+  final review = ref.watch(pendingReviewCountProvider).valueOrNull ?? 0;
+  final corrections = ref.watch(pendingCorrectionsProvider).valueOrNull;
+  return review +
+      (corrections ?? const <CorrectionReviewItem>[]).fold(
+        0,
+        (sum, item) => sum + item.corrections.length,
+      );
 });
 
 /// Si [suggestion] se revisa en «Para revisar»: todo menos un duplicado, que

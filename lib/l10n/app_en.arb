@@ -10000,5 +10000,55 @@
   "aiStatusWaitingPending": "{count, plural, =0{Nothing is lost.} =1{1 item is waiting; nothing is lost.} other{{count} items are waiting; nothing is lost.}}",
   "@aiStatusWaitingPending": {"description": "Cuántos esperan mientras la IA de fondo espera (F32).", "placeholders": {"count": {"type": "int"}}},
   "aiStatusOpenAccounts": "Accounts and quota",
-  "@aiStatusOpenAccounts": {"description": "Botón del estado de la IA: ir a las cuentas (F32)."}
+  "@aiStatusOpenAccounts": {"description": "Botón del estado de la IA: ir a las cuentas (F32)."},
+  "aiCorrectionsTitle": "Review",
+  "@aiCorrectionsTitle": {
+    "description": "Encabezado de las correcciones que propuso otro modelo al revisar lo que hizo la IA (F33)."
+  },
+  "aiCorrectionsHint": "What another model suggests fixing in what the AI did. Nothing changes until you accept.",
+  "@aiCorrectionsHint": {
+    "description": "Explicación debajo de «Revisión» (F33)."
+  },
+  "aiCorrectionBy": "Suggested by {model}",
+  "@aiCorrectionBy": {
+    "description": "Quién propone una corrección (F33): el modelo que revisó.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "aiCorrectionQuestion": "Question",
+  "@aiCorrectionQuestion": {
+    "description": "Rótulo de la pregunta de una tarjeta en una corrección (F33)."
+  },
+  "aiCorrectionAnswer": "Answer",
+  "@aiCorrectionAnswer": {
+    "description": "Rótulo de la respuesta de una tarjeta en una corrección (F33)."
+  },
+  "aiCorrectionRemoveCard": "Remove this card",
+  "@aiCorrectionRemoveCard": {
+    "description": "Lo que propone una corrección que saca una tarjeta (F33)."
+  },
+  "aiCorrectionFixCard": "Fix this card",
+  "@aiCorrectionFixCard": {
+    "description": "Lo que propone una corrección que cambia una tarjeta (F33)."
+  },
+  "aiCorrectionsAcceptItem": "Accept all {count}",
+  "@aiCorrectionsAcceptItem": {
+    "description": "Botón que acepta todas las correcciones de un elemento (F33).",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiCorrectionBefore": "Before",
+  "@aiCorrectionBefore": {
+    "description": "Rótulo accesible del texto de antes en una corrección (F33)."
+  },
+  "aiCorrectionAfter": "After",
+  "@aiCorrectionAfter": {
+    "description": "Rótulo accesible del texto corregido en una corrección (F33)."
+  }
 }

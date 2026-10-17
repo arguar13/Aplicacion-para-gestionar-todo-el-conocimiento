@@ -1,9 +1,11 @@
+import 'package:async/async.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' show Unit, right, unit;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
@@ -33,10 +35,11 @@ void main() {
   late AiRunRepositoryImpl runs;
   late FlashcardRepositoryImpl flashcards;
   late SuggestionRepositoryImpl suggestions;
-  final now = DateTime(2026, 10, 17, 10);
+  var now = DateTime(2026, 10, 17, 10);
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
+    now = DateTime(2026, 10, 17, 10);
     final ids = FakeIdGenerator();
     final telemetry = _MockTelemetryService();
     runs = AiRunRepositoryImpl(
@@ -163,6 +166,119 @@ void main() {
 
     expect(await suggestions.watchPendingReviewCount().first, 0);
     expect(await suggestions.watchItemsWithPendingReview().first, isEmpty);
+  });
+
+  group('lo que muestra «Revisión»', () {
+    test('por elemento, el de la más nueva primero, solo las pendientes '
+        'que todavía valen', () async {
+      await insertItemRows(db, id: 'b', title: 'Elemento b');
+      final first = await aiCard();
+      final stale = await aiCard(front: '¿Cuándo cayó Roma?', back: 'En 1453.');
+      final run = await reviewRun();
+      final kept = await propose(first.card, run);
+      // Una sobre una tarjeta que la persona editó después: ya no vale.
+      final gone = (await suggestions.createCorrectionSuggestion(
+        targetItemId: 'a',
+        subject: CorrectionSubject.flashcard,
+        subjectId: stale.card,
+        before: {
+          FlashcardCorrectionField.front: '¿Cuándo cayó Roma?',
+          FlashcardCorrectionField.back: 'En 1453.',
+        },
+        after: null,
+        reason: 'r',
+        aiRunId: run,
+      )).getOrElse((f) => fail('$f'));
+      await flashcards.update(
+        id: stale.card,
+        front: '¿Cuándo cayó Roma?',
+        back: 'En 476.',
+      );
+      // Otra en «b», más nueva.
+      final bRun = (await runs.startRun('b')).getOrElse((f) => fail('$f'));
+      final bCard = (await flashcards.create(
+        itemId: 'b',
+        front: '¿Qué?',
+        back: 'Eso.',
+        ai: AiProvenance(runId: bRun),
+      )).getOrElse((f) => fail('$f'));
+      now = now.add(const Duration(minutes: 1));
+      final newer = (await suggestions.createCorrectionSuggestion(
+        targetItemId: 'b',
+        subject: CorrectionSubject.flashcard,
+        subjectId: bCard.id,
+        before: {
+          FlashcardCorrectionField.front: '¿Qué?',
+          FlashcardCorrectionField.back: 'Eso.',
+        },
+        after: null,
+        reason: 'r',
+        aiRunId: run,
+      )).getOrElse((f) => fail('$f'));
+
+      final items = await suggestions.watchPendingCorrections().first;
+
+      expect(items.map((i) => i.itemId), ['b', 'a']);
+      expect(items.first.itemTitle, 'Elemento b');
+      expect(items.first.corrections.map((c) => c.id), [newer.id]);
+      expect(items.last.corrections.map((c) => c.id), [kept.id]);
+      expect(items.last.corrections, isNot(contains(gone)));
+    });
+
+    test('se actualiza al aceptar y no muestra las de un elemento en la '
+        'papelera', () async {
+      final made = await aiCard();
+      final correction = await propose(made.card, await reviewRun());
+      final seen = StreamQueue(suggestions.watchPendingCorrections());
+      expect((await seen.next).single.corrections.single.id, correction.id);
+
+      await suggestions.accept(correction.id);
+      expect(await seen.next, isEmpty);
+      await seen.cancel();
+
+      final other = await aiCard(front: '¿Otra?', back: 'Sí.');
+      final second = (await suggestions.createCorrectionSuggestion(
+        targetItemId: 'a',
+        subject: CorrectionSubject.flashcard,
+        subjectId: other.card,
+        before: {
+          FlashcardCorrectionField.front: '¿Otra?',
+          FlashcardCorrectionField.back: 'Sí.',
+        },
+        after: null,
+        reason: 'r',
+        aiRunId: await reviewRun(),
+      )).getOrElse((f) => fail('$f'));
+      expect(
+        (await suggestions.watchPendingCorrections().first)
+            .single
+            .corrections
+            .single
+            .id,
+        second.id,
+      );
+      await KnowledgeEntryWriter(db, clock: () => now).trash(['a']);
+      expect(await suggestions.watchPendingCorrections().first, isEmpty);
+    });
+
+    test(
+      'se va sola si la persona edita la tarjeta mientras se mira',
+      () async {
+        final made = await aiCard();
+        await propose(made.card, await reviewRun());
+        final seen = StreamQueue(suggestions.watchPendingCorrections());
+        expect(await seen.next, hasLength(1));
+
+        await flashcards.update(
+          id: made.card,
+          front: '¿Quién escribió el Quijote?',
+          back: 'Cervantes.',
+        );
+
+        expect(await seen.next, isEmpty);
+        await seen.cancel();
+      },
+    );
   });
 
   group('aceptar una corrección', () {

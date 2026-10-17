@@ -8,6 +8,7 @@ import 'package:sinapsis/features/ai_models/data/cloud/sse.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_info.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 
 /// Lo que se le suma al tope de una respuesta en los modelos que razonan
 /// antes de escribir: lo razonado cuenta dentro de `max_completion_tokens`, y
@@ -72,14 +73,7 @@ class OpenAiWire implements CloudWire {
 
   /// Como lo escribe OpenAI: «gpt-5.2-mini» → «GPT-5.2 mini»; la serie «o»
   /// queda tal cual («o4-mini»).
-  static String displayNameOf(String id) {
-    if (!id.startsWith('gpt-')) return id;
-    final rest = id.substring(4);
-    final dash = rest.indexOf('-');
-    if (dash < 0) return 'GPT-$rest';
-    return 'GPT-${rest.substring(0, dash)} '
-        '${rest.substring(dash + 1).replaceAll('-', ' ')}';
-  }
+  static String displayNameOf(String id) => modelLabel(id);
 
   /// El `gpt-N(.M)` más nuevo sin sufijo; si no hay, el primero.
   @override

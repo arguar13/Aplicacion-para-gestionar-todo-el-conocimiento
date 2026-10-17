@@ -11,10 +11,12 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_activity_feed.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_correction_cards.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_queue_status.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_cards.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/repositories/suggestion_repository.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
@@ -30,7 +32,10 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// 2. **Para revisar** (decisión B): lo que la IA no aplicó porque dudaba,
 ///    por elemento, con aceptar o descartar de un toque, o todo junto con
 ///    «Deshacer».
-/// 3. **La actividad**: las pasadas por día y por elemento, con lo que sigue
+/// 3. **Revisión** (F33): lo que otro modelo propone corregir o sacar de lo
+///    que hizo la IA, con el antes y el después: de a una, por elemento, o
+///    juntas con «Deshacer».
+/// 4. **La actividad**: las pasadas por día y por elemento, con lo que sigue
 ///    siendo de la IA y su «Deshacer», de a páginas al bajar.
 ///
 /// Con [itemId], solo lo de ese elemento: es a donde lleva «Ver» desde su
@@ -99,11 +104,24 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
   Future<void> _resolveAll(
     List<PendingReviewItem> items, {
     required bool accept,
-  }) async {
+  }) => _resolveIds([
+    for (final item in items) ...item.suggestionIds,
+  ], accept: accept);
+
+  /// Las [corrections] (F33), igual que [_resolveAll].
+  Future<void> _resolveCorrections(
+    Iterable<CorrectionSuggestion> corrections, {
+    required bool accept,
+  }) => _resolveIds([
+    for (final correction in corrections) correction.id,
+  ], accept: accept);
+
+  /// Acepta o descarta las sugerencias [all] que no estén ya resueltas, con
+  /// «Deshacer»: ver [_resolveAll].
+  Future<void> _resolveIds(List<String> all, {required bool accept}) async {
     final ids = [
-      for (final item in items)
-        for (final id in item.suggestionIds)
-          if (!_hidden.contains(id)) id,
+      for (final id in all)
+        if (!_hidden.contains(id)) id,
     ];
     if (ids.isEmpty) return;
     final l10n = AppLocalizations.of(context)!;
@@ -232,6 +250,16 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
       (sum, item) =>
           sum + item.suggestionIds.where((id) => !_hidden.contains(id)).length,
     );
+    final allCorrections = ref.watch(pendingCorrectionsProvider).valueOrNull;
+    final corrections = [
+      for (final item in allCorrections ?? const <CorrectionReviewItem>[])
+        if (itemId == null || item.itemId == itemId) item,
+    ];
+    final correctionCount = corrections.fold(
+      0,
+      (sum, item) =>
+          sum + item.corrections.where((c) => !_hidden.contains(c.id)).length,
+    );
     final queue = ref.watch(aiQueueViewProvider);
     final workingTitle = queue is AiQueueWorkingView ? queue.itemTitle : null;
     final now = ref.watch(clockProvider)();
@@ -241,7 +269,9 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
         activity.failure == null &&
         activity.runs.isEmpty &&
         allReview != null &&
-        review.isEmpty;
+        review.isEmpty &&
+        allCorrections != null &&
+        corrections.isEmpty;
 
     const gutter = EdgeInsets.symmetric(horizontal: 16);
 
@@ -287,6 +317,50 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
                     onOpen: itemId == null ? () => _open(item.itemId) : null,
                     onAccept: (s) => unawaited(_resolveOne(s, accept: true)),
                     onDiscard: (s) => unawaited(_resolveOne(s, accept: false)),
+                  );
+                },
+              ),
+            ),
+          ],
+          if (corrections.isNotEmpty) ...[
+            SliverPadding(
+              padding: gutter,
+              sliver: SliverToBoxAdapter(
+                child: AiCollapse(
+                  visible: correctionCount > 0,
+                  child: AiCorrectionsHeader(
+                    count: correctionCount,
+                    onAcceptAll: () => unawaited(
+                      _resolveCorrections(
+                        corrections.expand((item) => item.corrections),
+                        accept: true,
+                      ),
+                    ),
+                    onDiscardAll: () => unawaited(
+                      _resolveCorrections(
+                        corrections.expand((item) => item.corrections),
+                        accept: false,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: gutter,
+              sliver: SliverList.builder(
+                itemCount: corrections.length,
+                itemBuilder: (context, index) {
+                  final item = corrections[index];
+                  return AiCorrectionItemCard(
+                    key: ValueKey(('corrections', item.itemId)),
+                    item: item,
+                    hidden: _hidden,
+                    onOpen: itemId == null ? () => _open(item.itemId) : null,
+                    onAccept: (c) => unawaited(_resolveOne(c, accept: true)),
+                    onDiscard: (c) => unawaited(_resolveOne(c, accept: false)),
+                    onAcceptItem: (list) =>
+                        unawaited(_resolveCorrections(list, accept: true)),
                   );
                 },
               ),

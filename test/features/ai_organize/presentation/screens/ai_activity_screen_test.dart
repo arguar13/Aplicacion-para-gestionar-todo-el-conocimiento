@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -9,10 +12,12 @@ import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
@@ -769,6 +774,276 @@ void main() {
 
       expect(find.byKey(const Key('ai-review-item-a')), findsOneWidget);
       expect(find.byKey(const Key('ai-review-item-b')), findsNothing);
+    });
+  });
+
+  group('revisión (F33)', () {
+    setUp(() async {
+      await setUpWith(const []);
+      for (final (id, title) in [('a', 'Roma'), ('b', 'Cartago')]) {
+        await insertItemRows(harness.database, id: id, title: title);
+        await harness.database
+            .into(harness.database.aiRuns)
+            .insert(
+              AiRunsCompanion.insert(
+                id: 'run-$id',
+                itemId: id,
+                startedAt: DateTime(2026, 10, 17),
+              ),
+            );
+      }
+    });
+
+    /// Una tarjeta de la IA en [itemId] y una corrección pendiente sobre
+    /// ella; devuelve la corrección y la tarjeta.
+    Future<({String id, String card})> propose(
+      String itemId, {
+      String front = '¿Quién escribió el Quijote?',
+      String back = 'Lope de Vega.',
+      String? fixedBack = 'Miguel de Cervantes.',
+    }) async {
+      final card =
+          (await harness.container
+                  .read(flashcardRepositoryProvider)
+                  .create(
+                    itemId: itemId,
+                    front: front,
+                    back: back,
+                    ai: AiProvenance(runId: 'run-$itemId'),
+                  ))
+              .getOrElse((f) => fail('$f'));
+      final created = await harness.container
+          .read(suggestionRepositoryProvider)
+          .createCorrectionSuggestion(
+            targetItemId: itemId,
+            subject: CorrectionSubject.flashcard,
+            subjectId: card.id,
+            before: {
+              FlashcardCorrectionField.front: front,
+              FlashcardCorrectionField.back: back,
+            },
+            after: fixedBack == null
+                ? null
+                : {
+                    FlashcardCorrectionField.front: front,
+                    FlashcardCorrectionField.back: fixedBack,
+                  },
+            reason: 'El pasaje dice otra cosa.',
+            aiRunId: 'run-review',
+            model: 'gemini-3.8-flash',
+          );
+      return (id: created.getOrElse((f) => fail('$f')).id, card: card.id);
+    }
+
+    Future<SuggestionStatus> statusOf(String id) async {
+      final row = await (harness.database.select(
+        harness.database.suggestions,
+      )..where((s) => s.id.equals(id))).getSingle();
+      return row.status;
+    }
+
+    Future<FlashcardRow?> cardOf(String id) => (harness.database.select(
+      harness.database.flashcards,
+    )..where((f) => f.id.equals(id))).getSingleOrNull();
+
+    Future<void> waitOutBatchUndo(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('el antes y el después, quién lo propone y por qué', (
+      tester,
+    ) async {
+      final fix = await propose('a');
+      final drop = await propose(
+        'b',
+        front: '¿Relleno?',
+        back: 'Sí.',
+        fixedBack: null,
+      );
+      await pumpScreen(tester);
+
+      expect(find.text(es.aiCorrectionsTitle), findsOneWidget);
+      expect(find.text(es.aiCorrectionsHint), findsOneWidget);
+      expect(find.byKey(const Key('ai-corrections-item-a')), findsOneWidget);
+      expect(find.byKey(const Key('ai-corrections-item-b')), findsOneWidget);
+      expect(find.text(es.aiCorrectionFixCard), findsOneWidget);
+      expect(find.text(es.aiCorrectionRemoveCard), findsOneWidget);
+      expect(find.text('Gemini 3.8 Flash'), findsNWidgets(2));
+      expect(find.text('El pasaje dice otra cosa.'), findsNWidgets(2));
+      // La pregunta no cambió: una sola vez. La respuesta, antes y después.
+      final row = find.byKey(Key('ai-correction-${fix.id}'));
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('¿Quién escribió el Quijote?'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('Lope de Vega.', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('Miguel de Cervantes.', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+      // Lo que se saca se muestra tachado, sin después.
+      expect(
+        find.descendant(
+          of: find.byKey(Key('ai-correction-${drop.id}')),
+          matching: find.text('¿Relleno?'),
+        ),
+        findsOneWidget,
+      );
+      // No es «Para revisar», ni el vacío.
+      expect(find.text(es.aiReviewTitle), findsNothing);
+      expect(find.byKey(const Key('ai-activity-empty')), findsNothing);
+    });
+
+    testWidgets('aceptar una corrige la tarjeta y se va', (tester) async {
+      final fix = await propose('a');
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${fix.id}')));
+      await tester.pumpAndSettle();
+
+      expect(await statusOf(fix.id), SuggestionStatus.accepted);
+      expect((await cardOf(fix.card))!.back, 'Miguel de Cervantes.');
+      expect(find.text(es.aiCorrectionsTitle), findsNothing);
+      expect(find.byKey(const Key('ai-activity-empty')), findsOneWidget);
+    });
+
+    testWidgets('descartar una no cambia nada', (tester) async {
+      final fix = await propose('a');
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(Key('ai-correction-discard-${fix.id}')));
+      await tester.pumpAndSettle();
+
+      expect(await statusOf(fix.id), SuggestionStatus.rejected);
+      expect((await cardOf(fix.card))!.back, 'Lope de Vega.');
+    });
+
+    testWidgets('si la tarjeta cambió después, la corrección ya no se '
+        'ofrece', (tester) async {
+      final fix = await propose('a');
+      await harness.container
+          .read(flashcardRepositoryProvider)
+          .update(
+            id: fix.card,
+            front: '¿Quién escribió el Quijote?',
+            back: 'Cervantes.',
+          );
+      await pumpScreen(tester);
+
+      expect(find.text(es.aiCorrectionsTitle), findsNothing);
+    });
+
+    testWidgets('aceptar todo espera el «Deshacer» y después aplica', (
+      tester,
+    ) async {
+      final fix = await propose('a');
+      final drop = await propose(
+        'b',
+        front: '¿Relleno?',
+        back: 'Sí.',
+        fixedBack: null,
+      );
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('ai-corrections-accept-all')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text(es.aiReviewAcceptedAll(2)), findsOneWidget);
+      expect(await statusOf(fix.id), SuggestionStatus.pending);
+      expect(await cardOf(drop.card), isNotNull);
+
+      await waitOutBatchUndo(tester);
+
+      expect(await statusOf(fix.id), SuggestionStatus.accepted);
+      expect((await cardOf(fix.card))!.back, 'Miguel de Cervantes.');
+      expect(await cardOf(drop.card), isNull);
+    });
+
+    testWidgets('descartar todo y «Deshacer» deja todo como estaba', (
+      tester,
+    ) async {
+      final fix = await propose('a');
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('ai-corrections-discard-all')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const Key('ai-review-batch-undo')));
+      await tester.pumpAndSettle();
+
+      expect(await statusOf(fix.id), SuggestionStatus.pending);
+      expect(find.byKey(Key('ai-correction-${fix.id}')), findsOneWidget);
+    });
+
+    testWidgets('las de un elemento se aceptan juntas', (tester) async {
+      final first = await propose('a');
+      final second = await propose(
+        'a',
+        front: '¿Cuándo cayó Roma?',
+        back: 'En 1453.',
+        fixedBack: 'En 476.',
+      );
+      final other = await propose('b');
+      await pumpScreen(tester);
+
+      expect(
+        find.byKey(const Key('ai-corrections-accept-item-b')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const Key('ai-corrections-accept-item-a')));
+      await waitOutBatchUndo(tester);
+
+      expect(await statusOf(first.id), SuggestionStatus.accepted);
+      expect(await statusOf(second.id), SuggestionStatus.accepted);
+      expect(await statusOf(other.id), SuggestionStatus.pending);
+    });
+
+    testWidgets('con un elemento elegido, solo las de ese elemento', (
+      tester,
+    ) async {
+      await propose('a');
+      await propose('b');
+      await pumpScreen(tester, itemId: 'a');
+
+      expect(find.byKey(const Key('ai-corrections-item-a')), findsOneWidget);
+      expect(find.byKey(const Key('ai-corrections-item-b')), findsNothing);
+    });
+
+    test('el número de Ajustes suma «Para revisar» y «Revisión»', () async {
+      await propose('a');
+      await harness.container
+          .read(suggestionRepositoryProvider)
+          .createRelationSuggestion(
+            targetItemId: 'a',
+            relatedItemId: 'b',
+            relatedItemTitle: 'Cartago',
+            kind: RelationKind.relatedTo,
+            reason: 'r',
+          );
+      final sub = harness.container.listen(
+        pendingDecisionsCountProvider,
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+      await harness.container.read(pendingCorrectionsProvider.future);
+      await harness.container.read(pendingReviewCountProvider.future);
+
+      expect(sub.read(), 2);
     });
   });
 }

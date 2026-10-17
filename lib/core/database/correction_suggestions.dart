@@ -108,6 +108,24 @@ Map<String, String> _texts(Map<String, dynamic> raw) => {
   for (final MapEntry(:key, :value) in raw.entries) key: value as String,
 };
 
+/// De [corrections], las que todavía se pueden aplicar: lo corregido sigue
+/// siendo de la IA y está como el modelo lo vio. Las demás se hicieron sobre
+/// algo que ya no está —la persona editó la tarjeta, la borró, o cambió de
+/// otro modo— y no tiene sentido ofrecerlas: aceptarlas fallaría.
+Future<List<CorrectionSuggestion>> stillApplicableCorrections(
+  AppDatabase db,
+  List<CorrectionSuggestion> corrections,
+) async {
+  if (corrections.isEmpty) return const [];
+  final cards = await _cardsById(db, corrections.map((c) => c.subjectId));
+  return [
+    for (final correction in corrections)
+      if (cards[correction.subjectId] case final card?
+          when _isAi(card) && _matches(card, correction.before))
+        correction,
+  ];
+}
+
 /// Aplica la corrección pendiente [row]: corrige la tarjeta o la saca, dentro
 /// de su pasada de revisión, y anota en la sugerencia lo que hace falta para
 /// deshacerlo. No cambia su estado: eso lo hace quien acepta.

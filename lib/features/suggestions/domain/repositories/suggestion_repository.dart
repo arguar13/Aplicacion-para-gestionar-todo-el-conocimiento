@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/property_suggestion_group.dart';
 
@@ -50,6 +51,15 @@ abstract interface class SuggestionRepository {
   /// el número que acompaña a «Lo que hizo la IA» en Ajustes › IA. Un solo
   /// número, sin traer ni agrupar las filas.
   Stream<int> watchPendingReviewCount();
+
+  /// Las correcciones de «Revisar con otro modelo» (F33) que esperan que la
+  /// persona decida, por elemento —el de la más nueva primero—, actualizándose
+  /// solas: lo que muestra la sección «Revisión».
+  ///
+  /// Solo las que todavía se pueden aplicar: una sobre una tarjeta que la
+  /// persona editó, borró o cambió desde la revisión no se ofrece. Las de un
+  /// elemento en la papelera, tampoco.
+  Stream<List<CorrectionReviewItem>> watchPendingCorrections();
 
   /// Crea una sugerencia de propiedad nueva, en `status: pending`.
   /// Genera `id`/`createdAt` internamente — mismo patrón que
