@@ -59,7 +59,7 @@ Future<void> startAiReview(
     context: context,
     builder: (_) => AiReviewCostDialog(
       model: modelLabel(reviewer),
-      cards: candidates.fold(0, (sum, c) => sum + c.cards),
+      things: candidates.fold(0, (sum, c) => sum + c.things),
       items: candidates.length,
       requests: aiReviewRequests(candidates, perCall: perCall),
     ),
@@ -85,7 +85,7 @@ Future<void> startAiReview(
   }
 }
 
-/// Antes de empezar, cuánto cuesta (decisión C): cuántas tarjetas en cuántos
+/// Antes de empezar, cuánto cuesta (decisión C): cuántas cosas en cuántos
 /// elementos y cuántos pedidos al modelo; de qué cuota sale y lo que se sabe
 /// de ella —lo gastado hoy, si las cuentas están sin cuota hasta una hora—.
 /// Los proveedores no dicen cuánto queda de la capa gratuita: se lo dice así,
@@ -93,7 +93,7 @@ Future<void> startAiReview(
 class AiReviewCostDialog extends ConsumerWidget {
   const AiReviewCostDialog({
     required this.model,
-    required this.cards,
+    required this.things,
     required this.items,
     required this.requests,
     super.key,
@@ -101,7 +101,7 @@ class AiReviewCostDialog extends ConsumerWidget {
 
   /// El nombre lindo del modelo que revisa.
   final String model;
-  final int cards;
+  final int things;
   final int items;
   final int requests;
 
@@ -147,7 +147,7 @@ class AiReviewCostDialog extends ConsumerWidget {
         children: [
           Text(
             l10n.aiRecheckCostScope(
-              l10n.aiRecheckCards(cards),
+              l10n.aiRecheckThings(things),
               l10n.aiRecheckItems(items),
               requests,
             ),
@@ -246,7 +246,7 @@ class _Offer extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         l10n.aiRecheckOfferWork(
-                          l10n.aiRecheckCards(w.cards),
+                          l10n.aiRecheckThings(w.things),
                           _madeBy(l10n, w.model),
                           l10n.aiRecheckItems(w.items),
                         ),

@@ -774,26 +774,43 @@ cuentas, trae **"Cuentas y cuota"**. Debajo:
 
 Si la IA organizó tu biblioteca con un modelo y después elegiste otro (por
 ejemplo, pasaste de Gemma en el teléfono a Gemini), el modelo nuevo puede
-revisar lo que hizo el anterior. Por ahora revisa **las tarjetas**: que la
-pregunta se entienda y que la respuesta sea correcta según el texto de donde
-salió. **Solo corrige o saca, nunca agrega**: para tarjetas nuevas está
-"Organizar con IA".
+revisar lo que hizo el anterior. Revisa **lo que sigue siendo de la IA** (lo
+que editaste ya es tuyo y no lo toca):
+
+- **Las tarjetas**: que la pregunta se entienda y que la respuesta sea
+  correcta según el texto de donde salió.
+- **Los vínculos**: el tipo (relacionado, continúa, contradice, cita, resume)
+  y la frase que dice por qué. Las extracciones y los índices no se tocan.
+- **Las etiquetas y propiedades**: por otro valor **que ya esté** en esa
+  categoría; nunca inventa uno nuevo. Las que no son de texto (un número, una
+  fecha, una persona) solo se pueden sacar.
+- **El tema** de la biblioteca: por otro que ya exista.
+- **Los datos de la referencia** que completó la IA: la revista o el libro
+  que la contiene, la editorial, el lugar, la edición, el volumen, el número,
+  las páginas, el ISBN, el ISSN y el DOI. El tipo de obra, las personas y la
+  fecha no, porque tienen su propio editor.
+- **La introducción de una nota mapa**: se corrige, pero no se saca, porque
+  es parte del índice.
+
+**Solo corrige o saca, nunca agrega**: para algo nuevo está "Organizar con
+IA".
 
 **Cómo empezar:**
 
 - **Toda la biblioteca**: arriba de "Lo que hizo la IA", la tarjeta **"Que
   otro modelo lo revise"** dice cuánto hizo cada modelo y todavía no revisó el
-  de ahora (p. ej. "12 tarjetas de Gemma 4 E4B en 5 elementos"). Con
+  de ahora (p. ej. "312 cosas de Gemma 4 E4B en 85 elementos"). Con
   **"Revisar con Gemini 3.8 Flash"** (el nombre del modelo elegido) revisa
   todo; si hay de más de un modelo, **"Solo lo de …"** revisa lo de uno. Lo
   que hizo el mismo modelo y los elementos que ya revisó no se vuelven a
   mirar.
 - **Un elemento**: en la línea "La IA organizó esto" de su panel, **"Revisar
-  con …"**. Ahí revisa todas sus tarjetas de la IA, aunque las haya hecho o
+  con …"**. Ahí revisa todo lo de la IA en ese elemento, aunque lo haya hecho o
   revisado el mismo modelo.
 
-**Antes de empezar te dice cuánto cuesta**: cuántas tarjetas, en cuántos
-elementos y unos cuántos pedidos al modelo. Con un modelo en la nube, **sale
+**Antes de empezar te dice cuánto cuesta**: cuántas cosas, en cuántos
+elementos y unos cuántos pedidos al modelo (las tarjetas y lo demás van en
+pedidos distintos). Con un modelo en la nube, **sale
 de tu cuota** (no del tope de la IA de fondo): te dice cuántos pedidos llevás
 hoy y, si tus cuentas están sin cuota, a qué hora empieza sola. Los
 proveedores no dicen cuánto queda: si se acaba a mitad, espera y sigue sola,
@@ -810,18 +827,29 @@ la IA".
 **Lo que propone queda en "Revisión"**, en "Lo que hizo la IA", agrupado por
 elemento, y **nada cambia hasta que aceptás**:
 
-- Cada propuesta dice si es **corregir** o **sacar** la tarjeta, quién la
-  propone (con el ✨ y el nombre del modelo) y por qué.
-- La pregunta y la respuesta muestran el antes, con lo que se va tachado, y
-  el después, con lo que llega resaltado, palabra por palabra.
+- Cada propuesta dice qué es y si es **corregir** o **sacar**, por ejemplo
+  "Corregir el vínculo con «Cartago»", "Sacar de «Tema»", "Corregir el tema",
+  "Vaciar «Editorial»" o "Corregir la introducción". También dice quién la
+  propone (con el ✨ y el nombre del modelo) y por qué. Un dato de la
+  referencia se llama como en su formulario: en un artículo, el contenedor es
+  la "Revista".
+- Lo que cambia muestra el antes, con lo que se va tachado, y el después, con
+  lo que llega resaltado, palabra por palabra: la pregunta y la respuesta de
+  una tarjeta, el tipo y la frase de un vínculo, el valor de una etiqueta, el
+  tema, el dato o la introducción.
 - **"Aceptar"** y **"Descartar"** en cada una, **"Aceptar las N"** por
   elemento, y arriba **"Aceptar todo"** y **"Descartar todo"**, con unos
   segundos para **"Deshacer"**.
+- Lo corregido **sigue siendo de la IA**, de la pasada que lo hizo: el
+  "Deshacer" de esa pasada se lo lleva igual que antes. Una tarjeta, un
+  vínculo o una etiqueta que la revisión sacó o cambió queda recordado como
+  "No era", y la IA no lo vuelve a proponer.
 - Lo aceptado queda como una pasada del modelo que revisó, en la actividad:
-  su **"Deshacer"** devuelve las tarjetas a como estaban (también las que
-  sacó, con sus repasos).
-- Lo que descartás no se vuelve a proponer. Una propuesta sobre una tarjeta
-  que editaste o borraste después desaparece sola: ya es tuya.
+  su **"Deshacer"** devuelve todo a como estaba, también lo que sacó (una
+  tarjeta, con sus repasos), y olvida el "No era". No pisa lo que cambiaste
+  después.
+- Lo que descartás no se vuelve a proponer. Una propuesta sobre algo que
+  editaste o borraste después desaparece sola: ya es tuyo.
 
 ### Deshacer y "No era"
 

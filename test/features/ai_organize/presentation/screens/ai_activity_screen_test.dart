@@ -1463,8 +1463,8 @@ void main() {
     void setBatch(AiReviewBatch? batch) =>
         harness.container.read(aiReviewBatchProvider.notifier).state = batch;
 
-    String work(int cards, String model, int items) => es.aiRecheckOfferWork(
-      es.aiRecheckCards(cards),
+    String work(int things, String model, int items) => es.aiRecheckOfferWork(
+      es.aiRecheckThings(things),
       model,
       es.aiRecheckItems(items),
     );
@@ -1472,8 +1472,8 @@ void main() {
     testWidgets('ofrece revisar lo que el modelo elegido todavía no revisó, '
         'por el modelo que lo hizo', (tester) async {
       runs.work = const [
-        AiModelWork(model: 'Gemma 4 E4B', cards: 12, items: 5),
-        AiModelWork(model: null, cards: 1, items: 1),
+        AiModelWork(model: 'Gemma 4 E4B', things: 12, items: 5),
+        AiModelWork(model: null, things: 1, items: 1),
       ];
       await pumpScreen(tester);
 
@@ -1491,7 +1491,9 @@ void main() {
     });
 
     testWidgets('de un solo modelo, un solo botón', (tester) async {
-      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      runs.work = const [
+        AiModelWork(model: 'Gemma 4 E4B', things: 2, items: 1),
+      ];
       await pumpScreen(tester);
 
       expect(find.byKey(const Key('ai-review-offer-all')), findsOneWidget);
@@ -1509,7 +1511,9 @@ void main() {
 
     testWidgets('mirando un elemento, no ofrece la biblioteca: ahí está el '
         'botón de su línea', (tester) async {
-      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      runs.work = const [
+        AiModelWork(model: 'Gemma 4 E4B', things: 2, items: 1),
+      ];
       await pumpScreen(tester, itemId: 'a');
 
       expect(find.byKey(const Key('ai-review-offer')), findsNothing);
@@ -1518,10 +1522,10 @@ void main() {
     testWidgets('antes de empezar dice cuánto cuesta, y empieza solo si se '
         'confirma', (tester) async {
       runs
-        ..work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 9, items: 2)]
+        ..work = const [AiModelWork(model: 'Gemma 4 E4B', things: 11, items: 2)]
         ..candidates = const [
-          AiReviewCandidate(itemId: 'a', cards: 5),
-          AiReviewCandidate(itemId: 'b', cards: 4),
+          AiReviewCandidate(itemId: 'a', cards: 5, others: 2),
+          AiReviewCandidate(itemId: 'b', others: 4),
         ];
       await pumpScreen(tester);
 
@@ -1534,10 +1538,15 @@ void main() {
         itemId: null,
       ));
       expect(find.byKey(const Key('ai-review-cost-dialog')), findsOneWidget);
-      // De a 4 tarjetas por pedido: 2 para las 5 de «a» y 1 para las 4 de «b».
+      // De a 4 por pedido, las tarjetas y lo demás por separado: 2 para las
+      // 5 tarjetas de «a» y 1 para sus otras 2, y 1 para las 4 cosas de «b».
       expect(
         find.text(
-          es.aiRecheckCostScope(es.aiRecheckCards(9), es.aiRecheckItems(2), 3),
+          es.aiRecheckCostScope(
+            es.aiRecheckThings(11),
+            es.aiRecheckItems(2),
+            4,
+          ),
         ),
         findsOneWidget,
       );
@@ -1561,8 +1570,8 @@ void main() {
     testWidgets('«Solo lo de» pide lo de ese modelo', (tester) async {
       runs
         ..work = const [
-          AiModelWork(model: 'Gemma 4 E4B', cards: 3, items: 1),
-          AiModelWork(model: 'gemini-2.5-flash', cards: 1, items: 1),
+          AiModelWork(model: 'Gemma 4 E4B', things: 3, items: 1),
+          AiModelWork(model: 'gemini-2.5-flash', things: 1, items: 1),
         ]
         ..candidates = const [AiReviewCandidate(itemId: 'a', cards: 3)];
       await pumpScreen(tester);
@@ -1578,7 +1587,9 @@ void main() {
     testWidgets('si ya no queda nada para revisar, lo dice y no pregunta', (
       tester,
     ) async {
-      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      runs.work = const [
+        AiModelWork(model: 'Gemma 4 E4B', things: 2, items: 1),
+      ];
       await pumpScreen(tester);
 
       await tester.tap(find.byKey(const Key('ai-review-offer-all')));
@@ -1612,7 +1623,7 @@ void main() {
         now: today,
       );
       runs
-        ..work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)]
+        ..work = const [AiModelWork(model: 'Gemma 4 E4B', things: 2, items: 1)]
         ..candidates = const [AiReviewCandidate(itemId: 'a', cards: 2)];
       await pumpScreen(tester);
 
@@ -1661,7 +1672,9 @@ void main() {
 
     testWidgets('mientras revisa: cuántos van, cuántas propuestas, qué lee, '
         'con pausar y cancelar; no ofrece otra', (tester) async {
-      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      runs.work = const [
+        AiModelWork(model: 'Gemma 4 E4B', things: 2, items: 1),
+      ];
       await pumpScreen(tester);
       setBatch(
         const AiReviewBatch(

@@ -457,3 +457,29 @@ Partes, un commit cada una:
 - **Mutación: 30 de 30 muertas.**
 - **Falta, en la segunda parte:** que la oferta, el costo y los candidatos cuenten todo. Hoy la
   cola llega solo a los elementos con tarjetas de la IA, aunque en ellos ya revisa lo demás.
+
+### Paso 4d, segunda parte (hecha): la oferta y el costo cuentan todo
+
+- **Una sola consulta** (`_reviewableThingsCte`, en `AiRunRepositoryImpl`) junta, una fila por
+  cosa, las tarjetas y lo demás con las mismas reglas que `reviewableAiThings`:
+  - vínculos que no son estructura;
+  - etiquetas de la pasada sobre ese mismo elemento, menos las de una nota mapa;
+  - el tema y los datos de texto de la referencia que siguen con lo que puso la pasada;
+  - la introducción de una nota mapa que sigue siendo de la IA: viva, sin editar, con su última
+    pasada que organiza en pie y que empieza con un párrafo seguido de un título.
+
+  `aiWorkByModel` y `reviewCandidates` cuentan desde ahí.
+- **`AiModelWork.things`** reemplaza a `cards`. **`AiReviewCandidate`** lleva `cards` y
+  `others`, y el costo (`aiReviewRequests`) los cuenta en pedidos distintos, como los mandan sus
+  pasos.
+- **Los textos dicen «cosas»** (`aiRecheckThings`): «312 cosas de Gemma 4 E4B en 85
+  elementos», «Va a revisar 11 cosas en 2 elementos».
+- **El botón «Revisar con …» del elemento** aparece con cualquier cosa de la IA que se pueda
+  revisar (`AiRunTally.reviewable`), no solo con tarjetas. Lo que ubicó en el árbol y lo que ya
+  corrigió una revisión no cuentan.
+- **La guía** («Revisar con otro modelo») dice qué se revisa de cada cosa, cómo se ve cada
+  propuesta, que lo corregido sigue siendo de la IA y qué hace el «Deshacer».
+- **Pruebas:** la consulta (4), el botón (2), el diálogo del costo con tarjetas y lo demás
+  mezclados.
+- **Mutación: 13 de 13 muertas.** «la nota sin introducción» sobrevivía porque la nota de la
+  prueba tenía un solo título; ahora tiene dos secciones.

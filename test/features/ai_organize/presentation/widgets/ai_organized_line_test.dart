@@ -260,10 +260,25 @@ void main() {
   group('revisar con otro modelo (F33)', () {
     const recheck = Key('ai-organized-line-recheck');
 
-    testWidgets('sin tarjetas de la IA no ofrece revisar: por ahora el '
-        'revisor mira tarjetas', (tester) async {
+    testWidgets('sin tarjetas, ofrece revisar lo demás: los vínculos', (
+      tester,
+    ) async {
       await setUpWith([
         fakeRun('r1', itemId: 'a', remaining: const AiRunTally(relations: 2)),
+      ]);
+      await pumpDetail(tester);
+
+      expect(find.byKey(recheck), findsOneWidget);
+    });
+
+    testWidgets('lo que ubicó en el árbol o ya corrigió una revisión no se '
+        'revisa: no lo ofrece', (tester) async {
+      await setUpWith([
+        fakeRun(
+          'r1',
+          itemId: 'a',
+          remaining: const AiRunTally(topicPlacements: 1, corrections: 2),
+        ),
       ]);
       await pumpDetail(tester);
 
@@ -299,7 +314,7 @@ void main() {
       ));
       expect(
         find.text(
-          es.aiRecheckCostScope(es.aiRecheckCards(3), es.aiRecheckItems(1), 1),
+          es.aiRecheckCostScope(es.aiRecheckThings(3), es.aiRecheckItems(1), 1),
         ),
         findsOneWidget,
       );

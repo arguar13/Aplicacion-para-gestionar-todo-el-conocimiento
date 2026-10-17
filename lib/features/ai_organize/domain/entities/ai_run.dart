@@ -50,6 +50,14 @@ sealed class AiRunTally with _$AiRunTally {
 
   bool get isEmpty => total == 0;
 
+  /// Lo que «Revisar con otro modelo» (F33) puede mirar: las tarjetas, los
+  /// vínculos, las etiquetas, el tema, los datos de la referencia y las notas
+  /// mapa. No lo que ubicó en el árbol ni lo que ya corrigió una revisión.
+  /// Alcanza para ofrecerlo; qué se revisa de verdad lo dice
+  /// `AiRunRepository.reviewCandidates`.
+  int get reviewable =>
+      relations + flashcards + properties + spaces + referenceFields + mapNotes;
+
   AiRunTally operator +(AiRunTally other) => AiRunTally(
     relations: relations + other.relations,
     flashcards: flashcards + other.flashcards,

@@ -13,7 +13,9 @@ import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -347,19 +349,140 @@ class AiRunRepositoryImpl implements AiRunRepository {
        AND r.undone_at IS NULL
        AND ${activeItemSql('i')}''';
 
-  /// Lo que un revisor todavía no revisó, sobre [_reviewableCardsSql]: ni lo
-  /// que hizo él mismo, ni los elementos con una pasada de revisión suya
-  /// terminada y en pie. Lleva el nombre del revisor dos veces.
+  /// Lo que la revisión mira (F33), una fila por cosa: el elemento, el modelo
+  /// de la pasada que la hizo y si es una tarjeta. Las mismas reglas que
+  /// `reviewableAiThings` —lo que se le da al revisor—, en SQL para contar
+  /// toda la biblioteca de una vez:
+  ///
+  /// - las tarjetas de [_reviewableCardsSql];
+  /// - los vínculos de la IA que no son estructura;
+  /// - las etiquetas y propiedades de la IA, menos las de una nota mapa;
+  /// - el tema y los datos de texto de la referencia que siguen con lo que
+  ///   puso la pasada;
+  /// - la introducción de una nota mapa que sigue siendo de la IA.
+  ///
+  /// Siempre de pasadas en pie, sobre elementos fuera de la papelera.
+  static final _reviewableThingsCte =
+      '''
+      WITH things(item_id, model, is_card) AS (
+        SELECT f.item_id, r.model, 1
+          $_reviewableCardsSql
+        UNION ALL
+        SELECT r.item_id, r.model, 0
+          FROM relations x
+          JOIN ai_runs r ON r.id = x.ai_run_id
+          JOIN item i ON i.id = r.item_id
+         WHERE x.origin = '${ContentOrigin.ai.name}'
+           AND x.kind NOT IN (${_structuralKindsSql()})
+           AND r.undone_at IS NULL
+           AND ${activeItemSql('i')}
+        UNION ALL
+        SELECT r.item_id, r.model, 0
+          FROM item_property_values p
+          JOIN ai_runs r ON r.id = p.ai_run_id
+          JOIN item i ON i.id = p.item_id
+         WHERE p.origin = '${ItemPropertyOrigin.ai.name}'
+           AND r.item_id = p.item_id
+           AND r.undone_at IS NULL
+           AND ${activeItemSql('i')}
+           AND NOT EXISTS (
+             SELECT 1 FROM ai_field_changes m
+              WHERE m.ai_run_id = r.id
+                AND m.field = '${AiChangedField.mapNote.name}')
+        UNION ALL
+        SELECT r.item_id, r.model, 0
+          FROM ai_field_changes c
+          JOIN ai_runs r ON r.id = c.ai_run_id
+          JOIN item i ON i.id = r.item_id
+          LEFT JOIN source_reference sr ON sr.item_id = r.item_id
+         WHERE r.undone_at IS NULL
+           AND ${activeItemSql('i')}
+           AND (${_stillFilledSql()})
+        UNION ALL
+        SELECT i.id, r.model, 0
+          FROM note n
+          JOIN item i ON i.id = n.item_id
+          JOIN ai_runs r ON r.id = (
+                 SELECT o.id FROM ai_runs o
+                  WHERE o.item_id = i.id AND ${organizeRunSql('o')}
+                  ORDER BY o.started_at DESC, o.id DESC
+                  LIMIT 1)
+         WHERE n.note_kind = '${NoteKind.map.name}'
+           AND n.generated_by_model IS NOT NULL
+           AND n.derived_edited = 0
+           AND r.undone_at IS NULL
+           AND ${activeItemSql('i')}
+           AND json_extract((
+                 SELECT rd.content FROM renditions rd
+                  WHERE rd.item_id = i.id
+                    AND rd.kind = '${RenditionKind.blocks.name}'
+                  ORDER BY rd.is_primary DESC
+                  LIMIT 1), '\$[0].type') = 'paragraph'
+           AND json_extract((
+                 SELECT rd.content FROM renditions rd
+                  WHERE rd.item_id = i.id
+                    AND rd.kind = '${RenditionKind.blocks.name}'
+                  ORDER BY rd.is_primary DESC
+                  LIMIT 1), '\$[1].type') = 'heading'
+      )''';
+
+  /// Los tipos de vínculo que son estructura, para un `NOT IN`.
+  static String _structuralKindsSql() => [
+    for (final kind in RelationKind.values)
+      if (kind.isStructural) "'${kind.name}'",
+  ].join(', ');
+
+  /// Si el registro `c` de `ai_field_changes` sigue con lo que puso su
+  /// pasada: el tema del elemento `i`, o el dato de texto de la referencia
+  /// `sr`.
+  static String _stillFilledSql() => [
+    "(c.field = '${AiChangedField.space.name}' AND i.space_id = c.after_value)",
+    for (final MapEntry(key: field, value: column) in _referenceColumns.entries)
+      "(c.field = '${field.name}' AND sr.$column = c.after_value)",
+  ].join('\n OR ');
+
+  /// La columna de `source_reference` de cada dato de texto de la referencia
+  /// (`AiChangedField.isReferenceText`).
+  static const _referenceColumns = {
+    AiChangedField.containerTitle: 'container_title',
+    AiChangedField.publisher: 'publisher',
+    AiChangedField.publisherPlace: 'publisher_place',
+    AiChangedField.edition: 'edition',
+    AiChangedField.volume: 'volume',
+    AiChangedField.issue: 'issue',
+    AiChangedField.pages: 'pages',
+    AiChangedField.isbn: 'isbn',
+    AiChangedField.issn: 'issn',
+    AiChangedField.doi: 'doi',
+  };
+
+  /// Lo que un revisor todavía no revisó, sobre la fila `t` de
+  /// [_reviewableThingsCte]: ni lo que hizo él mismo, ni los elementos con
+  /// una pasada de revisión suya terminada y en pie. Lleva el nombre del
+  /// revisor dos veces.
   static final _notReviewedBySql =
       '''
-       AND (r.model IS NULL OR r.model <> ?)
+       AND (t.model IS NULL OR t.model <> ?)
        AND NOT EXISTS (
          SELECT 1 FROM ai_runs v
-          WHERE v.item_id = f.item_id
+          WHERE v.item_id = t.item_id
             AND v.scope = '${AiRunScope.review.name}'
             AND v.model = ?
             AND v.finished_at IS NOT NULL
             AND v.undone_at IS NULL)''';
+
+  /// Lo que leen [aiWorkByModel] y [reviewCandidates].
+  Set<ResultSetImplementation<dynamic, dynamic>> get _reviewTables => {
+    _db.flashcards,
+    _db.relations,
+    _db.itemPropertyValues,
+    _db.aiFieldChanges,
+    _db.sourceReferences,
+    _db.knowledgeNotes,
+    _db.renditions,
+    _db.aiRuns,
+    _db.knowledgeEntries,
+  };
 
   @override
   Future<Either<Failure, List<ReviewableAiThing>>> reviewableThings(
@@ -383,26 +506,28 @@ class AiRunRepositoryImpl implements AiRunRepository {
       final rows = await _db
           .customSelect(
             '''
-            SELECT r.model, COUNT(*) AS cards,
-                   COUNT(DISTINCT f.item_id) AS items
-              $_reviewableCardsSql
+            $_reviewableThingsCte
+            SELECT t.model, COUNT(*) AS things,
+                   COUNT(DISTINCT t.item_id) AS items
+              FROM things t
+             WHERE 1 = 1
               ${reviewer == null ? '' : _notReviewedBySql}
-             GROUP BY r.model
-             ORDER BY cards DESC, r.model''',
+             GROUP BY t.model
+             ORDER BY things DESC, t.model''',
             variables: [
               if (reviewer != null) ...[
                 Variable.withString(reviewer),
                 Variable.withString(reviewer),
               ],
             ],
-            readsFrom: {_db.flashcards, _db.aiRuns, _db.knowledgeEntries},
+            readsFrom: _reviewTables,
           )
           .get();
       return right([
         for (final row in rows)
           AiModelWork(
             model: row.readNullable<String>('model'),
-            cards: row.read<int>('cards'),
+            things: row.read<int>('things'),
             items: row.read<int>('items'),
           ),
       ]);
@@ -424,12 +549,15 @@ class AiRunRepositoryImpl implements AiRunRepository {
       final rows = await _db
           .customSelect(
             '''
-            SELECT f.item_id, COUNT(*) AS cards
-              $_reviewableCardsSql
-               ${itemId != null ? 'AND f.item_id = ?' : _notReviewedBySql}
-               ${madeBy == null ? '' : 'AND r.model = ?'}
-             GROUP BY f.item_id
-             ORDER BY cards DESC, f.item_id''',
+            $_reviewableThingsCte
+            SELECT t.item_id, SUM(t.is_card) AS cards,
+                   SUM(1 - t.is_card) AS others
+              FROM things t
+             WHERE 1 = 1
+               ${itemId != null ? 'AND t.item_id = ?' : _notReviewedBySql}
+               ${madeBy == null ? '' : 'AND t.model = ?'}
+             GROUP BY t.item_id
+             ORDER BY COUNT(*) DESC, t.item_id''',
             variables: [
               if (itemId != null)
                 Variable.withString(itemId)
@@ -439,7 +567,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
               ],
               if (madeBy != null) Variable.withString(madeBy),
             ],
-            readsFrom: {_db.flashcards, _db.aiRuns, _db.knowledgeEntries},
+            readsFrom: _reviewTables,
           )
           .get();
       return right([
@@ -447,6 +575,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
           AiReviewCandidate(
             itemId: row.read<String>('item_id'),
             cards: row.read<int>('cards'),
+            others: row.read<int>('others'),
           ),
       ]);
       // `Object` y no `Exception`: ver `_unexpected`.

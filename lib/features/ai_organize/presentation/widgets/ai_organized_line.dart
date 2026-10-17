@@ -163,8 +163,7 @@ class _AiOrganizedLineState extends ConsumerState<AiOrganizedLine> {
                         icon: const Icon(Icons.undo, size: 18),
                         label: Text(l10n.aiItemUndoAll),
                       ),
-                    // Por ahora el revisor mira las tarjetas (F33).
-                    if (summary.remaining.flashcards > 0)
+                    if (summary.remaining.reviewable > 0)
                       TextButton.icon(
                         key: const Key('ai-organized-line-recheck'),
                         style: compact,

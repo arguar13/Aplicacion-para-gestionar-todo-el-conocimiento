@@ -6,11 +6,19 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_repository_impl.dart';
@@ -382,14 +390,14 @@ void main() {
       final work = (await runs.aiWorkByModel()).getOrElse((f) => fail('$f'));
 
       expect(work, const [
-        AiModelWork(model: 'Gemma 4 E4B', cards: 4, items: 2),
-        AiModelWork(model: 'gemini-3.8-flash', cards: 1, items: 1),
+        AiModelWork(model: 'Gemma 4 E4B', things: 4, items: 2),
+        AiModelWork(model: 'gemini-3.8-flash', things: 1, items: 1),
       ]);
 
       await KnowledgeEntryWriter(db, clock: () => now).trash(['a']);
       expect((await runs.aiWorkByModel()).getOrElse((f) => fail('$f')), const [
-        AiModelWork(model: 'Gemma 4 E4B', cards: 1, items: 1),
-        AiModelWork(model: 'gemini-3.8-flash', cards: 1, items: 1),
+        AiModelWork(model: 'Gemma 4 E4B', things: 1, items: 1),
+        AiModelWork(model: 'gemini-3.8-flash', things: 1, items: 1),
       ]);
     });
 
@@ -465,16 +473,13 @@ void main() {
         (await runs.aiWorkByModel(
           reviewer: 'gemini-3.8-flash',
         )).getOrElse((f) => fail('$f')),
-        const [AiModelWork(model: 'Gemma 4 E4B', cards: 3, items: 1)],
+        const [AiModelWork(model: 'Gemma 4 E4B', things: 3, items: 1)],
       );
       // Sin revisor, todo.
-      expect(
-        (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
-        const [
-          AiModelWork(model: 'Gemma 4 E4B', cards: 5, items: 2),
-          AiModelWork(model: 'gemini-3.8-flash', cards: 4, items: 1),
-        ],
-      );
+      expect((await runs.aiWorkByModel()).getOrElse((f) => fail('$f')), const [
+        AiModelWork(model: 'Gemma 4 E4B', things: 5, items: 2),
+        AiModelWork(model: 'gemini-3.8-flash', things: 4, items: 1),
+      ]);
     });
 
     test('cuántos pedidos lleva: de a tantas tarjetas por pedido, por '
@@ -525,7 +530,7 @@ void main() {
         const [AiReviewCandidate(itemId: 'a', cards: 1)],
       );
       expect((await runs.aiWorkByModel()).getOrElse((f) => fail('$f')), const [
-        AiModelWork(model: null, cards: 1, items: 1),
+        AiModelWork(model: null, things: 1, items: 1),
       ]);
     });
 
@@ -547,6 +552,219 @@ void main() {
         )).getOrElse((f) => fail('$f')),
         const [AiReviewCandidate(itemId: 'a', cards: 2)],
       );
+    });
+
+    group('cuenta también lo demás (F33, 4d)', () {
+      setUp(() async {
+        for (final (id, name) in [('lit', 'Literatura'), ('arte', 'Arte')]) {
+          await db
+              .into(db.spaces)
+              .insert(
+                SpacesCompanion.insert(id: id, name: name, createdAt: now),
+              );
+        }
+      });
+
+      /// Una pasada de Gemma sobre «a» que hace de todo menos tarjetas: un
+      /// vínculo, una extracción, una etiqueta, el tema, la editorial y el
+      /// tipo de obra.
+      Future<String> organizeAllOfA() async {
+        final run = (await runs.startRun(
+          'a',
+          model: 'Gemma 4 E4B',
+        )).getOrElse((f) => fail('$f'));
+        final ai = AiProvenance(runId: run);
+        await organize.createRelation(
+          fromItemId: 'a',
+          toItemId: 'b',
+          kind: RelationKind.relatedTo,
+          ai: ai,
+        );
+        await organize.createRelation(
+          fromItemId: 'c',
+          toItemId: 'a',
+          kind: RelationKind.extractedFrom,
+          ai: ai,
+        );
+        await organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Cuento',
+          origin: ItemPropertyOrigin.ai,
+          aiRunId: run,
+        );
+        // La que le puso a otro elemento no es de «a», ni de «b»: no la hizo
+        // una pasada sobre «b».
+        await organize.assignProperty(
+          itemId: 'b',
+          definitionId: tema,
+          value: 'Novela',
+          origin: ItemPropertyOrigin.ai,
+          aiRunId: run,
+        );
+        await runs.applySpace(runId: run, itemId: 'a', spaceId: 'arte');
+        await runs.completeReference(
+          runId: run,
+          itemId: 'a',
+          extracted: const ExtractedMetadata(
+            reference: ReferenceData(
+              type: ReferenceType.book,
+              publisher: 'Planeta',
+            ),
+          ),
+        );
+        await runs.finishRun(run);
+        return run;
+      }
+
+      /// Una nota mapa de la IA, de [model]; con [intro], su introducción.
+      Future<void> mapNote(String id, String model, {bool intro = true}) async {
+        await insertItemRows(
+          db,
+          id: id,
+          title: 'Mapa $id',
+          kind: SourceKind.manualNote,
+        );
+        await (db.update(
+          db.knowledgeNotes,
+        )..where((n) => n.itemId.equals(id))).write(
+          KnowledgeNotesCompanion(
+            noteKind: const Value(NoteKind.map),
+            generatedByModel: Value(model),
+          ),
+        );
+        await db
+            .into(db.renditions)
+            .insert(
+              RenditionsCompanion.insert(
+                id: 'bloques-$id',
+                itemId: id,
+                kind: RenditionKind.blocks,
+                isPrimary: true,
+                createdAt: now,
+                content: Value(
+                  encodeContentBlocks([
+                    if (intro) const ContentBlock.paragraph(text: 'Intro.'),
+                    const ContentBlock.heading(text: 'Roma', level: 2),
+                    const ContentBlock.heading(text: 'Grecia', level: 2),
+                  ]),
+                ),
+              ),
+            );
+        final run = (await runs.startRun(
+          id,
+          model: model,
+        )).getOrElse((f) => fail('$f'));
+        // Su tema es parte de la nota: no se cuenta aparte.
+        await organize.assignProperty(
+          itemId: id,
+          definitionId: tema,
+          value: 'Roma',
+          origin: ItemPropertyOrigin.ai,
+          aiRunId: run,
+        );
+        await db
+            .into(db.aiFieldChanges)
+            .insert(
+              AiFieldChangesCompanion.insert(
+                id: 'mapa-$id',
+                aiRunId: run,
+                field: AiChangedField.mapNote,
+                afterValue: 'roma',
+              ),
+            );
+        await runs.finishRun(run);
+      }
+
+      test(
+        'el vínculo, la etiqueta, el tema, la editorial y la introducción; '
+        'no la estructura, el tipo de obra ni el tema de una nota mapa',
+        () async {
+          await organizeAllOfA();
+          await mapNote('m', 'gemini-3.8-flash');
+          await mapNote('n', 'gemini-3.8-flash', intro: false);
+
+          expect(
+            (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
+            const [
+              AiModelWork(model: 'Gemma 4 E4B', things: 4, items: 1),
+              AiModelWork(model: 'gemini-3.8-flash', things: 1, items: 1),
+            ],
+          );
+          expect(
+            (await runs.reviewCandidates(
+              reviewer: 'otro',
+            )).getOrElse((f) => fail('$f')),
+            const [
+              AiReviewCandidate(itemId: 'a', others: 4),
+              AiReviewCandidate(itemId: 'm', others: 1),
+            ],
+          );
+        },
+      );
+
+      test('lo que la persona cambió deja de contar', () async {
+        await organizeAllOfA();
+        await mapNote('m', 'gemini-3.8-flash');
+        final writer = KnowledgeEntryWriter(db, clock: () => now);
+        await writer.setSpace(['a'], 'lit');
+        await writer.setReference(
+          'a',
+          const ReferenceData(type: ReferenceType.book, publisher: 'Alfaguara'),
+        );
+        await organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Cuento',
+        );
+        await writer.markDerivedEdited('m');
+
+        expect(
+          (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
+          const [AiModelWork(model: 'Gemma 4 E4B', things: 1, items: 1)],
+        );
+      });
+
+      test('la introducción no cuenta si la persona deshizo la pasada de la '
+          'nota, pero sí después de deshacer una revisión', () async {
+        await mapNote('m', 'gemini-3.8-flash');
+        now = now.add(const Duration(minutes: 1));
+        final review = (await runs.startRun(
+          'm',
+          model: 'Gemma 4 E4B',
+          scope: AiRunScope.review,
+        )).getOrElse((f) => fail('$f'));
+        await runs.undoRun(review);
+        expect(
+          (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
+          const [AiModelWork(model: 'gemini-3.8-flash', things: 1, items: 1)],
+        );
+
+        final made = (await runs.listRuns(
+          itemId: 'm',
+        )).getOrElse((f) => fail('$f')).firstWhere((r) => r.id != review);
+        await runs.undoRun(made.id);
+        await KnowledgeEntryWriter(db, clock: () => now).restore(['m']);
+        expect(
+          (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
+          isEmpty,
+        );
+      });
+
+      test('las tarjetas y lo demás de un elemento van por separado: el costo '
+          'los manda en pedidos distintos', () async {
+        await organizeAllOfA();
+        await cardsBy('a', 'Gemma 4 E4B', 5);
+
+        final candidates = (await runs.reviewCandidates(
+          reviewer: 'otro',
+        )).getOrElse((f) => fail('$f'));
+        expect(candidates, const [
+          AiReviewCandidate(itemId: 'a', cards: 5, others: 4),
+        ]);
+        // De a cuatro: dos pedidos de tarjetas y uno de lo demás.
+        expect(aiReviewRequests(candidates, perCall: 4), 3);
+      });
     });
   });
 }
