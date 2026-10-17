@@ -1,7 +1,9 @@
 # F33 — «Revisar con otro modelo»: que un modelo más capaz revise lo que hizo la IA anterior
 
-> **Estado: propuesta**, esperando tu aprobación. Para aprobarla escribí **«aprobado»** en el chat,
-> con los cambios que quieras a las decisiones de abajo.
+> **Estado: aprobado** (2026-10-16), en el chat, **con las cinco recomendadas**: revisa todo lo de la
+> IA que sigue siendo suyo; corrige y saca, sin agregar; sale de la cuota de la persona, avisando
+> antes cuánto cuesta; el aviso al cambiar a un modelo más capaz, una vez por modelo; se construye
+> apenas cierre F32.
 >
 > Pedido: *"agrega también un botón elegante o botones para que si lo aprieto revise lo que otro
 > modelo hizo, por ejemplo si cambio a un modelo más inteligente … que al apretar revise si la IA
