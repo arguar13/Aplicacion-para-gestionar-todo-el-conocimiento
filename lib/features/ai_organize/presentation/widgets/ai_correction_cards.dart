@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/word_diff.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_cards.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
+import 'package:sinapsis/features/reference/domain/services/reference_draft.dart';
+import 'package:sinapsis/features/reference/presentation/reference_presentation.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -270,6 +274,20 @@ class _CorrectionRow extends StatelessWidget {
                 after: after?[SpaceCorrectionField.name],
               ),
             ],
+            CorrectionSubject.reference => [
+              _DiffField(
+                label: _referenceFieldLabel(l10n, correction),
+                before: correction.before[ReferenceCorrectionField.value] ?? '',
+                after: after?[ReferenceCorrectionField.value],
+              ),
+            ],
+            CorrectionSubject.mapIntro => [
+              _DiffField(
+                label: l10n.aiCorrectionMapIntro,
+                before: correction.before[MapIntroCorrectionField.text] ?? '',
+                after: after?[MapIntroCorrectionField.text],
+              ),
+            ],
             CorrectionSubject.relation => [
               _DiffField(
                 label: l10n.aiCorrectionRelationKind,
@@ -364,7 +382,43 @@ String _correctionTitle(
             ),
     (CorrectionSubject.space, _) =>
       removes ? l10n.aiCorrectionRemoveSpace : l10n.aiCorrectionFixSpace,
+    (CorrectionSubject.reference, _) =>
+      removes
+          ? l10n.aiCorrectionClearReference(
+              _referenceFieldLabel(l10n, correction),
+            )
+          : l10n.aiCorrectionFixReference(
+              _referenceFieldLabel(l10n, correction),
+            ),
+    // Una introducción no se saca: es parte del índice del tema.
+    (CorrectionSubject.mapIntro, _) => l10n.aiCorrectionFixMapIntro,
   };
+}
+
+/// Cómo se llama el dato de la referencia que corrige [correction], como en
+/// el formulario de la referencia: según la clase de obra, el contenedor de
+/// un artículo es la revista.
+String _referenceFieldLabel(
+  AppLocalizations l10n,
+  CorrectionSuggestion correction,
+) {
+  final name = correction.before[ReferenceCorrectionField.field];
+  final field = switch (AiChangedField.values.asNameMap()[name]) {
+    AiChangedField.containerTitle => ReferenceField.container,
+    AiChangedField.publisher => ReferenceField.publisher,
+    AiChangedField.publisherPlace => ReferenceField.place,
+    AiChangedField.edition => ReferenceField.edition,
+    AiChangedField.volume => ReferenceField.volume,
+    AiChangedField.issue => ReferenceField.issue,
+    AiChangedField.pages => ReferenceField.pages,
+    AiChangedField.isbn => ReferenceField.isbn,
+    AiChangedField.issn => ReferenceField.issn,
+    AiChangedField.doi => ReferenceField.doi,
+    _ => null,
+  };
+  final type = ReferenceType.values
+      .asNameMap()[correction.before[ReferenceCorrectionField.type]];
+  return field?.label(l10n, type) ?? name ?? '';
 }
 
 /// El nombre del tipo de vínculo guardado como [name].

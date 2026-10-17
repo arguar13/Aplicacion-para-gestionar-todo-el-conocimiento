@@ -782,6 +782,65 @@ void main() {
     );
   });
 
+  group('el texto de una forma, suelto (F33)', () {
+    Future<void> withRendition() async {
+      await writer.upsert(noteItem());
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'bloques',
+              itemId: 'nota',
+              kind: RenditionKind.blocks,
+              isPrimary: true,
+              createdAt: captured,
+              content: const Value('viejo'),
+            ),
+          );
+    }
+
+    Future<String?> contentOf(String id) async => (await (db.select(
+      db.renditions,
+    )..where((r) => r.id.equals(id))).getSingle()).content;
+
+    test('lo cambia y lo versiona como una edición de esa forma', () async {
+      await withRendition();
+      tick();
+
+      expect(
+        await writer.setRenditionContent('nota', 'bloques', 'nuevo'),
+        isTrue,
+      );
+
+      expect(await contentOf('bloques'), 'nuevo');
+      final row = await entry('nota');
+      expect(row.rev, 2);
+      expect(row.updatedAt, clockNow);
+      expect(
+        (await versions('nota'))[EntryField.rendition('bloques')]!.updatedAt,
+        clockNow,
+      );
+    });
+
+    test('el mismo texto no es un cambio, y una forma de otro elemento no se '
+        'toca', () async {
+      await withRendition();
+      await writer.upsert(sourceItem());
+
+      expect(
+        await writer.setRenditionContent('nota', 'bloques', 'viejo'),
+        isTrue,
+      );
+      expect((await entry('nota')).rev, 1);
+
+      expect(
+        await writer.setRenditionContent('art', 'bloques', 'otro'),
+        isFalse,
+      );
+      expect(await contentOf('bloques'), 'viejo');
+    });
+  });
+
   group('borrar para siempre', () {
     Future<int> count(String table) async =>
         (await db.customSelect('SELECT COUNT(*) AS n FROM $table').getSingle())

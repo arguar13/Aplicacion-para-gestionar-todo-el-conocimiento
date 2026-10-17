@@ -9108,5 +9108,13 @@
   "aiCorrectionRemoveSpace": "Sacar el tema",
   "@aiCorrectionRemoveSpace": {"description": "Revisar con otro modelo (F33): sacar el tema de la biblioteca."},
   "aiCorrectionSpace": "Tema",
-  "@aiCorrectionSpace": {"description": "Revisar con otro modelo (F33): rótulo del tema de la biblioteca."}
+  "@aiCorrectionSpace": {"description": "Revisar con otro modelo (F33): rótulo del tema de la biblioteca."},
+  "aiCorrectionFixReference": "Corregir «{field}»",
+  "@aiCorrectionFixReference": {"description": "Revisar con otro modelo (F33): una corrección de un dato de la referencia, con su nombre («Editorial»).", "placeholders": {"field": {"type": "String"}}},
+  "aiCorrectionClearReference": "Vaciar «{field}»",
+  "@aiCorrectionClearReference": {"description": "Revisar con otro modelo (F33): vaciar un dato de la referencia que completó la IA, con su nombre.", "placeholders": {"field": {"type": "String"}}},
+  "aiCorrectionFixMapIntro": "Corregir la introducción",
+  "@aiCorrectionFixMapIntro": {"description": "Revisar con otro modelo (F33): una corrección de la introducción de una nota mapa."},
+  "aiCorrectionMapIntro": "Introducción",
+  "@aiCorrectionMapIntro": {"description": "Revisar con otro modelo (F33): rótulo del texto de la introducción de una nota mapa."}
 }

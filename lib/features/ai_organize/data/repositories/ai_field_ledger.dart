@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
+import 'package:sinapsis/core/database/ai_field_values.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
@@ -22,7 +21,7 @@ import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 /// Un vínculo, una tarjeta o una propiedad son filas que llevan su pasada;
 /// el tema y la referencia son columnas del elemento. Lo que se guarda de
 /// cada uno es el valor de antes y el que puso la IA, como texto
-/// ([_encode]); con eso:
+/// ([aiFieldValue]); con eso:
 ///
 /// - **deshacer** devuelve cada dato a como estaba **solo si sigue con lo que
 ///   puso la IA** —si la persona lo cambió después, ya es suyo—;
@@ -117,8 +116,8 @@ class AiFieldLedger {
 
     var completed = 0;
     for (final field in AiChangedField.values.where((f) => f.isReference)) {
-      final was = _encode(field, before, source.publishedAt);
-      final now = _encode(field, after, publishedAfter);
+      final was = aiFieldValue(field, before, source.publishedAt);
+      final now = aiFieldValue(field, after, publishedAfter);
       if (now == null || now == was) continue;
       await _record(runId, field, was, now);
       completed++;
@@ -185,7 +184,7 @@ class AiFieldLedger {
         }
         continue;
       }
-      if (_encode(
+      if (aiFieldValue(
             change.field,
             current.reference,
             current.publishedAt,
@@ -202,14 +201,14 @@ class AiFieldLedger {
       if (change.field == AiChangedField.publishedAt) {
         final was = _decodeDate(change.beforeValue);
         publishedAt = was.publishedAt;
-        reference = _rebuild(
+        reference = referenceWithout(
           reference,
           AiChangedField.publishedAt,
           precision: was.precision,
         );
         dateRestored = true;
       } else {
-        reference = _rebuild(reference, change.field);
+        reference = referenceWithout(reference, change.field);
       }
       referenceFields++;
     }
@@ -276,7 +275,7 @@ class AiFieldLedger {
         continue;
       }
       final current = currentByItem[itemId] ??= await _currentOf(itemId);
-      if (_encode(
+      if (aiFieldValue(
             change.field,
             current.reference,
             current.publishedAt,
@@ -415,93 +414,7 @@ class _Current {
   final DateTime? publishedAt;
 }
 
-/// [reference] con [field] vacío —o, en la fecha, con [precision]—. Hace
-/// falta armarla de nuevo: en `copyWith`, un `null` es «dejalo como estaba».
-ReferenceData _rebuild(
-  ReferenceData reference,
-  AiChangedField field, {
-  PublicationPrecision? precision,
-}) {
-  String? keep(AiChangedField f, String? value) => field == f ? null : value;
-  return ReferenceData(
-    type: field == AiChangedField.referenceType ? null : reference.type,
-    contributors: field == AiChangedField.contributors
-        ? const []
-        : reference.contributors,
-    containerTitle: keep(
-      AiChangedField.containerTitle,
-      reference.containerTitle,
-    ),
-    publisher: keep(AiChangedField.publisher, reference.publisher),
-    publisherPlace: keep(
-      AiChangedField.publisherPlace,
-      reference.publisherPlace,
-    ),
-    edition: keep(AiChangedField.edition, reference.edition),
-    volume: keep(AiChangedField.volume, reference.volume),
-    issue: keep(AiChangedField.issue, reference.issue),
-    pages: keep(AiChangedField.pages, reference.pages),
-    isbn: keep(AiChangedField.isbn, reference.isbn),
-    issn: keep(AiChangedField.issn, reference.issn),
-    doi: keep(AiChangedField.doi, reference.doi),
-    accessedAt: reference.accessedAt,
-    citationKey: reference.citationKey,
-    publicationPrecision: field == AiChangedField.publishedAt
-        ? precision
-        : reference.publicationPrecision,
-  );
-}
-
-/// El valor de [field] como texto, para compararlo con lo que puso la IA:
-/// `null` si está vacío. Las personas, por su identidad en el vocabulario y
-/// su rol, en orden —renombrar a una persona no la cambia—; la fecha, en
-/// segundos y con su exactitud, que van juntas.
-String? _encode(
-  AiChangedField field,
-  ReferenceData reference,
-  DateTime? publishedAt, {
-  String? spaceId,
-}) {
-  String? text(String? value) =>
-      value == null || value.trim().isEmpty ? null : value;
-  return switch (field) {
-    // Una nota mapa no es un valor que se compare: se mira si sigue viva y
-    // sin editar (`_mapNoteOf`), antes de llegar acá.
-    AiChangedField.mapNote => throw StateError(
-      'La nota mapa de una pasada no se codifica como un dato.',
-    ),
-    AiChangedField.space => spaceId,
-    AiChangedField.referenceType => reference.type?.name,
-    AiChangedField.contributors =>
-      reference.contributors.isEmpty
-          ? null
-          : jsonEncode([
-              for (final c in reference.contributors)
-                [c.role.name, c.personId ?? c.name.label],
-            ]),
-    AiChangedField.containerTitle => text(reference.containerTitle),
-    AiChangedField.publisher => text(reference.publisher),
-    AiChangedField.publisherPlace => text(reference.publisherPlace),
-    AiChangedField.edition => text(reference.edition),
-    AiChangedField.volume => text(reference.volume),
-    AiChangedField.issue => text(reference.issue),
-    AiChangedField.pages => text(reference.pages),
-    AiChangedField.isbn => text(reference.isbn),
-    AiChangedField.issn => text(reference.issn),
-    AiChangedField.doi => text(reference.doi),
-    AiChangedField.publishedAt =>
-      publishedAt == null && reference.publicationPrecision == null
-          ? null
-          : '${_seconds(publishedAt)}'
-                '|${reference.publicationPrecision?.name ?? ''}',
-  };
-}
-
-/// [at] en segundos, como lo guarda drift; vacío si no hay.
-String _seconds(DateTime? at) =>
-    at == null ? '' : '${at.millisecondsSinceEpoch ~/ 1000}';
-
-/// La fecha de antes, de como la guarda [_encode]: sin fecha, con la
+/// La fecha de antes, de como la guarda [aiFieldValue]: sin fecha, con la
 /// exactitud que hubiera.
 ({DateTime? publishedAt, PublicationPrecision? precision}) _decodeDate(
   String? encoded,

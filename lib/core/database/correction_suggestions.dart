@@ -2,22 +2,30 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:sinapsis/core/database/ai_field_values.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
+import 'package:sinapsis/core/database/ai_run_sql.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_value_type.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
+import 'package:sinapsis/core/domain/services/reference_normalizer.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 
@@ -80,6 +88,8 @@ const _relationKey = 'relation';
 const _propertyKey = 'property';
 const _itemIdKey = 'itemId';
 const _spaceIdKey = 'spaceId';
+const _fieldKey = 'field';
+const _valueKey = 'value';
 
 /// El `payload_json` de una corrección nueva, todavía sin aplicar.
 String encodeCorrectionPayload({
@@ -454,6 +464,8 @@ _Target _targetOf(CorrectionSubject subject) => switch (subject) {
   CorrectionSubject.relation => const _RelationTarget(),
   CorrectionSubject.property => const _PropertyTarget(),
   CorrectionSubject.space => const _SpaceTarget(),
+  CorrectionSubject.reference => const _ReferenceTarget(),
+  CorrectionSubject.mapIntro => const _MapIntroTarget(),
 };
 
 /// Una tarjeta de pregunta y respuesta: se corrige su texto o se saca, con
@@ -1327,4 +1339,395 @@ class _SpaceTarget extends _Target {
     String spaceId,
   ) => (db.update(db.aiFieldChanges)..where((c) => c.id.equals(change.id)))
       .write(AiFieldChangesCompanion(afterValue: Value(spaceId)));
+}
+
+/// Un dato de texto de la referencia que completó la IA, como está hoy: lo
+/// que recuerda su pasada y la referencia del elemento.
+class _FilledReference {
+  const _FilledReference({
+    required this.change,
+    required this.itemId,
+    required this.runUndone,
+    required this.reference,
+  });
+
+  final AiFieldChangeRow change;
+  final String itemId;
+  final bool runUndone;
+  final ReferenceData reference;
+
+  /// El dato hoy, como lo guarda la pasada; `null` si está vacío.
+  String? get value => aiFieldValue(change.field, reference, null);
+}
+
+/// Un dato de texto de la referencia que completó la IA (`AiFieldChanges`,
+/// `AiChangedField.isReferenceText`): se corrige por otro texto, o se vacía.
+///
+/// Como el tema: corregirlo actualiza también lo que la pasada recuerda
+/// haber puesto (`after_value`), así sigue siendo de la IA y deshacer esa
+/// pasada lo vacía, como estaba antes de ella. Vaciarlo no toca ese registro.
+class _ReferenceTarget extends _Target {
+  const _ReferenceTarget();
+
+  @override
+  String get missing => 'Ese dato de la referencia ya no está.';
+
+  @override
+  String get adopted =>
+      'Ese dato ya es tuyo —lo cambiaste—: la revisión no lo toca.';
+
+  @override
+  String get changed =>
+      'El dato cambió desde que se revisó: esta corrección ya no vale.';
+
+  @override
+  Future<Map<String, Object>> rowsById(AppDatabase db, Set<String> ids) async {
+    if (ids.isEmpty) return const {};
+    final query =
+        db.select(db.aiFieldChanges).join([
+          innerJoin(
+            db.aiRuns,
+            db.aiRuns.id.equalsExp(db.aiFieldChanges.aiRunId),
+          ),
+        ])..where(
+          db.aiFieldChanges.id.isIn(ids) &
+              db.aiFieldChanges.field.isIn([
+                for (final field in AiChangedField.values)
+                  if (field.isReferenceText) field.name,
+              ]),
+        );
+    final reader = ReferenceReader(db);
+    final found = <String, Object>{};
+    for (final joined in await query.get()) {
+      final change = joined.readTable(db.aiFieldChanges);
+      final run = joined.readTable(db.aiRuns);
+      found[change.id] = _FilledReference(
+        change: change,
+        itemId: run.itemId,
+        runUndone: run.undoneAt != null,
+        reference: await reader.read(run.itemId),
+      );
+    }
+    return found;
+  }
+
+  @override
+  bool isAi(Object row) {
+    final filled = row as _FilledReference;
+    return !filled.runUndone && filled.value == filled.change.afterValue;
+  }
+
+  @override
+  bool isRemoved(Object? current) =>
+      current is _FilledReference && current.value == null;
+
+  @override
+  bool matches(Object row, Map<String, String> fields) =>
+      ((row as _FilledReference).value ?? '') ==
+      fields[ReferenceCorrectionField.value];
+
+  @override
+  Future<Either<Failure, Map<String, Object>>> apply(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required IdGenerator ids,
+    required DateTime now,
+  }) async {
+    final filled = row as _FilledReference;
+    final field = filled.change.field;
+    final writer = KnowledgeEntryWriter(db, clock: () => now, ids: ids);
+    final after = correction.after;
+    if (after != null) {
+      // Lo que va a quedar de verdad —el escritor recorta los textos y
+      // normaliza los identificadores—, mirado antes de escribir: una
+      // corrección que no se puede aplicar no deja nada a medias.
+      final wanted = normalizeReference(
+        referenceWithText(
+          filled.reference,
+          field,
+          after[ReferenceCorrectionField.value] ?? '',
+        ),
+      );
+      final stored = aiFieldValue(field, wanted, null);
+      if (stored == null) {
+        return left(
+          const Failure.validation(
+            message:
+                'Ese valor no sirve para este dato: queda vacío o no es '
+                'válido.',
+          ),
+        );
+      }
+      if (stored == filled.value) {
+        return left(
+          const Failure.validation(message: 'La corrección no cambia nada.'),
+        );
+      }
+      await writer.setReference(filled.itemId, wanted);
+      await _rememberFilled(db, filled.change, stored);
+      return right({
+        _afterKey: {
+          ...correction.before,
+          ReferenceCorrectionField.value: stored,
+        },
+      });
+    }
+
+    await writer.setReference(
+      filled.itemId,
+      referenceWithText(filled.reference, field, null),
+    );
+    return right({
+      _removedKey: {
+        _itemIdKey: filled.itemId,
+        _fieldKey: field.name,
+        _valueKey: filled.value!,
+        _aiRunIdKey: filled.change.aiRunId,
+      },
+    });
+  }
+
+  @override
+  Future<bool> restoreBefore(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) async {
+    final filled = row as _FilledReference;
+    final before = correction.before[ReferenceCorrectionField.value]!;
+    final restored = await KnowledgeEntryWriter(db, clock: () => now)
+        .setReference(
+          filled.itemId,
+          referenceWithText(filled.reference, filled.change.field, before),
+        );
+    if (!restored) return false;
+    await _rememberFilled(db, filled.change, before);
+    return true;
+  }
+
+  @override
+  Future<bool> restoreRemoved(
+    AppDatabase db,
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async {
+    final itemId = removed[_itemIdKey] as String;
+    final field = AiChangedField.values.byName(removed[_fieldKey] as String);
+    return KnowledgeEntryWriter(db, clock: () => now).setReference(
+      itemId,
+      referenceWithText(
+        await ReferenceReader(db).read(itemId),
+        field,
+        removed[_valueKey] as String,
+      ),
+    );
+  }
+
+  @override
+  String? removedRunOf(Map<String, dynamic> removed) =>
+      removed[_aiRunIdKey] as String?;
+
+  /// Lo que la pasada de [change] recuerda haber puesto pasa a ser [value].
+  Future<void> _rememberFilled(
+    AppDatabase db,
+    AiFieldChangeRow change,
+    String value,
+  ) => (db.update(db.aiFieldChanges)..where((c) => c.id.equals(change.id)))
+      .write(AiFieldChangesCompanion(afterValue: Value(value)));
+}
+
+/// Una nota mapa que escribió la IA, como está hoy: si sigue siendo suya, y
+/// sus bloques.
+class _MapNoteBlocks {
+  const _MapNoteBlocks({
+    required this.itemId,
+    required this.keptByAi,
+    required this.renditionId,
+    required this.blocks,
+  });
+
+  final String itemId;
+
+  /// Viva, generada por la IA, sin editar, y sin que la persona haya
+  /// deshecho la pasada que la organizó: lo mismo que mira el Atlas para
+  /// mantenerla (`TopicMapNote.keptByAi`).
+  final bool keptByAi;
+  final String renditionId;
+  final List<ContentBlock> blocks;
+
+  /// La introducción: el párrafo que va antes del primer título
+  /// (`mapNoteBlocks`); `null` si el modelo no escribió ninguna.
+  String? get intro => switch (blocks) {
+    [ParagraphBlock(:final text), HeadingBlock(), ...] => text,
+    _ => null,
+  };
+
+  /// Los bloques con la introducción en [text].
+  List<ContentBlock> withIntro(String text) => [
+    ContentBlock.paragraph(text: text),
+    ...blocks.skip(1),
+  ];
+}
+
+/// La introducción de una nota mapa de la IA: se corrige su texto, que sigue
+/// siendo de la IA —el Atlas la sigue manteniendo—. No se saca: es parte del
+/// índice.
+class _MapIntroTarget extends _Target {
+  const _MapIntroTarget();
+
+  static final _spaces = RegExp(r'\s+');
+
+  @override
+  String get missing => 'Esa nota mapa ya no está.';
+
+  @override
+  String get adopted =>
+      'Esa nota mapa ya es tuya —la editaste—: la revisión no la toca.';
+
+  @override
+  String get changed =>
+      'La introducción cambió desde que se revisó: esta corrección ya no '
+      'vale.';
+
+  @override
+  Future<Map<String, Object>> rowsById(AppDatabase db, Set<String> ids) async {
+    final found = <String, Object>{};
+    for (final id in ids) {
+      final row = await db
+          .customSelect(
+            '''
+            SELECT i.deleted_at, n.generated_by_model, n.derived_edited,
+                   (SELECT r.undone_at FROM ai_runs r
+                     WHERE r.item_id = i.id AND ${organizeRunSql('r')}
+                     ORDER BY r.started_at DESC, r.id DESC
+                     LIMIT 1) AS last_undone,
+                   rd.id AS rendition_id, rd.content
+              FROM item i
+              JOIN note n ON n.item_id = i.id
+              JOIN renditions rd ON rd.item_id = i.id
+             WHERE i.id = ? AND n.note_kind = ? AND rd.kind = ?
+             ORDER BY rd.is_primary DESC
+             LIMIT 1''',
+            variables: [
+              Variable.withString(id),
+              Variable.withString(NoteKind.map.name),
+              Variable.withString(RenditionKind.blocks.name),
+            ],
+            readsFrom: {
+              db.knowledgeEntries,
+              db.knowledgeNotes,
+              db.aiRuns,
+              db.renditions,
+            },
+          )
+          .getSingleOrNull();
+      if (row == null) continue;
+      final blocks = tryDecodeContentBlocks(
+        row.readNullable<String>('content') ?? '',
+      );
+      if (blocks == null) continue;
+      found[id] = _MapNoteBlocks(
+        itemId: id,
+        keptByAi:
+            row.readNullable<DateTime>('deleted_at') == null &&
+            row.readNullable<String>('generated_by_model') != null &&
+            !row.read<bool>('derived_edited') &&
+            row.readNullable<DateTime>('last_undone') == null,
+        renditionId: row.read<String>('rendition_id'),
+        blocks: blocks,
+      );
+    }
+    return found;
+  }
+
+  @override
+  bool isAi(Object row) => (row as _MapNoteBlocks).keptByAi;
+
+  @override
+  bool matches(Object row, Map<String, String> fields) {
+    final intro = (row as _MapNoteBlocks).intro;
+    return intro != null && intro == fields[MapIntroCorrectionField.text];
+  }
+
+  @override
+  Future<Either<Failure, Map<String, Object>>> apply(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required IdGenerator ids,
+    required DateTime now,
+  }) async {
+    final note = row as _MapNoteBlocks;
+    final after = correction.after;
+    if (after == null) {
+      return left(
+        const Failure.validation(
+          message:
+              'La introducción de una nota mapa no se saca: es parte del '
+              'índice del tema.',
+        ),
+      );
+    }
+    // Un solo párrafo, como la escribe la IA (`cleanMapIntro`). Los enlaces
+    // de una nota mapa los arma la app con lo que hay en la bóveda: uno que
+    // propusiera el modelo podría no llevar a ningún lado.
+    final wanted = (after[MapIntroCorrectionField.text] ?? '')
+        .replaceAll(_spaces, ' ')
+        .trim();
+    if (wanted.isEmpty || wanted.contains('[[') || wanted.contains(']]')) {
+      return left(
+        const Failure.validation(
+          message:
+              'La introducción corregida tiene que ser un párrafo, sin '
+              'enlaces.',
+        ),
+      );
+    }
+    if (wanted == note.intro) {
+      return left(
+        const Failure.validation(message: 'La corrección no cambia nada.'),
+      );
+    }
+    await _write(db, note, wanted, now: now);
+    return right({
+      _afterKey: {MapIntroCorrectionField.text: wanted},
+    });
+  }
+
+  @override
+  Future<bool> restoreBefore(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) => _write(
+    db,
+    row as _MapNoteBlocks,
+    correction.before[MapIntroCorrectionField.text]!,
+    now: now,
+  );
+
+  /// No se saca nada: no hay qué devolver.
+  @override
+  Future<bool> restoreRemoved(
+    AppDatabase db,
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async => false;
+
+  @override
+  String? removedRunOf(Map<String, dynamic> removed) => null;
+
+  Future<bool> _write(
+    AppDatabase db,
+    _MapNoteBlocks note,
+    String intro, {
+    required DateTime now,
+  }) => KnowledgeEntryWriter(db, clock: () => now).setRenditionContent(
+    note.itemId,
+    note.renditionId,
+    encodeContentBlocks(note.withIntro(intro)),
+  );
 }

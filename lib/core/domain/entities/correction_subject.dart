@@ -20,6 +20,15 @@ enum CorrectionSubject {
   /// El tema de la biblioteca que le puso la IA al elemento —su espacio—:
   /// se corrige por otro tema que ya exista, o se saca.
   space,
+
+  /// Un dato de texto de la referencia que completó la IA —la revista, la
+  /// editorial, el ISBN—: se corrige por otro texto, o se vacía. El tipo de
+  /// obra, las personas y la fecha no: tienen su propio editor.
+  reference,
+
+  /// La introducción de una nota mapa que escribió la IA (el Atlas): se
+  /// corrige su texto. No se saca: es parte del índice del tema.
+  mapIntro,
 }
 
 /// Los datos de una tarjeta en el antes y el después de una corrección.
@@ -53,4 +62,19 @@ String propertyCorrectionSubjectId(String itemId, String valueId) =>
 abstract final class SpaceCorrectionField {
   static const id = 'id';
   static const name = 'name';
+}
+
+/// Los datos de la referencia en el antes y el después: cuál es
+/// (`AiChangedField.name`), de qué clase de obra —para nombrarlo como el
+/// formulario de la referencia: el contenedor de un artículo es una revista;
+/// vacío si no tiene— y su valor.
+abstract final class ReferenceCorrectionField {
+  static const field = 'field';
+  static const type = 'type';
+  static const value = 'value';
+}
+
+/// La introducción de una nota mapa en el antes y el después: su texto.
+abstract final class MapIntroCorrectionField {
+  static const text = 'text';
 }

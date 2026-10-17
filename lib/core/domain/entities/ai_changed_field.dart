@@ -44,6 +44,15 @@ enum AiChangedField {
 
   /// Si es un dato de la referencia —y no el tema ni la nota mapa—.
   bool get isReference => this != space && this != mapNote;
+
+  /// Si es un dato de la referencia que es un texto suelto —la revista, la
+  /// editorial, el ISBN—: lo que una revisión (F33) puede corregir. El tipo
+  /// de obra, las personas y la fecha tienen su propio editor.
+  bool get isReferenceText =>
+      isReference &&
+      this != referenceType &&
+      this != contributors &&
+      this != publishedAt;
 }
 
 /// El nombre con que se guardaba en `ai_field_changes.field`, antes de v37,

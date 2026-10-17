@@ -3,13 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
+import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/note_kind.dart';
 import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/reference_data.dart';
+import 'package:sinapsis/core/domain/entities/reference_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/account_usage.dart';
@@ -1079,6 +1087,154 @@ void main() {
           db.knowledgeEntries,
         )..where((e) => e.id.equals('a'))).getSingle()).spaceId,
         isNull,
+      );
+    });
+
+    testWidgets('un dato de la referencia se llama como en su formulario: el '
+        'contenedor de un artículo es la revista', (tester) async {
+      final db = harness.database;
+      await KnowledgeEntryWriter(db).setReference(
+        'a',
+        const ReferenceData(
+          type: ReferenceType.article,
+          containerTitle: 'Revista de Historia',
+        ),
+      );
+      await db
+          .into(db.aiFieldChanges)
+          .insert(
+            AiFieldChangesCompanion.insert(
+              id: 'revista',
+              aiRunId: 'run-a',
+              field: AiChangedField.containerTitle,
+              afterValue: 'Revista de Historia',
+            ),
+          );
+      final fix =
+          (await harness.container
+                  .read(suggestionRepositoryProvider)
+                  .createCorrectionSuggestion(
+                    targetItemId: 'a',
+                    subject: CorrectionSubject.reference,
+                    subjectId: 'revista',
+                    before: const {
+                      ReferenceCorrectionField.field: 'containerTitle',
+                      ReferenceCorrectionField.type: 'article',
+                      ReferenceCorrectionField.value: 'Revista de Historia',
+                    },
+                    after: const {
+                      ReferenceCorrectionField.field: 'containerTitle',
+                      ReferenceCorrectionField.type: 'article',
+                      ReferenceCorrectionField.value: 'Revista de Arqueología',
+                    },
+                    reason: 'Salió en otra revista.',
+                    aiRunId: 'run-review',
+                  ))
+              .getOrElse((f) => fail('$f'));
+      await pumpScreen(tester);
+
+      final row = find.byKey(Key('ai-correction-${fix.id}'));
+      for (final text in [
+        es.aiCorrectionFixReference(es.referenceContainerJournal),
+        es.referenceContainerJournal,
+      ]) {
+        expect(
+          find.descendant(of: row, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${fix.id}')));
+      await tester.pumpAndSettle();
+      expect(
+        (await ReferenceReader(db).read('a')).containerTitle,
+        'Revista de Arqueología',
+      );
+    });
+
+    testWidgets('la introducción de una nota mapa', (tester) async {
+      final db = harness.database;
+      await insertItemRows(
+        db,
+        id: 'mapa',
+        title: 'Mapa de Roma',
+        kind: SourceKind.manualNote,
+      );
+      await (db.update(
+        db.knowledgeNotes,
+      )..where((n) => n.itemId.equals('mapa'))).write(
+        const KnowledgeNotesCompanion(
+          noteKind: Value(NoteKind.map),
+          generatedByModel: Value('gemma'),
+        ),
+      );
+      await db
+          .into(db.renditions)
+          .insert(
+            RenditionsCompanion.insert(
+              id: 'bloques',
+              itemId: 'mapa',
+              kind: RenditionKind.blocks,
+              isPrimary: true,
+              createdAt: DateTime(2026, 10, 17),
+              content: Value(
+                encodeContentBlocks(const [
+                  ContentBlock.paragraph(text: 'Roma fue una ciudad.'),
+                  ContentBlock.heading(text: 'Lo que hay', level: 2),
+                ]),
+              ),
+            ),
+          );
+      final fix =
+          (await harness.container
+                  .read(suggestionRepositoryProvider)
+                  .createCorrectionSuggestion(
+                    targetItemId: 'mapa',
+                    subject: CorrectionSubject.mapIntro,
+                    subjectId: 'mapa',
+                    before: const {
+                      MapIntroCorrectionField.text: 'Roma fue una ciudad.',
+                    },
+                    after: const {
+                      MapIntroCorrectionField.text: 'Roma fue un imperio.',
+                    },
+                    reason: 'Los elementos hablan del imperio.',
+                    aiRunId: 'run-review',
+                  ))
+              .getOrElse((f) => fail('$f'));
+      await pumpScreen(tester);
+
+      final row = find.byKey(Key('ai-correction-${fix.id}'));
+      for (final text in [
+        es.aiCorrectionFixMapIntro,
+        es.aiCorrectionMapIntro,
+      ]) {
+        expect(
+          find.descendant(of: row, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+      for (final text in ['Roma fue una ciudad.', 'Roma fue un imperio.']) {
+        expect(
+          find.descendant(
+            of: row,
+            matching: find.text(text, findRichText: true),
+          ),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${fix.id}')));
+      await tester.pumpAndSettle();
+      final content = (await (db.select(
+        db.renditions,
+      )..where((r) => r.id.equals('bloques'))).getSingle()).content!;
+      expect(
+        tryDecodeContentBlocks(content)!.first,
+        const ContentBlock.paragraph(text: 'Roma fue un imperio.'),
       );
     });
 

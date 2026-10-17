@@ -219,7 +219,12 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
       db: _db,
       // Lo que se corrige: una corrección sobre algo que la persona cambió se
       // va sola. El vocabulario también: renombrar un valor cambia la
-      // etiqueta que vio el modelo. El tema está en el elemento.
+      // etiqueta que vio el modelo.
+      //
+      // El tema, la referencia, el texto de una nota y la marca de editada
+      // los escribe `KnowledgeEntryWriter`, que con cada cambio sube la
+      // versión del elemento —la fusión de bóvedas depende de eso—: con
+      // mirar el elemento alcanza.
       tables: [
         _db.suggestions,
         _db.knowledgeEntries,

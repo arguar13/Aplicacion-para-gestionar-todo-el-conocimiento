@@ -611,6 +611,44 @@ class KnowledgeEntryWriter {
     });
   }
 
+  /// Cambia el texto de la forma [renditionId] de [itemId] por [content], sin
+  /// pasar por el elemento entero: lo usa quien cambia un pedazo de una nota
+  /// que todavía no es de la persona —la introducción de una nota mapa que
+  /// corrige una revisión (F33)—. Queda versionado como cualquier edición de
+  /// esa forma, y la búsqueda se entera sola (los disparadores de
+  /// `renditions`).
+  ///
+  /// No marca la nota como editada por la persona (`derived_edited`) ni
+  /// rehace sus enlaces en línea: quien llama no los cambia. Devuelve `false`
+  /// si la forma no existe o no es de [itemId].
+  Future<bool> setRenditionContent(
+    String itemId,
+    String renditionId,
+    String content,
+  ) async {
+    return _db.transaction(() async {
+      final rendition =
+          await (_db.select(_db.renditions)..where(
+                (r) => r.id.equals(renditionId) & r.itemId.equals(itemId),
+              ))
+              .getSingleOrNull();
+      if (rendition == null) return false;
+      if (rendition.content == content) return true;
+      final now = _clock();
+      await (_db.update(_db.renditions)..where((r) => r.id.equals(renditionId)))
+          .write(RenditionsCompanion(content: Value(content)));
+      final row = await _entry(itemId);
+      if (row != null) {
+        await _writeEntry(
+          row,
+          KnowledgeEntriesCompanion(updatedAt: Value(now)),
+        );
+      }
+      await _touch(itemId, EntryField.rendition(renditionId), now);
+      return true;
+    });
+  }
+
   /// Marca [itemId] como generada por [model] (F16, D3): una sola vez, al
   /// nacer como derivado. Devuelve `false` si el elemento no existe o si ya
   /// estaba marcado —la propia tabla documenta que esto «no se toca

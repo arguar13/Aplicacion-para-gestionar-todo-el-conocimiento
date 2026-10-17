@@ -22,10 +22,6 @@ void main() {
   const allowed = <String, String>{
     'lib/core/database/app_database.dart':
         'declara las tablas de la base: no lee nada',
-    'lib/core/database/correction_suggestions.dart':
-        'deshacer una revisión (F33) devuelve un vínculo que sacó solo si sus '
-        'dos elementos siguen existiendo, vivos o en la papelera —restaurar '
-        'uno lo trae con sus vínculos—; no lista ni muestra nada',
     'lib/core/database/reference_reader.dart':
         'lee por identificador: quien lo llama ya decidió qué elementos son '
         'visibles —la Biblioteca y la consulta de la bibliografía dejan '

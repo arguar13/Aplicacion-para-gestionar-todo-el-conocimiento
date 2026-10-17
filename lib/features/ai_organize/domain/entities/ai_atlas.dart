@@ -108,8 +108,10 @@ class TopicMapNote {
   /// La persona tocó su contenido después (`derived_edited`): ya es suya.
   final bool edited;
 
-  /// La persona deshizo la última pasada de la IA sobre ella: la IA la suelta
-  /// y no la vuelve a tocar.
+  /// La persona deshizo la última pasada de la IA que la organizó —la que la
+  /// creó o una después—: la IA la suelta y no la vuelve a tocar. Una
+  /// revisión (F33) no cuenta: deshacerla devuelve lo que corrigió, no dice
+  /// nada de la nota.
   final bool aiLetGo;
 
   /// Su contenido en bloques, tal como está guardado; `null` si no tiene.

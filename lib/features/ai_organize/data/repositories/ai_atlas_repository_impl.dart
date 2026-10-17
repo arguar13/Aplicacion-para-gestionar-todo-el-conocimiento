@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/ai_run_sql.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/atlas_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
@@ -275,7 +276,7 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
           '''
           SELECT i.id, i.title, n.generated_by_model, n.derived_edited,
                  (SELECT r.undone_at FROM ai_runs r
-                   WHERE r.item_id = i.id
+                   WHERE r.item_id = i.id AND ${organizeRunSql('r')}
                    ORDER BY r.started_at DESC, r.id DESC LIMIT 1) AS last_undone,
                  (SELECT rd.content FROM renditions rd
                    WHERE rd.item_id = i.id AND rd.kind = '$_blocks'
@@ -504,7 +505,7 @@ class AiAtlasRepositoryImpl implements AiAtlasRepository {
           '''
           SELECT i.title, n.generated_by_model, n.derived_edited,
                  (SELECT r.undone_at FROM ai_runs r
-                   WHERE r.item_id = i.id
+                   WHERE r.item_id = i.id AND ${organizeRunSql('r')}
                    ORDER BY r.started_at DESC, r.id DESC LIMIT 1) AS last_undone,
                  (SELECT rd.content FROM renditions rd
                    WHERE rd.item_id = i.id AND rd.kind = '$_blocks'

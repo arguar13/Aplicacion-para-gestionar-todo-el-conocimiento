@@ -349,3 +349,74 @@ Partes, un commit cada una:
     IA.
   - «vuelve la sacada sobre una puesta» probaba un chequeo que nunca se alcanzaba (lo mira antes
     quien llama). Se sacó, y quedó la prueba del caso.
+
+### Paso 4c (hecho): los datos de la referencia y la introducción de las notas mapa
+
+- **Datos de la referencia** (`CorrectionSubject.reference`, `ReferenceCorrectionField`: cuál,
+  de qué clase de obra y su valor; el id es el registro de la pasada en `ai_field_changes`).
+  - Solo los de texto: revista o libro que lo contiene, editorial, lugar, edición, volumen,
+    número, páginas, ISBN, ISSN y DOI (`AiChangedField.isReferenceText`).
+  - **Corregir** guarda el valor como lo dejaría el formulario (recortado, con los
+    identificadores normalizados), y lo mira **antes** de escribir: un ISBN que no es válido no
+    deja nada a medias. Como el tema, actualiza lo que la pasada recuerda haber puesto, así
+    deshacer esa pasada vacía el dato como antes de la IA.
+  - **Vaciar** lo deja vacío.
+  - **Deshacer la revisión** devuelve el de antes o lo vuelve a poner, salvo que la persona ya
+    haya escrito otro o la pasada que lo completó se haya deshecho.
+  - En «Revisión» se llama como en el formulario según la clase de obra: el contenedor de un
+    artículo es la «Revista».
+- **Introducción de una nota mapa** (`CorrectionSubject.mapIntro`, el id es la nota).
+  - Es el párrafo que va antes del primer título; una nota sin introducción no se ofrece.
+  - Solo se corrige mientras la nota sigue siendo de la IA: viva, generada, sin editar y sin que
+    la persona haya deshecho la pasada que la organizó. Es lo mismo que mira el Atlas para
+    mantenerla.
+  - **Corregir** deja un párrafo, sin enlaces (los arma la app). No se saca: es parte del
+    índice. No marca la nota como editada por la persona, así el Atlas la sigue actualizando.
+  - **Deshacer la revisión** vuelve a la de antes, salvo que la introducción haya cambiado
+    después.
+- **Cómo se escribe:**
+  - `KnowledgeEntryWriter.setRenditionContent` cambia el texto de una forma sin pasar por el
+    elemento entero, versionado como cualquier edición.
+  - Lo que compara y vacía los datos de la referencia (`aiFieldValue`, `referenceWithout`,
+    `referenceWithText`) pasó del registro de la pasada a core (`ai_field_values.dart`): el que
+    deshace la pasada y el que corrige leen igual.
+  - `organizeRunSql` también pasó a core.
+- **Arreglo de raíz en el Atlas.** Para saber si la persona le sacó una nota mapa a la IA, el
+  Atlas miraba la última pasada sobre la nota, fuera la que fuera. Deshacer una revisión de esa
+  nota hacía que la IA la soltara y dejara de mantenerla. Ahora mira solo las pasadas que
+  organizan (`organizeRunSql`), en las dos consultas.
+- **«Revisión» en vivo.** No hacía falta sumar tablas: la referencia, el texto de la nota y la
+  marca de editada los escribe el escritor del elemento, que sube su versión con cada cambio. Las
+  tres mutaciones que lo muestran se dejaron documentadas en el comentario de la consulta.
+- **Pruebas:**
+  - referencia (10) e introducción (11), con los repositorios de verdad;
+  - el escritor (2);
+  - las dos filas en «Revisión» (2).
+- **Mutación: 26 de 26 muertas, y las 3 equivalentes de las tablas del watch, sacadas.**
+  - «la revisión suelta (por nota)» sobrevivía por dos cosas de la prueba. El reloj fijo
+    empataba las dos pasadas, y una segunda revisión abierta antes de mirar tapaba el caso.
+  - «la introducción sin su texto»: la prueba de pantalla no miraba el texto.
+
+### Paso 4d: cómo se arma (diseño)
+
+- **Qué se revisa lo dice el núcleo.** Cada pieza de `correction_suggestions.dart` ya sabe si algo
+  sigue siendo de la IA y como lo vería el modelo. Ahora también sabe listar lo de un elemento
+  (`reviewableAiThings`): cada cosa con su antes, su nombre, la pasada que la hizo y las opciones
+  que valen al corregirla (los valores de esa categoría, los temas que hay, los cinco tipos de
+  vínculo). Así lo que se le muestra al modelo y lo que después se acepta salen de la misma regla.
+- **El pedido.** Un pedido por elemento, o los que hagan falta para que entre en la ventana del
+  modelo, con el título y un fragmento del elemento y todo lo suyo numerado. El formato es el de
+  las tarjetas:
+  - un encabezado `DATO <n>: bien | corregir | sacar`;
+  - el valor nuevo (`VALOR:`; en un vínculo, `TIPO:` y `FRASE:`);
+  - `POR QUÉ:`.
+- **El lector** es estricto, como el de las tarjetas, y descarta lo que no cumple:
+  - un valor que no está entre las opciones;
+  - sacar una introducción;
+  - una «corrección» que deja todo igual;
+  - un veredicto sin su porqué.
+- **El paso** (`ReviewThingsStep`) no vuelve a proponer lo que ya está para decidir ni lo que la
+  persona descartó. Se suma al de las tarjetas en un revisor compuesto: la cola no cambia.
+- **La oferta y el costo cuentan todo**, por modelo, en SQL: las tarjetas y las demás cosas. La
+  introducción de una nota mapa se cuenta por nota (si no tiene introducción, el paso no la
+  manda). Los textos dicen «cosas»: «312 cosas de Gemma 4 E4B en 85 elementos».

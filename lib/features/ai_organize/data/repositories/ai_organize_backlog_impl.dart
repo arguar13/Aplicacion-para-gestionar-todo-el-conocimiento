@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:sinapsis/core/database/active_entries.dart';
+import 'package:sinapsis/core/database/ai_run_sql.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/item_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
-import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_sql.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
 
 /// Cuántas pasadas a medias se le aguantan a un elemento antes de dejarlo:
