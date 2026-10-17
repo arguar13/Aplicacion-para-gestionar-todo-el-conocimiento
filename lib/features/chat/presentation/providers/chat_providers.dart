@@ -15,6 +15,7 @@ import 'package:sinapsis/core/util/util_providers.dart';
 import 'package:sinapsis/features/ai_models/data/cloud/cloud_model_backend.dart';
 import 'package:sinapsis/features/ai_models/data/services/ai_language_model_readiness.dart';
 import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/chat/data/repositories/chat_conversation_repository_impl.dart';
@@ -182,6 +183,16 @@ final languageModelNameProvider = Provider<String Function()>(
         ref.read(cloudModelCatalogProvider).recommended(provider) ??
         provider.storageKey;
   },
+);
+
+/// Cuánto texto lee por pedido el modelo que escribe ahora (F32): con Gemma,
+/// partes de 3000 caracteres; con uno en la nube, un capítulo
+/// (`textBudgetFor`, según su ventana). Se lee al usarlo, como
+/// [languageModelNameProvider]: cambiar de modelo vale desde el próximo
+/// elemento, sin rearmar a quien lo usa.
+final languageModelTextBudgetProvider = Provider<ModelTextBudget Function()>(
+  (ref) =>
+      () => textBudgetFor(ref.read(modelBackendProvider).contextTokens),
 );
 
 /// El modelo de Gemma cargado en memoria, uno solo en toda la app (ver

@@ -1,20 +1,6 @@
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 
-/// Cuántos caracteres de fuentes —títulos y fragmentos— ve el modelo por
-/// pedido al armar un derivado (F30).
-///
-/// La ventana de Gemma es de 2048 tokens para todo: la instrucción (~200), la
-/// respuesta más larga (`kDerivedNoteReplyTokens`, 768) y las fuentes. En
-/// español cuenta unos 3,5 caracteres por token (`kFlashcardPartChars`):
-/// 3000 caracteres son ~860 tokens, y entran con margen. Es una cuenta para
-/// repartir, no la garantía: el modelo cuenta de verdad con su tokenizador
-/// antes de mandar ([fitSourcesToWindow]).
-///
-/// Hasta F30 se mandaban **todas** las fuentes de una vez, a 400 caracteres
-/// cada una: con más de unas quince, el pedido no entraba en la ventana.
-const kDerivedNotePartChars = 3000;
-
 /// Cuántos pedidos al modelo, como mucho, para un derivado: cada uno escribe
 /// hasta 768 tokens, y en el teléfono eso es cerca de un minuto. Con tres
 /// entran unas dieciocho fuentes; de un cuaderno más grande se leen las más
@@ -36,9 +22,18 @@ int derivedSourceChars(ChatSource source) =>
 /// final las menos representativas—. Una fuente sola más larga que una parte
 /// va sola en la suya: el modelo la recorta al mandarla
 /// ([fitSourcesToWindow]).
+///
+/// [partChars] es lo que lee por pedido el modelo elegido
+/// (`ModelTextBudget.partChars`, F32): con Gemma, 3000 —su ventana de 2048
+/// tokens tiene que dejar lugar a la instrucción, ~200, y a la respuesta más
+/// larga, `kDerivedNoteReplyTokens`—; con uno en la nube, un cuaderno entero
+/// suele ir en un solo pedido. Es una cuenta para repartir, no la garantía:
+/// el modelo cuenta de verdad con su tokenizador antes de mandar. Hasta F30
+/// se mandaban **todas** las fuentes de una vez: con Gemma y más de unas
+/// quince, el pedido no entraba.
 List<List<ChatSource>> packDerivedSources(
   List<ChatSource> sources, {
-  int partChars = kDerivedNotePartChars,
+  required int partChars,
   int maxParts = kDerivedNoteMaxParts,
 }) {
   final parts = <List<ChatSource>>[];

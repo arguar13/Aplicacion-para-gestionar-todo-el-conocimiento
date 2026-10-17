@@ -927,7 +927,7 @@ tiene adentro:
   una guía de estudio; también podés elegir preguntas abiertas, esquema o
   cronología. Cada afirmación queda anclada a su fuente. Un cuaderno grande se
   lee **por partes** (hasta tres, de las fuentes más representativas) y ves
-  cuántas lleva. En un cuaderno "a mano" la nota se agrega; en uno por tema o
+  cuántas lleva; con Gemini casi siempre entra de una sola vez. En un cuaderno "a mano" la nota se agrega; en uno por tema o
   etiqueta, recibe el tema o la etiqueta y entra sola. Si el cuaderno es por una
   consulta que una nota no cumple (por ejemplo, solo páginas web), la nota queda
   en la Biblioteca y la hoja te lo dice.
@@ -1337,7 +1337,9 @@ que además deja la nota adentro del cuaderno.
 
 De un cuaderno con muchos elementos, la IA lee **por partes** (hasta tres, de
 los más representativos) y junta todo en una sola nota: antes, con más de unos
-quince elementos, se pasaba de lo que el modelo puede leer de una vez.
+quince elementos, se pasaba de lo que el modelo puede leer de una vez. Cuánto
+entra en cada parte depende del [modelo elegido](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola):
+con Gemma, unos pocos elementos; con Gemini, casi siempre el cuaderno entero.
 
 La nota generada lleva siempre un aviso de que fue "Generada por IA", con la
 fecha y el modelo que la hizo, para que nunca se confunda con algo que
@@ -1365,7 +1367,10 @@ entran solas a tu repaso, con la marca **✨**. Las ves en la sección
   respuestas a partir del contenido y te las muestra para que elijas cuáles
   guardar antes de confirmarlas. Un texto largo —un libro, un video de
   horas— lo lee **por partes**, repartidas por todo el texto, y debajo del
-  título ves cuál está leyendo ("Leyendo la parte 2 de 6…"). No te vuelve a
+  título ves cuál está leyendo ("Leyendo la parte 2 de 6…"). El largo de cada
+  parte depende del modelo elegido: con Gemma, unas dos páginas; con Gemini,
+  **un capítulo entero**, así cada tarjeta sale de entender el capítulo y no
+  un pedazo suelto, y hacen falta menos pedidos. No te vuelve a
   proponer una pregunta que el elemento ya tiene. Si falta bajar el modelo
   de lenguaje te lo dice, con **"Bajarlo"**; si el modelo falla a mitad de
   camino, te muestra lo que alcanzó a proponer y te avisa.
@@ -1856,6 +1861,11 @@ pedidos por día (25, 50, 100, 200, 500 o sin tope). Cuando llega, espera al
 día siguiente; lo que pedís vos sigue andando. Mientras espera —por el tope
 o porque se acabó la cuota— no pierde nada: lo dice en "Lo que hizo la IA"
 y en Repasar, y sigue sola a la hora en que vuelve.
+
+**Textos largos.** Con Gemini, la IA lee un libro o un video de horas de a
+**un capítulo** por pedido (con Gemma, de a unas dos páginas): las tarjetas y
+las notas de estudio salen de entender más texto junto, con menos pedidos.
+Cambiar de modelo vale desde lo próximo que lea.
 
 **Qué dicen los botones de la IA cuando falta algo.** Resumir, generar
 tarjetas o un quiz, una nota derivada, llenar un cuaderno, sugerir

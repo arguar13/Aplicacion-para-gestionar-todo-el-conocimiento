@@ -56,7 +56,7 @@ void main() {
     });
 
     test('sin fuentes, sin partes', () {
-      expect(packDerivedSources(const []), isEmpty);
+      expect(packDerivedSources(const [], partChars: 1000), isEmpty);
     });
   });
 

@@ -2,6 +2,7 @@ import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_flashcard_maker.dart';
@@ -22,7 +23,8 @@ const kMaxFlashcardsForReview = 3;
 /// repaso.
 ///
 /// El modelo nunca ve el texto entero: lo lee por partes
-/// (`generateFlashcardsByParts`), repartidas por todo el texto.
+/// (`generateFlashcardsByParts`), repartidas por todo el texto, del largo
+/// que lee el modelo elegido en ese momento (`textBudget`, F32).
 ///
 /// Cada tarjeta trae la frase de la que sale, y se ubica en el texto aunque
 /// el modelo la haya parafraseado (`anchorQuote`, F30). **La que no se ubica
@@ -43,15 +45,21 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
     required FlashcardRepository flashcards,
     required SuggestionRepository suggestions,
     required AiRunRepository runs,
+    required ModelTextBudget Function() textBudget,
   }) : _generator = generator,
        _flashcards = flashcards,
        _suggestions = suggestions,
-       _runs = runs;
+       _runs = runs,
+       _textBudget = textBudget;
 
   final FlashcardGenerator _generator;
   final FlashcardRepository _flashcards;
   final SuggestionRepository _suggestions;
   final AiRunRepository _runs;
+
+  /// Cuánto lee por pedido el modelo elegido: se pregunta al empezar cada
+  /// elemento, porque se puede cambiar de modelo con la cola andando.
+  final ModelTextBudget Function() _textBudget;
 
   @override
   AiOrganizeToggle get toggle => AiOrganizeToggle.flashcards;
@@ -97,6 +105,7 @@ class AutoFlashcardsStep implements AiOrganizeStep, AiFlashcardMaker {
       generator: _generator,
       text: text,
       wanted: wanted,
+      budget: _textBudget(),
       onDraft: (candidate) async {
         final anchor = candidate.anchor;
         final draft = candidate.draft;

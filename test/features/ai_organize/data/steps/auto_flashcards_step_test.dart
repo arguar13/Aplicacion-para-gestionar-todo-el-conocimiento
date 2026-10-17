@@ -3,11 +3,11 @@ import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_target.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
-import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 
 import '../../../../support/ai_organize_harness.dart';
 
@@ -77,15 +77,19 @@ void main() {
   late AiOrganizeHarness vault;
   late _SentenceFlashcards model;
   late AutoFlashcardsStep step;
+  // Lo que lee el modelo elegido: Gemma, salvo que la prueba diga otro.
+  late ModelTextBudget budget;
 
   setUp(() {
     vault = AiOrganizeHarness();
     model = _SentenceFlashcards();
+    budget = kSmallWindowTextBudget;
     step = AutoFlashcardsStep(
       generator: model,
       flashcards: vault.flashcards,
       suggestions: vault.suggestions,
       runs: vault.runs,
+      textBudget: () => budget,
     );
   });
 
@@ -308,11 +312,8 @@ void main() {
 
     expect(report.applied, 12);
     expect(model.contents, hasLength(6));
-    expect(
-      model.contents.every((c) => c.length <= kFlashcardPartChars),
-      isTrue,
-    );
-    expect(model.counts.every((c) => c <= kMaxFlashcardsPerCall), isTrue);
+    expect(model.contents.every((c) => c.length <= budget.partChars), isTrue);
+    expect(model.counts.every((c) => c <= budget.maxDraftsPerCall), isTrue);
     // Del principio al final del libro, no solo los primeros tramos.
     expect(model.contents.first, isNot(contains('número 0 ')));
     expect(model.contents.last, contains('número 3'));
@@ -323,5 +324,57 @@ void main() {
         card.back,
       );
     }
+  });
+
+  group('con un modelo de ventana grande (F32)', () {
+    String bookOf(String tag) => [
+      for (var i = 0; i < 4000; i++) 'La idea $tag número $i es esta.',
+    ].join(' ');
+
+    test('lee partes de un capítulo y pide más tarjetas por pedido: las '
+        'mismas doce con menos pedidos', () async {
+      budget = textBudgetFor(1048576);
+      final book = bookOf('a');
+      final item = await vault.source('libro', title: 'Libro', content: book);
+
+      final report = await step.organize(
+        item,
+        runId: await vault.startRun('libro'),
+      );
+
+      expect(report.applied, 12);
+      expect(model.contents, hasLength(3));
+      // Unos 123.000 caracteres: dos capítulos casi del tope, y lo que sobra.
+      expect(model.contents.every((c) => c.length <= kMaxPartChars), isTrue);
+      expect(
+        model.contents.take(2).every((c) => c.length > kMaxPartChars * 0.9),
+        isTrue,
+      );
+      expect(
+        model.counts.every((c) => c > kSmallWindowTextBudget.maxDraftsPerCall),
+        isTrue,
+      );
+    });
+
+    test('pregunta cuánto lee el modelo en cada elemento: cambiar de modelo '
+        'vale desde el siguiente', () async {
+      final first = await vault.source(
+        'uno',
+        title: 'Uno',
+        content: bookOf('a'),
+      );
+      await step.organize(first, runId: await vault.startRun('uno'));
+      expect(model.contents, hasLength(6));
+
+      budget = textBudgetFor(1048576);
+      model.contents.clear();
+      final second = await vault.source(
+        'dos',
+        title: 'Dos',
+        content: bookOf('b'),
+      );
+      await step.organize(second, runId: await vault.startRun('dos'));
+      expect(model.contents, hasLength(3));
+    });
   });
 }

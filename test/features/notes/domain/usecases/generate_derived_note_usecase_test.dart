@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/notebooks/data/repositories/notebook_repository_impl.dart';
@@ -107,17 +108,20 @@ void main() {
 
   tearDown(() => db.close());
 
-  GenerateDerivedNoteUseCase useCase(DerivedNoteGenerator generator) =>
-      GenerateDerivedNoteUseCase(
-        library: library,
-        notebooks: notebooks,
-        organize: organize,
-        derivedNotes: derivedNotes,
-        generator: generator,
-        vectors: ItemVectorIndexImpl(database: db),
-        ids: ids,
-        clock: () => now,
-      );
+  GenerateDerivedNoteUseCase useCase(
+    DerivedNoteGenerator generator, {
+    ModelTextBudget budget = kSmallWindowTextBudget,
+  }) => GenerateDerivedNoteUseCase(
+    library: library,
+    notebooks: notebooks,
+    organize: organize,
+    derivedNotes: derivedNotes,
+    generator: generator,
+    vectors: ItemVectorIndexImpl(database: db),
+    ids: ids,
+    clock: () => now,
+    textBudget: () => budget,
+  );
 
   Future<String> seedSource(String id, String content) async {
     final result = await library.save(
@@ -441,7 +445,7 @@ void main() {
       for (final call in generator.calls) {
         expect(
           call.map(derivedSourceChars).fold(0, (a, b) => a + b),
-          lessThanOrEqualTo(kDerivedNotePartChars),
+          lessThanOrEqualTo(kSmallWindowTextBudget.partChars),
         );
       }
       expect(
@@ -459,6 +463,30 @@ void main() {
       expect(blocks.whereType<BulletItemBlock>(), hasLength(14));
       final relations = await organize.watchRelationsForItem(saved.id).first;
       expect(relations, hasLength(14));
+    });
+
+    test('con un modelo de ventana grande, el mismo cuaderno va en un solo '
+        'pedido (F32)', () async {
+      final ids = [
+        for (var i = 0; i < 14; i++) await seedSource('s$i', longText(i)),
+      ];
+      final notebookId = await notebookOf(ids);
+      final generator = FakeDerivedNoteGenerator(
+        const DerivedNoteDraft(type: DerivedNoteType.studyGuide, sections: []),
+        draftFor: oneClaimPerSource,
+      );
+
+      await useCase(generator, budget: textBudgetFor(1048576))(
+        GenerateDerivedNoteParams(
+          type: DerivedNoteType.studyGuide,
+          title: 'Guía',
+          model: 'gemini-3.8-flash',
+          notebookId: notebookId,
+        ),
+      );
+
+      expect(generator.calls, hasLength(1));
+      expect(generator.calls.single.map((s) => s.itemId).toSet(), ids.toSet());
     });
 
     test('de un cuaderno más grande que lo que entra, como mucho las partes '

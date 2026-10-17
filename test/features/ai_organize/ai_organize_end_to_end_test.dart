@@ -9,6 +9,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/vocabulary_candidates.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_flashcards_step.dart';
@@ -170,6 +171,7 @@ void main() {
           flashcards: vault.flashcards,
           suggestions: vault.suggestions,
           runs: vault.runs,
+          textBudget: () => kSmallWindowTextBudget,
         ),
       ],
       languageModel: () => gemmaStatusCheck(FakeChatModelManager(ready: true)),

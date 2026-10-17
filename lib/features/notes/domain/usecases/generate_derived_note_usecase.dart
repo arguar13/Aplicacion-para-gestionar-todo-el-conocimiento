@@ -16,6 +16,7 @@ import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/usecase/usecase.dart';
 import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/notebooks/domain/repositories/notebook_repository.dart';
@@ -100,8 +101,9 @@ class DerivedNoteResult {
 /// - De un cuaderno grande, las más representativas primero
 ///   ([ItemVectorIndex.representativeOrder]): lo más central y lo más
 ///   distinto, no las primeras de la lista.
-/// - Se reparten en hasta [kDerivedNoteMaxParts] pedidos que entran en la
-///   ventana ([packDerivedSources]), y lo que dio cada uno se junta en una
+/// - Se reparten en hasta [kDerivedNoteMaxParts] pedidos del largo que lee el
+///   modelo elegido ([packDerivedSources]; con uno en la nube, casi siempre
+///   uno solo), y lo que dio cada uno se junta en una
 ///   sola nota ([mergeDerivedSections]).
 ///
 /// **Queda adentro del cuaderno** (F30). En uno manual, se agrega a sus
@@ -120,6 +122,7 @@ class GenerateDerivedNoteUseCase
     required ItemVectorIndex vectors,
     required IdGenerator ids,
     required Clock clock,
+    required ModelTextBudget Function() textBudget,
   }) : _library = library,
        _notebooks = notebooks,
        _organize = organize,
@@ -127,7 +130,8 @@ class GenerateDerivedNoteUseCase
        _generator = generator,
        _vectors = vectors,
        _ids = ids,
-       _clock = clock;
+       _clock = clock,
+       _textBudget = textBudget;
 
   final LibraryRepository _library;
   final NotebookRepository _notebooks;
@@ -137,6 +141,9 @@ class GenerateDerivedNoteUseCase
   final ItemVectorIndex _vectors;
   final IdGenerator _ids;
   final Clock _clock;
+
+  /// Cuánto lee por pedido el modelo elegido (F32), al pedir el derivado.
+  final ModelTextBudget Function() _textBudget;
 
   @override
   Future<Either<Failure, DerivedNoteResult>> call(
@@ -152,7 +159,10 @@ class GenerateDerivedNoteUseCase
       );
     }
 
-    final parts = packDerivedSources(sources);
+    final parts = packDerivedSources(
+      sources,
+      partChars: _textBudget().partChars,
+    );
     final sections = <List<DerivedSection>>[];
     try {
       for (var i = 0; i < parts.length; i++) {

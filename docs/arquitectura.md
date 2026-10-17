@@ -6158,9 +6158,13 @@ paso, con archivos y trampas.
   hora) y se despierta sola. Un corte a mitad de un elemento deja su pasada **abierta** y se
   retoma primero, sin repetir los pasos hechos; los errores que son de ese pedido (bloqueado,
   demasiado largo) se registran y se sigue como siempre.
-- **Lo que falta de F32.** Las partes de los textos largos medidas con la ventana del modelo
-  elegido (hoy siguen en 3.000 caracteres para todos); los formatos de OpenAI y Claude; la prueba
-  en el teléfono con una clave real. Las pruebas usan respuestas grabadas: nunca llaman de verdad
+- **Los textos largos, según la ventana del modelo elegido** (`textBudgetFor`): con Gemma,
+  partes de 3.000 caracteres y 4 tarjetas por pedido, lo medido en F27/F30; con una ventana
+  grande, un cuarto de ella con tope de 60.000 caracteres —un capítulo: más gastaría de golpe el
+  tope por minuto de la capa gratuita y dejaría menos partes de donde salen las tarjetas— y 8
+  tarjetas por pedido. Se pregunta en cada elemento: cambiar de modelo vale en el acto.
+- **Lo que falta de F32.** Los formatos de OpenAI y Claude; la prueba en el teléfono con una
+  clave real. Las pruebas usan respuestas grabadas: nunca llaman de verdad
   a ninguna empresa.
 
 ## Estado y orden de construcción
@@ -6577,7 +6581,8 @@ paso, con archivos y trampas.
 - **F32, la IA en la nube (en curso).** Un solo modelo de lenguaje, el elegido: Gemini gratis de
   fábrica o Gemma en el teléfono; varias cuentas con un menú para cambiar de un toque, que pasan
   solas a la siguiente cuando se agota la cuota y avisan; la IA de fondo con su tope del día, que
-  espera la cuota sin perder nada. Faltan las partes por la ventana del modelo, OpenAI y Claude.
+  espera la cuota sin perder nada; los textos largos, de a un capítulo con Gemini. Faltan OpenAI
+  y Claude.
   Ver la decisión 74.
 
 ### Por construir

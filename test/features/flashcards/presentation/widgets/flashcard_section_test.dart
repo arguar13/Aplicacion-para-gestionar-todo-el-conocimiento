@@ -4,12 +4,12 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/domain/entities/flashcard_option_draft.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
-import 'package:sinapsis/features/flashcards/domain/services/flashcards_by_parts.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/widgets/flashcard_section.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
@@ -233,7 +233,9 @@ void main() {
 
       expect(model.contents.length, greaterThan(1));
       expect(
-        model.contents.every((c) => c.length <= kFlashcardPartChars),
+        model.contents.every(
+          (c) => c.length <= kSmallWindowTextBudget.partChars,
+        ),
         isTrue,
       );
       // Repartidas por el libro, no todas del principio.
@@ -256,6 +258,25 @@ void main() {
         );
         expect(row.back, startsWith(fragment));
       }
+    });
+
+    testWidgets('con un modelo de ventana grande, partes de un capítulo '
+        '(F32)', (tester) async {
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          flashcardGeneratorProvider.overrideWithValue(model),
+          languageModelTextBudgetProvider.overrideWithValue(
+            () => textBudgetFor(1048576),
+          ),
+        ],
+      );
+      final item = await captured(book);
+
+      await pumpAndGenerate(tester, item);
+
+      // Unos 110.000 caracteres: dos partes, no las decenas de Gemma.
+      expect(model.contents, hasLength(2));
+      expect(model.contents.every((c) => c.length <= kMaxPartChars), isTrue);
     });
 
     testWidgets('sin el modelo de lenguaje lo dice, y ofrece bajarlo', (

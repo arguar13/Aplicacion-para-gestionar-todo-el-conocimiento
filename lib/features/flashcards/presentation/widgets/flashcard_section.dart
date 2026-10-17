@@ -234,6 +234,8 @@ class _FlashcardSectionState extends ConsumerState<FlashcardSection> {
             : ref.read(flashcardGeneratorProvider),
         text: content,
         wanted: math.max(kManualFlashcardsWanted, flashcardTargetFor(content)),
+        // Partes del largo que lee el modelo elegido (F32).
+        budget: ref.read(languageModelTextBudgetProvider)(),
         onDraft: (candidate) async {
           if (!known.add(
             flashcardRejectionFingerprint(candidate.draft.front),

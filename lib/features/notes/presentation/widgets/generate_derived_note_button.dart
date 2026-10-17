@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
 import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
@@ -101,7 +101,8 @@ class _GenerateDerivedNoteButtonState
     final l10n = AppLocalizations.of(context)!;
     setState(() => _loading = true);
 
-    final model = ref.read(chatModelOptionNotifierProvider).name;
+    // El que escribe de verdad —Gemma o el de la nube— (F32).
+    final model = ref.read(languageModelNameProvider)();
     final result = await ref.read(generateDerivedNoteUseCaseProvider)(
       GenerateDerivedNoteParams(
         type: type,

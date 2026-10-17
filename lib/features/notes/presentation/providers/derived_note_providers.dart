@@ -38,5 +38,6 @@ final generateDerivedNoteUseCaseProvider =
         vectors: ref.watch(itemVectorIndexProvider),
         ids: ref.watch(idGeneratorProvider),
         clock: ref.watch(clockProvider),
+        textBudget: ref.watch(languageModelTextBudgetProvider),
       );
     });

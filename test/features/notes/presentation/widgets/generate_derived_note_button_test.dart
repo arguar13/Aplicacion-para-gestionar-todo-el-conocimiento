@@ -7,6 +7,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/usecases/generate_derived_note_usecase.dart';
 import 'package:sinapsis/features/notes/presentation/providers/derived_note_providers.dart';
@@ -62,6 +63,7 @@ void main() {
     _FakeGenerateDerivedNoteUseCase? useCase,
     String? itemId,
     String? notebookId,
+    String Function()? modelName,
   }) async {
     harness = await LibraryHarness.create(chatModelReady: chatModelReady);
     await tester.pumpWidget(
@@ -70,6 +72,8 @@ void main() {
           overrides: [
             if (useCase != null)
               generateDerivedNoteUseCaseProvider.overrideWithValue(useCase),
+            if (modelName != null)
+              languageModelNameProvider.overrideWithValue(modelName),
           ],
           child: Scaffold(
             body: GenerateDerivedNoteButton(
@@ -150,6 +154,28 @@ void main() {
     expect(params.notebookId, 'nb-1');
     expect(params.itemId, isNull);
     expect(params.title, es.derivedNoteTitleTimeline('Fuente'));
+  });
+
+  testWidgets('anota el modelo que escribe de verdad, también el de la nube '
+      '(F32)', (tester) async {
+    final useCase = _FakeGenerateDerivedNoteUseCase(
+      (params) =>
+          right(DerivedNoteResult(note: _fixtureNote('nueva', params.title))),
+    );
+    await pumpButton(
+      tester,
+      chatModelReady: true,
+      useCase: useCase,
+      itemId: 'a',
+      modelName: () => 'gemini-3.8-flash',
+    );
+
+    await tester.tap(find.byTooltip(es.derivedNoteGenerateTooltip));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(es.derivedNoteTypeOutline));
+    await tester.pumpAndSettle();
+
+    expect(useCase.paramsSeen!.model, 'gemini-3.8-flash');
   });
 
   testWidgets('si el caso de uso falla, avisa el error', (tester) async {

@@ -1,20 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/text_parts.dart';
 import 'package:sinapsis/features/flashcards/domain/services/flashcard_generator.dart';
 import 'package:sinapsis/features/flashcards/domain/services/quote_anchor.dart';
-
-/// Hasta cuántos caracteres del texto ve el modelo por pedido. Gemma tiene
-/// una ventana de 2048 tokens para todo, y en español cuenta unos 3,5
-/// caracteres por token: 3000 caracteres son ~860 tokens, más ~150 de
-/// instrucciones y ~90 por tarjeta de respuesta (pregunta, respuesta y la
-/// cita textual), con lugar de sobra para [kMaxFlashcardsPerCall].
-const kFlashcardPartChars = 3000;
-
-/// Cuántas tarjetas se le piden, como mucho, por tramo: más que esto no
-/// entra en la respuesta junto con el tramo.
-const kMaxFlashcardsPerCall = 4;
 
 /// Cuántas tarjetas se esperan de cada tramo leído: con 12 por hacer se leen
 /// 6 tramos repartidos por el texto, no 12 seguidos del principio.
@@ -43,9 +33,12 @@ enum PartDraftOutcome { kept, skipped }
 /// Le pide al modelo hasta [wanted] tarjetas sobre [text] **por partes**
 /// (F27, F30): el modelo nunca ve el texto entero, que en un libro o la
 /// transcripción de un video de horas no entra en su ventana. Se corta en
-/// tramos de [kFlashcardPartChars] (`splitIntoParts`) y se leen algunos,
-/// repartidos parejo por el texto (`spreadIndices`): un libro da tarjetas de
-/// cada parte, y no solo del primer capítulo.
+/// tramos del largo que lee el modelo elegido ([budget], F32: 3000
+/// caracteres con Gemma, un capítulo con un modelo en la nube;
+/// `splitIntoParts`) y se leen algunos, repartidos parejo por el texto
+/// (`spreadIndices`): un libro da tarjetas de cada parte, y no solo del
+/// primer capítulo. A cada tramo se le piden a lo sumo
+/// `ModelTextBudget.maxDraftsPerCall`.
 ///
 /// Cada tarjeta llega a [onDraft] con su pasaje ya ubicado en el texto
 /// entero, en el orden en que el modelo la propuso; las que [onDraft] guarda
@@ -61,12 +54,13 @@ Future<int> generateFlashcardsByParts({
   required FlashcardGenerator generator,
   required String text,
   required int wanted,
+  required ModelTextBudget budget,
   required Future<PartDraftOutcome> Function(PartDraft draft) onDraft,
   void Function(int read, int total)? onProgress,
 }) async {
   if (wanted <= 0 || text.trim().isEmpty) return 0;
 
-  final parts = splitIntoParts(text, maxChars: kFlashcardPartChars);
+  final parts = splitIntoParts(text, maxChars: budget.partChars);
   final visits = spreadIndices(
     parts.length,
     (wanted / kFlashcardsPerVisit).ceil(),
@@ -82,7 +76,10 @@ Future<int> generateFlashcardsByParts({
     final quota = ((wanted - kept) / (visits.length - visit)).ceil();
     final drafts = await generator.generate(
       content: part.text,
-      count: math.min(kMaxFlashcardsPerCall, quota + kSpareFlashcardsPerCall),
+      count: math.min(
+        budget.maxDraftsPerCall,
+        quota + kSpareFlashcardsPerCall,
+      ),
     );
     var fromPart = 0;
     for (final draft in drafts) {

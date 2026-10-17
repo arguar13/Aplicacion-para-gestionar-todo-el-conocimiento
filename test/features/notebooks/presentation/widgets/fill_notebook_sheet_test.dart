@@ -11,6 +11,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/notebooks/presentation/providers/notebook_providers.dart';
@@ -130,6 +131,8 @@ void main() {
       extraOverrides: [
         aiOrganizeQueueProvider.overrideWithValue(queue),
         generateDerivedNoteUseCaseProvider.overrideWithValue(useCase),
+        // El que escribe de verdad (F32): con la nube, no la opción de Gemma.
+        languageModelNameProvider.overrideWithValue(() => 'gemini-3.8-flash'),
       ],
     );
   }
@@ -156,6 +159,7 @@ void main() {
     expect(queue.flashcardRequests.single, hasLength(2));
     expect(useCase.calls.single.notebookId, notebookId);
     expect(useCase.calls.single.title, es.derivedNoteTitleStudyGuide('Roma'));
+    expect(useCase.calls.single.model, 'gemini-3.8-flash');
     expect(find.text(es.fillNotebookCardsQueued(2)), findsOneWidget);
     expect(
       find.text(

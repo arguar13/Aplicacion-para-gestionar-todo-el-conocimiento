@@ -5,7 +5,6 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_models/presentation/language_model_missing.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/ai_flashcards_providers.dart';
 import 'package:sinapsis/features/notebooks/domain/entities/notebook.dart';
@@ -177,7 +176,7 @@ class FillNotebookSheet extends ConsumerWidget {
                   onPressed: state.canStart && (modelReady ?? false)
                       ? () => controller.start(
                           guideTitle: _guideTitle(l10n, state.type),
-                          model: ref.read(chatModelOptionNotifierProvider).name,
+                          model: ref.read(languageModelNameProvider)(),
                         )
                       : null,
                   icon: const Icon(Icons.auto_awesome),

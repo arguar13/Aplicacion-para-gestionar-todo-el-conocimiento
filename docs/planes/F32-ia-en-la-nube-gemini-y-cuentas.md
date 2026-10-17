@@ -429,9 +429,41 @@ tres que tiene (`kMaxAiRunAttempts`).
   colgaron»), acepta `"minutos"` por mutación (10 si no está) e imprime cada resultado apenas lo
   tiene.
 
+### Paso 4e — las partes de los textos largos según la ventana del modelo (hecho)
+
+- `lib/features/ai_models/domain/services/model_text_budget.dart`: `ModelTextBudget(partChars,
+  maxDraftsPerCall)` y `textBudgetFor(contextTokens)`. Una ventana de menos de
+  `kLargeWindowTokens` (16.000) se reparte como Gemma (`kSmallWindowTextBudget`: 3.000
+  caracteres y 4 tarjetas, lo medido en F27/F30). Una grande: la parte usa **un cuarto de la
+  ventana** (a 3,5 caracteres por token) con tope **`kMaxPartChars` = 60.000** (un capítulo
+  largo, ~17.000 tokens) y se piden **8 tarjetas** por pedido (`kLargeWindowDraftsPerCall`).
+  **Por qué un tope y no el libro entero**: de una vez gastaría el tope por minuto de la capa
+  gratuita, y en un libro dejaría menos partes de donde salen las tarjetas.
+- `languageModelTextBudgetProvider` (`chat_providers.dart`): `ModelTextBudget Function()` con la
+  ventana de `modelBackendProvider` (`contextTokens`: Gemma 2048; la nube, la del modelo elegido
+  según su lista, o 128.000). **Se lee al usarlo**: cambiar de modelo vale desde el próximo
+  elemento.
+- Lo usan, **como parámetro obligatorio** (olvidarlo no compila, para que la nube nunca lea de a
+  3.000 caracteres sin que nadie lo note): `generateFlashcardsByParts(budget:)` —se fueron
+  `kFlashcardPartChars` y `kMaxFlashcardsPerCall`—, `AutoFlashcardsStep(textBudget:)` (se
+  pregunta en cada elemento), las tarjetas a mano (`flashcard_section.dart`) y
+  `GenerateDerivedNoteUseCase(textBudget:)` → `packDerivedSources(partChars:)` (se fue
+  `kDerivedNotePartChars`; con la nube un cuaderno suele ir en un solo pedido).
+- **Error encontrado y arreglado de raíz**: los derivados (`generate_derived_note_button.dart`)
+  y «Llenar» un cuaderno (`fill_notebook_sheet.dart`) anotaban como autor la opción de Gemma
+  (`chatModelOptionNotifierProvider.name`) aunque escribiera Gemini. Ahora usan
+  `languageModelNameProvider`. (La de `languageModelBackendStoreProvider` está bien: es la GPU o
+  CPU de cada variante de Gemma.)
+- Pruebas: `model_text_budget_test.dart` (4), `language_model_text_budget_provider_test.dart`
+  (2: Gemma, Gemini y el cambio en el acto), 2 en `auto_flashcards_step_test.dart` (un libro de
+  123.000 caracteres en 3 pedidos en vez de 6, con las mismas 12 tarjetas; el presupuesto se
+  pregunta en cada elemento), 1 en `flashcard_section_test.dart`, 1 en
+  `generate_derived_note_usecase_test.dart` (14 fuentes en un solo pedido), y el autor en
+  `generate_derived_note_button_test.dart` y `fill_notebook_sheet_test.dart`.
+  Mutaciones: 11/11 muertas. Dos conexiones no se mutan sin romper la compilación (las tarjetas a
+  mano y el paso en la cola): las cubre el parámetro obligatorio y la prueba del proveedor.
+
 ### Lo que sigue
 
-4. Falta: las partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`,
-   hoy 3.000 fijos).
 5. `OpenAiBackend` y `AnthropicBackend`.
 6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.
