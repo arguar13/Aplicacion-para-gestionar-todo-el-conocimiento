@@ -126,7 +126,9 @@ abstract interface class SuggestionRepository {
   /// hizo la IA en [targetItemId] (F33), en `status: pending`: ver
   /// `Suggestion.correction`. [before] es como estaba cuando el modelo lo
   /// revisó, y [after] cómo quedaría —`null` para sacarlo—. [aiRunId] es la
-  /// pasada de revisión de [model]. Genera `id`/`createdAt` internamente.
+  /// pasada de revisión de [model]. [label] es qué es, cuando no lo dicen
+  /// los datos: el título del otro elemento de un vínculo. Genera
+  /// `id`/`createdAt` internamente.
   Future<Either<Failure, Suggestion>> createCorrectionSuggestion({
     required String targetItemId,
     required CorrectionSubject subject,
@@ -136,6 +138,7 @@ abstract interface class SuggestionRepository {
     required String reason,
     required String aiRunId,
     String? model,
+    String? label,
   });
 
   /// Aplica el payload de verdad —vía

@@ -158,7 +158,8 @@ sealed class Suggestion with _$Suggestion {
   ///
   /// [before] es cómo estaba cuando el modelo lo revisó, y [after] cómo
   /// quedaría; sin [after], la propuesta es sacarlo. Las claves de los dos
-  /// dependen de [subject] (`FlashcardCorrectionField` en una tarjeta).
+  /// dependen de [subject] (`FlashcardCorrectionField` en una tarjeta,
+  /// `RelationCorrectionField` en un vínculo).
   /// [reason] es la línea en que el modelo dice por qué.
   ///
   /// [aiRunId] es la pasada de revisión del modelo [model] que la propuso:
@@ -177,6 +178,11 @@ sealed class Suggestion with _$Suggestion {
     required DateTime createdAt,
     Map<String, String>? after,
     String? model,
+
+    /// Qué es, como se ve al revisarlo, cuando no lo dicen el antes y el
+    /// después: el título del otro elemento de un vínculo. Es como estaba
+    /// cuando el modelo lo vio.
+    String? label,
     double? confidence,
   }) = CorrectionSuggestion;
 }

@@ -2,14 +2,16 @@ import 'package:async/async.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart' show Unit, right, unit;
+import 'package:fpdart/fpdart.dart' show Left, Unit, right, unit;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/correction_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -316,6 +318,10 @@ void main() {
         expect(await statusOf(correction.id), SuggestionStatus.accepted);
         // La pregunta de antes estaba mal: la IA no la vuelve a hacer.
         expect(await questionRejected('¿Quién escribió eso?'), isTrue);
+        // Se recuerda como quedó, sin los espacios: sigue en pie.
+        expect(await aiCorrectionCounts(db, [run]), {
+          run: (created: 1, remaining: 1),
+        });
       },
     );
 
@@ -574,5 +580,407 @@ void main() {
       'a',
     ])).getOrElse((f) => fail('$f'));
     expect(undone, isEmpty);
+  });
+
+  group('vínculos (F33, 4a)', () {
+    late OrganizeRepositoryImpl organize;
+
+    setUp(() async {
+      organize = OrganizeRepositoryImpl(
+        database: db,
+        telemetry: _MockTelemetryService(),
+        ids: FakeIdGenerator(prefix: 'v'),
+        clock: () => now,
+      );
+      await insertItemRows(db, id: 'b', title: 'Cartago');
+    });
+
+    /// Un vínculo de la IA de «a» a «b», y la pasada de Gemma que lo hizo.
+    Future<({String run, String relation})> aiRelation({
+      RelationKind kind = RelationKind.relatedTo,
+      String? note = 'Las dos hablan de Roma.',
+    }) async {
+      final run = (await runs.startRun(
+        'a',
+        model: 'Gemma 4 E4B',
+      )).getOrElse((f) => fail('$f'));
+      (await organize.createRelation(
+        fromItemId: 'a',
+        toItemId: 'b',
+        kind: kind,
+        note: note,
+        ai: AiProvenance(runId: run),
+      )).getOrElse((f) => fail('$f'));
+      await runs.finishRun(run);
+      final row = await (db.select(
+        db.relations,
+      )..where((r) => r.kind.equalsValue(kind))).getSingle();
+      return (run: run, relation: row.id);
+    }
+
+    Future<RelationRow?> relationRow(String id) => (db.select(
+      db.relations,
+    )..where((r) => r.id.equals(id))).getSingleOrNull();
+
+    Future<CorrectionSuggestion> proposeOn(
+      String relation,
+      String run, {
+      Map<String, String>? after = const {
+        RelationCorrectionField.kind: 'contradicts',
+        RelationCorrectionField.note: 'Una dice lo contrario de la otra.',
+      },
+      String kind = 'relatedTo',
+      String note = 'Las dos hablan de Roma.',
+    }) async =>
+        (await suggestions.createCorrectionSuggestion(
+              targetItemId: 'a',
+              subject: CorrectionSubject.relation,
+              subjectId: relation,
+              before: {
+                RelationCorrectionField.kind: kind,
+                RelationCorrectionField.note: note,
+              },
+              after: after,
+              reason: 'El texto dice que se oponen.',
+              aiRunId: run,
+              model: 'gemini-3.8-flash',
+              label: 'Cartago',
+            )).getOrElse((f) => fail('$f'))
+            as CorrectionSuggestion;
+
+    Future<bool> kindRejected(RelationKind kind) async =>
+        (await runs.isRelationRejected(
+          fromItemId: 'a',
+          toItemId: 'b',
+          kind: kind,
+        )).getOrElse((f) => fail('$f'));
+
+    test('se guarda con el título del otro elemento', () async {
+      final made = await aiRelation();
+      final correction = await proposeOn(made.relation, await reviewRun());
+
+      final read = correctionSuggestionOf(
+        await (db.select(
+          db.suggestions,
+        )..where((s) => s.id.equals(correction.id))).getSingle(),
+      );
+      expect(read.subject, CorrectionSubject.relation);
+      expect(read.label, 'Cartago');
+      expect(read.after![RelationCorrectionField.kind], 'contradicts');
+    });
+
+    test('aceptar corrige el tipo y la frase; sigue siendo de la IA, de su '
+        'pasada, y el tipo de antes «no era»', () async {
+      final made = await aiRelation();
+      final correction = await proposeOn(
+        made.relation,
+        await reviewRun(),
+        after: const {
+          RelationCorrectionField.kind: 'contradicts',
+          RelationCorrectionField.note: '  Una dice lo contrario.  ',
+        },
+      );
+
+      expect(
+        await suggestions.accept(correction.id),
+        right<Failure, Unit>(unit),
+      );
+
+      final row = (await relationRow(made.relation))!;
+      expect(row.kind, RelationKind.contradicts);
+      expect(row.note, 'Una dice lo contrario.');
+      expect(row.origin, ContentOrigin.ai);
+      expect(row.aiRunId, made.run);
+      expect(await kindRejected(RelationKind.relatedTo), isTrue);
+      expect(await kindRejected(RelationKind.contradicts), isFalse);
+      expect(await aiCorrectionCounts(db, [correction.aiRunId]), {
+        correction.aiRunId: (created: 1, remaining: 1),
+      });
+    });
+
+    test('si solo cambia la frase, no recuerda nada como malo', () async {
+      final made = await aiRelation();
+      final correction = await proposeOn(
+        made.relation,
+        await reviewRun(),
+        after: const {
+          RelationCorrectionField.kind: 'relatedTo',
+          RelationCorrectionField.note: '',
+        },
+      );
+
+      await suggestions.accept(correction.id);
+
+      final row = (await relationRow(made.relation))!;
+      expect(row.kind, RelationKind.relatedTo);
+      expect(row.note, isNull);
+      expect(await kindRejected(RelationKind.relatedTo), isFalse);
+    });
+
+    test('sacarlo lo borra y recuerda que «no era»', () async {
+      final made = await aiRelation();
+      final correction = await proposeOn(
+        made.relation,
+        await reviewRun(),
+        after: null,
+      );
+
+      await suggestions.accept(correction.id);
+
+      expect(await relationRow(made.relation), isNull);
+      expect(await kindRejected(RelationKind.relatedTo), isTrue);
+    });
+
+    test('no toca un vínculo que la persona editó, uno que cambió, ni uno '
+        'que ya no está', () async {
+      final edited = await aiRelation();
+      final run = await reviewRun();
+      final onEdited = await proposeOn(edited.relation, run);
+      await organize.updateRelation(
+        edited.relation,
+        kind: RelationKind.relatedTo,
+        note: 'Mía.',
+      );
+      expect(await suggestions.accept(onEdited.id), isA<Left<Failure, Unit>>());
+
+      final other = await aiRelation(kind: RelationKind.cites, note: null);
+      final stale = await proposeOn(other.relation, run, kind: 'cites');
+      expect(await suggestions.accept(stale.id), isA<Left<Failure, Unit>>());
+      expect((await relationRow(other.relation))!.kind, RelationKind.cites);
+
+      final gone = await proposeOn(
+        other.relation,
+        run,
+        kind: 'cites',
+        note: '',
+      );
+      await (db.delete(
+        db.relations,
+      )..where((r) => r.id.equals(other.relation))).go();
+      expect(await suggestions.accept(gone.id), isA<Left<Failure, Unit>>());
+    });
+
+    test('no le pone un tipo de estructura ni uno que no existe, ni uno que '
+        'ya hay entre los dos', () async {
+      final made = await aiRelation();
+      final run = await reviewRun();
+      for (final kind in ['indexes', 'extractedFrom', 'nada']) {
+        final correction = await proposeOn(
+          made.relation,
+          run,
+          after: {
+            RelationCorrectionField.kind: kind,
+            RelationCorrectionField.note: 'x',
+          },
+        );
+        expect(
+          await suggestions.accept(correction.id),
+          isA<Left<Failure, Unit>>(),
+          reason: kind,
+        );
+      }
+      await aiRelation(kind: RelationKind.contradicts);
+      final twin = await proposeOn(made.relation, run);
+      expect(await suggestions.accept(twin.id), isA<Left<Failure, Unit>>());
+      expect((await relationRow(made.relation))!.kind, RelationKind.relatedTo);
+    });
+
+    test('dos correcciones del mismo vínculo: aceptada una, la otra ya no '
+        'vale aunque la frase siga igual', () async {
+      final made = await aiRelation();
+      final run = await reviewRun();
+      const note = 'Las dos hablan de Roma.';
+      final first = await proposeOn(
+        made.relation,
+        run,
+        after: const {
+          RelationCorrectionField.kind: 'contradicts',
+          RelationCorrectionField.note: note,
+        },
+      );
+      final second = await proposeOn(
+        made.relation,
+        run,
+        after: const {
+          RelationCorrectionField.kind: 'cites',
+          RelationCorrectionField.note: note,
+        },
+      );
+      await suggestions.accept(first.id);
+
+      expect(await stillApplicableCorrections(db, [second]), isEmpty);
+      expect(await suggestions.accept(second.id), isA<Left<Failure, Unit>>());
+      expect(
+        (await relationRow(made.relation))!.kind,
+        RelationKind.contradicts,
+      );
+    });
+
+    test('un vínculo de estructura de la IA no se ofrece corregir', () async {
+      final made = await aiRelation(kind: RelationKind.indexes);
+      final correction = await proposeOn(
+        made.relation,
+        await reviewRun(),
+        kind: 'indexes',
+      );
+
+      expect(await stillApplicableCorrections(db, [correction]), isEmpty);
+      expect(
+        await suggestions.accept(correction.id),
+        isA<Left<Failure, Unit>>(),
+      );
+    });
+
+    test('«Revisión» lo ofrece mientras sigue como lo vio el modelo, y lo '
+        'saca apenas la persona lo edita', () async {
+      final made = await aiRelation();
+      await proposeOn(made.relation, await reviewRun());
+      final queue = StreamQueue(suggestions.watchPendingCorrections());
+      addTearDown(queue.cancel);
+
+      expect((await queue.next).single.corrections, hasLength(1));
+
+      await organize.updateRelation(
+        made.relation,
+        kind: RelationKind.relatedTo,
+        note: 'Mía.',
+      );
+      expect(await queue.next, isEmpty);
+    });
+
+    test('deshacer la revisión devuelve el tipo y la frase, y olvida el «no '
+        'era»', () async {
+      final made = await aiRelation();
+      final run = await reviewRun();
+      final correction = await proposeOn(made.relation, run);
+      await suggestions.accept(correction.id);
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
+      );
+
+      final row = (await relationRow(made.relation))!;
+      expect(row.kind, RelationKind.relatedTo);
+      expect(row.note, 'Las dos hablan de Roma.');
+      expect(row.aiRunId, made.run);
+      expect(await kindRejected(RelationKind.relatedTo), isFalse);
+      expect(await statusOf(correction.id), SuggestionStatus.rejected);
+    });
+
+    test('deshacer no le devuelve el tipo de antes si la persona ya hizo ese '
+        'vínculo', () async {
+      final made = await aiRelation();
+      final run = await reviewRun();
+      await suggestions.accept((await proposeOn(made.relation, run)).id);
+      await organize.createRelation(
+        fromItemId: 'a',
+        toItemId: 'b',
+        kind: RelationKind.relatedTo,
+      );
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(
+        (await relationRow(made.relation))!.kind,
+        RelationKind.contradicts,
+      );
+    });
+
+    test(
+      'no devuelve un vínculo sacado a un elemento que se borró del todo',
+      () async {
+        final made = await aiRelation();
+        final run = await reviewRun();
+        await suggestions.accept(
+          (await proposeOn(made.relation, run, after: null)).id,
+        );
+        await (db.delete(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals('b'))).go();
+
+        expect(
+          await runs.undoRun(run),
+          right<Failure, AiRunTally>(const AiRunTally()),
+        );
+        expect(await relationRow(made.relation), isNull);
+      },
+    );
+
+    test(
+      'deshacer devuelve el vínculo que sacó, si su pasada sigue en pie',
+      () async {
+        final made = await aiRelation();
+        final run = await reviewRun();
+        final correction = await proposeOn(made.relation, run, after: null);
+        await suggestions.accept(correction.id);
+
+        await runs.undoRun(run);
+
+        final row = (await relationRow(made.relation))!;
+        expect(row.kind, RelationKind.relatedTo);
+        expect(row.origin, ContentOrigin.ai);
+        expect(row.aiRunId, made.run);
+        expect(await kindRejected(RelationKind.relatedTo), isFalse);
+      },
+    );
+
+    test('no devuelve el vínculo sacado si su pasada se deshizo, ni si la '
+        'persona ya hizo otro igual', () async {
+      final undone = await aiRelation();
+      final run = await reviewRun();
+      await suggestions.accept(
+        (await proposeOn(undone.relation, run, after: null)).id,
+      );
+      await runs.undoRun(undone.run);
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(await relationRow(undone.relation), isNull);
+
+      final again = await aiRelation(kind: RelationKind.continues);
+      final second = await reviewRun();
+      await suggestions.accept(
+        (await proposeOn(
+          again.relation,
+          second,
+          kind: 'continues',
+          after: null,
+        )).id,
+      );
+      await organize.createRelation(
+        fromItemId: 'a',
+        toItemId: 'b',
+        kind: RelationKind.continues,
+      );
+      expect(
+        await runs.undoRun(second),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(await relationRow(again.relation), isNull);
+    });
+
+    test('lo que sigue en pie de la revisión cuenta el vínculo corregido '
+        'hasta que la persona lo edita', () async {
+      final made = await aiRelation();
+      final run = await reviewRun();
+      await suggestions.accept((await proposeOn(made.relation, run)).id);
+
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 1),
+      });
+
+      await organize.updateRelation(
+        made.relation,
+        kind: RelationKind.contradicts,
+        note: 'Mía.',
+      );
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 0),
+      });
+    });
   });
 }

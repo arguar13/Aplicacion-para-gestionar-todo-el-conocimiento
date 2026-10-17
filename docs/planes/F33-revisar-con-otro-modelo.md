@@ -239,3 +239,66 @@ falta para revisarlo.
 - **Pruebas.** La pantalla (12), la línea del elemento (4), la consulta con revisor y la cuenta de
   pedidos (2).
 - **Mutación: 22 de 22 muertas.**
+
+### Paso 4: cómo se arma (diseño, relevado en el código)
+
+Lo que no son tarjetas se revisa junto: **un pedido por elemento** (o los que hagan falta para que
+entre en la ventana del modelo) con todo lo que sigue siendo de la IA en ese elemento, numerado.
+Cada cosa con su contexto: el vínculo con el título y un fragmento del otro elemento, la propiedad
+con su categoría, el tema con los temas que hay, el dato de la referencia con su nombre. El
+formato es el mismo de las tarjetas: `DATO <n>: bien | corregir | sacar`, el valor nuevo y
+`POR QUÉ:`. El lector descarta lo que no entiende o no cumple las reglas de cada cosa.
+
+| Qué | Corregir | Sacar | Lo que se recuerda como «no era» |
+|---|---|---|---|
+| **Vínculo** | El tipo (uno de los cinco) y su frase | Sí | El vínculo con su tipo de antes |
+| **Etiqueta o propiedad** | Por otro valor **que ya esté** en esa categoría: inventar vocabulario se mira en «Para revisar», como hoy | Sí | La asignación |
+| **Tema** | Por otro tema que ya exista | Sí | — (no hay memoria de temas) |
+| **Dato de la referencia** | Los de texto: revista o libro que lo contiene, editorial, lugar, edición, volumen, número, páginas, ISBN, ISSN, DOI | Sí (lo vacía) | — |
+| **Introducción de una nota mapa** | El texto | No: es el índice de un tema | — |
+
+El tipo de obra, las personas y la fecha de la referencia no se revisan en F33. Son datos con su
+propio editor (rol y orden, exactitud de la fecha), y corregirlos a ciegas rompe más de lo que
+arregla.
+
+Las mismas reglas que las tarjetas:
+- Solo se toca lo que sigue siendo de la IA y está como lo vio el modelo.
+- Lo corregido **sigue siendo de la IA, de la pasada que lo hizo**. En el tema y la referencia se
+  actualiza también lo que esa pasada recuerda haber puesto (`ai_field_changes.after_value`), para
+  que deshacerla devuelva lo de antes de la IA.
+- Deshacer la revisión devuelve lo que cambió, si sigue como lo dejó.
+
+Partes, un commit cada una:
+- **4a.** El núcleo de las correcciones, para más de una cosa, y los vínculos: aplicar, deshacer,
+  contar, ofrecer solo lo vigente, y cómo se ven en «Revisión».
+- **4b.** Las etiquetas y propiedades, y el tema.
+- **4c.** Los datos de la referencia y la introducción de las notas mapa.
+- **4d.** El revisor de «lo demás»: instrucción, formato, lector y paso, sumado a la cola. La
+  oferta y el costo cuentan todo («312 cosas de Gemma 4 E4B en 85 elementos»). La guía.
+
+### Paso 4a (hecho): el núcleo para más de una cosa, y los vínculos
+
+- **`correction_suggestions.dart`** queda con una pieza por cosa que se corrige (`_Target`), y
+  todo lo demás compartido: aplicar, deshacer, contar y ofrecer solo lo vigente. Cada pieza sabe
+  leerse, decir si sigue siendo de la IA y como la vio el modelo, cambiarse o sacarse, y volver.
+- **Vínculos** (`CorrectionSubject.relation`, `RelationCorrectionField`: el tipo y la frase).
+  Solo los que son una opinión sobre dos elementos; una extracción o un índice no se tocan.
+  - **Corregir** cambia el tipo y la frase. El vínculo sigue siendo de la IA, de su pasada, y el
+    tipo de antes queda como «no era». No se acepta un tipo de estructura, uno que no existe, ni
+    uno que ya hay entre los dos elementos.
+  - **Sacar** lo borra, recuerda que «no era» y lo guarda entero.
+  - **Deshacer la revisión:**
+    - Al vínculo corregido le devuelve el tipo y la frase, salvo que la persona ya haya hecho
+      ese vínculo.
+    - El que se sacó vuelve solo si su pasada sigue en pie, no hay otro igual y sus dos
+      elementos existen (en la papelera también cuentan).
+    - En los dos casos olvida el «no era» que recordó.
+  - «Revisión» deja de ofrecerlo apenas la persona edita el vínculo: la consulta también mira la
+    tabla de vínculos.
+- **`label`** en la corrección: qué es, cuando no lo dicen los datos. En un vínculo, el título
+  del otro elemento («Corregir el vínculo con «Cartago»»).
+- **Arreglo de raíz en las tarjetas:** el «después» se guardaba sin recortar los espacios, y una
+  corrección aceptada con espacios de más no contaba como en pie.
+- **Pruebas.** Vínculos contra SQLite en memoria (14), y la vista en «Revisión» (1).
+- **Mutación: 17 de 17 muertas.** Una sobrevivía, «no mira el tipo», y faltaba la prueba de dos
+  correcciones sobre el mismo vínculo.

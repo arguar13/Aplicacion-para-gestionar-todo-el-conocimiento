@@ -217,7 +217,14 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
   Stream<List<CorrectionReviewItem>> watchPendingCorrections() {
     return watchQuery(
       db: _db,
-      tables: [_db.suggestions, _db.knowledgeEntries, _db.flashcards],
+      // Lo que se corrige: una corrección sobre algo que la persona cambió se
+      // va sola.
+      tables: [
+        _db.suggestions,
+        _db.knowledgeEntries,
+        _db.flashcards,
+        _db.relations,
+      ],
       read: _readPendingCorrections,
       telemetry: _telemetry,
       hint: 'SuggestionRepositoryImpl.watchPendingCorrections',
@@ -600,6 +607,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     required String reason,
     required String aiRunId,
     String? model,
+    String? label,
   }) async {
     try {
       final id = _ids.next();
@@ -618,6 +626,7 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
                 reason: reason,
                 aiRunId: aiRunId,
                 model: model,
+                label: label,
               ),
               createdAt: _clock(),
             ),

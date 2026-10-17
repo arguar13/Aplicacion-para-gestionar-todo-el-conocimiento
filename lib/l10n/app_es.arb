@@ -9084,5 +9084,17 @@
   "aiRecheckQueued": "Revisando con {model}: lo que proponga queda en «Revisión».",
   "@aiRecheckQueued": {"description": "Revisar con otro modelo (F33): aviso al empezar desde un elemento.", "placeholders": {"model": {"type": "String"}}},
   "aiRecheckNothing": "No queda nada de la IA para revisar acá.",
-  "@aiRecheckNothing": {"description": "Revisar con otro modelo (F33): el elemento no tiene nada de la IA para revisar."}
+  "@aiRecheckNothing": {"description": "Revisar con otro modelo (F33): el elemento no tiene nada de la IA para revisar."},
+  "aiCorrectionFixRelation": "Corregir el vínculo con «{title}»",
+  "@aiCorrectionFixRelation": {"description": "Revisar con otro modelo (F33): una corrección de un vínculo, con el título del otro elemento.", "placeholders": {"title": {"type": "String"}}},
+  "aiCorrectionRemoveRelation": "Sacar el vínculo con «{title}»",
+  "@aiCorrectionRemoveRelation": {"description": "Revisar con otro modelo (F33): sacar un vínculo, con el título del otro elemento.", "placeholders": {"title": {"type": "String"}}},
+  "aiCorrectionFixRelationPlain": "Corregir este vínculo",
+  "@aiCorrectionFixRelationPlain": {"description": "Revisar con otro modelo (F33): una corrección de un vínculo, sin el título del otro elemento."},
+  "aiCorrectionRemoveRelationPlain": "Sacar este vínculo",
+  "@aiCorrectionRemoveRelationPlain": {"description": "Revisar con otro modelo (F33): sacar un vínculo, sin el título del otro elemento."},
+  "aiCorrectionRelationKind": "Tipo",
+  "@aiCorrectionRelationKind": {"description": "Revisar con otro modelo (F33): rótulo del tipo de un vínculo."},
+  "aiCorrectionRelationNote": "Frase",
+  "@aiCorrectionRelationNote": {"description": "Revisar con otro modelo (F33): rótulo de la frase de un vínculo."}
 }

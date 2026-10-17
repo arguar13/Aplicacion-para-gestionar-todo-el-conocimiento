@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/word_diff.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_cards.dart';
+import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
@@ -231,12 +233,10 @@ class _CorrectionRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(switch (correction.subject) {
-                  CorrectionSubject.flashcard =>
-                    removes
-                        ? l10n.aiCorrectionRemoveCard
-                        : l10n.aiCorrectionFixCard,
-                }, style: theme.textTheme.labelLarge),
+                child: Text(
+                  _correctionTitle(l10n, correction, removes: removes),
+                  style: theme.textTheme.labelLarge,
+                ),
               ),
               if (model != null) _ModelChip(model: model),
             ],
@@ -254,6 +254,24 @@ class _CorrectionRow extends StatelessWidget {
                 label: l10n.aiCorrectionAnswer,
                 before: correction.before[FlashcardCorrectionField.back] ?? '',
                 after: after?[FlashcardCorrectionField.back],
+              ),
+            ],
+            CorrectionSubject.relation => [
+              _DiffField(
+                label: l10n.aiCorrectionRelationKind,
+                before: _kindLabel(
+                  l10n,
+                  correction.before[RelationCorrectionField.kind],
+                ),
+                after: after == null
+                    ? null
+                    : _kindLabel(l10n, after[RelationCorrectionField.kind]),
+              ),
+              const SizedBox(height: 8),
+              _DiffField(
+                label: l10n.aiCorrectionRelationNote,
+                before: correction.before[RelationCorrectionField.note] ?? '',
+                after: after?[RelationCorrectionField.note],
               ),
             ],
           },
@@ -303,6 +321,30 @@ class _CorrectionRow extends StatelessWidget {
     );
   }
 }
+
+/// Qué propone [correction]: corregir o sacar, y qué.
+String _correctionTitle(
+  AppLocalizations l10n,
+  CorrectionSuggestion correction, {
+  required bool removes,
+}) {
+  return switch ((correction.subject, correction.label)) {
+    (CorrectionSubject.flashcard, _) =>
+      removes ? l10n.aiCorrectionRemoveCard : l10n.aiCorrectionFixCard,
+    (CorrectionSubject.relation, null) =>
+      removes
+          ? l10n.aiCorrectionRemoveRelationPlain
+          : l10n.aiCorrectionFixRelationPlain,
+    (CorrectionSubject.relation, final String title) =>
+      removes
+          ? l10n.aiCorrectionRemoveRelation(title)
+          : l10n.aiCorrectionFixRelation(title),
+  };
+}
+
+/// El nombre del tipo de vínculo guardado como [name].
+String _kindLabel(AppLocalizations l10n, String? name) =>
+    RelationKind.values.asNameMap()[name]?.shortLabel(l10n) ?? name ?? '';
 
 /// Quién propone la corrección: el modelo que revisó, con el ✨.
 class _ModelChip extends StatelessWidget {

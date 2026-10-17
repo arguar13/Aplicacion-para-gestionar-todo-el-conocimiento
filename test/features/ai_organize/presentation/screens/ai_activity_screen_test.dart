@@ -28,6 +28,7 @@ import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dar
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
+import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
@@ -862,6 +863,82 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('un vínculo: con quién, y el tipo y la frase de antes y de '
+        'después', (tester) async {
+      (await harness.container
+              .read(organizeRepositoryProvider)
+              .createRelation(
+                fromItemId: 'a',
+                toItemId: 'b',
+                kind: RelationKind.relatedTo,
+                note: 'Las dos hablan de Roma.',
+                ai: const AiProvenance(runId: 'run-a'),
+              ))
+          .getOrElse((f) => fail('$f'));
+      final relation = await harness.database
+          .select(harness.database.relations)
+          .getSingle();
+      final fix =
+          (await harness.container
+                  .read(suggestionRepositoryProvider)
+                  .createCorrectionSuggestion(
+                    targetItemId: 'a',
+                    subject: CorrectionSubject.relation,
+                    subjectId: relation.id,
+                    before: const {
+                      RelationCorrectionField.kind: 'relatedTo',
+                      RelationCorrectionField.note: 'Las dos hablan de Roma.',
+                    },
+                    after: const {
+                      RelationCorrectionField.kind: 'contradicts',
+                      RelationCorrectionField.note: 'Las dos hablan de Roma.',
+                    },
+                    reason: 'Una dice lo contrario.',
+                    aiRunId: 'run-review',
+                    label: 'Cartago',
+                  ))
+              .getOrElse((f) => fail('$f'));
+      await pumpScreen(tester);
+
+      final row = find.byKey(Key('ai-correction-${fix.id}'));
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text(es.aiCorrectionFixRelation('Cartago')),
+        ),
+        findsOneWidget,
+      );
+      for (final text in [
+        es.relationKindLabelRelatedTo,
+        es.relationKindLabelContradicts,
+      ]) {
+        expect(
+          find.descendant(
+            of: row,
+            matching: find.text(text, findRichText: true),
+          ),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+      // La frase no cambió: una sola vez.
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('Las dos hablan de Roma.'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${fix.id}')));
+      await tester.pumpAndSettle();
+      expect(
+        (await harness.database.select(harness.database.relations).getSingle())
+            .kind,
+        RelationKind.contradicts,
+      );
+    });
 
     testWidgets('el antes y el después, quién lo propone y por qué', (
       tester,
