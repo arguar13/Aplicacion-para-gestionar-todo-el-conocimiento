@@ -177,3 +177,33 @@ falta para revisarlo.
   - La revisión corre en la cola de fondo, con barra de avance, pausa y cancelar.
   - Usa el turno de la cola, que cede el modelo cuando lo usás vos, pero gasta de tu cuota y no del tope de la IA de fondo.
   - Al cambiar de modelo a mitad, espera y retoma.
+
+### Paso 3a (hecho): la cola de la revisión, por dentro
+
+- **`AiReviewQueue`** revisa de a un elemento por vez y en segundo plano, cada uno en su pasada de
+  revisión (`AiRunScope.review`) con el modelo elegido:
+  - **Sale de la cuota de la persona** (decisión C). El chequeo del modelo es el de la persona,
+    sin el tope de la IA de fondo, y el revisor usa
+    `LanguageModelTasks.requestedInBackground`: tiene el turno de la cola (le cede el modelo a la
+    persona cuando lo pide y repite lo cortado), pero gasta con el motor de la persona.
+  - **Si el modelo no puede contestar por ahora** (sin cuota, sin conexión, saturado), espera sin
+    perder nada: el elemento cortado se retoma primero y en la misma pasada, a la hora de la
+    renovación o al cambiar el modelo o las cuentas.
+  - **Pausa, seguir, cancelar y cerrar.** Cancelar cierra la pasada del que esperaba con lo que
+    alcanzó. Un pedido nuevo se suma al que corre, sin repetir elementos.
+  - **Revisar la biblioteca deja afuera lo que hizo el mismo modelo**; pedido en un elemento, no.
+  - Publica cómo va (`AiReviewBatch`: cuántos, cuántas propuestas, qué lee, por qué espera) y
+    mantiene viva la app con su propio dueño del servicio en primer plano
+    (`LongWorkOwner.aiReview`, «Revisando lo que hizo la IA» en Android), antes que la IA de fondo.
+- **Qué hay para revisar** (`AiRunRepository`):
+  - `aiWorkByModel()`: cuántas tarjetas de la IA siguen en pie por modelo y en cuántos elementos.
+  - `reviewCandidates(reviewer:, madeBy:, itemId:)`: los elementos por revisar. Sin `itemId`,
+    sin lo del mismo modelo ni lo que ese modelo ya revisó (una pasada de revisión suya,
+    terminada y en pie). Con `itemId`, todo lo de ese elemento.
+  - Cuentan solo las tarjetas de pregunta y respuesta, de pasadas en pie y elementos fuera de la
+    papelera; lo de pasadas viejas sin modelo anotado también.
+- **Pruebas.** La cola (15), qué hay para revisar (5), el motor pedido de fondo (4), el servicio en
+  primer plano (2).
+- **Mutación: 31 de 32 muertas.** La que sobrevive, «cuenta lo de una pasada deshecha», es
+  equivalente: deshacer una pasada borra las tarjetas que siguen siendo suyas, así que no queda
+  ninguna que apunte a una pasada deshecha.

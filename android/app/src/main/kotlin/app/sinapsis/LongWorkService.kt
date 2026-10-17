@@ -180,6 +180,12 @@ class LongWorkService : Service() {
         val percent = if (total > 0) done * 100 / total else -1
         val text = when (kind) {
             KIND_ORGANIZING -> organizingText(detail, done, total)
+            KIND_REVIEWING ->
+                if (total > 0) {
+                    getString(R.string.long_work_reviewing_progress, done, total)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
             KIND_MODEL_DOWNLOAD -> {
                 val model = getString(
                     when (detail) {
@@ -221,6 +227,7 @@ class LongWorkService : Service() {
                     } else {
                         R.string.long_work_organizing_title
                     }
+                KIND_REVIEWING -> R.string.long_work_reviewing_title
                 KIND_MODEL_DOWNLOAD -> R.string.long_work_model_title
                 KIND_AUDIO_DOWNLOAD -> R.string.long_work_audio_title
                 KIND_SAMPLE_LIBRARY -> R.string.long_work_sample_library_title
@@ -293,6 +300,9 @@ class LongWorkService : Service() {
 
         /** El trabajo es la IA ordenando la biblioteca (F27). */
         const val KIND_ORGANIZING = "organizing"
+
+        /** El trabajo es otro modelo revisando lo que hizo la IA (F33). */
+        const val KIND_REVIEWING = "reviewing"
 
         /** El trabajo es bajar un modelo; [EXTRA_DETAIL] dice cuál. */
         const val KIND_MODEL_DOWNLOAD = "model_download"

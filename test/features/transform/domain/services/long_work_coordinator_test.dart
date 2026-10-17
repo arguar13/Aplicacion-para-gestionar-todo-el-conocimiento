@@ -149,6 +149,22 @@ void main() {
     });
   });
 
+  testWidgets('la revisión con otro modelo (F33) se ve antes que la IA de '
+      'fondo: la pidió la persona', (tester) async {
+    ai.working(done: 3, total: 120);
+    await tester.pump();
+    final review = coordinator.keeperFor(LongWorkOwner.aiReview)
+      ..working(done: 1, total: 5);
+    await tester.pump();
+    ai.working(done: 40, total: 120);
+    await tester.pump();
+    expect(coordinator.shown?.owner, LongWorkOwner.aiReview);
+
+    review.idle();
+    await tester.pump(const Duration(minutes: 1));
+    expect(coordinator.shown?.owner, LongWorkOwner.aiOrganize);
+  });
+
   testWidgets('la biblioteca de ejemplo va última: mientras se procesa lo '
       'que carga, se ve el procesamiento, y después ella', (tester) async {
     final sample = coordinator.keeperFor(LongWorkOwner.sampleLibrary)

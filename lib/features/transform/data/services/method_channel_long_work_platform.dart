@@ -30,6 +30,7 @@ class MethodChannelLongWorkPlatform implements LongWorkPlatform {
     LongWorkOwner.processing => 'processing',
     LongWorkOwner.modelDownload => 'model_download',
     LongWorkOwner.audioDownload => 'audio_download',
+    LongWorkOwner.aiReview => 'reviewing',
     LongWorkOwner.aiOrganize => 'organizing',
     LongWorkOwner.sampleLibrary => 'sample_library',
   };

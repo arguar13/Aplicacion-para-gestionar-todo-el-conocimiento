@@ -252,6 +252,13 @@ final backgroundLanguageModelProvider = Provider<LanguageModelTasks>(
   (ref) => ref.watch(_languageModelProvider).background,
 );
 
+/// El mismo modelo, con el turno de la cola pero gastando como la persona
+/// (F33): lo que la persona pidió y corre de fondo, como «Revisar con otro
+/// modelo». Ver `LanguageModelTasks.requestedInBackground`.
+final requestedBackgroundLanguageModelProvider = Provider<LanguageModelTasks>(
+  (ref) => ref.watch(_languageModelProvider).requestedInBackground,
+);
+
 final chatModelProvider = Provider<ChatModel>((ref) {
   return ref.watch(_languageModelProvider);
 });

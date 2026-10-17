@@ -44,6 +44,7 @@ void main() {
       reviewer: reviewer,
       flashcards: vault.flashcards,
       suggestions: vault.suggestions,
+      runs: vault.runs,
       textBudget: () => budget,
     );
   });
@@ -264,6 +265,36 @@ void main() {
       await step.review(item, runId: await reviewRun()),
       const AiStepReport(forReview: 1),
     );
+  });
+
+  test('con exceptMadeBy deja afuera lo que hizo ese modelo', () async {
+    final item = await vault.source('a', title: 'Libros', content: article);
+    final byGemma = (await vault.runs.startRun(
+      'a',
+      model: 'Gemma 4 E4B',
+    )).getOrElse((f) => fail('$f'));
+    final byGemini = (await vault.runs.startRun(
+      'a',
+      model: 'gemini-3.8-flash',
+    )).getOrElse((f) => fail('$f'));
+    await aiCard(byGemma, '¿De Gemma?', 'Sí.');
+    await aiCard(byGemini, '¿De Gemini?', 'Sí.');
+
+    await step.review(
+      item,
+      runId: await reviewRun(),
+      exceptMadeBy: 'gemini-3.8-flash',
+    );
+    expect(reviewer.batches.expand((b) => b).map((c) => c.front), [
+      '¿De Gemma?',
+    ]);
+
+    reviewer.batches.clear();
+    expect(
+      await step.review(item, runId: await reviewRun(), exceptMadeBy: 'otro'),
+      AiStepReport.nothing,
+    );
+    expect(reviewer.batches.expand((b) => b), hasLength(2));
   });
 
   test('sin tarjetas de la IA no le pide nada al modelo', () async {

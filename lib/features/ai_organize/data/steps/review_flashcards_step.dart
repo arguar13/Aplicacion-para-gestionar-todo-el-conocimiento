@@ -8,6 +8,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
+import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/flashcards/domain/repositories/flashcard_repository.dart';
@@ -40,37 +42,57 @@ const kMinReviewPassageChars = 400;
 /// No vuelve a proponer lo que ya está para decidir —una tarjeta con una
 /// corrección pendiente no se revisa otra vez— ni lo que la persona descartó:
 /// la misma corrección sobre la misma tarjeta, o sacar la misma tarjeta.
-class ReviewFlashcardsStep {
+class ReviewFlashcardsStep implements AiItemReviewer {
   const ReviewFlashcardsStep({
     required FlashcardReviewer reviewer,
     required FlashcardRepository flashcards,
     required SuggestionRepository suggestions,
+    required AiRunRepository runs,
     required ModelTextBudget Function() textBudget,
   }) : _reviewer = reviewer,
        _flashcards = flashcards,
        _suggestions = suggestions,
+       _runs = runs,
        _textBudget = textBudget;
 
   final FlashcardReviewer _reviewer;
   final FlashcardRepository _flashcards;
   final SuggestionRepository _suggestions;
+  final AiRunRepository _runs;
 
   /// Cuánto lee por pedido el modelo elegido: se pregunta al empezar cada
   /// elemento, como al hacer las tarjetas.
   final ModelTextBudget Function() _textBudget;
 
   /// Revisa las tarjetas de [item] dentro de la pasada de revisión [runId] de
-  /// [model]. Devuelve cuántas correcciones dejó para decidir.
+  /// [model]. Con [exceptMadeBy], deja afuera las que hizo ese modelo.
+  /// Devuelve cuántas correcciones dejó para decidir.
+  @override
   Future<AiStepReport> review(
     KnowledgeItem item, {
     required String runId,
     String? model,
+    String? exceptMadeBy,
   }) async {
-    final cards = [
+    var cards = [
       for (final card in await _flashcards.watchForItem(item.id).first)
         if (_isAiCard(card)) card,
     ];
     if (cards.isEmpty) return AiStepReport.nothing;
+    if (exceptMadeBy != null) {
+      final made = {
+        for (final run in (await _runs.listRuns(
+          itemId: item.id,
+          limit: 1000,
+        )).orThrowStep('leer qué modelo hizo cada tarjeta'))
+          run.id: run.model,
+      };
+      cards = [
+        for (final card in cards)
+          if (made[card.aiRunId] != exceptMadeBy) card,
+      ];
+      if (cards.isEmpty) return AiStepReport.nothing;
+    }
 
     final known = (await _suggestions.suggestionsFor(
       item.id,

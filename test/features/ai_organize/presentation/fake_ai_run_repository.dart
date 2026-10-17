@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 
@@ -117,6 +118,31 @@ class FakeAiRunRepository implements AiRunRepository {
   @override
   Future<Either<Failure, AiRunTally>> finishRun(String runId) =>
       throw UnimplementedError('Las pantallas no cierran pasadas.');
+
+  /// Lo que devuelven [aiWorkByModel] y [reviewCandidates] (F33).
+  List<AiModelWork> work = const [];
+  List<AiReviewCandidate> candidates = const [];
+
+  /// Con qué se pidió cada [reviewCandidates].
+  final candidateQueries =
+      <({String reviewer, String? madeBy, String? itemId})>[];
+
+  @override
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel() async =>
+      right(work);
+
+  @override
+  Future<Either<Failure, List<AiReviewCandidate>>> reviewCandidates({
+    required String reviewer,
+    String? madeBy,
+    String? itemId,
+  }) async {
+    candidateQueries.add((reviewer: reviewer, madeBy: madeBy, itemId: itemId));
+    return right([
+      for (final candidate in candidates)
+        if (itemId == null || candidate.itemId == itemId) candidate,
+    ]);
+  }
 
   @override
   Future<Either<Failure, bool>> isRelationRejected({

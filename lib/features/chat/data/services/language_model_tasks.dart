@@ -376,6 +376,16 @@ class LanguageModelTasks
       ? this
       : LanguageModelTasks._(_gate, _backend.forBackground, inBackground: true);
 
+  /// Lo que pidió la persona pero corre de fondo (F33, «Revisar con otro
+  /// modelo»): con el turno de la cola —espera a que la persona no use el
+  /// modelo y le cede el paso— pero con el motor de la persona, así que sale
+  /// de su cuota y no del tope diario de la IA de fondo (decisión C).
+  late final LanguageModelTasks requestedInBackground = LanguageModelTasks._(
+    _gate,
+    _backend,
+    inBackground: true,
+  );
+
   /// Corre [work] en el turno que le toca a esta instancia. Todo método que
   /// abre un intercambio pasa por acá: dos a la vez se pisan la única sesión
   /// que tiene Gemma (ver `LanguageModelGate`).

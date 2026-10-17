@@ -57,12 +57,16 @@ void main() {
         total: 80,
       ),
     );
+    await platform.show(
+      const LongWorkNotice(owner: LongWorkOwner.aiReview, done: 2, total: 9),
+    );
     await platform.stop();
 
     expect(calls, [
       'working processing 1/4 [data_sync]',
       'working organizing 3/120 [data_sync]',
       'working sample_library 7/80 [data_sync]',
+      'working reviewing 2/9 [data_sync]',
       'idle',
     ]);
   });

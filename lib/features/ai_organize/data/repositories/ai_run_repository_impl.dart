@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
@@ -19,6 +20,7 @@ import 'package:sinapsis/core/util/clock.dart';
 import 'package:sinapsis/core/util/id_generator.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_field_ledger.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_sql.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_run_repository.dart';
 
@@ -327,6 +329,100 @@ class AiRunRepositoryImpl implements AiRunRepository {
     } on Object catch (e, stackTrace) {
       return left(
         _unexpected(e, stackTrace, 'AiRunRepositoryImpl.undoneItemsAmong'),
+      );
+    }
+  }
+
+  /// Las tarjetas que la revisión mira (F33): de pregunta y respuesta, de la
+  /// IA, de una pasada en pie y en un elemento fuera de la papelera. `f` es la
+  /// tarjeta, `r` su pasada e `i` su elemento.
+  static final _reviewableCardsSql =
+      '''
+      FROM flashcards f
+      JOIN ai_runs r ON r.id = f.ai_run_id
+      JOIN item i ON i.id = f.item_id
+     WHERE f.origin = '${ContentOrigin.ai.name}'
+       AND f.kind = '${FlashcardKind.freeRecall.name}'
+       AND r.undone_at IS NULL
+       AND ${activeItemSql('i')}''';
+
+  @override
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel() async {
+    try {
+      final rows = await _db
+          .customSelect(
+            '''
+            SELECT r.model, COUNT(*) AS cards,
+                   COUNT(DISTINCT f.item_id) AS items
+              $_reviewableCardsSql
+             GROUP BY r.model
+             ORDER BY cards DESC, r.model''',
+            readsFrom: {_db.flashcards, _db.aiRuns, _db.knowledgeEntries},
+          )
+          .get();
+      return right([
+        for (final row in rows)
+          AiModelWork(
+            model: row.readNullable<String>('model'),
+            cards: row.read<int>('cards'),
+            items: row.read<int>('items'),
+          ),
+      ]);
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'AiRunRepositoryImpl.aiWorkByModel'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<AiReviewCandidate>>> reviewCandidates({
+    required String reviewer,
+    String? madeBy,
+    String? itemId,
+  }) async {
+    try {
+      final rows = await _db
+          .customSelect(
+            '''
+            SELECT f.item_id, COUNT(*) AS cards
+              $_reviewableCardsSql
+               ${itemId != null ? 'AND f.item_id = ?' : '''
+               AND (r.model IS NULL OR r.model <> ?)
+               AND NOT EXISTS (
+                 SELECT 1 FROM ai_runs v
+                  WHERE v.item_id = f.item_id
+                    AND v.scope = '${AiRunScope.review.name}'
+                    AND v.model = ?
+                    AND v.finished_at IS NOT NULL
+                    AND v.undone_at IS NULL)'''}
+               ${madeBy == null ? '' : 'AND r.model = ?'}
+             GROUP BY f.item_id
+             ORDER BY cards DESC, f.item_id''',
+            variables: [
+              if (itemId != null)
+                Variable.withString(itemId)
+              else ...[
+                Variable.withString(reviewer),
+                Variable.withString(reviewer),
+              ],
+              if (madeBy != null) Variable.withString(madeBy),
+            ],
+            readsFrom: {_db.flashcards, _db.aiRuns, _db.knowledgeEntries},
+          )
+          .get();
+      return right([
+        for (final row in rows)
+          AiReviewCandidate(
+            itemId: row.read<String>('item_id'),
+            cards: row.read<int>('cards'),
+          ),
+      ]);
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'AiRunRepositoryImpl.reviewCandidates'),
       );
     }
   }

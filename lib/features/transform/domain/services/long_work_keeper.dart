@@ -99,6 +99,10 @@ enum LongWorkOwner {
   /// La bajada automática del audio de un video de YouTube (F24).
   audioDownload,
 
+  /// «Revisar con otro modelo» (F33): el modelo elegido revisa lo que hizo la
+  /// IA. Lo pidió la persona, con un botón: va antes que la IA de fondo.
+  aiReview,
+
   /// La IA que organiza sola (F27): lo nuevo, lo pedido, las notas y, con el
   /// cargador, la biblioteca que ya existía.
   aiOrganize,

@@ -3,6 +3,7 @@ import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 
 /// Lo que la IA hizo sola y lo que no tiene que volver a hacer (F27).
@@ -94,6 +95,25 @@ abstract interface class AiRunRepository {
   Future<Either<Failure, Set<String>>> undoneItemsAmong(
     Iterable<String> itemIds,
   );
+
+  /// Lo que sigue siendo de la IA en la bóveda, por el modelo que lo hizo
+  /// (F33): lo que «Revisar con otro modelo» ofrece revisar. Cuenta las
+  /// tarjetas de pregunta y respuesta de la IA de pasadas en pie, en elementos
+  /// fuera de la papelera; el modelo con más primero.
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel();
+
+  /// Los elementos con algo para revisar con el modelo [reviewer] (F33), con
+  /// cuántas tarjetas de la IA miraría en cada uno, el que más tiene primero.
+  ///
+  /// Con [itemId], solo ese, y todo lo suyo: lo pidió la persona en el
+  /// elemento. Sin él —toda la biblioteca—, un modelo no revisa lo que hizo él
+  /// mismo, ni vuelve sobre un elemento que ya revisó (una pasada de revisión
+  /// suya terminada y en pie). Con [madeBy], solo lo que hizo ese modelo.
+  Future<Either<Failure, List<AiReviewCandidate>>> reviewCandidates({
+    required String reviewer,
+    String? madeBy,
+    String? itemId,
+  });
 
   /// Si la persona dijo que «no era» un vínculo de [kind] entre estos dos
   /// elementos, en cualquier sentido.

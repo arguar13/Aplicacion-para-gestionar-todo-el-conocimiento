@@ -4,14 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fpdart/fpdart.dart' show right;
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
+import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_run_repository_impl.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/flashcards/data/repositories/flashcard_repository_impl.dart';
 import 'package:sinapsis/features/organize/data/repositories/organize_repository_impl.dart';
@@ -343,5 +346,167 @@ void main() {
     await (db.delete(db.knowledgeEntries)..where((e) => e.id.equals('a'))).go();
 
     expect(await db.select(db.aiRuns).get(), isEmpty);
+  });
+
+  group('qué hay para revisar con otro modelo (F33)', () {
+    /// Una pasada de [model] sobre [itemId] con [cards] tarjetas de la IA.
+    Future<String> cardsBy(String itemId, String? model, int cards) async {
+      final run = (await runs.startRun(
+        itemId,
+        model: model,
+      )).getOrElse((f) => fail('$f'));
+      for (var i = 0; i < cards; i++) {
+        await flashcards.create(
+          itemId: itemId,
+          front: '¿$model $i en $itemId?',
+          back: 'Sí',
+          ai: AiProvenance(runId: run),
+        );
+      }
+      await runs.finishRun(run);
+      return run;
+    }
+
+    test('cuánto hizo cada modelo: solo lo que sigue siendo de la IA, de '
+        'pasadas en pie y elementos vivos', () async {
+      await cardsBy('a', 'Gemma 4 E4B', 3);
+      await cardsBy('b', 'Gemma 4 E4B', 2);
+      await cardsBy('c', 'gemini-3.8-flash', 1);
+      // Una deshecha, una de la persona y una adoptada no cuentan.
+      final undone = await cardsBy('c', 'Gemma 4 E4B', 4);
+      await runs.undoRun(undone);
+      await flashcards.create(itemId: 'a', front: '¿Mía?', back: 'Sí');
+      final adopted = (await flashcards.watchForItem('b').first).first;
+      await flashcards.update(id: adopted.id, front: '¿Mía?', back: 'Sí');
+
+      final work = (await runs.aiWorkByModel()).getOrElse((f) => fail('$f'));
+
+      expect(work, const [
+        AiModelWork(model: 'Gemma 4 E4B', cards: 4, items: 2),
+        AiModelWork(model: 'gemini-3.8-flash', cards: 1, items: 1),
+      ]);
+
+      await KnowledgeEntryWriter(db, clock: () => now).trash(['a']);
+      expect((await runs.aiWorkByModel()).getOrElse((f) => fail('$f')), const [
+        AiModelWork(model: 'Gemma 4 E4B', cards: 1, items: 1),
+        AiModelWork(model: 'gemini-3.8-flash', cards: 1, items: 1),
+      ]);
+    });
+
+    test('toda la biblioteca: sin lo del mismo modelo ni lo que ya revisó, '
+        'el que más tiene primero', () async {
+      await cardsBy('a', 'Gemma 4 E4B', 1);
+      await cardsBy('b', 'Gemma 4 E4B', 3);
+      await cardsBy('b', 'gemini-3.8-flash', 2);
+      await cardsBy('c', 'gemini-3.8-flash', 2);
+
+      final all = (await runs.reviewCandidates(
+        reviewer: 'gemini-3.8-flash',
+      )).getOrElse((f) => fail('$f'));
+      expect(all, const [
+        AiReviewCandidate(itemId: 'b', cards: 3),
+        AiReviewCandidate(itemId: 'a', cards: 1),
+      ]);
+
+      // «a» ya la revisó: una pasada de revisión suya, terminada y en pie.
+      final review = (await runs.startRun(
+        'a',
+        model: 'gemini-3.8-flash',
+        scope: AiRunScope.review,
+      )).getOrElse((f) => fail('$f'));
+      // Sin terminar todavía cuenta como por revisar.
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        hasLength(2),
+      );
+      await runs.finishRun(review);
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        const [AiReviewCandidate(itemId: 'b', cards: 3)],
+      );
+      // Deshecha, vuelve a estar por revisar.
+      await runs.undoRun(review);
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        hasLength(2),
+      );
+      // Otro modelo revisa todo, también lo de Gemini.
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'claude-opus-5-5',
+        )).getOrElse((f) => fail('$f')),
+        const [
+          AiReviewCandidate(itemId: 'b', cards: 5),
+          AiReviewCandidate(itemId: 'c', cards: 2),
+          AiReviewCandidate(itemId: 'a', cards: 1),
+        ],
+      );
+    });
+
+    test('solo lo de un modelo', () async {
+      await cardsBy('b', 'Gemma 4 E4B', 3);
+      await cardsBy('b', 'gemini-3.8-flash', 2);
+
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'claude-opus-5-5',
+          madeBy: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        const [AiReviewCandidate(itemId: 'b', cards: 2)],
+      );
+    });
+
+    test('lo hecho sin modelo anotado también se revisa; los huecos no: el '
+        'revisor mira preguntas y respuestas', () async {
+      await cardsBy('a', null, 1);
+      final run = (await runs.startRun(
+        'b',
+        model: 'Gemma 4 E4B',
+      )).getOrElse((f) => fail('$f'));
+      (await flashcards.create(
+        itemId: 'b',
+        front: 'El {{c1::Quijote}} lo escribió Cervantes.',
+        back: '',
+        kind: FlashcardKind.cloze,
+        clozeIndex: 1,
+        ai: AiProvenance(runId: run),
+      )).getOrElse((f) => fail('$f'));
+
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        const [AiReviewCandidate(itemId: 'a', cards: 1)],
+      );
+      expect((await runs.aiWorkByModel()).getOrElse((f) => fail('$f')), const [
+        AiModelWork(model: null, cards: 1, items: 1),
+      ]);
+    });
+
+    test('un elemento, pedido por la persona: todo lo suyo, aunque sea del '
+        'mismo modelo o ya lo haya revisado', () async {
+      await cardsBy('a', 'gemini-3.8-flash', 2);
+      await cardsBy('b', 'Gemma 4 E4B', 1);
+      final review = (await runs.startRun(
+        'a',
+        model: 'gemini-3.8-flash',
+        scope: AiRunScope.review,
+      )).getOrElse((f) => fail('$f'));
+      await runs.finishRun(review);
+
+      expect(
+        (await runs.reviewCandidates(
+          reviewer: 'gemini-3.8-flash',
+          itemId: 'a',
+        )).getOrElse((f) => fail('$f')),
+        const [AiReviewCandidate(itemId: 'a', cards: 2)],
+      );
+    });
   });
 }

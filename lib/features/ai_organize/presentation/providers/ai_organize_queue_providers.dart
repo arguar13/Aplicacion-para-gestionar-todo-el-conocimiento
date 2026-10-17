@@ -18,10 +18,14 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_properties_step.da
 import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/review_flashcards_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_item_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/ai_review_queue.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
@@ -171,6 +175,49 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     )
     // Elegir otro proveedor, cuenta o modelo, o cargar una clave, puede
     // destrabar lo que la cola esperaba del modelo en la nube (F32).
+    ..listen(aiModelSettingsProvider, (_, _) => queue.languageModelChanged())
+    ..listen(aiAccountsProvider, (_, _) => queue.languageModelChanged())
+    ..onDispose(queue.dispose);
+  return queue;
+});
+
+/// Quien revisa cada elemento en «Revisar con otro modelo» (F33): por ahora,
+/// las tarjetas. Con el modelo que pidió la persona pero con el turno de la
+/// cola (`requestedBackgroundLanguageModelProvider`): sale de su cuota, no del
+/// tope de la IA de fondo, y le cede el modelo cuando lo usa.
+final aiItemReviewerProvider = Provider<AiItemReviewer>((ref) {
+  return ReviewFlashcardsStep(
+    reviewer: ref.watch(requestedBackgroundLanguageModelProvider),
+    flashcards: ref.watch(flashcardRepositoryProvider),
+    suggestions: ref.watch(suggestionRepositoryProvider),
+    runs: ref.watch(aiRunRepositoryProvider),
+    textBudget: ref.watch(languageModelTextBudgetProvider),
+  );
+});
+
+/// Cómo va el pedido de «Revisar con otro modelo» (F33), o `null` si no hay
+/// ninguno a la vista. Lo publica la cola de revisión.
+final aiReviewBatchProvider = StateProvider<AiReviewBatch?>((ref) => null);
+
+/// La cola de «Revisar con otro modelo» (F33). Como [aiOrganizeQueueProvider],
+/// vive toda la sesión y pide sus dependencias al usarlas: reconstruirla
+/// perdería lo que la persona pidió revisar.
+final aiReviewQueueProvider = Provider<AiReviewQueue>((ref) {
+  final queue = AiReviewQueue(
+    runs: ref.read(aiRunRepositoryProvider),
+    library: ref.read(libraryRepositoryProvider),
+    reviewer: () => ref.read(aiItemReviewerProvider),
+    languageModel: () => ref.read(languageModelStatusCheckProvider),
+    modelName: ref.read(languageModelNameProvider),
+    telemetry: ref.read(telemetryServiceProvider),
+    clock: ref.read(clockProvider),
+    onBatch: (batch) => ref.read(aiReviewBatchProvider.notifier).state = batch,
+    longWork: ref
+        .read(longWorkCoordinatorProvider)
+        .keeperFor(LongWorkOwner.aiReview),
+  );
+  ref
+    // Elegir otro modelo o cargar una clave puede destrabar lo que esperaba.
     ..listen(aiModelSettingsProvider, (_, _) => queue.languageModelChanged())
     ..listen(aiAccountsProvider, (_, _) => queue.languageModelChanged())
     ..onDispose(queue.dispose);
