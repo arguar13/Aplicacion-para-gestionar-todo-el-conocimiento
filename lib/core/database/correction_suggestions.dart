@@ -4,10 +4,15 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/database/ai_rejection_memory.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/vocabulary_lookup.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
@@ -63,10 +68,18 @@ const _removedKey = 'removed';
 /// estaba—: deshacer olvida solo ese.
 const _rejectionIdKey = 'rejectionId';
 
+/// Cuál es lo corregido después de aplicar, si cambió de identidad: una
+/// propiedad corregida es otra fila, la del valor nuevo. Sin esto, es
+/// `subjectId`.
+const _appliedIdKey = 'appliedSubjectId';
+
 const _cardKey = 'card';
 const _optionsKey = 'options';
 const _reviewsKey = 'reviews';
 const _relationKey = 'relation';
+const _propertyKey = 'property';
+const _itemIdKey = 'itemId';
+const _spaceIdKey = 'spaceId';
 
 /// El `payload_json` de una corrección nueva, todavía sin aplicar.
 String encodeCorrectionPayload({
@@ -126,7 +139,10 @@ Future<List<CorrectionSuggestion>> stillApplicableCorrections(
   List<CorrectionSuggestion> corrections,
 ) async {
   if (corrections.isEmpty) return const [];
-  final rows = await _rowsOf(db, corrections);
+  final rows = await _rowsOf(db, [
+    for (final correction in corrections)
+      (correction.subject, correction.subjectId),
+  ]);
   return [
     for (final correction in corrections)
       if (rows[(correction.subject, correction.subjectId)] case final row?
@@ -191,11 +207,16 @@ Future<Either<Failure, Unit>> applyCorrection(
 /// corrección, y una revisión nueva no la vuelve a proponer.
 ///
 /// Corre en la transacción de quien llama —`AiRunRepositoryImpl.undoRun`—: o
-/// se deshace la pasada entera, o nada.
-Future<int> undoAiCorrections(AppDatabase db, String runId) async {
+/// se deshace la pasada entera, o nada. [now] es la hora de lo que se
+/// escribe en el elemento (el tema), que queda versionado.
+Future<int> undoAiCorrections(
+  AppDatabase db,
+  String runId, {
+  required DateTime now,
+}) async {
   var restored = 0;
   for (final row in await _appliedOf(db, [runId])) {
-    if (await _undo(db, row)) restored++;
+    if (await _undo(db, row, now: now)) restored++;
     await (db.update(db.suggestions)..where((s) => s.id.equals(row.id))).write(
       const SuggestionsCompanion(status: Value(SuggestionStatus.rejected)),
     );
@@ -217,7 +238,8 @@ Future<Map<String, ({int created, int remaining})>> aiCorrectionCounts(
   final rows = await _appliedOf(db, runIds);
   if (rows.isEmpty) return const {};
   final corrections = [for (final row in rows) correctionSuggestionOf(row)];
-  final current = await _rowsOf(db, corrections);
+  final keys = [for (final row in rows) _currentKeyOf(row)];
+  final current = await _rowsOf(db, keys);
   final alive = await _aliveRuns(db, rows.map(_removedRunOf).nonNulls);
 
   final counts = <String, ({int created, int remaining})>{};
@@ -228,7 +250,7 @@ Future<Map<String, ({int created, int remaining})>> aiCorrectionCounts(
         correction.status == SuggestionStatus.accepted &&
         _stillApplied(
           correction,
-          current[(correction.subject, correction.subjectId)],
+          current[keys[index]],
           madeByLiveRun: removedFrom == null || alive.contains(removedFrom),
         );
     final was = counts[correction.aiRunId] ?? (created: 0, remaining: 0);
@@ -270,15 +292,25 @@ const _appliedField = CustomExpression<int>(
   "json_extract(payload_json, '\$.$_appliedKey')",
 );
 
-/// Lo corregido por cada una de [corrections], como está hoy, por qué es y
-/// cuál; lo que ya no está, no.
+/// Cuál es hoy lo corregido por la corrección [row]: el de `subjectId`, o
+/// el que quedó al aplicarla si cambió de identidad ([_appliedIdKey]).
+(CorrectionSubject, String) _currentKeyOf(SuggestionRow row) {
+  final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+  return (
+    CorrectionSubject.values.byName(payload[_subjectKey] as String),
+    (payload[_appliedIdKey] ?? payload[_subjectIdKey]) as String,
+  );
+}
+
+/// Lo que hay hoy en cada una de [keys] —qué cosa es y cuál—; lo que ya no
+/// está, no.
 Future<Map<(CorrectionSubject, String), Object>> _rowsOf(
   AppDatabase db,
-  Iterable<CorrectionSuggestion> corrections,
+  Iterable<(CorrectionSubject, String)> keys,
 ) async {
   final wanted = <CorrectionSubject, Set<String>>{};
-  for (final correction in corrections) {
-    (wanted[correction.subject] ??= {}).add(correction.subjectId);
+  for (final (subject, id) in keys) {
+    (wanted[subject] ??= {}).add(id);
   }
   return {
     for (final MapEntry(key: subject, value: ids) in wanted.entries)
@@ -299,8 +331,8 @@ bool _stillApplied(
   required bool madeByLiveRun,
 }) {
   final after = correction.after;
-  if (after == null) return current == null && madeByLiveRun;
   final target = _targetOf(correction.subject);
+  if (after == null) return target.isRemoved(current) && madeByLiveRun;
   return current != null &&
       target.isAi(current) &&
       target.matches(current, after);
@@ -329,14 +361,17 @@ Future<Set<String>> _aliveRuns(AppDatabase db, Iterable<String> runIds) async {
 
 /// Devuelve a como estaba lo que aplicó la corrección [row], si sigue como
 /// ella lo dejó. Devuelve si lo devolvió.
-Future<bool> _undo(AppDatabase db, SuggestionRow row) async {
+Future<bool> _undo(
+  AppDatabase db,
+  SuggestionRow row, {
+  required DateTime now,
+}) async {
   final correction = correctionSuggestionOf(row);
   if (correction.status != SuggestionStatus.accepted) return false;
   final target = _targetOf(correction.subject);
   final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
-  final current = (await target.rowsById(db, {
-    correction.subjectId,
-  }))[correction.subjectId];
+  final key = _currentKeyOf(row);
+  final current = (await target.rowsById(db, {key.$2}))[key.$2];
   final removedFrom = _removedRunOf(row);
   final madeByLiveRun =
       removedFrom == null ||
@@ -346,10 +381,11 @@ Future<bool> _undo(AppDatabase db, SuggestionRow row) async {
   }
 
   final restored = correction.after != null
-      ? await target.restoreBefore(db, current!, correction)
+      ? await target.restoreBefore(db, current!, correction, now: now)
       : await target.restoreRemoved(
           db,
           payload[_removedKey] as Map<String, dynamic>,
+          now: now,
         );
   if (!restored) return false;
   if (payload[_rejectionIdKey] case final String rejection) {
@@ -375,6 +411,11 @@ abstract class _Target {
   /// Si [row] sigue siendo de la IA —y de lo que se revisa—.
   bool isAi(Object row);
 
+  /// Si lo que se sacó sigue sacado: lo de hoy es [current], `null` si ya no
+  /// está. Casi siempre es eso, que no esté; el tema, en cambio, sigue
+  /// teniendo su registro, y sacado es el elemento sin tema.
+  bool isRemoved(Object? current) => current == null;
+
   /// Si [row] tiene los datos [fields] (el antes o el después).
   bool matches(Object row, Map<String, String> fields);
 
@@ -393,11 +434,16 @@ abstract class _Target {
   Future<bool> restoreBefore(
     AppDatabase db,
     Object row,
-    CorrectionSuggestion correction,
-  );
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  });
 
   /// Vuelve a poner lo que se sacó, guardado en [removed]. Devuelve si pudo.
-  Future<bool> restoreRemoved(AppDatabase db, Map<String, dynamic> removed);
+  Future<bool> restoreRemoved(
+    AppDatabase db,
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  });
 
   /// La pasada que había hecho lo que se guardó en [removed].
   String? removedRunOf(Map<String, dynamic> removed);
@@ -406,6 +452,8 @@ abstract class _Target {
 _Target _targetOf(CorrectionSubject subject) => switch (subject) {
   CorrectionSubject.flashcard => const _FlashcardTarget(),
   CorrectionSubject.relation => const _RelationTarget(),
+  CorrectionSubject.property => const _PropertyTarget(),
+  CorrectionSubject.space => const _SpaceTarget(),
 };
 
 /// Una tarjeta de pregunta y respuesta: se corrige su texto o se saca, con
@@ -522,8 +570,9 @@ class _FlashcardTarget extends _Target {
   Future<bool> restoreBefore(
     AppDatabase db,
     Object row,
-    CorrectionSuggestion correction,
-  ) async {
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) async {
     final card = row as FlashcardRow;
     await (db.update(db.flashcards)..where((f) => f.id.equals(card.id))).write(
       FlashcardsCompanion(
@@ -537,8 +586,9 @@ class _FlashcardTarget extends _Target {
   @override
   Future<bool> restoreRemoved(
     AppDatabase db,
-    Map<String, dynamic> removed,
-  ) async {
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async {
     final restored = FlashcardRow.fromJson(
       removed[_cardKey] as Map<String, dynamic>,
     );
@@ -704,8 +754,9 @@ class _RelationTarget extends _Target {
   Future<bool> restoreBefore(
     AppDatabase db,
     Object row,
-    CorrectionSuggestion correction,
-  ) async {
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) async {
     final relation = row as RelationRow;
     final kind = RelationKind.values.byName(
       correction.before[RelationCorrectionField.kind]!,
@@ -730,8 +781,9 @@ class _RelationTarget extends _Target {
   @override
   Future<bool> restoreRemoved(
     AppDatabase db,
-    Map<String, dynamic> removed,
-  ) async {
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async {
     final relation = RelationRow.fromJson(
       removed[_relationKey] as Map<String, dynamic>,
     );
@@ -798,4 +850,481 @@ class _RelationTarget extends _Target {
       subjectId: relation.id,
     );
   }
+}
+
+/// Una etiqueta o propiedad puesta por la IA, como está hoy: la asignación
+/// con su valor y su categoría.
+class _Assigned {
+  const _Assigned({
+    required this.row,
+    required this.value,
+    required this.definitionId,
+    required this.definitionName,
+    required this.type,
+    required this.byMapNote,
+  });
+
+  final ItemPropertyValueRow row;
+  final String value;
+  final String definitionId;
+  final String definitionName;
+  final PropertyValueType type;
+
+  /// La puso la pasada que creó una nota mapa: es el tema del que la nota es
+  /// índice, parte de la nota, y no se revisa suelta.
+  final bool byMapNote;
+}
+
+/// Una etiqueta o propiedad de la IA: se corrige por otro valor que ya esté
+/// en su categoría, o se saca. Corregir es cambiar de fila —la asignación es
+/// el par elemento y valor—, que sigue siendo de la IA y de su pasada.
+class _PropertyTarget extends _Target {
+  const _PropertyTarget();
+
+  @override
+  String get missing =>
+      'Esa etiqueta ya no está en el elemento: puede que la hayas sacado.';
+
+  @override
+  String get adopted => 'Esa etiqueta ya es tuya: la revisión no la toca.';
+
+  @override
+  String get changed =>
+      'La etiqueta cambió desde que se revisó: esta corrección ya no vale.';
+
+  @override
+  Future<Map<String, Object>> rowsById(AppDatabase db, Set<String> ids) async {
+    final found = <String, Object>{};
+    for (final id in ids) {
+      final cut = id.indexOf('/');
+      if (cut <= 0) continue;
+      final itemId = id.substring(0, cut);
+      final valueId = id.substring(cut + 1);
+      final query =
+          db.select(db.itemPropertyValues).join([
+            innerJoin(
+              db.propertyValues,
+              db.propertyValues.id.equalsExp(
+                db.itemPropertyValues.propertyValueId,
+              ),
+            ),
+            innerJoin(
+              db.propertyDefinitions,
+              db.propertyDefinitions.id.equalsExp(
+                db.propertyValues.definitionId,
+              ),
+            ),
+          ])..where(
+            db.itemPropertyValues.itemId.equals(itemId) &
+                db.itemPropertyValues.propertyValueId.equals(valueId),
+          );
+      final joined = await query.getSingleOrNull();
+      if (joined == null) continue;
+      final row = joined.readTable(db.itemPropertyValues);
+      final value = joined.readTable(db.propertyValues);
+      final definition = joined.readTable(db.propertyDefinitions);
+      final runId = row.aiRunId;
+      final byMapNote =
+          runId != null &&
+          await (db.select(db.aiFieldChanges)..where(
+                    (c) =>
+                        c.aiRunId.equals(runId) &
+                        c.field.equalsValue(AiChangedField.mapNote),
+                  ))
+                  .getSingleOrNull() !=
+              null;
+      found[id] = _Assigned(
+        row: row,
+        value: value.value,
+        definitionId: definition.id,
+        definitionName: definition.name,
+        type: definition.type,
+        byMapNote: byMapNote,
+      );
+    }
+    return found;
+  }
+
+  // El origen dice si la puso la IA; su pasada puede faltar —si se borró,
+  // `ai_run_id` queda en null— y sigue siendo de la IA igual.
+  @override
+  bool isAi(Object row) {
+    final assigned = row as _Assigned;
+    return assigned.row.origin == ItemPropertyOrigin.ai && !assigned.byMapNote;
+  }
+
+  @override
+  bool matches(Object row, Map<String, String> fields) =>
+      (row as _Assigned).value == fields[PropertyCorrectionField.value];
+
+  @override
+  Future<Either<Failure, Map<String, Object>>> apply(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required IdGenerator ids,
+    required DateTime now,
+  }) async {
+    final assigned = row as _Assigned;
+    final after = correction.after;
+    if (after != null) {
+      if (assigned.type != PropertyValueType.text) {
+        return left(
+          const Failure.validation(
+            message:
+                'Solo se corrigen las etiquetas de texto: un número, una '
+                'fecha o una persona se sacan o se editan a mano.',
+          ),
+        );
+      }
+      final wanted = after[PropertyCorrectionField.value]?.trim() ?? '';
+      final target = wanted.isEmpty
+          ? null
+          : await findValueByLabelOrAlias(db, assigned.definitionId, wanted);
+      if (target == null) {
+        return left(
+          Failure.validation(
+            message:
+                '«$wanted» no está en tu vocabulario de '
+                '«${assigned.definitionName}»: la revisión no inventa '
+                'valores.',
+          ),
+        );
+      }
+      if (target.id == assigned.row.propertyValueId) {
+        return left(
+          const Failure.validation(message: 'La corrección no cambia nada.'),
+        );
+      }
+      if (await _assignment(db, assigned.row.itemId, target.id) != null) {
+        return left(
+          Failure.validation(
+            message: 'El elemento ya tiene «${target.value}».',
+          ),
+        );
+      }
+      await _replace(db, assigned.row, withValueId: target.id);
+      final rejection = await _rememberAssignment(
+        db,
+        assigned,
+        ids: ids,
+        now: now,
+      );
+      return right({
+        _appliedIdKey: propertyCorrectionSubjectId(
+          assigned.row.itemId,
+          target.id,
+        ),
+        _afterKey: {
+          PropertyCorrectionField.category: assigned.definitionName,
+          PropertyCorrectionField.value: target.value,
+        },
+        _rejectionIdKey: ?rejection,
+      });
+    }
+
+    final rejection = await _rememberAssignment(
+      db,
+      assigned,
+      ids: ids,
+      now: now,
+    );
+    await _delete(db, assigned.row);
+    return right({
+      _removedKey: {_propertyKey: assigned.row.toJson()},
+      _rejectionIdKey: ?rejection,
+    });
+  }
+
+  @override
+  Future<bool> restoreBefore(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) async {
+    final assigned = row as _Assigned;
+    final subjectId = correction.subjectId;
+    final valueId = subjectId.substring(subjectId.indexOf('/') + 1);
+    // El valor de antes tiene que seguir en el vocabulario, y el elemento no
+    // tenerlo ya puesto por otro lado.
+    final value = await (db.select(
+      db.propertyValues,
+    )..where((v) => v.id.equals(valueId))).getSingleOrNull();
+    if (value == null ||
+        await _assignment(db, assigned.row.itemId, valueId) != null) {
+      return false;
+    }
+    await _replace(db, assigned.row, withValueId: valueId);
+    return true;
+  }
+
+  @override
+  Future<bool> restoreRemoved(
+    AppDatabase db,
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async {
+    final row = ItemPropertyValueRow.fromJson(
+      removed[_propertyKey] as Map<String, dynamic>,
+    );
+    final value = await (db.select(
+      db.propertyValues,
+    )..where((v) => v.id.equals(row.propertyValueId))).getSingleOrNull();
+    final item = await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(row.itemId))).getSingleOrNull();
+    // Que la persona no la haya vuelto a poner ya lo miró quien llama: la
+    // asignación es el par elemento y valor, lo mismo que se busca para ver
+    // si sigue sacada.
+    if (value == null || item == null) return false;
+    await db.into(db.itemPropertyValues).insert(row);
+    return true;
+  }
+
+  @override
+  String? removedRunOf(Map<String, dynamic> removed) =>
+      (removed[_propertyKey] as Map<String, dynamic>?)?['aiRunId'] as String?;
+
+  Future<ItemPropertyValueRow?> _assignment(
+    AppDatabase db,
+    String itemId,
+    String valueId,
+  ) =>
+      (db.select(db.itemPropertyValues)..where(
+            (p) => p.itemId.equals(itemId) & p.propertyValueId.equals(valueId),
+          ))
+          .getSingleOrNull();
+
+  Future<void> _delete(AppDatabase db, ItemPropertyValueRow row) =>
+      (db.delete(db.itemPropertyValues)..where(
+            (p) =>
+                p.itemId.equals(row.itemId) &
+                p.propertyValueId.equals(row.propertyValueId),
+          ))
+          .go();
+
+  /// Cambia el valor de la asignación [row] por [withValueId]: la misma de la
+  /// IA, de la misma pasada.
+  Future<void> _replace(
+    AppDatabase db,
+    ItemPropertyValueRow row, {
+    required String withValueId,
+  }) async {
+    await _delete(db, row);
+    await db
+        .into(db.itemPropertyValues)
+        .insert(row.copyWith(propertyValueId: withValueId));
+  }
+
+  /// Recuerda que [assigned] «no era» en su elemento; `null` si ya estaba.
+  Future<String?> _rememberAssignment(
+    AppDatabase db,
+    _Assigned assigned, {
+    required IdGenerator ids,
+    required DateTime now,
+  }) async {
+    final fingerprint = propertyRejectionFingerprint(
+      definitionName: assigned.definitionName,
+      value: assigned.value,
+    );
+    if (await isAiRejected(
+      db,
+      kind: AiRejectionKind.property,
+      itemId: assigned.row.itemId,
+      fingerprint: fingerprint,
+    )) {
+      return null;
+    }
+    return rememberAiRejection(
+      db,
+      ids: ids,
+      now: now,
+      kind: AiRejectionKind.property,
+      itemId: assigned.row.itemId,
+      fingerprint: fingerprint,
+      subjectId: assigned.row.propertyValueId,
+    );
+  }
+}
+
+/// El tema que la IA le puso a un elemento, como está hoy: lo que recuerda
+/// su pasada y el tema que tiene el elemento.
+class _PlacedSpace {
+  const _PlacedSpace({
+    required this.change,
+    required this.itemId,
+    required this.runUndone,
+    required this.spaceId,
+  });
+
+  final AiFieldChangeRow change;
+  final String itemId;
+  final bool runUndone;
+
+  /// El tema de hoy; `null` si no tiene.
+  final String? spaceId;
+}
+
+/// El tema de la biblioteca que puso la IA (`AiFieldChanges` con
+/// `AiChangedField.space`): se corrige por otro que exista, o se saca.
+///
+/// Corregirlo actualiza también lo que la pasada recuerda haber puesto
+/// (`after_value`): así sigue siendo de la IA, y deshacer esa pasada devuelve
+/// el elemento sin tema, como estaba antes de ella. Sacarlo lo deja sin tema y
+/// no toca ese registro: la pasada ya no tiene nada en pie.
+class _SpaceTarget extends _Target {
+  const _SpaceTarget();
+
+  @override
+  String get missing => 'Ese elemento ya no está.';
+
+  @override
+  String get adopted =>
+      'El tema ya es tuyo —lo cambiaste—: la revisión no lo toca.';
+
+  @override
+  String get changed =>
+      'El tema cambió desde que se revisó: esta corrección ya no vale.';
+
+  @override
+  Future<Map<String, Object>> rowsById(AppDatabase db, Set<String> ids) async {
+    if (ids.isEmpty) return const {};
+    final query =
+        db.select(db.aiFieldChanges).join([
+          innerJoin(
+            db.aiRuns,
+            db.aiRuns.id.equalsExp(db.aiFieldChanges.aiRunId),
+          ),
+          innerJoin(
+            db.knowledgeEntries,
+            db.knowledgeEntries.id.equalsExp(db.aiRuns.itemId),
+          ),
+        ])..where(
+          db.aiFieldChanges.id.isIn(ids) &
+              db.aiFieldChanges.field.equalsValue(AiChangedField.space),
+        );
+    return {
+      for (final joined in await query.get())
+        joined.readTable(db.aiFieldChanges).id: _PlacedSpace(
+          change: joined.readTable(db.aiFieldChanges),
+          itemId: joined.readTable(db.knowledgeEntries).id,
+          runUndone: joined.readTable(db.aiRuns).undoneAt != null,
+          spaceId: joined.readTable(db.knowledgeEntries).spaceId,
+        ),
+    };
+  }
+
+  @override
+  bool isAi(Object row) {
+    final placed = row as _PlacedSpace;
+    return !placed.runUndone && placed.spaceId == placed.change.afterValue;
+  }
+
+  @override
+  bool isRemoved(Object? current) =>
+      current is _PlacedSpace && current.spaceId == null;
+
+  @override
+  bool matches(Object row, Map<String, String> fields) =>
+      ((row as _PlacedSpace).spaceId ?? '') == fields[SpaceCorrectionField.id];
+
+  @override
+  Future<Either<Failure, Map<String, Object>>> apply(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required IdGenerator ids,
+    required DateTime now,
+  }) async {
+    final placed = row as _PlacedSpace;
+    final writer = KnowledgeEntryWriter(db, clock: () => now, ids: ids);
+    final after = correction.after;
+    if (after != null) {
+      final spaceId = after[SpaceCorrectionField.id] ?? '';
+      final space = await (db.select(
+        db.spaces,
+      )..where((s) => s.id.equals(spaceId))).getSingleOrNull();
+      if (space == null) {
+        return left(
+          const Failure.validation(
+            message: 'Ese tema ya no está en tu biblioteca.',
+          ),
+        );
+      }
+      if (space.id == placed.spaceId) {
+        return left(
+          const Failure.validation(message: 'La corrección no cambia nada.'),
+        );
+      }
+      await writer.setSpace([placed.itemId], space.id);
+      await _rememberPlaced(db, placed.change, space.id);
+      return right({
+        _afterKey: {
+          SpaceCorrectionField.id: space.id,
+          SpaceCorrectionField.name: space.name,
+        },
+      });
+    }
+
+    await writer.setSpace([placed.itemId], null);
+    return right({
+      _removedKey: {
+        _itemIdKey: placed.itemId,
+        _spaceIdKey: placed.spaceId!,
+        _aiRunIdKey: placed.change.aiRunId,
+      },
+    });
+  }
+
+  @override
+  Future<bool> restoreBefore(
+    AppDatabase db,
+    Object row,
+    CorrectionSuggestion correction, {
+    required DateTime now,
+  }) async {
+    final placed = row as _PlacedSpace;
+    final spaceId = correction.before[SpaceCorrectionField.id]!;
+    final space = await (db.select(
+      db.spaces,
+    )..where((s) => s.id.equals(spaceId))).getSingleOrNull();
+    if (space == null) return false;
+    await KnowledgeEntryWriter(
+      db,
+      clock: () => now,
+    ).setSpace([placed.itemId], spaceId);
+    await _rememberPlaced(db, placed.change, spaceId);
+    return true;
+  }
+
+  @override
+  Future<bool> restoreRemoved(
+    AppDatabase db,
+    Map<String, dynamic> removed, {
+    required DateTime now,
+  }) async {
+    final spaceId = removed[_spaceIdKey] as String;
+    final space = await (db.select(
+      db.spaces,
+    )..where((s) => s.id.equals(spaceId))).getSingleOrNull();
+    if (space == null) return false;
+    await KnowledgeEntryWriter(
+      db,
+      clock: () => now,
+    ).setSpace([removed[_itemIdKey] as String], spaceId);
+    return true;
+  }
+
+  @override
+  String? removedRunOf(Map<String, dynamic> removed) =>
+      removed[_aiRunIdKey] as String?;
+
+  /// Lo que la pasada de [change] recuerda haber puesto pasa a ser [spaceId].
+  Future<void> _rememberPlaced(
+    AppDatabase db,
+    AiFieldChangeRow change,
+    String spaceId,
+  ) => (db.update(db.aiFieldChanges)..where((c) => c.id.equals(change.id)))
+      .write(AiFieldChangesCompanion(afterValue: Value(spaceId)));
 }

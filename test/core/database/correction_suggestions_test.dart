@@ -7,10 +7,15 @@ import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/correction_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -978,6 +983,716 @@ void main() {
         kind: RelationKind.contradicts,
         note: 'Mía.',
       );
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 0),
+      });
+    });
+  });
+
+  group('etiquetas (F33, 4b)', () {
+    late OrganizeRepositoryImpl organize;
+    late String tema;
+
+    setUp(() async {
+      organize = OrganizeRepositoryImpl(
+        database: db,
+        telemetry: _MockTelemetryService(),
+        ids: FakeIdGenerator(prefix: 'p'),
+        clock: () => now,
+      );
+      tema = await temaDefinitionId(db);
+      await insertItemRows(db, id: 'b', title: 'Cartago');
+      // «Cartago» ya está en el vocabulario de «Tema»: lo puso la persona en
+      // otro elemento.
+      (await organize.assignProperty(
+        itemId: 'b',
+        definitionId: tema,
+        value: 'Cartago',
+      )).getOrElse((f) => fail('$f'));
+    });
+
+    Future<String> valueIdOf(String value) async => (await (db.select(
+      db.propertyValues,
+    )..where((v) => v.value.equals(value))).getSingle()).id;
+
+    /// La etiqueta [value] de [definitionId] que la pasada de Gemma le puso a
+    /// «a», y esa pasada.
+    Future<({String run, String value})> aiTag({
+      String value = 'Roma',
+      String? definitionId,
+    }) async {
+      final run = (await runs.startRun(
+        'a',
+        model: 'Gemma 4 E4B',
+      )).getOrElse((f) => fail('$f'));
+      (await organize.assignProperty(
+        itemId: 'a',
+        definitionId: definitionId ?? tema,
+        value: value,
+        origin: ItemPropertyOrigin.ai,
+        aiRunId: run,
+      )).getOrElse((f) => fail('$f'));
+      await runs.finishRun(run);
+      return (run: run, value: await valueIdOf(value));
+    }
+
+    Future<ItemPropertyValueRow?> assignmentOf(String valueId) =>
+        (db.select(db.itemPropertyValues)..where(
+              (p) => p.itemId.equals('a') & p.propertyValueId.equals(valueId),
+            ))
+            .getSingleOrNull();
+
+    Future<CorrectionSuggestion> proposeTag(
+      String valueId,
+      String run, {
+      Map<String, String>? after = const {
+        PropertyCorrectionField.category: kTemaCategoryName,
+        PropertyCorrectionField.value: 'Cartago',
+      },
+      String category = kTemaCategoryName,
+      String value = 'Roma',
+    }) async =>
+        (await suggestions.createCorrectionSuggestion(
+              targetItemId: 'a',
+              subject: CorrectionSubject.property,
+              subjectId: propertyCorrectionSubjectId('a', valueId),
+              before: {
+                PropertyCorrectionField.category: category,
+                PropertyCorrectionField.value: value,
+              },
+              after: after,
+              reason: 'El texto habla de Cartago.',
+              aiRunId: run,
+              model: 'gemini-3.8-flash',
+            )).getOrElse((f) => fail('$f'))
+            as CorrectionSuggestion;
+
+    Future<bool> tagRejected(String value) async =>
+        (await runs.isPropertyRejected(
+          itemId: 'a',
+          definitionName: kTemaCategoryName,
+          value: value,
+        )).getOrElse((f) => fail('$f'));
+
+    Future<CorrectionSuggestion> read(String id) async =>
+        correctionSuggestionOf(
+          await (db.select(
+            db.suggestions,
+          )..where((s) => s.id.equals(id))).getSingle(),
+        );
+
+    test(
+      'aceptar la cambia por el valor del vocabulario —como está escrito '
+      'ahí—; sigue siendo de la IA, de su pasada, y la de antes «no era»',
+      () async {
+        final made = await aiTag();
+        final cartago = await valueIdOf('Cartago');
+        final correction = await proposeTag(
+          made.value,
+          await reviewRun(),
+          after: const {
+            PropertyCorrectionField.category: kTemaCategoryName,
+            PropertyCorrectionField.value: '  cartago ',
+          },
+        );
+
+        expect(
+          await suggestions.accept(correction.id),
+          right<Failure, Unit>(unit),
+        );
+
+        expect(await assignmentOf(made.value), isNull);
+        final row = (await assignmentOf(cartago))!;
+        expect(row.origin, ItemPropertyOrigin.ai);
+        expect(row.aiRunId, made.run);
+        expect(await tagRejected('Roma'), isTrue);
+        expect(await tagRejected('Cartago'), isFalse);
+        expect(
+          (await read(correction.id)).after![PropertyCorrectionField.value],
+          'Cartago',
+        );
+      },
+    );
+
+    test('no inventa valores, no cambia por lo mismo, ni pone uno que el '
+        'elemento ya tiene', () async {
+      final made = await aiTag();
+      final run = await reviewRun();
+      for (final value in ['Atenas', 'roma', '']) {
+        final correction = await proposeTag(
+          made.value,
+          run,
+          after: {
+            PropertyCorrectionField.category: kTemaCategoryName,
+            PropertyCorrectionField.value: value,
+          },
+        );
+        expect(
+          await suggestions.accept(correction.id),
+          isA<Left<Failure, Unit>>(),
+          reason: value,
+        );
+      }
+
+      (await organize.assignProperty(
+        itemId: 'a',
+        definitionId: tema,
+        value: 'Cartago',
+      )).getOrElse((f) => fail('$f'));
+      final twin = await proposeTag(made.value, run);
+      expect(await suggestions.accept(twin.id), isA<Left<Failure, Unit>>());
+
+      expect((await assignmentOf(made.value))!.origin, ItemPropertyOrigin.ai);
+      expect(await tagRejected('Roma'), isFalse);
+    });
+
+    test('una que no es de texto no se corrige, pero se puede sacar', () async {
+      await db
+          .into(db.propertyDefinitions)
+          .insert(
+            PropertyDefinitionsCompanion.insert(
+              id: 'paginas',
+              name: 'Páginas',
+              createdAt: now,
+              type: const Value(PropertyValueType.number),
+            ),
+          );
+      // «310» existe: no es por inventarlo que no se corrige.
+      (await organize.assignProperty(
+        itemId: 'b',
+        definitionId: 'paginas',
+        value: '310',
+      )).getOrElse((f) => fail('$f'));
+      final made = await aiTag(value: '320', definitionId: 'paginas');
+      final run = await reviewRun();
+
+      final fix = await proposeTag(
+        made.value,
+        run,
+        category: 'Páginas',
+        value: '320',
+        after: const {
+          PropertyCorrectionField.category: 'Páginas',
+          PropertyCorrectionField.value: '310',
+        },
+      );
+      expect(await suggestions.accept(fix.id), isA<Left<Failure, Unit>>());
+      expect(await assignmentOf(made.value), isNotNull);
+
+      final remove = await proposeTag(
+        made.value,
+        run,
+        category: 'Páginas',
+        value: '320',
+        after: null,
+      );
+      expect(await suggestions.accept(remove.id), right<Failure, Unit>(unit));
+      expect(await assignmentOf(made.value), isNull);
+    });
+
+    test('sacarla la saca del elemento y recuerda que «no era»; el valor '
+        'sigue en el vocabulario', () async {
+      final made = await aiTag();
+      final correction = await proposeTag(
+        made.value,
+        await reviewRun(),
+        after: null,
+      );
+
+      await suggestions.accept(correction.id);
+
+      expect(await assignmentOf(made.value), isNull);
+      expect(await tagRejected('Roma'), isTrue);
+      expect(await valueIdOf('Roma'), made.value);
+    });
+
+    test('no toca una que la persona hizo suya, una que cambió, ni una que '
+        'ya no está', () async {
+      final made = await aiTag();
+      final run = await reviewRun();
+
+      final stale = await proposeTag(made.value, run, value: 'Atenas');
+      expect(await suggestions.accept(stale.id), isA<Left<Failure, Unit>>());
+
+      final adopted = await proposeTag(made.value, run);
+      (await organize.assignProperty(
+        itemId: 'a',
+        definitionId: tema,
+        value: 'Roma',
+      )).getOrElse((f) => fail('$f'));
+      expect(await suggestions.accept(adopted.id), isA<Left<Failure, Unit>>());
+      expect(
+        (await assignmentOf(made.value))!.origin,
+        ItemPropertyOrigin.manual,
+      );
+
+      final gone = await proposeTag(made.value, run);
+      await organize.removeItemProperty(
+        itemId: 'a',
+        propertyValueId: made.value,
+      );
+      expect(await suggestions.accept(gone.id), isA<Left<Failure, Unit>>());
+    });
+
+    test(
+      'la que puso la nota mapa es parte de la nota: no se ofrece',
+      () async {
+        final made = await aiTag();
+        await db
+            .into(db.aiFieldChanges)
+            .insert(
+              AiFieldChangesCompanion.insert(
+                id: 'nota',
+                aiRunId: made.run,
+                field: AiChangedField.mapNote,
+                afterValue: made.value,
+              ),
+            );
+        final correction = await proposeTag(made.value, await reviewRun());
+
+        expect(await stillApplicableCorrections(db, [correction]), isEmpty);
+        expect(
+          await suggestions.accept(correction.id),
+          isA<Left<Failure, Unit>>(),
+        );
+      },
+    );
+
+    test('«Revisión» la ofrece hasta que la persona la saca', () async {
+      final made = await aiTag();
+      await proposeTag(made.value, await reviewRun());
+      final queue = StreamQueue(suggestions.watchPendingCorrections());
+      addTearDown(queue.cancel);
+
+      expect((await queue.next).single.corrections, hasLength(1));
+
+      await organize.removeItemProperty(
+        itemId: 'a',
+        propertyValueId: made.value,
+      );
+      expect(await queue.next, isEmpty);
+    });
+
+    test(
+      'y la saca si la persona renombra el valor en el vocabulario',
+      () async {
+        final made = await aiTag();
+        await proposeTag(made.value, await reviewRun());
+        final queue = StreamQueue(suggestions.watchPendingCorrections());
+        addTearDown(queue.cancel);
+
+        expect((await queue.next).single.corrections, hasLength(1));
+
+        (await organize.renamePropertyValue(
+          id: made.value,
+          label: 'Roma antigua',
+        )).getOrElse((f) => fail('$f'));
+        expect(await queue.next, isEmpty);
+      },
+    );
+
+    test('deshacer la revisión vuelve al valor de antes y olvida el «no '
+        'era»', () async {
+      final made = await aiTag();
+      final cartago = await valueIdOf('Cartago');
+      final run = await reviewRun();
+      final correction = await proposeTag(made.value, run);
+      await suggestions.accept(correction.id);
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
+      );
+
+      expect(await assignmentOf(cartago), isNull);
+      final row = (await assignmentOf(made.value))!;
+      expect(row.origin, ItemPropertyOrigin.ai);
+      expect(row.aiRunId, made.run);
+      expect(await tagRejected('Roma'), isFalse);
+      expect(await statusOf(correction.id), SuggestionStatus.rejected);
+    });
+
+    test(
+      'deshacer la revisión no pisa lo que la persona cambió después: ni '
+      'la corregida que sacó, ni el valor de antes que puso a mano',
+      () async {
+        final made = await aiTag();
+        final cartago = await valueIdOf('Cartago');
+        final run = await reviewRun();
+        await suggestions.accept((await proposeTag(made.value, run)).id);
+        await organize.removeItemProperty(
+          itemId: 'a',
+          propertyValueId: cartago,
+        );
+
+        expect(
+          await runs.undoRun(run),
+          right<Failure, AiRunTally>(const AiRunTally()),
+        );
+        expect(await assignmentOf(made.value), isNull);
+
+        final again = await aiTag(value: 'Útica');
+        final second = await reviewRun();
+        await suggestions.accept(
+          (await proposeTag(again.value, second, value: 'Útica')).id,
+        );
+        (await organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Útica',
+        )).getOrElse((f) => fail('$f'));
+        expect(
+          await runs.undoRun(second),
+          right<Failure, AiRunTally>(const AiRunTally()),
+        );
+        expect(
+          (await assignmentOf(again.value))!.origin,
+          ItemPropertyOrigin.manual,
+        );
+        expect((await assignmentOf(cartago))!.origin, ItemPropertyOrigin.ai);
+      },
+    );
+
+    test(
+      'deshacer la pasada que la puso se lleva también la corregida',
+      () async {
+        final made = await aiTag();
+        final cartago = await valueIdOf('Cartago');
+        final run = await reviewRun();
+        await suggestions.accept((await proposeTag(made.value, run)).id);
+
+        await runs.undoRun(made.run);
+
+        expect(await assignmentOf(cartago), isNull);
+        expect(await assignmentOf(made.value), isNull);
+        expect(
+          await runs.undoRun(run),
+          right<Failure, AiRunTally>(const AiRunTally()),
+        );
+        expect(await assignmentOf(made.value), isNull);
+      },
+    );
+
+    test('deshacer devuelve la que sacó si su pasada sigue en pie, y no si se '
+        'deshizo', () async {
+      final made = await aiTag();
+      final run = await reviewRun();
+      await suggestions.accept(
+        (await proposeTag(made.value, run, after: null)).id,
+      );
+
+      await runs.undoRun(run);
+
+      final row = (await assignmentOf(made.value))!;
+      expect(row.origin, ItemPropertyOrigin.ai);
+      expect(row.aiRunId, made.run);
+      expect(await tagRejected('Roma'), isFalse);
+
+      final again = await aiTag(value: 'Útica');
+      final second = await reviewRun();
+      await suggestions.accept(
+        (await proposeTag(again.value, second, value: 'Útica', after: null)).id,
+      );
+      await runs.undoRun(again.run);
+      expect(
+        await runs.undoRun(second),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(await assignmentOf(again.value), isNull);
+    });
+
+    test(
+      'no devuelve la sacada si la persona la volvió a poner a mano',
+      () async {
+        final made = await aiTag();
+        final run = await reviewRun();
+        await suggestions.accept(
+          (await proposeTag(made.value, run, after: null)).id,
+        );
+        (await organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Roma',
+        )).getOrElse((f) => fail('$f'));
+
+        expect(
+          await runs.undoRun(run),
+          right<Failure, AiRunTally>(const AiRunTally()),
+        );
+        expect(
+          (await assignmentOf(made.value))!.origin,
+          ItemPropertyOrigin.manual,
+        );
+      },
+    );
+
+    test('lo que sigue en pie cuenta la corregida —que es otra fila— hasta '
+        'que la persona la hace suya', () async {
+      final made = await aiTag();
+      final run = await reviewRun();
+      await suggestions.accept((await proposeTag(made.value, run)).id);
+
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 1),
+      });
+
+      (await organize.assignProperty(
+        itemId: 'a',
+        definitionId: tema,
+        value: 'Cartago',
+      )).getOrElse((f) => fail('$f'));
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 0),
+      });
+    });
+  });
+
+  group('tema (F33, 4b)', () {
+    late KnowledgeEntryWriter writer;
+
+    setUp(() async {
+      writer = KnowledgeEntryWriter(
+        db,
+        clock: () => now,
+        ids: FakeIdGenerator(prefix: 'w'),
+      );
+      for (final (id, name) in [('historia', 'Historia'), ('arte', 'Arte')]) {
+        await db
+            .into(db.spaces)
+            .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+      }
+    });
+
+    /// La pasada de Gemma que puso «a» en «Historia», y lo que recuerda de
+    /// eso.
+    Future<({String run, String change})> aiSpace() async {
+      final run = (await runs.startRun(
+        'a',
+        model: 'Gemma 4 E4B',
+      )).getOrElse((f) => fail('$f'));
+      expect(
+        await runs.applySpace(runId: run, itemId: 'a', spaceId: 'historia'),
+        right<Failure, bool>(true),
+      );
+      await runs.finishRun(run);
+      final change =
+          await (db.select(db.aiFieldChanges)..where(
+                (c) =>
+                    c.aiRunId.equals(run) &
+                    c.field.equalsValue(AiChangedField.space),
+              ))
+              .getSingle();
+      return (run: run, change: change.id);
+    }
+
+    Future<String?> spaceOfA() async => (await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals('a'))).getSingle()).spaceId;
+
+    Future<CorrectionSuggestion> proposeSpace(
+      String change,
+      String run, {
+      Map<String, String>? after = const {
+        SpaceCorrectionField.id: 'arte',
+        SpaceCorrectionField.name: 'Arte',
+      },
+      String before = 'historia',
+    }) async =>
+        (await suggestions.createCorrectionSuggestion(
+              targetItemId: 'a',
+              subject: CorrectionSubject.space,
+              subjectId: change,
+              before: {
+                SpaceCorrectionField.id: before,
+                SpaceCorrectionField.name: 'Historia',
+              },
+              after: after,
+              reason: 'Habla de pintura.',
+              aiRunId: run,
+              model: 'gemini-3.8-flash',
+            )).getOrElse((f) => fail('$f'))
+            as CorrectionSuggestion;
+
+    test('aceptar lo cambia de tema y sigue siendo de la IA: deshacer la '
+        'pasada que lo puso lo deja sin tema, como estaba', () async {
+      final made = await aiSpace();
+      final correction = await proposeSpace(made.change, await reviewRun());
+
+      expect(
+        await suggestions.accept(correction.id),
+        right<Failure, Unit>(unit),
+      );
+      expect(await spaceOfA(), 'arte');
+
+      await runs.undoRun(made.run);
+      expect(await spaceOfA(), isNull);
+    });
+
+    test('no lo pone en un tema que no existe ni en el mismo, ni en uno que '
+        'cambió desde la revisión', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      for (final id in ['nada', 'historia']) {
+        final correction = await proposeSpace(
+          made.change,
+          run,
+          after: {SpaceCorrectionField.id: id, SpaceCorrectionField.name: id},
+        );
+        expect(
+          await suggestions.accept(correction.id),
+          isA<Left<Failure, Unit>>(),
+          reason: id,
+        );
+      }
+      final stale = await proposeSpace(made.change, run, before: 'arte');
+      expect(await suggestions.accept(stale.id), isA<Left<Failure, Unit>>());
+      expect(await spaceOfA(), 'historia');
+    });
+
+    test('no toca el tema que la persona cambió', () async {
+      final made = await aiSpace();
+      final correction = await proposeSpace(made.change, await reviewRun());
+      await writer.setSpace(['a'], null);
+
+      expect(await stillApplicableCorrections(db, [correction]), isEmpty);
+      expect(
+        await suggestions.accept(correction.id),
+        isA<Left<Failure, Unit>>(),
+      );
+      expect(await spaceOfA(), isNull);
+    });
+
+    test(
+      'ni el que la persona eligió, aunque sea el que vio el modelo',
+      () async {
+        final made = await aiSpace();
+        await writer.setSpace(['a'], 'arte');
+        // Lo que vio el modelo es lo de hoy, pero ya no es lo que puso la IA.
+        final correction = await proposeSpace(
+          made.change,
+          await reviewRun(),
+          before: 'arte',
+          after: const {
+            SpaceCorrectionField.id: 'historia',
+            SpaceCorrectionField.name: 'Historia',
+          },
+        );
+
+        expect(await stillApplicableCorrections(db, [correction]), isEmpty);
+        expect(
+          await suggestions.accept(correction.id),
+          isA<Left<Failure, Unit>>(),
+        );
+        expect(await spaceOfA(), 'arte');
+      },
+    );
+
+    test('ni el de una pasada que ya se deshizo', () async {
+      final made = await aiSpace();
+      final correction = await proposeSpace(made.change, await reviewRun());
+      await runs.undoRun(made.run);
+      await writer.setSpace(['a'], 'historia');
+
+      expect(
+        await suggestions.accept(correction.id),
+        isA<Left<Failure, Unit>>(),
+      );
+      expect(await spaceOfA(), 'historia');
+    });
+
+    test('sacarlo lo deja sin tema; deshacer la revisión lo vuelve a poner, y '
+        'sigue siendo de la IA', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      final correction = await proposeSpace(made.change, run, after: null);
+
+      await suggestions.accept(correction.id);
+      expect(await spaceOfA(), isNull);
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
+      );
+      expect(await spaceOfA(), 'historia');
+      await runs.undoRun(made.run);
+      expect(await spaceOfA(), isNull);
+    });
+
+    test('deshacer la revisión que lo corrigió lo devuelve al de antes, y la '
+        'pasada que lo puso lo sigue reconociendo', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      final correction = await proposeSpace(made.change, run);
+      await suggestions.accept(correction.id);
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
+      );
+      expect(await spaceOfA(), 'historia');
+      expect(await statusOf(correction.id), SuggestionStatus.rejected);
+
+      await runs.undoRun(made.run);
+      expect(await spaceOfA(), isNull);
+    });
+
+    test('deshacer no pisa el tema que la persona eligió después de sacarlo, '
+        'ni devuelve el de una pasada deshecha', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      await suggestions.accept(
+        (await proposeSpace(made.change, run, after: null)).id,
+      );
+      await writer.setSpace(['a'], 'arte');
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(await spaceOfA(), 'arte');
+    });
+
+    test('el sacado no vuelve si la pasada que lo puso se deshizo', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      await suggestions.accept(
+        (await proposeSpace(made.change, run, after: null)).id,
+      );
+      await runs.undoRun(made.run);
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally()),
+      );
+      expect(await spaceOfA(), isNull);
+    });
+
+    test(
+      '«Revisión» lo ofrece hasta que la persona le cambia el tema',
+      () async {
+        final made = await aiSpace();
+        final run = await reviewRun();
+        await proposeSpace(made.change, run);
+        final queue = StreamQueue(suggestions.watchPendingCorrections());
+        addTearDown(queue.cancel);
+
+        expect((await queue.next).single.corrections, hasLength(1));
+        await writer.setSpace(['a'], 'arte');
+        expect(await queue.next, isEmpty);
+      },
+    );
+
+    test('lo que sigue en pie cuenta el tema corregido hasta que la persona '
+        'lo cambia', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      await suggestions.accept((await proposeSpace(made.change, run)).id);
+
+      expect(await aiCorrectionCounts(db, [run]), {
+        run: (created: 1, remaining: 1),
+      });
+
+      await writer.setSpace(['a'], 'historia');
       expect(await aiCorrectionCounts(db, [run]), {
         run: (created: 1, remaining: 0),
       });

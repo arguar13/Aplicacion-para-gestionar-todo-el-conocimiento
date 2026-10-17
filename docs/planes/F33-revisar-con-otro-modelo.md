@@ -302,3 +302,50 @@ Partes, un commit cada una:
 - **Pruebas.** Vínculos contra SQLite en memoria (14), y la vista en «Revisión» (1).
 - **Mutación: 17 de 17 muertas.** Una sobrevivía, «no mira el tipo», y faltaba la prueba de dos
   correcciones sobre el mismo vínculo.
+
+### Paso 4b (hecho): las etiquetas y propiedades, y el tema
+
+- **El núcleo**, un poco más general:
+  - **Lo corregido puede cambiar de identidad.** Una etiqueta corregida es otra fila, porque la
+    asignación es el par elemento y valor. La corrección anota cuál quedó (`appliedSubjectId`), y
+    contar y deshacer miran esa.
+  - **«Sacado» lo decide cada cosa** (`isRemoved`). Casi siempre es que ya no está; el tema, en
+    cambio, sigue teniendo su registro, y sacado es el elemento sin tema.
+  - **Deshacer recibe la hora**, porque cambiar el tema queda versionado como cualquier edición.
+- **Etiquetas y propiedades** (`CorrectionSubject.property`, `PropertyCorrectionField`: la
+  categoría y el valor; el id es `elemento/valor`).
+  - **Corregir** la cambia por un valor **que ya esté** en esa categoría, como está escrito ahí o
+    por un alias. No inventa vocabulario, no la cambia por lo mismo ni pone una que el elemento ya
+    tiene. Sigue siendo de la IA y de su pasada, y la de antes queda como «no era».
+  - **Solo se corrigen las de texto.** Un número, una fecha o una persona se sacan o se editan a
+    mano.
+  - **Sacar** la quita del elemento (el valor sigue en el vocabulario) y recuerda que «no era».
+  - **La que puso una nota mapa** es parte de la nota y no se ofrece.
+  - **Deshacer la revisión** vuelve al valor de antes, salvo que la persona haya sacado la
+    corregida o puesto a mano el de antes. La sacada vuelve si su pasada sigue en pie y nadie la
+    volvió a poner. En los dos casos olvida el «no era».
+- **Tema** (`CorrectionSubject.space`, `SpaceCorrectionField`: el id y el nombre; el id de la
+  corrección es el registro de la pasada en `ai_field_changes`).
+  - **Corregir** lo cambia por otro tema que exista. También cambia lo que la pasada recuerda
+    haber puesto (`after_value`), así sigue siendo de la IA: deshacer esa pasada deja el elemento
+    sin tema, como estaba antes de ella.
+  - **Sacar** lo deja sin tema.
+  - **No toca** el tema que eligió la persona, aunque coincida con lo que vio el modelo, ni el de
+    una pasada deshecha.
+  - **Deshacer la revisión** devuelve el de antes o vuelve a ponerlo, salvo que la persona ya le
+    haya elegido otro o la pasada que lo puso se haya deshecho.
+- **«Revisión»** muestra la categoría y el valor de antes y de después («Corregir «Tema»»), y el
+  tema («Sacar el tema»). La consulta en vivo también mira las asignaciones y el vocabulario:
+  renombrar un valor vuelve vieja la corrección.
+- **Pruebas.** Etiquetas (14) y tema (11) contra SQLite en memoria, y las dos filas en «Revisión»
+  (2).
+- **Mutación: 23 de 23 muertas, y un chequeo que nunca corría, sacado.**
+  - «corrige un número» sobrevivía porque la prueba fallaba por otra razón: el valor no estaba en
+    el vocabulario.
+  - «el tema de la persona» sobrevivía porque faltaba la prueba del tema que la persona eligió
+    igual al que vio el modelo.
+  - «no mira el origen» sobrevivía porque se pedía también la pasada, que solo va con origen
+    `ai`. Queda solo el origen: una asignación de la IA cuya pasada se borró sigue siendo de la
+    IA.
+  - «vuelve la sacada sobre una puesta» probaba un chequeo que nunca se alcanzaba (lo mira antes
+    quien llama). Se sacó, y quedó la prueba del caso.

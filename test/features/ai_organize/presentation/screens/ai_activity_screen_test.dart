@@ -1,9 +1,14 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/database/app_database.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
+import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -937,6 +942,143 @@ void main() {
         (await harness.database.select(harness.database.relations).getSingle())
             .kind,
         RelationKind.contradicts,
+      );
+    });
+
+    testWidgets('una etiqueta: su categoría, y el valor de antes y de '
+        'después', (tester) async {
+      final organize = harness.container.read(organizeRepositoryProvider);
+      final tema = await temaDefinitionId(harness.database);
+      (await organize.assignProperty(
+        itemId: 'b',
+        definitionId: tema,
+        value: 'Cartago',
+      )).getOrElse((f) => fail('$f'));
+      (await organize.assignProperty(
+        itemId: 'a',
+        definitionId: tema,
+        value: 'Roma',
+        origin: ItemPropertyOrigin.ai,
+        aiRunId: 'run-a',
+      )).getOrElse((f) => fail('$f'));
+      final roma = await (harness.database.select(
+        harness.database.propertyValues,
+      )..where((v) => v.value.equals('Roma'))).getSingle();
+      final fix =
+          (await harness.container
+                  .read(suggestionRepositoryProvider)
+                  .createCorrectionSuggestion(
+                    targetItemId: 'a',
+                    subject: CorrectionSubject.property,
+                    subjectId: propertyCorrectionSubjectId('a', roma.id),
+                    before: const {
+                      PropertyCorrectionField.category: kTemaCategoryName,
+                      PropertyCorrectionField.value: 'Roma',
+                    },
+                    after: const {
+                      PropertyCorrectionField.category: kTemaCategoryName,
+                      PropertyCorrectionField.value: 'Cartago',
+                    },
+                    reason: 'Habla de Cartago.',
+                    aiRunId: 'run-review',
+                  ))
+              .getOrElse((f) => fail('$f'));
+      await pumpScreen(tester);
+
+      final row = find.byKey(Key('ai-correction-${fix.id}'));
+      for (final text in [
+        es.aiCorrectionFixProperty(kTemaCategoryName),
+        es.aiCorrectionPropertyValue,
+      ]) {
+        expect(
+          find.descendant(of: row, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+      for (final text in ['Roma', 'Cartago']) {
+        expect(
+          find.descendant(
+            of: row,
+            matching: find.text(text, findRichText: true),
+          ),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${fix.id}')));
+      await tester.pumpAndSettle();
+      final assigned = await (harness.database.select(
+        harness.database.itemPropertyValues,
+      )..where((p) => p.itemId.equals('a'))).getSingle();
+      expect(assigned.propertyValueId, isNot(roma.id));
+    });
+
+    testWidgets('el tema: sacarlo dice qué tema saca', (tester) async {
+      final db = harness.database;
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(
+              id: 'historia',
+              name: 'Historia',
+              createdAt: DateTime(2026, 10, 17),
+            ),
+          );
+      await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('a')))
+          .write(const KnowledgeEntriesCompanion(spaceId: Value('historia')));
+      await db
+          .into(db.aiFieldChanges)
+          .insert(
+            AiFieldChangesCompanion.insert(
+              id: 'cambio',
+              aiRunId: 'run-a',
+              field: AiChangedField.space,
+              afterValue: 'historia',
+            ),
+          );
+      final drop =
+          (await harness.container
+                  .read(suggestionRepositoryProvider)
+                  .createCorrectionSuggestion(
+                    targetItemId: 'a',
+                    subject: CorrectionSubject.space,
+                    subjectId: 'cambio',
+                    before: const {
+                      SpaceCorrectionField.id: 'historia',
+                      SpaceCorrectionField.name: 'Historia',
+                    },
+                    after: null,
+                    reason: 'No es de historia.',
+                    aiRunId: 'run-review',
+                  ))
+              .getOrElse((f) => fail('$f'));
+      await pumpScreen(tester);
+
+      final row = find.byKey(Key('ai-correction-${drop.id}'));
+      for (final text in [es.aiCorrectionRemoveSpace, es.aiCorrectionSpace]) {
+        expect(
+          find.descendant(of: row, matching: find.text(text)),
+          findsOneWidget,
+          reason: text,
+        );
+      }
+      expect(
+        find.descendant(
+          of: row,
+          matching: find.text('Historia', findRichText: true),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(Key('ai-correction-accept-${drop.id}')));
+      await tester.pumpAndSettle();
+      expect(
+        (await (db.select(
+          db.knowledgeEntries,
+        )..where((e) => e.id.equals('a'))).getSingle()).spaceId,
+        isNull,
       );
     });
 

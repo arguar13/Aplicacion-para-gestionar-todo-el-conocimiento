@@ -552,7 +552,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
     final topicPlacements = await undoAiTopicPlacements(_db, run.id);
     // Lo que una revisión corrigió (F33) vuelve a como estaba: la corrección
     // no es una fila con `ai_run_id`, sino un cambio sobre lo que ya había.
-    final corrections = await undoAiCorrections(_db, run.id);
+    final corrections = await undoAiCorrections(_db, run.id, now: _clock());
     if (run.undoneAt == null) {
       await (_db.update(_db.aiRuns)..where((r) => r.id.equals(run.id))).write(
         AiRunsCompanion(undoneAt: Value(_clock())),

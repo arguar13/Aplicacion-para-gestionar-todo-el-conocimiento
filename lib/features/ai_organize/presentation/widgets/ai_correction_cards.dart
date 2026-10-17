@@ -256,6 +256,20 @@ class _CorrectionRow extends StatelessWidget {
                 after: after?[FlashcardCorrectionField.back],
               ),
             ],
+            CorrectionSubject.property => [
+              _DiffField(
+                label: l10n.aiCorrectionPropertyValue,
+                before: correction.before[PropertyCorrectionField.value] ?? '',
+                after: after?[PropertyCorrectionField.value],
+              ),
+            ],
+            CorrectionSubject.space => [
+              _DiffField(
+                label: l10n.aiCorrectionSpace,
+                before: correction.before[SpaceCorrectionField.name] ?? '',
+                after: after?[SpaceCorrectionField.name],
+              ),
+            ],
             CorrectionSubject.relation => [
               _DiffField(
                 label: l10n.aiCorrectionRelationKind,
@@ -339,6 +353,17 @@ String _correctionTitle(
       removes
           ? l10n.aiCorrectionRemoveRelation(title)
           : l10n.aiCorrectionFixRelation(title),
+    // La categoría va siempre en el antes: es parte de lo que vio el modelo.
+    (CorrectionSubject.property, _) =>
+      removes
+          ? l10n.aiCorrectionRemoveProperty(
+              correction.before[PropertyCorrectionField.category] ?? '',
+            )
+          : l10n.aiCorrectionFixProperty(
+              correction.before[PropertyCorrectionField.category] ?? '',
+            ),
+    (CorrectionSubject.space, _) =>
+      removes ? l10n.aiCorrectionRemoveSpace : l10n.aiCorrectionFixSpace,
   };
 }
 

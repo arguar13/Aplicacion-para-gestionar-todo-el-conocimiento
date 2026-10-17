@@ -10114,5 +10114,17 @@
   "aiCorrectionRelationKind": "Type",
   "@aiCorrectionRelationKind": {"description": "Revisar con otro modelo (F33): rótulo del tipo de un vínculo."},
   "aiCorrectionRelationNote": "Phrase",
-  "@aiCorrectionRelationNote": {"description": "Revisar con otro modelo (F33): rótulo de la frase de un vínculo."}
+  "@aiCorrectionRelationNote": {"description": "Revisar con otro modelo (F33): rótulo de la frase de un vínculo."},
+  "aiCorrectionFixProperty": "Fix “{category}”",
+  "@aiCorrectionFixProperty": {"description": "Revisar con otro modelo (F33): una corrección de una etiqueta o propiedad, con su categoría.", "placeholders": {"category": {"type": "String"}}},
+  "aiCorrectionRemoveProperty": "Remove from “{category}”",
+  "@aiCorrectionRemoveProperty": {"description": "Revisar con otro modelo (F33): sacar una etiqueta o propiedad, con su categoría.", "placeholders": {"category": {"type": "String"}}},
+  "aiCorrectionPropertyValue": "Value",
+  "@aiCorrectionPropertyValue": {"description": "Revisar con otro modelo (F33): rótulo del valor de una etiqueta o propiedad."},
+  "aiCorrectionFixSpace": "Fix the topic",
+  "@aiCorrectionFixSpace": {"description": "Revisar con otro modelo (F33): una corrección del tema de la biblioteca."},
+  "aiCorrectionRemoveSpace": "Remove the topic",
+  "@aiCorrectionRemoveSpace": {"description": "Revisar con otro modelo (F33): sacar el tema de la biblioteca."},
+  "aiCorrectionSpace": "Topic",
+  "@aiCorrectionSpace": {"description": "Revisar con otro modelo (F33): rótulo del tema de la biblioteca."}
 }

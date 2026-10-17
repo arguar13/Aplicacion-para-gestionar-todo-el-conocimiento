@@ -218,12 +218,15 @@ class SuggestionRepositoryImpl implements SuggestionRepository {
     return watchQuery(
       db: _db,
       // Lo que se corrige: una corrección sobre algo que la persona cambió se
-      // va sola.
+      // va sola. El vocabulario también: renombrar un valor cambia la
+      // etiqueta que vio el modelo. El tema está en el elemento.
       tables: [
         _db.suggestions,
         _db.knowledgeEntries,
         _db.flashcards,
         _db.relations,
+        _db.itemPropertyValues,
+        _db.propertyValues,
       ],
       read: _readPendingCorrections,
       telemetry: _telemetry,
