@@ -167,6 +167,23 @@ final languageModelStatusProvider =
       return ref.watch(languageModelStatusCheckProvider)();
     });
 
+/// Qué modelo escribe ahora, para dejarlo anotado en lo que hace la IA —sus
+/// pasadas, las notas mapa— (F32): el elegido en la nube —o el que recomienda
+/// el proveedor— o la variante de Gemma. Se lee al usarlo: cambia sin
+/// rearmar a quien lo anota.
+final languageModelNameProvider = Provider<String Function()>(
+  (ref) => () {
+    final settings = ref.read(aiModelSettingsProvider);
+    final provider = settings.provider;
+    if (!provider.isCloud) {
+      return ref.read(chatModelOptionNotifierProvider).name;
+    }
+    return settings.modelOf(provider) ??
+        ref.read(cloudModelCatalogProvider).recommended(provider) ??
+        provider.storageKey;
+  },
+);
+
 /// El modelo de Gemma cargado en memoria, uno solo en toda la app (ver
 /// `GemmaEngine`). NO autoDispose: perderlo es volver a cargar ~3,7 GB.
 final gemmaEngineProvider = Provider<GemmaEngine>(

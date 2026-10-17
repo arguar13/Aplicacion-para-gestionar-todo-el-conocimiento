@@ -36,6 +36,7 @@ import '../../support/fake_embedding_service.dart';
 import '../../support/fake_metadata_suggestion_generator.dart';
 import '../../support/fake_property_suggestion_service.dart';
 import '../../support/fake_relation_suggestion_service.dart';
+import '../../support/gemma_status_check.dart';
 import '../../support/silent_logger.dart';
 import '../../support/transform_test_doubles.dart';
 
@@ -171,7 +172,7 @@ void main() {
           runs: vault.runs,
         ),
       ],
-      chatModel: () => FakeChatModelManager(ready: true),
+      languageModel: () => gemmaStatusCheck(FakeChatModelManager(ready: true)),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
       vectors: () => indexer,
       charging: _NeverCharging(),

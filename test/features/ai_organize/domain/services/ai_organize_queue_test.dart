@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
@@ -21,6 +25,7 @@ import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dar
 import '../../../../support/ai_organize_harness.dart';
 import '../../../../support/fake_chat_model_manager.dart';
 import '../../../../support/fake_embedding_model_manager.dart';
+import '../../../../support/gemma_status_check.dart';
 
 /// Un paso de mentira: anota a quién organizó y en qué pasada. [work] es lo
 /// que hace además, si la prueba quiere algo más.
@@ -62,6 +67,9 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
   Completer<void>? hold;
   String? heldItem;
 
+  /// Si está, el próximo pedido lanza esto, una sola vez (F32).
+  Exception? failNext;
+
   @override
   Future<AiStepReport> makeFlashcards(
     KnowledgeItem item, {
@@ -71,6 +79,11 @@ class _CardsStep extends _Step implements AiFlashcardMaker {
     made.add((itemId: item.id, runId: runId, anotherBatch: anotherBatch));
     if (item.id == heldItem) await hold!.future;
     if (item.id == failsOn) throw StateError('sin memoria');
+    final failure = failNext;
+    if (failure != null) {
+      failNext = null;
+      throw failure;
+    }
     return const AiStepReport(applied: 2, forReview: 1);
   }
 }
@@ -128,6 +141,10 @@ void main() {
   late _Step flashcards;
   late List<AiOrganizeStep> steps;
   late FakeChatModelManager chatModel;
+
+  /// Con un modelo en la nube elegido (F32), lo que contesta su chequeo; sin
+  /// él, Gemma.
+  LanguageModelStatusCheck? cloud;
   late FakeEmbeddingModelManager embeddingModel;
   late _Charging charging;
   late _Vectors vectors;
@@ -143,6 +160,7 @@ void main() {
     flashcards = _Step(AiOrganizeToggle.flashcards);
     steps = [relations, flashcards];
     chatModel = FakeChatModelManager(ready: true);
+    cloud = null;
     embeddingModel = FakeEmbeddingModelManager(ready: true);
     charging = _Charging();
     vectors = _Vectors();
@@ -159,13 +177,14 @@ void main() {
     AiOrganizeSettings settings = const AiOrganizeSettings(),
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
+    Duration modelRetryDelay = kAiModelRetryDelay,
   }) {
     final queue = AiOrganizeQueue(
       backlog: AiOrganizeBacklogImpl(vault.db),
       runs: vault.runs,
       library: vault.library,
       steps: () => steps,
-      chatModel: () => chatModel,
+      languageModel: () => cloud ?? gemmaStatusCheck(chatModel),
       embeddingModel: () => embeddingModel,
       vectors: () => vectors,
       charging: charging,
@@ -178,6 +197,7 @@ void main() {
       noteQuietPeriod: noteQuietPeriod,
       longWork: longWork,
       onFlashcardsBatch: batches.add,
+      modelRetryDelay: modelRetryDelay,
     );
     addTearDown(queue.dispose);
     return queue;
@@ -886,5 +906,441 @@ void main() {
     chat.release();
     await working;
     expect(used, ['a']);
+  });
+
+  group('con el modelo en la nube (F32)', () {
+    const gemini = AiProvider.gemini;
+    late List<bool> asked;
+
+    /// El chequeo del modelo en la nube contesta [status], y anota si se lo
+    /// preguntó la IA de fondo.
+    void cloudSays(LanguageModelStatus status) {
+      cloud = ({bool background = false}) async {
+        asked.add(background);
+        return status;
+      };
+    }
+
+    setUp(() => asked = []);
+
+    Future<AiRunRow> onlyRunOf(String itemId) async => (await (vault.db.select(
+      vault.db.aiRuns,
+    )..where((r) => r.itemId.equals(itemId))).get()).single;
+
+    void noErrors() => verifyNever(
+      () => vault.telemetry.recordError(
+        any<Object?>(),
+        any<StackTrace?>(),
+        hint: any(named: 'hint'),
+      ),
+    );
+
+    test('sin clave, no abre pasadas y dice que falta la clave del '
+        'proveedor, no bajar un modelo', () async {
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelNeedsAccount(provider: gemini));
+
+      await queue().start();
+
+      expect(relations.organized, isEmpty);
+      expect(await runsOf('a'), isEmpty);
+      final missing = statuses.last as AiOrganizeModelMissing;
+      expect(missing.chatModelMissing, isTrue);
+      expect(missing.keyFor, gemini);
+      expect(missing.embeddingModelMissing, isFalse);
+      // Pregunta como IA de fondo: con su tope del día.
+      expect(asked, everyElement(isTrue));
+    });
+
+    test('sin cuota, espera hasta la renovación sin abrir pasadas y dice '
+        'cuántos esperan; cuando vuelve, sigue', () async {
+      await vault.source('a', title: 'A', content: 'Texto.');
+      final resetsAt = vault.now.add(const Duration(hours: 6));
+      cloudSays(
+        LanguageModelOutOfQuota(
+          provider: gemini,
+          accounts: 2,
+          resetsAt: resetsAt,
+        ),
+      );
+      final ai = queue();
+
+      await ai.start();
+
+      expect(relations.organized, isEmpty);
+      expect(await runsOf('a'), isEmpty);
+      final waiting = statuses.last as AiOrganizeWaitingForModel;
+      expect(waiting.reason, AiModelWait.quota);
+      expect(waiting.resumesAt, resetsAt);
+      expect(waiting.pending, 1);
+      noErrors();
+
+      cloudSays(const LanguageModelReady(provider: gemini));
+      await ai.wake();
+
+      expect(relations.organized, ['a']);
+      expect(statuses.last, isA<AiOrganizeIdle>());
+    });
+
+    test(
+      'en el tope del día de la IA de fondo, espera y dice el tope',
+      () async {
+        await vault.source('a', title: 'A', content: 'Texto.');
+        cloudSays(
+          LanguageModelBackgroundCapReached(
+            provider: gemini,
+            cap: 100,
+            resetsAt: vault.now.add(const Duration(hours: 3)),
+          ),
+        );
+
+        await queue().start();
+
+        expect(relations.organized, isEmpty);
+        final waiting = statuses.last as AiOrganizeWaitingForModel;
+        expect((waiting.reason, waiting.cap), (AiModelWait.backgroundCap, 100));
+      },
+    );
+
+    test('con las claves rechazadas, espera por las claves, no por la '
+        'cuota', () async {
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(
+        const LanguageModelOutOfQuota(
+          provider: gemini,
+          accounts: 1,
+          keysRejected: true,
+        ),
+      );
+
+      await queue().start();
+
+      final waiting = statuses.last as AiOrganizeWaitingForModel;
+      expect(waiting.reason, AiModelWait.keysRejected);
+    });
+
+    test('si se queda sin cuota a mitad de un elemento, no lo da por '
+        'organizado: la pasada queda abierta y, al volver, lo retoma primero, '
+        'en la misma pasada y sin repetir los pasos que ya hizo', () async {
+      var failures = 1;
+      flashcards = _Step(
+        AiOrganizeToggle.flashcards,
+        work: (_, _) async {
+          if (failures-- > 0) {
+            throw const CloudModelException(CloudModelFailure.quotaExhausted);
+          }
+        },
+      );
+      steps = [relations, flashcards];
+      await vault.source(
+        'a',
+        title: 'A',
+        content: 'Texto a.',
+        createdAt: DateTime(2026, 10, 2, 8),
+      );
+      cloudSays(const LanguageModelReady(provider: gemini));
+      final ai = queue();
+
+      await ai.start();
+
+      expect(relations.organized, ['a']);
+      expect(flashcards.organized, ['a']);
+      final open = await onlyRunOf('a');
+      expect(open.finishedAt, isNull);
+      expect(statuses.last, isA<AiOrganizeWaitingForModel>());
+      // No es un error: es esperar.
+      noErrors();
+
+      // Mientras espera llega otro: el cortado va primero.
+      await vault.source(
+        'b',
+        title: 'B',
+        content: 'Texto b.',
+        createdAt: DateTime(2026, 10, 2, 9),
+      );
+      vault.now = vault.now.add(kAiModelRetryDelay);
+      await ai.wake();
+
+      expect(relations.organized, ['a', 'b']);
+      expect(flashcards.organized, ['a', 'a', 'b']);
+      final resumed = await onlyRunOf('a');
+      expect(resumed.id, open.id);
+      expect(resumed.finishedAt, isNotNull);
+      expect(statuses.last, isA<AiOrganizeIdle>());
+    });
+
+    test('sin conexión, espera unos minutos sin volver a probar antes; '
+        'después, sí', () async {
+      var failures = 1;
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async {
+          if (failures-- > 0) {
+            throw const CloudModelException(CloudModelFailure.network);
+          }
+        },
+      );
+      steps = [relations, flashcards];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+      final ai = queue();
+
+      await ai.start();
+
+      final waiting = statuses.last as AiOrganizeWaitingForModel;
+      expect(waiting.reason, AiModelWait.offline);
+      expect(waiting.resumesAt, vault.now.add(kAiModelRetryDelay));
+      expect(flashcards.organized, isEmpty);
+
+      vault.now = vault.now.add(const Duration(minutes: 1));
+      await ai.wake();
+      expect(relations.organized, ['a']);
+
+      vault.now = vault.now.add(kAiModelRetryDelay);
+      await ai.wake();
+      expect(relations.organized, ['a', 'a']);
+      expect(flashcards.organized, ['a']);
+    });
+
+    test('lo que el proveedor pide esperar manda sobre la espera de '
+        'siempre', () async {
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async => throw const CloudModelException(
+          CloudModelFailure.unavailable,
+          retryAfter: Duration(seconds: 30),
+        ),
+      );
+      steps = [relations];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+
+      await queue().start();
+
+      final waiting = statuses.last as AiOrganizeWaitingForModel;
+      expect(waiting.reason, AiModelWait.busy);
+      expect(waiting.resumesAt, vault.now.add(const Duration(seconds: 30)));
+    });
+
+    test('con el modelo que ya no existe, espera a que se elija otro, por '
+        'más que pase el tiempo', () async {
+      var failures = 1;
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async {
+          if (failures-- > 0) {
+            throw const CloudModelException(CloudModelFailure.modelNotFound);
+          }
+        },
+      );
+      steps = [relations];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+      final ai = queue();
+
+      await ai.start();
+      final waiting = statuses.last as AiOrganizeWaitingForModel;
+      expect(
+        (waiting.reason, waiting.resumesAt),
+        (AiModelWait.modelGone, null),
+      );
+
+      vault.now = vault.now.add(const Duration(days: 1));
+      await ai.wake();
+      expect(relations.organized, ['a']);
+
+      ai.languageModelChanged();
+      await ai.settled;
+      expect(relations.organized, ['a', 'a']);
+      expect((await onlyRunOf('a')).finishedAt, isNotNull);
+    });
+
+    test('lo que es de este pedido —el proveedor no quiso— se registra y '
+        'sigue como siempre', () async {
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async =>
+            throw const CloudModelException(CloudModelFailure.blocked),
+      );
+      steps = [relations, flashcards];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+
+      await queue().start();
+
+      expect(flashcards.organized, ['a']);
+      expect((await onlyRunOf('a')).finishedAt, isNotNull);
+      verify(
+        () => vault.telemetry.recordError(
+          any<Object?>(),
+          any<StackTrace?>(),
+          hint: any(named: 'hint'),
+        ),
+      ).called(1);
+    });
+
+    test('se despierta sola cuando termina la espera', () async {
+      var failures = 1;
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async {
+          if (failures-- > 0) {
+            throw const CloudModelException(CloudModelFailure.network);
+          }
+        },
+      );
+      steps = [relations];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+      final ai = queue(modelRetryDelay: const Duration(milliseconds: 1));
+
+      await ai.start();
+      expect(relations.organized, ['a']);
+
+      // Pasa la espera; nadie la despierta a mano.
+      vault.now = vault.now.add(const Duration(seconds: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      await ai.settled;
+
+      expect(relations.organized, ['a', 'a']);
+      expect((await onlyRunOf('a')).finishedAt, isNotNull);
+    });
+
+    test('pedir organizar a mano el que se cortó no le abre otra '
+        'pasada', () async {
+      var failures = 1;
+      relations = _Step(
+        AiOrganizeToggle.relations,
+        work: (_, _) async {
+          if (failures-- > 0) {
+            throw const CloudModelException(CloudModelFailure.quotaExhausted);
+          }
+        },
+      );
+      steps = [relations];
+      await vault.source('a', title: 'A', content: 'Texto.');
+      cloudSays(const LanguageModelReady(provider: gemini));
+      final ai = queue();
+      await ai.start();
+
+      ai.organizeNow('a');
+      await ai.settled;
+      vault.now = vault.now.add(kAiModelRetryDelay);
+      await ai.wake();
+
+      expect(relations.organized, ['a', 'a']);
+      expect(await runsOf('a'), hasLength(1));
+    });
+
+    group('un pedido de tarjetas', () {
+      late _CardsStep cards;
+
+      setUp(() async {
+        cards = _CardsStep();
+        steps = [relations, cards];
+        for (final id in ['v1', 'v2']) {
+          await vault.source(
+            id,
+            title: id.toUpperCase(),
+            content: 'Texto.',
+            createdAt: DateTime(2026, 9),
+          );
+        }
+        cloudSays(const LanguageModelReady(provider: gemini));
+      });
+
+      test('que se queda sin cuota no cuenta como hecho y, al volver, se '
+          'retoma primero en su pasada', () async {
+        final ai = queue();
+        await ai.start();
+        cards.failNext = const CloudModelException(
+          CloudModelFailure.quotaExhausted,
+        );
+
+        ai.makeFlashcards(['v1', 'v2'], anotherBatch: true);
+        await ai.settled;
+
+        expect(cards.made.map((m) => m.itemId), ['v1']);
+        expect(batches.last!.done, 0);
+        expect(batches.last!.currentTitle, isNull);
+        expect(statuses.last, isA<AiOrganizeWaitingForModel>());
+        expect((statuses.last as AiOrganizeWaitingForModel).pending, 4);
+
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(cards.made.map((m) => (m.itemId, m.anotherBatch)), [
+          ('v1', true),
+          ('v1', true),
+          ('v2', true),
+        ]);
+        expect(cards.made[1].runId, cards.made[0].runId);
+        expect(
+          batches.last,
+          const AiFlashcardsBatch(total: 2, done: 2, created: 4, forReview: 2),
+        );
+        expect((await onlyRunOf('v1')).finishedAt, isNotNull);
+      });
+
+      test('pedir de nuevo las tarjetas del que se cortó no lo suma otra '
+          'vez ni le abre otra pasada', () async {
+        final ai = queue();
+        await ai.start();
+        cards.failNext = const CloudModelException(
+          CloudModelFailure.quotaExhausted,
+        );
+
+        ai.makeFlashcards(['v1']);
+        await ai.settled;
+        ai.makeFlashcards(['v1']);
+        expect(batches.last!.total, 1);
+
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+
+        expect(cards.made.map((m) => m.itemId), ['v1', 'v1']);
+        expect(await runsOf('v1'), hasLength(1));
+        expect(
+          batches.last,
+          isA<AiFlashcardsBatch>().having((b) => b.done, 'done', 1),
+        );
+      });
+
+      test('cancelado mientras espera, cierra su pasada y no vuelve', () async {
+        final ai = queue();
+        await ai.start();
+        cards.failNext = const CloudModelException(CloudModelFailure.network);
+
+        ai.makeFlashcards(['v1']);
+        await ai.settled;
+        ai.cancelFlashcards();
+        await pumpEventQueue();
+
+        expect((await onlyRunOf('v1')).finishedAt, isNotNull);
+        vault.now = vault.now.add(kAiModelRetryDelay);
+        await ai.wake();
+        expect(cards.made, hasLength(1));
+      });
+    });
+
+    test('qué fallas son esperar y cuáles son del pedido', () {
+      AiModelWait? of(CloudModelFailure failure) =>
+          aiModelWaitFor(CloudModelException(failure));
+
+      expect(of(CloudModelFailure.quotaExhausted), AiModelWait.quota);
+      expect(of(CloudModelFailure.backgroundCap), AiModelWait.backgroundCap);
+      expect(of(CloudModelFailure.invalidKey), AiModelWait.keysRejected);
+      expect(of(CloudModelFailure.forbidden), AiModelWait.keysRejected);
+      expect(of(CloudModelFailure.noAccount), AiModelWait.keysRejected);
+      expect(of(CloudModelFailure.network), AiModelWait.offline);
+      expect(of(CloudModelFailure.unavailable), AiModelWait.busy);
+      expect(of(CloudModelFailure.rateLimited), AiModelWait.busy);
+      expect(of(CloudModelFailure.modelNotFound), AiModelWait.modelGone);
+      expect(of(CloudModelFailure.blocked), isNull);
+      expect(of(CloudModelFailure.tooLong), isNull);
+      expect(of(CloudModelFailure.unknown), isNull);
+      // Lo de Gemma sigue como siempre.
+      expect(aiModelWaitFor(StateError('sin memoria')), isNull);
+    });
   });
 }

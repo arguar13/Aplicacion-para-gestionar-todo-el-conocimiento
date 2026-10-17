@@ -14,11 +14,18 @@ construye lo que falta.
 Cuatro reglas que resuelven la mayoría de las discusiones de diseño antes de
 que empiecen.
 
-**1. Todo ocurre en el dispositivo.** Transcribir, reconocer texto, extraer,
-buscar: nada sale de acá. No por purismo, sino porque es lo que hace que la
-app sea gratis de verdad, funcione sin conexión y no dependa de que un
-servicio siga existiendo el año que viene. Las únicas conexiones salientes son
-las que el usuario pide explícitamente: traer la página que quiere archivar.
+**1. Todo ocurre en el dispositivo, salvo el modelo de lenguaje que la
+persona elija en la nube.** Transcribir, reconocer texto, extraer, buscar,
+los vectores de parecido: nada de eso sale de acá. No por purismo, sino porque
+es lo que hace que la app sea gratis de verdad, funcione sin conexión y no
+dependa de que un servicio siga existiendo el año que viene. Las conexiones
+salientes son las que la persona pide explícitamente: traer la página que
+quiere archivar, y —desde F32, ver la decisión 74— el modelo de lenguaje en la
+nube que eligió (Gemini de fábrica, en su capa gratuita). Aun así, **el
+contenido vive siempre en el dispositivo**: la bóveda, los archivos, las
+copias y el historial no se guardan en ningún servidor; a la nube viaja solo
+el texto que la IA tiene que leer en cada pedido, y Gemma sigue disponible
+para quien prefiera que no salga nada.
 
 **2. La procedencia no se pierde nunca.** Un texto sin origen es una cita sin
 autor: sirve para leer, no para trabajar. Cada cosa guardada conserva su
@@ -6110,6 +6117,52 @@ diario) y sobre la base de la 69 (`createSiblings`, `StudyLimits`).
   **Lo que no hace:** traer el historial de respuestas (`revlog`: contaría para el límite de hoy y
   la racha), los medios, un destino distinto por mazo, ni editar una tarjeta de opción múltiple.
 
+### 74. F32: un solo modelo de lenguaje, elegido —Gemini gratis de fábrica—, con varias cuentas que rotan solas
+
+Pedido del usuario (F32): *"quiero que usemos gemini la capa gratuita … para que mi modelo central
+sea el de gemini así sea más rápido y más inteligente … que me deje usar varias cuentas de google
+… con un solo click cambie de cuenta … que también sea compatible para cuentas de claude o de open
+ai"*, y *"que la app cambie sola a la siguiente cuenta cuando se acaben los tokens, que obviamente
+deje elegir manualmente en cualquier momento"*. Plan aprobado:
+`docs/planes/F32-ia-en-la-nube-gemini-y-cuentas.md`; su sección «Avance» tiene el detalle de cada
+paso, con archivos y trampas.
+
+- **Reescribe el principio 1.** Hasta F31 todo pasaba en el teléfono y el modelo de lenguaje era
+  Gemma, bajado. Ahora el modelo de lenguaje es **uno solo, el que la persona elige** en Ajustes →
+  «IA y modelos» → «Modelo de lenguaje»: Gemini (de fábrica), Gemma en el teléfono, OpenAI o
+  Claude. Lo demás sigue local (decisión D del plan): el motor de relaciones, Whisper y el OCR.
+  **El contenido no se guarda en la nube**: viaja solo el texto de cada pedido, por HTTP directo
+  (`dio`, sin SDK de cada empresa: decisión 3). La primera vez que se elige un proveedor en la nube
+  o se carga su primera clave, la app dice qué sale del teléfono y que, en la capa gratuita, Google
+  puede leerlo.
+- **Uno solo hace todo, sin respaldo silencioso.** Las diez tareas de IA (chat, tarjetas, huecos,
+  vínculos, resumen, propiedades, derivados, quiz, cuadernos) más las del Atlas viven **una vez**
+  en `LanguageModelTasks`, sobre un `ModelBackend` intercambiable (`GemmaBackend`,
+  `CloudModelBackend` + un `CloudWire` por proveedor; hoy `GeminiWire`). Si al elegido le falta
+  algo, la app dice qué —`LanguageModelStatus`: bajar Gemma, una clave, la cuota, el tope de la IA
+  de fondo— con el botón que lo resuelve; **nunca cae a Gemma sin que la persona lo elija**.
+- **Las cuentas y la cuota.** Las claves van en el almacén seguro (decisión C: fuera de la base y
+  de las copias); lo gastado hoy y lo elegido, en las preferencias. La base no cambió. La lista de
+  modelos se le pide al proveedor (cambian cada pocos meses) y por defecto se usa el Flash estable
+  más nuevo. La cuota de Gemini se renueva a la medianoche del Pacífico.
+- **La rotación (decisión B, la alternativa).** Con `autoSwitchAccounts` (de fábrica), al
+  agotarse una cuenta el motor pasa a la siguiente con cuota, **la deja elegida** y avisa
+  (`AccountSwitchedNotice`); si no queda ninguna, dice cuándo vuelve la más cercana. Nunca cambia
+  de cuenta después de haber escrito texto. Elegir a mano una cuenta (el menú desplegable de la
+  pantalla y del chat) vale desde el pedido siguiente y le borra la marca de agotada. La persona
+  conoce y acepta que rotar cuentas para pasar el tope va contra la sección 2(d) de los términos de
+  Google; la pantalla lo dice junto al interruptor.
+- **La IA de fondo no se come la cuota ni pierde trabajo.** Cuenta aparte (`forBackground`) y
+  tiene un tope de pedidos por día (100 de fábrica). La cola pregunta si el modelo puede contestar
+  **antes** de tomar un elemento; si no, espera (`AiOrganizeWaitingForModel`, con el motivo y la
+  hora) y se despierta sola. Un corte a mitad de un elemento deja su pasada **abierta** y se
+  retoma primero, sin repetir los pasos hechos; los errores que son de ese pedido (bloqueado,
+  demasiado largo) se registran y se sigue como siempre.
+- **Lo que falta de F32.** Las partes de los textos largos medidas con la ventana del modelo
+  elegido (hoy siguen en 3.000 caracteres para todos); los formatos de OpenAI y Claude; la prueba
+  en el teléfono con una clave real. Las pruebas usan respuestas grabadas: nunca llaman de verdad
+  a ninguna empresa.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6520,6 +6573,12 @@ diario) y sobre la base de la 69 (`createSiblings`, `StudyLimits`).
   4:00, límites de 20 nuevas y 200 repasos, una cola de estudio con recortes (tema, etiqueta,
   cuaderno, elemento), deshacer la última respuesta, pausar y posponer; el `.apkg` lleva las
   pausadas, los pasos, los huecos y «escribí la respuesta». Esquema v39. Ver la decisión 69.
+
+- **F32, la IA en la nube (en curso).** Un solo modelo de lenguaje, el elegido: Gemini gratis de
+  fábrica o Gemma en el teléfono; varias cuentas con un menú para cambiar de un toque, que pasan
+  solas a la siguiente cuando se agota la cuota y avisan; la IA de fondo con su tope del día, que
+  espera la cuota sin perder nada. Faltan las partes por la ventana del modelo, OpenAI y Claude.
+  Ver la decisión 74.
 
 ### Por construir
 

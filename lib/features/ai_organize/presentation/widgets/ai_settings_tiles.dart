@@ -23,7 +23,8 @@ class AiActivitySettingsTile extends ConsumerWidget {
     final queued = switch (view) {
       AiQueueWorkingView(:final pending) ||
       AiQueueChargerView(:final pending) ||
-      AiQueuePausedView(:final pending) => pending,
+      AiQueuePausedView(:final pending) ||
+      AiQueueWaitingView(:final pending) => pending,
       _ => 0,
     };
 
@@ -31,9 +32,12 @@ class AiActivitySettingsTile extends ConsumerWidget {
       key: const Key('settings-ai-activity'),
       leading: Icon(
         view.icon,
-        color: view is AiQueueModelView || view is AiQueueWorkingView
-            ? scheme.tertiary
-            : null,
+        color: switch (view) {
+          AiQueueModelView() ||
+          AiQueueWorkingView() ||
+          AiQueueWaitingView() => scheme.tertiary,
+          _ => null,
+        },
       ),
       title: Text(l10n.aiActivityTitle),
       subtitle: Text(

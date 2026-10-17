@@ -11,8 +11,8 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **73 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
-| `docs/planes/F13…F31-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
+| `docs/arquitectura.md` | Principios y **74 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
+| `docs/planes/F13…F32-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
 
@@ -44,7 +44,9 @@ voz alta con el texto resaltado), **citar** (biblioteca académica, BibTeX/RIS) 
 HTML, NotebookLM, Anki).
 
 Cuatro principios (detalle en `docs/arquitectura.md`, sección «Principios»): todo ocurre en el
-dispositivo; la procedencia no se pierde nunca; nada de formatos cerrados (SQLite + archivos
+dispositivo, salvo el modelo de lenguaje que la persona elija en la nube —y aun así el contenido
+vive siempre en el teléfono: solo viaja el texto de cada pedido— (decisión 74); la procedencia no
+se pierde nunca; nada de formatos cerrados (SQLite + archivos
 sueltos + Markdown); degradar antes que fallar.
 
 **Vocabulario del dominio.** *Bóveda* = la base de datos y los archivos del usuario, protegida con
@@ -61,8 +63,12 @@ jerárquico. *Cuaderno* = un subconjunto con nombre, fijo o por consulta.
 - **Riverpod** (estado), **go_router** (navegación), **freezed** (entidades), **drift** sobre
   **SQLite con FTS5** (base local; **esquema v39**), **dio** (red), `l10n` con `.arb` en español e
   inglés (`lib/l10n/app_es.arb`, `app_en.arb`).
-- **IA local:** `flutter_gemma` con **Gemma 4 E4B** para chat, resúmenes, tarjetas, huecos,
-  clasificación; embeddings en el dispositivo para relaciones y duplicados; **Whisper small**
+- **Modelo de lenguaje (F32, decisión 74):** **uno solo, el elegido** en Ajustes → «IA y modelos» →
+  «Modelo de lenguaje»: **Gemini** en la nube (de fábrica, capa gratuita, varias cuentas con claves
+  de AI Studio que rotan solas al agotarse la cuota) o **Gemma 4 E4B** en el teléfono
+  (`flutter_gemma`); OpenAI y Claude, previstos. Hace chat, resúmenes, tarjetas, huecos,
+  clasificación y la IA de fondo, sin caer a otro modelo en silencio. Módulo `ai_models`.
+- **IA local:** embeddings en el dispositivo para relaciones y duplicados; **Whisper small**
   multilingüe vía **sherpa-onnx** para transcribir. Los modelos **no vienen con la app**: se bajan
   aparte, una vez, con permiso explícito (en Android los baja el gestor de descargas del sistema, así
   que siguen aunque se cierre la app).
@@ -101,7 +107,8 @@ central), `viewer`, `reading`, `notes`/`blocks` (notas de bloques), `transform` 
 YouTube, web, PDF, audio…), `organize`/`vocabulary`/`atlas`/`map`/`graph`/`relations` (organización
 y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, `timeline`,
 `chat`, `narration` (voz alta), `citations`, `flashcards` (repaso), `habit` (racha, insignias),
-`anki_import`, `export`, `study_reminder`, `ai_organize` (la IA que organiza sola), `keep_working`
+`anki_import`, `export`, `study_reminder`, `ai_organize` (la IA que organiza sola), `ai_models`
+(el modelo de lenguaje elegido, las cuentas y la cuota en la nube), `keep_working`
 (trabajo con la app cerrada), `content_trash`, `trash`, `vault` (clave, copia, fusión),
 `settings`, `health`, `dev_seed` (biblioteca de ejemplo).
 
@@ -109,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F31**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F32**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -136,6 +143,9 @@ desde F13):
   (**dos direcciones, huecos `{{c1::…}}`, «escribí la respuesta»**, huecos con IA); **importar `.apkg`
   de Anki** sin duplicar (la procedencia es un UUID v5 del guid de la nota); **aviso diario**
   nativo opcional; sección «Repasar» en Ajustes.
+- **F32 (en curso)** — **la IA en la nube** (decisión 74): Gemini gratis por defecto, varias cuentas
+  con un menú para cambiar de un toque, que pasan solas a la siguiente al agotarse la cuota y avisan;
+  la IA de fondo con su tope del día, que espera la cuota sin perder nada.
 
 ## 5. Estado actual
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/design/widgets/empty_state_view.dart';
+import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
@@ -148,9 +149,22 @@ class _WithoutCards extends ConsumerWidget {
     AppLocalizations l10n,
   ) {
     return switch (ref.watch(aiQueueViewProvider)) {
-      AiQueueModelView(:final chatModelMissing, :final embeddingModelMissing) =>
+      AiQueueModelView(
+        :final chatModelMissing,
+        :final embeddingModelMissing,
+        :final keyFor,
+      ) =>
         [
-          if (chatModelMissing)
+          // Con el modelo en la nube, lo que falta es una clave (F32).
+          if (chatModelMissing && keyFor != null)
+            _Reason(
+              key: const Key('review-empty-chat-key'),
+              icon: Icons.key_outlined,
+              text: l10n.aiStatusModelChatKey(keyFor.label(l10n)),
+              actionLabel: l10n.aiStatusAddKey,
+              onAction: () => context.push(RoutePaths.languageModel),
+            )
+          else if (chatModelMissing)
             _Reason(
               key: const Key('review-empty-chat-model'),
               icon: Icons.download_for_offline_outlined,
@@ -185,6 +199,21 @@ class _WithoutCards extends ConsumerWidget {
           key: const Key('review-empty-charger'),
           icon: Icons.battery_charging_full,
           text: l10n.reviewEmptyWaitingCharger(pending),
+        ),
+      ],
+      // Espera al modelo en la nube (F32): lo dice, y si hay algo que ver, a
+      // las cuentas.
+      final AiQueueWaitingView waiting => [
+        _Reason(
+          key: const Key('review-empty-ai-waiting'),
+          icon: waiting.icon,
+          text: waiting.reasonText(context),
+          // Sin acción no hay botón: sin conexión o con el proveedor saturado
+          // no hay nada que ver en las cuentas.
+          actionLabel: l10n.aiStatusOpenAccounts,
+          onAction: waiting.showsAccounts
+              ? () => context.push(RoutePaths.languageModel)
+              : null,
         ),
       ],
       AiQueueIdleView() || AiQueueWorkingView() => const [],

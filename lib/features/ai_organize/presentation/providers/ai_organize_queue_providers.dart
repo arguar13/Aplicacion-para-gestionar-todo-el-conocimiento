@@ -7,6 +7,7 @@ import 'package:sinapsis/core/i18n/locale_notifier.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
 import 'package:sinapsis/core/telemetry/telemetry_provider.dart';
 import 'package:sinapsis/core/util/util_providers.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_organize/data/repositories/ai_organize_backlog_impl.dart';
 import 'package:sinapsis/features/ai_organize/data/services/battery_charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/data/services/prefs_ai_organize_memory.dart';
@@ -26,7 +27,6 @@ import 'package:sinapsis/features/ai_organize/domain/services/map_note_language.
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_atlas_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
-import 'package:sinapsis/features/chat/presentation/providers/chat_model_option_notifier.dart';
 import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
@@ -113,7 +113,7 @@ final aiOrganizeStepsProvider = Provider<List<AiOrganizeStep>>((ref) {
       chooseParent: model.chooseTopicParent,
       writeIntro: model.writeMapIntroduction,
       epoch: ref.watch(aiOrganizeMemoryProvider).epoch,
-      modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+      modelName: ref.watch(languageModelNameProvider),
       // Se lee al escribir, no al armar los pasos: la cola vive toda la
       // sesión, y la persona puede cambiar el idioma en el medio.
       language: () =>
@@ -146,7 +146,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     runs: ref.read(aiRunRepositoryProvider),
     library: ref.read(libraryRepositoryProvider),
     steps: () => ref.read(aiOrganizeStepsProvider),
-    chatModel: () => ref.read(chatModelManagerProvider),
+    languageModel: () => ref.read(languageModelStatusCheckProvider),
     embeddingModel: () => ref.read(embeddingModelManagerProvider),
     vectors: () => ref.read(chunkEmbeddingIndexerProvider),
     charging: ref.read(chargingProbeProvider),
@@ -156,7 +156,7 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
     onStatus: (status) =>
         ref.read(aiOrganizeStatusProvider.notifier).state = status,
     settings: ref.read(aiOrganizeSettingsProvider),
-    modelName: () => ref.read(chatModelOptionNotifierProvider).name,
+    modelName: ref.read(languageModelNameProvider),
     longWork: ref
         .read(longWorkCoordinatorProvider)
         .keeperFor(LongWorkOwner.aiOrganize),
@@ -168,6 +168,10 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
       aiOrganizeSettingsProvider,
       (_, settings) => queue.updateSettings(settings),
     )
+    // Elegir otro proveedor, cuenta o modelo, o cargar una clave, puede
+    // destrabar lo que la cola esperaba del modelo en la nube (F32).
+    ..listen(aiModelSettingsProvider, (_, _) => queue.languageModelChanged())
+    ..listen(aiAccountsProvider, (_, _) => queue.languageModelChanged())
     ..onDispose(queue.dispose);
   return queue;
 });

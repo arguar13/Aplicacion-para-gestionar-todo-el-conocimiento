@@ -4,6 +4,9 @@ import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
+import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
@@ -186,6 +189,162 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ChatModelScreen), findsOneWidget);
+    });
+
+    group('con la IA en la nube (F32)', () {
+      testWidgets('sin clave: pide cargar una, no bajar un modelo', (
+        tester,
+      ) async {
+        await pumpScreen(tester);
+        setStatus(
+          const AiOrganizeModelMissing(
+            chatModelMissing: true,
+            embeddingModelMissing: false,
+            keyFor: AiProvider.gemini,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(es.aiStatusModelTitle), findsOneWidget);
+        expect(
+          find.text(es.aiStatusModelChatKey(es.lmProviderGemini)),
+          findsOneWidget,
+        );
+        expect(find.text(es.aiStatusModelChat), findsNothing);
+        expect(find.byKey(const Key('ai-status-add-key')), findsOneWidget);
+        expect(find.byKey(const Key('ai-status-download-chat')), findsNothing);
+      });
+
+      testWidgets('«Cargar una clave» lleva a «Modelo de lenguaje», con el '
+          'router real', (tester) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        setStatus(
+          const AiOrganizeModelMissing(
+            chatModelMissing: true,
+            embeddingModelMissing: false,
+            keyFor: AiProvider.gemini,
+          ),
+        );
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
+        harness.goTo(RoutePaths.aiActivity);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('ai-status-add-key')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LanguageModelScreen), findsOneWidget);
+      });
+
+      testWidgets('sin cuota: hasta cuándo, cuántos esperan, que nada se '
+          'pierde, y a las cuentas', (tester) async {
+        await pumpScreen(tester);
+        final at = DateTime.now().add(const Duration(hours: 1));
+        setStatus(
+          AiOrganizeWaitingForModel(
+            reason: AiModelWait.quota,
+            pending: 5,
+            resumesAt: at,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final time = aiResetTime(
+          tester.element(find.byType(AiActivityScreen)),
+          at,
+        );
+        expect(find.text(es.aiStatusWaitingTitle), findsOneWidget);
+        expect(
+          find.text(
+            '${es.aiStatusWaitingQuota(time)} ${es.aiStatusWaitingPending(5)}',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('ai-status-accounts')), findsOneWidget);
+        // Esperar la cuota no es algo que la persona tenga que arreglar.
+        expect(find.byKey(const Key('ai-status-add-key')), findsNothing);
+      });
+
+      testWidgets('con el tope de fondo: cuántos pedidos usó y cuándo sigue', (
+        tester,
+      ) async {
+        await pumpScreen(tester);
+        final at = DateTime.now().add(const Duration(hours: 2));
+        setStatus(
+          AiOrganizeWaitingForModel(
+            reason: AiModelWait.backgroundCap,
+            pending: 1,
+            resumesAt: at,
+            cap: 200,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final time = aiResetTime(
+          tester.element(find.byType(AiActivityScreen)),
+          at,
+        );
+        expect(
+          find.text(
+            '${es.aiStatusWaitingCap(200, time)} '
+            '${es.aiStatusWaitingPending(1)}',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('ai-status-accounts')), findsOneWidget);
+      });
+
+      testWidgets(
+        'sin conexión: vuelve sola, sin nada que ver en las cuentas',
+        (tester) async {
+          await pumpScreen(tester);
+          setStatus(
+            const AiOrganizeWaitingForModel(
+              reason: AiModelWait.offline,
+              pending: 2,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text(
+              '${es.aiStatusWaitingOffline} ${es.aiStatusWaitingPending(2)}',
+            ),
+            findsOneWidget,
+          );
+          expect(find.byKey(const Key('ai-status-accounts')), findsNothing);
+        },
+      );
+
+      testWidgets('las claves rechazadas: lo dice y lleva a las cuentas', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(800, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        setStatus(
+          const AiOrganizeWaitingForModel(
+            reason: AiModelWait.keysRejected,
+            pending: 0,
+          ),
+        );
+        await tester.pumpWidget(harness.wrapWithAppRouter());
+        await tester.pumpAndSettle();
+        harness.goTo(RoutePaths.aiActivity);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            '${es.aiStatusWaitingKeys} ${es.aiStatusWaitingPending(0)}',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const Key('ai-status-accounts')));
+        await tester.pumpAndSettle();
+        expect(find.byType(LanguageModelScreen), findsOneWidget);
+      });
     });
   });
 

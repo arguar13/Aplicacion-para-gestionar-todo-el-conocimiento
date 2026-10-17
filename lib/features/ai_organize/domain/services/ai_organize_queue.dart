@@ -8,6 +8,8 @@ import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/core/util/clock.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/cloud_model_exception.dart';
+import 'package:sinapsis/features/ai_models/domain/services/language_model_readiness.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/repositories/ai_organize_backlog.dart';
@@ -17,7 +19,6 @@ import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_memory
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/charging_probe.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/content_change.dart';
-import 'package:sinapsis/features/chat/domain/services/chat_model_manager.dart';
 import 'package:sinapsis/features/library/domain/repositories/library_repository.dart';
 import 'package:sinapsis/features/relations/domain/services/chunk_embedding_indexer.dart';
 import 'package:sinapsis/features/relations/domain/services/embedding_model_manager.dart';
@@ -27,6 +28,33 @@ import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dar
 /// mientras se escribe, cada guardado la cambia, y organizarla a mitad sería
 /// vincular y hacer tarjetas de un borrador.
 const kAiNoteQuietPeriod = Duration(seconds: 15);
+
+/// Cuánto espera la IA de fondo para volver a probar cuando el modelo en la
+/// nube no contestó por algo que pasa solo —sin conexión, el proveedor
+/// saturado— y no dijo cuánto esperar (F32).
+const kAiModelRetryDelay = Duration(minutes: 5);
+
+/// Si [error] dice que el modelo de lenguaje no puede contestar **por
+/// ahora** —sin cuota, sin conexión, la clave—, por qué (F32); `null` si es
+/// algo de este pedido —el proveedor no quiso, era largo— o de Gemma, que se
+/// registra y se sigue como siempre.
+AiModelWait? aiModelWaitFor(Object error) {
+  if (error is! CloudModelException) return null;
+  return switch (error.failure) {
+    CloudModelFailure.quotaExhausted => AiModelWait.quota,
+    CloudModelFailure.backgroundCap => AiModelWait.backgroundCap,
+    CloudModelFailure.invalidKey ||
+    CloudModelFailure.forbidden ||
+    CloudModelFailure.noAccount => AiModelWait.keysRejected,
+    CloudModelFailure.network => AiModelWait.offline,
+    CloudModelFailure.unavailable ||
+    CloudModelFailure.rateLimited => AiModelWait.busy,
+    CloudModelFailure.modelNotFound => AiModelWait.modelGone,
+    CloudModelFailure.blocked ||
+    CloudModelFailure.tooLong ||
+    CloudModelFailure.unknown => null,
+  };
+}
 
 /// La cola de la IA que organiza sola (F27): aparte de la de procesamiento,
 /// de a un elemento por vez y en segundo plano. El elemento queda listo como
@@ -51,10 +79,21 @@ const kAiNoteQuietPeriod = Duration(seconds: 15);
 /// organizar solo.
 ///
 /// **Cuándo no trabaja:** con la IA pausada (el interruptor general), y si
-/// falta bajar alguno de los dos modelos —sin ellos no puede hacer nada—; en
-/// los dos casos lo publica en su estado y espera, sin errores. Pausar no
-/// corta el elemento en curso: termina lo que está haciendo —de segundos a un
-/// par de minutos— y no toma otro.
+/// falta alguno de los dos modelos —bajar Gemma o el de relaciones, o una
+/// clave del que está en la nube—, sin los que no puede hacer nada; en los
+/// dos casos lo publica en su estado y espera, sin errores. Pausar no corta
+/// el elemento en curso: termina lo que está haciendo —de segundos a un par
+/// de minutos— y no toma otro.
+///
+/// **Con el modelo en la nube (F32)** también espera
+/// —[AiOrganizeWaitingForModel]— si no hay cuota, si llegó a su tope del día,
+/// si no anda ninguna clave, sin conexión o con el proveedor saturado, y se
+/// despierta sola cuando vuelve
+/// (a la hora de la renovación, o en [kAiModelRetryDelay]). Si el modelo deja
+/// de contestar **a mitad de un elemento**, ese elemento no se da por
+/// organizado ni se saltea: la pasada queda abierta y, cuando el modelo
+/// vuelve, se retoma **primero** y en la misma pasada, sin repetir los pasos
+/// que ya terminó. Lo mismo un pedido de tarjetas: no cuenta como hecho.
 ///
 /// **Le cede el modelo a la persona** sin enterarse: los pasos usan el modelo
 /// con el turno de la cola (`GemmaChatModel.background`), que espera a que la
@@ -76,7 +115,7 @@ class AiOrganizeQueue {
     required AiRunRepository runs,
     required LibraryRepository library,
     required List<AiOrganizeStep> Function() steps,
-    required ChatModelManager Function() chatModel,
+    required LanguageModelStatusCheck Function() languageModel,
     required EmbeddingModelManager Function() embeddingModel,
     required ChunkEmbeddingIndexer Function() vectors,
     required ChargingProbe charging,
@@ -89,11 +128,13 @@ class AiOrganizeQueue {
     Duration noteQuietPeriod = kAiNoteQuietPeriod,
     LongWorkKeeper longWork = const NoLongWorkKeeper(),
     void Function(AiFlashcardsBatch? batch)? onFlashcardsBatch,
+    Duration modelRetryDelay = kAiModelRetryDelay,
   }) : _backlog = backlog,
        _runs = runs,
        _library = library,
        _steps = steps,
-       _chatModel = chatModel,
+       _languageModel = languageModel,
+       _modelRetryDelay = modelRetryDelay,
        _embeddingModel = embeddingModel,
        _vectors = vectors,
        _charging = charging,
@@ -115,9 +156,26 @@ class AiOrganizeQueue {
   /// proveedores del modelo, y la cola vive toda la sesión.
   final List<AiOrganizeStep> Function() _steps;
 
-  /// También al usarlos: elegir otra opción de modelo de chat arma otro.
-  final ChatModelManager Function() _chatModel;
+  /// También al usarlos: elegir otro proveedor o bajar otro Gemma cambia lo
+  /// que contesta. El de lenguaje se pregunta como IA de fondo, con su tope
+  /// del día (F32).
+  final LanguageModelStatusCheck Function() _languageModel;
   final EmbeddingModelManager Function() _embeddingModel;
+
+  /// Ver [kAiModelRetryDelay].
+  final Duration _modelRetryDelay;
+
+  /// Lo que se cortó porque el modelo dejó de contestar a mitad (F32): se
+  /// retoma primero, en la misma pasada.
+  _Interrupted? _interrupted;
+
+  /// Por qué y hasta cuándo esperar al modelo por algo que el chequeo no ve
+  /// —sin conexión, el proveedor saturado, el modelo ya no existe— (F32).
+  /// Sin `until`, hasta que cambie lo elegido ([languageModelChanged]).
+  ({AiModelWait reason, DateTime? until})? _modelHeld;
+
+  /// La despierta cuando vuelve la cuota o termina la espera (F32).
+  Timer? _resumeTimer;
 
   /// Con qué se ponen al día los vectores de una nota que cambió poco: los
   /// necesita para ser destino de los vínculos de otros elementos.
@@ -236,6 +294,12 @@ class AiOrganizeQueue {
   /// despierta una sola vez.
   void organizeAllNow(Iterable<String> itemIds) {
     final pending = _requested.toSet();
+    // El que se cortó a mitad ya está primero, en su pasada.
+    final interrupted = _interrupted;
+    if (interrupted != null &&
+        interrupted.source != AiWorkSource.flashcardsRequest) {
+      pending.add(interrupted.itemId);
+    }
     for (final itemId in itemIds) {
       _skip.remove(itemId);
       if (pending.add(itemId)) _requested.add(itemId);
@@ -256,6 +320,11 @@ class AiOrganizeQueue {
   /// como organizarlo. Si ya había un pedido en curso, estos se le suman.
   void makeFlashcards(Iterable<String> itemIds, {bool anotherBatch = false}) {
     final queued = _cardRequests.toSet();
+    final interrupted = _interrupted;
+    if (interrupted != null &&
+        interrupted.source == AiWorkSource.flashcardsRequest) {
+      queued.add(interrupted.itemId);
+    }
     var added = 0;
     for (final itemId in itemIds) {
       _skip.remove(itemId);
@@ -299,6 +368,26 @@ class AiOrganizeQueue {
     _cardsPaused = false;
     _batchSerial++;
     _publishBatch(null);
+    // Uno que se cortó esperando al modelo (F32) también se cancela: su
+    // pasada se cierra con lo que alcanzó a hacer.
+    final interrupted = _interrupted;
+    if (interrupted != null &&
+        interrupted.source == AiWorkSource.flashcardsRequest) {
+      _interrupted = null;
+      unawaited(_closeRun(interrupted.runId, 'de tarjetas cancelada'));
+    }
+  }
+
+  /// Cierra una pasada; si no se puede, lo registra.
+  Future<void> _closeRun(String runId, String what) async {
+    (await _runs.finishRun(runId)).match(
+      (failure) => _telemetry.recordError(
+        failure,
+        StackTrace.current,
+        hint: 'AiOrganizeQueue: no se pudo cerrar la pasada $what',
+      ),
+      (_) {},
+    );
   }
 
   /// Saca de la vista un pedido de tarjetas que ya terminó.
@@ -315,6 +404,14 @@ class AiOrganizeQueue {
   /// vale desde el próximo paso.
   void updateSettings(AiOrganizeSettings settings) {
     _settings = settings;
+    unawaited(wake());
+  }
+
+  /// Cambió el modelo de lenguaje elegido, sus cuentas o su modelo (F32): lo
+  /// que se esperaba —una conexión, un modelo que ya no existía— puede estar
+  /// resuelto. Se vuelve a mirar ahora.
+  void languageModelChanged() {
+    _modelHeld = null;
     unawaited(wake());
   }
 
@@ -335,6 +432,7 @@ class AiOrganizeQueue {
   Future<void> dispose() async {
     _disposed = true;
     _noteTimer?.cancel();
+    _resumeTimer?.cancel();
     _letGo();
     // Las dos bajas se piden juntas, antes de esperar ninguna: un aviso que
     // llegara entre una y otra encontraría la cola descartada y no haría nada,
@@ -352,14 +450,15 @@ class AiOrganizeQueue {
         _wakeAgain = false;
         final next = await _next();
         if (next != null) {
-          await (next.source == AiWorkSource.flashcardsRequest
-              ? _makeFlashcards(next.itemId)
-              : _organize(next.itemId, next.source));
-          _organizedWhileKept++;
+          final finished = await (next.source == AiWorkSource.flashcardsRequest
+              ? _makeFlashcards(next.itemId, resume: next.resume)
+              : _organize(next.itemId, next.source, resume: next.resume));
+          // Uno que se cortó esperando al modelo no está hecho.
+          if (finished) _organizedWhileKept++;
           continue;
         }
         // Nada que pueda hacer ahora: terminó, se pausó, falta el cargador o
-        // un modelo. El servicio se suelta.
+        // un modelo, o se espera al de la nube. El servicio se suelta.
         _letGo();
         if (!_wakeAgain) break;
       }
@@ -384,36 +483,65 @@ class AiOrganizeQueue {
       _onStatus(AiOrganizePaused(pending: await _pending(epoch, quietBefore)));
       return null;
     }
+    final interrupted = _interrupted;
+    final cardsInterrupted =
+        interrupted?.source == AiWorkSource.flashcardsRequest;
     // Las tarjetas que pidió la persona (F30) no dependen de los
     // interruptores de cada tipo ni del modelo de vínculos.
-    final cardsWaiting = _cardRequests.isNotEmpty && !_cardsPaused;
+    final cardsWaiting =
+        (_cardRequests.isNotEmpty || cardsInterrupted) && !_cardsPaused;
     if (!_anyStepOn && !cardsWaiting) {
       _onStatus(const AiOrganizeIdle());
       return null;
     }
-    final chatReady = await _chatModel().isReady();
+    // Lo hace la IA de fondo: con su tope del día (F32).
+    final language = await _languageModel()(background: true);
+    final held = _stillHeld();
+    final chatReady = language.isReady && held == null;
     final embeddingReady = await _embeddingModel().isReady();
     final canOrganize = _anyStepOn && chatReady && embeddingReady;
     if (!canOrganize && !(cardsWaiting && chatReady)) {
       _onStatus(
-        chatReady && embeddingReady
-            ? const AiOrganizeIdle()
-            : AiOrganizeModelMissing(
-                chatModelMissing: !chatReady,
-                embeddingModelMissing: !embeddingReady,
-              ),
+        await _notReady(
+          language,
+          held: held,
+          chatReady: chatReady,
+          embeddingReady: embeddingReady,
+          pending: () => _pending(epoch, quietBefore),
+        ),
       );
       return null;
     }
 
-    if (canOrganize && _requested.isNotEmpty) {
-      return (itemId: _requested.removeFirst(), source: AiWorkSource.requested);
+    // Lo que se cortó esperando al modelo, primero y en su pasada (F32).
+    if (interrupted != null &&
+        (cardsInterrupted ? cardsWaiting : canOrganize)) {
+      _interrupted = null;
+      return (
+        itemId: interrupted.itemId,
+        source: interrupted.source,
+        resume: interrupted,
+      );
     }
-    if (cardsWaiting) {
+    if (canOrganize && _requested.isNotEmpty) {
+      return (
+        itemId: _requested.removeFirst(),
+        source: AiWorkSource.requested,
+        resume: null,
+      );
+    }
+    if (cardsWaiting && _cardRequests.isNotEmpty) {
       return (
         itemId: _cardRequests.removeFirst(),
         source: AiWorkSource.flashcardsRequest,
+        resume: null,
       );
+    }
+    // Con la IA de vínculos sin poder trabajar, lo de abajo espera: solo se
+    // llegó hasta acá por tarjetas, y ya no quedan.
+    if (!canOrganize) {
+      _onStatus(const AiOrganizeIdle());
+      return null;
     }
 
     final fresh = await _backlog.nextFresh(
@@ -421,11 +549,13 @@ class AiOrganizeQueue {
       notesQuietBefore: quietBefore,
       skip: _skip,
     );
-    if (fresh != null) return (itemId: fresh, source: AiWorkSource.fresh);
+    if (fresh != null) {
+      return (itemId: fresh, source: AiWorkSource.fresh, resume: null);
+    }
 
     final grown = await _grownNote(quietBefore);
     if (grown != null) {
-      return (itemId: grown, source: AiWorkSource.changedNote);
+      return (itemId: grown, source: AiWorkSource.changedNote, resume: null);
     }
 
     if (_settings.backfillWhileCharging) {
@@ -436,7 +566,11 @@ class AiOrganizeQueue {
       );
       if (existing != null) {
         if (await _charging.isCharging()) {
-          return (itemId: existing, source: AiWorkSource.existingLibrary);
+          return (
+            itemId: existing,
+            source: AiWorkSource.existingLibrary,
+            resume: null,
+          );
         }
         _onStatus(
           AiOrganizePaused(
@@ -456,6 +590,102 @@ class AiOrganizeQueue {
   }
 
   bool get _anyStepOn => _steps().any((s) => s.toggle.valueIn(_settings));
+
+  /// La espera por algo que el chequeo no ve, si sigue en pie; la que ya
+  /// pasó se olvida.
+  ({AiModelWait reason, DateTime? until})? _stillHeld() {
+    final held = _modelHeld;
+    final until = held?.until;
+    if (held == null || until == null) return held;
+    if (_clock().isBefore(until)) return held;
+    _modelHeld = null;
+    return null;
+  }
+
+  /// Por qué no puede trabajar ahora: falta un modelo —bajarlo, o una clave
+  /// del que está en la nube— o se espera al de la nube (F32). Lo que vuelve
+  /// solo deja la cola lista para despertarse a esa hora.
+  Future<AiOrganizeStatus> _notReady(
+    LanguageModelStatus language, {
+    required ({AiModelWait reason, DateTime? until})? held,
+    required bool chatReady,
+    required bool embeddingReady,
+    required Future<int> Function() pending,
+  }) async {
+    final chatMissing = switch (language) {
+      LanguageModelNeedsDownload() || LanguageModelNeedsAccount() => true,
+      _ => false,
+    };
+    if (chatMissing || !embeddingReady) {
+      return AiOrganizeModelMissing(
+        chatModelMissing: chatMissing,
+        embeddingModelMissing: !embeddingReady,
+        keyFor: language is LanguageModelNeedsAccount
+            ? language.provider
+            : null,
+      );
+    }
+    if (chatReady) return const AiOrganizeIdle();
+
+    final (reason, resumesAt, cap) = switch (language) {
+      LanguageModelOutOfQuota(keysRejected: true) => (
+        AiModelWait.keysRejected,
+        null,
+        null,
+      ),
+      LanguageModelOutOfQuota(:final resetsAt) => (
+        AiModelWait.quota,
+        resetsAt,
+        null,
+      ),
+      LanguageModelBackgroundCapReached(:final cap, :final resetsAt) => (
+        AiModelWait.backgroundCap,
+        resetsAt,
+        cap,
+      ),
+      // Listo para el chequeo, pero se espera por algo que no ve.
+      _ => (held!.reason, held.until, null),
+    };
+    // Se despierta con lo primero que vuelva: la cuota, o el fin de la
+    // espera que el chequeo no ve.
+    _wakeAt([?resumesAt, ?held?.until].fold<DateTime?>(null, _earliest));
+    return AiOrganizeWaitingForModel(
+      reason: reason,
+      pending: await pending(),
+      resumesAt: resumesAt ?? held?.until,
+      cap: cap,
+    );
+  }
+
+  static DateTime? _earliest(DateTime? a, DateTime b) =>
+      a == null || b.isBefore(a) ? b : a;
+
+  /// Despierta la cola a las [at] —con un segundo de margen, para que el
+  /// chequeo ya vea lo que volvió—; sin hora, no la despierta nada de acá.
+  void _wakeAt(DateTime? at) {
+    _resumeTimer?.cancel();
+    _resumeTimer = null;
+    if (at == null || _disposed) return;
+    final wait = at.difference(_clock()) + const Duration(seconds: 1);
+    _resumeTimer = Timer(
+      wait.isNegative ? Duration.zero : wait,
+      () => unawaited(wake()),
+    );
+  }
+
+  /// El modelo dejó de contestar por [wait] (F32). Lo que el chequeo ve
+  /// —la cuota, el tope, las claves— lo vuelve a decir él; igual se espera un
+  /// rato antes de volver a probar, para no girar sobre lo mismo si el
+  /// chequeo todavía no se enteró.
+  void _hold(AiModelWait wait, Object error) {
+    final retryAfter = error is CloudModelException ? error.retryAfter : null;
+    _modelHeld = (
+      reason: wait,
+      until: wait == AiModelWait.modelGone
+          ? null
+          : _clock().add(retryAfter ?? _modelRetryDelay),
+    );
+  }
 
   /// Una nota ya organizada cuyo contenido cambió lo suficiente: su huella
   /// de hoy contra la del texto que vio su última pasada. Reescribirla sin
@@ -511,17 +741,35 @@ class AiOrganizeQueue {
       epoch: epoch,
       notesQuietBefore: quietBefore,
     );
+    // El que se cortó a mitad, si no lo cuenta ya la base: lo nuevo y la
+    // biblioteca existente siguen pendientes ahí mientras su pasada esté
+    // abierta.
+    final interrupted = switch (_interrupted?.source) {
+      AiWorkSource.requested ||
+      AiWorkSource.changedNote ||
+      AiWorkSource.flashcardsRequest => 1,
+      _ => 0,
+    };
     return _requested.length +
         _cardRequests.length +
+        interrupted +
         count.fresh +
         (_settings.backfillWhileCharging ? count.existing : 0);
   }
 
-  Future<void> _organize(String itemId, AiWorkSource source) async {
+  /// Organiza [itemId] con los pasos prendidos, o —con [resume]— retoma la
+  /// pasada que se cortó esperando al modelo, sin los pasos que ya terminó.
+  /// Devuelve `false` si se volvió a cortar (F32): no está hecho.
+  Future<bool> _organize(
+    String itemId,
+    AiWorkSource source, {
+    _Interrupted? resume,
+  }) async {
     final item = await _find(itemId);
     if (item == null) {
       _skip.add(itemId);
-      return;
+      if (resume != null) await _closeRun(resume.runId, 'de un elemento ido');
+      return true;
     }
 
     final epoch = await _epoch();
@@ -537,44 +785,68 @@ class AiOrganizeQueue {
     );
     _keepAlive(source, pending);
 
-    // La huella del texto que ve esta pasada, para saber después si la nota
-    // cambió. Solo de las notas: una fuente no se vuelve a organizar por
-    // cambios, y la de un libro serían cientos de miles de cuentas.
-    final simhash = _isNote(item)
-        ? await _simhashOf(item.searchableText)
-        : null;
-    final runId =
-        (await _runs.startRun(
-          item.id,
-          model: _modelName?.call(),
-          contentSimhash: simhash,
-        )).fold((failure) {
-          _skip.add(item.id);
-          _telemetry.recordError(
-            failure,
-            StackTrace.current,
-            hint: 'AiOrganizeQueue: no se pudo abrir la pasada',
-          );
-          return null;
-        }, (id) => id);
-    if (runId == null) return;
+    final String runId;
+    if (resume != null) {
+      runId = resume.runId;
+    } else {
+      // La huella del texto que ve esta pasada, para saber después si la
+      // nota cambió. Solo de las notas: una fuente no se vuelve a organizar
+      // por cambios, y la de un libro serían cientos de miles de cuentas.
+      final simhash = _isNote(item)
+          ? await _simhashOf(item.searchableText)
+          : null;
+      final started =
+          (await _runs.startRun(
+            item.id,
+            model: _modelName?.call(),
+            contentSimhash: simhash,
+          )).fold((failure) {
+            _skip.add(item.id);
+            _telemetry.recordError(
+              failure,
+              StackTrace.current,
+              hint: 'AiOrganizeQueue: no se pudo abrir la pasada',
+            );
+            return null;
+          }, (id) => id);
+      if (started == null) return true;
+      runId = started;
+    }
 
+    final done = <AiOrganizeToggle>{...?resume?.done};
     for (final step in _steps()) {
       // Cada paso mira su interruptor al empezar: apagar un tipo a mitad de
       // un elemento vale desde el paso siguiente.
       if (!step.toggle.valueIn(_settings)) continue;
+      if (done.contains(step.toggle)) continue;
       try {
         await step.organize(item, runId: runId);
         // Un paso que falla no corta la pasada: lo que ya creó queda, con su
         // pasada, y los demás pasos se hacen igual. Se atrapa todo —el modelo
         // es de terceros y falla de formas sin un tipo propio— y se registra.
       } on Object catch (e, stackTrace) {
+        // Salvo que el modelo no pueda contestar por ahora (F32): seguir
+        // sería cerrar la pasada sin lo que faltaba. Se corta acá, abierta,
+        // y se retoma en este paso cuando vuelva.
+        final wait = aiModelWaitFor(e);
+        if (wait != null) {
+          _hold(wait, e);
+          _interrupted = (
+            itemId: item.id,
+            source: source,
+            runId: runId,
+            done: done,
+            anotherBatch: false,
+          );
+          return false;
+        }
         _telemetry.recordError(
           e,
           stackTrace,
           hint: 'AiOrganizeQueue: ${step.toggle.name} en ${item.id}',
         );
       }
+      done.add(step.toggle);
     }
 
     (await _runs.finishRun(runId)).match((failure) {
@@ -587,23 +859,35 @@ class AiOrganizeQueue {
         hint: 'AiOrganizeQueue: no se pudo cerrar la pasada',
       );
     }, (_) {});
+    return true;
   }
 
   /// Solo las tarjetas de [itemId] (F30): una pasada de solo tarjetas, con
   /// el paso de tarjetas como `AiFlashcardMaker`. Un fallo se registra y el
   /// pedido sigue con el próximo; el elemento cuenta como mirado igual.
-  Future<void> _makeFlashcards(String itemId) async {
+  ///
+  /// Salvo que el modelo no pueda contestar por ahora (F32): entonces no
+  /// cuenta, la pasada queda abierta y se retoma primero —con [resume]—
+  /// cuando vuelva. Devuelve `false` en ese caso.
+  Future<bool> _makeFlashcards(String itemId, {_Interrupted? resume}) async {
     // De qué pedido es: si lo cancelan y piden otro mientras este corre, lo
     // que dé no se le suma al nuevo.
     final batchOf = _batchSerial;
-    final anotherBatch = _anotherBatch.remove(itemId);
+    final anotherBatch = resume?.anotherBatch ?? _anotherBatch.remove(itemId);
     var report = AiStepReport.nothing;
-    // Pase lo que pase, el elemento cuenta como mirado: un pedido que no
-    // llega nunca al final se quedaría «creando tarjetas» para siempre.
+    var waiting = false;
+    // Pase lo que pase —salvo esperar al modelo—, el elemento cuenta como
+    // mirado: un pedido que no llega nunca al final se quedaría «creando
+    // tarjetas» para siempre.
     try {
       final item = await _find(itemId);
       final maker = _steps().whereType<AiFlashcardMaker>().firstOrNull;
-      if (item == null || maker == null) return;
+      if (item == null || maker == null) {
+        if (resume != null) {
+          await _closeRun(resume.runId, 'de tarjetas de un elemento ido');
+        }
+        return true;
+      }
 
       final epoch = await _epoch();
       final quietBefore = _clock().subtract(_noteQuietPeriod);
@@ -622,6 +906,7 @@ class AiOrganizeQueue {
       _keepAlive(AiWorkSource.flashcardsRequest, pending);
 
       final runId =
+          resume?.runId ??
           (await _runs.startRun(
             item.id,
             model: _modelName?.call(),
@@ -634,7 +919,7 @@ class AiOrganizeQueue {
             );
             return null;
           }, (id) => id);
-      if (runId == null) return;
+      if (runId == null) return true;
 
       try {
         report = await maker.makeFlashcards(
@@ -645,22 +930,35 @@ class AiOrganizeQueue {
         // Como un paso de la pasada entera: el modelo es de terceros y falla
         // de formas sin un tipo propio. Lo que ya creó queda, con su pasada.
       } on Object catch (e, stackTrace) {
+        final wait = aiModelWaitFor(e);
+        if (wait != null) {
+          // Lo que alcanzó a hacer queda; lo que falta lo completa al
+          // retomar, que cuenta las que ya tiene.
+          waiting = true;
+          _hold(wait, e);
+          _interrupted = (
+            itemId: item.id,
+            source: AiWorkSource.flashcardsRequest,
+            runId: runId,
+            done: const <AiOrganizeToggle>{},
+            anotherBatch: anotherBatch,
+          );
+          final current = _batch;
+          if (current != null && batchOf == _batchSerial) {
+            _publishBatch(current.copyWith(currentTitle: () => null));
+          }
+          return false;
+        }
         _telemetry.recordError(
           e,
           stackTrace,
           hint: 'AiOrganizeQueue: tarjetas en ${item.id}',
         );
       }
-      (await _runs.finishRun(runId)).match(
-        (failure) => _telemetry.recordError(
-          failure,
-          StackTrace.current,
-          hint: 'AiOrganizeQueue: no se pudo cerrar la pasada de tarjetas',
-        ),
-        (_) {},
-      );
+      await _closeRun(runId, 'de tarjetas');
+      return true;
     } finally {
-      if (batchOf == _batchSerial) _cardDone(report);
+      if (batchOf == _batchSerial && !waiting) _cardDone(report);
     }
   }
 
@@ -717,5 +1015,17 @@ class AiOrganizeQueue {
       item.source.kind == SourceKind.manualNote;
 }
 
-/// Lo próximo que toma la cola: qué elemento y de dónde salió.
-typedef _Next = ({String itemId, AiWorkSource source});
+/// Lo próximo que toma la cola: qué elemento, de dónde salió y —si se cortó
+/// esperando al modelo (F32)— dónde quedó.
+typedef _Next = ({String itemId, AiWorkSource source, _Interrupted? resume});
+
+/// Lo que se cortó porque el modelo dejó de contestar (F32): qué elemento, de
+/// dónde salió, en qué pasada, qué pasos ya terminó y —un pedido de
+/// tarjetas— si era otra tanda.
+typedef _Interrupted = ({
+  String itemId,
+  AiWorkSource source,
+  String runId,
+  Set<AiOrganizeToggle> done,
+  bool anotherBatch,
+});

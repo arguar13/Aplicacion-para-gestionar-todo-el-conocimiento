@@ -367,13 +367,71 @@ Antes, con Gemini elegido, los botones de la IA seguían preguntando si Gemma es
   Trampa: **no correr pruebas mientras `tool/mutar.py` trabaja en segundo plano**: cambia los
   archivos de verdad y una prueba que corre a la vez falla por la mutación, no por el código.
 
+### Paso 4d — la IA de fondo espera a la nube sin perder nada (hecho)
+
+**La causa de fondo**: la cola de la IA atrapaba el error de cada paso, lo registraba y seguía; al
+final cerraba la pasada. Con Gemma eso alcanzaba (un error era de ese pedido). Con la nube, un
+error de cuota o de red a mitad de un elemento hacía que la pasada se cerrara **sin** los pasos que
+faltaban, el elemento quedaba como organizado y no se volvía a tomar. Y como la cola tampoco
+preguntaba si la nube podía contestar antes de tomar un elemento, cada intento gastaba uno de los
+tres que tiene (`kMaxAiRunAttempts`).
+
+- `AiOrganizeQueue` recibe `languageModel: () => LanguageModelStatusCheck` (antes `chatModel`, el
+  administrador de Gemma) y `modelRetryDelay` (`kAiModelRetryDelay`, 5 minutos).
+  - **Antes de tomar nada** pregunta con `background: true` —es la IA de fondo, con su tope del
+    día—. Si falta Gemma o una cuenta → `AiOrganizeModelMissing` (con `keyFor`: el proveedor al que
+    le falta la clave). Si no hay cuota, se llegó al tope o las claves no andan →
+    `AiOrganizeWaitingForModel(reason, pending, resumesAt, cap)` y un temporizador que la despierta
+    a esa hora (`_wakeAt`, con un segundo de margen).
+  - `aiModelWaitFor(error)` dice qué errores de la nube son «esperar» y cuáles son de ese pedido:
+    cuota → `quota`; tope → `backgroundCap`; clave inválida, prohibida o sin cuenta →
+    `keysRejected`; red → `offline`; saturado o tope por minuto → `busy`; el modelo no existe →
+    `modelGone`; bloqueado, demasiado largo o desconocido → `null` (se registra y se sigue como
+    siempre). Un error que no es `CloudModelException` (Gemma) también da `null`.
+  - **Un error de «esperar» a mitad de un elemento** corta ahí: `_hold` guarda la espera (hasta
+    `retryAfter` o 5 minutos; `modelGone`, hasta que cambie lo elegido) y `_interrupted` guarda el
+    elemento, su pasada **abierta** y los pasos ya hechos. Al volver, ese elemento va primero, en
+    la **misma pasada**, sin repetir los pasos hechos. La espera existe aparte del chequeo porque
+    el chequeo no ve la red ni un modelo que desapareció: sin ella, la cola giraría sobre el mismo
+    error.
+  - Las tarjetas pedidas (F30) igual: el elemento cortado no cuenta como mirado (`_cardDone` no
+    corre), el aviso deja de decir qué lee, y al retomar sigue en su pasada con su `anotherBatch`.
+    Cancelar el pedido cierra la pasada cortada con lo que alcanzó a hacer.
+  - Pedir de nuevo el elemento cortado (organizar ya o tarjetas) no lo duplica; `_pending` lo
+    cuenta entre los que esperan (los que vienen de la base ya los cuenta ella mientras su pasada
+    esté abierta).
+  - `languageModelChanged()` suelta la espera y la despierta. Lo llaman los proveedores al cambiar
+    `aiModelSettingsProvider` (proveedor, cuenta, modelo) y `aiAccountsProvider` (cargar o borrar
+    una clave).
+- `languageModelNameProvider` (`chat_providers.dart`): el nombre del modelo que escribe —el de la
+  nube elegido, o el recomendado, o el de Gemma—. Lo anotan las pasadas y las notas mapa.
+- Vistas: `AiQueueWaitingView` (`ai_queue_status.dart`) con `reasonText` (hasta cuándo, con
+  `aiResetTime`), `needsYou` (claves o modelo: color de atención) y `showsAccounts` (no sin
+  conexión ni saturado: ahí no hay nada que ver). La tarjeta dice el motivo + «N elementos
+  esperan; nada se pierde» y ofrece «Cuentas y cuota»; sin clave dice «Falta cargar una clave de
+  Gemini…» con «Cargar una clave» (no «Bajar»). Repasar vacío (`review_empty_state.dart`) y el
+  ajuste «Lo que hizo la IA» (`ai_settings_tiles.dart`) muestran lo mismo.
+- Pruebas: 15 nuevas en `ai_organize_queue_test.dart` (grupo «con el modelo en la nube (F32)»),
+  6 en `ai_activity_screen_test.dart`, 2 en `review_ai_flashcards_test.dart` y
+  `ai_organize_queue_providers_test.dart` (nuevo: cargar una cuenta o elegir otro proveedor
+  destraba la cola sola). `test/support/gemma_status_check.dart` arma el chequeo con Gemma para
+  las pruebas que arman la cola a mano.
+  Trampa: en `testWidgets`, `tester.pump()` **sin duración** no avanza el reloj falso; el refresco
+  que agenda Riverpod es un timer en cero y solo corre con `tester.pump(Duration.zero)`.
+- Mutaciones: 38/38 muertas. Dos sobrevivieron primero: pedir de nuevo las tarjetas del elemento
+  cortado (no había prueba: se agregó) y el texto del botón de las cuentas en Repasar vacío, que
+  repetía la condición de su acción (`_Reason` muestra el botón solo con las dos): se sacó la
+  condición repetida.
+- **`tool/mutar.py` se colgaba** con una mutación que hace girar la cola sin soltar el hilo (ni el
+  `--timeout` de `flutter test` vence): con `shell=True`, al vencer su tiempo mataba solo la
+  consola, y `dart`/`flutter_tester` seguían reteniendo la salida. Ahora la salida va a un archivo,
+  al vencer mata el árbol entero (`taskkill /T`), cuenta la mutación como muerta («las pruebas se
+  colgaron»), acepta `"minutos"` por mutación (10 si no está) e imprime cada resultado apenas lo
+  tiene.
+
 ### Lo que sigue
 
-4. Falta: la cola de la IA de fondo con el estado nuevo —preguntar con `background: true`,
-   `AiOrganizeWaitingForModel` con el motivo (`AiModelWait`) y un temporizador para retomar; un
-   error de cuota, clave o red **pausa sin saltear** el elemento (las tarjetas pedidas vuelven al
-   frente)— y sus vistas (`ai_queue_status.dart`, `review_empty_state.dart`, con los `aiStatus*`
-   ya cargados); las partes por la ventana del modelo (`kFlashcardPartChars`,
-   `kDerivedNotePartChars`, hoy 3.000 fijos).
+4. Falta: las partes por la ventana del modelo (`kFlashcardPartChars`, `kDerivedNotePartChars`,
+   hoy 3.000 fijos).
 5. `OpenAiBackend` y `AnthropicBackend`.
 6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.

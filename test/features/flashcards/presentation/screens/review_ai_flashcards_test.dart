@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/notebook_mode.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/ai_organize_queue.dart';
@@ -340,6 +342,64 @@ void main() {
         harness.container.read(aiOrganizeSettingsProvider).enabled,
         isTrue,
       );
+    });
+
+    testWidgets('con la IA en la nube sin clave: falta la clave, no bajar '
+        'un modelo (F32)', (tester) async {
+      await setUpWith();
+      await seed();
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness.wrapWithAppRouter());
+      await tester.pumpAndSettle();
+      harness.pushTo(RoutePaths.review);
+      await tester.pumpAndSettle();
+      setStatus(
+        const AiOrganizeModelMissing(
+          chatModelMissing: true,
+          embeddingModelMissing: false,
+          keyFor: AiProvider.gemini,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(es.aiStatusModelChatKey(es.lmProviderGemini)),
+        findsOneWidget,
+      );
+      expect(find.text(es.reviewEmptyChatModelMissing), findsNothing);
+      await tester.tap(find.text(es.aiStatusAddKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(LanguageModelScreen), findsOneWidget);
+    });
+
+    testWidgets('esperando a la nube: lo dice, con las cuentas si hay algo '
+        'que ver (F32)', (tester) async {
+      await setUpWith();
+      await seed();
+      await pumpReview(tester);
+      setStatus(
+        const AiOrganizeWaitingForModel(
+          reason: AiModelWait.keysRejected,
+          pending: 3,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiStatusWaitingKeys), findsOneWidget);
+      expect(find.text(es.aiStatusOpenAccounts), findsOneWidget);
+
+      // Sin conexión no hay nada que ver en las cuentas: vuelve sola.
+      setStatus(
+        const AiOrganizeWaitingForModel(
+          reason: AiModelWait.offline,
+          pending: 3,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(es.aiStatusWaitingOffline), findsOneWidget);
+      expect(find.text(es.aiStatusOpenAccounts), findsNothing);
     });
 
     testWidgets('esperando el cargador: cuántos esperan', (tester) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
 
 /// Qué organiza sola la IA (F27): un interruptor por tipo y uno general, en
 /// Ajustes › IA.
@@ -188,14 +189,59 @@ final class AiOrganizePaused extends AiOrganizeStatus {
   final bool waitingForCharger;
 }
 
-/// Falta bajar el modelo de lenguaje o el de relaciones: sin ellos la IA no
-/// puede organizar nada.
+/// Falta el modelo de lenguaje o el de relaciones: sin ellos la IA no puede
+/// organizar nada. Al de lenguaje le falta bajarlo (Gemma) o, si se eligió
+/// uno en la nube, una clave de [keyFor] (F32).
 final class AiOrganizeModelMissing extends AiOrganizeStatus {
   const AiOrganizeModelMissing({
     required this.chatModelMissing,
     required this.embeddingModelMissing,
+    this.keyFor,
   });
 
   final bool chatModelMissing;
   final bool embeddingModelMissing;
+
+  /// El proveedor en la nube al que le falta una clave; `null` si lo que
+  /// falta es bajar Gemma.
+  final AiProvider? keyFor;
+}
+
+/// Por qué la IA de fondo espera al modelo de lenguaje en la nube (F32).
+enum AiModelWait {
+  /// Ninguna cuenta tiene cuota: vuelve a la hora de la renovación.
+  quota,
+
+  /// La IA de fondo usó sus pedidos del día; lo que pide la persona sigue.
+  backgroundCap,
+
+  /// Ninguna clave anda: hasta que la persona cargue o arregle una.
+  keysRejected,
+
+  /// No hay conexión: vuelve a probar sola en unos minutos.
+  offline,
+
+  /// El proveedor está saturado o pide esperar: vuelve a probar sola.
+  busy,
+
+  /// El modelo elegido ya no existe: hasta que la persona elija otro.
+  modelGone,
+}
+
+/// La IA de fondo espera al modelo de lenguaje en la nube por [reason]
+/// (F32), sin perder nada: lo que estaba organizando se retoma donde quedó.
+/// Sigue sola a las [resumesAt], si se sabe; [cap] es el tope del día, con
+/// [AiModelWait.backgroundCap].
+final class AiOrganizeWaitingForModel extends AiOrganizeStatus {
+  const AiOrganizeWaitingForModel({
+    required this.reason,
+    required this.pending,
+    this.resumesAt,
+    this.cap,
+  });
+
+  final AiModelWait reason;
+  final int pending;
+  final DateTime? resumesAt;
+  final int? cap;
 }

@@ -18,6 +18,7 @@ import '../../support/atlas_topics.dart';
 import '../../support/fake_chat_model_manager.dart';
 import '../../support/fake_embedding_model_manager.dart';
 import '../../support/fake_embedding_service.dart';
+import '../../support/gemma_status_check.dart';
 
 class _NeverCharging implements ChargingProbe {
   @override
@@ -111,7 +112,7 @@ void main() {
           clock: vault.clock,
         ),
       ],
-      chatModel: () => FakeChatModelManager(ready: true),
+      languageModel: () => gemmaStatusCheck(FakeChatModelManager(ready: true)),
       embeddingModel: () => FakeEmbeddingModelManager(ready: true),
       vectors: () => ChunkEmbeddingIndexerImpl(
         database: vault.db,

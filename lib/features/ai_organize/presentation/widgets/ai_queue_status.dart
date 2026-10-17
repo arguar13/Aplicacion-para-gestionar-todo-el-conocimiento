@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -32,10 +34,24 @@ sealed class AiQueueView {
       AiOrganizeModelMissing(
         :final chatModelMissing,
         :final embeddingModelMissing,
+        :final keyFor,
       ) =>
         AiQueueModelView(
           chatModelMissing: chatModelMissing,
           embeddingModelMissing: embeddingModelMissing,
+          keyFor: keyFor,
+        ),
+      AiOrganizeWaitingForModel(
+        :final reason,
+        :final pending,
+        :final resumesAt,
+        :final cap,
+      ) =>
+        AiQueueWaitingView(
+          reason: reason,
+          pending: pending,
+          resumesAt: resumesAt,
+          cap: cap,
         ),
     };
   }
@@ -98,16 +114,77 @@ final class AiQueueModelView extends AiQueueView {
   const AiQueueModelView({
     required this.chatModelMissing,
     required this.embeddingModelMissing,
+    this.keyFor,
   });
 
   final bool chatModelMissing;
   final bool embeddingModelMissing;
+
+  /// Si al de lenguaje le falta una clave de este proveedor en la nube, no
+  /// bajarlo (F32).
+  final AiProvider? keyFor;
 
   @override
   String headline(AppLocalizations l10n) => l10n.aiStatusModelTitle;
 
   @override
   IconData get icon => Icons.download_for_offline_outlined;
+}
+
+/// La IA de fondo espera al modelo en la nube (F32): la cuota, su tope del
+/// día, una clave que ande, la conexión. Nada se pierde.
+final class AiQueueWaitingView extends AiQueueView {
+  const AiQueueWaitingView({
+    required this.reason,
+    required this.pending,
+    this.resumesAt,
+    this.cap,
+  });
+
+  final AiModelWait reason;
+  final int pending;
+  final DateTime? resumesAt;
+  final int? cap;
+
+  /// Si hace falta que la persona haga algo: lo demás vuelve solo.
+  bool get needsYou =>
+      reason == AiModelWait.keysRejected || reason == AiModelWait.modelGone;
+
+  /// Si hay algo que ver en las cuentas: la cuota, el tope, las claves, el
+  /// modelo. Sin conexión o con el proveedor saturado, no.
+  bool get showsAccounts =>
+      reason != AiModelWait.offline && reason != AiModelWait.busy;
+
+  /// Por qué espera y hasta cuándo, sin cuántos esperan.
+  String reasonText(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final at = resumesAt;
+    return switch (reason) {
+      AiModelWait.quota when at != null => l10n.aiStatusWaitingQuota(
+        aiResetTime(context, at),
+      ),
+      AiModelWait.quota => l10n.aiStatusWaitingQuotaNoTime,
+      AiModelWait.backgroundCap => l10n.aiStatusWaitingCap(
+        cap ?? 0,
+        at == null ? '—' : aiResetTime(context, at),
+      ),
+      AiModelWait.keysRejected => l10n.aiStatusWaitingKeys,
+      AiModelWait.offline => l10n.aiStatusWaitingOffline,
+      AiModelWait.busy => l10n.aiStatusWaitingBusy,
+      AiModelWait.modelGone => l10n.aiStatusWaitingModelGone,
+    };
+  }
+
+  @override
+  String headline(AppLocalizations l10n) => l10n.aiStatusWaitingTitle;
+
+  @override
+  IconData get icon => switch (reason) {
+    AiModelWait.offline => Icons.cloud_off_outlined,
+    AiModelWait.keysRejected => Icons.key_off_outlined,
+    AiModelWait.backgroundCap => Icons.nights_stay_outlined,
+    _ => Icons.hourglass_bottom,
+  };
 }
 
 /// Lo que muestra la cola ahora, ya resuelto contra el interruptor general.
@@ -121,7 +198,8 @@ final aiQueueViewProvider = Provider.autoDispose<AiQueueView>((ref) {
 /// La tarjeta del estado de la cola, arriba de «Lo que hizo la IA» (F27).
 ///
 /// Cada estado dice qué pasa y, si hay algo que hacer, el único botón que lo
-/// resuelve: reanudar la pausa, bajar el modelo que falta. Pasar de un estado
+/// resuelve: reanudar la pausa, bajar el modelo que falta, cargar una clave o
+/// ir a las cuentas (F32). Pasar de un estado
 /// a otro se funde, sin saltos de alto.
 class AiQueueStatusCard extends ConsumerWidget {
   const AiQueueStatusCard({super.key});
@@ -158,7 +236,15 @@ class _StatusCard extends ConsumerWidget {
     // Lo que falta bajar es lo único que pide algo con urgencia: se distingue
     // con el color terciario, el mismo del ✨ de la IA, y no con el de error
     // —no falló nada—.
-    final attention = view is AiQueueModelView;
+    final attention = switch (view) {
+      AiQueueModelView() => true,
+      AiQueueWaitingView(:final needsYou) => needsYou,
+      _ => false,
+    };
+    // Esperar al modelo también es algo de la IA que se mueve, aunque no
+    // pida nada: lleva su color.
+    final tinted =
+        attention || view is AiQueueWorkingView || view is AiQueueWaitingView;
 
     final message = switch (view) {
       AiQueueIdleView() => l10n.aiStatusIdleMessage,
@@ -169,11 +255,22 @@ class _StatusCard extends ConsumerWidget {
       AiQueueChargerView(:final pending) => l10n.aiStatusChargerMessage(
         pending,
       ),
-      AiQueueModelView(:final chatModelMissing, :final embeddingModelMissing) =>
+      AiQueueModelView(
+        :final chatModelMissing,
+        :final embeddingModelMissing,
+        :final keyFor,
+      ) =>
         [
-          if (chatModelMissing) l10n.aiStatusModelChat,
+          if (chatModelMissing && keyFor != null)
+            l10n.aiStatusModelChatKey(keyFor.label(l10n))
+          else if (chatModelMissing)
+            l10n.aiStatusModelChat,
           if (embeddingModelMissing) l10n.aiStatusModelEmbedding,
         ].join(' '),
+      final AiQueueWaitingView waiting => [
+        waiting.reasonText(context),
+        l10n.aiStatusWaitingPending(waiting.pending),
+      ].join(' '),
     };
 
     final actions = <Widget>[
@@ -186,7 +283,14 @@ class _StatusCard extends ConsumerWidget {
           icon: const Icon(Icons.play_arrow, size: 18),
           label: Text(l10n.aiStatusResume),
         ),
-      if (view case AiQueueModelView(chatModelMissing: true))
+      if (view case AiQueueModelView(chatModelMissing: true, keyFor: _?))
+        FilledButton.tonalIcon(
+          key: const Key('ai-status-add-key'),
+          onPressed: () => context.push(RoutePaths.languageModel),
+          icon: const Icon(Icons.key_outlined, size: 18),
+          label: Text(l10n.aiStatusAddKey),
+        )
+      else if (view case AiQueueModelView(chatModelMissing: true))
         FilledButton.tonalIcon(
           key: const Key('ai-status-download-chat'),
           onPressed: () => context.push(RoutePaths.chatModel),
@@ -199,6 +303,13 @@ class _StatusCard extends ConsumerWidget {
           onPressed: () => context.push(RoutePaths.embeddingModel),
           icon: const Icon(Icons.download, size: 18),
           label: Text(l10n.aiStatusDownloadEmbedding),
+        ),
+      if (view case AiQueueWaitingView(showsAccounts: true))
+        FilledButton.tonalIcon(
+          key: const Key('ai-status-accounts'),
+          onPressed: () => context.push(RoutePaths.languageModel),
+          icon: const Icon(Icons.manage_accounts_outlined, size: 18),
+          label: Text(l10n.aiStatusOpenAccounts),
         ),
     ];
 
@@ -221,7 +332,7 @@ class _StatusCard extends ConsumerWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: attention || view is AiQueueWorkingView
+                    color: tinted
                         ? scheme.tertiaryContainer
                         : scheme.surfaceContainerHighest,
                   ),
@@ -229,9 +340,7 @@ class _StatusCard extends ConsumerWidget {
                   child: Icon(
                     view.icon,
                     size: 22,
-                    color: attention || view is AiQueueWorkingView
-                        ? scheme.onTertiaryContainer
-                        : scheme.primary,
+                    color: tinted ? scheme.onTertiaryContainer : scheme.primary,
                   ),
                 ),
                 const SizedBox(width: 14),

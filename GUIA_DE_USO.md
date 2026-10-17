@@ -681,11 +681,23 @@ repaso, le pone tema y etiquetas y completa lo que le falta. No tenés que esper
 aprobar nada para que el elemento quede listo. Todo lo que hace queda a la
 vista, marcado como suyo, y se puede corregir o deshacer.
 
-Necesita **los dos modelos descargados**: el de lenguaje y el del motor de
-relaciones (ver [Los modelos de IA descargables](#los-modelos-de-ia-descargables)).
-Mientras falte alguno no hace nada, y en "Lo que hizo la IA" te avisa cuál
-falta, con un botón para bajarlo. Apenas termina de bajarse, la IA arranca
+Necesita **el modelo de lenguaje listo** —Gemini con una clave cargada, o
+Gemma bajado (ver [Modelo de lenguaje](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola))—
+y **el del motor de relaciones descargado** (ver
+[Los modelos de IA descargables](#los-modelos-de-ia-descargables)). Mientras
+falte algo no hace nada, y en "Lo que hizo la IA" te avisa qué falta, con el
+botón que lo resuelve: **"Cargar una clave"** si falta la de Gemini, o el de
+bajar el modelo. Apenas cargás la clave o termina de bajarse, la IA arranca
 sola.
+
+**Con Gemini, si se acaba la cuota, no se pierde nada.** Antes de tomar cada
+cosa, la IA de fondo pregunta si la nube puede contestar. Si ninguna cuenta
+tiene cuota, si llegó a [su tope del día](#modelo-de-lenguaje-el-del-chat-y-la-ia-que-organiza-sola),
+si las claves no andan, si no hay conexión o si Google está saturado,
+**espera**: dice por qué, hasta qué hora (cuando se sabe) y cuántas cosas
+esperan, y **sigue sola** a esa hora. Si se corta a mitad de un elemento, lo
+retoma primero, donde quedó, sin repetir lo que ya hizo. Cargar otra clave,
+elegir otra cuenta o cambiar de modelo la destraba en el acto.
 
 ### Qué hace sola
 
@@ -740,8 +752,12 @@ Lo que editás o borrás deja de contar como de la IA: ya es tuyo.
 **"Ver"** en la línea de un elemento (ahí se ve solo lo de ese elemento).
 
 Arriba, una tarjeta dice en qué anda la IA: al día, organizando algo (con
-cuántos esperan), en pausa (con **"Reanudar"**), esperando el cargador, o si
-falta un modelo. Debajo:
+cuántos esperan), en pausa (con **"Reanudar"**), esperando el cargador, si
+falta un modelo o una clave, o **"Esperando a la IA"**: sin cuota (p. ej.
+"Ninguna cuenta tiene cuota: sigue sola a las 4:00"), en su tope del día,
+con las claves rechazadas, sin conexión o con el proveedor saturado, siempre
+con cuántos esperan y "nada se pierde". Cuando hay algo para ver en las
+cuentas, trae **"Cuentas y cuota"**. Debajo:
 
 - **"Para revisar"**: lo que la IA no aplicó porque no estaba segura —un
   vínculo dudoso, un valor nuevo para tu vocabulario, los datos de una
@@ -1523,7 +1539,9 @@ Toda tarjeta nueva está lista para repasar ese mismo día: si Repasar está
 vacío es porque no hay tarjetas pendientes. Si hay elementos con texto que
 todavía no tienen tarjetas, Repasar te dice **cuántos** y **por qué** la IA
 no las hizo sola —falta bajar el modelo de lenguaje o el de vínculos (con
-**"Bajarlo"**), la IA está en pausa (con **"Reanudar la IA"**), o la
+**"Bajarlo"**), falta la clave de Gemini (con **"Cargar una clave"**), la IA
+espera que vuelva la cuota o la conexión (con **"Cuentas y cuota"** cuando
+hay algo que ver), la IA está en pausa (con **"Reanudar la IA"**), o la
 biblioteca que ya tenías espera el cargador—, con el botón **"Crear
 tarjetas con IA"** al lado. Si la IA ya las está haciendo, te avisa que
 están en camino. Si no hay nada que hacer, te invita a volver más tarde.
@@ -1835,7 +1853,9 @@ usar varias cuentas para pasar su tope: usarlo es tu riesgo).
 **El tope de la IA de fondo.** La IA que organiza sola gasta de la misma
 cuota. Para que no te deje sin nada para lo que pedís vos, tiene un tope de
 pedidos por día (25, 50, 100, 200, 500 o sin tope). Cuando llega, espera al
-día siguiente; lo que pedís vos sigue andando.
+día siguiente; lo que pedís vos sigue andando. Mientras espera —por el tope
+o porque se acabó la cuota— no pierde nada: lo dice en "Lo que hizo la IA"
+y en Repasar, y sigue sola a la hora en que vuelve.
 
 **Qué dicen los botones de la IA cuando falta algo.** Resumir, generar
 tarjetas o un quiz, una nota derivada, llenar un cuaderno, sugerir
