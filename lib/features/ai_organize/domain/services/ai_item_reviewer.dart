@@ -22,3 +22,33 @@ abstract interface class AiItemReviewer {
     String? exceptMadeBy,
   });
 }
+
+/// Varios revisores de un elemento, uno detrás del otro: las tarjetas y lo
+/// demás (F33). Para la cola son uno solo; lo que proponen se suma.
+class AiItemReviewers implements AiItemReviewer {
+  const AiItemReviewers(this._reviewers);
+
+  final List<AiItemReviewer> _reviewers;
+
+  @override
+  Future<AiStepReport> review(
+    KnowledgeItem item, {
+    required String runId,
+    String? model,
+    String? exceptMadeBy,
+  }) async {
+    var applied = 0;
+    var forReview = 0;
+    for (final reviewer in _reviewers) {
+      final report = await reviewer.review(
+        item,
+        runId: runId,
+        model: model,
+        exceptMadeBy: exceptMadeBy,
+      );
+      applied += report.applied;
+      forReview += report.forReview;
+    }
+    return AiStepReport(applied: applied, forReview: forReview);
+  }
+}

@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -118,6 +119,14 @@ class FakeAiRunRepository implements AiRunRepository {
   @override
   Future<Either<Failure, AiRunTally>> finishRun(String runId) =>
       throw UnimplementedError('Las pantallas no cierran pasadas.');
+
+  /// Lo que devuelve [reviewableThings] (F33), por elemento.
+  Map<String, List<ReviewableAiThing>> things = const {};
+
+  @override
+  Future<Either<Failure, List<ReviewableAiThing>>> reviewableThings(
+    String itemId,
+  ) async => right(things[itemId] ?? const []);
 
   /// Lo que devuelven [aiWorkByModel] y [reviewCandidates] (F33).
   List<AiModelWork> work = const [];

@@ -420,3 +420,40 @@ Partes, un commit cada una:
 - **La oferta y el costo cuentan todo**, por modelo, en SQL: las tarjetas y las demás cosas. La
   introducción de una nota mapa se cuenta por nota (si no tiene introducción, el paso no la
   manda). Los textos dicen «cosas»: «312 cosas de Gemma 4 E4B en 85 elementos».
+
+### Paso 4d, primera parte (hecha): el revisor de lo demás
+
+- **Qué se revisa:** `reviewableAiThings` en `correction_suggestions.dart`. Cada pieza (menos la
+  de las tarjetas) sabe:
+  - qué hicieron las pasadas sobre el elemento (`madeOn`); lo que hizo una pasada sobre otro
+    elemento no es de este, aunque lo vincule;
+  - cómo mostrárselo a un revisor (`describe`): su antes, su nombre, la pasada y su modelo, y
+    las opciones.
+
+  Las opciones son los cinco tipos de vínculo, hasta 25 valores de la categoría (los más usados)
+  o hasta 30 temas. Además dice si se puede corregir (una etiqueta que no es de texto, no) y si
+  se puede sacar (una introducción, no). Lo devuelve `AiRunRepository.reviewableThings`, y queda
+  en `ReviewableAiThing` (core).
+- **El pedido** (`LanguageModelTasks.reviewThings`): el elemento con un fragmento, y cada cosa
+  numerada con lo que tiene puesto, el contexto (el comienzo del otro elemento de un vínculo; lo
+  que reúne una nota mapa), las opciones y sus reglas («no se saca», «no se corrige»). Los tipos
+  de vínculo se nombran con las mismas palabras que el pedido de vínculos (`relacionado`,
+  `contradice`…), ahora compartidas (`relationKindForToken`, `relationKindToken`).
+- **El lector** (`parseThingsReview`), estricto:
+  - el valor tiene que ser una de las opciones, y queda escrito como ella;
+  - en un vínculo, lo que no dice queda como estaba;
+  - la introducción se limpia como la escribe la IA;
+  - no saca lo que no se saca, no corrige lo que no se corrige, y una «corrección» que deja todo
+    igual no cuenta.
+- **El paso** (`ReviewThingsStep`):
+  - no repite lo que está para decidir ni lo que la persona descartó, y deja afuera lo del
+    modelo que revisa;
+  - manda de a tantas cosas por pedido como el modelo escribe (cuatro en Gemma, ocho con una
+    ventana grande), con el fragmento del elemento en un cuarto de lo que lee;
+  - lo que propone se acepta tal cual (la prueba acepta cada cosa de punta a punta).
+- **El revisor compuesto** (`AiItemReviewers`): primero las tarjetas, después lo demás. Para la
+  cola son uno solo.
+- **Pruebas:** la lista (4), el lector (8), el pedido (2), el paso (5), el compuesto (2).
+- **Mutación: 30 de 30 muertas.**
+- **Falta, en la segunda parte:** que la oferta, el costo y los candidatos cuenten todo. Hoy la
+  cola llega solo a los elementos con tarjetas de la IA, aunque en ellos ya revisa lo demás.

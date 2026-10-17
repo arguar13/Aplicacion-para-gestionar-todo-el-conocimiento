@@ -14,6 +14,7 @@ import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/domain/services/ai_rejection_fingerprint.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
@@ -359,6 +360,20 @@ class AiRunRepositoryImpl implements AiRunRepository {
             AND v.model = ?
             AND v.finished_at IS NOT NULL
             AND v.undone_at IS NULL)''';
+
+  @override
+  Future<Either<Failure, List<ReviewableAiThing>>> reviewableThings(
+    String itemId,
+  ) async {
+    try {
+      return right(await reviewableAiThings(_db, itemId));
+      // `Object` y no `Exception`: ver `_unexpected`.
+    } on Object catch (e, stackTrace) {
+      return left(
+        _unexpected(e, stackTrace, 'AiRunRepositoryImpl.reviewableThings'),
+      );
+    }
+  }
 
   @override
   Future<Either<Failure, List<AiModelWork>>> aiWorkByModel({

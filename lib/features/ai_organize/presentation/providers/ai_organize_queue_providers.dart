@@ -19,6 +19,7 @@ import 'package:sinapsis/features/ai_organize/data/steps/auto_reference_step.dar
 import 'package:sinapsis/features/ai_organize/data/steps/auto_relate_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/auto_space_step.dart';
 import 'package:sinapsis/features/ai_organize/data/steps/review_flashcards_step.dart';
+import 'package:sinapsis/features/ai_organize/data/steps/review_things_step.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_flashcards_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
@@ -183,18 +184,29 @@ final aiOrganizeQueueProvider = Provider<AiOrganizeQueue>((ref) {
   return queue;
 });
 
-/// Quien revisa cada elemento en «Revisar con otro modelo» (F33): por ahora,
-/// las tarjetas. Con el modelo que pidió la persona pero con el turno de la
-/// cola (`requestedBackgroundLanguageModelProvider`): sale de su cuota, no del
-/// tope de la IA de fondo, y le cede el modelo cuando lo usa.
+/// Quien revisa cada elemento en «Revisar con otro modelo» (F33): las
+/// tarjetas, y después lo demás. Con el modelo que pidió la persona pero con
+/// el turno de la cola (`requestedBackgroundLanguageModelProvider`): sale de
+/// su cuota, no del tope de la IA de fondo, y le cede el modelo cuando lo usa.
 final aiItemReviewerProvider = Provider<AiItemReviewer>((ref) {
-  return ReviewFlashcardsStep(
-    reviewer: ref.watch(requestedBackgroundLanguageModelProvider),
-    flashcards: ref.watch(flashcardRepositoryProvider),
-    suggestions: ref.watch(suggestionRepositoryProvider),
-    runs: ref.watch(aiRunRepositoryProvider),
-    textBudget: ref.watch(languageModelTextBudgetProvider),
-  );
+  final model = ref.watch(requestedBackgroundLanguageModelProvider);
+  final textBudget = ref.watch(languageModelTextBudgetProvider);
+  return AiItemReviewers([
+    ReviewFlashcardsStep(
+      reviewer: model,
+      flashcards: ref.watch(flashcardRepositoryProvider),
+      suggestions: ref.watch(suggestionRepositoryProvider),
+      runs: ref.watch(aiRunRepositoryProvider),
+      textBudget: textBudget,
+    ),
+    ReviewThingsStep(
+      reviewer: model,
+      runs: ref.watch(aiRunRepositoryProvider),
+      atlas: ref.watch(aiAtlasRepositoryProvider),
+      suggestions: ref.watch(suggestionRepositoryProvider),
+      textBudget: textBudget,
+    ),
+  ]);
 });
 
 /// Cómo va el pedido de «Revisar con otro modelo» (F33), o `null` si no hay

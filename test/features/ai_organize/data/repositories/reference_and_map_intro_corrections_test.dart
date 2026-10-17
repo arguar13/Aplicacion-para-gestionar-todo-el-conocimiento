@@ -6,15 +6,22 @@ import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/correction_suggestions.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/reference_reader.dart';
+import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
+import 'package:sinapsis/core/domain/entities/ai_provenance.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
+import 'package:sinapsis/core/domain/entities/item_property_origin.dart';
 import 'package:sinapsis/core/domain/entities/note_kind.dart';
+import 'package:sinapsis/core/domain/entities/property_definition.dart';
+import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/reference_type.dart';
+import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
@@ -566,6 +573,21 @@ void main() {
       expect(await stillApplicableCorrections(vault.db, [again]), hasLength(1));
     });
 
+    test('se da a revisar la introducción, que no se saca; una nota sin '
+        'introducción no tiene nada que revisar', () async {
+      final note = await aiMapNote();
+      final thing = (await reviewableAiThings(vault.db, note)).single;
+      expect(thing.subject, CorrectionSubject.mapIntro);
+      expect(thing.before, {MapIntroCorrectionField.text: intro});
+      expect((thing.canFix, thing.canRemove), (true, false));
+      expect(thing.model, 'gemma');
+      await vault.library.delete(note);
+      await vault.library.purge([note]);
+
+      final bare = await aiMapNote(blocks: withIntro.skip(1).toList());
+      expect(await reviewableAiThings(vault.db, bare), isEmpty);
+    });
+
     test('deshacer no pisa la introducción que cambió después', () async {
       final note = await aiMapNote();
       final run = await reviewRun(note);
@@ -629,5 +651,195 @@ void main() {
         run: (created: 1, remaining: 0),
       });
     });
+  });
+
+  group('lo que se le da a revisar (F33, 4d)', () {
+    late String tema;
+
+    setUp(() async {
+      await vault.source('a', title: 'Rayuela', content: 'Una novela.');
+      await vault.source('b', title: 'Cortázar', content: 'Un escritor.');
+      tema = await temaDefinitionId(vault.db);
+      for (final (id, name) in [('lit', 'Literatura'), ('arte', 'Arte')]) {
+        await vault.db
+            .into(vault.db.spaces)
+            .insert(
+              SpacesCompanion.insert(id: id, name: name, createdAt: vault.now),
+            );
+      }
+      // «Novela» ya está en el vocabulario: la usa otro elemento.
+      ok(
+        await vault.organize.assignProperty(
+          itemId: 'b',
+          definitionId: tema,
+          value: 'Novela',
+        ),
+      );
+    });
+
+    /// Una pasada de Gemma sobre «a» que hace de todo.
+    Future<String> organizeA() async {
+      final run = ok(await vault.runs.startRun('a', model: 'Gemma 4 E4B'));
+      ok(
+        await vault.organize.createRelation(
+          fromItemId: 'a',
+          toItemId: 'b',
+          kind: RelationKind.relatedTo,
+          note: 'El autor.',
+          ai: AiProvenance(runId: run),
+        ),
+      );
+      ok(
+        await vault.organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Cuento',
+          origin: ItemPropertyOrigin.ai,
+          aiRunId: run,
+        ),
+      );
+      ok(await vault.runs.applySpace(runId: run, itemId: 'a', spaceId: 'arte'));
+      ok(
+        await vault.runs.completeReference(
+          runId: run,
+          itemId: 'a',
+          extracted: const ExtractedMetadata(
+            reference: ReferenceData(publisher: 'Sudamericana'),
+          ),
+        ),
+      );
+      await vault.runs.finishRun(run);
+      return run;
+    }
+
+    test('el vínculo, la etiqueta, el tema y la editorial, cada uno con su '
+        'antes, su pasada y lo que vale al corregirlo', () async {
+      final run = await organizeA();
+
+      final things = await reviewableAiThings(vault.db, 'a');
+
+      expect(
+        [for (final t in things) t.subject],
+        [
+          CorrectionSubject.relation,
+          CorrectionSubject.property,
+          CorrectionSubject.space,
+          CorrectionSubject.reference,
+        ],
+      );
+      expect({for (final t in things) t.aiRunId}, {run});
+      expect({for (final t in things) t.model}, {'Gemma 4 E4B'});
+
+      final [relation, tag, space, reference] = things;
+      expect(relation.before, {
+        RelationCorrectionField.kind: 'relatedTo',
+        RelationCorrectionField.note: 'El autor.',
+      });
+      expect(relation.label, 'Cortázar');
+      expect(relation.relatedItemId, 'b');
+      expect(
+        [for (final o in relation.options) o.id],
+        [
+          for (final kind in RelationKind.values)
+            if (!kind.isStructural) kind.name,
+        ],
+      );
+
+      expect(tag.before, {
+        PropertyCorrectionField.category: kTemaCategoryName,
+        PropertyCorrectionField.value: 'Cuento',
+      });
+      expect([
+        for (final o in tag.options) o.label,
+      ], containsAll(['Cuento', 'Novela']));
+      expect(tag.canFix, isTrue);
+
+      expect(space.before, {
+        SpaceCorrectionField.id: 'arte',
+        SpaceCorrectionField.name: 'Arte',
+      });
+      expect(space.options, const [
+        ReviewOption(id: 'arte', label: 'Arte'),
+        ReviewOption(id: 'lit', label: 'Literatura'),
+      ]);
+
+      expect(reference.before, {
+        ReferenceCorrectionField.field: 'publisher',
+        ReferenceCorrectionField.type: '',
+        ReferenceCorrectionField.value: 'Sudamericana',
+      });
+      expect(reference.options, isEmpty);
+      expect(reference.canRemove, isTrue);
+    });
+
+    test('deja afuera lo que ya es de la persona y lo que hizo una pasada de '
+        'otro elemento', () async {
+      await organizeA();
+      final relation = await vault.db.select(vault.db.relations).getSingle();
+      ok(
+        await vault.organize.updateRelation(
+          relation.id,
+          kind: RelationKind.relatedTo,
+          note: 'Mía.',
+        ),
+      );
+      ok(
+        await vault.organize.assignProperty(
+          itemId: 'a',
+          definitionId: tema,
+          value: 'Cuento',
+        ),
+      );
+      await KnowledgeEntryWriter(vault.db).setSpace(['a'], 'lit');
+      await KnowledgeEntryWriter(
+        vault.db,
+      ).setReference('a', const ReferenceData(publisher: 'Alfaguara'));
+      // Lo que hizo una pasada sobre «b» no es de «a», aunque vincule a «a».
+      final onB = ok(await vault.runs.startRun('b', model: 'Gemma 4 E4B'));
+      ok(
+        await vault.organize.createRelation(
+          fromItemId: 'b',
+          toItemId: 'a',
+          kind: RelationKind.cites,
+          ai: AiProvenance(runId: onB),
+        ),
+      );
+
+      expect(await reviewableAiThings(vault.db, 'a'), isEmpty);
+      expect(
+        [for (final t in await reviewableAiThings(vault.db, 'b')) t.label],
+        ['Rayuela'],
+      );
+    });
+
+    test(
+      'una etiqueta que no es de texto se puede sacar pero no corregir',
+      () async {
+        await vault.db
+            .into(vault.db.propertyDefinitions)
+            .insert(
+              PropertyDefinitionsCompanion.insert(
+                id: 'paginas',
+                name: 'Páginas',
+                createdAt: vault.now,
+                type: const Value(PropertyValueType.number),
+              ),
+            );
+        final run = ok(await vault.runs.startRun('a', model: 'Gemma 4 E4B'));
+        ok(
+          await vault.organize.assignProperty(
+            itemId: 'a',
+            definitionId: 'paginas',
+            value: '320',
+            origin: ItemPropertyOrigin.ai,
+            aiRunId: run,
+          ),
+        );
+
+        final thing = (await reviewableAiThings(vault.db, 'a')).single;
+        expect((thing.canFix, thing.canRemove), (false, true));
+        expect(thing.options, isEmpty);
+      },
+    );
   });
 }

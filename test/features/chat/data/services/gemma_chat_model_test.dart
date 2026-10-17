@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/things_reviewer.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_chat_model.dart';
 import 'package:sinapsis/features/chat/data/services/gemma_engine.dart';
 import 'package:sinapsis/features/chat/domain/services/language_model_gate.dart';
@@ -181,6 +183,98 @@ void main() {
     );
     expect(sent, contains('TARJETA 1\nP: ¿Cuándo cayó Roma?'));
     expect(model.chats.single.closed, isTrue);
+  });
+
+  test(
+    '«Revisar con otro modelo» le da lo demás numerado, con lo que tiene '
+    'puesto, sus opciones y sus reglas, y lee lo que propone (F33)',
+    () async {
+      model = FakeInferenceModel(
+        newChat: (n) => FakeInferenceChat(
+          id: n,
+          answer: (_, _) => [
+            'DATO 1: bien\nDATO 2: corregir\nVALOR: novela\n',
+            'POR QUÉ: Es una novela.\n',
+          ],
+        ),
+      );
+
+      final verdicts = await gemma.reviewThings(
+        itemTitle: 'Rayuela',
+        itemExcerpt: 'Una novela de Cortázar.',
+        things: const [
+          ThingToReview(
+            subject: CorrectionSubject.relation,
+            name: 'vínculo con «Cortázar»',
+            value: 'relacionado',
+            note: 'El autor.',
+            options: ['relacionado', 'cita'],
+            context: 'Un escritor argentino.',
+          ),
+          ThingToReview(
+            subject: CorrectionSubject.property,
+            name: 'etiqueta',
+            value: 'Cuento',
+            options: ['Cuento', 'Novela'],
+          ),
+          ThingToReview(
+            subject: CorrectionSubject.mapIntro,
+            name: 'introducción',
+            value: 'Lo que dice.',
+            canRemove: false,
+          ),
+          ThingToReview(
+            subject: CorrectionSubject.property,
+            name: 'propiedad «Páginas»',
+            value: '320',
+            options: ['320'],
+            canFix: false,
+          ),
+        ],
+      );
+
+      expect(verdicts, const [
+        ThingCorrection(index: 1, reason: 'Es una novela.', value: 'Novela'),
+      ]);
+      final opened = model.opened.single;
+      expect(opened.maxOutputTokens, thingsReviewReplyTokens(4));
+      expect(opened.instruction, contains('DATO <número>: corregir'));
+      expect(opened.instruction, contains('No agregues cosas nuevas'));
+      final sent = model.chats.single.received.single;
+      expect(sent, startsWith('Elemento: Rayuela\nUna novela de Cortázar.\n'));
+      expect(
+        sent,
+        contains(
+          'DATO 1: vínculo con «Cortázar»\nTIPO: relacionado\n'
+          'FRASE: El autor.\nCONTEXTO: Un escritor argentino.\n'
+          'OPCIONES: relacionado, cita\n',
+        ),
+      );
+      expect(
+        sent,
+        contains('DATO 2: etiqueta\nVALOR: Cuento\nOPCIONES: Cuento, Novela\n'),
+      );
+      expect(sent, contains('DATO 3: introducción (no se saca)\n'));
+      // Lo que no se corrige no muestra opciones.
+      expect(
+        sent,
+        contains('DATO 4: propiedad «Páginas» (no se corrige)\nVALOR: 320\n'),
+      );
+      expect(sent, isNot(contains('OPCIONES: 320')));
+      expect(model.chats.single.closed, isTrue);
+    },
+  );
+
+  test('sin nada que revisar, no le pide nada al modelo (F33)', () async {
+    expect(
+      await gemma.reviewThings(
+        itemTitle: 'x',
+        itemExcerpt: '',
+        things: const [],
+      ),
+      isEmpty,
+    );
+    expect(model.opened, isEmpty);
   });
 
   test('sin tarjetas, la revisión no le pide nada al modelo (F33)', () async {

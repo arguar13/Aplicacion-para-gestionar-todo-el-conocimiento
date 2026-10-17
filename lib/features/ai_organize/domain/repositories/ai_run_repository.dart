@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/extracted_metadata.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
@@ -94,6 +95,14 @@ abstract interface class AiRunRepository {
   /// que alguien pida organizarlos de nuevo.
   Future<Either<Failure, Set<String>>> undoneItemsAmong(
     Iterable<String> itemIds,
+  );
+
+  /// Lo que hicieron las pasadas sobre [itemId] y sigue siendo de la IA,
+  /// salvo las tarjetas, como se le da a revisar a otro modelo (F33): los
+  /// vínculos, las etiquetas, el tema, los datos de la referencia y la
+  /// introducción de una nota mapa. Ver `ReviewableAiThing`.
+  Future<Either<Failure, List<ReviewableAiThing>>> reviewableThings(
+    String itemId,
   );
 
   /// Lo que sigue siendo de la IA en la bóveda, por el modelo que lo hizo

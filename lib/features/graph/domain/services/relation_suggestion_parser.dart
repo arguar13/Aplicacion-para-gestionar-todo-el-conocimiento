@@ -44,7 +44,7 @@ List<ParsedSuggestionLine> parseRelationSuggestions(String rawResponse) {
     if (match == null) continue;
 
     final index = int.tryParse(match.group(1)!);
-    final kind = _kindFor(match.group(2)!);
+    final kind = relationKindForToken(match.group(2)!);
     var reason = match.group(3)!.trim();
     AiCertainty? certainty;
     // Solo cuenta como certeza si la primera palabra es una de las tres: un
@@ -70,11 +70,27 @@ List<ParsedSuggestionLine> parseRelationSuggestions(String rawResponse) {
   return results;
 }
 
-RelationKind? _kindFor(String token) => switch (token.toLowerCase()) {
-  'relacionado' => RelationKind.relatedTo,
-  'continua' => RelationKind.continues,
-  'contradice' => RelationKind.contradicts,
-  'cita' => RelationKind.cites,
-  'resume' => RelationKind.summarizes,
+/// El tipo de vínculo que nombra [token], la palabra que se le pide al
+/// modelo —`relacionado`, `continua`, `contradice`, `cita`, `resume`—; `null`
+/// si no es ninguna. También lo lee el revisor de «Revisar con otro modelo»
+/// (F33): los dos pedidos nombran los tipos igual.
+RelationKind? relationKindForToken(String token) =>
+    switch (token.trim().toLowerCase()) {
+      'relacionado' => RelationKind.relatedTo,
+      'continua' => RelationKind.continues,
+      'contradice' => RelationKind.contradicts,
+      'cita' => RelationKind.cites,
+      'resume' => RelationKind.summarizes,
+      _ => null,
+    };
+
+/// La palabra con que se le nombra [kind] al modelo, la inversa de
+/// [relationKindForToken]; `null` en los de estructura, que no se le piden.
+String? relationKindToken(RelationKind kind) => switch (kind) {
+  RelationKind.relatedTo => 'relacionado',
+  RelationKind.continues => 'continua',
+  RelationKind.contradicts => 'contradice',
+  RelationKind.cites => 'cita',
+  RelationKind.summarizes => 'resume',
   _ => null,
 };

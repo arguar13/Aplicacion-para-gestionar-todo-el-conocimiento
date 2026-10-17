@@ -11,6 +11,7 @@ import 'package:sinapsis/core/database/reference_reader.dart';
 import 'package:sinapsis/core/database/vocabulary_lookup.dart';
 import 'package:sinapsis/core/domain/entities/ai_changed_field.dart';
 import 'package:sinapsis/core/domain/entities/ai_rejection_kind.dart';
+import 'package:sinapsis/core/domain/entities/ai_run_scope.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/correction_subject.dart';
@@ -21,6 +22,7 @@ import 'package:sinapsis/core/domain/entities/property_value_type.dart';
 import 'package:sinapsis/core/domain/entities/reference_data.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/reviewable_ai_thing.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
@@ -404,6 +406,76 @@ Future<bool> _undo(
   return true;
 }
 
+/// Lo que hizo la IA en [itemId] —las pasadas sobre ese elemento— y sigue
+/// siendo suyo, como se le da a revisar a otro modelo (F33): los vínculos que
+/// no son estructura, las etiquetas y propiedades (no las de una nota mapa),
+/// el tema, los datos de texto de la referencia y la introducción de una nota
+/// mapa. Las tarjetas tienen su propio revisor.
+///
+/// Sale de las mismas piezas que aceptan la corrección: lo que se le muestra
+/// al modelo es lo que después se puede aplicar.
+Future<List<ReviewableAiThing>> reviewableAiThings(
+  AppDatabase db,
+  String itemId,
+) async {
+  const targets = <_ListableTarget>[
+    _RelationTarget(),
+    _PropertyTarget(),
+    _SpaceTarget(),
+    _ReferenceTarget(),
+    _MapIntroTarget(),
+  ];
+  final found = <(CorrectionSubject, String, _Described)>[];
+  for (final (subject, target) in [
+    for (final target in targets) (target.subject, target),
+  ]) {
+    final rows = await target.rowsById(db, await target.madeOn(db, itemId));
+    final ids = rows.keys.toList()..sort();
+    for (final id in ids) {
+      final row = rows[id]!;
+      if (!target.isAi(row)) continue;
+      final described = await target.describe(db, row, itemId: itemId);
+      if (described != null) found.add((subject, id, described));
+    }
+  }
+  if (found.isEmpty) return const [];
+
+  final runIds = {for (final (_, _, d) in found) d.runId};
+  final models = {
+    for (final run in await (db.select(
+      db.aiRuns,
+    )..where((r) => r.id.isIn(runIds))).get())
+      run.id: run.model,
+  };
+  return [
+    for (final (subject, id, d) in found)
+      ReviewableAiThing(
+        subject: subject,
+        subjectId: id,
+        before: d.before,
+        aiRunId: d.runId,
+        model: models[d.runId],
+        label: d.label,
+        options: d.options,
+        canFix: d.canFix,
+        canRemove: d.canRemove,
+        relatedItemId: d.relatedItemId,
+      ),
+  ];
+}
+
+/// Cómo se le muestra a un revisor algo que sigue siendo de la IA: ver
+/// [ReviewableAiThing].
+typedef _Described = ({
+  Map<String, String> before,
+  String runId,
+  String? label,
+  List<ReviewOption> options,
+  bool canFix,
+  bool canRemove,
+  String? relatedItemId,
+});
+
 /// Lo que cada cosa que se corrige sabe hacer: leerse, decir si sigue siendo
 /// de la IA y como la vio el modelo, cambiarse o sacarse, y volver.
 abstract class _Target {
@@ -457,6 +529,27 @@ abstract class _Target {
 
   /// La pasada que había hecho lo que se guardó en [removed].
   String? removedRunOf(Map<String, dynamic> removed);
+}
+
+/// Una pieza que además sabe qué hizo la IA en un elemento y cómo mostrárselo
+/// a un revisor ([reviewableAiThings]). Las tarjetas no: tienen su propio
+/// revisor, que mira su pasaje.
+abstract class _ListableTarget extends _Target {
+  const _ListableTarget();
+
+  CorrectionSubject get subject;
+
+  /// Los ids de lo que hicieron las pasadas sobre [itemId]; después se mira
+  /// cuáles siguen siendo de la IA.
+  Future<Set<String>> madeOn(AppDatabase db, String itemId);
+
+  /// Cómo se le muestra [row], que sigue siendo de la IA, a un revisor del
+  /// elemento [itemId]; `null` si no hay nada que mostrar.
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  });
 }
 
 _Target _targetOf(CorrectionSubject subject) => switch (subject) {
@@ -663,8 +756,52 @@ class _FlashcardTarget extends _Target {
 /// Un vínculo de la IA que es una opinión sobre dos elementos: se corrige su
 /// tipo y su frase, o se saca. La estructura —una extracción, un índice— no
 /// se revisa: la pone el flujo que crea esa nota.
-class _RelationTarget extends _Target {
+class _RelationTarget extends _ListableTarget {
   const _RelationTarget();
+
+  @override
+  CorrectionSubject get subject => CorrectionSubject.relation;
+
+  @override
+  Future<Set<String>> madeOn(AppDatabase db, String itemId) async {
+    final query =
+        db.selectOnly(db.relations).join([
+            innerJoin(db.aiRuns, db.aiRuns.id.equalsExp(db.relations.aiRunId)),
+          ])
+          ..addColumns([db.relations.id])
+          ..where(db.aiRuns.itemId.equals(itemId));
+    return {for (final row in await query.get()) row.read(db.relations.id)!};
+  }
+
+  @override
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  }) async {
+    final relation = row as RelationRow;
+    final other = relation.fromItemId == itemId
+        ? relation.toItemId
+        : relation.fromItemId;
+    final title = (await (db.select(
+      db.knowledgeEntries,
+    )..where((e) => e.id.equals(other))).getSingleOrNull())?.title;
+    return (
+      before: {
+        RelationCorrectionField.kind: relation.kind.name,
+        RelationCorrectionField.note: relation.note ?? '',
+      },
+      runId: relation.aiRunId!,
+      label: title,
+      options: [
+        for (final kind in RelationKind.values)
+          if (!kind.isStructural) ReviewOption(id: kind.name, label: kind.name),
+      ],
+      canFix: true,
+      canRemove: true,
+      relatedItemId: other,
+    );
+  }
 
   @override
   String get missing => 'Ese vínculo ya no está: puede que lo hayas borrado.';
@@ -890,8 +1027,87 @@ class _Assigned {
 /// Una etiqueta o propiedad de la IA: se corrige por otro valor que ya esté
 /// en su categoría, o se saca. Corregir es cambiar de fila —la asignación es
 /// el par elemento y valor—, que sigue siendo de la IA y de su pasada.
-class _PropertyTarget extends _Target {
+class _PropertyTarget extends _ListableTarget {
   const _PropertyTarget();
+
+  /// Cuántos valores de la categoría se le muestran al revisor, como mucho:
+  /// los más usados. Con lo demás del pedido, entra en la ventana de Gemma.
+  static const _maxOptions = 25;
+
+  @override
+  CorrectionSubject get subject => CorrectionSubject.property;
+
+  @override
+  Future<Set<String>> madeOn(AppDatabase db, String itemId) async {
+    final query =
+        db.selectOnly(db.itemPropertyValues).join([
+            innerJoin(
+              db.aiRuns,
+              db.aiRuns.id.equalsExp(db.itemPropertyValues.aiRunId),
+            ),
+          ])
+          ..addColumns([db.itemPropertyValues.propertyValueId])
+          ..where(
+            db.itemPropertyValues.itemId.equals(itemId) &
+                db.aiRuns.itemId.equals(itemId),
+          );
+    return {
+      for (final row in await query.get())
+        propertyCorrectionSubjectId(
+          itemId,
+          row.read(db.itemPropertyValues.propertyValueId)!,
+        ),
+    };
+  }
+
+  @override
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  }) async {
+    final assigned = row as _Assigned;
+    final canFix = assigned.type == PropertyValueType.text;
+    final options = <ReviewOption>[];
+    if (canFix) {
+      final uses = db.itemPropertyValues.itemId.count();
+      final query =
+          db.selectOnly(db.propertyValues).join([
+              leftOuterJoin(
+                db.itemPropertyValues,
+                db.itemPropertyValues.propertyValueId.equalsExp(
+                  db.propertyValues.id,
+                ),
+              ),
+            ])
+            ..addColumns([db.propertyValues.value, uses])
+            ..where(
+              db.propertyValues.definitionId.equals(assigned.definitionId),
+            )
+            ..groupBy([db.propertyValues.id])
+            ..orderBy([
+              OrderingTerm.desc(uses),
+              OrderingTerm.asc(db.propertyValues.value),
+            ])
+            ..limit(_maxOptions);
+      for (final value in await query.get()) {
+        final text = value.read(db.propertyValues.value)!;
+        options.add(ReviewOption(id: text, label: text));
+      }
+    }
+    return (
+      before: {
+        PropertyCorrectionField.category: assigned.definitionName,
+        PropertyCorrectionField.value: assigned.value,
+      },
+      runId: assigned.row.aiRunId!,
+      label: null,
+      options: options,
+      canFix: canFix,
+      canRemove: true,
+      relatedItemId: null,
+    );
+  }
 
   @override
   String get missing =>
@@ -1185,8 +1401,54 @@ class _PlacedSpace {
 /// (`after_value`): así sigue siendo de la IA, y deshacer esa pasada devuelve
 /// el elemento sin tema, como estaba antes de ella. Sacarlo lo deja sin tema y
 /// no toca ese registro: la pasada ya no tiene nada en pie.
-class _SpaceTarget extends _Target {
+class _SpaceTarget extends _ListableTarget {
   const _SpaceTarget();
+
+  /// Cuántos temas se le muestran al revisor, como mucho: con lo demás del
+  /// pedido, entra en la ventana de Gemma.
+  static const _maxOptions = 30;
+
+  @override
+  CorrectionSubject get subject => CorrectionSubject.space;
+
+  @override
+  Future<Set<String>> madeOn(AppDatabase db, String itemId) =>
+      _changesMadeOn(db, itemId, [AiChangedField.space]);
+
+  @override
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  }) async {
+    final placed = row as _PlacedSpace;
+    final spaceId = placed.spaceId;
+    if (spaceId == null) return null;
+    final spaces =
+        await (db.select(db.spaces)
+              ..orderBy([(s) => OrderingTerm.asc(s.name)])
+              ..limit(_maxOptions))
+            .get();
+    final current = await (db.select(
+      db.spaces,
+    )..where((s) => s.id.equals(spaceId))).getSingleOrNull();
+    if (current == null) return null;
+    return (
+      before: {
+        SpaceCorrectionField.id: spaceId,
+        SpaceCorrectionField.name: current.name,
+      },
+      runId: placed.change.aiRunId,
+      label: null,
+      options: [
+        for (final space in spaces)
+          ReviewOption(id: space.id, label: space.name),
+      ],
+      canFix: true,
+      canRemove: true,
+      relatedItemId: null,
+    );
+  }
 
   @override
   String get missing => 'Ese elemento ya no está.';
@@ -1366,8 +1628,42 @@ class _FilledReference {
 /// Como el tema: corregirlo actualiza también lo que la pasada recuerda
 /// haber puesto (`after_value`), así sigue siendo de la IA y deshacer esa
 /// pasada lo vacía, como estaba antes de ella. Vaciarlo no toca ese registro.
-class _ReferenceTarget extends _Target {
+class _ReferenceTarget extends _ListableTarget {
   const _ReferenceTarget();
+
+  @override
+  CorrectionSubject get subject => CorrectionSubject.reference;
+
+  @override
+  Future<Set<String>> madeOn(AppDatabase db, String itemId) =>
+      _changesMadeOn(db, itemId, [
+        for (final field in AiChangedField.values)
+          if (field.isReferenceText) field,
+      ]);
+
+  @override
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  }) async {
+    final filled = row as _FilledReference;
+    final value = filled.value;
+    if (value == null) return null;
+    return (
+      before: {
+        ReferenceCorrectionField.field: filled.change.field.name,
+        ReferenceCorrectionField.type: filled.reference.type?.name ?? '',
+        ReferenceCorrectionField.value: value,
+      },
+      runId: filled.change.aiRunId,
+      label: null,
+      options: const <ReviewOption>[],
+      canFix: true,
+      canRemove: true,
+      relatedItemId: null,
+    );
+  }
 
   @override
   String get missing => 'Ese dato de la referencia ya no está.';
@@ -1574,8 +1870,50 @@ class _MapNoteBlocks {
 /// La introducción de una nota mapa de la IA: se corrige su texto, que sigue
 /// siendo de la IA —el Atlas la sigue manteniendo—. No se saca: es parte del
 /// índice.
-class _MapIntroTarget extends _Target {
+class _MapIntroTarget extends _ListableTarget {
   const _MapIntroTarget();
+
+  @override
+  CorrectionSubject get subject => CorrectionSubject.mapIntro;
+
+  /// La nota misma: si es una nota mapa de la IA, lo dice [rowsById].
+  @override
+  Future<Set<String>> madeOn(AppDatabase db, String itemId) async => {itemId};
+
+  @override
+  Future<_Described?> describe(
+    AppDatabase db,
+    Object row, {
+    required String itemId,
+  }) async {
+    final note = row as _MapNoteBlocks;
+    final intro = note.intro;
+    if (intro == null) return null;
+    // La pasada que la organizó —la que la creó, o una después—.
+    final run =
+        await (db.select(db.aiRuns)
+              ..where(
+                (r) =>
+                    r.itemId.equals(itemId) &
+                    r.scope.equalsValue(AiRunScope.organize),
+              )
+              ..orderBy([
+                (r) => OrderingTerm.desc(r.startedAt),
+                (r) => OrderingTerm.desc(r.id),
+              ])
+              ..limit(1))
+            .getSingleOrNull();
+    if (run == null) return null;
+    return (
+      before: {MapIntroCorrectionField.text: intro},
+      runId: run.id,
+      label: null,
+      options: const <ReviewOption>[],
+      canFix: true,
+      canRemove: false,
+      relatedItemId: null,
+    );
+  }
 
   static final _spaces = RegExp(r'\s+');
 
@@ -1730,4 +2068,28 @@ class _MapIntroTarget extends _Target {
     note.renditionId,
     encodeContentBlocks(note.withIntro(intro)),
   );
+}
+
+/// Los registros de [fields] que dejaron las pasadas sobre [itemId] en
+/// `ai_field_changes`.
+Future<Set<String>> _changesMadeOn(
+  AppDatabase db,
+  String itemId,
+  List<AiChangedField> fields,
+) async {
+  final query =
+      db.selectOnly(db.aiFieldChanges).join([
+          innerJoin(
+            db.aiRuns,
+            db.aiRuns.id.equalsExp(db.aiFieldChanges.aiRunId),
+          ),
+        ])
+        ..addColumns([db.aiFieldChanges.id])
+        ..where(
+          db.aiRuns.itemId.equals(itemId) &
+              db.aiFieldChanges.field.isIn([
+                for (final field in fields) field.name,
+              ]),
+        );
+  return {for (final row in await query.get()) row.read(db.aiFieldChanges.id)!};
 }

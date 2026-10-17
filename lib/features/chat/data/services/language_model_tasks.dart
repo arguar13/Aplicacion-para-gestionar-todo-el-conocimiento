@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:sinapsis/core/domain/entities/chat_source.dart';
+import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_review_parser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/flashcard_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/map_note_intro.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/space_chooser.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/things_review_parser.dart';
+import 'package:sinapsis/features/ai_organize/domain/services/things_reviewer.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/topic_parent_chooser.dart';
 import 'package:sinapsis/features/ai_organize/domain/services/vocabulary_budget.dart';
 import 'package:sinapsis/features/chat/domain/services/chat_model.dart';
@@ -86,6 +90,28 @@ const _flashcardReviewSystemInstruction =
     'está mal sin arreglo, o el pasaje no la respalda:\nTARJETA <número>: '
     'sacar\nPOR QUÉ: <una línea>\nCorregí solo lo que está mal: si está '
     'bien, decí bien. No agregues tarjetas nuevas. No respondas nada más.';
+
+/// Revisar lo demás que hizo la IA en un elemento (F33): el mismo formato
+/// que las tarjetas, con un `DATO` por cosa. Las reglas de cada una van en el
+/// pedido —las opciones, «no se saca», «no se corrige»—, y el lector descarta
+/// lo que no las cumple.
+const _thingsReviewSystemInstruction =
+    'Respondé siempre en español. Tu tarea es revisar lo que otro modelo le '
+    'puso a un elemento de una biblioteca: vínculos con otros elementos, '
+    'etiquetas, el tema, datos de su referencia o la introducción de una '
+    'nota mapa. Te doy el elemento (su título y un fragmento) y cada cosa '
+    'numerada, con lo que tiene puesto y, si las hay, las OPCIONES que '
+    'valen. Revisá si cada cosa corresponde según el elemento. Basate '
+    'ÚNICAMENTE en lo que se te da. Por cada cosa respondé con este formato '
+    'exacto, sin Markdown:\nDATO <número>: bien\nsi está bien; si hay que '
+    'corregirla:\nDATO <número>: corregir\nVALOR: <el valor corregido; si '
+    'hay OPCIONES, exactamente una de ellas>\nPOR QUÉ: <una línea>\nen un '
+    'vínculo, en vez de VALOR:\nTIPO: <una de las OPCIONES>\nFRASE: <por qué '
+    'se vinculan, en una línea>\ny si no corresponde:\nDATO <número>: '
+    'sacar\nPOR QUÉ: <una línea>\nLo que dice «no se saca» no se saca, y lo '
+    'que dice «no se corrige» no se corrige. Corregí solo lo que está mal: '
+    'si está bien, decí bien. No agregues cosas nuevas. No respondas nada '
+    'más.';
 
 /// Mismo criterio que `_flashcardSystemInstruction`, para juzgar vínculos en
 /// vez de generar tarjetas: un formato exacto y estricto, para que un
@@ -316,6 +342,11 @@ int draftsReplyTokens(int count) => (count * 96 + 32).clamp(192, 1024);
 int flashcardReviewReplyTokens(int count) =>
     (count * 128 + 32).clamp(160, 1280);
 
+/// La revisión de [count] cosas de un elemento (F33): lo más largo es
+/// corregirlas todas, con su valor y el porqué; una introducción es lo más
+/// largo de todo, y entra.
+int thingsReviewReplyTokens(int count) => (count * 112 + 64).clamp(192, 1280);
+
 /// Una línea `SUGERENCIA:` por cada uno de [candidates] candidatos, como
 /// mucho.
 int relationsReplyTokens(int candidates) =>
@@ -342,6 +373,7 @@ class LanguageModelTasks
         ChatModel,
         FlashcardGenerator,
         FlashcardReviewer,
+        ThingsReviewer,
         ClozeGenerator,
         RelationSuggestionService,
         SummarizationService,
@@ -522,6 +554,35 @@ class LanguageModelTasks
             for (final card in cards) (front: card.front, back: card.back),
           ],
         );
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  @override
+  Future<List<ThingVerdict>> reviewThings({
+    required String itemTitle,
+    required String itemExcerpt,
+    required List<ThingToReview> things,
+  }) async {
+    if (things.isEmpty) return const [];
+    return _withTurn(() async {
+      final chat = await _backend.openExchange(
+        instruction: _thingsReviewSystemInstruction,
+        maxOutputTokens: thingsReviewReplyTokens(things.length),
+      );
+
+      try {
+        final text = await _generate(
+          chat,
+          buildThingsReviewPrompt(
+            itemTitle: itemTitle,
+            itemExcerpt: itemExcerpt,
+            things: things,
+          ),
+        );
+        return parseThingsReview(text, things: things);
       } finally {
         await chat.close();
       }
@@ -932,6 +993,44 @@ String _buildReviewPrompt(List<FlashcardToReview> cards) {
       ..write('P: ${card.front}\n')
       ..write('R: ${card.back}\n')
       ..write('PASAJE: ${card.passage}\n');
+  }
+  return buffer.toString();
+}
+
+/// Lo que se le da a revisar al revisor de «lo demás» (F33): el elemento y
+/// cada cosa numerada desde 1, como las lee `parseThingsReview`, con lo que
+/// tiene puesto, sus opciones y sus reglas.
+@visibleForTesting
+String buildThingsReviewPrompt({
+  required String itemTitle,
+  required String itemExcerpt,
+  required List<ThingToReview> things,
+}) {
+  final buffer = StringBuffer('Elemento: $itemTitle\n');
+  if (itemExcerpt.trim().isNotEmpty) buffer.write('${itemExcerpt.trim()}\n');
+  buffer.write('\nRevisá estas cosas:\n');
+  for (final (index, thing) in things.indexed) {
+    final rules = [
+      if (!thing.canFix) 'no se corrige',
+      if (!thing.canRemove) 'no se saca',
+    ];
+    buffer.write(
+      '\nDATO ${index + 1}: ${thing.name}'
+      '${rules.isEmpty ? '' : ' (${rules.join(', ')})'}\n',
+    );
+    if (thing.subject == CorrectionSubject.relation) {
+      buffer
+        ..write('TIPO: ${thing.value}\n')
+        ..write('FRASE: ${thing.note ?? ''}\n');
+    } else {
+      buffer.write('VALOR: ${thing.value}\n');
+    }
+    if (thing.context.trim().isNotEmpty) {
+      buffer.write('CONTEXTO: ${thing.context.trim()}\n');
+    }
+    if (thing.canFix && thing.options.isNotEmpty) {
+      buffer.write('OPCIONES: ${thing.options.join(', ')}\n');
+    }
   }
   return buffer.toString();
 }
