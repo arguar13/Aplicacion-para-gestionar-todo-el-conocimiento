@@ -463,7 +463,52 @@ tres que tiene (`kMaxAiRunAttempts`).
   Mutaciones: 11/11 muertas. Dos conexiones no se mutan sin romper la compilación (las tarjetas a
   mano y el paso en la cola): las cubre el parámetro obligatorio y la prueba del proveedor.
 
+### Paso 5 — OpenAI y Claude (en curso)
+
+Empezado: `lib/features/ai_models/data/cloud/cloud_http.dart` (sin commitear todavía):
+`cloudOptions`, `sendCloudRequest`, `decodeCloudErrorBody`, `retryAfterOf`, lo que comparten los
+tres formatos. Falta pasar `GeminiWire` a usarlo (sus `_send`/`_decodeError` son lo mismo).
+
+Diseño decidido (verificado en la guía de la API de Claude y en la documentación de OpenAI el
+16/10/2026; las pruebas, con respuestas grabadas, nunca llamadas reales):
+
+- **`AnthropicWire`**: `POST https://api.anthropic.com/v1/messages`, cabeceras `x-api-key` y
+  `anthropic-version: 2023-06-01`; cuerpo `model`, `max_tokens` (+2048 de margen en los modelos 5.x,
+  que siempre piensan: lo pensado cuenta dentro del tope), `system`, `messages` (`user`/`assistant`,
+  fotos como `{type: image, source: {type: base64, media_type, data}}` antes del texto),
+  `stream: true`; en los 5.x `output_config: {effort: "low"}` (como Gemini, «pensamiento
+  mínimo»); **sin** `thinking` (en Opus 5.5 apagarlo es un 400). En `claude-fable-5-1`,
+  `claude-opus-5-5`, `claude-opus-5` y `claude-sonnet-5-5`: `fallbacks: "default"` con la
+  cabecera `anthropic-beta: server-side-fallback-2026-07-01` (si el filtro de seguridad rechaza,
+  lo reintenta otro modelo en el mismo flujo; el bloque `fallback` se ignora y el texto sigue).
+  Eventos: `message_start` (`usage.input_tokens`), `content_block_delta` con `text_delta` (lo
+  demás —pensamiento, firma— se saltea), `message_delta` (`stop_reason`, `usage.output_tokens`),
+  evento `error`. `stop_reason` `refusal` → `blocked`; `max_tokens` → cortada. Errores: 401
+  `invalidKey`, 403 `forbidden`, 404 `modelNotFound`, 413 o «prompt is too long» `tooLong`, 402
+  `billing_error` o «credit balance» `quotaExhausted`, 429 `rateLimited` con `retry-after`,
+  500/529 `unavailable`. Modelos: `GET /v1/models?limit=1000` con `after_id` mientras `has_more`
+  (`id`, `display_name`, `max_input_tokens`, `max_tokens`). Recomendado: `claude-opus-5-5` si
+  está; si no, el Opus más nuevo; si no, el primero.
+- **`OpenAiWire`**: `POST https://api.openai.com/v1/chat/completions`, `Authorization: Bearer`;
+  `messages` (`developer` en los que razonan —`o\d…`, `gpt-5` en adelante salvo `-chat`—,
+  `system` en los demás; fotos como `image_url` con `data:<mime>;base64,…`),
+  `max_completion_tokens` (incluye lo razonado: +2048 de margen en los que razonan),
+  `reasoning_effort: "low"` solo en los que razonan (en los otros es un 400), `stream: true`,
+  `stream_options: {include_usage: true}` (el último pedazo trae `usage.prompt_tokens` y
+  `completion_tokens`, con `choices` vacío), `data: [DONE]` cierra. `finish_reason` `length` →
+  cortada; `content_filter` o `delta.refusal` sin texto → `blocked`. Errores: mirar `error.code`
+  antes que el estado: 429 con `insufficient_quota`, `credit_balance_exhausted`,
+  `*_spend_limit_exceeded` o `*_usage_limit_exceeded` → `quotaExhausted` (reintentar no sirve);
+  otro 429 → `rateLimited` con `retry-after`; 401 `invalidKey`; 403 (país) `forbidden`; 404
+  `modelNotFound`; 400 `context_length_exceeded` → `tooLong`; 500/503 `unavailable`. Modelos:
+  `GET /v1/models` (sin topes de tokens: queda el de 128.000), solo `gpt-…` y `o\d…` de texto
+  (fuera audio, realtime, tts, transcribe, image, search, embedding, moderation, dall-e,
+  whisper, instruct, codex, `-pro`, deep-research, computer-use, y las fotos con fecha).
+  Recomendado: el `gpt-N(.M)` más nuevo sin sufijo; si no, el primero.
+- Después: sumarlos a `cloudWiresProvider` (así aparecen en la pantalla), revisar el aviso de
+  privacidad (el de la capa gratuita de Google no vale para los de pago), guía y decisión 74.
+
 ### Lo que sigue
 
-5. `OpenAiBackend` y `AnthropicBackend`.
+5. Terminar el paso 5 (arriba).
 6. Pruebas con respuestas grabadas (nunca llamadas reales), mutación, guía, decisión 74.
