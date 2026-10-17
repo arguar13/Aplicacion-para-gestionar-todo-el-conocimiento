@@ -3,15 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
 import '../../../../support/fake_ai_organize_queue.dart';
+import '../../../../support/fake_ai_review_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../fake_ai_run_repository.dart';
@@ -22,16 +26,23 @@ void main() {
   late LibraryHarness harness;
   late FakeAiRunRepository runs;
   late FakeAiOrganizeQueue queue;
+  late FakeAiReviewQueue reviews;
 
   const line = Key('ai-organized-line');
 
   Future<void> setUpWith(List<AiRun> initial) async {
     runs = FakeAiRunRepository(initial);
     queue = FakeAiOrganizeQueue();
+    reviews = FakeAiReviewQueue();
     harness = await LibraryHarness.create(
       extraOverrides: [
         aiRunRepositoryProvider.overrideWithValue(runs),
         aiOrganizeQueueProvider.overrideWithValue(queue),
+        aiReviewQueueProvider.overrideWithValue(reviews),
+        aiReviewerNameProvider.overrideWithValue('gemini-3.8-flash'),
+        languageModelTextBudgetProvider.overrideWithValue(
+          () => kSmallWindowTextBudget,
+        ),
       ],
     );
     await insertItemRows(harness.database, id: 'a', title: 'Roma');
@@ -244,5 +255,74 @@ void main() {
     );
     expect(screen.itemId, 'a');
     expect(find.byKey(const Key('ai-activity-item-a')), findsOneWidget);
+  });
+
+  group('revisar con otro modelo (F33)', () {
+    const recheck = Key('ai-organized-line-recheck');
+
+    testWidgets('sin tarjetas de la IA no ofrece revisar: por ahora el '
+        'revisor mira tarjetas', (tester) async {
+      await setUpWith([
+        fakeRun('r1', itemId: 'a', remaining: const AiRunTally(relations: 2)),
+      ]);
+      await pumpDetail(tester);
+
+      expect(find.byKey(line), findsOneWidget);
+      expect(find.byKey(recheck), findsNothing);
+    });
+
+    testWidgets('con tarjetas de la IA, ofrece revisarlas con el modelo '
+        'elegido', (tester) async {
+      await setUpWith([
+        fakeRun('r1', itemId: 'a', remaining: const AiRunTally(flashcards: 3)),
+      ]);
+      await pumpDetail(tester);
+
+      expect(find.byKey(recheck), findsOneWidget);
+      expect(find.text(es.aiRecheckWith('Gemini 3.8 Flash')), findsOneWidget);
+    });
+
+    testWidgets('revisa todo lo del elemento, aunque sea del mismo modelo, '
+        'después de decir cuánto cuesta', (tester) async {
+      await setUpWith([
+        fakeRun('r1', itemId: 'a', remaining: const AiRunTally(flashcards: 3)),
+      ]);
+      runs.candidates = const [AiReviewCandidate(itemId: 'a', cards: 3)];
+      await pumpDetail(tester);
+
+      await tester.tap(find.byKey(recheck));
+      await tester.pumpAndSettle();
+      expect(runs.candidateQueries.single, (
+        reviewer: 'gemini-3.8-flash',
+        madeBy: null,
+        itemId: 'a',
+      ));
+      expect(
+        find.text(
+          es.aiRecheckCostScope(es.aiRecheckCards(3), es.aiRecheckItems(1), 1),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('ai-review-cost-start')));
+      await tester.pumpAndSettle();
+
+      expect(reviews.requests.single.itemIds, ['a']);
+      expect(reviews.requests.single.skipOwnWork, isFalse);
+      expect(find.text(es.aiRecheckQueued('Gemini 3.8 Flash')), findsOneWidget);
+    });
+
+    testWidgets('si no queda nada para revisar, lo dice', (tester) async {
+      await setUpWith([
+        fakeRun('r1', itemId: 'a', remaining: const AiRunTally(flashcards: 3)),
+      ]);
+      await pumpDetail(tester);
+
+      await tester.tap(find.byKey(recheck));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiRecheckNothing), findsOneWidget);
+      expect(reviews.requests, isEmpty);
+    });
   });
 }

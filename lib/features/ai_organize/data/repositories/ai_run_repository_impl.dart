@@ -346,8 +346,24 @@ class AiRunRepositoryImpl implements AiRunRepository {
        AND r.undone_at IS NULL
        AND ${activeItemSql('i')}''';
 
+  /// Lo que un revisor todavía no revisó, sobre [_reviewableCardsSql]: ni lo
+  /// que hizo él mismo, ni los elementos con una pasada de revisión suya
+  /// terminada y en pie. Lleva el nombre del revisor dos veces.
+  static final _notReviewedBySql =
+      '''
+       AND (r.model IS NULL OR r.model <> ?)
+       AND NOT EXISTS (
+         SELECT 1 FROM ai_runs v
+          WHERE v.item_id = f.item_id
+            AND v.scope = '${AiRunScope.review.name}'
+            AND v.model = ?
+            AND v.finished_at IS NOT NULL
+            AND v.undone_at IS NULL)''';
+
   @override
-  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel() async {
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel({
+    String? reviewer,
+  }) async {
     try {
       final rows = await _db
           .customSelect(
@@ -355,8 +371,15 @@ class AiRunRepositoryImpl implements AiRunRepository {
             SELECT r.model, COUNT(*) AS cards,
                    COUNT(DISTINCT f.item_id) AS items
               $_reviewableCardsSql
+              ${reviewer == null ? '' : _notReviewedBySql}
              GROUP BY r.model
              ORDER BY cards DESC, r.model''',
+            variables: [
+              if (reviewer != null) ...[
+                Variable.withString(reviewer),
+                Variable.withString(reviewer),
+              ],
+            ],
             readsFrom: {_db.flashcards, _db.aiRuns, _db.knowledgeEntries},
           )
           .get();
@@ -388,15 +411,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
             '''
             SELECT f.item_id, COUNT(*) AS cards
               $_reviewableCardsSql
-               ${itemId != null ? 'AND f.item_id = ?' : '''
-               AND (r.model IS NULL OR r.model <> ?)
-               AND NOT EXISTS (
-                 SELECT 1 FROM ai_runs v
-                  WHERE v.item_id = f.item_id
-                    AND v.scope = '${AiRunScope.review.name}'
-                    AND v.model = ?
-                    AND v.finished_at IS NOT NULL
-                    AND v.undone_at IS NULL)'''}
+               ${itemId != null ? 'AND f.item_id = ?' : _notReviewedBySql}
                ${madeBy == null ? '' : 'AND r.model = ?'}
              GROUP BY f.item_id
              ORDER BY cards DESC, f.item_id''',

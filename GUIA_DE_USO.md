@@ -765,8 +765,63 @@ cuentas, trae **"Cuentas y cuota"**. Debajo:
   elemento. Aceptar una tarjeta la suma a tu repaso como tuya. Cada cosa tiene **"Aceptar"** y
   **"Descartar"**, y arriba están **"Aceptar todo"** y **"Descartar todo"**,
   con unos segundos para **"Deshacer"** antes de que se apliquen.
+- **"Revisión"**: lo que otro modelo propone corregir o sacar de lo que hizo
+  la IA (ver [Revisar con otro modelo](#revisar-con-otro-modelo)).
 - **"Actividad"**: lo que hizo, por día y por elemento. Tocar un elemento lo
   abre.
+
+### Revisar con otro modelo
+
+Si la IA organizó tu biblioteca con un modelo y después elegiste otro (por
+ejemplo, pasaste de Gemma en el teléfono a Gemini), el modelo nuevo puede
+revisar lo que hizo el anterior. Por ahora revisa **las tarjetas**: que la
+pregunta se entienda y que la respuesta sea correcta según el texto de donde
+salió. **Solo corrige o saca, nunca agrega**: para tarjetas nuevas está
+"Organizar con IA".
+
+**Cómo empezar:**
+
+- **Toda la biblioteca**: arriba de "Lo que hizo la IA", la tarjeta **"Que
+  otro modelo lo revise"** dice cuánto hizo cada modelo y todavía no revisó el
+  de ahora (p. ej. "12 tarjetas de Gemma 4 E4B en 5 elementos"). Con
+  **"Revisar con Gemini 3.8 Flash"** (el nombre del modelo elegido) revisa
+  todo; si hay de más de un modelo, **"Solo lo de …"** revisa lo de uno. Lo
+  que hizo el mismo modelo y los elementos que ya revisó no se vuelven a
+  mirar.
+- **Un elemento**: en la línea "La IA organizó esto" de su panel, **"Revisar
+  con …"**. Ahí revisa todas sus tarjetas de la IA, aunque las haya hecho o
+  revisado el mismo modelo.
+
+**Antes de empezar te dice cuánto cuesta**: cuántas tarjetas, en cuántos
+elementos y unos cuántos pedidos al modelo. Con un modelo en la nube, **sale
+de tu cuota** (no del tope de la IA de fondo): te dice cuántos pedidos llevás
+hoy y, si tus cuentas están sin cuota, a qué hora empieza sola. Los
+proveedores no dicen cuánto queda: si se acaba a mitad, espera y sigue sola,
+sin perder nada. Con Gemma corre en el teléfono, sin cuota, y puede tardar.
+
+**Mientras revisa**, una tarjeta en "Lo que hizo la IA" muestra cuántos
+elementos van, cuántas propuestas dejó y qué está leyendo, con la barra de
+avance, **"Pausar"**, **"Seguir"** y **"Cancelar"**. Si espera al modelo dice
+por qué (sin cuota, sin conexión, falta una clave) y, si hace falta que
+hagas algo, **"Ir al modelo"**. Trabaja de fondo, y si usás el Chat le cede
+el modelo. Si salís de la app, sigue: Android muestra "Revisando lo que hizo
+la IA".
+
+**Lo que propone queda en "Revisión"**, en "Lo que hizo la IA", agrupado por
+elemento, y **nada cambia hasta que aceptás**:
+
+- Cada propuesta dice si es **corregir** o **sacar** la tarjeta, quién la
+  propone (con el ✨ y el nombre del modelo) y por qué.
+- La pregunta y la respuesta muestran el antes, con lo que se va tachado, y
+  el después, con lo que llega resaltado, palabra por palabra.
+- **"Aceptar"** y **"Descartar"** en cada una, **"Aceptar las N"** por
+  elemento, y arriba **"Aceptar todo"** y **"Descartar todo"**, con unos
+  segundos para **"Deshacer"**.
+- Lo aceptado queda como una pasada del modelo que revisó, en la actividad:
+  su **"Deshacer"** devuelve las tarjetas a como estaban (también las que
+  sacó, con sus repasos).
+- Lo que descartás no se vuelve a proponer. Una propuesta sobre una tarjeta
+  que editaste o borraste después desaparece sola: ya es tuya.
 
 ### Deshacer y "No era"
 

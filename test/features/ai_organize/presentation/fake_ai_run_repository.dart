@@ -123,13 +123,20 @@ class FakeAiRunRepository implements AiRunRepository {
   List<AiModelWork> work = const [];
   List<AiReviewCandidate> candidates = const [];
 
+  /// Con qué revisor se pidió cada [aiWorkByModel].
+  final workQueries = <String?>[];
+
   /// Con qué se pidió cada [reviewCandidates].
   final candidateQueries =
       <({String reviewer, String? madeBy, String? itemId})>[];
 
   @override
-  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel() async =>
-      right(work);
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel({
+    String? reviewer,
+  }) async {
+    workQueries.add(reviewer);
+    return right(work);
+  }
 
   @override
   Future<Either<Failure, List<AiReviewCandidate>>> reviewCandidates({

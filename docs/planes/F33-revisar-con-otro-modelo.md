@@ -207,3 +207,35 @@ falta para revisarlo.
 - **Mutación: 31 de 32 muertas.** La que sobrevive, «cuenta lo de una pasada deshecha», es
   equivalente: deshacer una pasada borra las tarjetas que siguen siendo suyas, así que no queda
   ninguna que apunte a una pasada deshecha.
+
+### Paso 3b (hecho): el botón, la cuenta del costo y la barra de avance
+
+- **La oferta**, arriba de «Lo que hizo la IA» mirando toda la biblioteca (`AiReviewOfferCard`):
+  - El título es «Que otro modelo lo revise». Debajo, cuánto hizo cada modelo que el elegido
+    todavía no revisó, por ejemplo «12 tarjetas de Gemma 4 E4B en 5 elementos».
+  - El botón **«Revisar con Gemini 3.8 Flash»**, con el nombre del modelo elegido, revisa todo.
+    Si hay trabajo de más de un modelo, «Solo lo de …» revisa lo de uno.
+  - No se ve si no hay nada para revisar, ni mientras corre una revisión.
+  - Lo cuenta `aiWorkByModel(reviewer:)`, con los mismos filtros que `reviewCandidates`: sin lo
+    que hizo el mismo modelo ni los elementos que ya revisó. Se vuelve a contar al cambiar de
+    modelo y a medida que avanza la revisión.
+- **En cada elemento**, en la línea «La IA organizó esto», «Revisar con …» si dejó tarjetas.
+  Revisa todo lo del elemento, aunque lo haya hecho o revisado el mismo modelo, y avisa
+  «Revisando con …», con «Ver».
+- **Antes de empezar** (`startAiReview`, `AiReviewCostDialog`) dice cuántas tarjetas hay en
+  cuántos elementos y unos cuántos pedidos al modelo (`aiReviewRequests`, de a tantas tarjetas
+  por pedido como lee el modelo). Si no queda nada, lo dice y no pregunta.
+  - **En la nube** sale de tu cuota, no del tope de la IA de fondo. Muestra los pedidos de hoy
+    con las cuentas del proveedor y, si todas están sin cuota, a qué hora empieza sola. Si no,
+    aclara que los proveedores no dicen cuánto queda.
+  - **Con Gemma** corre en el teléfono, sin cuota, y puede tardar.
+- **El avance** (`AiReviewProgressCard`) muestra cuántos elementos van de cuántos, cuántas
+  propuestas dejó y qué lee, con la barra, «Pausar», «Seguir», «Cancelar» y, al terminar,
+  «Cerrar».
+  - Si espera al modelo dice por qué, con los mismos textos que la cola de la IA de fondo.
+  - Si hace falta que la persona haga algo (falta el modelo o una clave, sin cuota, claves
+    rechazadas) ofrece «Ir al modelo». Sin conexión o con el proveedor saturado, no: vuelve sola.
+- **Guía de uso.** Nueva sección «Revisar con otro modelo», y «Revisión» en «Lo que hizo la IA».
+- **Pruebas.** La pantalla (12), la línea del elemento (4), la consulta con revisor y la cuenta de
+  pedidos (2).
+- **Mutación: 22 de 22 muertas.**

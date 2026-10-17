@@ -449,6 +449,46 @@ void main() {
       );
     });
 
+    test('lo que un revisor todavía tiene, por modelo: sin lo suyo ni lo '
+        'que ya revisó', () async {
+      await cardsBy('a', 'Gemma 4 E4B', 2);
+      await cardsBy('b', 'Gemma 4 E4B', 3);
+      await cardsBy('b', 'gemini-3.8-flash', 4);
+      final review = (await runs.startRun(
+        'a',
+        model: 'gemini-3.8-flash',
+        scope: AiRunScope.review,
+      )).getOrElse((f) => fail('$f'));
+      await runs.finishRun(review);
+
+      expect(
+        (await runs.aiWorkByModel(
+          reviewer: 'gemini-3.8-flash',
+        )).getOrElse((f) => fail('$f')),
+        const [AiModelWork(model: 'Gemma 4 E4B', cards: 3, items: 1)],
+      );
+      // Sin revisor, todo.
+      expect(
+        (await runs.aiWorkByModel()).getOrElse((f) => fail('$f')),
+        const [
+          AiModelWork(model: 'Gemma 4 E4B', cards: 5, items: 2),
+          AiModelWork(model: 'gemini-3.8-flash', cards: 4, items: 1),
+        ],
+      );
+    });
+
+    test('cuántos pedidos lleva: de a tantas tarjetas por pedido, por '
+        'elemento', () {
+      const candidates = [
+        AiReviewCandidate(itemId: 'a', cards: 5),
+        AiReviewCandidate(itemId: 'b', cards: 4),
+        AiReviewCandidate(itemId: 'c', cards: 1),
+      ];
+      expect(aiReviewRequests(candidates, perCall: 4), 4);
+      expect(aiReviewRequests(candidates, perCall: 8), 3);
+      expect(aiReviewRequests(const [], perCall: 4), 0);
+    });
+
     test('solo lo de un modelo', () async {
       await cardsBy('b', 'Gemma 4 E4B', 3);
       await cardsBy('b', 'gemini-3.8-flash', 2);

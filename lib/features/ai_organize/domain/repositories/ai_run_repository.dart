@@ -100,7 +100,11 @@ abstract interface class AiRunRepository {
   /// (F33): lo que «Revisar con otro modelo» ofrece revisar. Cuenta las
   /// tarjetas de pregunta y respuesta de la IA de pasadas en pie, en elementos
   /// fuera de la papelera; el modelo con más primero.
-  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel();
+  ///
+  /// Con [reviewer], solo lo que ese modelo todavía tiene para revisar en
+  /// toda la biblioteca, como [reviewCandidates]: sin lo que hizo él mismo ni
+  /// los elementos que ya revisó.
+  Future<Either<Failure, List<AiModelWork>>> aiWorkByModel({String? reviewer});
 
   /// Los elementos con algo para revisar con el modelo [reviewer] (F33), con
   /// cuántas tarjetas de la IA miraría en cada uno, el que más tiene primero.

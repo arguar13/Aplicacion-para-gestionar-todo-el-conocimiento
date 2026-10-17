@@ -7,21 +7,31 @@ import 'package:sinapsis/core/domain/entities/correction_subject.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/account_usage.dart';
+import 'package:sinapsis/features/ai_models/domain/entities/ai_account.dart';
 import 'package:sinapsis/features/ai_models/domain/entities/ai_provider.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_text_budget.dart';
 import 'package:sinapsis/features/ai_models/presentation/ai_model_texts.dart';
+import 'package:sinapsis/features/ai_models/presentation/providers/ai_models_providers.dart';
 import 'package:sinapsis/features/ai_models/presentation/screens/language_model_screen.dart';
+import 'package:sinapsis/features/ai_models/presentation/widgets/ai_account_switcher.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_organize_settings.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_batch.dart';
+import 'package:sinapsis/features/ai_organize/domain/entities/ai_review_scope.dart';
 import 'package:sinapsis/features/ai_organize/domain/entities/ai_run.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_settings_notifier.dart';
 import 'package:sinapsis/features/ai_organize/presentation/screens/ai_activity_screen.dart';
+import 'package:sinapsis/features/chat/presentation/providers/chat_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_model_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/providers/flashcard_providers.dart';
 import 'package:sinapsis/features/library/presentation/screens/item_detail_screen.dart';
 import 'package:sinapsis/features/suggestions/presentation/providers/suggestion_providers.dart';
 import 'package:sinapsis/l10n/generated/app_localizations_es.dart';
 
+import '../../../../support/fake_ai_review_queue.dart';
 import '../../../../support/item_rows.dart';
 import '../../../../support/library_harness.dart';
 import '../fake_ai_run_repository.dart';
@@ -1044,6 +1054,329 @@ void main() {
       await harness.container.read(pendingReviewCountProvider.future);
 
       expect(sub.read(), 2);
+    });
+  });
+
+  group('revisar con otro modelo (F33)', () {
+    late FakeAiReviewQueue queue;
+    late AiAccountsView accounts;
+    final today = DateTime(2026, 10, 17, 12);
+
+    setUp(() async {
+      runs = FakeAiRunRepository();
+      queue = FakeAiReviewQueue();
+      accounts = (
+        accounts: const [],
+        activeId: null,
+        usage: const {},
+        now: today,
+      );
+      harness = await LibraryHarness.create(
+        extraOverrides: [
+          aiRunRepositoryProvider.overrideWithValue(runs),
+          aiReviewQueueProvider.overrideWithValue(queue),
+          aiReviewerNameProvider.overrideWithValue('gemini-3.8-flash'),
+          languageModelTextBudgetProvider.overrideWithValue(
+            () => kSmallWindowTextBudget,
+          ),
+          aiAccountsViewProvider.overrideWith((ref) => accounts),
+        ],
+      );
+      await insertItemRows(harness.database, id: 'a', title: 'Roma');
+    });
+
+    void setBatch(AiReviewBatch? batch) =>
+        harness.container.read(aiReviewBatchProvider.notifier).state = batch;
+
+    String work(int cards, String model, int items) => es.aiRecheckOfferWork(
+      es.aiRecheckCards(cards),
+      model,
+      es.aiRecheckItems(items),
+    );
+
+    testWidgets('ofrece revisar lo que el modelo elegido todavía no revisó, '
+        'por el modelo que lo hizo', (tester) async {
+      runs.work = const [
+        AiModelWork(model: 'Gemma 4 E4B', cards: 12, items: 5),
+        AiModelWork(model: null, cards: 1, items: 1),
+      ];
+      await pumpScreen(tester);
+
+      expect(find.byKey(const Key('ai-review-offer')), findsOneWidget);
+      expect(runs.workQueries, everyElement('gemini-3.8-flash'));
+      expect(find.text(work(12, 'Gemma 4 E4B', 5)), findsOneWidget);
+      expect(find.text(work(1, es.aiRecheckEarlierModel, 1)), findsOneWidget);
+      expect(find.text(es.aiRecheckWith('Gemini 3.8 Flash')), findsOneWidget);
+      // De más de un modelo: también lo de uno solo, si se sabe cuál.
+      expect(
+        find.byKey(const Key('ai-review-offer-only-Gemma 4 E4B')),
+        findsOneWidget,
+      );
+      expect(find.text(es.aiRecheckOnlyModel('Gemma 4 E4B')), findsOneWidget);
+    });
+
+    testWidgets('de un solo modelo, un solo botón', (tester) async {
+      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      await pumpScreen(tester);
+
+      expect(find.byKey(const Key('ai-review-offer-all')), findsOneWidget);
+      expect(
+        find.byKey(const Key('ai-review-offer-only-Gemma 4 E4B')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('sin nada para revisar, no ofrece', (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.byKey(const Key('ai-review-offer')), findsNothing);
+    });
+
+    testWidgets('mirando un elemento, no ofrece la biblioteca: ahí está el '
+        'botón de su línea', (tester) async {
+      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      await pumpScreen(tester, itemId: 'a');
+
+      expect(find.byKey(const Key('ai-review-offer')), findsNothing);
+    });
+
+    testWidgets('antes de empezar dice cuánto cuesta, y empieza solo si se '
+        'confirma', (tester) async {
+      runs
+        ..work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 9, items: 2)]
+        ..candidates = const [
+          AiReviewCandidate(itemId: 'a', cards: 5),
+          AiReviewCandidate(itemId: 'b', cards: 4),
+        ];
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('ai-review-offer-all')));
+      await tester.pumpAndSettle();
+
+      expect(runs.candidateQueries.single, (
+        reviewer: 'gemini-3.8-flash',
+        madeBy: null,
+        itemId: null,
+      ));
+      expect(find.byKey(const Key('ai-review-cost-dialog')), findsOneWidget);
+      // De a 4 tarjetas por pedido: 2 para las 5 de «a» y 1 para las 4 de «b».
+      expect(
+        find.text(
+          es.aiRecheckCostScope(es.aiRecheckCards(9), es.aiRecheckItems(2), 3),
+        ),
+        findsOneWidget,
+      );
+      // Con Gemma, en el teléfono: no hay cuota que gastar.
+      expect(find.text(es.aiRecheckCostLocal), findsOneWidget);
+      expect(find.text(es.aiRecheckCostNothingChanges), findsOneWidget);
+
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+      expect(queue.requests, isEmpty);
+
+      await tester.tap(find.byKey(const Key('ai-review-offer-all')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ai-review-cost-start')));
+      await tester.pumpAndSettle();
+
+      expect(queue.requests.single.itemIds, ['a', 'b']);
+      expect(queue.requests.single.skipOwnWork, isTrue);
+    });
+
+    testWidgets('«Solo lo de» pide lo de ese modelo', (tester) async {
+      runs
+        ..work = const [
+          AiModelWork(model: 'Gemma 4 E4B', cards: 3, items: 1),
+          AiModelWork(model: 'gemini-2.5-flash', cards: 1, items: 1),
+        ]
+        ..candidates = const [AiReviewCandidate(itemId: 'a', cards: 3)];
+      await pumpScreen(tester);
+
+      await tester.tap(
+        find.byKey(const Key('ai-review-offer-only-Gemma 4 E4B')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(runs.candidateQueries.single.madeBy, 'Gemma 4 E4B');
+    });
+
+    testWidgets('si ya no queda nada para revisar, lo dice y no pregunta', (
+      tester,
+    ) async {
+      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('ai-review-offer-all')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiRecheckNothing), findsOneWidget);
+      expect(find.byKey(const Key('ai-review-cost-dialog')), findsNothing);
+    });
+
+    testWidgets('en la nube: sale de la cuota de la persona, con lo gastado '
+        'hoy y si las cuentas están sin cuota', (tester) async {
+      await harness.container
+          .read(aiModelSettingsProvider.notifier)
+          .chooseProvider(AiProvider.gemini);
+      final account = AiAccount(
+        id: 'k1',
+        provider: AiProvider.gemini,
+        label: 'Personal',
+        addedAt: DateTime(2026),
+      );
+      accounts = (
+        accounts: [account],
+        activeId: 'k1',
+        usage: {
+          'k1': const AccountUsage(
+            accountId: 'k1',
+            day: '2026-10-17',
+            requests: 37,
+          ),
+        },
+        now: today,
+      );
+      runs
+        ..work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)]
+        ..candidates = const [AiReviewCandidate(itemId: 'a', cards: 2)];
+      await pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('ai-review-offer-all')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          [
+            es.aiRecheckCostQuota,
+            es.aiRecheckCostToday(37),
+            es.aiRecheckCostUnknownLeft,
+          ].join(' '),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(es.aiRecheckCostLocal), findsNothing);
+      await tester.tap(find.text(es.commonCancel));
+      await tester.pumpAndSettle();
+
+      // Todas sin cuota: dice desde cuándo empieza.
+      accounts = (
+        accounts: [account],
+        activeId: 'k1',
+        usage: {
+          'k1': AccountUsage(
+            accountId: 'k1',
+            day: '2026-10-17',
+            requests: 250,
+            exhaustedUntil: today.add(const Duration(hours: 3)),
+          ),
+        },
+        now: today,
+      );
+      harness.container.invalidate(aiAccountsViewProvider);
+      await tester.tap(find.byKey(const Key('ai-review-offer-all')));
+      await tester.pumpAndSettle();
+
+      final exhausted = es.aiRecheckCostExhausted('');
+      expect(
+        find.textContaining(exhausted.substring(0, exhausted.indexOf(':'))),
+        findsOneWidget,
+      );
+      expect(find.textContaining(es.aiRecheckCostUnknownLeft), findsNothing);
+    });
+
+    testWidgets('mientras revisa: cuántos van, cuántas propuestas, qué lee, '
+        'con pausar y cancelar; no ofrece otra', (tester) async {
+      runs.work = const [AiModelWork(model: 'Gemma 4 E4B', cards: 2, items: 1)];
+      await pumpScreen(tester);
+      setBatch(
+        const AiReviewBatch(
+          total: 5,
+          done: 2,
+          proposed: 3,
+          currentTitle: 'Roma',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('ai-review-progress')), findsOneWidget);
+      expect(
+        find.text(es.aiRecheckWorking('Gemini 3.8 Flash')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('${es.aiRecheckProgress(2, 5)} · ${es.aiRecheckProposed(3)}'),
+        findsOneWidget,
+      );
+      expect(find.text(es.reviewAiBatchCurrent('Roma')), findsOneWidget);
+      expect(find.byKey(const Key('ai-review-offer')), findsNothing);
+      final bar = tester.widget<LinearProgressIndicator>(
+        find.descendant(
+          of: find.byKey(const Key('ai-review-progress')),
+          matching: find.byType(LinearProgressIndicator),
+        ),
+      );
+      expect(bar.value, 2 / 5);
+
+      await tester.tap(find.byKey(const Key('ai-review-pause')));
+      await tester.tap(find.byKey(const Key('ai-review-cancel')));
+      expect(queue.actions, ['pause', 'cancel']);
+    });
+
+    testWidgets('en pausa, «Seguir»', (tester) async {
+      await pumpScreen(tester);
+      setBatch(const AiReviewBatch(total: 5, done: 1, paused: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiRecheckPaused), findsOneWidget);
+      await tester.tap(find.byKey(const Key('ai-review-resume')));
+      expect(queue.actions, ['resume']);
+    });
+
+    testWidgets('esperando al modelo dice por qué, y sin modelo lleva a '
+        'elegirlo', (tester) async {
+      await pumpScreen(tester);
+      setBatch(
+        AiReviewBatch(
+          total: 5,
+          done: 1,
+          waiting: AiModelWait.quota,
+          resumesAt: today.add(const Duration(hours: 2)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiRecheckWaiting), findsOneWidget);
+      final quota = es.aiStatusWaitingQuota('');
+      expect(
+        find.textContaining(quota.substring(0, quota.indexOf(':'))),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('ai-review-open-model')), findsOneWidget);
+
+      setBatch(const AiReviewBatch(total: 5, done: 1, modelMissing: true));
+      await tester.pumpAndSettle();
+      expect(find.text(es.aiRecheckModelMissing), findsOneWidget);
+      expect(find.byKey(const Key('ai-review-open-model')), findsOneWidget);
+
+      // Sin conexión no hay nada que ver en el modelo: vuelve sola.
+      setBatch(
+        const AiReviewBatch(total: 5, done: 1, waiting: AiModelWait.offline),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(es.aiStatusWaitingOffline), findsOneWidget);
+      expect(find.byKey(const Key('ai-review-open-model')), findsNothing);
+    });
+
+    testWidgets('al terminar, el resultado y «Cerrar»', (tester) async {
+      await pumpScreen(tester);
+      setBatch(const AiReviewBatch(total: 3, done: 3, proposed: 4));
+      await tester.pumpAndSettle();
+
+      expect(find.text(es.aiRecheckDone), findsOneWidget);
+      expect(find.text(es.aiRecheckProposed(4)), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      await tester.tap(find.byKey(const Key('ai-review-dismiss')));
+      expect(queue.actions, ['dismiss']);
     });
   });
 }

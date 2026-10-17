@@ -53,3 +53,11 @@ class AiReviewCandidate {
   @override
   String toString() => 'AiReviewCandidate($itemId: $cards)';
 }
+
+/// Cuántos pedidos al modelo lleva revisar [candidates], de a [perCall]
+/// tarjetas por pedido como pide el revisor: la cuenta del costo que se
+/// muestra antes de empezar.
+int aiReviewRequests(
+  Iterable<AiReviewCandidate> candidates, {
+  required int perCall,
+}) => candidates.fold(0, (sum, c) => sum + (c.cards + perCall - 1) ~/ perCall);

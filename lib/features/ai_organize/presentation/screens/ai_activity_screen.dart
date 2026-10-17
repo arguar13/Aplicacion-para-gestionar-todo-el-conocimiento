@@ -15,6 +15,7 @@ import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_correction
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_queue_status.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_cards.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_offer.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/correction_review_item.dart';
 import 'package:sinapsis/features/suggestions/domain/entities/pending_review_item.dart';
@@ -28,7 +29,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// De arriba abajo:
 ///
 /// 1. **La cola**: en qué anda, y el botón que resuelve lo que la frena
-///    —reanudar, bajar un modelo—. Ver [AiQueueStatusCard].
+///    —reanudar, bajar un modelo—. Ver [AiQueueStatusCard]. Debajo, cómo va
+///    una revisión con otro modelo ([AiReviewProgressCard]) o, sin ella y
+///    mirando toda la biblioteca, la que ofrece hacerla ([AiReviewOfferCard]).
 /// 2. **Para revisar** (decisión B): lo que la IA no aplicó porque dudaba,
 ///    por elemento, con aceptar o descartar de un toque, o todo junto con
 ///    «Deshacer».
@@ -285,6 +288,8 @@ class _AiActivityScreenState extends ConsumerState<AiActivityScreen> {
               children: [
                 if (itemId != null) _ItemFilter(itemId: itemId),
                 const AiQueueStatusCard(),
+                const AiReviewProgressCard(),
+                if (itemId == null) const AiReviewOfferCard(),
               ],
             ),
           ),

@@ -4,16 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sinapsis/app/router/route_paths.dart';
+import 'package:sinapsis/features/ai_models/domain/services/model_label.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_activity_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_providers.dart';
+import 'package:sinapsis/features/ai_organize/presentation/providers/ai_organize_queue_providers.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_organize_now.dart';
 import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_presentation.dart';
+import 'package:sinapsis/features/ai_organize/presentation/widgets/ai_review_offer.dart';
 import 'package:sinapsis/features/library/presentation/widgets/source_panel_parts.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// La línea de cada elemento (F27), dentro del panel de la fuente: «✨ La IA
 /// organizó esto — 4 vínculos · 6 tarjetas · 3 temas», con «Ver», el botón
-/// para deshacer lo de la IA y, si dejó dudas, cuántas hay para revisar. Si
+/// para deshacer lo de la IA, «Revisar con *el modelo*» (F33) si dejó
+/// tarjetas, y, si dejó dudas, cuántas hay para revisar. Si
 /// lo último que hizo se deshizo, lo dice y ofrece «Volver a organizar»: la
 /// IA no lo vuelve a tocar sola, y este es el lugar donde se nota.
 ///
@@ -48,6 +52,9 @@ class _AiOrganizedLineState extends ConsumerState<AiOrganizedLine> {
 
   void _reorganize() =>
       unawaited(organizeNowWithAi(context, ref, itemId: widget.itemId));
+
+  void _recheck() =>
+      unawaited(startAiReview(context, ref, itemId: widget.itemId));
 
   Future<void> _undoAll() async {
     final l10n = AppLocalizations.of(context)!;
@@ -155,6 +162,19 @@ class _AiOrganizedLineState extends ConsumerState<AiOrganizedLine> {
                         onPressed: _undoing ? null : _undoAll,
                         icon: const Icon(Icons.undo, size: 18),
                         label: Text(l10n.aiItemUndoAll),
+                      ),
+                    // Por ahora el revisor mira las tarjetas (F33).
+                    if (summary.remaining.flashcards > 0)
+                      TextButton.icon(
+                        key: const Key('ai-organized-line-recheck'),
+                        style: compact,
+                        onPressed: _recheck,
+                        icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                        label: Text(
+                          l10n.aiRecheckWith(
+                            modelLabel(ref.watch(aiReviewerNameProvider)),
+                          ),
+                        ),
                       ),
                     if (summary.undone)
                       TextButton.icon(
