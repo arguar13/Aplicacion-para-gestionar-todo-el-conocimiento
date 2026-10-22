@@ -1859,6 +1859,11 @@ organiza nada.
 
 **Cómo llegar:** Ajustes → sección "IA y modelos".
 
+**Nada se baja sin que lo pidas.** Recién instalada, la app usa Gemini, en la
+nube, y no baja Gemma ni ningún otro modelo. Abrir el chat, Ajustes o la
+pantalla de cada modelo tampoco baja nada. Un modelo se baja solo cuando
+entrás a su pantalla y tocás **"Descargar"**, y se baja únicamente ese.
+
 **Se bajan una sola vez.** Un modelo descargado queda guardado en el
 teléfono: cerrar la app, reiniciar el teléfono o volver a entrar no lo borra
 ni te pide bajarlo de nuevo, y la IA que organiza sola sigue donde estaba. Lo
