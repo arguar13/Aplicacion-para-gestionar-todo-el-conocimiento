@@ -17,6 +17,7 @@ class SetUnionResult {
     this.conversations = 0,
     this.messages = 0,
     this.habitEvents = 0,
+    this.studyMarks = 0,
   });
 
   final int relations;
@@ -36,6 +37,9 @@ class SetUnionResult {
 
   /// El rastro mínimo de la racha (F17, D6).
   final int habitEvents;
+
+  /// Lo resaltado para estudiar un documento (F36).
+  final int studyMarks;
 }
 
 /// Las columnas de cada tabla que se une, en el orden en que se copian. Un test
@@ -64,6 +68,22 @@ const kHighlightColumns = [
   'excerpt',
   'note',
   'created_at',
+];
+const kStudyMarkColumns = [
+  'id',
+  'rendition_id',
+  'kind',
+  'origin',
+  'start_offset',
+  'end_offset',
+  'excerpt',
+  'created_at',
+];
+const kStudyAnalysisColumns = [
+  'rendition_id',
+  'analyzed_until',
+  'completed_at',
+  'updated_at',
 ];
 const kFlashcardColumns = [
   'id',
@@ -385,6 +405,50 @@ class SetUnionMerge {
      WHERE NOT EXISTS (SELECT 1 FROM main.habit_event m WHERE m.id = x.id)''',
     );
 
+    // Lo resaltado para estudiar un documento (F36), como los subrayados: a
+    // la forma que le toca. Pero un análisis es uno solo: si acá ya se analizó
+    // ese texto, queda el de acá —sumar el de la copia mezclaría dos
+    // resúmenes—, y de la copia entran solo las palabras clave que alguien
+    // eligió a mano. Si acá no se analizó, entra el de la copia entero, con
+    // hasta dónde llegaba. Las marcas van antes que el análisis: la condición
+    // mira si acá había uno.
+    const renditionOf = 'COALESCE(rm.local_id, x.rendition_id)';
+    const renditionJoin =
+        '''
+      LEFT JOIN ${MergeWork.renditionMap} rm ON rm.incoming_id = x.rendition_id
+     WHERE (rm.incoming_id IS NULL OR rm.local_id IS NOT NULL)
+       AND EXISTS (SELECT 1 FROM main.renditions r WHERE r.id = $renditionOf)''';
+    final studyMarks = await _union(
+      _db.studyMarks,
+      'study_marks',
+      kStudyMarkColumns,
+      '''
+      FROM $_incoming.study_marks x
+      $renditionJoin
+       AND NOT EXISTS (SELECT 1 FROM main.study_marks m WHERE m.id = x.id)
+       AND NOT EXISTS (
+         SELECT 1 FROM main.study_marks m
+          WHERE m.rendition_id = $renditionOf AND m.kind = x.kind
+            AND m.start_offset = x.start_offset
+            AND m.end_offset = x.end_offset)
+       AND (x.origin = 'user' OR NOT EXISTS (
+         SELECT 1 FROM main.study_analyses a
+          WHERE a.rendition_id = $renditionOf))''',
+      select: {'rendition_id': renditionOf},
+    );
+    await _union(
+      _db.studyAnalyses,
+      'study_analyses',
+      kStudyAnalysisColumns,
+      '''
+      FROM $_incoming.study_analyses x
+      $renditionJoin
+       AND NOT EXISTS (
+         SELECT 1 FROM main.study_analyses a
+          WHERE a.rendition_id = $renditionOf)''',
+      select: {'rendition_id': renditionOf},
+    );
+
     return SetUnionResult(
       relations: relations,
       highlights: highlights,
@@ -396,6 +460,7 @@ class SetUnionMerge {
       conversations: conversations,
       messages: messages,
       habitEvents: habitEvents,
+      studyMarks: studyMarks,
     );
   }
 

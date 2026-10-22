@@ -95,6 +95,12 @@ class VaultCounts {
   /// existía cuando corrían.
   static const contentTrashTables = <String>['content_trash'];
 
+  /// Lo resaltado para estudiar un documento y hasta dónde se analizó (F36,
+  /// v40). Aparte por lo mismo que las anteriores: los pasos hasta v40
+  /// cuentan las otras listas, y estas tablas todavía no existían cuando
+  /// corrían.
+  static const studyTables = <String>['study_marks', 'study_analyses'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

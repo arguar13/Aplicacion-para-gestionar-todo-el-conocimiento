@@ -18,6 +18,7 @@ import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/tema_category.dart';
 import 'package:sinapsis/core/domain/entities/chat_conversation_mode.dart';
 import 'package:sinapsis/core/domain/entities/content_block.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -29,6 +30,7 @@ import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
@@ -408,6 +410,40 @@ class TestVault {
           endOffset: end,
           excerpt: 'extracto',
           createdAt: now,
+        ),
+      );
+
+  /// Una marca de estudio (F36) sobre el texto de [itemId].
+  Future<void> addStudyMark(
+    String id,
+    String itemId, {
+    StudyMarkKind kind = StudyMarkKind.summary,
+    ContentOrigin origin = ContentOrigin.ai,
+    int start = 0,
+    int end = 5,
+  }) => db
+      .into(db.studyMarks)
+      .insert(
+        StudyMarksCompanion.insert(
+          id: id,
+          renditionId: 'rend-$itemId',
+          kind: kind,
+          origin: origin,
+          startOffset: start,
+          endOffset: end,
+          excerpt: 'extracto',
+          createdAt: now,
+        ),
+      );
+
+  /// El texto de [itemId] analizado para estudiar hasta [until] (F36).
+  Future<void> addStudyAnalysis(String itemId, {int until = 5}) => db
+      .into(db.studyAnalyses)
+      .insert(
+        StudyAnalysesCompanion.insert(
+          renditionId: 'rend-$itemId',
+          analyzedUntil: until,
+          updatedAt: now,
         ),
       );
 

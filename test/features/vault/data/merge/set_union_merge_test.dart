@@ -1,9 +1,11 @@
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sinapsis/core/domain/entities/card_phase.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/flashcard_kind.dart';
 import 'package:sinapsis/core/domain/entities/habit_event_kind.dart';
 import 'package:sinapsis/core/domain/entities/relation_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/features/vault/data/merge/ai_provenance_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/set_union_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/vocabulary_merge.dart';
@@ -141,6 +143,112 @@ void main() {
 
       expect(result.highlightsAdded, 1);
       expect(await idsOf(tel, 'highlights'), {'hl-tel', 'hl-pc'});
+    });
+  });
+
+  group('lo resaltado para estudiar (F36)', () {
+    Future<Set<(String, String)>> marksOf(TestVault vault) async => {
+      for (final r
+          in await vault.db
+              .customSelect('SELECT id, origin FROM study_marks')
+              .get())
+        (r.read<String>('id'), r.read<String>('origin')),
+    };
+
+    Future<int?> untilOf(TestVault vault, String itemId) async {
+      final rows = await vault.db
+          .customSelect(
+            'SELECT analyzed_until FROM study_analyses '
+            "WHERE rendition_id = 'rend-$itemId'",
+          )
+          .get();
+      return rows.isEmpty ? null : rows.single.read<int>('analyzed_until');
+    }
+
+    test(
+      'si acá no se analizó, entra el análisis de la copia entero',
+      () async {
+        await shareItems();
+        pc.at(5);
+        await pc.addStudyMark('resumen', 'a');
+        await pc.addStudyMark(
+          'clave',
+          'a',
+          kind: StudyMarkKind.keyword,
+          origin: ContentOrigin.user,
+          end: 3,
+        );
+        await pc.addStudyAnalysis('a', until: 40);
+
+        tel.at(9);
+        await tel.mergeFrom(pc);
+
+        expect(await marksOf(tel), {('resumen', 'ai'), ('clave', 'user')});
+        expect(await untilOf(tel, 'a'), 40);
+      },
+    );
+
+    test('si acá ya se analizó, queda el de acá: de la copia entran solo las '
+        'palabras elegidas a mano', () async {
+      await shareItems();
+      tel.at(4);
+      await tel.addStudyMark('resumen-tel', 'a');
+      await tel.addStudyAnalysis('a', until: 20);
+      pc.at(5);
+      await pc.addStudyMark('resumen-pc', 'a', start: 6, end: 9);
+      await pc.addStudyMark(
+        'clave-pc',
+        'a',
+        kind: StudyMarkKind.keyword,
+        origin: ContentOrigin.user,
+        start: 6,
+        end: 8,
+      );
+      await pc.addStudyAnalysis('a', until: 40);
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      expect(await marksOf(tel), {('resumen-tel', 'ai'), ('clave-pc', 'user')});
+      expect(await untilOf(tel, 'a'), 20);
+    });
+
+    test('la misma marca con otro id no entra dos veces', () async {
+      await shareItems();
+      tel.at(4);
+      await tel.addStudyMark(
+        'clave-tel',
+        'a',
+        kind: StudyMarkKind.keyword,
+        origin: ContentOrigin.user,
+      );
+      pc.at(5);
+      await pc.addStudyMark(
+        'clave-pc',
+        'a',
+        kind: StudyMarkKind.keyword,
+        origin: ContentOrigin.user,
+      );
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      expect(await marksOf(tel), {('clave-tel', 'user')});
+    });
+
+    test('fusionar dos veces no duplica nada', () async {
+      await shareItems();
+      pc.at(5);
+      await pc.addStudyMark('resumen', 'a');
+      await pc.addStudyAnalysis('a', until: 40);
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+      tel.at(10);
+      await tel.mergeFrom(pc);
+
+      expect(await marksOf(tel), {('resumen', 'ai')});
+      expect(await untilOf(tel, 'a'), 40);
     });
   });
 
@@ -621,6 +729,9 @@ void main() {
       expect(kConversationColumns.toSet(), await columnsOf('conversations'));
       expect(kChatMessageColumns.toSet(), await columnsOf('chat_messages'));
       expect(kHabitEventColumns.toSet(), await columnsOf('habit_event'));
+      // Lo resaltado para estudiar y hasta dónde se analizó (F36).
+      expect(kStudyMarkColumns.toSet(), await columnsOf('study_marks'));
+      expect(kStudyAnalysisColumns.toSet(), await columnsOf('study_analyses'));
       // Las pasadas de la IA, lo que «no era» y las asignaciones de
       // propiedades, que ahora llevan su pasada (F27).
       expect(kAiRunColumns.toSet(), await columnsOf('ai_runs'));

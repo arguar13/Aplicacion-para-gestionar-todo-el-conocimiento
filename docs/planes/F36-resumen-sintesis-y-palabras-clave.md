@@ -171,3 +171,34 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
   `lib/core/util/word_folding.dart`, compartido: no quedan dos copias.
 - Pruebas: 46. Mutación 25/25. Una condición que sobraba (el rango al revés, que el ciclo ya no
   recorre) se sacó.
+
+### Paso 2 (hecho)
+
+- Esquema v40 (`study_marks.dart`):
+  - `study_marks`: id, forma, clase (resumen, síntesis o palabra), origen (IA o persona), rango y
+    fragmento copiado. Se borra en cascada con la forma.
+  - `study_analyses`: hasta dónde se analizó cada texto y si terminó.
+  - `content_trash.study_marks`: el JSON de lo estudiado de un texto soltado.
+  - Migración aditiva, con los conteos de lo anterior como compuerta (`migration_v40_test.dart`).
+- `StudyRepositoryImpl`:
+  - `savePart` reemplaza, en una sola transacción, lo de la IA en el tramo de la parte. Las
+    palabras que eligió la persona se quedan y no se duplican. Retomar una parte cortada no
+    duplica nada.
+  - También `addKeyword`, `removeKeyword` (nunca una oración), `clear` y `watch`.
+- Al volver a extraer el texto (`TextAnchorRelocatorImpl`):
+  - las marcas se reubican por su fragmento, y la que no aparece se va;
+  - hasta dónde se analizó va al final de lo mismo en el texto nuevo, o vuelve a 0;
+  - «terminado» se conserva solo si el texto nuevo no agrega nada al final.
+- La papelera del contenido guarda lo estudiado con el texto y lo devuelve al recuperarlo.
+- La unión de bóvedas trata cada análisis como uno solo:
+  - si acá ya se analizó ese texto, queda el de acá, y de la copia entran solo las palabras
+    elegidas a mano;
+  - si no, entra el de la copia entero;
+  - la misma marca con otro id no entra dos veces.
+  - Las tablas nuevas se suman al censo de columnas, a «nunca se achica» y a las referencias.
+- Pruebas: 11 del repositorio, 6 de la reubicación, 2 de la papelera, 4 de la unión, 4 de la
+  migración y el censo de columnas. 1.799 pasan en `test/core`, papelera, transformación y estudio,
+  y 634 en la bóveda. Mutación 20/20.
+- Una trampa: `drift_dev schema generate` reescribe todos los `schema_vN.dart`; se restauraron
+  con git y quedaron solo `schema_v40.dart` y el índice.
+

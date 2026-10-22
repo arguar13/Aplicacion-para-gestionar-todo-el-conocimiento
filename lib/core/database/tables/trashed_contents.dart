@@ -70,6 +70,11 @@ class TrashedContents extends Table {
   /// Los subrayados de la forma, en JSON —ver `encodeTrashedHighlights`—.
   TextColumn get highlights => text().nullable()();
 
+  /// Lo resaltado para estudiar la forma (F36, v40) —el resumen, la síntesis,
+  /// las palabras clave— y hasta dónde se analizó, en JSON: ver
+  /// `encodeTrashedStudy`. Nulo si no se había analizado.
+  TextColumn get studyMarks => text().nullable()();
+
   /// Cuándo se soltó: a los 30 días se borra de verdad.
   DateTimeColumn get trashedAt => dateTime()();
 

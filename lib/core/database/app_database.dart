@@ -40,6 +40,7 @@ import 'package:sinapsis/core/database/tables/review_log.dart';
 import 'package:sinapsis/core/database/tables/saved_views.dart';
 import 'package:sinapsis/core/database/tables/source_references.dart';
 import 'package:sinapsis/core/database/tables/spaces.dart';
+import 'package:sinapsis/core/database/tables/study_marks.dart';
 import 'package:sinapsis/core/database/tables/suggestions.dart';
 import 'package:sinapsis/core/database/tables/trashed_contents.dart';
 import 'package:sinapsis/core/database/vault_counts.dart';
@@ -75,6 +76,7 @@ import 'package:sinapsis/core/domain/entities/relation_kind.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/domain/entities/source_processing_status.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_kind.dart';
 import 'package:sinapsis/core/domain/entities/suggestion_status.dart';
 import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
@@ -128,6 +130,8 @@ part 'app_database.g.dart';
     PropertyValueEmbeddings,
     AttachmentDownloads,
     TrashedContents,
+    StudyMarks,
+    StudyAnalyses,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -172,7 +176,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 39;
+  static const currentSchemaVersion = 40;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -932,6 +936,44 @@ class AppDatabase extends _$AppDatabase {
             updates: {reviewLogs},
           );
           await _requireSameCounts(before, step: 'v39', tables: tables);
+        }
+
+        // Resumen, síntesis y palabras clave resaltados en el documento (F36,
+        // decisión 78): lo que la IA marcó —y las palabras que la persona
+        // eligió— en `study_marks`, y hasta dónde se analizó cada texto en
+        // `study_analyses`, para seguir desde ahí. La papelera del contenido
+        // gana `study_marks`: un texto que se suelta se lleva sus marcas, como
+        // sus subrayados, y vuelven con él. Aditiva: dos tablas nuevas y vacías
+        // y una columna que en todo lo de antes dice «nada». Los conteos de lo
+        // anterior son compuerta.
+        if (from < 40) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          await migrator.createTable(studyMarks);
+          await migrator.createIndex(idxStudyMarksRendition);
+          await migrator.createTable(studyAnalyses);
+          if (!await _columnExists(
+            'content_trash',
+            trashedContents.studyMarks.name,
+          )) {
+            await migrator.addColumn(
+              trashedContents,
+              trashedContents.studyMarks,
+            );
+          }
+          await _requireSameCounts(before, step: 'v40', tables: tables);
         }
       });
     },

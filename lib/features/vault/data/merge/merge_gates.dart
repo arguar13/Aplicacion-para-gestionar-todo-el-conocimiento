@@ -59,6 +59,8 @@ class MergeGates {
     // Las pasadas de la IA y lo que «no era» (F27): una fusión solo suma.
     ...VaultCounts.aiTables,
     ...VaultCounts.aiFieldChangeTables,
+    // Lo resaltado para estudiar un documento (F36): una fusión solo suma.
+    ...VaultCounts.studyTables,
   ];
 
   /// Las tablas donde una referencia rota puede venir de la fusión.
@@ -89,6 +91,9 @@ class MergeGates {
     'ai_rejections',
     // Lo que cada pasada completó del tema y la referencia (v35).
     'ai_field_changes',
+    // Lo resaltado para estudiar un documento y hasta dónde se analizó (F36).
+    'study_marks',
+    'study_analyses',
   ];
 
   /// Lo que se cuenta de una tabla cuando no es toda: el espejo de las

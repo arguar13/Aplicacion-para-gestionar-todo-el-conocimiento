@@ -58,6 +58,8 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
       );
     }
 
+    await _relocateStudy(renditionId, from: from, to: to, find: find);
+
     final cards =
         await (_db.select(_db.flashcards)..where(
               (c) => c.itemId.equals(itemId) & c.sourceCharStart.isNotNull(),
@@ -130,6 +132,67 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
     return lost;
   }
 
+  /// Lo resaltado para estudiar el texto (F36): cada marca, por su fragmento;
+  /// la que no se encuentra se va —es de la IA, o una palabra que ya no está—.
+  /// Hasta dónde se había analizado se lleva al final de la última oración
+  /// analizada, buscada igual; si no se encuentra, se vuelve a empezar, y
+  /// analizar de nuevo reemplaza lo de la IA sin duplicar nada.
+  Future<void> _relocateStudy(
+    String renditionId, {
+    required String from,
+    required String to,
+    required ({int start, int end})? Function(String excerpt, int oldStart)
+    find,
+  }) async {
+    final marks = await (_db.select(
+      _db.studyMarks,
+    )..where((m) => m.renditionId.equals(renditionId))).get();
+    for (final mark in marks) {
+      final range = find(mark.excerpt, mark.startOffset);
+      if (range == null) {
+        await (_db.delete(
+          _db.studyMarks,
+        )..where((m) => m.id.equals(mark.id))).go();
+        continue;
+      }
+      await (_db.update(
+        _db.studyMarks,
+      )..where((m) => m.id.equals(mark.id))).write(
+        StudyMarksCompanion(
+          startOffset: Value(range.start),
+          endOffset: Value(range.end),
+        ),
+      );
+    }
+
+    final analysis = await (_db.select(
+      _db.studyAnalyses,
+    )..where((a) => a.renditionId.equals(renditionId))).getSingleOrNull();
+    if (analysis == null) return;
+    final until = analysis.analyzedUntil.clamp(0, from.length);
+    final tail = from.substring(
+      (until - _studyTailChars).clamp(0, until),
+      until,
+    );
+    final found = tail.trim().isEmpty ? null : find(tail, until - tail.length);
+    await (_db.update(
+      _db.studyAnalyses,
+    )..where((a) => a.renditionId.equals(renditionId))).write(
+      StudyAnalysesCompanion(
+        analyzedUntil: Value(found?.end ?? 0),
+        // Terminado sigue terminado solo si en el texto nuevo tampoco queda
+        // nada después: si se agregó texto al final, falta analizarlo.
+        completedAt: Value(
+          found != null &&
+                  analysis.completedAt != null &&
+                  to.substring(found.end).trim().isEmpty
+              ? analysis.completedAt
+              : null,
+        ),
+      ),
+    );
+  }
+
   ({int start, int end})? _relocated(
     String? excerpt,
     int oldStart,
@@ -155,3 +218,7 @@ class TextAnchorRelocatorImpl implements TextAnchorRelocator {
     return chunk?.id;
   }
 }
+
+/// Cuánto del final de lo analizado se busca en el texto nuevo para saber
+/// hasta dónde llegaba (F36): lo bastante para que no aparezca dos veces.
+const _studyTailChars = 80;

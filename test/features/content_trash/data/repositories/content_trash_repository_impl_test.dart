@@ -4,12 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
 import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
 import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/content_trash/data/repositories/content_trash_repository_impl.dart';
@@ -272,6 +274,94 @@ void main() {
       expect((await sourceOf(id)).onlyFile, isFalse);
       expect(await db.select(db.trashedContents).get(), isEmpty);
     });
+
+    test('lo resaltado para estudiar se va con el texto y vuelve con él '
+        '(F36)', () async {
+      final id = await saveBook('libro');
+      await db
+          .into(db.studyMarks)
+          .insert(
+            StudyMarksCompanion.insert(
+              id: 'resumen',
+              renditionId: 'libro-texto',
+              kind: StudyMarkKind.summary,
+              origin: ContentOrigin.ai,
+              startOffset: 0,
+              endOffset: 26,
+              excerpt: 'Roma no se hizo en un día.',
+              createdAt: captured,
+            ),
+          );
+      await db
+          .into(db.studyMarks)
+          .insert(
+            StudyMarksCompanion.insert(
+              id: 'clave',
+              renditionId: 'libro-texto',
+              kind: StudyMarkKind.keyword,
+              origin: ContentOrigin.user,
+              startOffset: 0,
+              endOffset: 4,
+              excerpt: 'Roma',
+              createdAt: captured,
+            ),
+          );
+      await db
+          .into(db.studyAnalyses)
+          .insert(
+            StudyAnalysesCompanion.insert(
+              renditionId: 'libro-texto',
+              analyzedUntil: text.length,
+              completedAt: Value(captured),
+              updatedAt: captured,
+            ),
+          );
+
+      final trashed = (await trash.keepOnlyFile(
+        id,
+      )).getOrElse((f) => fail('$f'));
+      expect(await db.select(db.studyMarks).get(), isEmpty);
+      expect(await db.select(db.studyAnalyses).get(), isEmpty);
+
+      await trash.restore(trashed.single.id);
+
+      final marks = {
+        for (final m in await db.select(db.studyMarks).get())
+          m.id: (m.renditionId, m.kind, m.origin, m.startOffset, m.endOffset),
+      };
+      expect(marks, {
+        'resumen': (
+          'libro-texto',
+          StudyMarkKind.summary,
+          ContentOrigin.ai,
+          0,
+          26,
+        ),
+        'clave': (
+          'libro-texto',
+          StudyMarkKind.keyword,
+          ContentOrigin.user,
+          0,
+          4,
+        ),
+      });
+      final analysis = await db.select(db.studyAnalyses).getSingle();
+      expect(analysis.renditionId, 'libro-texto');
+      expect(analysis.analyzedUntil, text.length);
+      expect(analysis.completedAt, captured);
+    });
+
+    test(
+      'un texto sin analizar no guarda nada de estudio en la papelera',
+      () async {
+        final id = await saveBook('libro');
+        await trash.keepOnlyFile(id);
+        expect(
+          (await db.select(db.trashedContents).getSingle()).studyMarks,
+          isNull,
+        );
+      },
+    );
 
     test('si el elemento ya volvió a tener texto, el recuperado entra al lado, '
         'sin sacarle el lugar al principal', () async {

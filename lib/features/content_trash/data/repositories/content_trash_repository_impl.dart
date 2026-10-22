@@ -8,7 +8,9 @@ import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/core/database/file_references.dart';
 import 'package:sinapsis/core/database/knowledge_entry_writer.dart';
 import 'package:sinapsis/core/database/knowledge_source_chunking.dart';
+import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
+import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
 import 'package:sinapsis/core/domain/entities/trashed_content_kind.dart';
 import 'package:sinapsis/core/error/failures.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
@@ -94,6 +96,12 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
         final highlights = await (_db.select(
           _db.highlights,
         )..where((h) => h.renditionId.equals(text.id))).get();
+        final studyMarks = await (_db.select(
+          _db.studyMarks,
+        )..where((m) => m.renditionId.equals(text.id))).get();
+        final studyAnalysis = await (_db.select(
+          _db.studyAnalyses,
+        )..where((a) => a.renditionId.equals(text.id))).getSingleOrNull();
         final id = _ids.next();
         await _db
             .into(_trash)
@@ -109,11 +117,15 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
                 renditionCreatedAt: Value(text.createdAt),
                 wordTimings: Value(text.wordTimings),
                 highlights: Value(encodeTrashedHighlights(highlights)),
+                studyMarks: Value(
+                  encodeTrashedStudy(studyMarks, studyAnalysis),
+                ),
                 trashedAt: now,
               ),
             );
         ids.add(id);
-        // Los subrayados se van con la forma, en cascada: ya están copiados.
+        // Los subrayados y lo resaltado para estudiar se van con la forma, en
+        // cascada: ya están copiados.
         await (_db.delete(
           _db.renditions,
         )..where((r) => r.id.equals(text.id))).go();
@@ -206,6 +218,17 @@ class ContentTrashRepositoryImpl implements ContentTrashRepository {
               highlight.copyWith(renditionId: Value(id)),
               mode: InsertMode.insertOrIgnore,
             );
+      }
+      final study = decodeTrashedStudy(row.studyMarks, renditionId: id);
+      for (final mark in study.marks) {
+        await _db
+            .into(_db.studyMarks)
+            .insert(mark, mode: InsertMode.insertOrIgnore);
+      }
+      if (study.analysis case final analysis?) {
+        await _db
+            .into(_db.studyAnalyses)
+            .insert(analysis, mode: InsertMode.insertOrIgnore);
       }
       await (_db.delete(_trash)..where((t) => t.id.equals(row.id))).go();
       await _writer.setOnlyFile(row.itemId, onlyFile: false);
@@ -381,4 +404,76 @@ List<HighlightsCompanion> decodeTrashedHighlights(String? stored) {
         createdAt: DateTime.fromMillisecondsSinceEpoch(raw['createdAt'] as int),
       ),
   ];
+}
+
+/// Lo resaltado para estudiar una forma de texto (F36) y hasta dónde se
+/// analizó, para guardarlo en la papelera con ella: como los subrayados,
+/// cuelga de la forma y al soltarla se iría en cascada. `null` si no había
+/// nada.
+String? encodeTrashedStudy(
+  List<StudyMarkRow> marks,
+  StudyAnalysisRow? analysis,
+) {
+  if (marks.isEmpty && analysis == null) return null;
+  return jsonEncode({
+    if (analysis != null)
+      'analysis': {
+        'until': analysis.analyzedUntil,
+        if (analysis.completedAt case final completed?)
+          'completedAt': completed.millisecondsSinceEpoch,
+        'updatedAt': analysis.updatedAt.millisecondsSinceEpoch,
+      },
+    'marks': [
+      for (final m in marks)
+        {
+          'id': m.id,
+          'kind': m.kind.name,
+          'origin': m.origin.name,
+          'start': m.startOffset,
+          'end': m.endOffset,
+          'excerpt': m.excerpt,
+          'createdAt': m.createdAt.millisecondsSinceEpoch,
+        },
+    ],
+  });
+}
+
+/// Lo guardado por [encodeTrashedStudy], listo para volver a la base con la
+/// forma [renditionId].
+({List<StudyMarksCompanion> marks, StudyAnalysesCompanion? analysis})
+decodeTrashedStudy(String? stored, {required String renditionId}) {
+  if (stored == null || stored.isEmpty) {
+    return (marks: const [], analysis: null);
+  }
+  final raw = jsonDecode(stored) as Map<String, dynamic>;
+  final analysis = raw['analysis'] as Map<String, dynamic>?;
+  DateTime at(Object? millis) =>
+      DateTime.fromMillisecondsSinceEpoch(millis! as int);
+  return (
+    marks: [
+      for (final m in (raw['marks'] as List).cast<Map<String, dynamic>>())
+        StudyMarksCompanion.insert(
+          id: m['id'] as String,
+          renditionId: renditionId,
+          kind: StudyMarkKind.values.byName(m['kind'] as String),
+          origin: ContentOrigin.values.byName(m['origin'] as String),
+          startOffset: m['start'] as int,
+          endOffset: m['end'] as int,
+          excerpt: m['excerpt'] as String,
+          createdAt: at(m['createdAt']),
+        ),
+    ],
+    analysis: analysis == null
+        ? null
+        : StudyAnalysesCompanion.insert(
+            renditionId: renditionId,
+            analyzedUntil: analysis['until'] as int,
+            completedAt: Value(
+              analysis['completedAt'] == null
+                  ? null
+                  : at(analysis['completedAt']),
+            ),
+            updatedAt: at(analysis['updatedAt']),
+          ),
+  );
 }
