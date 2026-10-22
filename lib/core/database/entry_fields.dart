@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Los campos de un elemento cuya última modificación se registra en
 /// `field_version` (F11), por su nombre.
 ///
@@ -10,7 +12,12 @@ abstract final class EntryField {
   static const title = 'title';
   static const subtitle = 'subtitle';
   static const notes = 'notes';
-  static const spaceId = 'spaceId';
+
+  /// Los temas del elemento (F37): UN campo aunque sean varios —ver
+  /// `item_spaces`—. Se llama `spaceId` porque así quedó guardado en
+  /// `field_version` y en los conflictos de cuando era uno solo.
+  static const spaces = 'spaceId';
+
   static const state = 'state';
   static const deletedAt = 'deletedAt';
 
@@ -34,7 +41,7 @@ abstract final class EntryField {
 
   /// Los campos de `item` que son texto o valores simples, para las pantallas
   /// que muestran un conflicto.
-  static const itemFields = [title, subtitle, notes, spaceId, state, deletedAt];
+  static const itemFields = [title, subtitle, notes, spaces, state, deletedAt];
 
   static const _renditionPrefix = 'rendition:';
 
@@ -49,4 +56,24 @@ abstract final class EntryField {
   /// El id de la forma de un campo `rendition:<id>`.
   static String renditionIdOf(String fieldName) =>
       fieldName.substring(_renditionPrefix.length);
+}
+
+/// Los temas [spaceIds] como los guarda un conflicto de fusión (F37): los
+/// identificadores en orden, o `null` si no hay ninguno.
+String? encodeSpaceIds(Set<String> spaceIds) =>
+    spaceIds.isEmpty ? null : jsonEncode(spaceIds.toList()..sort());
+
+/// Lo contrario de [encodeSpaceIds], o `null` si [text] no es eso. Un
+/// conflicto de antes de F37 guardaba un identificador solo, sin lista: es ese
+/// tema.
+Set<String>? decodeSpaceIds(String? text) {
+  if (text == null || text.isEmpty) return const {};
+  if (!text.startsWith('[')) return {text};
+  try {
+    final decoded = jsonDecode(text);
+    if (decoded is! List || decoded.any((id) => id is! String)) return null;
+    return {...decoded.cast<String>()};
+  } on FormatException {
+    return null;
+  }
 }

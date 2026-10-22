@@ -221,7 +221,7 @@ void main() {
       final space = await createSpace('Filosofía');
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(itemId: inside, spaceId: space.id);
+          .setSpaces(itemIds: [inside], spaceIds: {space.id});
 
       await pumpExplorer(tester);
       expect(filtersBadge(tester).isLabelVisible, isFalse);

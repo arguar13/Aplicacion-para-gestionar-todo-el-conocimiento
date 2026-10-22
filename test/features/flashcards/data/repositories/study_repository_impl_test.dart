@@ -727,9 +727,7 @@ void main() {
               createdAt: now,
             ),
           );
-      await (db.update(db.knowledgeEntries)
-            ..where((e) => e.id.isIn(['roma', 'grecia'])))
-          .write(const KnowledgeEntriesCompanion(spaceId: Value('historia')));
+      await placeItemRowsInSpace(db, ['roma', 'grecia'], 'historia');
 
       expect(await studied(const StudyScope.space('historia')), {
         'c-roma',
@@ -817,9 +815,7 @@ void main() {
       await db
           .into(db.spaces)
           .insert(SpacesCompanion.insert(id: 'sp', name: 'Sp', createdAt: now));
-      await (db.update(db.knowledgeEntries)
-            ..where((e) => e.id.equals('grecia')))
-          .write(const KnowledgeEntriesCompanion(spaceId: Value('sp')));
+      await placeItemRowsInSpace(db, ['grecia'], 'sp');
       final book = await notebooks.create(
         name: 'Por espacio',
         mode: NotebookMode.query,

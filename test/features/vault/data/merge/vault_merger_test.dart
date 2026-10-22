@@ -205,8 +205,8 @@ void main() {
         'sp-tel',
         'sp-fis',
       });
-      expect((await tel.entry('a')).spaceId, 'sp-tel');
-      expect((await tel.entry('b')).spaceId, 'sp-fis');
+      expect(await tel.spacesOf('a'), {'sp-tel'});
+      expect(await tel.spacesOf('b'), {'sp-fis'});
     });
 
     test(
@@ -218,13 +218,13 @@ void main() {
         await tel.saveSource('a', spaceId: 'sp-tel');
         pc.at(2);
         await pc.mergeFrom(tel);
-        expect((await pc.entry('a')).spaceId, 'sp-pc');
+        expect(await pc.spacesOf('a'), {'sp-pc'});
 
         tel.at(3);
         final result = await tel.mergeFrom(pc);
 
         expect(result.changedNothing, isTrue);
-        expect((await tel.entry('a')).spaceId, 'sp-tel');
+        expect(await tel.spacesOf('a'), {'sp-tel'});
       },
     );
 
@@ -238,6 +238,136 @@ void main() {
 
         expect(result.spacesAdded, 1);
         expect(await tel.count('spaces'), 1);
+      },
+    );
+  });
+
+  group('los temas de un elemento (F37)', () {
+    /// «a» nace en tel en los temas [spaces] y pc la recibe: las dos la tienen
+    /// igual, con las mismas versiones.
+    Future<void> shareInSpaces(Set<String> spaces) async {
+      await tel.addSpace('h', 'Historia');
+      await tel.addSpace('f', 'Física');
+      tel.at(1);
+      await tel.saveSource('a', title: 'Original', spaceIds: spaces);
+      pc.at(2);
+      await pc.mergeFrom(tel);
+    }
+
+    test('uno nuevo llega en todos sus temas, cada uno con el nombre de '
+        'acá', () async {
+      await tel.addSpace('sp-tel', 'Historia');
+      await pc.addSpace('sp-pc', 'Historia');
+      await pc.addSpace('sp-fis', 'Física');
+      pc.at(3);
+      await pc.saveSource('n', spaceIds: {'sp-pc', 'sp-fis'});
+
+      await tel.mergeFrom(pc);
+
+      expect(await tel.spacesOf('n'), {'sp-tel', 'sp-fis'});
+    });
+
+    test('la copia le sumó uno: gana su conjunto entero, con su versión, y '
+        'sin conflicto', () async {
+      await shareInSpaces({'h'});
+      expect(await pc.spacesOf('a'), {'h'});
+      pc.at(5);
+      await pc.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+
+      tel.at(9);
+      final result = await tel.mergeFrom(pc);
+
+      expect(result.fieldsUpdated, 1);
+      expect(result.conflictsRecorded, 0);
+      expect(await tel.spacesOf('a'), {'h', 'f'});
+      final version = await tel.version('a', EntryField.spaces);
+      expect(version!.deviceId, 'pc');
+      expect(version.baseDeviceId, 'tel');
+    });
+
+    test('la copia le sacó uno: no vuelve, porque los dos lados no se '
+        'unen', () async {
+      await shareInSpaces({'h', 'f'});
+      pc.at(5);
+      await pc.saveSource('a', title: 'Original', spaceIds: {'f'});
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      expect(await tel.spacesOf('a'), {'f'});
+    });
+
+    test('acá se cambiaron después: se quedan los de acá', () async {
+      await shareInSpaces({'h'});
+      pc.at(5);
+      await pc.saveSource('a', title: 'Original', spaceIds: {'f'});
+      tel.at(7);
+      await tel.mergeFrom(pc);
+      tel.at(9);
+      await tel.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+
+      pc.at(11);
+      final result = await pc.mergeFrom(tel);
+
+      expect(result.conflictsRecorded, 0);
+      expect(await pc.spacesOf('a'), {'h', 'f'});
+    });
+
+    test('cambiados en las dos a la vez: gana el conjunto más reciente y se '
+        'guarda el otro', () async {
+      await shareInSpaces({'h'});
+      tel.at(5);
+      await tel.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+      pc.at(7);
+      await pc.saveSource('a', title: 'Original');
+
+      tel.at(9);
+      final preview = await tel.previewFrom(pc);
+      final result = await tel.mergeFrom(pc);
+
+      expect(preview.conflicts, 1);
+      expect(result.conflictsRecorded, 1);
+      expect(await tel.spacesOf('a'), isEmpty);
+      final conflict = (await tel.conflicts()).single;
+      expect(conflict.fieldName, EntryField.spaces);
+      expect(conflict.localValue, encodeSpaceIds({'h', 'f'}));
+      expect(conflict.incomingValue, isNull);
+    });
+
+    test('el conflicto guarda los temas de la copia con el identificador de '
+        'acá, aunque allá el mismo tema tenga otro', () async {
+      // pc ya tenía su propio «Historia» cuando recibió «a».
+      await pc.addSpace('sp-pc', 'Historia');
+      await shareInSpaces({'f'});
+      expect(await pc.spacesOf('a'), {'f'});
+      tel.at(5);
+      await tel.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+      pc.at(7);
+      await pc.saveSource('a', title: 'Original', spaceIds: {'sp-pc'});
+
+      tel.at(9);
+      await tel.mergeFrom(pc);
+
+      expect(await tel.spacesOf('a'), {'h'});
+      final conflict = (await tel.conflicts()).single;
+      expect(conflict.localValue, encodeSpaceIds({'h', 'f'}));
+      expect(conflict.incomingValue, encodeSpaceIds({'h'}));
+    });
+
+    test(
+      'fusionar dos veces la misma copia no cambia nada la segunda',
+      () async {
+        await shareInSpaces({'h'});
+        pc.at(5);
+        await pc.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+        tel.at(9);
+        await tel.mergeFrom(pc);
+
+        tel.at(11);
+        final again = await tel.mergeFrom(pc);
+
+        expect(again.changedNothing, isTrue);
+        expect(await tel.spacesOf('a'), {'h', 'f'});
       },
     );
   });
@@ -676,17 +806,19 @@ void main() {
 
   group('atomicidad', () {
     test('si algo falla a la mitad no queda nada escrito', () async {
-      // La copia trae un elemento en un espacio que no existe: una base rota.
+      // La copia trae un elemento en un tema que no existe: una base rota.
       // Y un espacio bueno, que se escribe ANTES de llegar al elemento roto: si
       // no fuera una sola transacción, quedaría.
       await pc.addSpace('sp-nuevo', 'Nuevo');
       await pc.saveSource('bueno');
       await pc.db.customStatement('PRAGMA foreign_keys = OFF');
-      await pc.db.customStatement(
-        '''
+      await pc.db.customStatement('''
         INSERT INTO item (id, title, kind, state, created_at, updated_at,
-                          device_id, space_id)
-        VALUES ('huerfano', 'Roto', 'note', 'inbox', 1, 1, 'pc', 'no-existe')''',
+                          device_id)
+        VALUES ('huerfano', 'Roto', 'note', 'inbox', 1, 1, 'pc')''');
+      await pc.db.customStatement(
+        'INSERT INTO item_spaces (item_id, space_id) '
+        "VALUES ('huerfano', 'no-existe')",
       );
       await tel.saveSource('mio');
       final before = await tel.counts();
@@ -715,6 +847,8 @@ void main() {
       expect(kNoteColumns.toSet(), await columnsOf('note'));
       expect(kSourceColumns.toSet(), await columnsOf('source'));
       expect(kFieldVersionColumns.toSet(), await columnsOf('field_version'));
+      // Y la de los temas de un elemento (F37).
+      expect(kItemSpaceColumns.toSet(), await columnsOf('item_spaces'));
       // Y las de los datos bibliográficos y sus personas (F15).
       expect(kReferenceColumns.toSet(), await columnsOf('source_reference'));
       expect(
@@ -764,7 +898,7 @@ void main() {
         EntryField.title,
         EntryField.subtitle,
         EntryField.notes,
-        EntryField.spaceId,
+        EntryField.spaces,
         EntryField.state,
         EntryField.deletedAt,
         EntryField.noteKind,
@@ -780,8 +914,11 @@ void main() {
       expect(mergeFieldNamed(EntryField.rendition('x')), isNull);
       expect(mergeFieldNamed(EntryField.title)!.table, 'item');
       // Los datos bibliográficos son UN solo campo, aunque vivan en dos tablas.
-      expect(mergeFieldNamed(EntryField.reference)!.isComposite, isTrue);
+      expect(mergeFieldNamed(EntryField.reference)!.isReference, isTrue);
+      // Y los temas de un elemento también, aunque sean varias filas (F37).
+      expect(mergeFieldNamed(EntryField.spaces)!.isSpaces, isTrue);
       expect(kMergeFields.where((f) => f.isComposite).map((f) => f.name), [
+        EntryField.spaces,
         EntryField.reference,
       ]);
     });

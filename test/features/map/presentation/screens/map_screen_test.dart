@@ -341,7 +341,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpaceMany(itemIds: itemIds, spaceId: created.id);
+          .setSpaces(itemIds: itemIds, spaceIds: {created.id});
       return created.id;
     }
 
@@ -652,7 +652,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpaceMany(itemIds: ['s1', 's4'], spaceId: space.id);
+          .setSpaces(itemIds: ['s1', 's4'], spaceIds: {space.id});
       await pump(tester);
       expect(find.widgetWithText(Chip, es.mapItemCount(4)), findsOneWidget);
       final chip = find.byKey(ValueKey('map-filter-space-${space.id}'));

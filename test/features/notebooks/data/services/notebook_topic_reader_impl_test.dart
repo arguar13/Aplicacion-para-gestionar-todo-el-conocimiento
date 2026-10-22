@@ -78,7 +78,7 @@ void main() {
     await organize.createSpace('Vacío');
     for (final id in ['a', 'b', 'c']) {
       await item(id);
-      await library.assignSpace(itemId: id, spaceId: roma.id);
+      await library.setSpaces(itemIds: [id], spaceIds: {roma.id});
     }
     await library.delete('c');
 
@@ -92,6 +92,25 @@ void main() {
         itemCount: 2,
       ),
     ]);
+  });
+
+  test('lo que está en dos temas cuenta en cada uno, y sale entre los títulos '
+      'de los dos (F37)', () async {
+    final roma = (await organize.createSpace('Roma')).getRight().toNullable()!;
+    final arte = (await organize.createSpace('Arte')).getRight().toNullable()!;
+    await item('a');
+    await item('b');
+    await library.setSpaces(itemIds: ['a'], spaceIds: {roma.id, arte.id});
+    await library.setSpaces(itemIds: ['b'], spaceIds: {roma.id});
+
+    final byName = {for (final t in await topics()) t.name: t};
+
+    expect(byName['Roma']!.itemCount, 2);
+    expect(byName['Arte']!.itemCount, 1);
+    expect(
+      await reader.sampleTitles(NotebookSuggestion(topic: byName['Arte']!)),
+      ['Título a'],
+    );
   });
 
   test('una etiqueta cuenta lo suyo y lo de todas sus ramas, sin repetir un '
@@ -124,7 +143,7 @@ void main() {
   test('se actualiza solo cuando entra algo', () async {
     final roma = (await organize.createSpace('Roma')).getRight().toNullable()!;
     await item('a');
-    await library.assignSpace(itemId: 'a', spaceId: roma.id);
+    await library.setSpaces(itemIds: ['a'], spaceIds: {roma.id});
 
     final counts = <int>[];
     final subscription = reader.watchTopics().listen(
@@ -132,7 +151,7 @@ void main() {
     );
     await pumpEventQueue();
     await item('b');
-    await library.assignSpace(itemId: 'b', spaceId: roma.id);
+    await library.setSpaces(itemIds: ['b'], spaceIds: {roma.id});
     await pumpEventQueue();
     await subscription.cancel();
 
@@ -147,7 +166,7 @@ void main() {
       )).getRight().toNullable()!;
       for (var i = 0; i < 5; i++) {
         await item('e$i', createdAt: now.add(Duration(days: i)));
-        await library.assignSpace(itemId: 'e$i', spaceId: roma.id);
+        await library.setSpaces(itemIds: ['e$i'], spaceIds: {roma.id});
       }
       await item('otro');
       final suggestion = NotebookSuggestion(

@@ -11,7 +11,7 @@ import '../../generated_migrations/schema_v39.dart' as v39;
 import '../../support/schema_snapshot.dart';
 
 /// La migración de esquema 39→40: resumen, síntesis y palabras clave
-/// resaltados en el documento (F36, decisión 78). Dos tablas nuevas y vacías
+/// resaltados en el documento (F36, decisión 79). Dos tablas nuevas y vacías
 /// —`study_marks` y `study_analyses`— y una columna en la papelera del
 /// contenido —`content_trash.study_marks`— que en todo lo de antes dice
 /// «nada». Nada más cambia.

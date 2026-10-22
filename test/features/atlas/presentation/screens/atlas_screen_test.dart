@@ -574,7 +574,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpaceMany(itemIds: itemIds, spaceId: created.id);
+          .setSpaces(itemIds: itemIds, spaceIds: {created.id});
       return created.id;
     }
 

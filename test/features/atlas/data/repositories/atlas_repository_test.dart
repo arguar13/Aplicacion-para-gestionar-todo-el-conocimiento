@@ -432,8 +432,7 @@ void main() {
         .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
 
     Future<void> moveTo(String itemId, String spaceId) =>
-        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
-            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+        placeItemRowsInSpace(db, [itemId], spaceId);
 
     Future<AtlasSnapshot> spacesAtlas() =>
         repository.snapshot(kSpacesDimensionId);
@@ -483,6 +482,50 @@ void main() {
       final snapshot = await spacesAtlas();
 
       expect(snapshot.nodeOf('historia')!.itemCount, 0);
+    });
+
+    Future<void> alsoIn(String itemId, String spaceId) => db
+        .into(db.itemSpaces)
+        .insert(ItemSpacesCompanion.insert(itemId: itemId, spaceId: spaceId));
+
+    test('lo que está en dos temas cuenta en cada uno (F37)', () async {
+      await space('historia', 'Historia');
+      await space('arte', 'Arte');
+      await source('s1', const []);
+      await source('s2', const []);
+      await moveTo('s1', 'historia');
+      await alsoIn('s1', 'arte');
+      await moveTo('s2', 'arte');
+
+      final snapshot = await spacesAtlas();
+
+      expect(snapshot.nodeOf('historia')!.sourceCount, 1);
+      expect(snapshot.nodeOf('arte')!.sourceCount, 2);
+    });
+
+    test('una nota mapa en dos temas está en los dos (F37)', () async {
+      await space('historia', 'Historia');
+      await space('arte', 'Arte');
+      await note('m1', NoteKind.map, const []);
+      await moveTo('m1', 'historia');
+      await alsoIn('m1', 'arte');
+
+      final snapshot = await spacesAtlas();
+
+      for (final id in ['historia', 'arte']) {
+        expect([for (final n in snapshot.nodeOf(id)!.mapNotes) n.id], ['m1']);
+      }
+    });
+
+    test('ponerle un tema a un elemento descarta la caché (F37)', () async {
+      await space('historia', 'Historia');
+      await source('s1', const []);
+      expect((await spacesAtlas()).nodeOf('historia')!.sourceCount, 0);
+
+      await moveTo('s1', 'historia');
+
+      expect((await spacesAtlas()).nodeOf('historia')!.sourceCount, 1);
+      expect(repository.computations, 2);
     });
 
     test('crear un tema descarta la caché de los temas', () async {

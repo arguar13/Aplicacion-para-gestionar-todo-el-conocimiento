@@ -790,7 +790,7 @@ void main() {
           value: 'Cuento',
         ),
       );
-      await KnowledgeEntryWriter(vault.db).setSpace(['a'], 'lit');
+      await KnowledgeEntryWriter(vault.db).setSpaces(['a'], {'lit'});
       await KnowledgeEntryWriter(
         vault.db,
       ).setReference('a', const ReferenceData(publisher: 'Alfaguara'));

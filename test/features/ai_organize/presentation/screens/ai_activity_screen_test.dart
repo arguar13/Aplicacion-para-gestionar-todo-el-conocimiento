@@ -1034,8 +1034,7 @@ void main() {
               createdAt: DateTime(2026, 10, 17),
             ),
           );
-      await (db.update(db.knowledgeEntries)..where((e) => e.id.equals('a')))
-          .write(const KnowledgeEntriesCompanion(spaceId: Value('historia')));
+      await placeItemRowsInSpace(db, ['a'], 'historia');
       await db
           .into(db.aiFieldChanges)
           .insert(
@@ -1082,12 +1081,7 @@ void main() {
 
       await tester.tap(find.byKey(Key('ai-correction-accept-${drop.id}')));
       await tester.pumpAndSettle();
-      expect(
-        (await (db.select(
-          db.knowledgeEntries,
-        )..where((e) => e.id.equals('a'))).getSingle()).spaceId,
-        isNull,
-      );
+      expect(await spaceRowsOf(db, 'a'), isEmpty);
     });
 
     testWidgets('un dato de la referencia se llama como en su formulario: el '

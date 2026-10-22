@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -563,7 +564,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(itemId: filosofico.id, spaceId: space.id);
+          .setSpaces(itemIds: [filosofico.id], spaceIds: {space.id});
 
       await pumpLibrary(tester);
       await openFilters(tester);
@@ -618,9 +619,9 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(
-            itemId: items.firstWhere((i) => i.title == title).id,
-            spaceId: space.id,
+          .setSpaces(
+            itemIds: [items.firstWhere((i) => i.title == title).id],
+            spaceIds: {space.id},
           );
     }
 
@@ -1495,7 +1496,7 @@ void main() {
               .getRight()
               .toNullable()!;
       final movedTitles = items
-          .where((i) => i.spaceId != null)
+          .where((i) => i.spaceIds.isNotEmpty)
           .map((i) => i.title)
           .toSet();
       expect(movedTitles, {'Uno', 'Dos'});
@@ -1583,7 +1584,9 @@ void main() {
                   .list(const LibraryQuery()))
               .getRight()
               .toNullable()!;
-      expect(items.firstWhere((i) => i.title == 'Por mover').spaceId, space.id);
+      expect(items.firstWhere((i) => i.title == 'Por mover').spaceIds, {
+        space.id,
+      });
     });
 
     testWidgets('el menú ofrece exportar solo como PDF o Word', (tester) async {
@@ -1706,7 +1709,7 @@ void main() {
       final item = items.firstWhere((i) => i.title.contains('Ya tiene'));
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(itemId: item.id, spaceId: space.id);
+          .setSpaces(itemIds: [item.id], spaceIds: {space.id});
 
       await pumpLibrary(tester);
       await switchView(tester, es.libraryViewKanban);
@@ -1717,6 +1720,88 @@ void main() {
       expect(find.text(es.detailSpaceNone), findsOneWidget);
       expect(find.textContaining('Sin clasificar todavía'), findsOneWidget);
       expect(find.textContaining('Ya tiene espacio'), findsOneWidget);
+    });
+
+    /// Un elemento capturado como [title], puesto en los temas [names], que
+    /// se crean; devuelve su id y los ids de los temas por nombre.
+    Future<(String, Map<String, String>)> itemInSpaces(
+      String title,
+      List<String> names, {
+      List<String> alsoCreate = const [],
+    }) async {
+      await harness.capture(title);
+      final organize = harness.container.read(organizeRepositoryProvider);
+      final ids = {
+        for (final name in [...names, ...alsoCreate])
+          name: (await organize.createSpace(name)).getRight().toNullable()!.id,
+      };
+      final library = harness.container.read(libraryRepositoryProvider);
+      final item = (await library.list(
+        const LibraryQuery(),
+      )).getRight().toNullable()!.single;
+      await library.setSpaces(
+        itemIds: [item.id],
+        spaceIds: {for (final name in names) ids[name]!},
+      );
+      return (item.id, ids);
+    }
+
+    Future<void> wideScreen(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1600, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('un elemento en dos temas está en la columna de cada uno '
+        '(F37)', (tester) async {
+      await wideScreen(tester);
+      await itemInSpaces('En dos temas', ['Filosofía', 'Historia']);
+
+      await pumpLibrary(tester);
+      await switchView(tester, es.libraryViewKanban);
+
+      expect(find.textContaining('En dos temas'), findsNWidgets(2));
+    });
+
+    testWidgets('arrastrarlo de una columna a otra lo saca de esa y lo pone '
+        'en la otra; sus demás temas quedan (F37)', (tester) async {
+      await wideScreen(tester);
+      final (itemId, ids) = await itemInSpaces(
+        'Para mover',
+        ['Filosofía', 'Historia'],
+        alsoCreate: ['Arte'],
+      );
+
+      await pumpLibrary(tester);
+      await switchView(tester, es.libraryViewKanban);
+
+      // La tarjeta de la columna «Filosofía»: la más cerca de su título.
+      final header = tester.getCenter(find.text('Filosofía'));
+      final cards = find.textContaining('Para mover');
+      final card =
+          [
+            for (var i = 0; i < cards.evaluate().length; i++)
+              tester.getCenter(cards.at(i)),
+          ].reduce(
+            (a, b) =>
+                (a.dx - header.dx).abs() < (b.dx - header.dx).abs() ? a : b,
+          );
+      final target = tester.getCenter(find.text('Arte')) + const Offset(0, 150);
+
+      final gesture = await tester.startGesture(card);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+      await gesture.moveTo(target);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final moved =
+          (await harness.container
+                  .read(libraryRepositoryProvider)
+                  .findById(itemId))
+              .getRight()
+              .toNullable()!;
+      expect(moved.spaceIds, {ids['Historia'], ids['Arte']});
     });
 
     testWidgets('la columna de un espacio exporta su bibliografía (F15, D13)', (
@@ -1737,7 +1822,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(itemId: items.single.id, spaceId: space.id);
+          .setSpaces(itemIds: [items.single.id], spaceIds: {space.id});
 
       await pumpLibrary(tester);
       await switchView(tester, es.libraryViewKanban);

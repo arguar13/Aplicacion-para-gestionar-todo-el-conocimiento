@@ -784,37 +784,35 @@ class LibraryRepositoryImpl implements LibraryRepository {
   }
 
   @override
-  Future<Either<Failure, Unit>> assignSpace({
-    required String itemId,
-    required String? spaceId,
+  Future<Either<Failure, Unit>> setSpaces({
+    required List<String> itemIds,
+    required Set<String> spaceIds,
   }) async {
     try {
-      await _writer.setSpace([itemId], spaceId);
+      await _writer.setSpaces(itemIds, spaceIds);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(
-        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.assignSpace'),
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.setSpaces'),
       );
     }
   }
 
   @override
-  Future<Either<Failure, Unit>> assignSpaceMany({
+  Future<Either<Failure, Unit>> addSpaces({
     required List<String> itemIds,
-    required String? spaceId,
+    required Set<String> spaceIds,
   }) async {
     try {
-      // Una sola transacción para todos, y solo los que de verdad cambian de
-      // espacio suben su versión.
-      await _writer.setSpace(itemIds, spaceId);
+      await _writer.addSpaces(itemIds, spaceIds);
       return right(unit);
       // Ver `_unexpected`: un TypeError es Error, no Exception.
       // ignore: avoid_catches_without_on_clauses
     } catch (e, stackTrace) {
       return left(
-        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.assignSpaceMany'),
+        _unexpected(e, stackTrace, 'LibraryRepositoryImpl.addSpaces'),
       );
     }
   }
@@ -1296,6 +1294,8 @@ class LibraryRepositoryImpl implements LibraryRepository {
       );
     }
 
+    final spacesByItem = await _writer.spacesOf(itemIds);
+
     return itemRows.map((row) {
       final source = sourcesById[row.id];
       return KnowledgeItem(
@@ -1310,7 +1310,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         renditions: renditionsByItem[row.id] ?? const [],
         tags: tagsByItem[row.id] ?? const [],
         properties: propertiesByItem[row.id] ?? const [],
-        spaceId: row.spaceId,
+        spaceIds: spacesByItem[row.id] ?? const {},
       );
     }).toList();
   }

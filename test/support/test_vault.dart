@@ -219,6 +219,7 @@ class TestVault {
     String? subtitle,
     String? notes,
     String? spaceId,
+    Set<String> spaceIds = const {},
     String? author,
   }) async {
     String? originalPath;
@@ -232,7 +233,7 @@ class TestVault {
       title: title ?? 'Fuente $id',
       subtitle: subtitle,
       notes: notes,
-      spaceId: spaceId,
+      spaceIds: {?spaceId, ...spaceIds},
       source: Source(
         id: id,
         kind: SourceKind.webPage,
@@ -785,6 +786,10 @@ class TestVault {
       await incoming.dispose();
     }
   }
+
+  /// Los temas en que está el elemento [id] (F37).
+  Future<Set<String>> spacesOf(String id) async =>
+      (await writer.spacesOf([id]))[id] ?? const {};
 
   /// La fila de `item` de [id].
   Future<KnowledgeEntryRow> entry(String id) => (db.select(

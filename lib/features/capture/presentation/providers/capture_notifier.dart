@@ -31,13 +31,13 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
     required String rawInput,
     String? title,
     String? note,
-    String? spaceId,
+    Set<String> spaceIds = const {},
   }) => _save(
     CaptureRequest.text(
       rawInput: rawInput,
       title: title,
       note: note,
-      spaceId: spaceId,
+      spaceIds: spaceIds,
     ),
   );
 
@@ -46,9 +46,14 @@ class CaptureNotifier extends StateNotifier<CaptureState> {
     required CapturedFile file,
     String? title,
     String? note,
-    String? spaceId,
+    Set<String> spaceIds = const {},
   }) => _save(
-    CaptureRequest.file(file: file, title: title, note: note, spaceId: spaceId),
+    CaptureRequest.file(
+      file: file,
+      title: title,
+      note: note,
+      spaceIds: spaceIds,
+    ),
   );
 
   Future<KnowledgeItem?> _save(CaptureRequest request) async {

@@ -189,7 +189,7 @@ class VaultMerger {
     ).apply(texts);
     // Lo que recibió texto de la copia deja de ser «solo el libro».
     await entries.clearOnlyFileWithText();
-    await entries.updateFields(fields);
+    await entries.updateFields(fields, spaces);
     // Cada elemento que cambió, una vez, aunque hayan cambiado un campo y un
     // texto.
     final changedItems = {

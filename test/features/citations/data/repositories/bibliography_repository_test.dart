@@ -57,7 +57,7 @@ void main() {
     KnowledgeItem(
       id: id,
       title: title ?? 'Título $id',
-      spaceId: spaceId,
+      spaceIds: {?spaceId},
       source: Source(
         id: 'src-$id',
         kind: kind,
@@ -340,7 +340,7 @@ void main() {
         await source('fuera');
         await source('borrada', spaceId: 'historia');
         await note('nota');
-        await writer.setSpace(['nota'], 'historia');
+        await writer.setSpaces(['nota'], {'historia'});
         await trash('borrada');
 
         final result = await repository.sourcesOfSpace('historia');

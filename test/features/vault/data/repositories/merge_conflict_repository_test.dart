@@ -95,7 +95,7 @@ void main() {
 
         final conflict = (await pending()).single;
 
-        expect(conflict.fieldName, EntryField.spaceId);
+        expect(conflict.fieldName, EntryField.spaces);
         expect(conflict.local.spaceName, 'Historia');
         expect(conflict.incoming.spaceName, 'Física');
         expect(conflict.incoming.inUse, isTrue);
@@ -257,6 +257,32 @@ void main() {
 
       expect((await tel.entry('a')).title, 'De pc 2');
       expect((await tel.conflicts()).last.resolution, 'useIncoming');
+    });
+
+    test('los temas (F37): conservar los de acá los vuelve a poner todos, '
+        'y la versión en uso se reconoce', () async {
+      await tel.addSpace('h', 'Historia');
+      await tel.addSpace('f', 'Física');
+      await shareItem();
+      tel.at(5);
+      await tel.saveSource('a', title: 'Original', spaceIds: {'h', 'f'});
+      pc.at(7);
+      await pc.saveSource('a', title: 'Original', spaceIds: {'f'});
+      tel.at(9);
+      await tel.mergeFrom(pc);
+      final conflict = (await pending()).single;
+      expect(conflict.fieldName, EntryField.spaces);
+      expect(conflict.local.spaceName, 'Física, Historia');
+      expect(conflict.local.inUse, isFalse);
+      expect(conflict.incoming.spaceName, 'Física');
+      expect(conflict.incoming.inUse, isTrue);
+      expect(await tel.spacesOf('a'), {'f'});
+
+      tel.at(20);
+      await repository.resolve(conflict.id, MergeConflictChoice.keepLocal);
+
+      expect(await tel.spacesOf('a'), {'h', 'f'});
+      expect((await tel.version('a', EntryField.spaces))!.deviceId, 'tel');
     });
 
     test('elegir la que ya está en uso no cambia ningún dato', () async {

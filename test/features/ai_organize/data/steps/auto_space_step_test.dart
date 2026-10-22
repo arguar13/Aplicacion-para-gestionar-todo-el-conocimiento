@@ -42,7 +42,7 @@ void main() {
     expect(report.applied, 1);
     // Los temas que existen, en orden alfabético: nunca uno nuevo.
     expect(asked.single, ['Cocina', 'Historia']);
-    expect((await vault.reload('a')).spaceId, historia);
+    expect((await vault.reload('a')).spaceIds, {historia});
   });
 
   test('deshacer la pasada lo saca del tema, si sigue en el que puso la '
@@ -65,15 +65,15 @@ void main() {
     final undone = (await vault.runs.undoRun(run)).getOrElse((f) => fail('$f'));
 
     expect(undone.spaces, 1);
-    expect((await vault.reload('a')).spaceId, isNull);
+    expect((await vault.reload('a')).spaceIds, isEmpty);
     // Deshacer dos veces no toca nada la segunda, aunque la persona lo
     // vuelva a poner en el mismo tema.
-    await vault.library.assignSpace(itemId: 'a', spaceId: historia);
+    await vault.library.setSpaces(itemIds: ['a'], spaceIds: {historia});
     expect(
       (await vault.runs.undoRun(run)).getOrElse((f) => fail('$f')).spaces,
       0,
     );
-    expect((await vault.reload('a')).spaceId, historia);
+    expect((await vault.reload('a')).spaceIds, {historia});
   });
 
   test('si la persona lo movió después, deshacer no lo toca', () async {
@@ -84,7 +84,7 @@ void main() {
     await step.organize(item, runId: run);
     await vault.runs.finishRun(run);
 
-    await vault.library.assignSpace(itemId: 'a', spaceId: cocina);
+    await vault.library.setSpaces(itemIds: ['a'], spaceIds: {cocina});
     final listed = (await vault.runs.listRuns(
       itemId: 'a',
     )).getOrElse((f) => fail('$f')).single;
@@ -97,7 +97,29 @@ void main() {
     )).getOrElse((f) => fail('$f'));
 
     expect(undone.spaces, 0);
-    expect((await vault.reload('a')).spaceId, cocina);
+    expect((await vault.reload('a')).spaceIds, {cocina});
+  });
+
+  test('si la persona le sumó otro tema después, deshacer saca solo el que '
+      'puso la IA (F37)', () async {
+    final item = await vault.source('a', title: 'Roma', content: 'Roma.');
+    final cocina = (await vault.organize.watchAllSpaces().first).first.id;
+    answer = const SpaceChoice(index: 1, certainty: AiCertainty.high);
+    final run = await vault.startRun('a');
+    await step.organize(item, runId: run);
+    await vault.runs.finishRun(run);
+
+    await vault.library.addSpaces(itemIds: ['a'], spaceIds: {cocina});
+    final listed = (await vault.runs.listRuns(
+      itemId: 'a',
+    )).getOrElse((f) => fail('$f')).single;
+    // El de la IA sigue en pie: sigue siendo suyo.
+    expect(listed.remaining.spaces, 1);
+
+    final undone = (await vault.runs.undoRun(run)).getOrElse((f) => fail('$f'));
+
+    expect(undone.spaces, 1);
+    expect((await vault.reload('a')).spaceIds, {cocina});
   });
 
   test('con certeza media, o sin tema, no lo mueve', () async {
@@ -113,14 +135,14 @@ void main() {
         AiStepReport.nothing,
       );
     }
-    expect((await vault.reload('a')).spaceId, isNull);
+    expect((await vault.reload('a')).spaceIds, isEmpty);
   });
 
   test(
     'lo que ya tiene tema, o una biblioteca sin temas, ni se pregunta',
     () async {
       await vault.source('a', title: 'Roma', content: 'Roma.');
-      await vault.library.assignSpace(itemId: 'a', spaceId: historia);
+      await vault.library.setSpaces(itemIds: ['a'], spaceIds: {historia});
       answer = const SpaceChoice(index: 0, certainty: AiCertainty.high);
 
       await step.organize(
@@ -129,7 +151,7 @@ void main() {
       );
 
       expect(asked, isEmpty);
-      expect((await vault.reload('a')).spaceId, historia);
+      expect((await vault.reload('a')).spaceIds, {historia});
     },
   );
 
@@ -141,7 +163,7 @@ void main() {
       step = AutoSpaceStep(
         chooser:
             ({required itemTitle, required excerpt, required spaces}) async {
-              await vault.library.assignSpace(itemId: 'a', spaceId: cocina);
+              await vault.library.setSpaces(itemIds: ['a'], spaceIds: {cocina});
               return const SpaceChoice(index: 1, certainty: AiCertainty.high);
             },
         organize: vault.organize,
@@ -152,7 +174,7 @@ void main() {
         await step.organize(item, runId: await vault.startRun('a')),
         AiStepReport.nothing,
       );
-      expect((await vault.reload('a')).spaceId, cocina);
+      expect((await vault.reload('a')).spaceIds, {cocina});
     },
   );
 

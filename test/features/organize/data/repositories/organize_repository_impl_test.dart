@@ -383,9 +383,9 @@ void main() {
             'Efímero',
           )).getRight().toNullable()!;
           final item = await seedItem();
-          await libraryRepository.assignSpace(
-            itemId: item.id,
-            spaceId: space.id,
+          await libraryRepository.setSpaces(
+            itemIds: [item.id],
+            spaceIds: {space.id},
           );
 
           await repository.deleteSpace(space.id);
@@ -393,7 +393,7 @@ void main() {
           final reloaded = (await libraryRepository.findById(
             item.id,
           )).getRight().toNullable()!;
-          expect(reloaded.spaceId, isNull);
+          expect(reloaded.spaceIds, isEmpty);
         },
       );
 

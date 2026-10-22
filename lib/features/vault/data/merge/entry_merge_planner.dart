@@ -2,6 +2,7 @@ import 'package:meta/meta.dart';
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/incoming_vault.dart';
+import 'package:sinapsis/features/vault/data/merge/item_spaces_merge.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_conflict_log.dart';
 import 'package:sinapsis/features/vault/data/merge/merge_fields.dart';
 import 'package:sinapsis/features/vault/data/merge/reference_merge.dart';
@@ -95,12 +96,18 @@ class EntryMergePlanner {
   }) async {
     final byItem = <String, List<FieldChange>>{};
     for (final field in kMergeFields) {
-      // Un campo compuesto —los datos bibliográficos— no es una columna: se
-      // compara y se lee de otra manera, pero entra en la misma decisión, y por
-      // eso cuenta para lo que un borrado no debe esconder.
-      final changes = field.isComposite
-          ? await ReferenceMergePlanner(_db).differing(field)
-          : await _differing(field, spaces);
+      // Un campo compuesto —los datos bibliográficos, los temas— no es una
+      // columna: se compara y se lee de otra manera, pero entra en la misma
+      // decisión, y por eso cuenta para lo que un borrado no debe esconder.
+      final changes = switch (field.kind) {
+        MergeFieldKind.column => await _differing(field),
+        MergeFieldKind.reference => await ReferenceMergePlanner(
+          _db,
+        ).differing(field),
+        MergeFieldKind.spaces => await ItemSpacesMergePlanner(
+          _db,
+        ).differing(field, spaces),
+      };
       for (final change in changes) {
         (byItem[change.itemId] ??= []).add(change);
       }
@@ -120,10 +127,7 @@ class EntryMergePlanner {
 
   /// Los campos de [field] que las dos bóvedas tienen distintos en los
   /// elementos comunes, ya decididos.
-  Future<List<FieldChange>> _differing(
-    MergeField field,
-    SpaceMerge spaces,
-  ) async {
+  Future<List<FieldChange>> _differing(MergeField field) async {
     final table = field.table;
     // `item` ES el elemento; `note` y `source` cuelgan de él.
     final local = table == 'item' ? 'm' : 'lt';
@@ -151,12 +155,11 @@ class EntryMergePlanner {
     final changes = <FieldChange>[];
     for (final row in rows) {
       final localValue = row.read<String?>('local_value');
-      var incomingValue = row.read<String?>('incoming_value');
-      // El espacio de la copia, con el nombre que tiene acá.
-      if (field.isSpace) incomingValue = spaces.localIdOf(incomingValue);
-      final differ = localValue != incomingValue;
-
-      final decision = StampRows.decide(row, valuesDiffer: differ);
+      final incomingValue = row.read<String?>('incoming_value');
+      final decision = StampRows.decide(
+        row,
+        valuesDiffer: localValue != incomingValue,
+      );
       if (decision == FieldDecision.same) continue;
 
       changes.add(

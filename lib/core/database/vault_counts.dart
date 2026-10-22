@@ -101,6 +101,11 @@ class VaultCounts {
   /// corrían.
   static const studyTables = <String>['study_marks', 'study_analyses'];
 
+  /// En qué temas está cada elemento (F37, v41). Aparte por lo mismo que las
+  /// anteriores: los pasos hasta v41 cuentan las otras listas, y esta tabla
+  /// todavía no existía cuando corrían.
+  static const itemSpaceTables = <String>['item_spaces'];
+
   /// Filas por tabla.
   final Map<String, int> rows;
 

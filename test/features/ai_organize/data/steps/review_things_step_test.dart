@@ -223,7 +223,7 @@ void main() {
       (link.kind, link.note),
       (RelationKind.contradicts, 'Dicen lo contrario.'),
     );
-    expect((await vault.reload('a')).spaceId, 'lit');
+    expect((await vault.reload('a')).spaceIds, {'lit'});
     expect((await ReferenceReader(vault.db).read('a')).publisher, isNull);
     expect(
       [for (final tag in (await vault.reload('a')).tags) tag.name],

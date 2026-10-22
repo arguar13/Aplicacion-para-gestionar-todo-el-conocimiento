@@ -13,6 +13,7 @@ import 'package:sinapsis/core/telemetry/telemetry_service.dart';
 import 'package:sinapsis/features/library/data/repositories/library_repository_impl.dart';
 
 import '../../../../support/in_memory_file_store.dart';
+import '../../../../support/item_rows.dart';
 
 class _MockTelemetryService extends Mock implements TelemetryService {}
 
@@ -229,21 +230,21 @@ void main() {
       await repository.save(item());
       tick();
 
-      await repository.assignSpace(itemId: 'art', spaceId: 'esp');
+      await repository.setSpaces(itemIds: ['art'], spaceIds: {'esp'});
 
-      expect((await entry()).spaceId, 'esp');
+      expect(await spaceRowsOf(db, 'art'), {'esp'});
       expect((await entry()).rev, 2);
       expect((await entry()).deviceId, me);
-      expect((await versions())[EntryField.spaceId]!.updatedAt, clockNow);
+      expect((await versions())[EntryField.spaces]!.updatedAt, clockNow);
     });
 
     test('mandarlo al espacio en el que ya está no cambia nada', () async {
       await createSpace('esp');
       await repository.save(item());
-      await repository.assignSpace(itemId: 'art', spaceId: 'esp');
+      await repository.setSpaces(itemIds: ['art'], spaceIds: {'esp'});
       tick();
 
-      await repository.assignSpace(itemId: 'art', spaceId: 'esp');
+      await repository.setSpaces(itemIds: ['art'], spaceIds: {'esp'});
 
       expect((await entry()).rev, 2);
     });
@@ -253,10 +254,10 @@ void main() {
       await repository.save(item());
       tick();
 
-      await repository.assignSpaceMany(itemIds: ['art'], spaceId: 'esp');
+      await repository.setSpaces(itemIds: ['art'], spaceIds: {'esp'});
 
       expect((await entry()).rev, 2);
-      expect((await versions())[EntryField.spaceId]!.updatedAt, clockNow);
+      expect((await versions())[EntryField.spaces]!.updatedAt, clockNow);
     });
   });
 }

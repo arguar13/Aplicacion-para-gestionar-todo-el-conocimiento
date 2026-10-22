@@ -782,9 +782,9 @@ void main() {
       await repository.save(b);
       await repository.save(c);
 
-      final result = await repository.assignSpaceMany(
+      final result = await repository.setSpaces(
         itemIds: ['item-a', 'item-b'],
-        spaceId: 'space-1',
+        spaceIds: {'space-1'},
       );
 
       expect(result.isRight(), isTrue);
@@ -797,21 +797,21 @@ void main() {
       final foundC = (await repository.findById(
         'item-c',
       )).getRight().toNullable();
-      expect(foundA!.spaceId, 'space-1');
-      expect(foundB!.spaceId, 'space-1');
-      expect(foundC!.spaceId, isNull);
+      expect(foundA!.spaceIds, {'space-1'});
+      expect(foundB!.spaceIds, {'space-1'});
+      expect(foundC!.spaceIds, isEmpty);
     });
 
     test('con spaceId nulo, deja a todos sin clasificar', () async {
       await createSpace('space-1', 'Filosofía');
       final a = buildItem(id: 'item-a');
       final b = buildItem(id: 'item-b');
-      await repository.save(a.copyWith(spaceId: 'space-1'));
-      await repository.save(b.copyWith(spaceId: 'space-1'));
+      await repository.save(a.copyWith(spaceIds: {'space-1'}));
+      await repository.save(b.copyWith(spaceIds: {'space-1'}));
 
-      await repository.assignSpaceMany(
+      await repository.setSpaces(
         itemIds: ['item-a', 'item-b'],
-        spaceId: null,
+        spaceIds: const {},
       );
 
       final foundA = (await repository.findById(
@@ -820,8 +820,77 @@ void main() {
       final foundB = (await repository.findById(
         'item-b',
       )).getRight().toNullable();
-      expect(foundA!.spaceId, isNull);
-      expect(foundB!.spaceId, isNull);
+      expect(foundA!.spaceIds, isEmpty);
+      expect(foundB!.spaceIds, isEmpty);
+    });
+  });
+
+  group('varios temas (F37)', () {
+    Future<void> createSpaces() async {
+      for (final (id, name) in [('filo', 'Filosofía'), ('hist', 'Historia')]) {
+        await db
+            .into(db.spaces)
+            .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
+      }
+    }
+
+    Future<Set<String>> spacesOf(String id) async =>
+        (await repository.findById(id)).getRight().toNullable()!.spaceIds;
+
+    Future<List<String>> idsOf(LibraryQuery query) async => [
+      for (final item in (await repository.list(
+        query,
+      )).getRight().toNullable()!)
+        item.id,
+    ];
+
+    test('se guardan todos, y guardar con menos saca los que faltan', () async {
+      await createSpaces();
+      final a = buildItem(id: 'item-a');
+      await repository.save(a.copyWith(spaceIds: {'filo', 'hist'}));
+      expect(await spacesOf('item-a'), {'filo', 'hist'});
+
+      await repository.save(a.copyWith(spaceIds: {'hist'}));
+      expect(await spacesOf('item-a'), {'hist'});
+    });
+
+    test('el filtro por tema muestra al que está en varios en cada uno, una '
+        'sola vez', () async {
+      await createSpaces();
+      await repository.save(
+        buildItem(id: 'item-ambos').copyWith(spaceIds: {'filo', 'hist'}),
+      );
+      await repository.save(
+        buildItem(id: 'item-hist').copyWith(spaceIds: {'hist'}),
+      );
+      await repository.save(buildItem(id: 'item-ninguno'));
+
+      expect(await idsOf(const LibraryQuery(spaceId: 'filo')), ['item-ambos']);
+      expect(
+        await idsOf(const LibraryQuery(spaceId: 'hist')),
+        unorderedEquals(['item-ambos', 'item-hist']),
+      );
+      expect(
+        await idsOf(const LibraryQuery()),
+        unorderedEquals(['item-ambos', 'item-hist', 'item-ninguno']),
+      );
+    });
+
+    test('sumar temas a varios les deja los que ya tenían', () async {
+      await createSpaces();
+      await repository.save(
+        buildItem(id: 'item-a').copyWith(spaceIds: {'filo'}),
+      );
+      await repository.save(buildItem(id: 'item-b'));
+
+      final result = await repository.addSpaces(
+        itemIds: ['item-a', 'item-b'],
+        spaceIds: {'hist'},
+      );
+
+      expect(result.isRight(), isTrue);
+      expect(await spacesOf('item-a'), {'filo', 'hist'});
+      expect(await spacesOf('item-b'), {'hist'});
     });
   });
 
@@ -1739,15 +1808,15 @@ void main() {
           title: Value('Título de ahora'),
           subtitle: Value('Un subtítulo'),
           notes: Value('Una nota mía'),
-          spaceId: Value('sp'),
         ),
       );
+      await placeItemRowsInSpace(db, [saved.id], 'sp');
 
       final read = await found(saved.id);
       expect(read.title, 'Título de ahora');
       expect(read.subtitle, 'Un subtítulo');
       expect(read.notes, 'Una nota mía');
-      expect(read.spaceId, 'sp');
+      expect(read.spaceIds, {'sp'});
     });
 
     test(
@@ -1877,13 +1946,10 @@ void main() {
               SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
             );
 
-        await repository.assignSpace(itemId: item.id, spaceId: 'sp');
+        await repository.setSpaces(itemIds: [item.id], spaceIds: {'sp'});
 
-        final entry = await (db.select(
-          db.knowledgeEntries,
-        )..where((e) => e.id.equals(item.id))).getSingle();
-        expect(entry.spaceId, 'sp');
-        expect((await found(item.id)).spaceId, 'sp');
+        expect(await spaceRowsOf(db, item.id), {'sp'});
+        expect((await found(item.id)).spaceIds, {'sp'});
       },
     );
 
@@ -1898,10 +1964,10 @@ void main() {
             SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
           );
 
-      await repository.assignSpaceMany(itemIds: [a.id, b.id], spaceId: 'sp');
+      await repository.setSpaces(itemIds: [a.id, b.id], spaceIds: {'sp'});
 
-      final entries = await db.select(db.knowledgeEntries).get();
-      expect(entries.map((e) => e.spaceId), ['sp', 'sp']);
+      expect(await spaceRowsOf(db, a.id), {'sp'});
+      expect(await spaceRowsOf(db, b.id), {'sp'});
     });
 
     test('guardar espeja las notas libres del elemento', () async {
@@ -1953,7 +2019,7 @@ void main() {
           .insert(
             SpacesCompanion.insert(id: 'sp', name: 'Un tema', createdAt: now),
           );
-      await repository.assignSpace(itemId: 'item-una', spaceId: 'sp');
+      await repository.setSpaces(itemIds: ['item-una'], spaceIds: {'sp'});
 
       await repository.delete('item-una');
       await repository.purge(['item-una']);

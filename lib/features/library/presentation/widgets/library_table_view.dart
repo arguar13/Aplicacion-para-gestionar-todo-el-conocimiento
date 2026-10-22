@@ -100,7 +100,7 @@ class LibraryTableView extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  DataCell(Text(spaceNames[item.spaceId] ?? '—')),
+                  DataCell(Text(_spaceNamesOf(item, spaceNames))),
                   DataCell(
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 200),
@@ -121,4 +121,13 @@ class LibraryTableView extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Los temas de [item] por su nombre, en orden alfabético (F37: puede tener
+/// varios), o una raya si no tiene ninguno.
+String _spaceNamesOf(KnowledgeItem item, Map<String, String> spaceNames) {
+  final names = [
+    for (final id in item.spaceIds) ?spaceNames[id],
+  ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return names.isEmpty ? '—' : names.join(', ');
 }

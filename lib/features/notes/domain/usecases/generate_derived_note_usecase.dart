@@ -218,7 +218,7 @@ class GenerateDerivedNoteUseCase
       processingState: ProcessingState.ready,
       createdAt: now,
       updatedAt: now,
-      spaceId: joinsByTopic ? joinQuery.spaceId : null,
+      spaceIds: {if (joinsByTopic) ?joinQuery.spaceId},
       tags: joinsByTopic ? await _tagsOf(joinQuery.tagIds) : const [],
       renditions: [
         Rendition.text(

@@ -43,7 +43,9 @@ sealed class MergeConflictVersion with _$MergeConflictVersion {
     /// `publishedAt`).
     DateTime? date,
 
-    /// El nombre del espacio, si el campo es un espacio.
+    /// Los nombres de los temas, en orden y separados por coma, si el campo
+    /// son los temas (F37: pueden ser varios). `null` si la versión no tiene
+    /// ninguno que siga existiendo.
     String? spaceName,
 
     /// Cuánto texto tiene, en un conflicto de texto: el fragmento de [text]

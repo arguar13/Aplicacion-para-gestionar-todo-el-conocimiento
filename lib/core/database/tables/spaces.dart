@@ -6,10 +6,8 @@ import 'package:drift/drift.dart';
 /// Es una tabla aparte y no una columna de texto libre en `item` porque el
 /// nombre tiene que poder cambiarse en un solo lugar y reflejarse en todos los
 /// elementos que lo usan, y dos espacios con el mismo nombre competirían por
-/// agrupar lo mismo. La diferencia con un valor de propiedad es que un
-/// elemento pertenece a lo sumo a un espacio —es una carpeta, no una marca—,
-/// así que no hace falta una tabla de unión: alcanza con una columna nullable
-/// en `item`.
+/// agrupar lo mismo. Un elemento puede estar en varios (F37): la pertenencia
+/// vive en `item_spaces`.
 @DataClassName('SpaceRow')
 class Spaces extends Table {
   TextColumn get id => text()();

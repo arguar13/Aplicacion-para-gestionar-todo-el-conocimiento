@@ -342,24 +342,24 @@ void main() {
     test('item recibe los índices de items que las consultas usan', () async {
       final db = await migrateFrom18(seed: seedVault);
 
-      final indexes = {
+      Future<Set<String>> indexesOf(String table) async => {
         for (final r
             in await db
                 .customSelect(
                   "SELECT name FROM sqlite_master WHERE type = 'index' "
-                  "AND tbl_name = 'item'",
+                  'AND tbl_name = ?',
+                  variables: [Variable<String>(table)],
                 )
                 .get())
           r.read<String>('name'),
       };
 
       expect(
-        indexes,
-        containsAll([
-          'idx_knowledge_entries_space',
-          'idx_knowledge_entries_updated_at',
-        ]),
+        await indexesOf('item'),
+        contains('idx_knowledge_entries_updated_at'),
       );
+      // El del tema se fue con la columna a item_spaces (v41, F37).
+      expect(await indexesOf('item_spaces'), contains('idx_item_spaces_space'));
     });
 
     test('no queda ninguna clave que apunte a algo que no existe', () async {

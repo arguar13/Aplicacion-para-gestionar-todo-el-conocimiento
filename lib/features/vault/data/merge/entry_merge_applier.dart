@@ -16,7 +16,6 @@ const kItemColumns = [
   'title',
   'subtitle',
   'notes',
-  'space_id',
   'kind',
   'state',
   'created_at',
@@ -55,6 +54,10 @@ const kSourceColumns = [
   'processing_error',
   'processing_attempts',
 ];
+
+/// Las de los temas de un elemento (F37): el tema se traduce al
+/// identificador de acá ([SpaceMerge]).
+const kItemSpaceColumns = ['item_id', 'space_id'];
 const kFieldVersionColumns = [
   'item_id',
   'field_name',
@@ -94,8 +97,9 @@ const kContributorColumns = [
 /// campos y los espacios (F11).
 ///
 /// Es, junto a `KnowledgeEntryWriter`, el único lugar que escribe `item`,
-/// `note`, `source` y —desde F15— `source_reference` y `source_contributor`
-/// —el test de censo lo lista con su motivo—, y escribe
+/// `note`, `source`, —desde F15— `source_reference` y `source_contributor`
+/// y —desde F37— `item_spaces` —el test de censo lo lista con su motivo—, y
+/// escribe
 /// distinto a propósito: `KnowledgeEntryWriter` registra una modificación
 /// NUESTRA (pone el dispositivo de acá y una versión nueva); esto aplica
 /// versiones que YA traen su linaje, y pasarlas por el escritor les cambiaría
@@ -154,23 +158,13 @@ class EntryMergeApplier {
             .read<int>('n');
     if (count == 0) return 0;
 
-    // El espacio de la copia con el identificador de acá. Con la copia sin
-    // nada que traducir, el identificador se copia tal cual.
-    final remap = spaces.remap.entries.toList();
-    final space = remap.isEmpty
-        ? 'x.space_id'
-        : 'CASE x.space_id '
-              '${List.filled(remap.length, 'WHEN ? THEN ?').join(' ')} '
-              'ELSE x.space_id END';
-    await _db.customStatement(
-      '''
+    await _db.customStatement('''
       INSERT INTO main.item (${kItemColumns.join(', ')})
-      SELECT ${kItemColumns.map((c) => c == 'space_id' ? space : 'x.$c').join(', ')}
-        FROM $_incoming.item x JOIN $_newItems n ON n.id = x.id''',
-      [
-        for (final entry in remap) ...[entry.key, entry.value],
-      ],
-    );
+      SELECT ${kItemColumns.map((c) => 'x.$c').join(', ')}
+        FROM $_incoming.item x JOIN $_newItems n ON n.id = x.id''');
+    // Sus temas (F37), con el identificador de acá: los espacios de la copia
+    // ya se crearon ([addSpaces]).
+    await _copySpaces('x.item_id IN (SELECT id FROM $_newItems)', spaces);
 
     await _copyByItem('note', kNoteColumns, 'item_id');
     await _copyByItem('source', kSourceColumns, 'item_id');
@@ -188,9 +182,25 @@ class EntryMergeApplier {
     SELECT ${columns.map((c) => 'x.$c').join(', ')}
       FROM $_incoming.$table x JOIN $_newItems n ON n.id = x.$itemColumn''');
 
+  /// Copia los temas de la copia de los elementos que [condition] elige, con
+  /// el identificador de acá ([SpaceMerge]). Dos temas de la copia que acá son
+  /// uno entran una vez.
+  Future<void> _copySpaces(
+    String condition,
+    SpaceMerge spaces, [
+    List<String> args = const [],
+  ]) => _db.customStatement(
+    '''
+    INSERT OR IGNORE INTO main.item_spaces (${kItemSpaceColumns.join(', ')})
+    SELECT x.item_id, ${spaces.localIdSql('x.space_id')}
+      FROM $_incoming.item_spaces x
+     WHERE $condition''',
+    [...spaces.localIdArgs, ...args],
+  );
+
   /// Pone en los elementos de acá el valor de la copia en cada campo que ganó,
   /// junto con su versión. No sube el `rev`: ver [bumpItems].
-  Future<void> updateFields(EntryMergePlan plan) async {
+  Future<void> updateFields(EntryMergePlan plan, SpaceMerge spaces) async {
     final byField = <MergeField, List<FieldChange>>{};
     for (final change in plan.updates) {
       (byField[change.field] ??= []).add(change);
@@ -199,21 +209,19 @@ class EntryMergeApplier {
     for (final MapEntry(key: field, value: changes) in byField.entries) {
       // Los datos bibliográficos se escriben después del vocabulario: ver
       // [updateReferences].
-      if (field.isComposite) continue;
-      if (field.isSpace) {
-        // Ya traducido a los identificadores de acá: se escribe por valor.
-        final byValue = <String?, List<String>>{};
-        for (final change in changes) {
-          (byValue[change.incomingValue] ??= []).add(change.itemId);
-        }
-        for (final MapEntry(key: value, value: ids) in byValue.entries) {
-          await _forChunks(ids, (marks, chunk) {
-            return _db.customStatement(
-              'UPDATE main.item SET ${field.column} = ? WHERE id IN ($marks)',
-              [value, ...chunk],
-            );
-          });
-        }
+      if (field.isReference) continue;
+      if (field.isSpaces) {
+        // El conjunto de la copia reemplaza entero al de acá (F37).
+        await _forChunks([for (final c in changes) c.itemId], (
+          marks,
+          chunk,
+        ) async {
+          await _db.customStatement(
+            'DELETE FROM main.item_spaces WHERE item_id IN ($marks)',
+            chunk,
+          );
+          await _copySpaces('x.item_id IN ($marks)', spaces, chunk);
+        });
       } else {
         if (field.name == EntryField.originalBlobPath) {
           await _trashReplacedFiles([for (final c in changes) c.itemId]);
@@ -301,7 +309,7 @@ class EntryMergeApplier {
   Future<void> updateReferences(EntryMergePlan plan) async {
     final ids = [
       for (final change in plan.updates)
-        if (change.field.isComposite) change.itemId,
+        if (change.field.isReference) change.itemId,
     ];
     if (ids.isEmpty) return;
 

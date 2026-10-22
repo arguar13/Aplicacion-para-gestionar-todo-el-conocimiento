@@ -433,10 +433,13 @@ class AiRunRepositoryImpl implements AiRunRepository {
   ].join(', ');
 
   /// Si el registro `c` de `ai_field_changes` sigue con lo que puso su
-  /// pasada: el tema del elemento `i`, o el dato de texto de la referencia
-  /// `sr`.
+  /// pasada: el elemento `i` sigue en el tema que le puso (F37: puede tener
+  /// otros), o el dato de texto de la referencia `sr` sigue igual.
   static String _stillFilledSql() => [
-    "(c.field = '${AiChangedField.space.name}' AND i.space_id = c.after_value)",
+    """
+(c.field = '${AiChangedField.space.name}' AND EXISTS (
+   SELECT 1 FROM item_spaces s
+    WHERE s.item_id = i.id AND s.space_id = c.after_value))""",
     for (final MapEntry(key: field, value: column) in _referenceColumns.entries)
       "(c.field = '${field.name}' AND sr.$column = c.after_value)",
   ].join('\n OR ');
@@ -473,6 +476,7 @@ class AiRunRepositoryImpl implements AiRunRepository {
 
   /// Lo que leen [aiWorkByModel] y [reviewCandidates].
   Set<ResultSetImplementation<dynamic, dynamic>> get _reviewTables => {
+    _db.itemSpaces,
     _db.flashcards,
     _db.relations,
     _db.itemPropertyValues,

@@ -11,8 +11,10 @@ List<TableInfo<dynamic, dynamic>> atlasTables(AppDatabase db) => [
   db.itemPropertyValues,
   db.knowledgeEntries,
   db.knowledgeNotes,
-  // Los temas (F28): crear, renombrar o borrar uno cambia su Atlas.
+  // Los temas (F28): crear, renombrar o borrar uno cambia su Atlas, y poner o
+  // sacar uno de un elemento (F37) también.
   db.spaces,
+  db.itemSpaces,
 ];
 
 /// El separador de los valores dentro de `value_ids`: el «separador de
@@ -46,11 +48,14 @@ final atlasItemsSql = _atlasItemsSql(
   datesCategory: '?2',
 );
 
-/// Lo mismo que [atlasItemsSql] cuando el Atlas mira los temas (F28): el
-/// «valor» de cada elemento es su espacio, uno o ninguno. Variable: `?1` el
-/// nombre de la categoría de fechas del hecho.
+/// Lo mismo que [atlasItemsSql] cuando el Atlas mira los temas (F28): los
+/// «valores» de cada elemento son sus temas, ninguno, uno o varios (F37).
+/// Variable: `?1` el nombre de la categoría de fechas del hecho.
 final atlasSpaceItemsSql = _atlasItemsSql(
-  valueIds: 'item.space_id',
+  valueIds: '''
+(SELECT group_concat(s.space_id, char(31))
+          FROM item_spaces s
+         WHERE s.item_id = item.id)''',
   datesCategory: '?1',
 );
 
@@ -113,17 +118,17 @@ WHERE note.note_kind = 'map'
 ''';
 
 /// Las notas mapa vivas que están en un tema —un espacio— (F28): una fila por
-/// nota, con su espacio como «valor». Se parte de las notas mapa, como en
-/// [atlasMapNotesSql], y cada una va a su elemento por la clave. `'map'` es
-/// `NoteKind.map.name`.
+/// cada tema de cada nota (F37), con el tema como «valor». Se parte de las
+/// notas mapa, como en [atlasMapNotesSql], y cada una va a su elemento y a sus
+/// temas por la clave. `'map'` es `NoteKind.map.name`.
 const atlasSpaceMapNotesSql =
     '''
 SELECT item.id AS note_id,
        item.title AS title,
-       item.space_id AS value_id
+       s.space_id AS value_id
 FROM note
 CROSS JOIN item ON item.id = note.item_id
+CROSS JOIN item_spaces s ON s.item_id = item.id
 WHERE note.note_kind = 'map'
-  AND item.space_id IS NOT NULL
   AND $kActiveItemSql
 ''';

@@ -262,11 +262,11 @@ void main() {
       final result = await captureItem(
         const CaptureRequest.text(
           rawInput: 'https://ejemplo.org/roma',
-          spaceId: 'tema-historia',
+          spaceIds: {'tema-historia'},
         ),
       );
 
-      expect(result.getRight().toNullable()!.spaceId, 'tema-historia');
+      expect(result.getRight().toNullable()!.spaceIds, {'tema-historia'});
       final inSpace = (await repository.list(
         const LibraryQuery(spaceId: 'tema-historia'),
       )).getRight().toNullable()!;
@@ -288,11 +288,11 @@ void main() {
             name: 'capitulo.pdf',
             bytes: Uint8List.fromList(utf8.encode('%PDF-1.7 el contenido')),
           ),
-          spaceId: 'tema-tesis',
+          spaceIds: {'tema-tesis'},
         ),
       );
 
-      expect(result.getRight().toNullable()!.spaceId, 'tema-tesis');
+      expect(result.getRight().toNullable()!.spaceIds, {'tema-tesis'});
     });
 
     test('sin tema, queda sin clasificar', () async {
@@ -300,7 +300,7 @@ void main() {
         const CaptureRequest.text(rawInput: 'una nota suelta'),
       );
 
-      expect(result.getRight().toNullable()!.spaceId, isNull);
+      expect(result.getRight().toNullable()!.spaceIds, isEmpty);
     });
 
     test('un tema que ya no existe no deja nada guardado a medias', () async {
@@ -309,7 +309,7 @@ void main() {
       final result = await captureItem(
         const CaptureRequest.text(
           rawInput: 'algo para un tema borrado',
-          spaceId: 'tema-que-no-existe',
+          spaceIds: {'tema-que-no-existe'},
         ),
       );
 

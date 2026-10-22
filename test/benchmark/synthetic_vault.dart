@@ -345,6 +345,7 @@ class _VaultBuilder {
       _spaces = _Buffer(db, db.spaces),
       _renditions = _Buffer(db, db.renditions),
       _entries = _Buffer(db, db.knowledgeEntries),
+      _itemSpaces = _Buffer(db, db.itemSpaces),
       _knowledgeSources = _Buffer(db, db.knowledgeSources),
       _knowledgeNotes = _Buffer(db, db.knowledgeNotes),
       _chunks = _Buffer(db, db.chunks),
@@ -367,6 +368,7 @@ class _VaultBuilder {
   final _Buffer<SpaceRow> _spaces;
   final _Buffer<RenditionRow> _renditions;
   final _Buffer<KnowledgeEntryRow> _entries;
+  final _Buffer<ItemSpaceRow> _itemSpaces;
   final _Buffer<KnowledgeSourceRow> _knowledgeSources;
   final _Buffer<KnowledgeNoteRow> _knowledgeNotes;
   final _Buffer<ChunkRow> _chunks;
@@ -501,6 +503,7 @@ class _VaultBuilder {
     // `item`, no de `items`.
     for (final (name, buffer) in [
       ('item', _entries),
+      ('item_spaces', _itemSpaces),
       ('source', _knowledgeSources),
       ('note', _knowledgeNotes),
       ('renditions', _renditions),
@@ -828,9 +831,11 @@ class _VaultBuilder {
         createdAt: createdAt,
         updatedAt: updatedAt,
         deviceId: kMirrorDeviceIdPlaceholder,
-        spaceId: Value(spaceId),
       ),
     );
+    if (spaceId != null) {
+      _itemSpaces.add(ItemSpacesCompanion.insert(itemId: id, spaceId: spaceId));
+    }
     if (isNote) {
       _knowledgeNotes.add(
         KnowledgeNotesCompanion.insert(

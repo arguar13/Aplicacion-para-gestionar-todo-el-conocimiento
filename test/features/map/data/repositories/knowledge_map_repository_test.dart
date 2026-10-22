@@ -813,8 +813,7 @@ void main() {
         .insert(SpacesCompanion.insert(id: id, name: name, createdAt: now));
 
     Future<void> moveTo(String itemId, String spaceId) =>
-        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
-            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+        placeItemRowsInSpace(db, [itemId], spaceId);
 
     test('cada espacio es un tema sin padre; lo que está en dos temas '
         'vinculados los une, y lo que no está en ninguno se cuenta '
@@ -876,6 +875,33 @@ void main() {
 
       expect({for (final i in items.items) i.id}, {'a', 'm'});
       expect([for (final n in notes) n.target.id], ['m']);
+    });
+
+    test('lo que está en dos temas cuenta en cada uno y es elemento de los '
+        'dos (F37)', () async {
+      await space('historia', 'Historia');
+      await space('arte', 'Arte');
+      await source('a', const []);
+      await source('b', const []);
+      await moveTo('a', 'historia');
+      await db
+          .into(db.itemSpaces)
+          .insert(ItemSpacesCompanion.insert(itemId: 'a', spaceId: 'arte'));
+      await moveTo('b', 'arte');
+
+      final input = await repository.readTopicInput(kSpacesDimensionId);
+      final g = buildTopicGraph(input);
+
+      expect(g.nodes[g.indexOf('historia')!].itemCount, 1);
+      expect(g.nodes[g.indexOf('arte')!].itemCount, 2);
+      expect(input.unassignedItemIds, isEmpty);
+      for (final topic in ['historia', 'arte']) {
+        final items = await repository.readTopicItems(
+          topic,
+          dimensionId: kSpacesDimensionId,
+        );
+        expect({for (final i in items.items) i.id}, contains('a'));
+      }
     });
   });
 
@@ -943,6 +969,24 @@ void main() {
       );
 
       expect(changed, isTrue);
+    });
+
+    test('avisan al ponerle o sacarle un tema a un elemento (F37)', () async {
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(id: 'sp', name: 'Espacio', createdAt: now),
+          );
+      await source('s1', const []);
+
+      expect(
+        await notifies(() => placeItemRowsInSpace(db, ['s1'], 'sp')),
+        isTrue,
+      );
+      expect(
+        await notifies(() => placeItemRowsInSpace(db, ['s1'], null)),
+        isTrue,
+      );
     });
 
     test('con un filtro, también avisan por lo que el filtro mira', () async {
@@ -1152,7 +1196,8 @@ void main() {
     });
 
     test('los elementos y las notas mapa de un tema se buscan por el índice '
-        'del espacio, sin recorrer la bóveda (F28)', () async {
+        'del espacio —en item_spaces desde F37—, sin recorrer la bóveda '
+        '(F28)', () async {
       for (final sql in [mapSpaceTopicItemsSql, mapSpaceNotesSql]) {
         final plan = await planOf(sql, [
           Variable.withString('historia'),
@@ -1166,7 +1211,7 @@ void main() {
           reason: reason,
         );
         expect(
-          plan.where((line) => line.contains('idx_knowledge_entries_space')),
+          plan.where((line) => line.contains('idx_item_spaces_space')),
           hasLength(1),
           reason: reason,
         );

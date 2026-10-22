@@ -297,7 +297,7 @@ String conflictFieldLabel(AppLocalizations l10n, MergeConflict conflict) {
     EntryField.title => l10n.conflictsFieldTitle,
     EntryField.subtitle => l10n.conflictsFieldSubtitle,
     EntryField.notes => l10n.conflictsFieldNotes,
-    EntryField.spaceId => l10n.conflictsFieldSpace,
+    EntryField.spaces => l10n.conflictsFieldSpace,
     EntryField.state => l10n.conflictsFieldState,
     EntryField.deletedAt => l10n.conflictsFieldDeleted,
     EntryField.noteKind => l10n.conflictsFieldNoteKind,
@@ -338,8 +338,8 @@ String conflictVersionText(
     case EntryField.publishedAt:
       final date = version.date;
       return date == null ? l10n.conflictsEmptyValue : _date(date);
-    case EntryField.spaceId:
-      return version.spaceName ?? raw ?? l10n.conflictsEmptyValue;
+    case EntryField.spaces:
+      return version.spaceName ?? l10n.conflictsEmptyValue;
     case EntryField.state:
       return switch (ItemState.values.asNameMap()[raw]) {
         ItemState.captured => l10n.conflictsStateCaptured,

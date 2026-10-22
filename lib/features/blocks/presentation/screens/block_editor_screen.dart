@@ -460,7 +460,7 @@ class _BlockEditorScreenState extends ConsumerState<BlockEditorScreen> {
             renditions: [blocksRendition],
             // En el mismo guardado que la nota, como en la captura: o queda
             // con su tema, o no queda nada.
-            spaceId: _spaceId,
+            spaceIds: {?_spaceId},
           )
         : existing.copyWith(
             title: title.isEmpty ? l10n.blocksUntitled : title,

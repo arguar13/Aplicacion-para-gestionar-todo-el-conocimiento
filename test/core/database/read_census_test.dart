@@ -43,6 +43,10 @@ void main() {
         'rehace los chunks y los enlaces de lo que la fusión marcó, esté vivo '
         'o en la papelera: lo derivado de un elemento borrado se conserva '
         'coherente con su texto para cuando se restaure',
+    'lib/features/vault/data/merge/item_spaces_merge.dart':
+        'decide sobre los temas de TODOS los elementos que las dos bóvedas '
+        'tienen, también los de la papelera: un elemento borrado conserva '
+        'sus temas y lo que le llega de la copia (F37)',
     'lib/features/vault/data/merge/merge_gates.dart':
         'las guardas miran `item` solo para saber si una forma de texto es de '
         'una fuente; no leen ningún elemento para mostrarlo',

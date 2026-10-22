@@ -1485,9 +1485,7 @@ void main() {
       return (run: run, change: change.id);
     }
 
-    Future<String?> spaceOfA() async => (await (db.select(
-      db.knowledgeEntries,
-    )..where((e) => e.id.equals('a'))).getSingle()).spaceId;
+    Future<Set<String>> spacesOfA() => spaceRowsOf(db, 'a');
 
     Future<CorrectionSuggestion> proposeSpace(
       String change,
@@ -1522,10 +1520,59 @@ void main() {
         await suggestions.accept(correction.id),
         right<Failure, Unit>(unit),
       );
-      expect(await spaceOfA(), 'arte');
+      expect(await spacesOfA(), {'arte'});
 
       await runs.undoRun(made.run);
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
+    });
+
+    test('corregirlo cambia solo el de la IA: el tema que sumó la persona '
+        'queda al aceptar, al deshacer la revisión y al deshacer la pasada '
+        '(F37)', () async {
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(
+              id: 'ciencia',
+              name: 'Ciencia',
+              createdAt: now,
+            ),
+          );
+      final made = await aiSpace();
+      await writer.addSpaces(['a'], {'ciencia'});
+      final run = await reviewRun();
+      final correction = await proposeSpace(made.change, run);
+
+      expect(
+        await suggestions.accept(correction.id),
+        right<Failure, Unit>(unit),
+      );
+      expect(await spacesOfA(), {'ciencia', 'arte'});
+
+      await runs.undoRun(run);
+      expect(await spacesOfA(), {'ciencia', 'historia'});
+
+      await runs.undoRun(made.run);
+      expect(await spacesOfA(), {'ciencia'});
+    });
+
+    test('sacarlo saca solo el de la IA (F37)', () async {
+      await db
+          .into(db.spaces)
+          .insert(
+            SpacesCompanion.insert(
+              id: 'ciencia',
+              name: 'Ciencia',
+              createdAt: now,
+            ),
+          );
+      final made = await aiSpace();
+      await writer.addSpaces(['a'], {'ciencia'});
+      await suggestions.accept(
+        (await proposeSpace(made.change, await reviewRun(), after: null)).id,
+      );
+
+      expect(await spacesOfA(), {'ciencia'});
     });
 
     test('no lo pone en un tema que no existe ni en el mismo, ni en uno que '
@@ -1546,27 +1593,27 @@ void main() {
       }
       final stale = await proposeSpace(made.change, run, before: 'arte');
       expect(await suggestions.accept(stale.id), isA<Left<Failure, Unit>>());
-      expect(await spaceOfA(), 'historia');
+      expect(await spacesOfA(), {'historia'});
     });
 
     test('no toca el tema que la persona cambió', () async {
       final made = await aiSpace();
       final correction = await proposeSpace(made.change, await reviewRun());
-      await writer.setSpace(['a'], null);
+      await writer.setSpaces(['a'], const {});
 
       expect(await stillApplicableCorrections(db, [correction]), isEmpty);
       expect(
         await suggestions.accept(correction.id),
         isA<Left<Failure, Unit>>(),
       );
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
     });
 
     test(
       'ni el que la persona eligió, aunque sea el que vio el modelo',
       () async {
         final made = await aiSpace();
-        await writer.setSpace(['a'], 'arte');
+        await writer.setSpaces(['a'], {'arte'});
         // Lo que vio el modelo es lo de hoy, pero ya no es lo que puso la IA.
         final correction = await proposeSpace(
           made.change,
@@ -1583,7 +1630,7 @@ void main() {
           await suggestions.accept(correction.id),
           isA<Left<Failure, Unit>>(),
         );
-        expect(await spaceOfA(), 'arte');
+        expect(await spacesOfA(), {'arte'});
       },
     );
 
@@ -1591,13 +1638,13 @@ void main() {
       final made = await aiSpace();
       final correction = await proposeSpace(made.change, await reviewRun());
       await runs.undoRun(made.run);
-      await writer.setSpace(['a'], 'historia');
+      await writer.setSpaces(['a'], {'historia'});
 
       expect(
         await suggestions.accept(correction.id),
         isA<Left<Failure, Unit>>(),
       );
-      expect(await spaceOfA(), 'historia');
+      expect(await spacesOfA(), {'historia'});
     });
 
     test('sacarlo lo deja sin tema; deshacer la revisión lo vuelve a poner, y '
@@ -1607,15 +1654,15 @@ void main() {
       final correction = await proposeSpace(made.change, run, after: null);
 
       await suggestions.accept(correction.id);
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
 
       expect(
         await runs.undoRun(run),
         right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
       );
-      expect(await spaceOfA(), 'historia');
+      expect(await spacesOfA(), {'historia'});
       await runs.undoRun(made.run);
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
     });
 
     test('deshacer la revisión que lo corrigió lo devuelve al de antes, y la '
@@ -1629,27 +1676,43 @@ void main() {
         await runs.undoRun(run),
         right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
       );
-      expect(await spaceOfA(), 'historia');
+      expect(await spacesOfA(), {'historia'});
       expect(await statusOf(correction.id), SuggestionStatus.rejected);
 
       await runs.undoRun(made.run);
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
     });
 
-    test('deshacer no pisa el tema que la persona eligió después de sacarlo, '
-        'ni devuelve el de una pasada deshecha', () async {
+    test('deshacer devuelve el sacado junto al tema que la persona sumó '
+        'después, sin pisarlo (F37)', () async {
       final made = await aiSpace();
       final run = await reviewRun();
       await suggestions.accept(
         (await proposeSpace(made.change, run, after: null)).id,
       );
-      await writer.setSpace(['a'], 'arte');
+      await writer.setSpaces(['a'], {'arte'});
+
+      expect(
+        await runs.undoRun(run),
+        right<Failure, AiRunTally>(const AiRunTally(corrections: 1)),
+      );
+      expect(await spacesOfA(), {'arte', 'historia'});
+    });
+
+    test('si la persona lo volvió a poner, deshacer no tiene nada que '
+        'devolver', () async {
+      final made = await aiSpace();
+      final run = await reviewRun();
+      await suggestions.accept(
+        (await proposeSpace(made.change, run, after: null)).id,
+      );
+      await writer.setSpaces(['a'], {'historia', 'arte'});
 
       expect(
         await runs.undoRun(run),
         right<Failure, AiRunTally>(const AiRunTally()),
       );
-      expect(await spaceOfA(), 'arte');
+      expect(await spacesOfA(), {'historia', 'arte'});
     });
 
     test('el sacado no vuelve si la pasada que lo puso se deshizo', () async {
@@ -1664,7 +1727,7 @@ void main() {
         await runs.undoRun(run),
         right<Failure, AiRunTally>(const AiRunTally()),
       );
-      expect(await spaceOfA(), isNull);
+      expect(await spacesOfA(), isEmpty);
     });
 
     test(
@@ -1677,7 +1740,7 @@ void main() {
         addTearDown(queue.cancel);
 
         expect((await queue.next).single.corrections, hasLength(1));
-        await writer.setSpace(['a'], 'arte');
+        await writer.setSpaces(['a'], {'arte'});
         expect(await queue.next, isEmpty);
       },
     );
@@ -1692,7 +1755,7 @@ void main() {
         run: (created: 1, remaining: 1),
       });
 
-      await writer.setSpace(['a'], 'historia');
+      await writer.setSpaces(['a'], {'historia'});
       expect(await aiCorrectionCounts(db, [run]), {
         run: (created: 1, remaining: 0),
       });

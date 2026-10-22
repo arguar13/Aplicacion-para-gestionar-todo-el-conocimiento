@@ -97,4 +97,45 @@
 
 ## Avance
 
-Todavía nada: empieza al cerrar F36.
+### Pasos 1 y 2 (hechos, en un solo commit)
+
+Van juntos porque sacar la columna `item.space_id` rompe a la vez todo lo que la escribía y todo lo
+que la leía: no hay un estado intermedio que compile.
+
+- **Esquema v41** (`item_spaces.dart`): la tabla elemento–tema, con clave `(item_id, space_id)`,
+  borrado en cascada con el elemento y con el tema, e índice por tema. La migración:
+  - copia el tema de cada elemento; uno que apuntaba a un tema que ya no existe queda sin tema;
+  - reconstruye `item` sin la columna;
+  - comprueba que el índice de texto `item_search` siga con las mismas filas y que sus triggers
+    sigan andando.
+  - Prueba: `migration_v41_test.dart`, con los conteos de todo lo demás como compuerta.
+- **`KnowledgeEntryWriter`**:
+  - `setSpaces`, `addSpaces`, `removeSpaces` y `spacesOf`;
+  - el conjunto es un solo campo con su versión (`EntryField.spaces`): un cambio es una versión, y
+    el mismo conjunto en otro orden no es cambio;
+  - `setFieldFromText` lee el JSON de un conflicto, y también el tema solo que guardaba uno de antes.
+- **Unión de bóvedas** (decisión D): `ItemSpacesMergePlanner` compara los dos conjuntos ya
+  traducidos al identificador de acá (`SpaceMerge.localIdSql`) y decide con `StampRows`, como
+  cualquier campo. Si gana la copia, su conjunto reemplaza entero al de acá. Un elemento nuevo llega
+  en todos sus temas. Un conflicto muestra los nombres de los temas de cada lado.
+- **Fusión de duplicados**: el que queda suma los temas del descartado.
+- **IA**:
+  - «Elegir el tema» solo actúa sobre lo que no tiene ninguno;
+  - deshacer la pasada saca solo el tema que puso;
+  - corregir o sacar ese tema no toca los que puso la persona;
+  - deshacer una revisión que lo sacó lo devuelve, junto a los que la persona haya sumado.
+- **Lectura**:
+  - Biblioteca: filtro, tarjeta, tabla y tablero. En el tablero, el elemento va en la columna de
+    cada tema, y arrastrarlo lo saca de la columna de donde salió y conserva los otros.
+  - Atlas, Mapa y cuadernos: un elemento cuenta en cada uno de sus temas, y `item_spaces` está
+    entre lo que avisa cambios.
+  - La línea de tiempo, el repaso por tema y la bibliografía pasan por el mismo filtro de la
+    Biblioteca.
+- Pruebas: suite entera 8.559 (78 omitidas), con las nuevas de cada pieza. Mutación: 19/19.
+  - Dos mutantes vivieron en la primera vuelta y mostraron huecos en las pruebas:
+    - un conflicto sobre un tema que en cada bóveda tiene otro identificador;
+    - el mismo conjunto en el orden en que no lo devuelve la base.
+  - Las dos pruebas se reforzaron y los mataron.
+- Al pasar a varios temas, deshacer una revisión que sacó el tema de la IA lo devuelve, aunque la
+  persona haya sumado otro después. Antes no lo devolvía, porque con un tema solo, sumar otro era
+  reemplazar el de la IA.

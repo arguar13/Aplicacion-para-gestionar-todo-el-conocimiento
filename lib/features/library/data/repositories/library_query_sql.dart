@@ -235,7 +235,11 @@ class LibraryQuerySql {
       _args.addAll(others.map((s) => Variable.withString(s.name)));
     }
     if (query.spaceId != null) {
-      _where.add('item.space_id = ?');
+      // Uno de sus temas (F37): un elemento en varios aparece en cada uno.
+      _where.add(
+        'EXISTS (SELECT 1 FROM item_spaces s '
+        'WHERE s.item_id = item.id AND s.space_id = ?)',
+      );
       _args.add(Variable.withString(query.spaceId!));
     }
     final ids = query.ids;

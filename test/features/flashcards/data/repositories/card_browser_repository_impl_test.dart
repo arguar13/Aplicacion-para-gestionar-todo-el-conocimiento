@@ -240,9 +240,7 @@ void main() {
                 createdAt: now,
               ),
             );
-        await (h.db.update(h.db.knowledgeEntries)
-              ..where((e) => e.id.isIn(['roma', 'grecia'])))
-            .write(const KnowledgeEntriesCompanion(spaceId: Value('hist')));
+        await placeItemRowsInSpace(h.db, ['roma', 'grecia'], 'hist');
         final book = await h.notebooks.create(
           name: 'Para el examen',
           mode: NotebookMode.manual,

@@ -1377,30 +1377,39 @@ class _PropertyTarget extends _ListableTarget {
 }
 
 /// El tema que la IA le puso a un elemento, como está hoy: lo que recuerda
-/// su pasada y el tema que tiene el elemento.
+/// su pasada y los temas que tiene el elemento.
 class _PlacedSpace {
   const _PlacedSpace({
     required this.change,
     required this.itemId,
     required this.runUndone,
-    required this.spaceId,
+    required this.spaceIds,
   });
 
   final AiFieldChangeRow change;
   final String itemId;
   final bool runUndone;
 
-  /// El tema de hoy; `null` si no tiene.
-  final String? spaceId;
+  /// Los temas de hoy (F37: puede tener varios).
+  final Set<String> spaceIds;
+
+  /// El que puso la pasada —o el que quedó al corregirlo—, si el elemento
+  /// sigue en él.
+  String? get placed {
+    final id = change.afterValue;
+    return spaceIds.contains(id) ? id : null;
+  }
 }
 
 /// El tema de la biblioteca que puso la IA (`AiFieldChanges` con
 /// `AiChangedField.space`): se corrige por otro que exista, o se saca.
 ///
-/// Corregirlo actualiza también lo que la pasada recuerda haber puesto
-/// (`after_value`): así sigue siendo de la IA, y deshacer esa pasada devuelve
-/// el elemento sin tema, como estaba antes de ella. Sacarlo lo deja sin tema y
-/// no toca ese registro: la pasada ya no tiene nada en pie.
+/// Corregirlo cambia ese tema por otro, y actualiza también lo que la pasada
+/// recuerda haber puesto (`after_value`): así sigue siendo de la IA, y
+/// deshacer esa pasada le saca ese tema, como estaba antes de ella. Sacarlo le
+/// saca ese tema y no toca ese registro: la pasada ya no tiene nada en pie.
+/// Los otros temas del elemento —los que puso la persona (F37)— no se tocan
+/// nunca.
 class _SpaceTarget extends _ListableTarget {
   const _SpaceTarget();
 
@@ -1422,7 +1431,7 @@ class _SpaceTarget extends _ListableTarget {
     required String itemId,
   }) async {
     final placed = row as _PlacedSpace;
-    final spaceId = placed.spaceId;
+    final spaceId = placed.placed;
     if (spaceId == null) return null;
     final spaces =
         await (db.select(db.spaces)
@@ -1478,13 +1487,17 @@ class _SpaceTarget extends _ListableTarget {
           db.aiFieldChanges.id.isIn(ids) &
               db.aiFieldChanges.field.equalsValue(AiChangedField.space),
         );
+    final joined = await query.get();
+    final spaces = await KnowledgeEntryWriter(db).spacesOf([
+      for (final row in joined) row.readTable(db.knowledgeEntries).id,
+    ]);
     return {
-      for (final joined in await query.get())
-        joined.readTable(db.aiFieldChanges).id: _PlacedSpace(
-          change: joined.readTable(db.aiFieldChanges),
-          itemId: joined.readTable(db.knowledgeEntries).id,
-          runUndone: joined.readTable(db.aiRuns).undoneAt != null,
-          spaceId: joined.readTable(db.knowledgeEntries).spaceId,
+      for (final row in joined)
+        row.readTable(db.aiFieldChanges).id: _PlacedSpace(
+          change: row.readTable(db.aiFieldChanges),
+          itemId: row.readTable(db.knowledgeEntries).id,
+          runUndone: row.readTable(db.aiRuns).undoneAt != null,
+          spaceIds: spaces[row.readTable(db.knowledgeEntries).id] ?? const {},
         ),
     };
   }
@@ -1492,16 +1505,17 @@ class _SpaceTarget extends _ListableTarget {
   @override
   bool isAi(Object row) {
     final placed = row as _PlacedSpace;
-    return !placed.runUndone && placed.spaceId == placed.change.afterValue;
+    return !placed.runUndone && placed.placed != null;
   }
 
   @override
   bool isRemoved(Object? current) =>
-      current is _PlacedSpace && current.spaceId == null;
+      current is _PlacedSpace && current.placed == null;
 
   @override
-  bool matches(Object row, Map<String, String> fields) =>
-      ((row as _PlacedSpace).spaceId ?? '') == fields[SpaceCorrectionField.id];
+  bool matches(Object row, Map<String, String> fields) => (row as _PlacedSpace)
+      .spaceIds
+      .contains(fields[SpaceCorrectionField.id]);
 
   @override
   Future<Either<Failure, Map<String, Object>>> apply(
@@ -1526,12 +1540,16 @@ class _SpaceTarget extends _ListableTarget {
           ),
         );
       }
-      if (space.id == placed.spaceId) {
+      final was = placed.placed;
+      if (space.id == was) {
         return left(
           const Failure.validation(message: 'La corrección no cambia nada.'),
         );
       }
-      await writer.setSpace([placed.itemId], space.id);
+      await writer.setSpaces([placed.itemId], {
+        ...placed.spaceIds.difference({?was}),
+        space.id,
+      });
       await _rememberPlaced(db, placed.change, space.id);
       return right({
         _afterKey: {
@@ -1541,11 +1559,12 @@ class _SpaceTarget extends _ListableTarget {
       });
     }
 
-    await writer.setSpace([placed.itemId], null);
+    final was = placed.placed!;
+    await writer.removeSpaces([placed.itemId], {was});
     return right({
       _removedKey: {
         _itemIdKey: placed.itemId,
-        _spaceIdKey: placed.spaceId!,
+        _spaceIdKey: was,
         _aiRunIdKey: placed.change.aiRunId,
       },
     });
@@ -1564,10 +1583,11 @@ class _SpaceTarget extends _ListableTarget {
       db.spaces,
     )..where((s) => s.id.equals(spaceId))).getSingleOrNull();
     if (space == null) return false;
-    await KnowledgeEntryWriter(
-      db,
-      clock: () => now,
-    ).setSpace([placed.itemId], spaceId);
+    // El corregido sale y vuelve el de antes; los demás temas quedan.
+    await KnowledgeEntryWriter(db, clock: () => now).setSpaces(
+      [placed.itemId],
+      {...placed.spaceIds.difference({?placed.placed}), spaceId},
+    );
     await _rememberPlaced(db, placed.change, spaceId);
     return true;
   }
@@ -1586,7 +1606,7 @@ class _SpaceTarget extends _ListableTarget {
     await KnowledgeEntryWriter(
       db,
       clock: () => now,
-    ).setSpace([removed[_itemIdKey] as String], spaceId);
+    ).addSpaces([removed[_itemIdKey] as String], {spaceId});
     return true;
   }
 

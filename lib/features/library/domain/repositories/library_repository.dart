@@ -135,26 +135,29 @@ abstract interface class LibraryRepository {
   /// nuevo cada vez que algo entra o sale.
   Stream<List<TrashedItem>> watchTrash();
 
-  /// Mueve un elemento a [spaceId], o lo deja sin clasificar si es `null`.
+  /// Pone a [itemIds] exactamente en los temas [spaceIds] (F37): uno o
+  /// varios; vacío los deja sin tema.
   ///
-  /// Aparte de [save] a propósito: mover de carpeta no debería tocar ni
-  /// releer las formas ni las etiquetas del elemento, que es lo que hace
-  /// `save` al sincronizarlas — acá alcanza con una sola columna.
-  Future<Either<Failure, Unit>> assignSpace({
-    required String itemId,
-    required String? spaceId,
+  /// Aparte de [save] a propósito: cambiar de tema no debería tocar ni releer
+  /// las formas ni las etiquetas del elemento, que es lo que hace `save` al
+  /// sincronizarlas. Una sola transacción para todos, y solo los que de verdad
+  /// cambian suben su versión.
+  Future<Either<Failure, Unit>> setSpaces({
+    required List<String> itemIds,
+    required Set<String> spaceIds,
   });
 
-  /// Lo mismo que [assignSpace], para varios elementos de una sola vez.
-  Future<Either<Failure, Unit>> assignSpaceMany({
+  /// Suma los temas [spaceIds] a los que ya tienen [itemIds], sin sacarles
+  /// ninguno.
+  Future<Either<Failure, Unit>> addSpaces({
     required List<String> itemIds,
-    required String? spaceId,
+    required Set<String> spaceIds,
   });
 
   /// Corre [body] entero dentro de UNA sola transacción.
   ///
   /// Para quien guarda muchos elementos con lógica propia entre cada uno
-  /// —a diferencia de [deleteMany]/[restoreMany]/[assignSpaceMany], que ya
+  /// —a diferencia de [deleteMany]/[restoreMany]/[setSpaces], que ya
   /// saben qué hacer con cada uno—, como importar miles de referencias de un
   /// `.bib` (F15): sin esto, cada [save] de adentro abre y cierra su propia
   /// transacción, y miles de confirmaciones sueltas pesan mucho más que la

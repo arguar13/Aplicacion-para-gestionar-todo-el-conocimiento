@@ -10,7 +10,7 @@ import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions
 
 /// [NotebookTopicReader] contra `AppDatabase` (F30).
 ///
-/// - **Temas**: cuántos elementos vivos tiene cada espacio (`item.space_id`).
+/// - **Temas**: cuántos elementos vivos tiene cada espacio (`item_spaces`).
 /// - **Etiquetas**: los valores de la categoría de sistema, cada uno con lo
 ///   asignado a él y a todo lo que cuelga de él (`VocabularyTree`): lo mismo
 ///   que trae filtrar por la etiqueta en la Biblioteca. Se arma en una pasada
@@ -31,6 +31,7 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
     db: _db,
     tables: [
       _db.spaces,
+      _db.itemSpaces,
       _db.propertyValues,
       _db.itemPropertyValues,
       _db.knowledgeEntries,
@@ -46,16 +47,23 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
   ];
 
   Future<List<NotebookTopic>> _spaces() async {
-    final entries = _db.knowledgeEntries;
-    final count = entries.id.count();
+    // Un elemento en varios temas cuenta en cada uno (F37).
+    final memberships = _db.itemSpaces;
+    final count = memberships.itemId.count();
     final rows =
-        await (_db.selectOnly(entries)
-              ..addColumns([entries.spaceId, count])
-              ..where(entries.isActive & entries.spaceId.isNotNull())
-              ..groupBy([entries.spaceId]))
+        await (_db.selectOnly(memberships).join([
+                innerJoin(
+                  _db.knowledgeEntries,
+                  _db.knowledgeEntries.id.equalsExp(memberships.itemId),
+                  useColumns: false,
+                ),
+              ])
+              ..addColumns([memberships.spaceId, count])
+              ..where(_db.knowledgeEntries.isActive)
+              ..groupBy([memberships.spaceId]))
             .get();
     final counts = {
-      for (final row in rows) row.read(entries.spaceId)!: row.read(count)!,
+      for (final row in rows) row.read(memberships.spaceId)!: row.read(count)!,
     };
     return [
       for (final space in await _db.select(_db.spaces).get())
@@ -135,7 +143,8 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
   }) async {
     final topic = suggestion.topic;
     final inTopic = switch (topic.kind) {
-      NotebookTopicKind.space => 'i.space_id = ?',
+      NotebookTopicKind.space =>
+        'i.id IN (SELECT item_id FROM item_spaces WHERE space_id = ?)',
       NotebookTopicKind.tag =>
         'i.id IN (SELECT item_id FROM item_property_values '
             'WHERE property_value_id IN (${valuesWithDescendantsSql(1)}))',
@@ -148,6 +157,7 @@ class NotebookTopicReaderImpl implements NotebookTopicReader {
           variables: [Variable.withString(topic.id), Variable.withInt(limit)],
           readsFrom: {
             _db.knowledgeEntries,
+            _db.itemSpaces,
             _db.itemPropertyValues,
             _db.propertyValues,
           },

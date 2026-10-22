@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:sinapsis/core/database/app_database.dart';
 import 'package:sinapsis/core/database/bulk_write_scope.dart';
 import 'package:sinapsis/core/database/entry_fields.dart';
@@ -129,7 +130,7 @@ class KnowledgeEntryWriter {
   /// Escribe el elemento [item]: la fila de `item` y, según sea, su `source` o
   /// su `note`. Lo único que se escribe del elemento en sí.
   ///
-  /// `title`/`subtitle`/`notes`/`spaceId`/`updatedAt` y los campos
+  /// `title`/`subtitle`/`notes`/los temas/`updatedAt` y los campos
   /// estructurales de `source` se sobreescriben siempre: son un reflejo directo
   /// de [item]. `state` —y, para una nota, `noteKind`/`maturity`, y
   /// `contentHash` de una fuente— se preservan si ya existían: los escribe otra
@@ -153,6 +154,11 @@ class KnowledgeEntryWriter {
         _db.knowledgeSources,
       )..where((s) => s.itemId.equals(item.id))).getSingleOrNull();
 
+      final existingSpaces = existing == null
+          ? const <String>{}
+          : (await _spacesOf([item.id]))[item.id] ?? const <String>{};
+      final spacesChanged = !_sameSpaces(existingSpaces, item.spaceIds);
+
       final kind = itemKindFor(item.source.kind);
       final state = nextMirrorState(
         current: existing?.state,
@@ -166,7 +172,7 @@ class KnowledgeEntryWriter {
         if (existing?.title != item.title) EntryField.title,
         if (existing?.subtitle != item.subtitle) EntryField.subtitle,
         if (existing?.notes != item.notes) EntryField.notes,
-        if (existing?.spaceId != item.spaceId) EntryField.spaceId,
+        if (spacesChanged) EntryField.spaces,
         if (existing?.state != state) EntryField.state,
         ..._changedSourceFields(item, existingSource),
         for (final id in changedRenditions) EntryField.rendition(id),
@@ -181,7 +187,6 @@ class KnowledgeEntryWriter {
                 title: item.title,
                 subtitle: Value(item.subtitle),
                 notes: Value(item.notes),
-                spaceId: Value(item.spaceId),
                 kind: kind,
                 state: state,
                 createdAt: item.createdAt,
@@ -197,7 +202,6 @@ class KnowledgeEntryWriter {
             title: Value(item.title),
             subtitle: Value(item.subtitle),
             notes: Value(item.notes),
-            spaceId: Value(item.spaceId),
             kind: Value(kind),
             state: Value(state),
             createdAt: Value(item.createdAt),
@@ -212,6 +216,9 @@ class KnowledgeEntryWriter {
       }
 
       await _writeTypedRow(item, kind, existingSource);
+      if (spacesChanged) {
+        await _replaceSpaces(item.id, existingSpaces, item.spaceIds);
+      }
       for (final field in changed) {
         await _touch(item.id, field, now);
       }
@@ -537,9 +544,30 @@ class KnowledgeEntryWriter {
     }
   }
 
-  /// Cambia el espacio de [itemIds]. Solo los que de verdad lo cambian suben su
-  /// `rev` y registran la versión.
-  Future<void> setSpace(Iterable<String> itemIds, String? spaceId) async {
+  /// Pone a [itemIds] exactamente en los temas [spaceIds] (F37): los que
+  /// tenían y no están en [spaceIds] se sacan. Vacío es «sin tema».
+  ///
+  /// Como en [addSpaces] y [removeSpaces], solo los que de verdad cambian
+  /// suben su `rev` y registran la versión del campo [EntryField.spaces].
+  Future<void> setSpaces(Iterable<String> itemIds, Set<String> spaceIds) =>
+      _changeSpaces(itemIds, (_) => spaceIds);
+
+  /// Suma los temas [spaceIds] a los que ya tienen [itemIds].
+  Future<void> addSpaces(Iterable<String> itemIds, Set<String> spaceIds) =>
+      _changeSpaces(itemIds, (current) => {...current, ...spaceIds});
+
+  /// Saca los temas [spaceIds] de [itemIds]; los demás quedan.
+  Future<void> removeSpaces(Iterable<String> itemIds, Set<String> spaceIds) =>
+      _changeSpaces(itemIds, (current) => current.difference(spaceIds));
+
+  /// Los temas de cada uno de [itemIds] que tiene alguno.
+  Future<Map<String, Set<String>>> spacesOf(Iterable<String> itemIds) =>
+      _spacesOf(itemIds.toSet().toList());
+
+  Future<void> _changeSpaces(
+    Iterable<String> itemIds,
+    Set<String> Function(Set<String> current) next,
+  ) async {
     final ids = itemIds.toSet().toList();
     if (ids.isEmpty) return;
     await _db.transaction(() async {
@@ -549,20 +577,56 @@ class KnowledgeEntryWriter {
         final rows = await (_db.select(
           _db.knowledgeEntries,
         )..where((e) => e.id.isIn(slice))).get();
-        final changing = [
-          for (final row in rows)
-            if (row.spaceId != spaceId) row,
-        ];
-        for (final row in changing) {
-          await _writeEntry(
-            row,
-            KnowledgeEntriesCompanion(spaceId: Value(spaceId)),
-          );
-          await _touch(row.id, EntryField.spaceId, now);
+        final current = await _spacesOf(slice);
+        for (final row in rows) {
+          final before = current[row.id] ?? const <String>{};
+          final after = next(before);
+          if (_sameSpaces(before, after)) continue;
+          await _replaceSpaces(row.id, before, after);
+          await _writeEntry(row, const KnowledgeEntriesCompanion());
+          await _touch(row.id, EntryField.spaces, now);
         }
       }
     });
   }
+
+  Future<Map<String, Set<String>>> _spacesOf(List<String> itemIds) async {
+    final spaces = <String, Set<String>>{};
+    for (var start = 0; start < itemIds.length; start += _idsPerQuery) {
+      final slice = itemIds.skip(start).take(_idsPerQuery).toList();
+      for (final row in await (_db.select(
+        _db.itemSpaces,
+      )..where((s) => s.itemId.isIn(slice))).get()) {
+        (spaces[row.itemId] ??= {}).add(row.spaceId);
+      }
+    }
+    return spaces;
+  }
+
+  /// Deja a [itemId] en [after], sabiendo que estaba en [before]: saca lo que
+  /// sobra y pone lo que falta, sin tocar lo que queda.
+  Future<void> _replaceSpaces(
+    String itemId,
+    Set<String> before,
+    Set<String> after,
+  ) async {
+    final gone = before.difference(after);
+    if (gone.isNotEmpty) {
+      await (_db.delete(_db.itemSpaces)..where(
+            (s) => s.itemId.equals(itemId) & s.spaceId.isIn(gone),
+          ))
+          .go();
+    }
+    for (final spaceId in after.difference(before)) {
+      await _db
+          .into(_db.itemSpaces)
+          .insert(
+            ItemSpacesCompanion.insert(itemId: itemId, spaceId: spaceId),
+          );
+    }
+  }
+
+  static bool _sameSpaces(Set<String> a, Set<String> b) => setEquals(a, b);
 
   /// Cambia el estado de trabajo intelectual de [itemId]. Devuelve `false` si
   /// el elemento no existe.
@@ -827,9 +891,15 @@ class KnowledgeEntryWriter {
         return setFreeText(itemId, subtitle: Value(value));
       case EntryField.notes:
         return setFreeText(itemId, notes: Value(value));
-      case EntryField.spaceId:
-        if (await _entry(itemId) == null) return false;
-        await setSpace([itemId], value);
+      case EntryField.spaces:
+        // Los temas como los guarda un conflicto (`encodeSpaceIds`). Uno que
+        // se borró después ya no está: quedan los que siguen existiendo.
+        final wanted = decodeSpaceIds(value);
+        if (wanted == null || await _entry(itemId) == null) return false;
+        final existing = await (_db.select(
+          _db.spaces,
+        )..where((s) => s.id.isIn(wanted))).map((s) => s.id).get();
+        await setSpaces([itemId], existing.toSet());
         return true;
       case EntryField.state:
         final to = ItemState.values.asNameMap()[value];

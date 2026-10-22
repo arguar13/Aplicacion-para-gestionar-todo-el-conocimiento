@@ -13,8 +13,10 @@ List<TableInfo<dynamic, dynamic>> mapTables(AppDatabase db) => [
   db.relations,
   db.knowledgeEntries,
   db.knowledgeNotes,
-  // Los temas (F28): renombrar uno cambia el mapa que los mira.
+  // Los temas (F28): renombrar uno cambia el mapa que los mira, y poner o
+  // sacar uno de un elemento (F37) también.
   db.spaces,
+  db.itemSpaces,
 ];
 
 /// Lo que se suma cuando el mapa se calcula sobre lo que pasa un filtro: lo que
@@ -51,13 +53,16 @@ FROM item
 WHERE $kActiveItemSql
 ''';
 
-/// Los elementos vivos con su tema —su espacio, o nulo—: lo mismo que
-/// [mapItemsSql] cuando el mapa mira los temas (F28). Un elemento está en un
-/// solo tema, así que no hay nada que juntar: es una columna del elemento.
+/// Los elementos vivos con sus temas: lo mismo que [mapItemsSql] cuando el
+/// mapa mira los temas (F28). Un elemento puede estar en varios (F37): vienen
+/// juntos en `value_ids`, como los valores de una categoría, o nulo si no
+/// tiene ninguno.
 const mapSpaceItemsSql =
     '''
 SELECT item.id AS id,
-       item.space_id AS space_id
+       (SELECT group_concat(s.space_id, char(31))
+          FROM item_spaces s
+         WHERE s.item_id = item.id) AS value_ids
 FROM item
 WHERE $kActiveItemSql
 ''';
@@ -191,15 +196,16 @@ LIMIT ?
 
 /// Las notas mapa vivas de un tema —un espacio— (F28), las tocadas más
 /// recientemente primero. Variables: `?1` el espacio; `?2` cuántas como
-/// mucho. Los elementos del tema se buscan por el índice de su espacio y su
-/// nota por la clave. `'map'` es `NoteKind.map.name`.
+/// mucho. Los elementos del tema se buscan por el índice de `item_spaces` y
+/// su nota por la clave. `'map'` es `NoteKind.map.name`.
 const mapSpaceNotesSql =
     '''
 SELECT item.id AS id,
        item.title AS title
-FROM item
+FROM item_spaces s
+CROSS JOIN item ON item.id = s.item_id
 CROSS JOIN note ON note.item_id = item.id
-WHERE item.space_id = ?1
+WHERE s.space_id = ?1
   AND note.note_kind = 'map'
   AND $kActiveItemSql
 ORDER BY item.updated_at DESC, item.id
@@ -214,8 +220,9 @@ const mapSpaceTopicItemsSql =
 SELECT item.id AS id,
        item.title AS title,
        item.kind AS kind
-FROM item
-WHERE item.space_id = ?1
+FROM item_spaces s
+CROSS JOIN item ON item.id = s.item_id
+WHERE s.space_id = ?1
   AND $kActiveItemSql
 ORDER BY item.updated_at DESC, item.id
 LIMIT ?2

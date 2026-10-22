@@ -707,7 +707,7 @@ void main() {
         await organizeAllOfA();
         await mapNote('m', 'gemini-3.8-flash');
         final writer = KnowledgeEntryWriter(db, clock: () => now);
-        await writer.setSpace(['a'], 'lit');
+        await writer.setSpaces(['a'], {'lit'});
         await writer.setReference(
           'a',
           const ReferenceData(type: ReferenceType.book, publisher: 'Alfaguara'),

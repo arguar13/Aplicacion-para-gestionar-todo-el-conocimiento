@@ -58,7 +58,6 @@ SELECT i.id AS id, i.title AS title, i.subtitle AS subtitle, i.notes AS notes,
             title: row.read<String>('title'),
             subtitle: Value(row.readNullable<String>('subtitle')),
             notes: Value(row.readNullable<String>('notes')),
-            spaceId: Value(row.readNullable<String>('space_id')),
             kind: itemKind,
             state: initialItemStateFor(processing),
             createdAt: createdAt,
@@ -66,6 +65,16 @@ SELECT i.id AS id, i.title AS title, i.subtitle AS subtitle, i.notes AS notes,
             deviceId: kMirrorDeviceIdPlaceholder,
           ),
         );
+    // El tema, en SQL: esta base todavía tiene la columna `item.space_id`, que
+    // el modelo de hoy ya no conoce (F37 la pasó a `item_spaces` en v41, que
+    // la copia de acá).
+    final spaceId = row.readNullable<String>('space_id');
+    if (spaceId != null) {
+      await db.customStatement('UPDATE item SET space_id = ? WHERE id = ?', [
+        spaceId,
+        id,
+      ]);
+    }
 
     if (itemKind == ItemKind.note) {
       await db

@@ -13,6 +13,7 @@ import 'package:sinapsis/core/domain/entities/processing_state.dart';
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
+import '../../support/item_rows.dart';
 
 /// El único escritor de los campos de un elemento (F11): lo que hace con `rev`,
 /// `deviceId` y `field_version`, y la regla de linaje que le permite a una
@@ -55,7 +56,7 @@ void main() {
     title: title,
     subtitle: subtitle,
     notes: notes,
-    spaceId: spaceId,
+    spaceIds: {?spaceId},
     source: Source(
       id: 'src-$id',
       kind: SourceKind.webPage,
@@ -382,16 +383,16 @@ void main() {
                 createdAt: captured,
               ),
             );
-        await writer.setSpace(['a'], 'esp');
+        await writer.setSpaces(['a'], {'esp'});
         tick();
 
-        await writer.setSpace(['a', 'b'], 'esp');
+        await writer.setSpaces(['a', 'b'], {'esp'});
 
         expect((await entry('a')).rev, 2, reason: 'ya estaba en el espacio');
         expect((await entry('b')).rev, 2);
         expect((await entry('c')).rev, 1, reason: 'no estaba en la lista');
-        expect((await entry('b')).spaceId, 'esp');
-        expect((await versions('b'))[EntryField.spaceId]!.updatedAt, clockNow);
+        expect(await spaceRowsOf(db, 'b'), {'esp'});
+        expect((await versions('b'))[EntryField.spaces]!.updatedAt, clockNow);
       },
     );
 
@@ -408,11 +409,11 @@ void main() {
       await writer.upsert(sourceItem(spaceId: 'esp'));
       tick();
 
-      await writer.setSpace(['art'], null);
+      await writer.setSpaces(['art'], const {});
 
-      expect((await entry('art')).spaceId, isNull);
+      expect(await spaceRowsOf(db, 'art'), isEmpty);
       expect((await entry('art')).rev, 2);
-      expect((await versions('art'))[EntryField.spaceId]!.updatedAt, clockNow);
+      expect((await versions('art'))[EntryField.spaces]!.updatedAt, clockNow);
     });
 
     test(
@@ -443,13 +444,14 @@ void main() {
           ]),
         );
 
-        await writer.setSpace(ids, 'esp');
+        await writer.setSpaces(ids, {'esp'});
 
         final moved = await (db.select(
-          db.knowledgeEntries,
-        )..where((e) => e.spaceId.equals('esp'))).get();
+          db.itemSpaces,
+        )..where((s) => s.spaceId.equals('esp'))).get();
         expect(moved, hasLength(1000));
-        expect(moved.every((e) => e.rev == 2), isTrue);
+        final entries = await db.select(db.knowledgeEntries).get();
+        expect(entries.every((e) => e.rev == 2), isTrue);
         expect(
           (await db
                   .customSelect('SELECT COUNT(*) AS n FROM field_version')
@@ -463,9 +465,159 @@ void main() {
     test('una lista vacía no hace nada', () async {
       await writer.upsert(sourceItem());
 
-      await writer.setSpace(const [], 'esp');
+      await writer.setSpaces(const [], {'esp'});
 
       expect((await entry('art')).rev, 1);
+    });
+  });
+
+  group('varios temas (F37)', () {
+    Future<void> createSpaces(List<String> ids) async {
+      for (final id in ids) {
+        await db
+            .into(db.spaces)
+            .insert(
+              SpacesCompanion.insert(id: id, name: id, createdAt: captured),
+            );
+      }
+    }
+
+    KnowledgeItem inSpaces(Set<String> spaceIds) =>
+        sourceItem().copyWith(spaceIds: spaceIds);
+
+    test('guardar un elemento en varios temas los deja todos, y cambiarlos '
+        'es UNA versión del campo', () async {
+      await createSpaces(['h', 'f', 'a']);
+      await writer.upsert(inSpaces({'h', 'f'}));
+      expect(await spaceRowsOf(db, 'art'), {'h', 'f'});
+      tick();
+
+      await writer.upsert(inSpaces({'f', 'a'}));
+
+      expect(await spaceRowsOf(db, 'art'), {'f', 'a'});
+      expect((await entry('art')).rev, 2);
+      expect((await versions('art'))[EntryField.spaces]!.updatedAt, clockNow);
+    });
+
+    test(
+      'guardar con los mismos temas, en otro orden, no es un cambio',
+      () async {
+        await createSpaces(['h', 'f']);
+        await writer.upsert(inSpaces({'h', 'f'}));
+        final before = (await versions('art'))[EntryField.spaces]!.updatedAt;
+        tick();
+
+        // En los dos órdenes: uno de ellos no es el que devuelve la base.
+        await writer.upsert(inSpaces({'f', 'h'}));
+        await writer.upsert(inSpaces({'h', 'f'}));
+
+        expect((await entry('art')).rev, 1);
+        expect((await versions('art'))[EntryField.spaces]!.updatedAt, before);
+      },
+    );
+
+    test('sumar uno deja los que tenía; sumar el que ya tiene no cambia '
+        'nada', () async {
+      await createSpaces(['h', 'f']);
+      await writer.upsert(inSpaces({'h'}));
+      tick();
+
+      await writer.addSpaces(['art'], {'f'});
+      expect(await spaceRowsOf(db, 'art'), {'h', 'f'});
+      expect((await entry('art')).rev, 2);
+      tick();
+
+      await writer.addSpaces(['art'], {'h'});
+      expect((await entry('art')).rev, 2);
+    });
+
+    test('sacar uno deja los demás; sacar uno que no tiene no cambia '
+        'nada', () async {
+      await createSpaces(['h', 'f', 'a']);
+      await writer.upsert(inSpaces({'h', 'f'}));
+      tick();
+
+      await writer.removeSpaces(['art'], {'h'});
+      expect(await spaceRowsOf(db, 'art'), {'f'});
+      expect((await entry('art')).rev, 2);
+      tick();
+
+      await writer.removeSpaces(['art'], {'a'});
+      expect((await entry('art')).rev, 2);
+    });
+
+    test('poner un conjunto reemplaza el que había entero', () async {
+      await createSpaces(['h', 'f', 'a']);
+      await writer.upsert(inSpaces({'h', 'f'}));
+
+      await writer.setSpaces(['art'], {'a'});
+
+      expect(await spaceRowsOf(db, 'art'), {'a'});
+      expect(await writer.spacesOf(['art', 'nadie']), {
+        'art': {'a'},
+      });
+    });
+
+    test('borrar un tema saca a sus elementos solo de ese', () async {
+      await createSpaces(['h', 'f']);
+      await writer.upsert(inSpaces({'h', 'f'}));
+
+      await db.customStatement("DELETE FROM spaces WHERE id = 'h'");
+
+      expect(await spaceRowsOf(db, 'art'), {'f'});
+    });
+
+    test('desde su texto: el conjunto guardado, o un tema solo como lo '
+        'guardaba una versión vieja', () async {
+      await createSpaces(['h', 'f']);
+      await writer.upsert(sourceItem());
+
+      expect(
+        await writer.setFieldFromText(
+          'art',
+          EntryField.spaces,
+          encodeSpaceIds({'h', 'f'}),
+        ),
+        isTrue,
+      );
+      expect(await spaceRowsOf(db, 'art'), {'h', 'f'});
+
+      expect(
+        await writer.setFieldFromText('art', EntryField.spaces, 'f'),
+        isTrue,
+      );
+      expect(await spaceRowsOf(db, 'art'), {'f'});
+
+      expect(
+        await writer.setFieldFromText('art', EntryField.spaces, null),
+        isTrue,
+      );
+      expect(await spaceRowsOf(db, 'art'), isEmpty);
+    });
+
+    test('desde su texto, un tema que ya no existe se saltea y un texto que '
+        'no es un conjunto no se escribe', () async {
+      await createSpaces(['h']);
+      await writer.upsert(inSpaces({'h'}));
+
+      expect(
+        await writer.setFieldFromText(
+          'art',
+          EntryField.spaces,
+          encodeSpaceIds({'borrado', 'h'}),
+        ),
+        isTrue,
+      );
+      expect(await spaceRowsOf(db, 'art'), {'h'});
+      expect(
+        await writer.setFieldFromText('art', EntryField.spaces, '[1, 2]'),
+        isFalse,
+      );
+      expect(
+        await writer.setFieldFromText('nadie', EntryField.spaces, 'h'),
+        isFalse,
+      );
+      expect(await spaceRowsOf(db, 'art'), {'h'});
     });
   });
 
@@ -927,7 +1079,7 @@ void main() {
         isTrue,
       );
       expect(
-        await writer.setFieldFromText('art', EntryField.spaceId, 'sp'),
+        await writer.setFieldFromText('art', EntryField.spaces, 'sp'),
         isTrue,
       );
       expect(
@@ -939,7 +1091,7 @@ void main() {
       expect(after.title, 'Nuevo');
       expect(after.subtitle, 'Sub');
       expect(after.notes, 'Notas');
-      expect(after.spaceId, 'sp');
+      expect(await spaceRowsOf(db, 'art'), {'sp'});
       expect(after.state, ItemState.triaged);
       expect(after.rev, greaterThan(before.rev));
       final v = await versions('art');
@@ -947,7 +1099,7 @@ void main() {
         EntryField.title,
         EntryField.subtitle,
         EntryField.notes,
-        EntryField.spaceId,
+        EntryField.spaces,
         EntryField.state,
       ]) {
         expect(v[field]!.deviceId, me, reason: field);

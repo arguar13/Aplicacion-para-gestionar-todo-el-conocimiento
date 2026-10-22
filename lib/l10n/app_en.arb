@@ -2539,7 +2539,7 @@
   "@conflictsFieldNotes": {
     "description": "Nombre del campo notas en un conflicto."
   },
-  "conflictsFieldSpace": "Topic",
+  "conflictsFieldSpace": "Topics",
   "@conflictsFieldSpace": {
     "description": "Nombre del campo espacio en un conflicto."
   },

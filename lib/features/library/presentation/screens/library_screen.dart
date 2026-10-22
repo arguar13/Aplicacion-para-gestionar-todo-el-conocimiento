@@ -440,7 +440,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final (space,) = chosen;
     final result = await ref
         .read(libraryRepositoryProvider)
-        .assignSpaceMany(itemIds: _selectedIds.toList(), spaceId: space?.id);
+        .setSpaces(itemIds: _selectedIds.toList(), spaceIds: {?space?.id});
     if (!context.mounted) return;
 
     result.match(

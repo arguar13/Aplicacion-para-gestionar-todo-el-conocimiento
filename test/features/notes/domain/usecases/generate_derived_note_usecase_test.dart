@@ -627,7 +627,7 @@ void main() {
         'Roma',
       )).getRight().toNullable()!;
       await seedSource('a', 'El Senado romano');
-      await library.assignSpace(itemId: 'a', spaceId: space.id);
+      await library.setSpaces(itemIds: ['a'], spaceIds: {space.id});
       final notebook = await notebooks.create(
         name: 'Roma',
         mode: NotebookMode.query,
@@ -637,7 +637,7 @@ void main() {
       final result = await generateFrom(notebook.id);
 
       expect(result.inNotebook, isTrue);
-      expect(result.note.spaceId, space.id);
+      expect(result.note.spaceIds, {space.id});
       final inside = (await library.matchingIds(
         LibraryQuery(spaceId: space.id),
       )).getRight().toNullable()!;
@@ -673,7 +673,7 @@ void main() {
         'Roma',
       )).getRight().toNullable()!;
       await seedSource('a', 'El Senado romano');
-      await library.assignSpace(itemId: 'a', spaceId: space.id);
+      await library.setSpaces(itemIds: ['a'], spaceIds: {space.id});
       final notebook = await notebooks.create(
         name: 'Solo páginas',
         mode: NotebookMode.query,
@@ -686,7 +686,7 @@ void main() {
       final result = await generateFrom(notebook.id);
 
       expect(result.inNotebook, isFalse);
-      expect(result.note.spaceId, isNull);
+      expect(result.note.spaceIds, isEmpty);
     });
 
     test('de un elemento suelto, no hay cuaderno que mirar', () async {

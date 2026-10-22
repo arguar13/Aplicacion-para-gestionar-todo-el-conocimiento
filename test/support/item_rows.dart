@@ -101,3 +101,30 @@ Future<void> restoreItemRows(AppDatabase db, String id) async {
     const KnowledgeEntriesCompanion(deletedAt: Value(null)),
   );
 }
+
+/// Deja a [itemIds] en el tema [spaceId] y solo en él —o sin ninguno, con
+/// `null`— escribiendo directo en `item_spaces` (F37): sin versión ni `rev`,
+/// para las pruebas que preparan una bóveda sin pasar por el escritor.
+Future<void> placeItemRowsInSpace(
+  AppDatabase db,
+  Iterable<String> itemIds,
+  String? spaceId,
+) async {
+  for (final itemId in itemIds) {
+    await (db.delete(
+      db.itemSpaces,
+    )..where((s) => s.itemId.equals(itemId))).go();
+    if (spaceId == null) continue;
+    await db
+        .into(db.itemSpaces)
+        .insert(ItemSpacesCompanion.insert(itemId: itemId, spaceId: spaceId));
+  }
+}
+
+/// Los temas en que está guardado el elemento [itemId], leídos de la tabla.
+Future<Set<String>> spaceRowsOf(AppDatabase db, String itemId) async => {
+  for (final row in await (db.select(
+    db.itemSpaces,
+  )..where((s) => s.itemId.equals(itemId))).get())
+    row.spaceId,
+};

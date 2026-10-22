@@ -62,8 +62,8 @@ class AiFieldLedger {
     required String spaceId,
   }) async {
     final before = await _spaceOf(itemId);
-    if (before.missing || before.spaceId != null) return false;
-    await _writer.setSpace([itemId], spaceId);
+    if (before.missing || before.spaceIds.isNotEmpty) return false;
+    await _writer.addSpaces([itemId], {spaceId});
     await _record(runId, AiChangedField.space, null, spaceId);
     return true;
   }
@@ -184,18 +184,18 @@ class AiFieldLedger {
         }
         continue;
       }
-      if (aiFieldValue(
-            change.field,
-            current.reference,
-            current.publishedAt,
-            spaceId: current.spaceId,
-          ) !=
-          change.afterValue) {
+      if (change.field == AiChangedField.space) {
+        // Se saca solo el tema que puso, si sigue ahí: los que la persona
+        // sumó después quedan.
+        final put = change.afterValue;
+        if (current.spaceIds.contains(put)) {
+          await _writer.removeSpaces([itemId], {put});
+          spaces++;
+        }
         continue;
       }
-      if (change.field == AiChangedField.space) {
-        await _writer.setSpace([itemId], change.beforeValue);
-        spaces++;
+      if (aiFieldValue(change.field, current.reference, current.publishedAt) !=
+          change.afterValue) {
         continue;
       }
       if (change.field == AiChangedField.publishedAt) {
@@ -275,15 +275,15 @@ class AiFieldLedger {
         continue;
       }
       final current = currentByItem[itemId] ??= await _currentOf(itemId);
-      if (aiFieldValue(
-            change.field,
-            current.reference,
-            current.publishedAt,
-            spaceId: current.spaceId,
-          ) !=
-          change.afterValue) {
-        continue;
-      }
+      final stands = change.field == AiChangedField.space
+          ? current.spaceIds.contains(change.afterValue)
+          : aiFieldValue(
+                  change.field,
+                  current.reference,
+                  current.publishedAt,
+                ) ==
+                change.afterValue;
+      if (!stands) continue;
       byRun[change.aiRunId] =
           (byRun[change.aiRunId] ?? const AiRunTally()) + _one(change.field);
     }
@@ -352,11 +352,14 @@ class AiFieldLedger {
     _db.aiRuns,
   )..where((r) => r.id.equals(runId))).getSingleOrNull())?.itemId;
 
-  Future<({bool missing, String? spaceId})> _spaceOf(String itemId) async {
+  Future<({bool missing, Set<String> spaceIds})> _spaceOf(String itemId) async {
     final row = await (_db.select(
       _db.knowledgeEntries,
     )..where((e) => e.id.equals(itemId))).getSingleOrNull();
-    return (missing: row == null, spaceId: row?.spaceId);
+    return (
+      missing: row == null,
+      spaceIds: (await _writer.spacesOf([itemId]))[itemId] ?? const {},
+    );
   }
 
   /// Cómo está hoy la nota [noteId] que la IA creó como nota mapa.
@@ -379,7 +382,7 @@ class AiFieldLedger {
       _db.knowledgeSources,
     )..where((s) => s.itemId.equals(itemId))).getSingleOrNull();
     return _Current(
-      spaceId: (await _spaceOf(itemId)).spaceId,
+      spaceIds: (await _spaceOf(itemId)).spaceIds,
       reference: await ReferenceReader(_db).read(itemId),
       publishedAt: source?.publishedAt,
     );
@@ -404,12 +407,12 @@ class _MapNote {
 /// Cómo está hoy un elemento en lo que la IA puede completar.
 class _Current {
   const _Current({
-    required this.spaceId,
+    required this.spaceIds,
     required this.reference,
     required this.publishedAt,
   });
 
-  final String? spaceId;
+  final Set<String> spaceIds;
   final ReferenceData reference;
   final DateTime? publishedAt;
 }

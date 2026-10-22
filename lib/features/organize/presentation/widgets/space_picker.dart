@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/domain/entities/knowledge_item.dart';
@@ -23,7 +24,7 @@ class SpacePicker extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
-    final current = spaces.where((s) => s.id == item.spaceId).firstOrNull;
+    final current = spaces.where((s) => item.spaceIds.contains(s.id)).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -37,10 +38,14 @@ class SpacePicker extends ConsumerWidget {
         const SizedBox(height: 8),
         ActionChip(
           avatar: Icon(
-            current == null ? Icons.folder_off_outlined : Icons.folder_outlined,
+            current.isEmpty ? Icons.folder_off_outlined : Icons.folder_outlined,
             size: 18,
           ),
-          label: Text(current?.name ?? l10n.detailSpaceNone),
+          label: Text(
+            current.isEmpty
+                ? l10n.detailSpaceNone
+                : current.map((s) => s.name).join(' · '),
+          ),
           onPressed: () => _choose(context, ref),
         ),
       ],
@@ -55,15 +60,16 @@ class SpacePicker extends ConsumerWidget {
   Future<void> _choose(BuildContext context, WidgetRef ref) async {
     final chosen = await showSpacePickerSheet(
       context,
-      selectedSpaceId: item.spaceId,
+      selectedSpaceId: item.spaceIds.length == 1 ? item.spaceIds.first : null,
     );
     if (chosen == null) return;
 
     final (space,) = chosen;
-    if (space?.id == item.spaceId) return;
+    final wanted = {?space?.id};
+    if (setEquals(wanted, item.spaceIds)) return;
 
     await ref
         .read(libraryRepositoryProvider)
-        .assignSpace(itemId: item.id, spaceId: space?.id);
+        .setSpaces(itemIds: [item.id], spaceIds: wanted);
   }
 }

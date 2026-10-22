@@ -209,7 +209,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpace(itemId: items['Grecia']!, spaceId: space.id);
+          .setSpaces(itemIds: [items['Grecia']!], spaceIds: {space.id});
       await openEntry(tester);
 
       await chooseScope(tester, StudyScopeKind.space, space.id);

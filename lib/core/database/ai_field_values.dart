@@ -57,9 +57,8 @@ ReferenceData referenceWithout(
 String? aiFieldValue(
   AiChangedField field,
   ReferenceData reference,
-  DateTime? publishedAt, {
-  String? spaceId,
-}) {
+  DateTime? publishedAt,
+) {
   String? text(String? value) =>
       value == null || value.trim().isEmpty ? null : value;
   return switch (field) {
@@ -68,7 +67,11 @@ String? aiFieldValue(
     AiChangedField.mapNote => throw StateError(
       'La nota mapa de una pasada no se codifica como un dato.',
     ),
-    AiChangedField.space => spaceId,
+    // Un tema tampoco: un elemento puede estar en varios (F37), y lo que puso
+    // la IA sigue en pie mientras el elemento siga en él.
+    AiChangedField.space => throw StateError(
+      'El tema de una pasada se mira por pertenencia, no como un dato.',
+    ),
     AiChangedField.referenceType => reference.type?.name,
     AiChangedField.contributors =>
       reference.contributors.isEmpty

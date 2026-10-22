@@ -56,8 +56,8 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
   }
 
   /// La entrada del mapa de los temas (F28): cada espacio es un tema sin
-  /// padre, y cada elemento tiene a lo sumo uno. El nombre lo pone quien lo
-  /// muestra: «Temas» no es una fila de la base.
+  /// padre, y un elemento puede estar en varios (F37). El nombre lo pone quien
+  /// lo muestra: «Temas» no es una fila de la base.
   Future<TopicGraphInput> _readSpacesInput(LibraryQuery filter) async {
     final allowed = await _allowedItemIds(filter);
     final spaces = await _db.select(_db.spaces).get();
@@ -69,11 +69,13 @@ class KnowledgeMapRepositoryImpl implements KnowledgeMapRepository {
     for (final row in rows) {
       final id = row.data['id'] as String;
       if (allowed != null && !allowed.contains(id)) continue;
-      final spaceId = row.data['space_id'] as String?;
-      if (spaceId == null) {
+      final valueIds = row.data['value_ids'] as String?;
+      if (valueIds == null) {
         unassigned.add(id);
       } else {
-        items.add(TopicItem(id: id, valueIds: [spaceId]));
+        items.add(
+          TopicItem(id: id, valueIds: valueIds.split(mapValueIdSeparator)),
+        );
       }
     }
     return TopicGraphInput(

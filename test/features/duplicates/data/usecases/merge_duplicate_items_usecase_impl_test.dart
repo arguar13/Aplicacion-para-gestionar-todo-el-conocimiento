@@ -475,20 +475,15 @@ void main() {
     });
   });
 
-  group('el tema', () {
+  group('los temas (F37: se suman)', () {
     Future<void> seedSpace(String id) => db
         .into(db.spaces)
         .insert(SpacesCompanion.insert(id: id, name: id, createdAt: now));
 
     Future<void> placeIn(String itemId, String spaceId) =>
-        (db.update(db.knowledgeEntries)..where((e) => e.id.equals(itemId)))
-            .write(KnowledgeEntriesCompanion(spaceId: Value(spaceId)));
+        placeItemRowsInSpace(db, [itemId], spaceId);
 
-    Future<String?> spaceOf(String itemId) async => (await (db.select(
-      db.knowledgeEntries,
-    )..where((e) => e.id.equals(itemId))).getSingle()).spaceId;
-
-    test('el del descartado pasa al que queda si este no tenía: es el que '
+    test('los del descartado pasan al que queda si este no tenía: es el que '
         'se acaba de elegir al capturar', () async {
       await seedSpace('filosofia');
       final keepId = await seedItem(title: 'El que queda');
@@ -497,20 +492,35 @@ void main() {
 
       await useCase(keepItemId: keepId, discardItemId: discardId);
 
-      expect(await spaceOf(keepId), 'filosofia');
+      expect(await spaceRowsOf(db, keepId), {'filosofia'});
     });
 
-    test('el del que queda no se pisa', () async {
+    test(
+      'el que queda suma los del descartado y no pierde los suyos',
+      () async {
+        await seedSpace('filosofia');
+        await seedSpace('cocina');
+        final keepId = await seedItem(title: 'El que queda');
+        final discardId = await seedItem(title: 'El descartado');
+        await placeIn(keepId, 'filosofia');
+        await placeIn(discardId, 'cocina');
+
+        await useCase(keepItemId: keepId, discardItemId: discardId);
+
+        expect(await spaceRowsOf(db, keepId), {'filosofia', 'cocina'});
+      },
+    );
+
+    test('un tema que tienen los dos queda una vez', () async {
       await seedSpace('filosofia');
-      await seedSpace('cocina');
       final keepId = await seedItem(title: 'El que queda');
       final discardId = await seedItem(title: 'El descartado');
       await placeIn(keepId, 'filosofia');
-      await placeIn(discardId, 'cocina');
+      await placeIn(discardId, 'filosofia');
 
       await useCase(keepItemId: keepId, discardItemId: discardId);
 
-      expect(await spaceOf(keepId), 'filosofia');
+      expect(await spaceRowsOf(db, keepId), {'filosofia'});
     });
   });
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sinapsis/core/design/thumbnail_decode.dart';
@@ -329,17 +330,17 @@ class _ItemMenuButton extends ConsumerWidget {
 
     final chosen = await showSpacePickerSheet(
       context,
-      selectedSpaceId: item.spaceId,
+      selectedSpaceId: item.spaceIds.length == 1 ? item.spaceIds.first : null,
     );
     if (chosen == null || !context.mounted) return;
 
     final (space,) = chosen;
-    final spaceId = space?.id;
-    if (spaceId == item.spaceId) return;
+    final wanted = {?space?.id};
+    if (setEquals(wanted, item.spaceIds)) return;
 
     final result = await ref
         .read(libraryRepositoryProvider)
-        .assignSpace(itemId: item.id, spaceId: spaceId);
+        .setSpaces(itemIds: [item.id], spaceIds: wanted);
     if (!context.mounted) return;
 
     result.match(

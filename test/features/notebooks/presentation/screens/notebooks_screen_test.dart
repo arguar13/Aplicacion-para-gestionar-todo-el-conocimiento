@@ -232,7 +232,7 @@ void main() {
               .toNullable()!;
       await harness.container
           .read(libraryRepositoryProvider)
-          .assignSpaceMany(itemIds: ids, spaceId: space.id);
+          .setSpaces(itemIds: ids, spaceIds: {space.id});
       return space.id;
     }
 

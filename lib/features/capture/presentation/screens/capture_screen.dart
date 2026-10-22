@@ -442,13 +442,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
             file: file,
             title: _titleController.text,
             note: _noteController.text,
-            spaceId: _spaceId,
+            spaceIds: {?_spaceId},
           )
         : await notifier.capture(
             rawInput: _inputController.text,
             title: _titleController.text,
             note: _noteController.text,
-            spaceId: _spaceId,
+            spaceIds: {?_spaceId},
           );
 
     if (!mounted || item == null) return;

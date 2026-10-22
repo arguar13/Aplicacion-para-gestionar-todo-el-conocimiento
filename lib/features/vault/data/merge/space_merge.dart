@@ -42,6 +42,21 @@ class SpaceMerge {
   String? localIdOf(String? incomingId) =>
       incomingId == null ? null : remap[incomingId] ?? incomingId;
 
+  /// [column] —un espacio de la copia, en SQL— con el identificador de acá:
+  /// la misma traducción que [localIdOf], para no traer las filas a Dart. Sus
+  /// signos de pregunta se llenan con [localIdArgs], en ese orden; sin nada que
+  /// traducir, es la columna tal cual.
+  String localIdSql(String column) => remap.isEmpty
+      ? column
+      : 'CASE $column '
+            '${List.filled(remap.length, 'WHEN ? THEN ?').join(' ')} '
+            'ELSE $column END';
+
+  /// Lo que llena los signos de pregunta de [localIdSql].
+  List<String> get localIdArgs => [
+    for (final entry in remap.entries) ...[entry.key, entry.value],
+  ];
+
   /// Lee los espacios de las dos bóvedas. La copia tiene que estar adjuntada.
   static Future<SpaceMerge> compute(AppDatabase database) async {
     final localIds = <String>{};

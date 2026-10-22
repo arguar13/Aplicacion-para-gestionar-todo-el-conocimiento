@@ -30,7 +30,8 @@ class LibraryKanbanView extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final spaces = ref.watch(allSpacesProvider).valueOrNull ?? const <Space>[];
 
-    final byUnclassified = items.where((i) => i.spaceId == null).toList();
+    // Un elemento en varios temas va en la columna de cada uno (F37).
+    final byUnclassified = items.where((i) => i.spaceIds.isEmpty).toList();
 
     return ListView(
       scrollDirection: Axis.horizontal,
@@ -44,7 +45,7 @@ class LibraryKanbanView extends ConsumerWidget {
         for (final space in spaces)
           _KanbanColumn(
             title: space.name,
-            items: items.where((i) => i.spaceId == space.id).toList(),
+            items: items.where((i) => i.spaceIds.contains(space.id)).toList(),
             targetSpaceId: space.id,
           ),
       ],
@@ -140,7 +141,7 @@ class _KanbanColumnState extends ConsumerState<_KanbanColumn> {
             ),
           ),
           Expanded(
-            child: DragTarget<String>(
+            child: DragTarget<_KanbanDrag>(
               onWillAcceptWithDetails: (details) {
                 setState(() => _highlighted = true);
                 return true;
@@ -148,19 +149,27 @@ class _KanbanColumnState extends ConsumerState<_KanbanColumn> {
               onLeave: (_) => setState(() => _highlighted = false),
               onAcceptWithDetails: (details) {
                 setState(() => _highlighted = false);
+                final drag = details.data;
+                // Sale de la columna de donde se arrastró y entra en esta; sus
+                // otros temas quedan (F37).
                 ref
                     .read(libraryRepositoryProvider)
-                    .assignSpace(
-                      itemId: details.data,
-                      spaceId: widget.targetSpaceId,
+                    .setSpaces(
+                      itemIds: [drag.item.id],
+                      spaceIds: {
+                        ...drag.item.spaceIds.difference({?drag.from}),
+                        ?widget.targetSpaceId,
+                      },
                     );
               },
               builder: (context, candidateData, rejectedData) =>
                   ListView.builder(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                     itemCount: widget.items.length,
-                    itemBuilder: (context, index) =>
-                        _KanbanCard(item: widget.items[index]),
+                    itemBuilder: (context, index) => _KanbanCard(
+                      item: widget.items[index],
+                      column: widget.targetSpaceId,
+                    ),
                   ),
             ),
           ),
@@ -170,10 +179,18 @@ class _KanbanColumnState extends ConsumerState<_KanbanColumn> {
   }
 }
 
+/// Lo que se arrastra en el tablero: el elemento y la columna de donde sale
+/// —un tema, o `null` la de «sin tema»—. Un elemento en varios temas está en
+/// varias columnas, y moverlo es sacarlo de esa.
+typedef _KanbanDrag = ({KnowledgeItem item, String? from});
+
 class _KanbanCard extends StatelessWidget {
-  const _KanbanCard({required this.item});
+  const _KanbanCard({required this.item, required this.column});
 
   final KnowledgeItem item;
+
+  /// El tema de la columna donde está esta tarjeta.
+  final String? column;
 
   @override
   Widget build(BuildContext context) {
@@ -240,8 +257,8 @@ class _KanbanCard extends StatelessWidget {
       ),
     );
 
-    return LongPressDraggable<String>(
-      data: item.id,
+    return LongPressDraggable<_KanbanDrag>(
+      data: (item: item, from: column),
       feedback: Material(
         elevation: 4,
         borderRadius: BorderRadius.circular(12),

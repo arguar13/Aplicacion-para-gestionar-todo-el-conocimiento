@@ -42,7 +42,7 @@ class AutoSpaceStep implements AiOrganizeStep {
     KnowledgeItem item, {
     required String runId,
   }) async {
-    if (item.spaceId != null) return AiStepReport.nothing;
+    if (item.spaceIds.isNotEmpty) return AiStepReport.nothing;
     final spaces = await _organize.watchAllSpaces().first;
     if (spaces.isEmpty) return AiStepReport.nothing;
 

@@ -141,12 +141,17 @@ void main() {
     );
   });
 
-  test('los elementos por estado y tipo, y por espacio', () async {
+  test('los elementos por estado y tipo, y por tema', () async {
     await expectSearched(
       'item',
       "SELECT * FROM item WHERE state = 'captured' AND kind = 'source'",
     );
-    await expectSearched('item', 'SELECT * FROM item WHERE space_id = ?', id);
+    // Los temas de un elemento, desde F37, en su propia tabla.
+    await expectSearched(
+      'item_spaces',
+      'SELECT item_id FROM item_spaces WHERE space_id = ?',
+      id,
+    );
   });
 
   test('la búsqueda de texto entra por el índice de texto completo', () async {

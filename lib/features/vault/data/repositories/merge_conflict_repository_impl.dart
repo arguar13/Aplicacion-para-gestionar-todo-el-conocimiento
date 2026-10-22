@@ -160,14 +160,21 @@ class MergeConflictRepositoryImpl implements MergeConflictRepository {
       date = _at(seconds);
     }
     String? spaceName;
-    if (field == EntryField.spaceId && value != null) {
+    final spaceIds = field == EntryField.spaces
+        ? decodeSpaceIds(value) ?? const <String>{}
+        : const <String>{};
+    if (spaceIds.isNotEmpty) {
       final rows = await _db
           .customSelect(
-            'SELECT name FROM spaces WHERE id = ?',
-            variables: [Variable<String>(value)],
+            'SELECT name FROM spaces '
+            'WHERE id IN (${List.filled(spaceIds.length, '?').join(', ')}) '
+            'ORDER BY name COLLATE NOCASE',
+            variables: [for (final id in spaceIds) Variable<String>(id)],
           )
           .get();
-      spaceName = rows.isEmpty ? null : rows.single.read<String>('name');
+      spaceName = rows.isEmpty
+          ? null
+          : rows.map((row) => row.read<String>('name')).join(', ');
     }
     return MergeConflictVersion(
       text: value,
@@ -183,11 +190,15 @@ class MergeConflictRepositoryImpl implements MergeConflictRepository {
   Future<String?> _liveValue(String itemId, String field) async {
     final mapped = mergeFieldNamed(field);
     if (mapped == null) return null;
-    // Los datos bibliográficos no son una columna: se comparan como el texto
-    // con que se guardó la versión.
-    if (mapped.isComposite) {
+    // Los datos bibliográficos y los temas no son una columna: se comparan
+    // como el texto con que se guardó la versión.
+    if (mapped.isReference) {
       final reference = await ReferenceReader(_db).read(itemId);
       return reference.isEmpty ? null : encodeReference(reference);
+    }
+    if (mapped.isSpaces) {
+      final spaces = await _writer.spacesOf([itemId]);
+      return encodeSpaceIds(spaces[itemId] ?? const {});
     }
     final rows = await _db
         .customSelect(

@@ -23,6 +23,7 @@ import 'package:sinapsis/core/database/tables/flashcards.dart';
 import 'package:sinapsis/core/database/tables/habit_events.dart';
 import 'package:sinapsis/core/database/tables/highlights.dart';
 import 'package:sinapsis/core/database/tables/inline_links.dart';
+import 'package:sinapsis/core/database/tables/item_spaces.dart';
 import 'package:sinapsis/core/database/tables/knowledge_entries.dart';
 import 'package:sinapsis/core/database/tables/knowledge_notes.dart';
 import 'package:sinapsis/core/database/tables/knowledge_sources.dart';
@@ -132,6 +133,7 @@ part 'app_database.g.dart';
     TrashedContents,
     StudyMarks,
     StudyAnalyses,
+    ItemSpaces,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -176,7 +178,7 @@ class AppDatabase extends _$AppDatabase {
   /// La versión del esquema. Es una constante y no solo el getter porque el
   /// respaldo previo a migrar corre antes de que exista la instancia, y
   /// necesita saber a qué versión está por migrarse la base.
-  static const currentSchemaVersion = 40;
+  static const currentSchemaVersion = 41;
 
   /// La versión de esquema más antigua que esta versión de la app sabe
   /// actualizar. Una base anterior se rechaza con [SchemaTooOldException].
@@ -304,7 +306,12 @@ class AppDatabase extends _$AppDatabase {
           // usan —filtrar por espacio, ordenar por última modificación— y que
           // `item` no tenía: sin ellos esas consultas recorrerían la tabla
           // entera.
-          await migrator.createIndex(idxKnowledgeEntriesSpace);
+          // El de espacio, en SQL: la columna salió de `item` en v41, que lo
+          // quita.
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_knowledge_entries_space '
+            'ON item (space_id)',
+          );
           await migrator.createIndex(idxKnowledgeEntriesUpdatedAt);
           await _requireSameCounts(before, step: 'v19', tables: tables);
         }
@@ -939,7 +946,7 @@ class AppDatabase extends _$AppDatabase {
         }
 
         // Resumen, síntesis y palabras clave resaltados en el documento (F36,
-        // decisión 78): lo que la IA marcó —y las palabras que la persona
+        // decisión 79): lo que la IA marcó —y las palabras que la persona
         // eligió— en `study_marks`, y hasta dónde se analizó cada texto en
         // `study_analyses`, para seguir desde ahí. La papelera del contenido
         // gana `study_marks`: un texto que se suelta se lleva sus marcas, como
@@ -974,6 +981,78 @@ class AppDatabase extends _$AppDatabase {
             );
           }
           await _requireSameCounts(before, step: 'v40', tables: tables);
+        }
+        // Un elemento en uno o varios temas (F37, decisión 80): el tema deja
+        // de ser la columna `item.space_id` y pasa a `item_spaces`. Se copia el
+        // de cada elemento y `item` se reconstruye sin la columna —SQLite no
+        // quita una columna con clave foránea—. Antes se quita su índice: la
+        // reconstrucción vuelve a crear los de la tabla, y ese apunta a la
+        // columna que sale. Los conteos son compuerta, y cada elemento que
+        // estaba en un tema tiene que quedar en él.
+        if (from < 41) {
+          final tables = [
+            ...VaultCounts.userDataTables,
+            ...VaultCounts.modelTables,
+            ...VaultCounts.durabilityTables,
+            ...VaultCounts.referenceTables,
+            ...VaultCounts.viewsAndTemplatesTables,
+            ...VaultCounts.notebookTables,
+            ...VaultCounts.habitTables,
+            ...VaultCounts.quizTables,
+            ...VaultCounts.aiTables,
+            ...VaultCounts.aiFieldChangeTables,
+            ...VaultCounts.contentTrashTables,
+            ...VaultCounts.studyTables,
+          ];
+          final before = await captureVaultCounts(this, tables: tables);
+          // El índice de texto no es del esquema de drift: una base lo tiene
+          // desde que se creó (o desde v18), y la reconstrucción no lo toca.
+          // Si está, se comprueba que siga entero.
+          final hasSearch = await customSelect(
+            "SELECT 1 FROM sqlite_master WHERE name = 'item_search'",
+          ).get().then((rows) => rows.isNotEmpty);
+          final searchBefore = hasSearch ? await _count('item_search') : 0;
+          await migrator.createTable(itemSpaces);
+          await migrator.createIndex(idxItemSpacesSpace);
+          // Un tema que ya no existe no se copia: la clave foránea lo habría
+          // dejado en nada al borrarlo.
+          await customStatement('''
+            INSERT INTO item_spaces (item_id, space_id)
+            SELECT id, space_id FROM item
+             WHERE space_id IN (SELECT id FROM spaces)''');
+          final placed = await customSelect(
+            'SELECT COUNT(*) AS n FROM item '
+            'WHERE space_id IN (SELECT id FROM spaces)',
+          ).getSingle();
+          final copied = await _count('item_spaces');
+          if (copied != placed.read<int>('n')) {
+            throw StateError(
+              'La migración a v41 copió $copied temas y había '
+              '${placed.read<int>('n')} elementos en uno.',
+            );
+          }
+
+          await customStatement(
+            'DROP INDEX IF EXISTS idx_knowledge_entries_space',
+          );
+          await migrator.alterTable(TableMigration(knowledgeEntries));
+          final violations = await customSelect(
+            'PRAGMA foreign_key_check',
+          ).get();
+          if (violations.isNotEmpty) {
+            throw StateError(
+              'La migración a v41 dejó ${violations.length} filas que apuntan '
+              'a algo que no existe.',
+            );
+          }
+          final searchAfter = hasSearch ? await _count('item_search') : 0;
+          if (searchAfter != searchBefore) {
+            throw StateError(
+              'La migración a v41 cambió el índice de texto de los elementos: '
+              'tenía $searchBefore entradas y quedaron $searchAfter.',
+            );
+          }
+          await _requireSameCounts(before, step: 'v41', tables: tables);
         }
       });
     },

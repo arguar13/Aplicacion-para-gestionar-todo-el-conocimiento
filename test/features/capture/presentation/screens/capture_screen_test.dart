@@ -1017,7 +1017,7 @@ void main() {
 
       await save(tester);
 
-      expect((await savedItems()).single.spaceId, historia.id);
+      expect((await savedItems()).single.spaceIds, {historia.id});
     });
 
     testWidgets('un libro con un tema nuevo: lo crea, lo elige y lo guarda '
@@ -1047,7 +1047,7 @@ void main() {
       final tesis =
           (await harness.database.select(harness.database.spaces).getSingle())
               .id;
-      expect(saved.spaceId, tesis);
+      expect(saved.spaceIds, {tesis});
 
       // De vuelta en la biblioteca, el tema ya está para filtrar por él.
       expect(find.byType(LibraryScreen), findsOneWidget);
@@ -1078,7 +1078,7 @@ void main() {
       await save(tester);
 
       expect(await spaceNames(), ['Filosofía']);
-      expect((await savedItems()).single.spaceId, filosofia.id);
+      expect((await savedItems()).single.spaceIds, {filosofia.id});
     });
 
     testWidgets('con muchos temas, la hoja ofrece buscar, y lo buscado que '
@@ -1113,7 +1113,7 @@ void main() {
       final arqueologia =
           (await harness.database.select(harness.database.spaces).get())
               .firstWhere((row) => row.name == 'Arqueología');
-      expect(saved.spaceId, arqueologia.id);
+      expect(saved.spaceIds, {arqueologia.id});
     });
 
     testWidgets('si la biblioteca está parada en un tema, viene elegido; '
@@ -1134,7 +1134,7 @@ void main() {
 
       await tester.enterText(mainField(), 'https://ejemplo.org/roma');
       await save(tester);
-      expect((await savedItems()).single.spaceId, historia.id);
+      expect((await savedItems()).single.spaceIds, {historia.id});
 
       // Otra vez, ahora sacándole el tema antes de guardar.
       await tester.tap(find.byType(FloatingActionButton));
@@ -1150,7 +1150,7 @@ void main() {
       final cartago = (await savedItems()).firstWhere(
         (item) => item.source.url.toString().contains('cartago'),
       );
-      expect(cartago.spaceId, isNull);
+      expect(cartago.spaceIds, isEmpty);
     });
 
     testWidgets('lo compartido desde otra app pasa por el mismo campo', (
@@ -1172,7 +1172,7 @@ void main() {
       await tester.pumpAndSettle();
       await save(tester);
 
-      expect((await savedItems()).single.spaceId, historia.id);
+      expect((await savedItems()).single.spaceIds, {historia.id});
     });
 
     testWidgets('una nota nueva elige su tema en el editor, y arranca en el '
@@ -1229,7 +1229,7 @@ void main() {
       final cocina =
           (await harness.database.select(harness.database.spaces).get())
               .firstWhere((row) => row.name == 'Cocina');
-      expect(note.spaceId, cocina.id);
+      expect(note.spaceIds, {cocina.id});
     });
   });
 }

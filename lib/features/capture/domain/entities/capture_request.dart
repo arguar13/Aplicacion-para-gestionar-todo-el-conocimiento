@@ -28,13 +28,13 @@ sealed class CaptureRequest with _$CaptureRequest {
     /// Una nota del usuario sobre esto, separada del contenido.
     String? note,
 
-    /// El tema en el que queda lo guardado, o `null` para "sin clasificar".
+    /// Los temas en los que queda lo guardado: uno o varios (F37).
     ///
-    /// Viaja con lo capturado y no se asigna después, con un segundo paso:
-    /// así entra en el mismo guardado —una sola transacción— y no puede
-    /// quedar un elemento guardado sin el tema que se pidió porque el
+    /// Viajan con lo capturado y no se asignan después, con un segundo paso:
+    /// así entran en el mismo guardado —una sola transacción— y no puede
+    /// quedar un elemento guardado sin los temas que se pidieron porque el
     /// segundo paso falló.
-    String? spaceId,
+    @Default(<String>{}) Set<String> spaceIds,
   }) = TextCapture;
 
   /// Un archivo elegido con el selector del sistema o compartido desde otra
@@ -43,7 +43,7 @@ sealed class CaptureRequest with _$CaptureRequest {
     required CapturedFile file,
     String? title,
     String? note,
-    String? spaceId,
+    @Default(<String>{}) Set<String> spaceIds,
   }) = FileCapture;
 
   const CaptureRequest._();

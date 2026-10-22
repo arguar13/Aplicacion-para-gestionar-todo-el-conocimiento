@@ -214,9 +214,7 @@ void main() {
               createdAt: MyCardsFixture.now,
             ),
           );
-      await (f.db.update(f.db.knowledgeEntries)
-            ..where((e) => e.id.equals('grecia')))
-          .write(const KnowledgeEntriesCompanion(spaceId: Value('hist')));
+      await placeItemRowsInSpace(f.db, ['grecia'], 'hist');
       await f.pump(tester);
 
       await tester.tap(find.byKey(const Key('my-cards-scope')));
