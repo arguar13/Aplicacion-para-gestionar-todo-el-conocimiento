@@ -1,8 +1,6 @@
 # F38 — Resaltar a mano con colores, y descargar el documento resaltado en su formato
 
-> **Estado: para confirmar** (2026-10-22). Llegó junto con *"apruebo todos los planes"*, pero ese
-> mensaje fue antes de que este plan existiera: confirmalo con *«aprobado»* cuando lo leas. Va
-> después de F36 y F37, así que no frena nada.
+> **Estado: APROBADO** (2026-10-22, *«F38 aprobado»* en el chat). Va después de F37.
 >
 > Pedido: *"que dentro del documento tenga opciones para pintar o subrayar manualmente lo que yo
 > quiera en el documento original, o para destacar una parte y que me deje elegir el color, y que
@@ -94,4 +92,4 @@
 
 ## Avance
 
-Todavía nada: espera tu «aprobado», y va después de F36 y F37.
+Todavía nada: empieza al cerrar F37.
