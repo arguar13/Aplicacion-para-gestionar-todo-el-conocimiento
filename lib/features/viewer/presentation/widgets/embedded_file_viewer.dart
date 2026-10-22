@@ -41,8 +41,9 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// En un documento para leer —un PDF, un DOCX o un EPUB, un texto— ese
 /// botón va grande, semitransparente y en el centro, con «Leer como libro»
 /// (F35): es lo primero que se ve, y dice qué hacer para leerlo entero. En
-/// una foto, un video o una página web queda chico en la esquina: en el
-/// centro taparía lo que se mira, o el botón de reproducir.
+/// una página web, igual, con «Ver la página» (pedido del usuario). En una
+/// foto o un video queda chico en la esquina: en el centro taparía lo que se
+/// mira, o el botón de reproducir.
 ///
 /// El audio de un video —el reproductor solo con su audio de F24— ya no va
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
@@ -107,6 +108,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
     ResolvedViewer resolved,
   ) {
     void expand() => openDocumentViewer(context, ref, item);
+    final l10n = AppLocalizations.of(context)!;
 
     return switch (resolved) {
       NoResolvedViewer() => null,
@@ -114,7 +116,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
         _EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
-          readAsBook: true,
+          bigButtonLabel: l10n.detailReadAsBook,
           child: DocumentReaderView(
             title: item.title,
             content: content,
@@ -137,14 +139,16 @@ class EmbeddedFileViewer extends ConsumerWidget {
       PdfResolvedViewer(:final path, :final text) => _EmbeddedViewerFrame(
         tall: true,
         onExpand: expand,
-        readAsBook: true,
+        bigButtonLabel: l10n.detailReadAsBook,
         child: PdfViewerView(path: path, text: text),
       ),
-      WebPageResolvedViewer(:final path) => _EmbeddedViewerFrame(
-        tall: true,
-        onExpand: expand,
-        child: WebPageViewerView(path: path),
-      ),
+      WebPageResolvedViewer(:final path, :final url, :final text) =>
+        _EmbeddedViewerFrame(
+          tall: true,
+          onExpand: expand,
+          bigButtonLabel: l10n.detailViewWebPage,
+          child: WebPageViewerView(path: path, url: url, text: text),
+        ),
       // Sin `onExpand`: tocar la vista previa ya hace lo único que tiene
       // sentido hacer con un video ajeno —abrirlo en YouTube—, así que no
       // hay una pantalla completa propia de la app a la que expandirla.
@@ -158,22 +162,23 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
 /// El marco acotado —esquinas redondeadas, borde tenue— que envuelve
 /// cualquier visor embebido, con el botón de expandir a pantalla completa
-/// flotando encima: en la esquina, o en el centro si es [readAsBook].
+/// flotando encima: en la esquina, o grande y en el centro con
+/// [bigButtonLabel].
 class _EmbeddedViewerFrame extends StatelessWidget {
   const _EmbeddedViewerFrame({
     required this.child,
     this.onExpand,
     this.tall = false,
-    this.readAsBook = false,
+    this.bigButtonLabel,
   });
 
   final Widget child;
   final VoidCallback? onExpand;
 
-  /// Un documento para leer (F35): el botón va grande y en el centro, con
-  /// «Leer como libro». Fuera del botón, el documento se sigue desplazando
-  /// y tocando como siempre.
-  final bool readAsBook;
+  /// Con esto, el botón va grande y en el centro, con este texto: «Leer como
+  /// libro» en un documento (F35), «Ver la página» en una página web. Fuera
+  /// del botón, lo de abajo se sigue desplazando y tocando como siempre.
+  final String? bigButtonLabel;
 
   /// Un PDF o el modo de lectura se leen mejor con más alto que una foto o
   /// un video, que ya se acomodan solos a su propia relación de aspecto.
@@ -201,11 +206,11 @@ class _EmbeddedViewerFrame extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(child: child),
-              if (onExpand != null && readAsBook)
+              if (onExpand != null && bigButtonLabel != null)
                 Positioned.fill(
                   child: Center(
                     child: _ReadAsBookButton(
-                      label: l10n.detailReadAsBook,
+                      label: bigButtonLabel!,
                       tooltip: l10n.detailExpandViewer,
                       onPressed: onExpand!,
                     ),

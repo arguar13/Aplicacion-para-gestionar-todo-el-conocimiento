@@ -81,7 +81,73 @@ void main() {
         '<html><body><img src="rara.xyz"></body></html>',
       );
 
-      expect(result, contains('src="rara.xyz"'));
+      expect(result, contains('src="https://ejemplo.org/rara.xyz"'));
+    });
+
+    test('de una carga perezosa se guarda la foto de verdad, no el '
+        'cuadradito', () async {
+      final fetcher = FakeResourceFetcher(
+        byUrl: {'https://ejemplo.org/img/real.png': png},
+      );
+
+      final result = await archiveToString(
+        build(fetcher),
+        '<html><body><img src="data:image/gif;base64,R0lGOD" '
+        'data-src="img/real.png" class="lazy"></body></html>',
+      );
+
+      expect(result, contains('src="data:image/png;base64,'));
+      expect(result, isNot(contains('data-src')));
+      expect(result, isNot(contains('R0lGOD')));
+    });
+
+    test('de un srcset se guarda la mejor —la más grande que entra— y el '
+        'srcset se va: el teléfono lo elegiría antes que el src', () async {
+      final fetcher = FakeResourceFetcher(
+        byUrl: {'https://ejemplo.org/f-1200.png': png},
+      );
+
+      final result = await archiveToString(
+        build(fetcher),
+        '<html><body><img src="f-300.png" '
+        'srcset="f-300.png 300w, f-1200.png 1200w, f-3000.png 3000w" '
+        'sizes="100vw"></body></html>',
+      );
+
+      expect(fetcher.requested, [Uri.parse('https://ejemplo.org/f-1200.png')]);
+      expect(result, contains('src="data:image/png;base64,'));
+      expect(result, isNot(contains('srcset')));
+      expect(result, isNot(contains('sizes')));
+    });
+
+    test(
+      'en un <picture>, los <source> se van y queda la foto guardada',
+      () async {
+        final fetcher = FakeResourceFetcher(
+          byUrl: {'https://ejemplo.org/f.webp': png},
+        );
+
+        final result = await archiveToString(
+          build(fetcher),
+          '<html><body><picture><source srcset="f.webp" type="image/webp"> '
+          '<img src="f.jpg"></picture></body></html>',
+        );
+
+        expect(result, isNot(contains('<source')));
+        expect(result, contains('src="data:image/png;base64,'));
+      },
+    );
+
+    test('la que no se pudo guardar apunta completa a la foto de verdad, '
+        'sin alternativas', () async {
+      final result = await archiveToString(
+        build(FakeResourceFetcher()),
+        '<html><body><img data-src="img/real.jpg" '
+        'srcset="chica.jpg 1x"></body></html>',
+      );
+
+      expect(result, contains('src="https://ejemplo.org/img/real.jpg"'));
+      expect(result, isNot(contains('srcset')));
     });
 
     test('una imagen que ya viene como dato no se vuelve a pedir', () async {
@@ -114,7 +180,7 @@ void main() {
         '<html><body><img src="grande.png"></body></html>',
       );
 
-      expect(result, contains('src="grande.png"'));
+      expect(result, contains('src="https://ejemplo.org/grande.png"'));
     });
 
     test('agotado el tope total, lo que sigue se deja sin incrustar', () async {
@@ -137,7 +203,7 @@ void main() {
       );
 
       expect(result, contains('src="data:image/png;base64,'));
-      expect(result, contains('src="otra.png"'));
+      expect(result, contains('src="https://ejemplo.org/otra.png"'));
     });
   });
 
@@ -337,7 +403,7 @@ void main() {
 
       expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
       expect(result, contains('El artículo.'));
-      expect(result, contains('src="lenta.png"'));
+      expect(result, contains('src="https://ejemplo.org/lenta.png"'));
     });
   });
 

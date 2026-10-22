@@ -9162,5 +9162,7 @@
   "studyKeywordsSentenceFull": "Esta oración ya tiene sus {count} palabras clave: sacá una para elegir otra.",
   "@studyKeywordsSentenceFull": {"description": "Estudiar (F36): al elegir palabras clave, la oración tocada ya tiene el máximo; count es ese máximo.", "placeholders": {"count": {"type": "int"}}},
   "studyScannedPage": "Página escaneada: lo resaltado se ve en el texto extraído",
-  "@studyScannedPage": {"description": "Estudiar (F36): sobre una página escaneada de un PDF, que no tiene letras donde pintar lo resaltado."}
+  "@studyScannedPage": {"description": "Estudiar (F36): sobre una página escaneada de un PDF, que no tiene letras donde pintar lo resaltado."},
+  "detailViewWebPage": "Ver la página",
+  "@detailViewWebPage": {"description": "Detalle: el botón grande del centro de una página web archivada, que la abre a pantalla completa."}
 }

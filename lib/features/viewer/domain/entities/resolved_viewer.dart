@@ -40,12 +40,12 @@ class PdfResolvedViewer extends ResolvedViewer {
 
   /// Su texto ya extraído, si tiene: con él, el visor pinta lo estudiado
   /// sobre las letras de la página (F36).
-  final PdfStudyText? text;
+  final StudyText? text;
 }
 
-/// El texto extraído de un PDF y la forma de texto de la que es: lo
-/// estudiado se guarda contado en ese texto (F36).
-typedef PdfStudyText = ({String renditionId, String content});
+/// El texto extraído de un PDF o de una página web y la forma de texto de la
+/// que es: lo estudiado se guarda contado en ese texto (F36).
+typedef StudyText = ({String renditionId, String content});
 
 /// La vista previa de un video de YouTube: su miniatura, para tocar y
 /// abrir el video de verdad —en la app de YouTube o en el navegador—, no
@@ -68,9 +68,16 @@ class YoutubeEmbedResolvedViewer extends ResolvedViewer {
 /// La página archivada, tal como quedó guardada —con sus imágenes y sus
 /// estilos incrustados—, no el Markdown que ya se ve en el detalle.
 class WebPageResolvedViewer extends ResolvedViewer {
-  const WebPageResolvedViewer(this.path);
+  const WebPageResolvedViewer(this.path, {this.url, this.text});
 
   final String path;
+
+  /// La dirección de la página, para las fotos que no quedaron guardadas.
+  final String? url;
+
+  /// Su texto extraído —el artículo—, si tiene: con él, lo estudiado se ve
+  /// sobre la página archivada (F36, decisión E).
+  final StudyText? text;
 }
 
 /// El contenido ya extraído de un DOCX, un EPUB o texto suelto: no hay un

@@ -137,6 +137,25 @@ void main() {
     expect(bookButton, findsOneWidget);
   });
 
+  testWidgets('una página web lo muestra en el centro, con «Ver la página» '
+      '(pedido del usuario)', (tester) async {
+    await pump(
+      tester,
+      viewer: const WebPageResolvedViewer('/no/existe.html'),
+      kind: SourceKind.webPage,
+    );
+
+    expect(bookButton, findsOneWidget);
+    expect(
+      find.descendant(
+        of: bookButton,
+        matching: find.text(es.detailViewWebPage),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(es.detailReadAsBook), findsNothing);
+  });
+
   testWidgets('una foto deja el botón chico en la esquina, sin «Leer como '
       'libro»', (tester) async {
     await pump(

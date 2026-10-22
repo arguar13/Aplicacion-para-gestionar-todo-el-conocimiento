@@ -120,6 +120,39 @@ void main() {
     );
   });
 
+  test('una página archivada lleva su dirección —para las fotos que no se '
+      'guardaron— y su artículo, para mostrar lo estudiado (F36)', () async {
+    final item = KnowledgeItem(
+      id: 'item-1',
+      title: 'Un elemento',
+      source: Source(
+        id: 'source-1',
+        kind: SourceKind.webPage,
+        capturedAt: DateTime(2026, 9, 14),
+        originalFilePath: 'originales/item-1/pagina.html',
+        url: 'https://ejemplo.org/nota',
+      ),
+      processingState: ProcessingState.ready,
+      createdAt: DateTime(2026, 9, 14),
+      updatedAt: DateTime(2026, 9, 14),
+      renditions: [
+        Rendition.text(
+          id: 'rend-1',
+          itemId: 'item-1',
+          kind: RenditionKind.markdown,
+          content: 'El artículo.',
+          isPrimary: true,
+          createdAt: DateTime(2026),
+        ),
+      ],
+    );
+
+    final resolved = await resolver.resolve(item) as WebPageResolvedViewer;
+
+    expect(resolved.url, 'https://ejemplo.org/nota');
+    expect(resolved.text, (renditionId: 'rend-1', content: 'El artículo.'));
+  });
+
   test('un video de YouTube resuelve a su miniatura, sin importar si hay '
       'audio bajado', () async {
     final item = buildItem(

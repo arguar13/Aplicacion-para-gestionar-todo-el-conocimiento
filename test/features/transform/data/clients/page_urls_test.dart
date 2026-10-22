@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/features/transform/data/clients/page_urls.dart';
 
 void main() {
@@ -33,28 +34,37 @@ void main() {
     });
   });
 
-  group('parseSrcset', () {
-    test('descriptores de densidad y de ancho', () {
-      expect(parseSrcset('a.jpg 1x, b.jpg 2x'), [
-        (url: 'a.jpg', descriptor: '1x'),
-        (url: 'b.jpg', descriptor: '2x'),
-      ]);
-      expect(parseSrcset(' a.jpg 320w ,b.jpg 640w'), [
-        (url: 'a.jpg', descriptor: '320w'),
-        (url: 'b.jpg', descriptor: '640w'),
-      ]);
+  group('absolutizePageUrls', () {
+    String absolutized(String body) {
+      final document = html_parser.parse('<body>$body</body>');
+      absolutizePageUrls(document, base);
+      return document.body!.innerHtml;
+    }
+
+    test('completa enlaces y fotos; un ancla y lo que no es web quedan', () {
+      expect(
+        absolutized(
+          '<a href="/wiki/Roma">R</a> <a href="#nota">n</a> '
+          '<img src="img/a.png" srcset="b.png 2x"> '
+          '<a href="mailto:x@y.org">m</a>',
+        ),
+        '<a href="https://ejemplo.org/wiki/Roma">R</a> <a href="#nota">n</a> '
+        '<img src="https://ejemplo.org/blog/img/a.png" '
+        'srcset="https://ejemplo.org/blog/b.png 2x"> '
+        '<a href="mailto:x@y.org">m</a>',
+      );
     });
 
-    test('una dirección con comas adentro no se parte', () {
-      expect(parseSrcset('https://cdn/w_640,h_480/f.jpg 640w, x.jpg'), [
-        (url: 'https://cdn/w_640,h_480/f.jpg', descriptor: '640w'),
-        (url: 'x.jpg', descriptor: ''),
-      ]);
-    });
-
-    test('una sola dirección sin descriptor', () {
-      expect(parseSrcset('solo.jpg'), [(url: 'solo.jpg', descriptor: '')]);
-      expect(parseSrcset(''), isEmpty);
+    test('también lo de la carga perezosa: la foto de verdad de un '
+        'cuadradito', () {
+      expect(
+        absolutized(
+          '<img data-src="real.jpg" data-srcset="a.jpg 320w, b.jpg 640w">',
+        ),
+        '<img data-src="https://ejemplo.org/blog/real.jpg" '
+        'data-srcset="https://ejemplo.org/blog/a.jpg 320w, '
+        'https://ejemplo.org/blog/b.jpg 640w">',
+      );
     });
   });
 }

@@ -9,6 +9,7 @@
 library;
 
 import 'package:html/dom.dart' as dom;
+import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 
 /// La dirección contra la que se resuelven las relativas de [document]: la
 /// de su primer `<base href>`, si lo declara, resuelta a su vez contra
@@ -58,22 +59,6 @@ const _urlAttributes = <String, List<String>>{
   'input': ['src'],
 };
 
-/// Atributos de carga diferida con una dirección: los que usan los
-/// cargadores de imágenes más comunes (lazysizes, los de WordPress y
-/// Medium) para que el navegador no baje la imagen hasta que se ve.
-const _lazyUrlAttributes = {
-  'data-src',
-  'data-lazy-src',
-  'data-original',
-  'data-original-src',
-  'data-hi-res-src',
-  'data-full-src',
-  'data-url',
-};
-
-/// Atributos de carga diferida con una lista de direcciones, como `srcset`.
-const _lazySrcsetAttributes = {'data-srcset', 'data-lazy-srcset'};
-
 /// Completa en el lugar cada dirección de [document] contra [base].
 ///
 /// Un ancla de la misma página (`#nota-3`) queda como está: es un salto
@@ -97,9 +82,9 @@ void absolutizePageUrls(dom.Document document, Uri base) {
     for (final entry in attributes.entries.toList()) {
       final name = entry.key;
       if (name is! String) continue;
-      if (name == 'srcset' || _lazySrcsetAttributes.contains(name)) {
+      if (name == 'srcset' || lazyImageSrcsetAttributes.contains(name)) {
         attributes[name] = absolutizeSrcset(entry.value, base);
-      } else if (_lazyUrlAttributes.contains(name)) {
+      } else if (lazyImageUrlAttributes.contains(name)) {
         final resolved = absolute(entry.value);
         if (resolved != null) attributes[name] = resolved;
       }
@@ -117,43 +102,3 @@ String absolutizeSrcset(String srcset, Uri base) =>
       final written = url ?? candidate.url;
       return descriptor.isEmpty ? written : '$written $descriptor';
     }).join(', ');
-
-/// Un candidato de un `srcset`: la dirección y lo que dice de su tamaño.
-typedef SrcsetCandidate = ({String url, String descriptor});
-
-/// Los candidatos de un `srcset`, en orden.
-///
-/// Las comas separan candidatos, pero una dirección puede tener comas
-/// adentro (`…/w_640,h_480/foto.jpg`, común en los CDN de imágenes): el
-/// estándar dice que la dirección termina en el primer espacio, y solo una
-/// coma pegada al final de la dirección —sin descriptor— la cierra.
-List<SrcsetCandidate> parseSrcset(String srcset) {
-  final candidates = <SrcsetCandidate>[];
-  var i = 0;
-  final text = srcset;
-  bool isSpace(int index) => ' \t\n\r\f'.contains(text[index]);
-
-  while (i < text.length) {
-    while (i < text.length && (isSpace(i) || text[i] == ',')) {
-      i++;
-    }
-    if (i >= text.length) break;
-    final urlStart = i;
-    while (i < text.length && !isSpace(i)) {
-      i++;
-    }
-    var url = text.substring(urlStart, i);
-    var descriptor = '';
-    if (url.endsWith(',')) {
-      url = url.replaceFirst(RegExp(r',+$'), '');
-    } else {
-      final descriptorStart = i;
-      while (i < text.length && text[i] != ',') {
-        i++;
-      }
-      descriptor = text.substring(descriptorStart, i).trim();
-    }
-    if (url.isNotEmpty) candidates.add((url: url, descriptor: descriptor));
-  }
-  return candidates;
-}

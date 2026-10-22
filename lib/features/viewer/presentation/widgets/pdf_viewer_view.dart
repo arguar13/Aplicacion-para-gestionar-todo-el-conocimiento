@@ -40,7 +40,7 @@ class PdfViewerView extends ConsumerStatefulWidget {
   final String path;
 
   /// El texto extraído del PDF y su forma: de ahí sale lo estudiado.
-  final PdfStudyText? text;
+  final StudyText? text;
 
   @override
   ConsumerState<PdfViewerView> createState() => _PdfViewerViewState();

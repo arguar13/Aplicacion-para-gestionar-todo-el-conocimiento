@@ -56,8 +56,16 @@ class FileViewerResolver {
 
       case SourceKind.webPage:
         if (relativePath == null) return const NoResolvedViewer();
-        // La página archivada es un HTML de verdad, no texto extraído.
-        return WebPageResolvedViewer(await _files.resolve(relativePath));
+        // La página archivada es un HTML de verdad, no texto extraído; lleva
+        // el artículo, si ya se extrajo, para mostrar lo estudiado (F36).
+        final rendition = _primaryText(item);
+        return WebPageResolvedViewer(
+          await _files.resolve(relativePath),
+          url: item.source.url,
+          text: rendition == null
+              ? null
+              : (renditionId: rendition.id, content: rendition.content),
+        );
 
       case SourceKind.youtube:
         // A diferencia de todos los demás casos, no depende de
@@ -131,6 +139,15 @@ class FileViewerResolver {
     );
   }
 
+  /// La forma de texto principal de [item], si tiene algo escrito.
+  TextRendition? _primaryText(KnowledgeItem item) {
+    final primary = item.renditions
+        .whereType<TextRendition>()
+        .where((r) => r.isPrimary)
+        .firstOrNull;
+    return primary == null || primary.content.trim().isEmpty ? null : primary;
+  }
+
   Future<ResolvedViewer> _resolveDocument(
     KnowledgeItem item,
     String relativePath,
@@ -140,13 +157,7 @@ class FileViewerResolver {
         ? FileFormat.unknown
         : detectFileFormat(head, name: p.basename(relativePath));
 
-    final primary = item.renditions
-        .whereType<TextRendition>()
-        .where((r) => r.isPrimary)
-        .firstOrNull;
-    final rendition = primary == null || primary.content.trim().isEmpty
-        ? null
-        : primary;
+    final rendition = _primaryText(item);
 
     // Recién acá, con el formato ya confirmado como PDF, hace falta la ruta
     // absoluta que pide el visor de verdad — ver el comentario de la clase.

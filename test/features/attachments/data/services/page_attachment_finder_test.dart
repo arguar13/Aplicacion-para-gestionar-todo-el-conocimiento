@@ -17,7 +17,7 @@ void main() {
        width="250" height="180" alt="">
   <figcaption>El Coliseo de noche</figcaption>
 </figure>
-<p><img src="https://up.org/a.jpg" data-srcset="https://up.org/a-320.jpg 320w, https://up.org/a-1280.jpg 1280w" alt="Una vista"></p>
+<p><img src="https://up.org/a.jpg" data-srcset="https://up.org/a-320.jpg 320w, https://up.org/a-2400.jpg 2400w, https://up.org/a-1280.jpg 1280w" alt="Una vista"></p>
 <img class="lazyload" data-src="https://up.org/b.png">
 <img src="https://up.org/mapa.svg" alt="Mapa">
 ''';
@@ -28,7 +28,7 @@ void main() {
         RenditionKind.image,
         'El Coliseo de noche',
       ),
-      ('https://up.org/a-1280.jpg', RenditionKind.image, 'Una vista'),
+      ('https://up.org/a-2400.jpg', RenditionKind.image, 'Una vista'),
       ('https://up.org/b.png', RenditionKind.image, null),
       ('https://up.org/mapa.svg', RenditionKind.image, 'Mapa'),
     ]);

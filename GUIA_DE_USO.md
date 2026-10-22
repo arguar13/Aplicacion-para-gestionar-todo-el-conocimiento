@@ -552,8 +552,17 @@ Para verlo a pantalla completa:
   completa, para leerlo como un libro. Como es semitransparente, el documento
   se sigue viendo debajo. Fuera del botón podés desplazarte por el documento
   como siempre.
-- **En una foto, un video o una página web**, el botón es chico y está en la
-  esquina, para no tapar lo que mirás ni el botón de reproducir.
+- **En una página web guardada**, el mismo botón grande dice **«Ver la
+  página»**: la abre a pantalla completa, tal como era, con sus fotos en su
+  lugar.
+- **En una foto o un video**, el botón es chico y está en la esquina, para no
+  tapar lo que mirás ni el botón de reproducir.
+
+Las fotos de una página web se guardan adentro del archivo, así que se ven
+sin conexión. Si alguna no se pudo guardar (por ejemplo, porque pesaba
+demasiado), se carga de internet cuando hay conexión. Las páginas que
+guardaste antes también muestran sus fotos, incluso las que la página
+cargaba recién al bajar.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
 verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí

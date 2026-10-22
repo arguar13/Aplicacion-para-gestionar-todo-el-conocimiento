@@ -293,3 +293,44 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 - Pruebas: 4 de la correspondencia de letras, 21 de la ubicación y los rectángulos, 8 de la capa
   sobre un PDF falso, 1 del resolver. Mutación 22/22. Dos que sobrevivían al principio llevaron a
   probar la última página con un sello y un salto de renglón con lugar en la página.
+
+### Paso 5b (hecho)
+
+- Una página web se estudia como un documento (`study_target.dart`): su texto principal es el
+  Markdown que dejó el modo lectura.
+- `archived_page_study.dart` arma la copia que se muestra del HTML archivado:
+  - sin los programas de la página —`<script>`, atributos `on…`, enlaces `javascript:`, el
+    `meta refresh` y su CSP—; lo de `<noscript>` queda a la vista;
+  - cada oración del resumen o de la síntesis se busca en el texto de la página, letra por letra
+    sin acentos ni signos —saltando las marcas y las direcciones de los enlaces del Markdown—, en
+    orden y, si no aparece después de la anterior, desde el principio; la que no está se saltea;
+  - se envuelve en `<mark>` con su clase, partida en cada etiqueta que cruza; cada palabra lleva
+    su lugar en el texto (`data-o`), así que una palabra cortada por una etiqueta es una sola;
+  - no se toca lo que no es texto de leer —un desplegable, un campo, un SVG— ni los espacios entre
+    bloques, que entre las filas de una tabla moverían cosas;
+  - suma una hoja con los colores de resaltador y un programa propio, chico: prende el resumen o
+    la síntesis y las palabras clave cambiando una clase, y eligiendo palabras manda la tocada por
+    el canal `SinapsisStudy`.
+- `WebPageViewerView` arma esa copia en otro hilo (`Isolate.run`) solo cuando cambian las
+  oraciones; prender una capa o una palabra es un `runJavaScript`, sin volver a cargar la página.
+  Se carga con la dirección de la página como base, así que lo que no se guardó se busca en
+  internet.
+- El visor incrustado de la página web lleva el botón grande, como un libro: **«Ver la página»**.
+- **Las fotos no aparecían** por dos causas:
+  - una carga perezosa deja en `src` un cuadradito y la foto en `data-src`: sin JavaScript nadie
+    los cambia;
+  - con un `srcset`, el navegador del teléfono —de pantalla densa— elige de ahí antes que el `src`
+    que se había guardado, y esa versión no estaba guardada.
+- Se arreglan en las dos puntas: el archivador guarda la foto de verdad y la deja sola, sin
+  alternativas (`settleImage`); el visor arregla al mostrarlas las páginas archivadas antes
+  (`showArchivedImages`).
+- La elección de la foto queda en un solo lugar, `transform/domain/archive/page_images.dart`, que
+  usan el buscador de adjuntos (la más grande), el archivador y el visor (la que alcanza para
+  leer, hasta 1600 de ancho o 2x). Ahí pasan `parseSrcset` y los atributos de carga perezosa, que
+  estaban repetidos en `page_urls.dart` y en el buscador.
+- Pruebas: 16 de la página estudiada, 21 de las fotos, 4 del archivador, 2 de las direcciones
+  completas (no tenían ninguna), 1 del resolver, 1 del botón grande y 3 de qué se estudia; el
+  buscador de adjuntos, con una foto de más de 1600 de ancho.
+- Mutación 44/44, en dos tandas. Siete sobrevivían al principio: buscar desde el principio, el
+  texto fuera de una oración, lo que no es de leer, el cuadradito en la carga perezosa, el tope
+  del buscador y completar las direcciones perezosas. Cada uno llevó a su prueba.

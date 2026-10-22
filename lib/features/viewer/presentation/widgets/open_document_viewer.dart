@@ -52,8 +52,16 @@ Future<bool> openDocumentViewer(
         PdfViewerScreen(path: path, title: item.title, text: text),
       );
 
-    case WebPageResolvedViewer(:final path):
-      return _push(context, WebPageViewerScreen(path: path, title: item.title));
+    case WebPageResolvedViewer(:final path, :final url, :final text):
+      return _push(
+        context,
+        WebPageViewerScreen(
+          path: path,
+          url: url,
+          title: item.title,
+          text: text,
+        ),
+      );
 
     case TextResolvedViewer(
       :final content,

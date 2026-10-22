@@ -3,7 +3,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/core/domain/entities/rendition_kind.dart';
 import 'package:sinapsis/features/attachments/domain/entities/attachment.dart';
 import 'package:sinapsis/features/attachments/domain/media_kind.dart';
-import 'package:sinapsis/features/transform/data/clients/page_urls.dart';
+import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 
 /// Lo más que se anota de una página: una galería de mil fotos no puede
 /// convertir un artículo en mil bajadas.
@@ -12,9 +12,9 @@ const kMaxPageAttachments = 300;
 /// Lo que ofrece el cuerpo de un artículo para bajar (F30, decisión D), en el
 /// orden en que aparece:
 ///
-/// - **Las fotos**, en su mejor versión: el candidato más grande de su
-///   `srcset` —también el de carga diferida, `data-srcset`/`data-src`—, o
-///   su `src`. Las de un `<picture>`, por su `<img>`. Los SVG también.
+/// - **Las fotos**, en su versión más grande —la de la carga diferida, la
+///   de su `srcset` o la de un `<source>` de su `<picture>`, o su `src`:
+///   ver `bestImageSource`—. Los SVG también.
 /// - **Los archivos enlazados**: un `<a href>` que apunta a un PDF, un EPUB,
 ///   un Word, un audio, un video, una foto o un `.zip`. Un enlace que solo
 ///   envuelve una foto no cuenta —la foto ya está, y en Wikipedia ese
@@ -60,7 +60,7 @@ List<AttachmentCandidate> findPageAttachments(
       case 'img':
         if (_isDecoration(element)) continue;
         add(
-          _bestImageSource(element),
+          bestImageSource(element, size: ImageSize.largest),
           RenditionKind.image,
           _imageTitle(element),
         );
@@ -123,52 +123,6 @@ Uri? _webUrl(String reference) {
   if (url.scheme != 'http' && url.scheme != 'https') return null;
   if (url.host.isEmpty) return null;
   return url;
-}
-
-/// El mejor candidato de una foto: el más grande de su `srcset` (por ancho,
-/// o por densidad si no dice anchos), si no el de carga diferida, si no su
-/// `src`.
-String? _bestImageSource(dom.Element img) {
-  final attributes = img.attributes;
-  for (final name in const ['data-srcset', 'srcset', 'data-lazy-srcset']) {
-    final best = _largestCandidate(attributes[name]);
-    if (best != null) return best;
-  }
-  for (final name in const [
-    'data-src',
-    'data-lazy-src',
-    'data-original',
-    'data-original-src',
-    'data-hi-res-src',
-    'data-full-src',
-    'src',
-  ]) {
-    final value = attributes[name]?.trim();
-    if (value != null && value.isNotEmpty && !value.startsWith('data:')) {
-      return value;
-    }
-  }
-  return null;
-}
-
-String? _largestCandidate(String? srcset) {
-  if (srcset == null || srcset.trim().isEmpty) return null;
-  final candidates = parseSrcset(srcset);
-  if (candidates.isEmpty) return null;
-  double size(String descriptor) {
-    final match = RegExp(r'^([\d.]+)([wx])$').firstMatch(descriptor.trim());
-    if (match == null) return 1;
-    final value = double.tryParse(match[1]!) ?? 1;
-    // Un ancho en píxeles le gana a cualquier densidad: "640w" es una
-    // foto de 640, "2x" no dice cuánto mide.
-    return match[2] == 'w' ? value * 1000 : value;
-  }
-
-  var best = candidates.first;
-  for (final candidate in candidates.skip(1)) {
-    if (size(candidate.descriptor) > size(best.descriptor)) best = candidate;
-  }
-  return best.url;
 }
 
 /// Un ícono, un píxel de seguimiento o algo que dice que es decoración.

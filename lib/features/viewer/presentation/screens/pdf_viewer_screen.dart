@@ -20,7 +20,7 @@ class PdfViewerScreen extends StatelessWidget {
   final String title;
 
   /// Su texto extraído, para pintar lo estudiado (F36).
-  final PdfStudyText? text;
+  final StudyText? text;
 
   @override
   Widget build(BuildContext context) {

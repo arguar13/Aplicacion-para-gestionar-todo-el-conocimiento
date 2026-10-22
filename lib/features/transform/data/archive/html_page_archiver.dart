@@ -5,6 +5,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/features/transform/domain/archive/page_archiver.dart';
+import 'package:sinapsis/features/transform/domain/archive/page_images.dart';
 import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart';
 
 /// Archiva una página incrustando sus imágenes y hojas de estilo como datos,
@@ -12,10 +13,16 @@ import 'package:sinapsis/features/transform/domain/clients/resource_fetcher.dart
 ///
 /// Deliberadamente **no** persigue la fidelidad completa de esa extensión.
 /// Esta app archiva para poder *leer* después, no para reproducir la página
-/// al pixel: quedan afuera el `srcset` de imágenes responsivas (el `src`
-/// ya incrustado sirve de resguardo si el navegador no puede usar ninguna
-/// alternativa), los `@import` entre hojas de estilo, y todo lo que no sea
-/// HTML+CSS estático —video, iframes, contenido armado por JavaScript—.
+/// al pixel: quedan afuera los `@import` entre hojas de estilo, y todo lo que
+/// no sea HTML+CSS estático —video, iframes, contenido armado por
+/// JavaScript—.
+///
+/// **De cada foto, una: la de verdad (F36).** Se guarda la que nombra la
+/// carga perezosa (`data-src` y parecidos) o la mejor de su `srcset`, y se le
+/// sacan las alternativas. Antes se guardaba solo el `src`: en muchas páginas
+/// es un cuadradito transparente que un programa cambia por la foto, y donde
+/// había `srcset`, el navegador del teléfono elegía de ahí una que no se
+/// había guardado. En los dos casos la página archivada salía sin fotos.
 /// Perseguir eso multiplicaría la complejidad para un beneficio que no le
 /// sirve a una app de lectura.
 ///
@@ -136,14 +143,18 @@ class HtmlPageArchiver implements PageArchiver {
     required _Budget budget,
   }) async {
     await _forEachConcurrently(document.querySelectorAll('img'), (img) async {
-      final src = img.attributes['src'];
-      if (src == null || src.isEmpty) return;
+      // La foto de verdad, no el cuadradito de una carga perezosa ni el
+      // `src` chico al que un `srcset` le gana —ver `bestImageSource`—.
+      final source = bestImageSource(img, size: ImageSize.screen);
+      if (source == null) return;
 
-      final resolved = _resolve(baseUri, src);
+      final resolved = _resolve(baseUri, source);
       if (resolved == null) return;
 
+      // Guardada o no, queda sola y completa: lo que no se pudo guardar
+      // apunta a la foto de verdad, y se ve si hay conexión.
       final dataUri = await _fetchAsDataUri(resolved, budget: budget);
-      if (dataUri != null) img.attributes['src'] = dataUri;
+      settleImage(img, dataUri ?? resolved.toString());
     });
   }
 
