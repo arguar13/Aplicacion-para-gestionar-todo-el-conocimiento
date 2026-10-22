@@ -186,6 +186,12 @@ class LongWorkService : Service() {
                 } else {
                     getString(R.string.long_work_starting)
                 }
+            KIND_STUDYING ->
+                if (total > 0) {
+                    getString(R.string.long_work_studying_progress, done, total)
+                } else {
+                    getString(R.string.long_work_starting)
+                }
             KIND_MODEL_DOWNLOAD -> {
                 val model = getString(
                     when (detail) {
@@ -228,6 +234,7 @@ class LongWorkService : Service() {
                         R.string.long_work_organizing_title
                     }
                 KIND_REVIEWING -> R.string.long_work_reviewing_title
+                KIND_STUDYING -> R.string.long_work_studying_title
                 KIND_MODEL_DOWNLOAD -> R.string.long_work_model_title
                 KIND_AUDIO_DOWNLOAD -> R.string.long_work_audio_title
                 KIND_SAMPLE_LIBRARY -> R.string.long_work_sample_library_title
@@ -303,6 +310,9 @@ class LongWorkService : Service() {
 
         /** El trabajo es otro modelo revisando lo que hizo la IA (F33). */
         const val KIND_REVIEWING = "reviewing"
+
+        /** El trabajo es analizar un documento para estudiarlo (F36). */
+        const val KIND_STUDYING = "studying"
 
         /** El trabajo es bajar un modelo; [EXTRA_DETAIL] dice cuál. */
         const val KIND_MODEL_DOWNLOAD = "model_download"

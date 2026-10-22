@@ -202,3 +202,24 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 - Una trampa: `drift_dev schema generate` reescribe todos los `schema_vN.dart`; se restauraron
   con git y quedaron solo `schema_v40.dart` y el índice.
 
+
+### Paso 3 (hecho)
+
+- `AnalyzeForStudy` (`lib/features/study/domain/usecases/`):
+  - analiza por partes, en orden, desde donde quedó (`analyzedUntil`), y guarda cada parte al
+    terminarla: lo marcado aparece a medida que avanza y un corte no pierde nada;
+  - avisa cuántas partes van y cuántas son desde antes de la primera;
+  - si el modelo no contesta en el formato, reintenta una vez; si tampoco, la parte queda
+    analizada sin marcas y se cuenta como «no se pudo leer»;
+  - entre parte y parte mira si hay que parar.
+- `StudyMarker` lo implementa `LanguageModelTasks`, así que usa el modelo elegido en la
+  configuración —Gemma o el de la nube—:
+  - el tamaño de parte sale de la ventana del modelo (`studyPartCharBudget`): de 800 a 15.000
+    caracteres;
+  - si el pedido no entra en la ventana, achica la parte a 3/4 hasta que entra, y avisa cuántas
+    oraciones analizó.
+- `StudyAnalysisNotifier` (por texto, no se descarta al salir de la pantalla) corre el análisis,
+  lo para y mantiene viva la app con el servicio en primer plano («Analizando para estudiar»,
+  en español e inglés).
+- Pruebas: 8 del caso de uso, 4 del modelo, 4 del notificador. Mutación 18/18 (una mal armada por
+  la sangría, rehecha y muerta).

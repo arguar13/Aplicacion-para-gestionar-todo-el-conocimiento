@@ -103,6 +103,11 @@ enum LongWorkOwner {
   /// IA. Lo pidió la persona, con un botón: va antes que la IA de fondo.
   aiReview,
 
+  /// Analizar un documento para estudiarlo (F36): resumen, síntesis y
+  /// palabras clave, por partes. Lo pidió la persona con un botón, y un libro
+  /// con Gemma en el teléfono son muchos minutos.
+  study,
+
   /// La IA que organiza sola (F27): lo nuevo, lo pedido, las notas y, con el
   /// cargador, la biblioteca que ya existía.
   aiOrganize,

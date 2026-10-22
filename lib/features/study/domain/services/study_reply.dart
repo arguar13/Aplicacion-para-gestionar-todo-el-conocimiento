@@ -34,6 +34,15 @@ int studyPartEnd(
   return end;
 }
 
+/// Cuántos caracteres de oraciones conviene darle por parte a un modelo con
+/// una ventana de [contextTokens] tokens (F36): lo que queda después de la
+/// instrucción, la respuesta y un margen, a unos dos caracteres y medio por
+/// token —contando el número de cada oración y lo que contesta por ella—.
+/// Con Gemma en el teléfono, unas treinta oraciones; con un modelo en la nube
+/// el límite es [kMaxStudyPartSentences], no la ventana.
+int studyPartCharBudget(int contextTokens) =>
+    ((contextTokens - 600) * 5 ~/ 2).clamp(800, 15000);
+
 /// Cuántos tokens puede escribir el modelo para una parte de [count]
 /// oraciones: las dos líneas de números y, por cada oración marcada —cerca de
 /// una de cada tres—, su línea `CLAVE` con cuatro palabras.

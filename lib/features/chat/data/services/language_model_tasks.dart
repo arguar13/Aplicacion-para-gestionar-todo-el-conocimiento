@@ -29,6 +29,9 @@ import 'package:sinapsis/features/notes/domain/services/derived_claim_anchor.dar
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_parts.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_response_parser.dart';
+import 'package:sinapsis/features/study/domain/services/study_marker.dart';
+import 'package:sinapsis/features/study/domain/services/study_reply.dart';
+import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_parser.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 
@@ -253,6 +256,24 @@ const _summarizationSystemInstruction =
     'párrafos cortos de texto corrido, sin viñetas, sin encabezados y sin '
     'Markdown.';
 
+/// Estudiar un documento (F36): elegir oraciones **del texto**, por número
+/// —nunca escribirlas—, y palabras copiadas de ellas. Es lo que deja
+/// resaltarlas en el original: lo que contesta el modelo se lee con
+/// `parseStudyReply`, que descarta todo lo que el documento no dice.
+const _studySystemInstruction =
+    'Respondé siempre en español. Te doy las oraciones de un documento, '
+    'numeradas. Tu única tarea es elegir, basándote ÚNICAMENTE en ellas: '
+    'RESUMEN, las oraciones que llevan las ideas principales, cerca de una de '
+    'cada cuatro; SINTESIS, las esenciales, el hilo del documento, cerca de '
+    'una de cada diez, que leídas solas dejen entender de qué se trata; y, '
+    'para cada oración del resumen o de la síntesis, hasta cuatro palabras '
+    'clave copiadas TEXTUALMENTE de esa oración —las que la sostienen, no '
+    'artículos ni preposiciones—. Respondé con este formato exacto, sin '
+    'Markdown:\nRESUMEN: <números separados por comas>\nSINTESIS: <números '
+    'separados por comas>\nCLAVE <número>: <palabra>, <palabra>\nUna línea '
+    'CLAVE por cada oración elegida. Si no corresponde ninguna, escribí '
+    'ninguna. No respondas nada más.';
+
 /// El formato de respuesta compartido por los cuatro derivados (D5): lo
 /// único que cambia entre `_studyGuideSystemInstruction` y las otras tres es
 /// QUÉ generar, nunca el formato en que se lo pide —mismo criterio que
@@ -381,7 +402,8 @@ class LanguageModelTasks
         DerivedNoteGenerator,
         QuizQuestionGenerator,
         NotebookCandidateJudge,
-        NotebookNamer {
+        NotebookNamer,
+        StudyMarker {
   /// Cada uso pasa por [gate] (F27): esta instancia es la de la persona —el
   /// chat, resumir, las tarjetas y el quiz a mano— y [background], la de la
   /// cola de la IA. [backend] es el motor que escribe, compartido con
@@ -632,6 +654,50 @@ class LanguageModelTasks
         );
 
         return parseFlashcardDrafts(text).take(count).toList();
+      } finally {
+        await chat.close();
+      }
+    });
+  }
+
+  @override
+  int get partCharBudget => studyPartCharBudget(_backend.contextTokens);
+
+  @override
+  Future<StudyPartOutcome> markPart({
+    required String content,
+    required List<StudySentence> part,
+  }) {
+    assert(part.isNotEmpty, 'Una parte tiene al menos una oración.');
+    return _withTurn(() async {
+      final replyTokens = studyReplyTokens(part.length);
+      final chat = await _backend.openExchange(
+        instruction: _studySystemInstruction,
+        maxOutputTokens: replyTokens,
+      );
+
+      try {
+        // Nunca más de lo que entra: con el tokenizador del modelo, lo que
+        // queda de la ventana después de la instrucción y la respuesta. Quien
+        // llama arma partes que suelen entrar (`partCharBudget`); esto lo
+        // garantiza aunque el texto cuente más tokens de lo común.
+        final room =
+            _backend.contextTokens -
+            replyTokens -
+            await chat.countTokens(_studySystemInstruction) -
+            kPromptMarginTokens;
+        var fitted = part;
+        var prompt = buildStudyPrompt(content, fitted);
+        while (fitted.length > 1 && await chat.countTokens(prompt) > room) {
+          fitted = fitted.sublist(0, fitted.length * 3 ~/ 4);
+          prompt = buildStudyPrompt(content, fitted);
+        }
+
+        final reply = await _generate(chat, prompt);
+        return StudyPartOutcome(
+          analyzed: fitted.length,
+          marks: parseStudyReply(reply, content: content, part: fitted),
+        );
       } finally {
         await chat.close();
       }

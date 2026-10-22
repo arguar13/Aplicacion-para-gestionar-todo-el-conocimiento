@@ -44,6 +44,7 @@ import 'package:sinapsis/features/library/domain/services/summarization_service.
 import 'package:sinapsis/features/notebooks/domain/services/notebook_candidates.dart';
 import 'package:sinapsis/features/notebooks/domain/services/notebook_suggestions.dart';
 import 'package:sinapsis/features/notes/domain/services/derived_note_generator.dart';
+import 'package:sinapsis/features/study/domain/services/study_marker.dart';
 import 'package:sinapsis/features/suggestions/domain/services/property_suggestion_service.dart';
 import 'package:sinapsis/features/transform/domain/services/long_work_keeper.dart';
 import 'package:sinapsis/features/transform/presentation/providers/model_download_notifier.dart';
@@ -282,6 +283,12 @@ final relationSuggestionServiceProvider = Provider<RelationSuggestionService>((
 });
 
 final summarizationServiceProvider = Provider<SummarizationService>((ref) {
+  return ref.watch(_languageModelProvider);
+});
+
+/// Quien marca un documento para estudiarlo (F36): el modelo de la persona,
+/// con su turno.
+final studyMarkerProvider = Provider<StudyMarker>((ref) {
   return ref.watch(_languageModelProvider);
 });
 
