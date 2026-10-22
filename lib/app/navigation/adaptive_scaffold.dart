@@ -27,9 +27,11 @@ const kNavRailBreakpoint = 600.0;
 /// lugar, en vez de competir por espacio en una sola fila que en un celular
 /// real desbordaba.
 ///
-/// Con el Atlas y los cuadernos son nueve destinos, y nueve no caben en una
-/// barra de celular: la barra muestra cinco y un «Más» que abre una hoja con
-/// el resto (F13, D1). El riel de escritorio los muestra todos.
+/// Nueve destinos no caben en una barra de celular: la barra muestra los
+/// cinco pasos del trabajo, en el orden en que se usan —Biblioteca,
+/// Organizar, Preguntar, Repasar y Ajustes—, y un paso con varios destinos
+/// abre su lista (F34, decisión 76; antes eran cinco y un «Más», F13). El
+/// riel de escritorio los muestra todos.
 class AdaptiveScaffold extends ConsumerWidget {
   const AdaptiveScaffold({required this.navigationShell, super.key});
 
@@ -90,81 +92,87 @@ class AdaptiveScaffold extends ConsumerWidget {
       );
     }
 
-    // En el celular: los destinos de la barra más un «Más» con el resto.
-    final onBar = [
-      for (final d in destinations)
-        if (d.onPhoneBar) d,
-    ];
-    final overflow = [
-      for (final d in destinations)
-        if (!d.onPhoneBar) d,
-    ];
-    final moreIndex = onBar.length;
+    // En el celular: un botón por paso, en orden de uso (F34). Un paso con
+    // varios destinos abre su lista; con uno solo, lo abre directo.
+    final groups = buildNavStepGroups(l10n: l10n, destinations: destinations);
     final current = navigationShell.currentIndex;
-    final barIndex = onBar.indexWhere((d) => d.branchIndex == current);
-    // Estar en uno de los que quedaron detrás de «Más» marca a «Más».
-    final barSelected = barIndex >= 0
-        ? barIndex
-        : (overflow.any((d) => d.branchIndex == current) ? moreIndex : 0);
+    final groupIndex = groups.indexWhere((g) => g.contains(current));
 
     return Scaffold(
       body: StudyDayWatcher(child: navigationShell),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: barSelected,
+        selectedIndex: groupIndex < 0 ? 0 : groupIndex,
         onDestinationSelected: (index) {
-          if (index == moreIndex) {
-            unawaited(_showMore(context, overflow, current, goToBranch));
+          final group = groups[index];
+          if (group.hasList) {
+            unawaited(_showStep(context, group, current, goToBranch));
           } else {
-            goToBranch(onBar[index].branchIndex);
+            goToBranch(group.destinations.single.branchIndex);
           }
         },
         destinations: [
-          for (final d in onBar)
+          for (final g in groups)
             NavigationDestination(
-              icon: d.icon,
-              selectedIcon: d.selectedIcon,
-              label: d.label,
+              key: ValueKey('nav-step-${g.step.name}'),
+              icon: g.icon,
+              selectedIcon: g.selectedIcon,
+              label: g.label,
             ),
-          NavigationDestination(
-            icon: const Icon(Icons.more_horiz),
-            selectedIcon: const Icon(Icons.more_horiz),
-            label: l10n.navMore,
-          ),
         ],
       ),
     );
   }
 
-  /// La hoja de «Más»: los destinos que no caben en la barra.
-  Future<void> _showMore(
+  /// La lista de un paso: sus destinos de arriba abajo en orden de uso, cada
+  /// uno con para qué sirve, y el que está abierto marcado.
+  Future<void> _showStep(
     BuildContext context,
-    List<NavDestinationSpec> overflow,
+    NavStepGroup group,
     int currentBranch,
     void Function(int branchIndex) goToBranch,
   ) {
     return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final d in overflow)
-              ListTile(
-                key: ValueKey('nav-more-${d.branchIndex}'),
-                leading: d.branchIndex == currentBranch
-                    ? d.selectedIcon
-                    : d.icon,
-                title: Text(d.label),
-                selected: d.branchIndex == currentBranch,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  goToBranch(d.branchIndex);
-                },
-              ),
-          ],
-        ),
-      ),
+      // Con letra grande o en un teléfono chico, la lista entera.
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: Text(group.label, style: theme.textTheme.titleLarge),
+                ),
+                for (final d in group.destinations)
+                  ListTile(
+                    key: ValueKey('nav-step-item-${d.branchIndex}'),
+                    leading: d.branchIndex == currentBranch
+                        ? d.selectedIcon
+                        : d.icon,
+                    title: Text(d.label),
+                    subtitle: Text(d.hint),
+                    trailing: const Icon(Icons.chevron_right),
+                    selected: d.branchIndex == currentBranch,
+                    selectedTileColor: theme.colorScheme.secondaryContainer,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      goToBranch(d.branchIndex);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

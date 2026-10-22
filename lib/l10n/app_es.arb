@@ -3094,9 +3094,49 @@
   "@navNotebooks": {
     "description": "Destino de la navegación principal: los cuadernos, un subconjunto con nombre de la bóveda (F16)."
   },
-  "navMore": "Más",
-  "@navMore": {
-    "description": "Destino de la barra del celular que abre la hoja con los destinos que no caben en ella."
+  "navStepOrganize": "Organizar",
+  "@navStepOrganize": {
+    "description": "Paso de la barra del celular (F34) que agrupa Bandeja, Atlas, Explorador y Mapa; tocarlo abre su lista."
+  },
+  "navStepAsk": "Preguntar",
+  "@navStepAsk": {
+    "description": "Paso de la barra del celular (F34) que agrupa Chat y Cuadernos; tocarlo abre su lista."
+  },
+  "navLibraryHint": "Todo lo que guardaste, y desde acá guardás algo nuevo",
+  "@navLibraryHint": {
+    "description": "Para qué sirve la Biblioteca, en una línea: debajo de su nombre en la lista de un paso (F34)."
+  },
+  "navInboxHint": "Revisá de a una las fuentes que ya se procesaron",
+  "@navInboxHint": {
+    "description": "Para qué sirve la Bandeja, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
+  },
+  "navAtlasHint": "Lo que sabés y lo que te falta, por tema",
+  "@navAtlasHint": {
+    "description": "Para qué sirve el Atlas, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
+  },
+  "navExplorerHint": "Recorré lo procesado filtrando por tema, tipo y etiquetas",
+  "@navExplorerHint": {
+    "description": "Para qué sirve el Explorador, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
+  },
+  "navMapHint": "Tu bóveda como una red de vínculos",
+  "@navMapHint": {
+    "description": "Para qué sirve el Mapa, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
+  },
+  "navChatHint": "Preguntale a la IA sobre tu material",
+  "@navChatHint": {
+    "description": "Para qué sirve el Chat, en una línea: debajo de su nombre en la lista del paso «Preguntar» (F34)."
+  },
+  "navNotebooksHint": "Juntá un grupo de elementos y acotá el chat a ellos",
+  "@navNotebooksHint": {
+    "description": "Para qué sirven los Cuadernos, en una línea: debajo de su nombre en la lista del paso «Preguntar» (F34)."
+  },
+  "navReviewHint": "Tarjetas y cuestionarios para no olvidarte",
+  "@navReviewHint": {
+    "description": "Para qué sirve Repasar, en una línea: debajo de su nombre en la lista de un paso (F34)."
+  },
+  "navSettingsHint": "Idioma, tema, modelos de IA, copia de seguridad y más",
+  "@navSettingsHint": {
+    "description": "Para qué sirven los Ajustes, en una línea: debajo de su nombre en la lista de un paso (F34)."
   },
   "atlasTitle": "Atlas",
   "@atlasTitle": {

@@ -14,6 +14,7 @@ import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
 import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
+import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
 import 'package:sinapsis/features/map/presentation/screens/map_screen.dart';
@@ -103,165 +104,180 @@ void main() {
       expect(find.byType(NavigationRail), findsNothing);
     });
 
-    testWidgets('tocar un destino cambia de pestaña', (tester) async {
-      setLogicalWidth(tester, 400);
-
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-      expect(find.byType(LibraryScreen), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.hub_outlined));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(MapScreen), findsOneWidget);
-    });
-
-    testWidgets('la barra muestra cinco destinos y un «Más» (F13, D1)', (
-      tester,
-    ) async {
-      setLogicalWidth(tester, 400);
-
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-
-      final labels = [
-        for (final d in tester.widgetList<NavigationDestination>(
-          find.byType(NavigationDestination),
-        ))
-          d.label,
-      ];
-      expect(labels, [
-        es.navLibrary,
-        es.navInbox,
-        es.navAtlas,
-        es.navMap,
-        es.navReview,
-        es.navMore,
-      ]);
-    });
-
-    testWidgets('el Atlas es un destino de la barra', (tester) async {
-      setLogicalWidth(tester, 400);
-
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.account_tree_outlined));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AtlasScreen), findsOneWidget);
-    });
-
     testWidgets(
-      '«Más» abre una hoja con Explorador, Chat, Cuadernos y Ajustes',
+      'la barra son los cinco pasos en orden de uso, con Ajustes a la '
+      'derecha y sin «Más» (F34)',
       (tester) async {
         setLogicalWidth(tester, 400);
 
         await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(Icons.more_horiz));
+        final labels = [
+          for (final d in tester.widgetList<NavigationDestination>(
+            find.byType(NavigationDestination),
+          ))
+            d.label,
+        ];
+        expect(labels, [
+          es.navLibrary,
+          es.navStepOrganize,
+          es.navStepAsk,
+          es.navReview,
+          es.navSettings,
+        ]);
+        expect(find.byIcon(Icons.more_horiz), findsNothing);
+      },
+    );
+
+    // Cada destino de un paso con lista: su rama, la pantalla que abre y la
+    // posición del paso en la barra.
+    final listed = [
+      (step: 'organize', branch: 1, screen: InboxScreen, barIndex: 1),
+      (step: 'organize', branch: 7, screen: AtlasScreen, barIndex: 1),
+      (step: 'organize', branch: 2, screen: ExplorerScreen, barIndex: 1),
+      (step: 'organize', branch: 3, screen: MapScreen, barIndex: 1),
+      (step: 'ask', branch: 4, screen: ChatScreen, barIndex: 2),
+      (step: 'ask', branch: 8, screen: NotebooksScreen, barIndex: 2),
+    ];
+
+    testWidgets(
+      '«Organizar» abre su lista: Bandeja, Atlas, Explorador y Mapa, en ese '
+      'orden y con para qué sirve cada uno',
+      (tester) async {
+        setLogicalWidth(tester, 400);
+
+        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
         await tester.pumpAndSettle();
 
-        for (final label in [
-          es.navExplorer,
-          es.navChat,
-          es.navNotebooks,
-          es.navSettings,
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(of: sheet, matching: find.text(es.navStepOrganize)),
+          findsOneWidget,
+        );
+        final tiles = tester
+            .widgetList<ListTile>(
+              find.descendant(of: sheet, matching: find.byType(ListTile)),
+            )
+            .toList();
+        expect(
+          [for (final t in tiles) (t.key! as ValueKey<String>).value],
+          [
+            'nav-step-item-1',
+            'nav-step-item-7',
+            'nav-step-item-2',
+            'nav-step-item-3',
+          ],
+        );
+        for (final hint in [
+          es.navInboxHint,
+          es.navAtlasHint,
+          es.navExplorerHint,
+          es.navMapHint,
         ]) {
           expect(
-            find.descendant(
-              of: find.byType(BottomSheet),
-              matching: find.text(label),
-            ),
+            find.descendant(of: sheet, matching: find.text(hint)),
             findsOneWidget,
           );
         }
       },
     );
 
-    testWidgets('elegir un destino de «Más» lo abre, y «Más» queda marcado', (
+    testWidgets('«Preguntar» abre su lista: Chat y Cuadernos, en ese orden', (
       tester,
     ) async {
       setLogicalWidth(tester, 400);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-more-2')));
+      await tester.tap(find.byKey(const ValueKey('nav-step-ask')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ExplorerScreen), findsOneWidget);
-      // La hoja se cerró y la barra marca «Más», el último destino.
-      expect(find.byType(BottomSheet), findsNothing);
-      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(bar.selectedIndex, bar.destinations.length - 1);
-    });
-
-    testWidgets('Ajustes, Chat y Cuadernos también están detrás de «Más»', (
-      tester,
-    ) async {
-      setLogicalWidth(tester, 400);
-
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-more-6')));
-      await tester.pumpAndSettle();
-      expect(find.byType(SettingsScreen), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-more-4')));
-      await tester.pumpAndSettle();
-      expect(find.byType(ChatScreen), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-more-8')));
-      await tester.pumpAndSettle();
-      expect(find.byType(NotebooksScreen), findsOneWidget);
-    });
-
-    testWidgets('un destino de la barra deja de marcar «Más»', (tester) async {
-      setLogicalWidth(tester, 400);
-
-      await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_horiz));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-more-6')));
-      await tester.pumpAndSettle();
-
-      // El ícono del destino, en la barra: la pantalla abierta puede mostrar
-      // el mismo —Ajustes lo usa para el interruptor del Atlas (F27)—.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.byIcon(Icons.account_tree_outlined),
-        ),
+      final tiles = tester
+          .widgetList<ListTile>(
+            find.descendant(
+              of: find.byType(BottomSheet),
+              matching: find.byType(ListTile),
+            ),
+          )
+          .toList();
+      expect(
+        [for (final t in tiles) (t.key! as ValueKey<String>).value],
+        ['nav-step-item-4', 'nav-step-item-8'],
       );
-      await tester.pumpAndSettle();
-
-      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      // El Atlas es el tercero de la barra.
-      expect(bar.selectedIndex, 2);
     });
 
-    testWidgets('la Bandeja de entrada es un destino más', (tester) async {
+    for (final d in listed) {
+      testWidgets(
+        'elegir la rama ${d.branch} de «${d.step}» abre ${d.screen}, cierra '
+        'la lista y marca el paso',
+        (tester) async {
+          setLogicalWidth(tester, 400);
+
+          await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ValueKey('nav-step-${d.step}')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(ValueKey('nav-step-item-${d.branch}')));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(d.screen), findsOneWidget);
+          expect(find.byType(BottomSheet), findsNothing);
+          final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+          expect(bar.selectedIndex, d.barIndex);
+        },
+      );
+    }
+
+    testWidgets(
+      'Biblioteca, Repasar y Ajustes abren directo, sin lista, y quedan '
+      'marcados',
+      (tester) async {
+        setLogicalWidth(tester, 400);
+
+        await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
+        await tester.pumpAndSettle();
+
+        for (final (step, screen, barIndex) in [
+          ('review', ReviewEntryScreen, 3),
+          ('settings', SettingsScreen, 4),
+          ('save', LibraryScreen, 0),
+        ]) {
+          await tester.tap(find.byKey(ValueKey('nav-step-$step')));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(BottomSheet), findsNothing, reason: step);
+          expect(find.byType(screen), findsOneWidget, reason: step);
+          final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+          expect(bar.selectedIndex, barIndex, reason: step);
+        }
+      },
+    );
+
+    testWidgets('la lista marca el destino que está abierto, y solo ese', (
+      tester,
+    ) async {
       setLogicalWidth(tester, 400);
 
       await tester.pumpWidget(buildRoutedApp(buildUnlockedContainer()));
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.move_to_inbox_outlined));
+      await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-step-item-7')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(InboxScreen), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
+      await tester.pumpAndSettle();
+
+      final selected = {
+        for (final branch in [1, 7, 2, 3])
+          branch: tester
+              .widget<ListTile>(find.byKey(ValueKey('nav-step-item-$branch')))
+              .selected,
+      };
+      expect(selected, {1: false, 7: true, 2: false, 3: false});
     });
   });
 
