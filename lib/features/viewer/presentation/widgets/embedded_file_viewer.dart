@@ -110,7 +110,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
     return switch (resolved) {
       NoResolvedViewer() => null,
-      TextResolvedViewer(:final content, :final markdown) =>
+      TextResolvedViewer(:final content, :final markdown, :final renditionId) =>
         _EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
@@ -119,6 +119,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
             title: item.title,
             content: content,
             markdown: markdown,
+            renditionId: renditionId,
           ),
         ),
       ImageResolvedViewer(:final path) => _EmbeddedViewerFrame(

@@ -52,13 +52,18 @@ Future<bool> openDocumentViewer(
     case WebPageResolvedViewer(:final path):
       return _push(context, WebPageViewerScreen(path: path, title: item.title));
 
-    case TextResolvedViewer(:final content, :final markdown):
+    case TextResolvedViewer(
+      :final content,
+      :final markdown,
+      :final renditionId,
+    ):
       return _push(
         context,
         DocumentReaderScreen(
           title: item.title,
           content: content,
           markdown: markdown,
+          renditionId: renditionId,
         ),
       );
 

@@ -452,4 +452,176 @@ void main() {
       expect(watch.elapsedMilliseconds, lessThan(200));
     });
   });
+
+  group('capas de color para estudiar (F36)', () {
+    const green = Color(0xFFC8F2C2);
+    const pink = Color(0xFFFFB3D9);
+
+    /// Cada tramo con su texto y su fondo, en orden.
+    List<(String, Color?)> pieces(TextSpan span) => [
+      for (final s in span.children!.cast<TextSpan>())
+        (s.text!, s.style?.backgroundColor),
+    ];
+
+    test('una oración se pinta debajo de un resaltado y una palabra clave '
+        'encima, sin perder ni repetir texto', () {
+      const raw = 'Antes la revolución industrial empezó. Después.';
+      final rendered = RenderedMarkdown.plain(raw);
+      final theme = ThemeData.light();
+      final sentence = (6, raw.indexOf(' Después'));
+      final word = (raw.indexOf('revolución'), raw.indexOf(' industrial'));
+      final highlight = (raw.indexOf('revolución'), raw.indexOf(' empezó'));
+
+      final span = rendered.buildSpans(
+        theme,
+        [highlight],
+        paints: [
+          PaintedRange(
+            word.$1,
+            word.$2,
+            background: pink,
+            foreground: Colors.black87,
+            bold: true,
+            aboveHighlights: true,
+          ),
+          PaintedRange(sentence.$1, sentence.$2, background: green),
+        ],
+      );
+
+      final tertiary = theme.colorScheme.tertiaryContainer;
+      expect(pieces(span), [
+        ('Antes ', null),
+        ('la ', green),
+        ('revolución', pink),
+        (' industrial', tertiary),
+        (' empezó.', green),
+        (' Después.', null),
+      ]);
+      final keyword = span.children!.cast<TextSpan>().firstWhere(
+        (s) => s.text == 'revolución',
+      );
+      expect(keyword.style!.fontWeight, FontWeight.bold);
+      expect(keyword.style!.color, Colors.black87);
+    });
+
+    test('lo que suena va encima de todo', () {
+      const raw = 'Una oración entera.';
+      final rendered = RenderedMarkdown.plain(raw);
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        activeRange: (4, 11),
+        paints: const [
+          PaintedRange(0, 19, background: green),
+          PaintedRange(4, 11, background: pink, aboveHighlights: true),
+        ],
+      );
+
+      expect(pieces(span), [
+        ('Una ', green),
+        ('oración', RenderedMarkdown.playingColor),
+        (' entera.', green),
+      ]);
+    });
+
+    test('dos capas seguidas no se mezclan, y dos que se pisan dejan la de '
+        'más arriba', () {
+      const raw = 'Uno. Dos. Tres.';
+      final rendered = RenderedMarkdown.plain(raw);
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        paints: const [
+          PaintedRange(0, 4, background: green),
+          PaintedRange(4, 9, background: green),
+          PaintedRange(5, 15, background: pink),
+        ],
+      );
+
+      expect(pieces(span), [
+        ('Uno.', green),
+        (' ', green),
+        ('Dos.', pink),
+        (' Tres.', pink),
+      ]);
+    });
+
+    test('un resaltado que pisa a otro ya no se pierde: se ven los dos', () {
+      const raw = 'abcdefghij';
+      final rendered = RenderedMarkdown.plain(raw);
+      final theme = ThemeData.light();
+
+      final span = rendered.buildSpans(theme, const [(0, 5), (3, 8)]);
+
+      final painted = [
+        for (final (text, color) in pieces(span))
+          if (color == theme.colorScheme.tertiaryContainer) text,
+      ];
+      expect(painted.join(), 'abcdefgh');
+      expect(pieces(span).last, ('ij', null));
+    });
+
+    test('sobre Markdown, la capa cae en lo que se ve, con los mismos '
+        'segmentos', () {
+      const raw = 'Hola **mundo** feliz.';
+      final rendered = RenderedMarkdown.parse(raw);
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        paints: const [PaintedRange(0, 21, background: green)],
+      );
+
+      expect(pieces(span), [
+        ('Hola ', green),
+        ('mundo', green),
+        (' feliz.', green),
+      ]);
+      expect(
+        span.children!.cast<TextSpan>()[1].style!.fontWeight,
+        FontWeight.bold,
+      );
+    });
+
+    test('una capa que termina justo donde empieza la negrita no deja '
+        'tramos vacíos', () {
+      final rendered = RenderedMarkdown.parse('Hola **mundo** feliz.');
+
+      final span = rendered.buildSpans(
+        ThemeData.light(),
+        const [],
+        paints: const [PaintedRange(0, 5, background: green)],
+      );
+
+      expect(pieces(span), [
+        ('Hola ', green),
+        ('mundo', null),
+        (' feliz.', null),
+      ]);
+    });
+
+    test('rawToRender da lo mismo que antes en cada posición, también dentro '
+        'del marcado', () {
+      const raw = '# Título\n\n- uno **dos** [tres](x) `cua`\n\n> cita';
+      final rendered = RenderedMarkdown.parse(raw);
+      final display = rendered.displayText;
+
+      final positions = [
+        for (var i = 0; i <= raw.length + 2; i++) rendered.rawToRender(i),
+      ];
+
+      // Nunca retrocede, nunca se sale, y lo que se ve en un tramo sin
+      // marcado es el mismo carácter del crudo.
+      for (var i = 1; i < positions.length; i++) {
+        expect(positions[i], greaterThanOrEqualTo(positions[i - 1]));
+      }
+      expect(positions.last, display.length);
+      final dos = raw.indexOf('dos');
+      expect(display[rendered.rawToRender(dos)], 'd');
+      expect(rendered.rawToRender(0), 0);
+      expect(rendered.rawToRender(raw.indexOf('**')), display.indexOf('dos'));
+    });
+  });
 }

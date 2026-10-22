@@ -111,6 +111,7 @@ class HighlightableText extends ConsumerStatefulWidget {
     this.markdown = true,
     this.playing,
     this.onTapOffset,
+    this.paints = const [],
     super.key,
   });
 
@@ -141,6 +142,10 @@ class HighlightableText extends ConsumerStatefulWidget {
   /// Se tocó el texto en esta posición del contenido —sin seleccionar—: lo
   /// que lleva el audio a la palabra tocada (F23).
   final ValueChanged<int>? onTapOffset;
+
+  /// Capas de color por debajo y por encima de los resaltados: lo estudiado
+  /// del documento (F36), en posiciones del contenido.
+  final List<PaintedRange> paints;
 
   @override
   ConsumerState<HighlightableText> createState() => _HighlightableTextState();
@@ -227,8 +232,14 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
     final viewport = RenderAbstractViewport.maybeOf(box);
     if (viewport == null) return;
 
+    // Con las mismas capas: una palabra clave va en negrita, y eso mueve los
+    // renglones.
     final painter = TextPainter(
-      text: _rendered.buildSpans(Theme.of(context), const []),
+      text: _rendered.buildSpans(
+        Theme.of(context),
+        const [],
+        paints: widget.paints,
+      ),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout(maxWidth: box.size.width);
@@ -465,6 +476,7 @@ class _HighlightableTextState extends ConsumerState<HighlightableText> {
                   final playing? => (playing.start, playing.end),
                   null => null,
                 },
+            paints: widget.paints,
           ),
           contextMenuBuilder: _buildContextMenu,
           onSelectionChanged: (selection, cause) {

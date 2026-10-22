@@ -56,6 +56,8 @@ import 'package:sinapsis/features/organize/presentation/widgets/relations_sectio
 import 'package:sinapsis/features/organize/presentation/widgets/space_picker.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart';
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -723,7 +725,10 @@ class _CollapsedExtractedText extends StatelessWidget {
 /// —leer para destilar, resumir, copiar, quitar las marcas de tiempo— está
 /// en el panel de la fuente (F26), una sola vez por elemento y no repetido
 /// encima de cada texto.
-class _TextRenditionView extends StatelessWidget {
+///
+/// El texto que se estudia de un documento lleva lo estudiado con sus
+/// colores, y eligiendo palabras clave, tocar una la agrega o la saca (F36).
+class _TextRenditionView extends ConsumerWidget {
   const _TextRenditionView({
     required this.item,
     required this.rendition,
@@ -738,7 +743,7 @@ class _TextRenditionView extends StatelessWidget {
   final PlaybackFollowLink? link;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // La transcripción de un audio o un video sigue al audio mientras
     // suena: la palabra que se dice, en amarillo (F23).
     if (isTranscriptSource(item.source) && rendition.isPrimary) {
@@ -749,11 +754,24 @@ class _TextRenditionView extends StatelessWidget {
         link: link,
       );
     }
+    final studied = studyRendition(item)?.id == rendition.id;
     return HighlightableText(
       itemId: item.id,
       renditionId: rendition.id,
       content: rendition.content,
       markdown: extractedTextIsMarkdown(item.source),
+      paints: studied ? watchStudyPaints(ref, context, rendition.id) : const [],
+      onTapOffset: studied
+          ? (offset) => unawaited(
+              toggleStudyKeywordAt(
+                ref,
+                context,
+                renditionId: rendition.id,
+                content: rendition.content,
+                offset: offset,
+              ),
+            )
+          : null,
     );
   }
 }

@@ -67,4 +67,59 @@ void main() {
     expect(pages.first, 'Corta.');
     expect(pages.length, greaterThan(2));
   });
+
+  group('readerPageRanges (F36)', () {
+    test('un separador pegado al principio o al final —una página vacía de '
+        'un PDF— no deja una página con los guiones', () {
+      const content = '\n\n---\n\nPágina dos.\n\n---\n\n';
+
+      expect(splitIntoReaderPages(content), ['Página dos.']);
+      expect(readerPageRanges(content).single.start, 7);
+    });
+
+    test('cada página es el tramo tal cual del contenido, con su lugar', () {
+      const content =
+          '  \nPágina uno.\n\n\n\nSigue uno.\n\n---\n\nPágina dos.  \n';
+
+      final ranges = readerPageRanges(content, targetPageLength: 12);
+
+      expect(
+        [for (final r in ranges) content.substring(r.start, r.end)],
+        ['Página uno.', 'Sigue uno.', 'Página dos.'],
+      );
+      expect(ranges.first.start, content.indexOf('Página uno.'));
+      expect(ranges.last.end, content.indexOf('  \n', ranges.last.start));
+    });
+
+    test('las mismas páginas que splitIntoReaderPages, aunque haya varios '
+        'renglones en blanco entre párrafos', () {
+      final content = [
+        for (var i = 0; i < 30; i++) 'Párrafo $i con algo de texto.',
+      ].join('\n\n\n');
+
+      final ranges = readerPageRanges(content, targetPageLength: 100);
+      final pages = splitIntoReaderPages(content, targetPageLength: 100);
+
+      expect(pages, [
+        for (final r in ranges) content.substring(r.start, r.end),
+      ]);
+      for (var i = 1; i < ranges.length; i++) {
+        expect(ranges[i].start, greaterThan(ranges[i - 1].end));
+      }
+      expect(pages.length, greaterThan(1));
+    });
+
+    test('un párrafo cortado a la fuerza deja tramos contiguos sin perder '
+        'nada', () {
+      final content = List.generate(40, (i) => 'palabra$i').join(' ');
+
+      final ranges = readerPageRanges(content, targetPageLength: 50);
+
+      expect(ranges.first.start, 0);
+      expect(ranges.last.end, content.length);
+      for (var i = 1; i < ranges.length; i++) {
+        expect(content.substring(ranges[i - 1].end, ranges[i].start), ' ');
+      }
+    });
+  });
 }

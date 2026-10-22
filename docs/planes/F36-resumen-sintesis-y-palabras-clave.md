@@ -223,3 +223,27 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
   en español e inglés).
 - Pruebas: 8 del caso de uso, 4 del modelo, 4 del notificador. Mutación 18/18 (una mal armada por
   la sangría, rehecha y muerta).
+
+### Paso 4 (hecho)
+
+- `RenderedMarkdown.buildSpans` pinta **capas** (`PaintedRange`): las oraciones del resumen o de la
+  síntesis debajo de los subrayados de la persona, las palabras clave encima y en negrita, y lo que
+  se lee en voz alta por encima de todo. Es un barrido por los bordes de las capas, así que dos
+  subrayados que se pisan ya no pierden el segundo. `rawToRender` pasa a búsqueda binaria: un
+  documento largo tiene miles de oraciones marcadas.
+- `readerPageRanges`: cada página del lector es un tramo tal cual del texto, y lo marcado cae en su
+  página sin traducir nada. Un separador `---` pegado al principio o al final (una página vacía de
+  un PDF) ya no deja una página con los guiones.
+- `study_highlighting.dart`: `StudyView` (resumen **o** síntesis, palabras clave, elegir),
+  compartida entre el detalle, «Leer como libro» y «Texto extraído»; los colores de resaltador
+  (verde, celeste y rosa, con letra oscura en los dos modos); `studyPaints` y `paintsWithin`.
+- Elegir palabras clave: tocar una palabra de una oración resaltada la agrega o la saca
+  (`keywordToggleAt`). Con cuatro, avisa. Un artículo o una preposición no se elige, igual que con
+  la IA.
+- Se pinta en el lector de Word, EPUB y texto (embebido y a pantalla completa) y en «Texto
+  extraído» de un documento.
+- Pruebas: 6+2 del toque, 13 de la vista y el lector, 7 de las capas, 1 de `HighlightableText`, 4
+  de la paginación. Mutación 23/24: el que sobrevive (`<` por `<=` en la búsqueda binaria) es
+  equivalente, porque el texto renderizado no tiene huecos entre segmentos. Dos sobrevivientes
+  llevaron a sacar una condición de más y a una prueba de tramos vacíos.
+- Falta dónde prenderlo: los botones van en la tarjeta del paso 6.

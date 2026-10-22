@@ -1,3 +1,6 @@
+import 'dart:collection';
+import 'dart:math';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -106,15 +109,30 @@ class RenderedMarkdown {
   /// Si [rawOffset] cae dentro de una marca que no se muestra —un `#`, un
   /// `**`— se redondea a la posición visible más cercana: no hay un lugar
   /// exacto al que apuntar porque ese carácter no está en pantalla.
+  ///
+  /// Una búsqueda binaria y no un recorrido: un documento largo tiene miles
+  /// de oraciones marcadas para estudiar (F36), y cada una se traduce dos
+  /// veces cada vez que se dibuja.
   int rawToRender(int rawOffset) {
-    for (final segment in _segments) {
-      if (rawOffset < segment.rawStart) return segment.renderStart;
-      if (rawOffset <= segment.rawEnd) {
-        if (!segment.kept) return segment.renderStart;
-        return segment.renderStart + (rawOffset - segment.rawStart);
+    // El primer segmento que termina en [rawOffset] o después: van en orden,
+    // y cada uno empieza donde termina el anterior.
+    var low = 0;
+    var high = _segments.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (_segments[mid].rawEnd < rawOffset) {
+        low = mid + 1;
+      } else {
+        high = mid;
       }
     }
-    return displayText.length;
+    if (low == _segments.length) return displayText.length;
+
+    final segment = _segments[low];
+    if (rawOffset < segment.rawStart || !segment.kept) {
+      return segment.renderStart;
+    }
+    return segment.renderStart + (rawOffset - segment.rawStart);
   }
 
   /// A qué posición del contenido crudo corresponde [renderOffset] del
@@ -156,34 +174,56 @@ class RenderedMarkdown {
   /// un título o una cita —ver `BlockView`— necesita partir del suyo propio
   /// en vez de perderlo.
   ///
+  /// [paints] son las capas de color de lo que se marcó para estudiar (F36):
+  /// las de [PaintedRange.aboveHighlights] van encima de los resaltados de
+  /// la persona y las otras debajo, como un resaltador sobre otro.
+  ///
   /// [activeRange] es lo que se está diciendo mientras suena el audio (F23):
-  /// se pinta en amarillo, por encima de cualquier resaltado.
+  /// se pinta en amarillo, por encima de todo.
   TextSpan buildSpans(
     ThemeData theme,
     List<(int startOffset, int endOffset)> highlightRanges, {
     TextStyle? baseStyle,
     ValueChanged<String>? onLinkTap,
     (int startOffset, int endOffset)? activeRange,
+    List<PaintedRange> paints = const [],
   }) {
     final resolvedBaseStyle =
         baseStyle ??
         theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface);
     final highlightColor = theme.colorScheme.tertiaryContainer;
 
-    // Los resaltados llegan en offsets del contenido crudo: se traducen una
-    // sola vez acá, no en cada segmento. Lo que suena (F23) va encima: los
-    // resaltados que lo pisan se recortan alrededor.
-    final active = activeRange == null
-        ? null
-        : (rawToRender(activeRange.$1), rawToRender(activeRange.$2));
-    final ranges = <(int, int, bool)>[
+    // Las capas, de la de más abajo a la de más arriba, ya en posiciones del
+    // texto renderizado: se traducen una sola vez acá, no en cada segmento.
+    _Layer layerOf(PaintedRange paint) => _Layer(
+      rawToRender(paint.start),
+      rawToRender(paint.end),
+      background: paint.background,
+      foreground: paint.foreground,
+      bold: paint.bold,
+    );
+    final layers = <_Layer>[
+      for (final paint in paints)
+        if (!paint.aboveHighlights) layerOf(paint),
       for (final r in highlightRanges)
-        ..._without((
+        _Layer(
           rawToRender(r.$1),
           rawToRender(r.$2),
-        ), active).map((r) => (r.$1, r.$2, false)),
-      if (active != null && active.$2 > active.$1) (active.$1, active.$2, true),
-    ]..sort((a, b) => a.$1.compareTo(b.$1));
+          background: highlightColor,
+        ),
+      for (final paint in paints)
+        if (paint.aboveHighlights) layerOf(paint),
+      // Amarillo, con el texto oscuro también en modo oscuro: tiene que
+      // leerse de un vistazo mientras se escucha.
+      if (activeRange != null)
+        _Layer(
+          rawToRender(activeRange.$1),
+          rawToRender(activeRange.$2),
+          background: playingColor,
+          foreground: Colors.black87,
+        ),
+    ];
+    final runs = _paintRuns(layers);
 
     // Un `[[Título]]` puede quedar partido en dos o tres `TextSpan` si un
     // resaltado cae encima de él —ver el bucle de abajo—; cada trozo
@@ -195,19 +235,14 @@ class RenderedMarkdown {
       return TapGestureRecognizer()..onTap = () => onLinkTap(segment.text);
     }
 
-    TextStyle? styleFor(
-      _Segment segment, {
-      bool highlighted = false,
-      bool playing = false,
-    }) {
+    TextStyle? styleFor(_Segment segment, List<int> painted) {
       var style = segment.style.toTextStyle(theme, resolvedBaseStyle);
-      if (highlighted) style = style?.copyWith(backgroundColor: highlightColor);
-      // Amarillo, con el texto oscuro también en modo oscuro: tiene que
-      // leerse de un vistazo mientras se escucha.
-      if (playing) {
+      for (final index in painted) {
+        final layer = layers[index];
         style = style?.copyWith(
-          backgroundColor: playingColor,
-          color: Colors.black87,
+          backgroundColor: layer.background,
+          color: layer.foreground,
+          fontWeight: layer.bold ? FontWeight.bold : null,
         );
       }
       if (segment.style.link) {
@@ -221,6 +256,7 @@ class RenderedMarkdown {
     }
 
     final spans = <TextSpan>[];
+    var firstRun = 0;
     for (final segment in _segments) {
       if (!segment.kept || segment.text.isEmpty) continue;
 
@@ -228,43 +264,27 @@ class RenderedMarkdown {
       final segEnd = segStart + segment.text.length;
       var cursor = segStart;
 
-      for (final (hlStart, hlEnd, isPlaying) in ranges) {
-        final start = hlStart.clamp(segStart, segEnd);
-        final end = hlEnd.clamp(segStart, segEnd);
-        if (end <= start || start < cursor) continue;
+      void add(int start, int end, List<int> painted) => spans.add(
+        TextSpan(
+          text: segment.text.substring(start - segStart, end - segStart),
+          style: styleFor(segment, painted),
+          recognizer: recognizerFor(segment),
+        ),
+      );
 
-        if (start > cursor) {
-          spans.add(
-            TextSpan(
-              text: segment.text.substring(cursor - segStart, start - segStart),
-              style: styleFor(segment),
-              recognizer: recognizerFor(segment),
-            ),
-          );
-        }
-        spans.add(
-          TextSpan(
-            text: segment.text.substring(start - segStart, end - segStart),
-            style: styleFor(
-              segment,
-              highlighted: !isPlaying,
-              playing: isPlaying,
-            ),
-            recognizer: recognizerFor(segment),
-          ),
-        );
+      // Los tramos pintados van en orden y no se pisan: los que terminaron
+      // antes de este segmento no le tocan a ninguno de los que siguen.
+      while (firstRun < runs.length && runs[firstRun].end <= segStart) {
+        firstRun++;
+      }
+      for (var i = firstRun; i < runs.length && runs[i].start < segEnd; i++) {
+        final start = max(runs[i].start, segStart);
+        final end = min(runs[i].end, segEnd);
+        if (start > cursor) add(cursor, start, const []);
+        add(start, end, runs[i].layers);
         cursor = end;
       }
-
-      if (cursor < segEnd) {
-        spans.add(
-          TextSpan(
-            text: segment.text.substring(cursor - segStart),
-            style: styleFor(segment),
-            recognizer: recognizerFor(segment),
-          ),
-        );
-      }
+      if (cursor < segEnd) add(cursor, segEnd, const []);
     }
 
     return TextSpan(style: resolvedBaseStyle, children: spans);
@@ -273,15 +293,39 @@ class RenderedMarkdown {
   /// El amarillo de lo que suena (F23).
   static const playingColor = Color(0xFFFFE066);
 
-  /// [range] sin lo que cae dentro de [cut]: cero, uno o dos pedazos.
-  static List<(int, int)> _without((int, int) range, (int, int)? cut) {
-    if (cut == null || cut.$2 <= range.$1 || cut.$1 >= range.$2) {
-      return range.$2 > range.$1 ? [range] : const [];
+  /// Los tramos del texto con alguna capa encima, en orden y sin pisarse,
+  /// cada uno con los índices de sus capas de abajo hacia arriba.
+  ///
+  /// Un barrido por los bordes de las capas: donde una empieza o termina,
+  /// cambia lo que hay encima, así que dos tramos seguidos nunca tienen las
+  /// mismas.
+  static List<_PaintRun> _paintRuns(List<_Layer> layers) {
+    final edges = <(int at, int layer, bool opens)>[
+      for (var i = 0; i < layers.length; i++)
+        if (layers[i].end > layers[i].start) ...[
+          (layers[i].start, i, true),
+          (layers[i].end, i, false),
+        ],
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+
+    final open = SplayTreeSet<int>();
+    final runs = <_PaintRun>[];
+    var k = 0;
+    while (k < edges.length) {
+      final at = edges[k].$1;
+      for (; k < edges.length && edges[k].$1 == at; k++) {
+        final (_, layer, opens) = edges[k];
+        if (opens) {
+          open.add(layer);
+        } else {
+          open.remove(layer);
+        }
+      }
+      if (open.isEmpty || k == edges.length) continue;
+
+      runs.add(_PaintRun(at, edges[k].$1, open.toList(growable: false)));
     }
-    return [
-      if (cut.$1 > range.$1) (range.$1, cut.$1),
-      if (cut.$2 < range.$2) (cut.$2, range.$2),
-    ];
+    return runs;
   }
 
   static List<_Segment> _parse(String raw) {
@@ -741,4 +785,61 @@ class _RunStyle {
     }
     return style;
   }
+}
+
+/// Una capa de color sobre un tramo del texto (F36), en posiciones del
+/// contenido crudo: lo que se marcó para estudiar —una oración del resumen o
+/// de la síntesis, una palabra clave— se pinta con esto, como el resaltador
+/// de un procesador de texto.
+@immutable
+class PaintedRange {
+  const PaintedRange(
+    this.start,
+    this.end, {
+    required this.background,
+    this.foreground,
+    this.bold = false,
+    this.aboveHighlights = false,
+  });
+
+  final int start;
+  final int end;
+  final Color background;
+
+  /// El color de la letra, para que se lea sobre [background] también en
+  /// modo oscuro; `null` deja el que tiene.
+  final Color? foreground;
+
+  final bool bold;
+
+  /// Encima de los resaltados de la persona —una palabra clave— o debajo
+  /// —una oración entera—.
+  final bool aboveHighlights;
+}
+
+/// Una capa ya traducida al texto renderizado.
+class _Layer {
+  const _Layer(
+    this.start,
+    this.end, {
+    required this.background,
+    this.foreground,
+    this.bold = false,
+  });
+
+  final int start;
+  final int end;
+  final Color background;
+  final Color? foreground;
+  final bool bold;
+}
+
+/// Un tramo del texto renderizado con las mismas capas encima de punta a
+/// punta: los índices en `layers`, de abajo hacia arriba.
+class _PaintRun {
+  const _PaintRun(this.start, this.end, this.layers);
+
+  final int start;
+  final int end;
+  final List<int> layers;
 }

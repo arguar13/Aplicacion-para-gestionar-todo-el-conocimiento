@@ -21,81 +21,148 @@
 /// a la mitad *salvo* que un párrafo solo ya sea más largo que eso —un bloque
 /// de texto sin ningún salto de línea real—, donde sí hace falta cortarlo a
 /// la fuerza para no dejar una página sin límite de tamaño.
+///
+/// Cada página es un tramo **tal cual** del contenido —ver
+/// [readerPageRanges]—: lo que se resalta en el texto guardado (F36) cae en
+/// su página sin traducir nada.
 List<String> splitIntoReaderPages(
   String content, {
   int targetPageLength = 2400,
-}) {
-  final trimmed = content.trim();
-  if (trimmed.isEmpty) return const [];
+}) => [
+  for (final page in readerPageRanges(
+    content,
+    targetPageLength: targetPageLength,
+  ))
+    content.substring(page.start, page.end),
+];
 
-  final sourcePages = trimmed.split(RegExp(r'\n{2,}-{3,}\n{2,}'));
-  final pages = <String>[];
-  for (final sourcePage in sourcePages) {
-    pages.addAll(_paginateByParagraph(sourcePage.trim(), targetPageLength));
+/// Dónde está cada página de [splitIntoReaderPages] en [content]: el rango
+/// `[start, end)`, sin los espacios de los bordes (F36).
+///
+/// Las posiciones de lo que se resalta —un subrayado, una oración del
+/// resumen— son las del contenido entero; con esto, una posición de la
+/// página es `posición − start`.
+List<({int start, int end})> readerPageRanges(
+  String content, {
+  int targetPageLength = 2400,
+}) {
+  final whole = _trim(content, 0, content.length);
+  if (whole == null) return const [];
+
+  final pages = <({int start, int end})>[];
+  var from = whole.start;
+  for (final separator in _pageSeparator.allMatches(content)) {
+    _paginateByParagraph(
+      content,
+      from,
+      separator.start,
+      targetPageLength,
+      pages,
+    );
+    from = separator.end;
   }
+  _paginateByParagraph(content, from, whole.end, targetPageLength, pages);
   return pages;
 }
 
-/// Agrupa los párrafos de [text] —separados por una línea en blanco— en
-/// páginas de hasta [targetPageLength] caracteres, cerrando la página actual
-/// apenas agregar el próximo párrafo la haría pasarse. Una página nunca
-/// queda vacía: si el primer párrafo solo ya supera el límite, se lo corta
-/// él mismo (ver [_hardSplit]) en vez de dejar una página sin nada.
-List<String> _paginateByParagraph(String text, int targetPageLength) {
-  if (text.isEmpty) return const [];
+final _pageSeparator = RegExp(r'\n{2,}-{3,}\n{2,}');
+final _paragraphBreak = RegExp(r'\n{2,}');
 
-  final paragraphs = text.split(RegExp(r'\n{2,}'));
-  final pages = <String>[];
-  final current = StringBuffer();
+/// Agrupa los párrafos de `[start, end)` —separados por una línea en
+/// blanco— en páginas de hasta [targetPageLength] caracteres, cerrando la
+/// página actual apenas agregar el próximo párrafo la haría pasarse. Una
+/// página nunca queda vacía: si el primer párrafo solo ya supera el límite,
+/// se lo corta él mismo (ver [_hardSplit]) en vez de dejar una página sin
+/// nada.
+///
+/// El largo que cuenta es el de los párrafos unidos por un renglón en blanco,
+/// aunque en el contenido haya más de uno entre medio.
+void _paginateByParagraph(
+  String content,
+  int start,
+  int end,
+  int targetPageLength,
+  List<({int start, int end})> pages,
+) {
+  final page = _trim(content, start, end);
+  if (page == null) return;
+
+  final paragraphs = <({int start, int end})>[];
+  var from = page.start;
+  // Sobre el contenido entero y no sobre una copia de la página: en un libro
+  // de miles de páginas, copiar cada una costaría lo que no cuesta mostrarla.
+  for (final gap in _paragraphBreak.allMatches(content, from)) {
+    if (gap.end > page.end) break;
+    if (gap.start > from) paragraphs.add((start: from, end: gap.start));
+    from = gap.end;
+  }
+  if (page.end > from) paragraphs.add((start: from, end: page.end));
+
+  int? currentStart;
+  var currentEnd = 0;
+  var currentLength = 0;
 
   void flush() {
-    if (current.isEmpty) return;
-    pages.add(current.toString());
-    current.clear();
+    if (currentStart == null) return;
+    pages.add((start: currentStart!, end: currentEnd));
+    currentStart = null;
+    currentLength = 0;
   }
 
   for (final paragraph in paragraphs) {
-    if (paragraph.isEmpty) continue;
-
-    if (paragraph.length > targetPageLength) {
+    final length = paragraph.end - paragraph.start;
+    if (length > targetPageLength) {
       flush();
-      pages.addAll(_hardSplit(paragraph, targetPageLength));
+      _hardSplit(content, paragraph, targetPageLength, pages);
       continue;
     }
 
-    final wouldBe = current.isEmpty
-        ? paragraph.length
-        : current.length + 2 + paragraph.length;
+    final wouldBe = currentStart == null ? length : currentLength + 2 + length;
     if (wouldBe > targetPageLength) flush();
 
-    if (current.isNotEmpty) current.write('\n\n');
-    current.write(paragraph);
+    currentLength = currentStart == null ? length : currentLength + 2 + length;
+    currentStart ??= paragraph.start;
+    currentEnd = paragraph.end;
   }
   flush();
-
-  return pages;
 }
 
 /// Corta un párrafo que por sí solo ya supera [targetPageLength] en tramos
 /// de ese tamaño, en el espacio más cercano hacia atrás para no partir una
 /// palabra al medio — salvo que no haya ningún espacio en todo el tramo, un
 /// caso patológico donde cortar a lo bruto es preferible a no cortar nunca.
-List<String> _hardSplit(String paragraph, int targetPageLength) {
-  final parts = <String>[];
-  var start = 0;
+void _hardSplit(
+  String content,
+  ({int start, int end}) paragraph,
+  int targetPageLength,
+  List<({int start, int end})> pages,
+) {
+  var start = paragraph.start;
 
-  while (start < paragraph.length) {
-    var end = (start + targetPageLength).clamp(0, paragraph.length);
-    if (end < paragraph.length) {
-      final lastSpace = paragraph.lastIndexOf(' ', end);
+  while (start < paragraph.end) {
+    var end = (start + targetPageLength).clamp(0, paragraph.end);
+    if (end < paragraph.end) {
+      final lastSpace = content.lastIndexOf(' ', end);
       if (lastSpace > start) end = lastSpace;
     }
-    parts.add(paragraph.substring(start, end).trim());
+    if (_trim(content, start, end) case final piece?) pages.add(piece);
     start = end;
-    while (start < paragraph.length && paragraph[start] == ' ') {
+    while (start < paragraph.end && content[start] == ' ') {
       start++;
     }
   }
+}
 
-  return parts;
+/// `[start, end)` de [content] sin espacios en los bordes, o `null` si no
+/// queda nada.
+({int start, int end})? _trim(String content, int start, int end) {
+  var s = start;
+  var e = end;
+  while (s < e && content[s].trim().isEmpty) {
+    s++;
+  }
+  while (e > s && content[e - 1].trim().isEmpty) {
+    e--;
+  }
+  return s < e ? (start: s, end: e) : null;
 }

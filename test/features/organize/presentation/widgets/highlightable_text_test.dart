@@ -17,6 +17,7 @@ import 'package:sinapsis/features/capture/presentation/providers/capture_provide
 import 'package:sinapsis/features/organize/domain/repositories/organize_repository.dart';
 import 'package:sinapsis/features/organize/presentation/providers/organize_providers.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/highlightable_text.dart';
+import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 import '../../../../support/selection_menu_test_support.dart';
@@ -362,5 +363,74 @@ void main() {
         expect(captured![#endOffset], 15);
       },
     );
+  });
+
+  testWidgets('las capas de lo estudiado (F36) se pintan con los subrayados, '
+      'debajo o encima según cada una', (tester) async {
+    const content = 'Conocemos bien el amor y las reglas del juego.';
+    const green = Color(0xFFC8F2C2);
+    const pink = Color(0xFFFFB3D9);
+    final amor = content.indexOf('amor');
+    when(() => repository.watchHighlightsForRendition(any())).thenAnswer(
+      (_) => Stream.value([
+        Highlight(
+          id: 'h1',
+          renditionId: 'rendition-1',
+          startOffset: amor,
+          endOffset: amor + 4,
+          excerpt: 'amor',
+          createdAt: DateTime.utc(2026),
+        ),
+      ]),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          organizeRepositoryProvider.overrideWithValue(repository),
+          captureItemUseCaseProvider.overrideWithValue(captureUseCase),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: HighlightableText(
+              itemId: 'item-1',
+              renditionId: 'rendition-1',
+              content: content,
+              paints: [
+                const PaintedRange(0, content.length, background: green),
+                PaintedRange(
+                  amor,
+                  amor + 2,
+                  background: pink,
+                  bold: true,
+                  aboveHighlights: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final theme = Theme.of(tester.element(find.byType(HighlightableText)));
+    final pieces = [
+      for (final span
+          in tester
+              .widget<SelectableText>(find.byType(SelectableText))
+              .textSpan!
+              .children!
+              .cast<TextSpan>())
+        (span.text, span.style?.backgroundColor),
+    ];
+    expect(pieces, [
+      ('Conocemos bien el ', green),
+      ('am', pink),
+      ('or', theme.colorScheme.tertiaryContainer),
+      (' y las reglas del juego.', green),
+    ]);
   });
 }

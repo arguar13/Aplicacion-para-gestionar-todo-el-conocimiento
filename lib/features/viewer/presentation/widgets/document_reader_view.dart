@@ -12,6 +12,7 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -50,6 +51,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// **Se lee en voz alta (F25).** Ofrece al lector flotante la página que se
 /// ve y las que siguen; mientras lee, la línea va en amarillo y, cuando
 /// pasa a otra página, el lector la da vuelta solo.
+///
+/// **Lo estudiado se pinta en la página (F36).** Con [renditionId], las
+/// oraciones del resumen o de la síntesis y las palabras clave se ven con sus
+/// colores de resaltador, y eligiendo palabras clave, tocar una la agrega o
+/// la saca. Cada página es un tramo tal cual de [content] —ver
+/// [readerPageRanges]—, así que lo marcado cae en su lugar sin traducir nada.
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
     required this.title,
@@ -57,6 +64,7 @@ class DocumentReaderView extends ConsumerStatefulWidget {
     this.markdown = true,
     this.showFontControls = false,
     this.controlsAtBottom = false,
+    this.renditionId,
     super.key,
   });
 
@@ -77,6 +85,10 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// esquivar.
   final bool controlsAtBottom;
 
+  /// La forma de texto de la que sale [content], si se estudia (F36); sin
+  /// ella —un adjunto, que no se estudia—, no se pinta nada.
+  final String? renditionId;
+
   @override
   ConsumerState<DocumentReaderView> createState() => _DocumentReaderViewState();
 }
@@ -88,7 +100,11 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
   /// [splitIntoReaderPages]—; así cuesta lo mismo que unas pocas páginas.
   static const _readAheadPages = 20;
 
-  late final _pages = splitIntoReaderPages(widget.content);
+  late final _ranges = readerPageRanges(widget.content);
+  late final _pages = [
+    for (final range in _ranges)
+      widget.content.substring(range.start, range.end),
+  ];
   late final _controller = PageController();
   var _pageIndex = 0;
 
@@ -240,6 +256,14 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
               fontScale: fontScale,
               markdown: widget.markdown,
               sourceKey: _pageKey(index),
+              study: switch (widget.renditionId) {
+                final renditionId? => (
+                  renditionId: renditionId,
+                  content: widget.content,
+                  start: _ranges[index].start,
+                ),
+                null => null,
+              },
             ),
           ),
         ),
@@ -279,13 +303,15 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
 
 /// Una página del libro: el mismo formato de tarjeta que tenía la pantalla
 /// entera antes de paginarse, ahora acotado a lo que entra en una página.
-/// Lo que lee el lector flotante, en amarillo (F25).
+/// Lo que lee el lector flotante, en amarillo (F25), y lo estudiado con
+/// sus colores (F36).
 class _ReaderPage extends ConsumerWidget {
   const _ReaderPage({
     required this.content,
     required this.fontScale,
     required this.markdown,
     required this.sourceKey,
+    required this.study,
   });
 
   final String content;
@@ -296,10 +322,22 @@ class _ReaderPage extends ConsumerWidget {
   /// lee son de [content].
   final String sourceKey;
 
+  /// El texto entero que se estudia y dónde empieza esta página en él: lo
+  /// estudiado guarda posiciones del texto entero.
+  final ({String renditionId, String content, int start})? study;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final reading = ref.watch(readAloudHighlightProvider(sourceKey));
+    final study = this.study;
+    final paints = study == null
+        ? const <PaintedRange>[]
+        : paintsWithin(
+            watchStudyPaints(ref, context, study.renditionId),
+            study.start,
+            study.start + content.length,
+          );
     final rendered = markdown
         ? RenderedMarkdown.parse(content)
         : RenderedMarkdown.plain(content);
@@ -333,7 +371,29 @@ class _ReaderPage extends ConsumerWidget {
                   fontSize: baseSize * fontScale,
                 ),
                 activeRange: reading,
+                paints: paints,
               ),
+              // Eligiendo palabras clave, tocar una la agrega o la saca.
+              onSelectionChanged: study == null
+                  ? null
+                  : (selection, cause) {
+                      if (cause != SelectionChangedCause.tap ||
+                          !selection.isCollapsed ||
+                          selection.baseOffset < 0) {
+                        return;
+                      }
+                      unawaited(
+                        toggleStudyKeywordAt(
+                          ref,
+                          context,
+                          renditionId: study.renditionId,
+                          content: study.content,
+                          offset:
+                              study.start +
+                              rendered.renderToRaw(selection.baseOffset),
+                        ),
+                      );
+                    },
               // El menú de selección de la app; "Leer en voz alta" lee las
               // líneas que toca la selección, en las posiciones de
               // [content].

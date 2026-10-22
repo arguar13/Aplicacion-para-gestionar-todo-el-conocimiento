@@ -70,11 +70,19 @@ class WebPageResolvedViewer extends ResolvedViewer {
 /// texto—, así que lo que se resuelve es el contenido en sí, listo para el
 /// modo de lectura paginado.
 class TextResolvedViewer extends ResolvedViewer {
-  const TextResolvedViewer(this.content, {this.markdown = true});
+  const TextResolvedViewer(
+    this.content, {
+    this.markdown = true,
+    this.renditionId,
+  });
 
   final String content;
 
   /// Si [content] es Markdown —un DOCX o un EPUB convertidos, un `.md`— o
   /// texto tal cual, como un `.txt` (F22).
   final bool markdown;
+
+  /// La forma de texto de la que sale [content]: con ella, el lector pinta
+  /// lo estudiado del documento (F36).
+  final String? renditionId;
 }

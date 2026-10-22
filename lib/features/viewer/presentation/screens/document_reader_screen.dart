@@ -14,6 +14,7 @@ class DocumentReaderScreen extends StatelessWidget {
     required this.title,
     required this.content,
     this.markdown = true,
+    this.renditionId,
     super.key,
   });
 
@@ -22,6 +23,9 @@ class DocumentReaderScreen extends StatelessWidget {
 
   /// Ver `TextResolvedViewer.markdown`.
   final bool markdown;
+
+  /// Ver `TextResolvedViewer.renditionId`.
+  final String? renditionId;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +36,7 @@ class DocumentReaderScreen extends StatelessWidget {
           title: title,
           content: content,
           markdown: markdown,
+          renditionId: renditionId,
           showFontControls: true,
           controlsAtBottom: true,
         ),

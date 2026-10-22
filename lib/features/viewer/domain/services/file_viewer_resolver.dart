@@ -160,6 +160,7 @@ class FileViewerResolver {
 
     return TextResolvedViewer(
       rendition.content,
+      renditionId: rendition.id,
       markdown: const {
         FileFormat.docx,
         FileFormat.epub,

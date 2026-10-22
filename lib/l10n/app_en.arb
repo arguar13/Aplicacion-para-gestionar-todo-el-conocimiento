@@ -10184,5 +10184,7 @@
   "aiRecheckSwitchBody": "Want it to check what {madeBy} did? That’s {things} in {items}. It only fixes or removes, never adds, and it tells you the cost before starting.",
   "@aiRecheckSwitchBody": {"description": "Revisar con otro modelo (F33): el aviso al elegir un modelo más capaz; madeBy es el modelo anterior, things y items lo que hizo.", "placeholders": {"madeBy": {"type": "String"}, "things": {"type": "String"}, "items": {"type": "String"}}},
   "aiRecheckSwitchLater": "No, thanks",
-  "@aiRecheckSwitchLater": {"description": "Revisar con otro modelo (F33): no aceptar el aviso; no vuelve a salir para ese modelo."}
+  "@aiRecheckSwitchLater": {"description": "Revisar con otro modelo (F33): no aceptar el aviso; no vuelve a salir para ese modelo."},
+  "studyKeywordsSentenceFull": "This sentence already has its {count} keywords: remove one to pick another.",
+  "@studyKeywordsSentenceFull": {"description": "Estudiar (F36): al elegir palabras clave, la oración tocada ya tiene el máximo; count es ese máximo.", "placeholders": {"count": {"type": "int"}}}
 }
