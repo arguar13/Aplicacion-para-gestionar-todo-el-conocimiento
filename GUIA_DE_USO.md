@@ -540,8 +540,18 @@ Si un elemento tiene un archivo asociado (una foto, un PDF, un video, una
 página web guardada, un documento), se ve automáticamente incrustado dentro
 de su pantalla de detalle, sin que tengas que tocar nada — cada tipo se
 muestra en su forma natural: una foto se ve como foto, un PDF se puede pasar
-de página y hacer zoom, un audio o video trae su propio reproductor. Un botón
-en la esquina del recuadro lo abre a pantalla completa.
+de página y hacer zoom, un audio o video trae su propio reproductor.
+
+Para verlo a pantalla completa:
+
+- **En un documento para leer** (un PDF, un Word, un EPUB o un texto), en el
+  centro del recuadro hay un botón grande y semitransparente, con unas flechas
+  y la leyenda **«Leer como libro»**. Tocalo y el documento se abre a pantalla
+  completa, para leerlo como un libro. Como es semitransparente, el documento
+  se sigue viendo debajo. Fuera del botón podés desplazarte por el documento
+  como siempre.
+- **En una foto, un video o una página web**, el botón es chico y está en la
+  esquina, para no tapar lo que mirás ni el botón de reproducir.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
 verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí

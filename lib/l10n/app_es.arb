@@ -644,6 +644,10 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
+  "detailReadAsBook": "Leer como libro",
+  "@detailReadAsBook": {
+    "description": "Lo que dice el botón grande del centro de un documento embebido (PDF, DOCX, EPUB, texto) que lo abre a pantalla completa para leerlo (F35)."
+  },
   "detailExpandViewer": "Ver a pantalla completa",
   "@detailExpandViewer": {
     "description": "Tooltip del botón que expande el visor embebido del archivo original a pantalla completa."

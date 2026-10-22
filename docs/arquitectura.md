@@ -6302,6 +6302,25 @@ solo cómo se llega a ellas desde el celular.
   caso especial de «Más», y `navMore` se quitó.
 - **El riel de escritorio no cambia**: los nueve, en el mismo orden de uso, porque sobra ancho.
 
+### 77. F35: en un documento, «Leer como libro» grande y en el centro
+
+Pedido del usuario (F35): *"cuando se trata de un documento de texto (un pdf, un word y demás), que
+el botón de las flechas de agrandar … sea más grande, esté en el centro del documento y sea
+semitransparente, así si uno quiere ver un documento sepa que debe hacer click ahí para verlo como
+un libro"*.
+
+- **Solo en los documentos para leer.** Son el PDF (`PdfResolvedViewer`) y el texto con forma de
+  libro: DOCX, EPUB, Markdown y `.txt` (`TextResolvedViewer`). Ahí el botón de pantalla completa
+  pasa de un círculo de 18 px en la esquina a una píldora centrada, con las flechas de 32 px y
+  «Leer como libro», sobre un negro al 40 %. Una foto, un video o una página web conservan el
+  botón chico en la esquina: en el centro taparía lo que se mira, o el botón de reproducir del
+  video.
+- **El documento sigue a mano.** El botón va en un `Center` dentro de un `Positioned.fill`, y
+  fuera de su píldora no captura toques. Así, el documento de abajo se desplaza y se pagina como
+  siempre.
+- **El mismo destino de siempre**: `openDocumentViewer`, que abre el PDF a pantalla completa o el
+  `DocumentReaderScreen` paginado con tipografía de libro.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6730,6 +6749,10 @@ solo cómo se llega a ellas desde el celular.
   y Mapa), Preguntar (Chat y Cuadernos), Repasar y Ajustes, de izquierda a derecha en el orden en
   que se usan, sin «Más». Un paso con varios destinos abre su lista, con para qué sirve cada uno.
   Ver la decisión 76.
+
+- **F35, «Leer como libro».** En un PDF, un Word, un EPUB o un texto, el botón de pantalla completa
+  va grande, semitransparente y en el centro del documento, con «Leer como libro»; en fotos,
+  videos y páginas web sigue chico en la esquina. Ver la decisión 77.
 
 ### Por construir
 

@@ -11,7 +11,7 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **76 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
+| `docs/arquitectura.md` | Principios y **77 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
 | `docs/planes/F13…F34-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F34**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F35**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -158,6 +158,8 @@ desde F13):
   «Más»: Biblioteca, Organizar (Bandeja, Atlas, Explorador y Mapa), Preguntar (Chat y Cuadernos),
   Repasar y Ajustes. Un paso con varios destinos abre su lista, con para qué sirve cada uno; el
   riel de escritorio sigue con los nueve.
+- **F35** — **«Leer como libro»** (decisión 77): en un PDF, un Word, un EPUB o un texto, el botón
+  de pantalla completa va grande, semitransparente y en el centro del documento.
 
 ## 5. Estado actual
 

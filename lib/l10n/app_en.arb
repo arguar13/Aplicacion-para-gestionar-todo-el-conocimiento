@@ -1155,6 +1155,10 @@
   "@detailExtractionFailedFile": {
     "description": "Aviso de extracción fallida, para elementos que vinieron de un archivo."
   },
+  "detailReadAsBook": "Read as a book",
+  "@detailReadAsBook": {
+    "description": "Lo que dice el botón grande del centro de un documento embebido (PDF, DOCX, EPUB, texto) que lo abre a pantalla completa para leerlo (F35)."
+  },
   "detailExpandViewer": "View fullscreen",
   "detailYoutubeOpenFailed": "Couldn't open YouTube.",
   "@detailYoutubeOpenFailed": {

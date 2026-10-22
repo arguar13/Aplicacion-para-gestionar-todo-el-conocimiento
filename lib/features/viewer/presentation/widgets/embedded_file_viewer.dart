@@ -38,6 +38,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// que lleva a la misma pantalla completa que abriría el viejo botón "Ver"
 /// — ver `openDocumentViewer`.
 ///
+/// En un documento para leer —un PDF, un DOCX o un EPUB, un texto— ese
+/// botón va grande, semitransparente y en el centro, con «Leer como libro»
+/// (F35): es lo primero que se ve, y dice qué hacer para leerlo entero. En
+/// una foto, un video o una página web queda chico en la esquina: en el
+/// centro taparía lo que se mira, o el botón de reproducir.
+///
 /// El audio de un video —el reproductor solo con su audio de F24— ya no va
 /// acá abajo: es la parte de arriba del panel de la fuente (F26, decisión
 /// B), junto a las acciones. Acá queda solo el original.
@@ -108,6 +114,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
         _EmbeddedViewerFrame(
           tall: true,
           onExpand: expand,
+          readAsBook: true,
           child: DocumentReaderView(
             title: item.title,
             content: content,
@@ -129,6 +136,7 @@ class EmbeddedFileViewer extends ConsumerWidget {
       PdfResolvedViewer(:final path) => _EmbeddedViewerFrame(
         tall: true,
         onExpand: expand,
+        readAsBook: true,
         child: PdfViewerView(path: path),
       ),
       WebPageResolvedViewer(:final path) => _EmbeddedViewerFrame(
@@ -149,16 +157,22 @@ class EmbeddedFileViewer extends ConsumerWidget {
 
 /// El marco acotado —esquinas redondeadas, borde tenue— que envuelve
 /// cualquier visor embebido, con el botón de expandir a pantalla completa
-/// flotando en la esquina.
+/// flotando encima: en la esquina, o en el centro si es [readAsBook].
 class _EmbeddedViewerFrame extends StatelessWidget {
   const _EmbeddedViewerFrame({
     required this.child,
     this.onExpand,
     this.tall = false,
+    this.readAsBook = false,
   });
 
   final Widget child;
   final VoidCallback? onExpand;
+
+  /// Un documento para leer (F35): el botón va grande y en el centro, con
+  /// «Leer como libro». Fuera del botón, el documento se sigue desplazando
+  /// y tocando como siempre.
+  final bool readAsBook;
 
   /// Un PDF o el modo de lectura se leen mejor con más alto que una foto o
   /// un video, que ya se acomodan solos a su propia relación de aspecto.
@@ -186,7 +200,17 @@ class _EmbeddedViewerFrame extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(child: child),
-              if (onExpand != null)
+              if (onExpand != null && readAsBook)
+                Positioned.fill(
+                  child: Center(
+                    child: _ReadAsBookButton(
+                      label: l10n.detailReadAsBook,
+                      tooltip: l10n.detailExpandViewer,
+                      onPressed: onExpand!,
+                    ),
+                  ),
+                )
+              else if (onExpand != null)
                 Positioned(
                   top: 8,
                   right: 8,
@@ -196,6 +220,49 @@ class _EmbeddedViewerFrame extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// El botón grande del centro de un documento (F35): las flechas de
+/// expandir y «Leer como libro», sobre un fondo oscuro semitransparente que
+/// deja ver el documento debajo.
+class _ReadAsBookButton extends StatelessWidget {
+  const _ReadAsBookButton({
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.titleMedium;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        key: const Key('embedded-viewer-read-as-book'),
+        color: Colors.black.withValues(alpha: 0.4),
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.open_in_full, size: 32, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(label, style: textStyle?.copyWith(color: Colors.white)),
+              ],
+            ),
           ),
         ),
       ),
