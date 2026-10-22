@@ -3,7 +3,7 @@
 Este documento es para quien empieza de cero, sin ningún recuerdo de sesiones anteriores
 (una persona o una sesión nueva de Claude Code). Leyéndolo entero entendés qué es la app, cómo
 está hecha, cómo se trabaja en este repositorio, qué reglas puso el dueño y en qué estado quedó
-todo. Fecha del estado descrito: **2026-10-09** (`origin/main` = `8bce1cd`).
+todo. Fecha del estado descrito: **2026-10-22** (`origin/main` = el cierre de F36).
 
 Documentos hermanos, de más general a más fino:
 
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F35**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F36**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -161,6 +161,13 @@ desde F13):
   desde el Atlas y el Mapa.
 - **F35** — **«Leer como libro»** (decisión 77): en un PDF, un Word, un EPUB o un texto, el botón
   de pantalla completa va grande, semitransparente y en el centro del documento.
+- **F36** — **resumen, síntesis y palabras clave en el documento** (decisión 79). En un PDF, un
+  Word, un EPUB, un texto o una página web, la IA elige las oraciones del documento —no escribe
+  nada propio— y hasta 4 palabras clave de cada una, que la persona ajusta. Se resaltan en el
+  original: el resumen en verde o la síntesis en celeste, nunca los dos, y las palabras en rosa.
+  Se analiza por partes, retomable, con el modelo elegido. La tarjeta «Estudiar el documento» trae
+  los botones, el avance y «Extraer» (texto, resumen, síntesis y palabras, con «Copiar»). El visor
+  de la página web vuelve a mostrar sus fotos.
 
 ## 5. Estado actual
 
@@ -174,15 +181,24 @@ desde F13):
 >
 > **F34 (la barra en cinco pasos) está construida** (2026-10-22):
 > `docs/planes/F34-barra-en-cinco-pasos.md`.
+>
+> **F36 (resumen, síntesis y palabras clave) está construida** (2026-10-22):
+> `docs/planes/F36-resumen-sintesis-y-palabras-clave.md`. Sigue **F37** (temas, aprobado) y después
+> **F38** (resaltar a mano y descargar), que espera su «aprobado».
 
 
-- `origin/main` = el commit «docs: cierre de F34», sobre `46c6fb2`. **Suite: 8.269 pruebas pasan, 0 fallas, 77 omitidas** (las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F36», sobre `a89a28a`. **Suite: 8.516 pruebas pasan, 0 fallas, 78 omitidas** (las omitidas son de siempre, más una de un PDF que necesita pdfium).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
-- Hay cuatro archivos con cambios de solo formato que no son de este trabajo y no se commitean:
+- Hay cinco archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`
   - `lib/features/export/data/services/anki_topic_resolver_impl.dart`
   - `lib/features/transform/data/clients/page_urls.dart`
   - `lib/features/transform/domain/usecases/reextraction.dart`
+  - `lib/features/flashcards/domain/services/flashcards_by_parts.dart`
+
+  Si hay que tocar uno: guardar su diff, `git checkout` del archivo, editar y commitear, y volver a
+  aplicar el diff con `git apply --3way` (un conflicto se resuelve a mano y se saca del índice con
+  `git reset -- archivo`).
 - F31 está completa en código y documentación. Se instaló en el teléfono del dueño (Xiaomi Redmi
   Note 13 Pro+, serial `HI5LQ84PFAPVOJWK`) como **instalación nueva**: el dueño había desinstalado la
   app antes (le enlentecía todo), así que su bóveda y sus modelos anteriores se borraron (Android

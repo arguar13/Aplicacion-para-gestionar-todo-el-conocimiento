@@ -6341,6 +6341,52 @@ no es lo mismo pero ya la tenemos en Biblioteca)"*.
 - **Se descartó** dejar la rama y solo esconderla de la lista. La barra no tendría qué marcar
   mientras se la mira, y para volver al Atlas habría que buscarlo de nuevo en «Organizar».
 
+### 79. F36: resumen, síntesis y palabras clave son oraciones y palabras del documento, resaltadas en el original
+
+**Pedido** (2026-10-22): *"cuando se trate de un documento de texto (en el formato que sea) que
+tenga una opción elegante resumir y otra de síntesis … cuando apriete resumir o hacer síntesis me
+resalte en el documento original el resumen o al elegir síntesis me lo resalte a la síntesis (que
+no se superpongan) y que además me deje elegir las palabras claves (máximo 4 palabras por
+oración)"*. Después, ampliado: *"que se aplique a todo tipo de documentos de texto … incluso epub
+… y hasta en las páginas web"*. Plan: `docs/planes/F36-resumen-sintesis-y-palabras-clave.md`.
+
+- **La IA elige, no escribe.** El modelo recibe las oraciones numeradas y devuelve números de
+  oración y palabras. La app descarta lo que no está en el documento (`parseStudyReply`,
+  `pickKeywords`). Por eso se puede resaltar en el original: no hay texto inventado que ubicar. El
+  «Resumir» de siempre, el párrafo redactado en un diálogo, sigue para un video, un audio o una
+  nota.
+- **Una sola pasada, por partes y retomable.** De cada parte salen el resumen, la síntesis y las
+  palabras. Cada parte se guarda al terminar (`AnalyzeForStudy`, `analyzedUntil`). Un libro se
+  analiza de a partes del tamaño que admite la ventana del modelo elegido, con el servicio en
+  primer plano. Cortar o parar no pierde nada.
+- **Guardado como los subrayados.**
+  - Las tablas `study_marks` y `study_analyses` (v40) cuelgan de la forma de texto, con su
+    fragmento copiado. Al volver a extraer el texto, las marcas se reubican como los subrayados.
+  - Lo estudiado entra en la papelera del contenido, la unión de bóvedas y el respaldo.
+  - Lo que eligió la persona nunca lo pisa una pasada de la IA.
+- **Uno a la vez.** Resumen (verde) o síntesis (celeste), nunca los dos. Las palabras clave (rosa,
+  en negrita) van encima. El amarillo queda para la lectura en voz alta. `StudyView` es una por
+  texto y la comparten el detalle, el lector, el PDF y la página web.
+- **Dónde se pinta, sin copiar el texto.**
+  - Word, EPUB, texto y «Texto extraído»: capas en `buildSpans`.
+  - PDF: rectángulos sobre las letras de la página, multiplicados con el papel. Una página
+    escaneada lo avisa.
+  - Página web: una copia del HTML archivado, sin sus programas, con las oraciones envueltas en
+    `<mark>` y un programa chico de la app que cambia las capas y avisa la palabra tocada. El
+    archivo guardado no se toca.
+- **Una sola fuente de qué se estudia.** `studyTextOf(item)` da la forma de texto, su contenido y
+  si es Markdown, y la usan la tarjeta, el resolver y los visores. Un visor que muestra otra forma
+  de texto no recibe lo estudiado, porque lo pintaría fuera de lugar.
+- **La tarjeta «Estudiar el documento».** Va debajo del original. Tiene los tres botones, la
+  franja de avance con «Parar» y «Reintentar», «Volver a analizar» (pregunta antes) y «Extraer»:
+  texto, resumen, síntesis y palabras, con su cuenta y «Copiar». El «Resumir» del panel la prende.
+  A pantalla completa, los mismos botones van en la barra (`StudyBar`).
+- **Se descartó:**
+  - Una síntesis redactada: no se puede resaltar. Si se la pide, va aparte.
+  - Pintar la página web con su propio JavaScript: correría lo de la página, que hoy está
+    apagado.
+  - Una tabla de marcas por formato: la posición en el texto extraído sirve para todos.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6776,6 +6822,11 @@ no es lo mismo pero ya la tenemos en Biblioteca)"*.
 - **F35, «Leer como libro».** En un PDF, un Word, un EPUB o un texto, el botón de pantalla completa
   va grande, semitransparente y en el centro del documento, con «Leer como libro»; en fotos,
   videos y páginas web sigue chico en la esquina. Ver la decisión 77.
+
+- **F36, resumen, síntesis y palabras clave en el documento.** En un documento o una página web,
+  la IA elige las oraciones del resumen o de la síntesis y las palabras clave de cada una. Se
+  resaltan en el original —el lector, el PDF real, la página archivada— y se pueden extraer y
+  copiar desde la tarjeta «Estudiar el documento». Ver la decisión 79.
 
 ### Por construir
 

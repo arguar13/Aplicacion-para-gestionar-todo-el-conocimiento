@@ -1,6 +1,6 @@
 # F36 — Resumen, síntesis y palabras clave resaltados en el documento
 
-> **Estado: en construcción** (2026-10-22).
+> **Estado: construida** (2026-10-22). Falta solo probarla en el teléfono, si la pedís.
 >
 > **Aprobado** (2026-10-22), en el chat: *"aprobado"* —con las decisiones A–D tal como están—.
 >
@@ -369,3 +369,12 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 - Mutación 29/29. Tres sobrevivían al principio: que el «Resumir» del panel analice, que una fila
   vacía no se abra y que el visor no lleve lo estudiado de otra forma de texto. Cada uno llevó a
   su prueba.
+
+### Paso 7 (hecho)
+
+- GUIA_DE_USO.md: «Estudiar el documento: resumen, síntesis y palabras clave», con la tarjeta, los
+  colores, el avance, «Extraer» y la pantalla completa (ya en el paso 6).
+- La decisión 79 en `docs/arquitectura.md`, y F36 en «Construido».
+- CONTEXTO_DEL_PROYECTO.md: F36 en la historia y en el estado.
+- Suite entera: 8.516 pasan, 0 fallas, 78 omitidas. Analizador: 19 avisos, la línea base.
+  `verify_commit` del paso 6 (`a89a28a`): OK.
