@@ -310,9 +310,8 @@ void main() {
       );
     });
 
-    testWidgets('tocar un vacío abre el Explorador ya filtrado por esa rama', (
-      tester,
-    ) async {
+    testWidgets('tocar un vacío abre el material ya filtrado por esa rama, '
+        'encima del Atlas y con su flecha para volver (F36)', (tester) async {
       await seed();
       for (var i = 0; i < 4; i++) {
         await source('extra-$i', ['grecia']);
@@ -329,6 +328,12 @@ void main() {
         harness.container.read(explorerQueryNotifierProvider).propertyValueIds,
         {'grecia'},
       );
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExplorerScreen), findsNothing);
+      expect(find.byType(AtlasScreen), findsOneWidget);
     });
 
     testWidgets('sin vacíos, la tarjeta no está', (tester) async {

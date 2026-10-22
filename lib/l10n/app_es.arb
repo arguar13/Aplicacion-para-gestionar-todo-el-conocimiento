@@ -3074,10 +3074,6 @@
   "@navLibrary": {
     "description": "Etiqueta corta del destino de biblioteca en la navegación principal."
   },
-  "navExplorer": "Explorador",
-  "@navExplorer": {
-    "description": "Etiqueta corta del destino del Explorador en la navegación principal."
-  },
   "navMap": "Mapa",
   "@navMap": {
     "description": "Etiqueta corta del destino del mapa de conocimiento en la navegación principal."
@@ -3117,10 +3113,6 @@
   "navAtlasHint": "Lo que sabés y lo que te falta, por tema",
   "@navAtlasHint": {
     "description": "Para qué sirve el Atlas, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
-  },
-  "navExplorerHint": "Recorré lo procesado filtrando por tema, tipo y etiquetas",
-  "@navExplorerHint": {
-    "description": "Para qué sirve el Explorador, en una línea: debajo de su nombre en la lista del paso «Organizar» (F34)."
   },
   "navMapHint": "Tu bóveda como una red de vínculos",
   "@navMapHint": {
@@ -3799,9 +3791,9 @@
   "@timelineBranchFilterTooltip": {
     "description": "Tooltip del botón que quita el filtro por una rama del Atlas en la línea de tiempo."
   },
-  "explorerTitle": "Explorador",
+  "explorerTitle": "Material del tema",
   "@explorerTitle": {
-    "description": "Título de la pantalla del Explorador."
+    "description": "Título de la pantalla con el material de un tema —lo procesado de un valor y sus subtemas, o de un tema—, que abren el Atlas y el Mapa (F36: antes era el Explorador de la barra)."
   },
   "explorerFilterPropertiesLabel": "Categorías",
   "@explorerFilterPropertiesLabel": {

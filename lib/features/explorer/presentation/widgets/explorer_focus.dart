@@ -8,10 +8,10 @@ import 'package:sinapsis/features/explorer/presentation/providers/explorer_provi
 /// `?value=` (F13), o un tema cuando se llega con `?space=` (F28): lo que
 /// abren el Atlas y el Mapa desde una rama, un vacío o un tema.
 ///
-/// Envuelve a la pantalla en vez de tocarla: el Explorador es un destino del
-/// shell que sigue vivo mientras se cambia de pestaña, así que llegar con otro
-/// valor NO crea una pantalla nueva sino que cambia lo que la de siempre
-/// mira —de ahí `didUpdateWidget`—. Sin ninguno de los dos, no hace nada.
+/// Envuelve a la pantalla en vez de tocarla. Desde F36 no es un destino de la
+/// barra sino una pantalla que se abre encima, una por vez que se pide; si
+/// go_router reusa la misma con otro valor, `didUpdateWidget` cambia lo que
+/// mira. Sin ninguno de los dos, no hace nada.
 class ExplorerFocus extends ConsumerStatefulWidget {
   const ExplorerFocus({
     required this.valueId,

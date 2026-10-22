@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/app/navigation/adaptive_scaffold.dart';
+import 'package:sinapsis/app/navigation/nav_destinations.dart';
 import 'package:sinapsis/app/router/app_router.dart';
 import 'package:sinapsis/core/config/app_flavor.dart';
 import 'package:sinapsis/core/config/env_config.dart';
@@ -13,7 +14,6 @@ import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/features/atlas/presentation/screens/atlas_screen.dart';
 import 'package:sinapsis/features/capture/presentation/providers/capture_providers.dart';
 import 'package:sinapsis/features/chat/presentation/screens/chat_screen.dart';
-import 'package:sinapsis/features/explorer/presentation/screens/explorer_screen.dart';
 import 'package:sinapsis/features/flashcards/presentation/screens/review_entry_screen.dart';
 import 'package:sinapsis/features/inbox/presentation/screens/inbox_screen.dart';
 import 'package:sinapsis/features/library/presentation/screens/library_screen.dart';
@@ -33,6 +33,12 @@ import '../../support/vault_test_doubles.dart';
 /// `StatefulNavigationShell` lo construye `go_router` en su propio
 /// `builder`, no algo que se pueda instanciar a mano.
 void main() {
+  // Las ramas por nombre: su número es su lugar en el árbol de rutas.
+  final inbox = ShellBranch.inbox.index;
+  final atlas = ShellBranch.atlas.index;
+  final graph = ShellBranch.graph.index;
+  final chat = ShellBranch.chat.index;
+  final notebooks = ShellBranch.notebooks.index;
   final es = AppLocalizationsEs();
   late SharedPreferences prefs;
 
@@ -133,17 +139,16 @@ void main() {
     // Cada destino de un paso con lista: su rama, la pantalla que abre y la
     // posición del paso en la barra.
     final listed = [
-      (step: 'organize', branch: 1, screen: InboxScreen, barIndex: 1),
-      (step: 'organize', branch: 7, screen: AtlasScreen, barIndex: 1),
-      (step: 'organize', branch: 2, screen: ExplorerScreen, barIndex: 1),
-      (step: 'organize', branch: 3, screen: MapScreen, barIndex: 1),
-      (step: 'ask', branch: 4, screen: ChatScreen, barIndex: 2),
-      (step: 'ask', branch: 8, screen: NotebooksScreen, barIndex: 2),
+      (step: 'organize', branch: inbox, screen: InboxScreen, barIndex: 1),
+      (step: 'organize', branch: atlas, screen: AtlasScreen, barIndex: 1),
+      (step: 'organize', branch: graph, screen: MapScreen, barIndex: 1),
+      (step: 'ask', branch: chat, screen: ChatScreen, barIndex: 2),
+      (step: 'ask', branch: notebooks, screen: NotebooksScreen, barIndex: 2),
     ];
 
     testWidgets(
-      '«Organizar» abre su lista: Bandeja, Atlas, Explorador y Mapa, en ese '
-      'orden y con para qué sirve cada uno',
+      '«Organizar» abre su lista: Bandeja, Atlas y Mapa, en ese orden y con '
+      'para qué sirve cada uno —el Explorador ya no está (F36)—',
       (tester) async {
         setLogicalWidth(tester, 400);
 
@@ -165,18 +170,10 @@ void main() {
         expect(
           [for (final t in tiles) (t.key! as ValueKey<String>).value],
           [
-            'nav-step-item-1',
-            'nav-step-item-7',
-            'nav-step-item-2',
-            'nav-step-item-3',
+            for (final branch in [inbox, atlas, graph]) 'nav-step-item-$branch',
           ],
         );
-        for (final hint in [
-          es.navInboxHint,
-          es.navAtlasHint,
-          es.navExplorerHint,
-          es.navMapHint,
-        ]) {
+        for (final hint in [es.navInboxHint, es.navAtlasHint, es.navMapHint]) {
           expect(
             find.descendant(of: sheet, matching: find.text(hint)),
             findsOneWidget,
@@ -205,7 +202,7 @@ void main() {
           .toList();
       expect(
         [for (final t in tiles) (t.key! as ValueKey<String>).value],
-        ['nav-step-item-4', 'nav-step-item-8'],
+        ['nav-step-item-$chat', 'nav-step-item-$notebooks'],
       );
     });
 
@@ -265,19 +262,19 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('nav-step-item-7')));
+      await tester.tap(find.byKey(ValueKey('nav-step-item-$atlas')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('nav-step-organize')));
       await tester.pumpAndSettle();
 
       final selected = {
-        for (final branch in [1, 7, 2, 3])
+        for (final branch in [inbox, atlas, graph])
           branch: tester
               .widget<ListTile>(find.byKey(ValueKey('nav-step-item-$branch')))
               .selected,
       };
-      expect(selected, {1: false, 7: true, 2: false, 3: false});
+      expect(selected, {inbox: false, atlas: true, graph: false});
     });
   });
 
@@ -294,7 +291,7 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
-    testWidgets('el riel muestra los nueve destinos, en su orden', (
+    testWidgets('el riel muestra los ocho destinos, en su orden', (
       tester,
     ) async {
       setLogicalWidth(tester, 1200);
@@ -310,7 +307,6 @@ void main() {
         es.navLibrary,
         es.navInbox,
         es.navAtlas,
-        es.navExplorer,
         es.navMap,
         es.navChat,
         es.navNotebooks,

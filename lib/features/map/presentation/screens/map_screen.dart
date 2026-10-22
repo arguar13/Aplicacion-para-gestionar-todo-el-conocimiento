@@ -95,9 +95,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
   }
 
-  /// Abre el material de un tema: el Explorador parado en ese espacio, o
-  /// filtrado por ese valor y sus subtemas.
-  void _openTopic(TopicDimension dimension, String valueId) => context.go(
+  /// Abre el material de un tema: lo procesado de ese espacio, o de ese
+  /// valor y sus subtemas, encima del Mapa.
+  void _openTopic(TopicDimension dimension, String valueId) => context.push(
     dimension.isSpaces
         ? RoutePaths.explorerForSpace(valueId)
         : RoutePaths.explorerFor(valueId),

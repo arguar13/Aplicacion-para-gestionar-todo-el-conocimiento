@@ -64,7 +64,7 @@ class _AtlasScreenState extends ConsumerState<AtlasScreen> {
   /// Si lo que se mira son los temas: una rama es un espacio y no un valor.
   bool get _spaces => _dimensionId != null && isSpacesDimension(_dimensionId!);
 
-  void _openMaterial(String valueId) => context.go(
+  void _openMaterial(String valueId) => context.push(
     _spaces
         ? RoutePaths.explorerForSpace(valueId)
         : RoutePaths.explorerFor(valueId),

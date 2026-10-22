@@ -184,6 +184,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      // El material de un tema —lo procesado de un valor y sus subtemas, o de
+      // un tema—, lo que abren el Atlas y el Mapa. Era un destino de la barra
+      // (el Explorador) y salió en F36: repetía la Biblioteca. Ahora va
+      // encima, con su flecha para volver adonde se estaba.
+      GoRoute(
+        path: RoutePaths.explorer,
+        name: RouteNames.explorer,
+        builder: (context, state) => ExplorerFocus(
+          valueId: state.uri.queryParameters['value'],
+          spaceId: state.uri.queryParameters['space'],
+          child: const ExplorerScreen(),
+        ),
+      ),
       GoRoute(
         path: RoutePaths.timeline,
         name: RouteNames.timeline,
@@ -271,9 +284,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // cada una—, envueltos por `AdaptiveScaffold`: una barra abajo en
       // celular, un riel al costado en escritorio. Reemplaza al AppBar de
       // nueve íconos que tenía antes la biblioteca — ver la decisión 22 en
-      // docs/arquitectura.md. El orden de las ramas es significativo: tiene
-      // que coincidir con `NavDestinationSpec.branchIndex` en
-      // `nav_destinations.dart`.
+      // docs/arquitectura.md. El orden de las ramas es significativo: es el de
+      // `ShellBranch`, en `nav_destinations.dart`.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AdaptiveScaffold(navigationShell: navigationShell),
@@ -305,22 +317,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: RoutePaths.inbox,
                 name: RouteNames.inbox,
                 builder: (context, state) => const InboxScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: RoutePaths.explorer,
-                name: RouteNames.explorer,
-                // Con `?value=` —lo que abre el Atlas— el Explorador se
-                // pone a mirar ese valor y sus subtemas; con `?space=`, ese
-                // tema (F28).
-                builder: (context, state) => ExplorerFocus(
-                  valueId: state.uri.queryParameters['value'],
-                  spaceId: state.uri.queryParameters['space'],
-                  child: const ExplorerScreen(),
-                ),
               ),
             ],
           ),
@@ -361,8 +357,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
           // El Atlas, al final: su posición visible es la tercera, pero
-          // sumarlo al final no corre el índice de las ramas de arriba (ver
-          // `kAtlasBranchIndex`).
+          // sumarlo al final no corrió el índice de las ramas de arriba.
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -372,9 +367,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Los cuadernos (F16), mismo criterio que el Atlas: al final del
-          // árbol para no correr el índice de las ramas de arriba (ver
-          // `kNotebooksBranchIndex`).
+          // Los cuadernos (F16), mismo criterio que el Atlas.
           StatefulShellBranch(
             routes: [
               GoRoute(

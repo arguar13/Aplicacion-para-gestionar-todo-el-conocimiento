@@ -6271,7 +6271,7 @@ solo cómo se llega a ellas desde el celular.
   | Paso | Destinos | Al tocarlo |
   |---|---|---|
   | Biblioteca | Biblioteca | directo |
-  | Organizar | Bandeja → Atlas → Explorador → Mapa | su lista |
+  | Organizar | Bandeja → Atlas → Mapa (el Explorador salió, decisión 78) | su lista |
   | Preguntar | Chat → Cuadernos | su lista |
   | Repasar | Repasar | directo |
   | Ajustes | Ajustes | directo |
@@ -6320,6 +6320,26 @@ un libro"*.
   siempre.
 - **El mismo destino de siempre**: `openDocumentViewer`, que abre el PDF a pantalla completa o el
   `DocumentReaderScreen` paginado con tipografía de libro.
+
+### 78. El Explorador sale de la barra: su material se abre encima, desde el Atlas y el Mapa
+
+**Pedido** (2026-10-22): *"en la barra inferior, dentro de la pestaña «Organizar» elimina la sección
+«Explorador» porque es como que se repite y no quiero andar con dos lugares muy parecidos (aunque
+no es lo mismo pero ya la tenemos en Biblioteca)"*.
+
+- **Qué tenía de propio.** El Explorador era la Biblioteca con otros filtros: solo lo ya procesado,
+  y además por valores de propiedades (`propertyValueIds`). Lo único que no se puede hacer desde la
+  Biblioteca es lo que abren el Atlas y el Mapa: *el material de una rama y sus subtemas*
+  (`?value=`) o de un tema (`?space=`). Sacarlo entero habría dejado esos enlaces sin destino.
+- **Por eso sale de la barra, no de la app.** `/explorer` pasa de rama del `StatefulShellRoute` a
+  ruta de arriba, como la línea de tiempo: el Atlas y el Mapa la abren con `push`, encima, con su
+  flecha para volver. Su título pasa a «Material del tema».
+- **Las ramas, por nombre.** Sacar una rama corre las de abajo, y los índices estaban escritos a
+  mano en los destinos y en las pruebas (`kAtlasBranchIndex = 7`, `branchIndex: 3`…). Ahora
+  `ShellBranch` las nombra en el orden del router, y `app_router_branches_test.dart` compara las
+  dos listas: una rama movida sin tocar el enum hace fallar la prueba, no abre otra pantalla.
+- **Se descartó** dejar la rama y solo esconderla de la lista. La barra no tendría qué marcar
+  mientras se la mira, y para volver al Atlas habría que buscarlo de nuevo en «Organizar».
 
 ## Estado y orden de construcción
 
@@ -6749,6 +6769,9 @@ un libro"*.
   y Mapa), Preguntar (Chat y Cuadernos), Repasar y Ajustes, de izquierda a derecha en el orden en
   que se usan, sin «Más». Un paso con varios destinos abre su lista, con para qué sirve cada uno.
   Ver la decisión 76.
+- **El Explorador sale de la barra.** «Organizar» queda con Bandeja, Atlas y Mapa; el material de
+  un tema se abre encima desde el Atlas y el Mapa, y las ramas del router van por nombre
+  (`ShellBranch`). Ver la decisión 78.
 
 - **F35, «Leer como libro».** En un PDF, un Word, un EPUB o un texto, el botón de pantalla completa
   va grande, semitransparente y en el centro del documento, con «Leer como libro»; en fotos,

@@ -24,6 +24,11 @@ void main() {
 
   Badge badgeOf(Widget icon) => icon as Badge;
 
+  /// Las ramas de [branches], como índices.
+  List<int> at(List<ShellBranch> branches) => [
+    for (final b in branches) b.index,
+  ];
+
   test('cinco pasos en orden de uso, cada destino en el suyo y en orden', () {
     final result = groups();
 
@@ -34,11 +39,15 @@ void main() {
           g.step: [for (final d in g.destinations) d.branchIndex],
       },
       {
-        NavStep.save: [0],
-        NavStep.organize: [1, kAtlasBranchIndex, 2, 3],
-        NavStep.ask: [4, kNotebooksBranchIndex],
-        NavStep.review: [5],
-        NavStep.settings: [6],
+        NavStep.save: at([ShellBranch.library]),
+        NavStep.organize: at([
+          ShellBranch.inbox,
+          ShellBranch.atlas,
+          ShellBranch.graph,
+        ]),
+        NavStep.ask: at([ShellBranch.chat, ShellBranch.notebooks]),
+        NavStep.review: at([ShellBranch.review]),
+        NavStep.settings: at([ShellBranch.settings]),
       },
     );
     expect(
@@ -53,8 +62,8 @@ void main() {
         for (final d in g.destinations) d.branchIndex,
     ];
 
-    expect(branches.toSet(), {0, 1, 2, 3, 4, 5, 6, 7, 8});
-    expect(branches, hasLength(9));
+    expect(branches.toSet(), at(ShellBranch.values).toSet());
+    expect(branches, hasLength(ShellBranch.values.length));
   });
 
   test('un paso de un solo destino se ve como ese destino', () {
@@ -120,7 +129,7 @@ void main() {
     expect(result, hasLength(5));
     expect(ask.hasList, isFalse);
     expect(ask.label, es.navNotebooks);
-    expect(ask.destinations.single.branchIndex, kNotebooksBranchIndex);
+    expect(ask.destinations.single.branchIndex, ShellBranch.notebooks.index);
   });
 
   test('cada destino dice para qué sirve', () {
@@ -134,15 +143,14 @@ void main() {
     expect(
       {for (final d in destinations) d.branchIndex: d.hint},
       {
-        0: es.navLibraryHint,
-        1: es.navInboxHint,
-        kAtlasBranchIndex: es.navAtlasHint,
-        2: es.navExplorerHint,
-        3: es.navMapHint,
-        4: es.navChatHint,
-        kNotebooksBranchIndex: es.navNotebooksHint,
-        5: es.navReviewHint,
-        6: es.navSettingsHint,
+        ShellBranch.library.index: es.navLibraryHint,
+        ShellBranch.inbox.index: es.navInboxHint,
+        ShellBranch.atlas.index: es.navAtlasHint,
+        ShellBranch.graph.index: es.navMapHint,
+        ShellBranch.chat.index: es.navChatHint,
+        ShellBranch.notebooks.index: es.navNotebooksHint,
+        ShellBranch.review.index: es.navReviewHint,
+        ShellBranch.settings.index: es.navSettingsHint,
       },
     );
   });

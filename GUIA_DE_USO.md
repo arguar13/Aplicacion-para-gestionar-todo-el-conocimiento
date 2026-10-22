@@ -19,7 +19,7 @@ saltar directo a la sección que te haga falta con el índice de abajo.
 10. [Ver los archivos originales](#ver-los-archivos-originales)
 11. [Organizar lo que guardaste](#organizar-lo-que-guardaste)
 12. [La IA que organiza sola](#la-ia-que-organiza-sola)
-13. [El Explorador](#el-explorador)
+13. [El material de un tema](#el-material-de-un-tema)
 14. [Cuadernos](#cuadernos)
 15. [Línea de tiempo](#línea-de-tiempo)
 16. [Bandeja de entrada y sugerencias](#bandeja-de-entrada-y-sugerencias)
@@ -85,10 +85,12 @@ En el celular, la barra tiene **cinco botones fijos, que son los pasos del
 trabajo en el orden en que los usás**, de izquierda a derecha:
 
 1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
-2. **Organizar**: una lista con **Bandeja**, **Atlas**, **Explorador** y
-   **Mapa**, en ese orden. Primero revisás lo que entró, después ves qué sabés
-   y qué te falta, y por último lo recorrés y lo conectás. El número de
-   pendientes de la Bandeja se ve en el mismo botón.
+2. **Organizar**: una lista con **Bandeja**, **Atlas** y **Mapa**, en ese
+   orden. Primero revisás lo que entró, después ves qué sabés y qué te falta,
+   y por último lo conectás. El número de pendientes de la Bandeja se ve en el
+   mismo botón. (El **Explorador** ya no está en la lista: repetía la
+   Biblioteca. Lo suyo, el material de un tema, se abre desde el Atlas y el
+   Mapa: ver [El material de un tema](#el-material-de-un-tema).)
 3. **Preguntar**: una lista con **Chat** y **Cuadernos**.
 4. **Repasar**: tarjetas y cuestionarios, con el número de lo que toca hoy. Se
    abre directo.
@@ -371,8 +373,8 @@ aparezca primero en la lista) o **eliminar**.
 
 ## El detalle de un elemento
 
-Tocando cualquier tarjeta —de la Biblioteca, el Explorador, un Cuaderno o la
-Línea de tiempo— entrás al detalle de ese elemento: la pantalla donde lo leés,
+Tocando cualquier tarjeta —de la Biblioteca, el material de un tema, un
+Cuaderno o la Línea de tiempo— entrás al detalle de ese elemento: la pantalla donde lo leés,
 lo clasificás, lo vinculás con otros y lo repasás.
 
 De arriba hacia abajo, vas a encontrar:
@@ -641,7 +643,7 @@ propósito distinto:
 Palabras clave libres. Un mismo elemento puede tener muchas etiquetas a la
 vez (a diferencia del Tema, que es uno solo). Se agregan y quitan desde la
 sección "Etiquetas" del detalle de cualquier elemento, y sirven para filtrar
-en la Biblioteca, el Explorador o la Línea de tiempo.
+en la Biblioteca, el material de un tema o la Línea de tiempo.
 
 Las etiquetas pueden ir una debajo de otra ("Roma" debajo de "Historia
 antigua"): ese árbol se ordena desde [Vocabulario](#vocabulario) —o lo
@@ -933,14 +935,20 @@ modelo).
 
 ---
 
-## El Explorador
+## El material de un tema
 
-Es una segunda forma de recorrer lo que ya terminó de procesarse, filtrando
-por Tema, por Tipo, por categorías de propiedades (por ejemplo, Época,
-Región) y por Etiquetas — sin carpetas, todo se organiza filtrando.
+Es lo que ya terminó de procesarse de un Tema, o de una rama del Atlas y
+todo lo que cuelga de ella. Se puede seguir filtrando por Tema, por Tipo, por
+categorías de propiedades (por ejemplo, Época, Región) y por Etiquetas.
 
-**Cómo llegar:** ítem **"Explorador"** en la navegación (en el celular,
-dentro de **"Organizar"**).
+**Cómo llegar:** desde el **Atlas** («Ver el material» en el menú de una
+rama, o tocando una rama sin nada debajo o un vacío detectado) y desde el
+**Mapa** (abrir un tema). Se abre encima, con la flecha de arriba a la
+izquierda para volver adonde estabas.
+
+Antes era el **Explorador**, un lugar propio dentro de «Organizar». Salió de
+la barra porque era casi la Biblioteca con otros filtros; para recorrer todo
+lo guardado, usá la Biblioteca.
 
 El botón de filtros abre un panel con las secciones "Tema", "Tipo",
 "Categorías" y "Etiquetas". La sección **"Tema"** es la misma que en los
@@ -952,8 +960,8 @@ sobre el botón cuenta también el Tema, y **"Limpiar filtros"** lo suelta.
 Los resultados se ven con las mismas tarjetas que la Biblioteca; tocar una
 abre su detalle.
 
-Elegir un Tema en el Explorador no cambia el de la Biblioteca (cada pantalla
-tiene sus propios filtros); pero si eliminás un Tema desde cualquiera de las
+Elegir un Tema acá no cambia el de la Biblioteca (cada pantalla tiene sus
+propios filtros); pero si eliminás un Tema desde cualquiera de las
 dos, la otra deja de filtrar por él sola.
 
 ---
@@ -1234,8 +1242,8 @@ Arriba, la ficha **"Agrupar por"** elige de qué es el índice:
 - Cualquier otra categoría de texto que hayas creado (Época, Región...).
 
 Tocar una rama la despliega (o, si no tiene nada debajo, abre su material);
-el menú de tres puntos de cada una ofrece "Ver el material" —el Explorador
-parado en ese Tema o filtrado por esa etiqueta—, "Ver en la línea de tiempo"
+el menú de tres puntos de cada una ofrece "Ver el material" —lo de ese Tema
+o de esa etiqueta, encima del Atlas—, "Ver en la línea de tiempo"
 y "Bibliografía". Una tarjeta plegable te avisa de "vacíos detectados" —
 huecos como muchas fuentes sin ninguna nota propia, o una rama que no tocás
 hace meses. El botón de compartir guarda el Atlas que estás mirando como un

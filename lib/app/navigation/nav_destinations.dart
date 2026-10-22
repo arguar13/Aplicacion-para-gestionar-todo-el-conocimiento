@@ -70,17 +70,29 @@ class NavStepGroup {
       destinations.any((d) => d.branchIndex == branchIndex);
 }
 
-/// La rama del Atlas en `app_router.dart`: la última, para no correr el
-/// índice de las que ya existían.
-const kAtlasBranchIndex = 7;
-
-/// La rama de los cuadernos (F16), sumada después del Atlas por el mismo
-/// motivo.
-const kNotebooksBranchIndex = 8;
+/// Las ramas del `StatefulShellRoute` de `app_router.dart`, **en su orden**:
+/// el índice de cada una es su posición en el árbol de rutas. Una prueba
+/// compara las dos listas (`app_router_branches_test.dart`).
+///
+/// Con nombre y no con números sueltos: el Atlas y los cuadernos se sumaron
+/// al final para no correr las de arriba, y el Explorador salió de la barra
+/// (F36) —ahora se abre desde el Atlas y el Mapa—, así que sacar o sumar una
+/// rama corre las demás, y un número escrito a mano en otro lado quedaría
+/// apuntando a otra pantalla.
+enum ShellBranch {
+  library,
+  inbox,
+  graph,
+  chat,
+  review,
+  settings,
+  atlas,
+  notebooks,
+}
 
 /// Arma la lista de destinos principales, en el orden de uso en que se ven
-/// (F34): biblioteca; bandeja de entrada, atlas, explorador y mapa; chat y
-/// cuadernos; repaso; ajustes. Cada uno sabe su rama
+/// (F34): biblioteca; bandeja de entrada, atlas y mapa; chat y cuadernos;
+/// repaso; ajustes. Cada uno sabe su rama
 /// ([NavDestinationSpec.branchIndex]) y su paso ([NavDestinationSpec.step]).
 ///
 /// El riel de escritorio los muestra todos; la barra del celular, agrupados
@@ -98,7 +110,7 @@ List<NavDestinationSpec> buildNavDestinations({
 }) {
   return [
     NavDestinationSpec(
-      branchIndex: 0,
+      branchIndex: ShellBranch.library.index,
       step: NavStep.save,
       icon: const Icon(Icons.folder_outlined),
       selectedIcon: const Icon(Icons.folder),
@@ -109,11 +121,12 @@ List<NavDestinationSpec> buildNavDestinations({
     // "todo lo organizado" — ver la decisión sobre F3 en docs/arquitectura.md.
     //
     // `move_to_inbox`, no `inbox_outlined`: ese ícono ya lo usan los estados
-    // vacíos de Biblioteca y Explorador, y coincidir lo dejaría ambiguo en
-    // pantalla ancha —el riel y un estado vacío se ven a la vez—, además de
-    // hacer que un test que busque el ícono de este destino encuentre dos.
+    // vacíos de la Biblioteca y del material de un tema, y coincidir lo
+    // dejaría ambiguo en pantalla ancha —el riel y un estado vacío se ven a
+    // la vez—, además de hacer que un test que busque el ícono de este
+    // destino encuentre dos.
     NavDestinationSpec(
-      branchIndex: 1,
+      branchIndex: ShellBranch.inbox.index,
       step: NavStep.organize,
       icon: _badged(pendingInboxCount, Icons.move_to_inbox_outlined),
       selectedIcon: _badged(pendingInboxCount, Icons.move_to_inbox),
@@ -122,29 +135,21 @@ List<NavDestinationSpec> buildNavDestinations({
       badgeCount: pendingInboxCount,
     ),
     // El índice dinámico de lo que se sabe y de lo que falta (F13): después de
-    // lo que entra y antes de lo que se explora. `account_tree` porque es un
+    // lo que entra y antes de lo vinculado. `account_tree` porque es un
     // árbol de temas; ningún otro destino usa ese ícono.
     NavDestinationSpec(
-      branchIndex: kAtlasBranchIndex,
+      branchIndex: ShellBranch.atlas.index,
       step: NavStep.organize,
       icon: const Icon(Icons.account_tree_outlined),
       selectedIcon: const Icon(Icons.account_tree),
       label: l10n.navAtlas,
       hint: l10n.navAtlasHint,
     ),
-    // Entre bandeja y mapa, tal como pidió el usuario: es el punto medio
-    // natural entre "todo lo guardado" y "todo lo vinculado" — la vitrina de
-    // resultados ya organizados por carpeta.
+    // Sin el Explorador (F36): repetía la Biblioteca con otros filtros. Lo
+    // que tenía de propio —el material de un tema y sus subtemas— se abre
+    // desde el Atlas y el Mapa, con su flecha para volver.
     NavDestinationSpec(
-      branchIndex: 2,
-      step: NavStep.organize,
-      icon: const Icon(Icons.snippet_folder_outlined),
-      selectedIcon: const Icon(Icons.snippet_folder),
-      label: l10n.navExplorer,
-      hint: l10n.navExplorerHint,
-    ),
-    NavDestinationSpec(
-      branchIndex: 3,
+      branchIndex: ShellBranch.graph.index,
       step: NavStep.organize,
       icon: const Icon(Icons.hub_outlined),
       selectedIcon: const Icon(Icons.hub),
@@ -154,11 +159,10 @@ List<NavDestinationSpec> buildNavDestinations({
     // Sin web a propósito: el chat necesita flutter_gemma corriendo en el
     // dispositivo, y esta función solo se validó en Android y Windows —
     // decisión 6 y 20 en docs/arquitectura.md—. La rama sigue existiendo en
-    // el árbol de rutas (por eso branchIndex sigue siendo 4 más abajo, no
-    // se corre), solo no aparece en la navegación.
+    // el árbol de rutas, solo no aparece en la navegación.
     if (includeChat)
       NavDestinationSpec(
-        branchIndex: 4,
+        branchIndex: ShellBranch.chat.index,
         step: NavStep.ask,
         icon: const Icon(Icons.forum_outlined),
         selectedIcon: const Icon(Icons.forum),
@@ -168,7 +172,7 @@ List<NavDestinationSpec> buildNavDestinations({
     // Justo después del chat (F16): un cuaderno acota el chat a un
     // subconjunto, así que va al lado de lo que acota.
     NavDestinationSpec(
-      branchIndex: kNotebooksBranchIndex,
+      branchIndex: ShellBranch.notebooks.index,
       step: NavStep.ask,
       icon: const Icon(Icons.auto_stories_outlined),
       selectedIcon: const Icon(Icons.auto_stories),
@@ -176,7 +180,7 @@ List<NavDestinationSpec> buildNavDestinations({
       hint: l10n.navNotebooksHint,
     ),
     NavDestinationSpec(
-      branchIndex: 5,
+      branchIndex: ShellBranch.review.index,
       step: NavStep.review,
       icon: _badged(dueFlashcardCount, Icons.style_outlined),
       selectedIcon: _badged(dueFlashcardCount, Icons.style),
@@ -185,7 +189,7 @@ List<NavDestinationSpec> buildNavDestinations({
       badgeCount: dueFlashcardCount,
     ),
     NavDestinationSpec(
-      branchIndex: 6,
+      branchIndex: ShellBranch.settings.index,
       step: NavStep.settings,
       icon: const Icon(Icons.settings_outlined),
       selectedIcon: const Icon(Icons.settings),

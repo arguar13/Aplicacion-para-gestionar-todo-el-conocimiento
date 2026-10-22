@@ -37,7 +37,7 @@ Recibe cualquier cosa y la convierte en **texto buscable con su procedencia**:
 | Apunte propio (notas de bloques) | Texto, igual que todo lo demás |
 
 Sobre eso la app permite: **organizar** (etiquetas, temas jerárquicos, espacios, cuadernos,
-propiedades tipadas, vínculos entre elementos), **explorar** (Biblioteca, Explorador, Atlas, Mapa,
+propiedades tipadas, vínculos entre elementos), **explorar** (Biblioteca, Atlas, Mapa, el material de un tema,
 grafo, línea de tiempo), **preguntarle a la bóveda** (chat con RAG local), **escuchar** (lector en
 voz alta con el texto resaltado), **citar** (biblioteca académica, BibTeX/RIS) y **repasar**
 (tarjetas con repetición espaciada, cuestionarios, hábito), además de **exportar** (Markdown, PDF,
@@ -155,9 +155,10 @@ desde F13):
   ofrece en «Lo que hizo la IA» y en cada elemento. Al cambiar a un modelo más capaz, avisa una vez
   por modelo.
 - **F34** — **la barra del celular en cinco pasos** (decisión 76), en el orden en que se usan y sin
-  «Más»: Biblioteca, Organizar (Bandeja, Atlas, Explorador y Mapa), Preguntar (Chat y Cuadernos),
-  Repasar y Ajustes. Un paso con varios destinos abre su lista, con para qué sirve cada uno; el
-  riel de escritorio sigue con los nueve.
+  «Más»: Biblioteca, Organizar (Bandeja, Atlas y Mapa), Preguntar (Chat y Cuadernos), Repasar y
+  Ajustes. Un paso con varios destinos abre su lista, con para qué sirve cada uno; el riel de
+  escritorio muestra los ocho. El Explorador salió de la barra (decisión 78): su material se abre
+  desde el Atlas y el Mapa.
 - **F35** — **«Leer como libro»** (decisión 77): en un PDF, un Word, un EPUB o un texto, el botón
   de pantalla completa va grande, semitransparente y en el centro del documento.
 
