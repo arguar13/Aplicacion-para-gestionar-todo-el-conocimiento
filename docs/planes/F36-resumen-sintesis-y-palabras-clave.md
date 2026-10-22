@@ -4,6 +4,11 @@
 >
 > **Aprobado** (2026-10-22), en el chat: *"aprobado"* —con las decisiones A–D tal como están—.
 >
+> **Ampliado** (2026-10-22), a pedido: *"todo eso del resaltado, del resumen, del subrayado y la
+> síntesis y las palabras claves, que se aplique a todo tipo de documentos de texto (sea en el
+> formato que sea, incluso epub) y hasta en las páginas web (en el formato descargado que sería el
+> archivo original)"*. Suma la página web archivada: ver la decisión E y el paso 5b.
+>
 > Pedido: *"cuando se trate de un documento de texto (en el formato que sea) que tenga una opción
 > elegante resumir y otra de síntesis (usando el modelo de IA que habíamos elegido en las
 > configuraciones) … cuando apriete resumir o hacer síntesis me resalte en el documento original
@@ -56,6 +61,8 @@ aparezca algo que el documento no dice.
   - **PDF**: sobre las letras del PDF real, en la vista del detalle y en «Leer como libro».
   - **Word, EPUB y texto**: en el lector, embebido y a pantalla completa.
   - **«Texto extraído»**, cuando lo desplegás.
+  - **Página web**: sobre la página tal como quedó archivada al guardarla —su HTML original, con
+    su diseño y sus fotos—, y también en su texto extraído y en «Leer como libro».
   - **Excepción**: en una página escaneada (una foto de la página, reconocida con OCR) el PDF no
     tiene letras donde pintar. Ahí el resaltado se ve en el texto extraído, y la página lo dice.
 
@@ -103,8 +110,9 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 
 ### 5. Lo que no cambia
 
-- En una página web, un video, un audio o una nota, «Resumir» sigue siendo el párrafo en el diálogo.
-- En un documento, el mosaico «Resumir» del panel lleva a la tarjeta nueva y prende el resumen.
+- En un video, un audio o una nota, «Resumir» sigue siendo el párrafo en el diálogo.
+- En un documento o una página web, el mosaico «Resumir» del panel lleva a la tarjeta nueva y
+  prende el resumen.
 - No se pierde ninguna función: «Texto extraído» sigue con todo lo de hoy —leer en voz alta,
   subrayar, seleccionar—, solo que ahora vive dentro de «Extraer».
 
@@ -116,6 +124,15 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 - **C.** Colores: resumen verde, síntesis celeste, palabras clave rosa. El amarillo queda para lo
   que se lee en voz alta.
 - **D.** Las palabras clave **las propone la IA y las ajustás vos**, hasta 4 por oración.
+- **E.** (ampliación) **Página web**: se estudia su texto extraído, igual que un documento, y las
+  marcas se dibujan sobre la página archivada. Para eso la app inserta las marcas en una copia del
+  HTML guardado antes de mostrarlo; el archivo guardado no se toca. Hoy esa página se muestra con
+  JavaScript apagado, así que sus programas ya no corren. La copia que se muestra los quita, y
+  enciende solo un programa chico de la app, que avisa qué palabra tocaste para elegir palabras
+  clave. La página se ve igual que hoy.
+- Los formatos de texto que la app reconoce hoy son PDF, Word (.docx), EPUB, texto (.txt) y
+  Markdown: todos entran. Un .odt, un .rtf o un .pptx hoy no se reconocen ni se les saca texto;
+  sumarlos sería otro pedido.
 
 ## Pasos (cada uno, su commit y su push)
 
@@ -139,6 +156,9 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
    palabras tocándolas. Pruebas de widget y mutación.
 5. **Resaltar en el PDF**: pintar sobre las letras de cada página, y elegir palabras tocándolas en
    la página. Pruebas y mutación.
+5b. **Resaltar en la página web** (ampliación): estudiar también una página web; ubicar cada marca
+   en el HTML archivado y envolverla con su color en la copia que se muestra; tocar una palabra
+   para elegirla. Pruebas y mutación.
 6. **La tarjeta «Estudiar el documento»**:
    - los tres botones y la leyenda;
    - la franja de avance;
@@ -148,7 +168,7 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
    - Textos en español e inglés. Pruebas de widget y mutación.
 7. **Documentación y cierre**:
    - GUIA_DE_USO.md;
-   - la decisión 78 en `docs/arquitectura.md`;
+   - la decisión 79 en `docs/arquitectura.md`;
    - CONTEXTO y el «Avance» de este plan;
    - suite entera y `verify_commit`.
    - APK al teléfono solo si la pedís.

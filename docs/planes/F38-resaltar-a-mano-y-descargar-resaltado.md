@@ -12,6 +12,10 @@
 > resaltadas, según lo que seleccione, pero que me lo deje descargar en el mismo formato que ya
 > está el documento"*.
 
+> **Ampliado** (2026-10-22), a pedido: que valga para todo documento de texto, en el formato que
+> sea —incluso EPUB— y también para las **páginas web**, descargadas en su formato original: el HTML
+> que la app archivó al guardarlas.
+
 ## Lo que hay hoy (relevado en el código)
 
 | Qué | Cómo está |
@@ -26,7 +30,8 @@
 ### 1. Resaltar y subrayar a mano, con color
 
 - Al seleccionar un fragmento **en cualquier lugar del documento** —el PDF real, el lector de Word,
-  EPUB y texto, y «Texto extraído»— aparece una barrita elegante sobre la selección:
+  EPUB y texto, la página web archivada y «Texto extraído»— aparece una barrita elegante sobre la
+  selección:
   - **una fila de colores** para resaltar, como en Word;
   - **Subrayar**, con una línea del color elegido;
   - **Copiar**, **Escuchar** (lee en voz alta lo seleccionado), **Nota**, **Extraer como nota** y
@@ -51,6 +56,8 @@
     deja borrar. El texto sigue siendo seleccionable, porque no es una foto de las páginas.
   - **Word (.docx)**: el mismo documento, con el resaltado de Word en esas partes.
   - **EPUB**: el mismo libro, con esas partes coloreadas.
+  - **Página web**: la página archivada (.html), con esas partes resaltadas, que se abre en
+    cualquier navegador sin conexión.
   - **Texto (.txt) y Markdown**: ver la decisión C.
 - Se guarda donde elijas, con el selector de archivos del sistema, o se comparte.
 
@@ -76,10 +83,10 @@
    con la migración, la unión de bóvedas y la papelera. Pruebas y mutación.
 3. **La barrita y la ficha** en «Texto extraído» y en el lector de Word, EPUB y texto. Pruebas de
    widget y mutación.
-4. **Resaltar sobre el PDF real**, con la misma barrita, usando la ubicación de las letras de F36.
-   Pruebas.
-5. **Descargar**: PDF, Word, EPUB, texto y Markdown, cada uno con su prueba sobre un archivo real
-   chico. Mutación.
+4. **Resaltar sobre el PDF real y la página web**, con la misma barrita, usando la ubicación de
+   las letras y de las marcas de F36. Pruebas.
+5. **Descargar**: PDF, Word, EPUB, página web, texto y Markdown, cada uno con su prueba sobre un
+   archivo real chico. Mutación.
 6. **Cierre**:
    - GUIA_DE_USO, la decisión en `docs/arquitectura.md`, CONTEXTO y el «Avance» de este plan;
    - suite entera y `verify_commit`.
