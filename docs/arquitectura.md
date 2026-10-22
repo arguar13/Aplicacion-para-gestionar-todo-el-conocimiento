@@ -6181,6 +6181,77 @@ paso, con archivos y trampas.
 - **Lo que falta de F32.** La prueba en el teléfono con una clave real. Las pruebas usan
   respuestas grabadas: nunca llaman de verdad a ninguna empresa.
 
+### 75. F33: «Revisar con otro modelo» — un modelo más capaz corrige o saca lo que sigue siendo de la IA, y nada cambia hasta que la persona acepta
+
+Pedido del usuario (F33): *"un botón elegante … para que si lo aprieto revise lo que otro modelo
+hizo, por ejemplo si cambio a un modelo más inteligente … y que en caso de haber correcciones o
+mejoras me las muestre y yo las acepte una a una o acepte todas en bloque"*. Plan aprobado con las
+cinco recomendadas: `docs/planes/F33-revisar-con-otro-modelo.md`. Su sección «Avance» tiene el
+detalle de cada paso, con archivos y trampas.
+
+- **Qué revisa (decisión A): todo lo que sigue siendo de la IA, y nada más.** Revisa:
+  - las tarjetas de pregunta y respuesta;
+  - los vínculos que son una opinión (no las extracciones ni los índices);
+  - las etiquetas y propiedades;
+  - el tema;
+  - los datos de texto de la referencia;
+  - la introducción de las notas mapa.
+
+  Lo que la persona editó o borró ya es suyo y no se mira. El tipo de obra, las personas y la
+  fecha de la referencia quedan afuera: tienen su propio editor, y corregirlos a ciegas rompe más
+  de lo que arregla.
+- **Solo corrige o saca, nunca agrega (decisión B).** Una etiqueta o un tema se cambian solo por
+  uno **que ya existe**: inventar vocabulario sigue pasando por «Para revisar». La introducción de
+  una nota mapa se corrige pero no se saca, porque es parte del índice.
+- **Sin migración.** Una propuesta es una sugerencia más:
+  - `SuggestionKind.correction`, con qué se corrige, el antes, el después, el porqué y el modelo
+    en el `payload_json`;
+  - la pasada que aplica lo aceptado es una `AiRunScope.review`.
+
+  La misma maquinaria de «Para revisar» da aceptar y descartar, de a uno y en bloque, con
+  «Deshacer».
+- **Aceptar solo aplica si la cosa sigue como la vio el modelo** y sigue siendo de la IA; si no,
+  falla sin tocar nada, y la propuesta se va sola de «Revisión» apenas la persona la cambia.
+  - **Lo corregido sigue siendo de la IA, de la pasada que lo hizo.** En el tema y la referencia
+    se actualiza también lo que esa pasada recuerda haber puesto (`ai_field_changes.after_value`),
+    para que deshacerla devuelva lo de antes de la IA.
+  - **Lo sacado se guarda entero** (una tarjeta, con sus repasos) y queda como «no era».
+  - **La sugerencia aceptada es el registro para deshacer.** Deshacer la pasada de revisión
+    devuelve cada cosa si sigue como la dejó, sin pisar lo que la persona cambió después, y olvida
+    el «no era».
+- **El revisor:**
+  - Dos pasos que comparten la pasada de revisión de cada elemento: las tarjetas, con el pasaje de
+    su cita, y lo demás, numerado, cada cosa con su contexto.
+  - Usan un formato fijo (`TARJETA n:` / `DATO n: bien | corregir | sacar`, el valor y `POR QUÉ:`).
+    Lo lee un lector estricto que descarta lo que no entiende o no cumple las reglas de cada cosa:
+    nunca se aplica algo a medias.
+  - Vale para cualquier modelo de la decisión 74, sin repartir tareas.
+- **Sale de la cuota de la persona, avisando antes cuánto cuesta (decisión C).**
+  - La cola de la revisión (`AiReviewQueue`) tiene el turno de la IA de fondo: le cede el modelo a
+    la persona y espera la cuota sin perder nada. Gasta con el motor de la persona, no del tope de
+    la IA de fondo.
+  - Antes de empezar dice cuántas cosas son, en cuántos elementos y unos cuántos pedidos. Una sola
+    consulta cuenta toda la biblioteca con las mismas reglas que se le dan al revisor, y las
+    tarjetas y lo demás van en pedidos distintos.
+  - Revisar la biblioteca deja afuera lo que hizo el mismo modelo y lo que ya revisó. Pedido en un
+    elemento, revisa todo lo de ese elemento.
+- **Dónde se ofrece:**
+  - en «Lo que hizo la IA», con cuánto hizo cada modelo;
+  - en la línea «La IA organizó esto» de cada elemento;
+  - **al cambiar a un modelo más capaz, una vez por modelo** (decisión D).
+
+  El aviso no escucha el cambio sino lo que queda. Sale cuando el modelo elegido ya puede
+  contestar y tiene algo de uno menos capaz (`isMoreCapableModel`).
+  - **Más capaz** es uno en la nube después de Gemma en el teléfono, o uno más grande del mismo
+    proveedor: Gemma 12B sobre E4B; en Gemini, Pro > Flash > Flash Lite; en Claude, Opus o
+    Fable > Sonnet > Haiku; en OpenAI, el entero > mini > nano.
+  - **Entre proveedores distintos no se sabe**, y no avisa: queda el botón.
+- **«Revisión»**, en «Lo que hizo la IA» junto a «Para revisar», agrupa las propuestas por
+  elemento. Cada una muestra el antes y el después palabra por palabra, el porqué y quién lo
+  propone, con el nombre del modelo para leer (`modelLabel`: «Gemini 3.8 Flash», «Gemma 4 E4B»).
+- **Lo que falta de F33.** Probarlo en el teléfono con una clave real, como F32. Las pruebas usan
+  respuestas grabadas: nunca llaman de verdad a ninguna empresa.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6598,6 +6669,12 @@ paso, con archivos y trampas.
   espera la cuota sin perder nada; los textos largos, de a un capítulo con Gemini; OpenAI y
   Claude, de pago, con los mismos cambios de cuenta y avisos.
   Ver la decisión 74.
+
+- **F33, revisar con otro modelo (construida; falta probarla en el teléfono con una clave
+  real).** Un modelo más capaz revisa lo que sigue siendo de la IA y propone corregir o sacar,
+  con el antes y el después y por qué. La persona acepta o descarta de a uno o en bloque, con
+  «Deshacer». Sale de su cuota, diciendo antes cuánto cuesta. Se ofrece en «Lo que hizo la IA», en
+  cada elemento y, una vez por modelo, al cambiar a uno más capaz. Ver la decisión 75.
 
 ### Por construir
 

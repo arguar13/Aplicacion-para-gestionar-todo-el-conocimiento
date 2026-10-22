@@ -1,6 +1,9 @@
 # F33 — «Revisar con otro modelo»: que un modelo más capaz revise lo que hizo la IA anterior
 
-> **Estado: aprobado** (2026-10-16), en el chat, **con las cinco recomendadas**: revisa todo lo de la
+> **Estado: construido** (2026-10-22). Falta solo probarlo en el teléfono con una clave real, si
+> el dueño lo pide. Ver «Paso 6» al final y la decisión 75 en `docs/arquitectura.md`.
+>
+> **Aprobado** (2026-10-16), en el chat, **con las cinco recomendadas**: revisa todo lo de la
 > IA que sigue siendo suyo; corrige y saca, sin agregar; sale de la cuota de la persona, avisando
 > antes cuánto cuesta; el aviso al cambiar a un modelo más capaz, una vez por modelo; se construye
 > apenas cierre F32.
@@ -521,4 +524,16 @@ Partes, un commit cada una:
   va al costo con lo del anterior, espera a que esté listo, una vez por modelo, otro proveedor no,
   nada que revisar no, revisión en curso no, sin la cuenta vieja).
 - **Mutación: 20 de 20 muertas.**
+
+### Paso 6 (hecho): el cierre
+
+- **La guía** («Revisar con otro modelo») cubre todo: qué se revisa, las tres formas de empezar
+  (incluido el aviso al cambiar de modelo), el costo, cómo se ve cada propuesta y qué hace
+  «Deshacer».
+- **La decisión 75** en `docs/arquitectura.md`, y F33 en «Construido». `CONTEXTO_DEL_PROYECTO.md`,
+  al día.
+- **Suite completa: 8.255 pruebas pasan, 0 fallas, 77 omitidas** (las de siempre). Analizador: 19
+  avisos, la línea base.
+- **Lo que falta:** la prueba en el teléfono con una clave real, como en F32. Todas las pruebas
+  usan respuestas grabadas.
 

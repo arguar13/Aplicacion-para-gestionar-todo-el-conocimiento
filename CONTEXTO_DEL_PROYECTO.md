@@ -11,8 +11,8 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **74 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
-| `docs/planes/F13…F32-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
+| `docs/arquitectura.md` | Principios y **75 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
+| `docs/planes/F13…F33-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
 
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F32**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F33**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -147,19 +147,32 @@ desde F13):
   con un menú para cambiar de un toque, que pasan solas a la siguiente al agotarse la cuota y avisan;
   la IA de fondo con su tope del día, que espera la cuota sin perder nada; OpenAI y Claude, de
   pago, por la misma puerta.
+- **F33 (construida; falta la prueba en el teléfono con una clave real)** — **revisar con otro
+  modelo** (decisión 75). Un modelo más capaz revisa lo que sigue siendo de la IA: las tarjetas,
+  los vínculos, las etiquetas, el tema, la referencia y la introducción de las notas mapa. Propone
+  corregir o sacar, con el antes, el después y por qué, en «Revisión». La persona acepta o descarta
+  de a una o todas juntas, y puede deshacerlo. Sale de su cuota, y antes le dice cuánto cuesta. Se
+  ofrece en «Lo que hizo la IA» y en cada elemento. Al cambiar a un modelo más capaz, avisa una vez
+  por modelo.
 
 ## 5. Estado actual
 
-> **En curso desde el 2026-10-16: F32, la IA en la nube** (Gemini gratis por defecto, varias
-> cuentas que cambian solas al agotarse la cuota, OpenAI y Claude como opciones; el contenido
-> siempre guardado en el teléfono). Plan aprobado y su sección **«Avance»** con lo hecho y lo que
-> sigue: `docs/planes/F32-ia-en-la-nube-gemini-y-cuentas.md`. Lo de abajo es el estado al cerrar
-> F31 (2026-10-09).
+> **F32 (la IA en la nube) y F33 (revisar con otro modelo) están construidas** (2026-10-22). Sus
+> planes, con la sección **«Avance»** de cada paso, son estos:
+> - `docs/planes/F32-ia-en-la-nube-gemini-y-cuentas.md`;
+> - `docs/planes/F33-revisar-con-otro-modelo.md`.
+>
+> A las dos les falta solo la prueba en el teléfono con una clave real, y se hace solo si el dueño
+> la pide. Lo que sigue sobre la instalación en el teléfono es del cierre de F31 (2026-10-09).
 
 
-- `origin/main` = `8bce1cd`. Árbol limpio. **Suite: 7.845 pruebas pasan, 0 fallas, 77 omitidas**
-  (las omitidas son de siempre). **Analizador: 19 avisos** — es la línea base de
-  `tool/verify_commit.ps1` y **no puede crecer**.
+- `origin/main` = `el commit «docs: cierre de F33», sobre `2591da8``. **Suite: 8.255 pruebas pasan, 0 fallas, 77 omitidas** (las omitidas son de siempre).
+  **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
+- Hay cuatro archivos con cambios de solo formato que no son de este trabajo y no se commitean:
+  - `lib/core/database/tables/suggestions.dart`
+  - `lib/features/export/data/services/anki_topic_resolver_impl.dart`
+  - `lib/features/transform/data/clients/page_urls.dart`
+  - `lib/features/transform/domain/usecases/reextraction.dart`
 - F31 está completa en código y documentación. Se instaló en el teléfono del dueño (Xiaomi Redmi
   Note 13 Pro+, serial `HI5LQ84PFAPVOJWK`) como **instalación nueva**: el dueño había desinstalado la
   app antes (le enlentecía todo), así que su bóveda y sus modelos anteriores se borraron (Android
