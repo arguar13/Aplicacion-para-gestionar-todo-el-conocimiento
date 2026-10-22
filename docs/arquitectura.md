@@ -6252,6 +6252,56 @@ detalle de cada paso, con archivos y trampas.
 - **Lo que falta de F33.** Probarlo en el teléfono con una clave real, como F32. Las pruebas usan
   respuestas grabadas: nunca llaman de verdad a ninguna empresa.
 
+### 76. F34: la barra del celular en cinco pasos, en el orden en que se usan, sin «Más»
+
+Pedido del usuario (F34): *"agrupes todos los iconos de la barra inferior de izquierda a derecha
+según su orden de uso … que todos aparezcan en la barra sin estar ocultos en tres puntitos, que
+sean cinco grupos … si una sección tiene varios iconos, que aparezca una interfaz nueva con una
+lista vertical interactiva … que el último icono de la derecha sea el de ajustes, no quites
+ninguna función"*. Plan aprobado: `docs/planes/F34-barra-en-cinco-pasos.md`.
+
+Reemplaza la barra de F13 (cinco destinos fijos y un «Más» con el resto, decisión 46). Las nueve
+ramas, sus rutas y su estado (`StatefulShellRoute.indexedStack`, decisión 22) no cambian: cambia
+solo cómo se llega a ellas desde el celular.
+
+- **Cinco pasos, en el orden del trabajo.** La app se cuenta como *guardar → organizar → conectar
+  → preguntar → repasar*, y Ajustes va fijo a la derecha. Quedan cuatro lugares para cinco
+  verbos, así que *organizar* y *conectar* van juntos:
+
+  | Paso | Destinos | Al tocarlo |
+  |---|---|---|
+  | Biblioteca | Biblioteca | directo |
+  | Organizar | Bandeja → Atlas → Explorador → Mapa | su lista |
+  | Preguntar | Chat → Cuadernos | su lista |
+  | Repasar | Repasar | directo |
+  | Ajustes | Ajustes | directo |
+
+  Se descartaron dos alternativas. Juntar *preguntar* y *repasar* dejaba Repasar, que se usa
+  todos los días, detrás de una lista. Juntar la Biblioteca con la Bandeja sumaba un toque a la
+  pantalla de entrada. Así, las dos pantallas de todos los días siguen a un toque y con su
+  insignia a la vista.
+- **El paso es un dato del destino, no una lista aparte.** Cada `NavDestinationSpec` dice su
+  `NavStep`, y `buildNavStepGroups` agrupa la misma lista que alimenta al riel. La barra y el riel
+  no pueden desincronizarse: un destino nuevo sin paso no compila. El orden del enum es el de la
+  barra; el de la lista, el de los destinos.
+- **Un paso de un solo destino es ese destino.** Se ve con su ícono y su nombre, y lo abre
+  directo. Así, en la web (sin chat, decisión 6) «Preguntar» queda como «Cuadernos», sin una
+  lista de uno. Solo Organizar y Preguntar tienen nombre e ícono propios (`workspaces`,
+  `question_answer`). Son íconos que nadie más usa, para que el paso no se confunda con uno de
+  sus destinos. Un segundo destino en Biblioteca, Repasar o Ajustes tira un `StateError`: antes
+  hay que decidir cómo se ve ese paso, no heredar en silencio el aspecto del primero.
+- **La lista del paso** es una hoja con el nombre del paso y, por cada destino, su ícono con su
+  insignia, su nombre y una línea con para qué sirve (`nav…Hint`). El abierto se ve marcado.
+  Tocar uno cierra la hoja y abre ese destino, y tocar el que ya está abierto vuelve a su pantalla
+  inicial, como en la barra. La hoja usa `isScrollControlled` y `SingleChildScrollView`, para que
+  entre entera con letra grande.
+- **Las insignias suben al paso.** «Organizar» suma los `badgeCount` de sus destinos, que hoy son
+  los pendientes de la Bandeja. Así se ven sin abrir la lista. Las tarjetas para hoy siguen en
+  Repasar.
+- **El paso queda marcado** mientras se está en cualquiera de sus destinos. Ya no hace falta el
+  caso especial de «Más», y `navMore` se quitó.
+- **El riel de escritorio no cambia**: los nueve, en el mismo orden de uso, porque sobra ancho.
+
 ## Estado y orden de construcción
 
 ### Construido
@@ -6675,6 +6725,11 @@ detalle de cada paso, con archivos y trampas.
   con el antes y el después y por qué. La persona acepta o descarta de a uno o en bloque, con
   «Deshacer». Sale de su cuota, diciendo antes cuánto cuesta. Se ofrece en «Lo que hizo la IA», en
   cada elemento y, una vez por modelo, al cambiar a uno más capaz. Ver la decisión 75.
+
+- **F34, la barra del celular en cinco pasos.** Biblioteca, Organizar (Bandeja, Atlas, Explorador
+  y Mapa), Preguntar (Chat y Cuadernos), Repasar y Ajustes, de izquierda a derecha en el orden en
+  que se usan, sin «Más». Un paso con varios destinos abre su lista, con para qué sirve cada uno.
+  Ver la decisión 76.
 
 ### Por construir
 

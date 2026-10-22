@@ -1,7 +1,9 @@
 # F34 — La barra del celular en cinco pasos, en el orden en que se usan
 
-> **Estado: en construcción** (2026-10-22). Pedido directo, con el criterio ya dado por el dueño;
-> se construye sin esperar aprobación y se documenta acá cada paso.
+> **Estado: construido** (2026-10-22). Ver la decisión 76 en `docs/arquitectura.md`.
+>
+> **Aprobado** (2026-10-22), en el chat: *"aprobado todo"* —los cinco pasos de la tabla de abajo,
+> con su lista para los que tienen varios destinos—.
 >
 > Pedido: *"agrupes todos los iconos de la barra inferior de izquierda a derecha según su orden de
 > uso … cronológico (por ejemplo primero voy a usar la biblioteca, debe aparecer a la izquierda,
@@ -58,4 +60,38 @@ derecha**. Sin «Más»: todo está en algún paso.
 
 ## Avance
 
-(se completa con cada paso)
+### Paso 1 (hecho, `46c6fb2`)
+
+- `nav_destinations.dart`:
+  - `NavStep` (el orden del enum es el de la barra).
+  - Cada `NavDestinationSpec` dice su `step`, su `hint` y su `badgeCount`.
+  - `buildNavStepGroups` arma un `NavStepGroup` por paso con algo adentro, desde la misma lista
+    que el riel.
+  - Un paso de un destino toma el aspecto del destino.
+  - Organizar (`workspaces`) y Preguntar (`question_answer`) tienen el suyo, con la suma de las
+    insignias.
+  - Un segundo destino en un paso sin aspecto propio tira `StateError`.
+- `adaptive_scaffold.dart`:
+  - La barra son los pasos, sin «Más».
+  - Un paso con lista abre una hoja (`isScrollControlled` + `SingleChildScrollView`) con el
+    nombre del paso y cada destino: ícono, nombre, para qué sirve, y el abierto marcado.
+- Textos (es/en): `navStepOrganize`, `navStepAsk`, y un `nav…Hint` por destino. Sale `navMore`.
+- Pruebas:
+  - `test/app/navigation/nav_destinations_test.dart`, nueva, con 11 pruebas: pasos y orden,
+    ninguna rama afuera, aspecto, insignias, la web sin chat y el `StateError`.
+  - `adaptive_scaffold_test.dart`: el grupo del celular se reescribió. Cubre la barra en orden, las
+    dos listas en orden y con su línea, cada uno de los seis destinos con lista (abre, cierra,
+    marca el paso), los tres directos y la marca dentro de la lista. El riel no cambió.
+- Mutación 25/25.
+- Una trampa: `selectedIndex: groupIndex < 0 ? 0 : groupIndex` conserva el resguardo, aunque hoy
+  toda rama visible está en un paso. La rama del chat en la web no se puede abrir, y el resguardo
+  evita un índice −1 si alguna vez se llega por una ruta.
+
+### Paso 2 (hecho)
+
+- GUIA_DE_USO.md: «Cómo te movés por la app» reescrita con los cinco pasos y la lista, y el
+  «Cómo llegar» de Bandeja, Atlas, Explorador, Mapa, Chat y Cuadernos dice en qué paso están.
+- `docs/arquitectura.md`: decisión 76, más F34 en «Construido».
+- CONTEXTO al día.
+- `tool/verify_commit.ps1 -Rev 46c6fb2`: compila solo, 19 avisos (la línea base).
+- Suite entera: 8.269 pasan, 0 fallas, 77 omitidas.

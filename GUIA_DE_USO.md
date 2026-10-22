@@ -79,13 +79,29 @@ En pocas palabras, con Sinapsis podés:
 
 Sinapsis se organiza en pantallas principales, a las que accedés desde una
 barra de navegación (abajo del todo en el celular, a un costado en la
-computadora):
+computadora).
 
-- **Biblioteca**, **Bandeja**, **Atlas**, **Mapa** y **Repasar** se ven
-  siempre en esa barra.
-- **Explorador**, **Chat**, **Cuadernos** y **Ajustes** están agrupados
-  detrás del botón **«Más»** en el celular (en la computadora se ven todos
-  juntos, sin necesidad de ese botón extra).
+En el celular, la barra tiene **cinco botones fijos, que son los pasos del
+trabajo en el orden en que los usás**, de izquierda a derecha:
+
+1. **Biblioteca**: guardás y encontrás todo. Se abre directo.
+2. **Organizar**: una lista con **Bandeja**, **Atlas**, **Explorador** y
+   **Mapa**, en ese orden. Primero revisás lo que entró, después ves qué sabés
+   y qué te falta, y por último lo recorrés y lo conectás. El número de
+   pendientes de la Bandeja se ve en el mismo botón.
+3. **Preguntar**: una lista con **Chat** y **Cuadernos**.
+4. **Repasar**: tarjetas y cuestionarios, con el número de lo que toca hoy. Se
+   abre directo.
+5. **Ajustes**: siempre a la derecha. Se abre directo.
+
+Un paso con varias pantallas abre su lista desde abajo. Cada pantalla tiene su
+nombre y una línea que dice para qué sirve, y la que tenés abierta se ve
+marcada. Tocá una para ir. Para cerrar la lista sin elegir, deslizala hacia
+abajo o tocá afuera. Mientras estés en cualquiera de sus pantallas, el botón
+del paso queda marcado. Ya no hay botón **«Más»**: todo está en algún paso.
+
+En la computadora se ven las nueve pantallas juntas en el costado, en el mismo
+orden y sin listas.
 
 Vas a ver estos nombres una y otra vez en esta guía; cada uno tiene su propia
 sección más abajo.
@@ -913,8 +929,8 @@ Es una segunda forma de recorrer lo que ya terminó de procesarse, filtrando
 por Tema, por Tipo, por categorías de propiedades (por ejemplo, Época,
 Región) y por Etiquetas — sin carpetas, todo se organiza filtrando.
 
-**Cómo llegar:** ítem **"Explorador"** en la navegación (detrás de "Más" en
-el celular).
+**Cómo llegar:** ítem **"Explorador"** en la navegación (en el celular,
+dentro de **"Organizar"**).
 
 El botón de filtros abre un panel con las secciones "Tema", "Tipo",
 "Categorías" y "Etiquetas". La sección **"Tema"** es la misma que en los
@@ -939,7 +955,8 @@ IA, o automáticamente a partir de un tema, una etiqueta o una Vista guardada �
 para poder acotar cosas a solo ese grupo (por ejemplo, para que el Chat con la
 IA busque únicamente ahí adentro).
 
-**Cómo llegar:** ítem **"Cuadernos"** en la navegación.
+**Cómo llegar:** ítem **"Cuadernos"** en la navegación (en el celular,
+dentro de **"Preguntar"**).
 
 ### Crear un cuaderno
 
@@ -1076,7 +1093,8 @@ el texto y sus datos. Si una página o una publicación no tiene texto propio
 pero trae archivos con texto (una foto con un cartel, un PDF), la tarjeta
 muestra el de uno de ellos y dice de cuál es.
 
-**Cómo llegar:** ítem **"Bandeja"** en la navegación.
+**Cómo llegar:** ítem **"Bandeja"** en la navegación (en el celular, la
+primera de **"Organizar"**, que muestra el número de pendientes).
 
 **Triar** es decidir qué hacés con cada cosa que guardaste. La primera vez que
 abrís la Bandeja, una tarjeta corta lo explica; se cierra con **"Entendido"** y
@@ -1191,7 +1209,8 @@ Es el índice de lo que sabés y de lo que te falta: para cada rama ves cuánto
 material tenés debajo y qué tan completa está: "Sin material", "Solo
 fuentes", "Fragmentos", "En construcción" o "Madura".
 
-**Cómo llegar:** ítem **"Atlas"** en la navegación.
+**Cómo llegar:** ítem **"Atlas"** en la navegación (en el celular, dentro
+de **"Organizar"**).
 
 Arriba, la ficha **"Agrupar por"** elige de qué es el índice:
 
@@ -1236,7 +1255,8 @@ Muestra tu bóveda como una red, con cuatro formas de mirarla:
   (círculos grandes) → temas → elementos individuales. Tocás un nodo para
   entrar, o hacés pellizco para acercar/alejar.
 
-**Cómo llegar:** ítem **"Mapa"** en la navegación.
+**Cómo llegar:** ítem **"Mapa"** en la navegación (en el celular, dentro
+de **"Organizar"**).
 
 **Agrupar por.** El tablero, el esquema y el grafo agrupan por lo que elijas
 en la ficha de arriba: tus **Temas** (lo primero que se ve si tenés alguno),
@@ -1297,7 +1317,8 @@ elegidos con un selector arriba:
 - **"Conversación libre"**: charla con el modelo como con cualquier
   asistente, sin tocar tu bóveda para nada.
 
-**Cómo llegar:** ítem **"Chat"** en la navegación.
+**Cómo llegar:** ítem **"Chat"** en la navegación (en el celular, dentro
+de **"Preguntar"**).
 
 ### Cómo se usa
 

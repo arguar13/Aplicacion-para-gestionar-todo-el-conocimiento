@@ -11,8 +11,8 @@ Documentos hermanos, de más general a más fino:
 |---|---|
 | `README.md` | Presentación del producto (el problema, qué acepta, qué reemplaza). Su sección «Estado» quedó vieja: no la tomes como el estado real. |
 | `GUIA_DE_USO.md` | Manual de usuario, paso a paso, de **cada** función. Es la fuente de «qué hace la app hoy». |
-| `docs/arquitectura.md` | Principios y **75 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
-| `docs/planes/F13…F33-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
+| `docs/arquitectura.md` | Principios y **76 decisiones técnicas numeradas** (el porqué de cada cosa, con cifras medidas). Es la historia técnica real. |
+| `docs/planes/F13…F34-*.md` | Los planes grandes que el dueño aprobó (F13 en adelante). |
 | `lib/features/README.md` | Convención de capas de cada módulo. |
 | `CONTEXTO_DEL_PROYECTO.md` | Este: la puerta de entrada. |
 
@@ -116,7 +116,7 @@ y exploración), `explorer`, `notebooks`, `inbox`, `suggestions`, `duplicates`, 
 
 Las primeras ocho fases armaron la base (captura, transformaciones, documentos, organización,
 grafo, chat con RAG, flashcards SM-2, exportar, OCR/Whisper, web, Windows). Desde ahí el trabajo
-se numera **F1…F33**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
+se numera **F1…F34**, cada una con su decisión en `docs/arquitectura.md` (y plan en `docs/planes/`
 desde F13):
 
 - **F1–F11** — un solo modelo de datos Fuente/Nota, vocabulario controlado, Bandeja de entrada,
@@ -154,6 +154,10 @@ desde F13):
   de a una o todas juntas, y puede deshacerlo. Sale de su cuota, y antes le dice cuánto cuesta. Se
   ofrece en «Lo que hizo la IA» y en cada elemento. Al cambiar a un modelo más capaz, avisa una vez
   por modelo.
+- **F34** — **la barra del celular en cinco pasos** (decisión 76), en el orden en que se usan y sin
+  «Más»: Biblioteca, Organizar (Bandeja, Atlas, Explorador y Mapa), Preguntar (Chat y Cuadernos),
+  Repasar y Ajustes. Un paso con varios destinos abre su lista, con para qué sirve cada uno; el
+  riel de escritorio sigue con los nueve.
 
 ## 5. Estado actual
 
@@ -164,9 +168,12 @@ desde F13):
 >
 > A las dos les falta solo la prueba en el teléfono con una clave real, y se hace solo si el dueño
 > la pide. Lo que sigue sobre la instalación en el teléfono es del cierre de F31 (2026-10-09).
+>
+> **F34 (la barra en cinco pasos) está construida** (2026-10-22):
+> `docs/planes/F34-barra-en-cinco-pasos.md`.
 
 
-- `origin/main` = `el commit «docs: cierre de F33», sobre `2591da8``. **Suite: 8.255 pruebas pasan, 0 fallas, 77 omitidas** (las omitidas son de siempre).
+- `origin/main` = el commit «docs: cierre de F34», sobre `46c6fb2`. **Suite: 8.269 pruebas pasan, 0 fallas, 77 omitidas** (las omitidas son de siempre).
   **Analizador: 19 avisos.** Es la línea base de `tool/verify_commit.ps1` y **no puede crecer**.
 - Hay cuatro archivos con cambios de solo formato que no son de este trabajo y no se commitean:
   - `lib/core/database/tables/suggestions.dart`
