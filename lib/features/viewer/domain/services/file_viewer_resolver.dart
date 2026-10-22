@@ -5,6 +5,7 @@ import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/util/youtube_url.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 
 /// Decide qué visor le corresponde al archivo original de un elemento.
@@ -58,13 +59,10 @@ class FileViewerResolver {
         if (relativePath == null) return const NoResolvedViewer();
         // La página archivada es un HTML de verdad, no texto extraído; lleva
         // el artículo, si ya se extrajo, para mostrar lo estudiado (F36).
-        final rendition = _primaryText(item);
         return WebPageResolvedViewer(
           await _files.resolve(relativePath),
           url: item.source.url,
-          text: rendition == null
-              ? null
-              : (renditionId: rendition.id, content: rendition.content),
+          text: studyTextOf(item),
         );
 
       case SourceKind.youtube:
@@ -157,17 +155,13 @@ class FileViewerResolver {
         ? FileFormat.unknown
         : detectFileFormat(head, name: p.basename(relativePath));
 
-    final rendition = _primaryText(item);
-
     // Recién acá, con el formato ya confirmado como PDF, hace falta la ruta
     // absoluta que pide el visor de verdad — ver el comentario de la clase.
     // Lleva su texto, si ya se extrajo, para pintar lo estudiado (F36).
     if (format == FileFormat.pdf) {
       return PdfResolvedViewer(
         await _files.resolve(relativePath),
-        text: rendition == null
-            ? null
-            : (renditionId: rendition.id, content: rendition.content),
+        text: studyTextOf(item),
       );
     }
 
@@ -175,11 +169,13 @@ class FileViewerResolver {
     // resuelve es el contenido que ya extrajo el transformador
     // correspondiente: no hay razón para volver a leer el archivo si ya se
     // sabe qué dice.
+    final rendition = _primaryText(item);
     if (rendition == null) return const NoResolvedViewer();
 
+    final study = studyTextOf(item);
     return TextResolvedViewer(
       rendition.content,
-      renditionId: rendition.id,
+      study: study?.renditionId == rendition.id ? study : null,
       markdown: const {
         FileFormat.docx,
         FileFormat.epub,

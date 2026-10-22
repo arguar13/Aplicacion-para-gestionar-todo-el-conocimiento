@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:sinapsis/features/study/domain/services/study_extracts.dart';
 import 'package:sinapsis/features/study/domain/services/study_sentences.dart';
 import 'package:sinapsis/features/study/domain/services/study_words.dart';
 
@@ -53,21 +54,13 @@ int studyReplyTokens(int count) => (count * 8 + 96).clamp(192, 1536);
 String buildStudyPrompt(String content, List<StudySentence> part) {
   final buffer = StringBuffer('Oraciones del documento:\n');
   for (final (index, sentence) in part.indexed) {
-    final text = _promptText(content.substring(sentence.start, sentence.end));
+    final text = studyPlainText(
+      content.substring(sentence.start, sentence.end),
+    );
     buffer.writeln('[${index + 1}] $text');
   }
   return buffer.toString().trimRight();
 }
-
-/// [raw] en un solo renglón y sin marcado: un `[[Título]]` o un
-/// `[texto](dirección)` quedan en su texto, y se van `**`, `__` y los
-/// acentos graves.
-String _promptText(String raw) => raw
-    .replaceAllMapped(RegExp(r'\[\[([^\]]+)\]\]'), (m) => m[1]!)
-    .replaceAllMapped(RegExp(r'!?\[([^\]]*)\]\([^)]*\)'), (m) => m[1]!)
-    .replaceAll(RegExp(r'\*\*|__|`'), '')
-    .replaceAll(RegExp(r'\s+'), ' ')
-    .trim();
 
 /// Lo que la IA marcó en una parte (F36), ya en el texto guardado: las
 /// oraciones del resumen, las de la síntesis y las palabras clave de las

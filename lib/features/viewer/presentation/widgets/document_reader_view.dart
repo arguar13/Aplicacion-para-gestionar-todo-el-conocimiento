@@ -12,7 +12,9 @@ import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_c
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_selection_aloud.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/readable_registry.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/domain/services/reader_pagination.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/reader_font_scale_notifier.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -52,11 +54,12 @@ import 'package:sinapsis/l10n/generated/app_localizations.dart';
 /// ve y las que siguen; mientras lee, la línea va en amarillo y, cuando
 /// pasa a otra página, el lector la da vuelta solo.
 ///
-/// **Lo estudiado se pinta en la página (F36).** Con [renditionId], las
+/// **Lo estudiado se pinta en la página (F36).** Con [study], las
 /// oraciones del resumen o de la síntesis y las palabras clave se ven con sus
 /// colores de resaltador, y eligiendo palabras clave, tocar una la agrega o
 /// la saca. Cada página es un tramo tal cual de [content] —ver
 /// [readerPageRanges]—, así que lo marcado cae en su lugar sin traducir nada.
+/// Abajo van los botones de estudiar, en vez de «Resumir con IA».
 class DocumentReaderView extends ConsumerStatefulWidget {
   const DocumentReaderView({
     required this.title,
@@ -64,7 +67,7 @@ class DocumentReaderView extends ConsumerStatefulWidget {
     this.markdown = true,
     this.showFontControls = false,
     this.controlsAtBottom = false,
-    this.renditionId,
+    this.study,
     super.key,
   });
 
@@ -85,9 +88,9 @@ class DocumentReaderView extends ConsumerStatefulWidget {
   /// esquivar.
   final bool controlsAtBottom;
 
-  /// La forma de texto de la que sale [content], si se estudia (F36); sin
-  /// ella —un adjunto, que no se estudia—, no se pinta nada.
-  final String? renditionId;
+  /// El texto que se estudia, si [content] es ese texto (F36); sin él —un
+  /// adjunto, que no se estudia—, no se pinta nada.
+  final StudyText? study;
 
   @override
   ConsumerState<DocumentReaderView> createState() => _DocumentReaderViewState();
@@ -256,9 +259,9 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
               fontScale: fontScale,
               markdown: widget.markdown,
               sourceKey: _pageKey(index),
-              study: switch (widget.renditionId) {
-                final renditionId? => (
-                  renditionId: renditionId,
+              study: switch (widget.study) {
+                final study? => (
+                  renditionId: study.renditionId,
                   content: widget.content,
                   start: _ranges[index].start,
                 ),
@@ -276,7 +279,14 @@ class _DocumentReaderViewState extends ConsumerState<DocumentReaderView> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: [SummarizeButton(content: _pages[_pageIndex])],
+                  children: [
+                    if (widget.study case final study?)
+                      Expanded(
+                        child: StudyBar(text: study, padding: EdgeInsets.zero),
+                      )
+                    else
+                      SummarizeButton(content: _pages[_pageIndex]),
+                  ],
                 ),
               ),
               if (_pages.length > 1)

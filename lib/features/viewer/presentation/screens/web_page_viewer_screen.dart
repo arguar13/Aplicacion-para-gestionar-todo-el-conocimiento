@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/web_page_viewer_view.dart';
 
 /// La página archivada a pantalla completa, con su propia barra de título.
@@ -30,7 +31,15 @@ class WebPageViewerScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title, overflow: TextOverflow.ellipsis)),
-      body: WebPageViewerView(path: path, url: url, text: text),
+      // Con lo que se estudia, arriba sus botones, como en el lector (F36).
+      body: Column(
+        children: [
+          if (text case final text?) StudyBar(text: text),
+          Expanded(
+            child: WebPageViewerView(path: path, url: url, text: text),
+          ),
+        ],
+      ),
     );
   }
 }

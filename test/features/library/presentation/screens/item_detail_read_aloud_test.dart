@@ -281,7 +281,7 @@ void main() {
     await pumpDetail(tester, id);
     expect(offered()!.segments.map((s) => s.spoken), ['Mi nota.']);
 
-    await tester.tap(find.text(es.detailExtractedTextTitle));
+    await tester.tap(find.text(es.studyExtractText));
     await tester.pumpAndSettle();
     expect(offered()!.id, 'item:$id');
     expect(offered()!.segments.map((s) => s.spoken), [
@@ -289,7 +289,7 @@ void main() {
       'Lo que dice el documento.',
     ]);
 
-    await tester.tap(find.text(es.detailExtractedTextTitle));
+    await tester.tap(find.text(es.studyExtractText));
     await tester.pumpAndSettle();
     expect(offered()!.segments.map((s) => s.spoken), ['Mi nota.']);
   });

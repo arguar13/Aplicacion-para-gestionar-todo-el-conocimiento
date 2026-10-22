@@ -15,6 +15,7 @@ import 'package:sinapsis/core/domain/entities/source.dart';
 import 'package:sinapsis/core/domain/entities/source_kind.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/core/storage/storage_providers.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/pdf_viewer_screen.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/open_document_viewer.dart';
@@ -276,6 +277,36 @@ void main() {
 
       expect(handled, isTrue);
       expect(find.byType(PdfViewerScreen), findsOneWidget);
+      // Sin texto extraído no hay qué estudiar.
+      expect(find.byType(StudyBar), findsNothing);
+    }, skip: _pdfiumPath == null);
+
+    testWidgets('un PDF con su texto lleva arriba los botones de estudiar '
+        '(F36)', (tester) async {
+      final file = File('${tempDir.path}/archivo.pdf');
+      await tester.runAsync(
+        () => file.writeAsBytes(buildPdf(pageTexts: ['Hola mundo'])),
+      );
+
+      final item = buildItem(
+        kind: SourceKind.document,
+        originalFilePath: 'originales/item-1/archivo.pdf',
+        renditions: [
+          Rendition.text(
+            id: 'rend-1',
+            itemId: 'item-1',
+            kind: RenditionKind.plainText,
+            content: 'Hola mundo',
+            isPrimary: true,
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
+      final handled = await pumpAndOpen(tester, item, file.path);
+
+      expect(handled, isTrue);
+      expect(find.byType(StudyBar), findsOneWidget);
+      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
     }, skip: _pdfiumPath == null);
 
     testWidgets('un DOCX con texto ya extraído abre el lector de lectura', (
@@ -306,6 +337,8 @@ void main() {
         find.text('El contenido ya extraído del documento.'),
         findsOneWidget,
       );
+      // Es el texto que se estudia: el lector lleva sus botones (F36).
+      expect(find.byKey(const Key('study-toggle-summary')), findsOneWidget);
     });
 
     testWidgets(

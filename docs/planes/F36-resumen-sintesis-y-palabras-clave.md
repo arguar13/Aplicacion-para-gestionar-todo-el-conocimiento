@@ -334,3 +334,38 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
 - Mutación 44/44, en dos tandas. Siete sobrevivían al principio: buscar desde el principio, el
   texto fuera de una oración, lo que no es de leer, el cuadradito en la carga perezosa, el tope
   del buscador y completar las direcciones perezosas. Cada uno llevó a su prueba.
+
+### Paso 6 (hecho)
+
+- **La tarjeta «Estudiar el documento»** (`study_document_card.dart`) va en el detalle debajo del
+  original, en un documento y en una página web (ahí se llama «Estudiar la página»):
+  - arriba, los tres botones con su color —Resumir y Sintetizar se excluyen, y tocar el prendido
+    lo apaga— y el lápiz para elegir palabras; debajo, la leyenda;
+  - prender uno analiza lo que falta, si no está todo analizado ni se está analizando; sin el
+    modelo listo lo avisa, con su botón para bajarlo;
+  - la franja: «Analizando… parte 3 de 12» con su barra y «Parar»; si se corta, «Reintentar»
+    sigue desde ahí; las partes que no se pudieron leer se cuentan, con «Entendido». Terminado
+    sin problemas, no ocupa lugar;
+  - el menú «⋮» trae «Volver a analizar», que pregunta antes de borrar lo estudiado y no se
+    ofrece mientras analiza;
+  - «Extraer»: el texto extraído (solo en un documento: el de una página web se sigue mostrando
+    entero), el resumen y la síntesis como texto corrido, con cuántas oraciones y palabras son, y
+    las palabras clave como etiquetas en orden. Una fila sin nada no se abre y dice por qué:
+    «Tocá Resumir o Sintetizar para empezar» o «Todavía no hay nada acá». Cada una tiene «Copiar».
+- Lo que se extrae se calcula en `study_extracts.dart`, sin marcado de Markdown;
+  `studyPlainText` sale de la respuesta del chat de estudio para usarse en los dos lados.
+- **Una sola fuente de qué se estudia**: `studyTextOf(item)` (forma de texto, contenido y si es
+  Markdown). La usan la tarjeta, el resolver y los visores. El visor de texto lleva lo estudiado
+  solo si muestra esa misma forma de texto; si no, pintaría las marcas fuera de lugar.
+- El mosaico «Resumir» del panel, en lo que se estudia, prende el resumen en la tarjeta y la trae
+  a la vista, sin el diálogo de siempre.
+- **A pantalla completa** llevan los mismos botones (`StudyBar`): el lector de libros en vez de
+  «Resumir con IA» por página, el PDF y la página web arriba. Un adjunto que no se estudia
+  conserva su «Resumir con IA».
+- Textos en español e inglés.
+- Pruebas: 19 de la tarjeta, 5 de lo que se extrae, 2 de la página a pantalla completa, 2 del
+  lector, 2 del detalle, 1 del panel, 2 del visor abierto y 1 del resolver; `MemoryStudyRepository`
+  y `FakeStudyAnalysis` quedan en `test/support/`.
+- Mutación 29/29. Tres sobrevivían al principio: que el «Resumir» del panel analice, que una fila
+  vacía no se abra y que el visor no lleve lo estudiado de otra forma de texto. Cada uno llevó a
+  su prueba.

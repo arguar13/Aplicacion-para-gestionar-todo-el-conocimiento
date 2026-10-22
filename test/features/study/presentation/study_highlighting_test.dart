@@ -1,107 +1,21 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sinapsis/core/design/theme_mode_notifier.dart';
 import 'package:sinapsis/core/domain/entities/content_origin.dart';
 import 'package:sinapsis/core/domain/entities/study_mark_kind.dart';
-import 'package:sinapsis/core/error/failures.dart';
+import 'package:sinapsis/features/library/presentation/widgets/summarize_button.dart';
 import 'package:sinapsis/features/narration/presentation/read_aloud/read_aloud_controller.dart';
 import 'package:sinapsis/features/organize/presentation/widgets/markdown_display.dart';
 import 'package:sinapsis/features/study/domain/entities/document_study.dart';
-import 'package:sinapsis/features/study/domain/repositories/study_repository.dart';
-import 'package:sinapsis/features/study/domain/services/study_reply.dart';
-import 'package:sinapsis/features/study/domain/services/study_words.dart';
 import 'package:sinapsis/features/study/presentation/providers/study_providers.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
 import 'package:sinapsis/features/viewer/presentation/screens/document_reader_screen.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
+import '../../../support/memory_study_repository.dart';
 import '../../../support/read_aloud_test_support.dart';
-
-/// Lo que guarda el repositorio, en memoria, y lo que se le pidió.
-class _MemoryStudyRepository implements StudyRepository {
-  _MemoryStudyRepository(this._study);
-
-  DocumentStudy _study;
-  final _changes = StreamController<DocumentStudy>.broadcast();
-  final added = <String>[];
-  final removed = <String>[];
-  var _next = 0;
-
-  void _set(DocumentStudy study) {
-    _study = study;
-    _changes.add(study);
-  }
-
-  @override
-  Stream<DocumentStudy> watch(String renditionId) async* {
-    yield _study;
-    yield* _changes.stream;
-  }
-
-  @override
-  Future<DocumentStudy> read(String renditionId) async => _study;
-
-  @override
-  Future<Either<Failure, Unit>> addKeyword({
-    required String renditionId,
-    required String content,
-    required StudyWord word,
-  }) async {
-    added.add(content.substring(word.start, word.end));
-    _set(
-      DocumentStudy(
-        marks: [
-          ..._study.marks,
-          StudyMark(
-            id: 'new${_next++}',
-            kind: StudyMarkKind.keyword,
-            origin: ContentOrigin.user,
-            start: word.start,
-            end: word.end,
-          ),
-        ]..sort((a, b) => a.start.compareTo(b.start)),
-        analyzedUntil: _study.analyzedUntil,
-        complete: _study.complete,
-      ),
-    );
-    return right(unit);
-  }
-
-  @override
-  Future<Either<Failure, Unit>> removeKeyword(String markId) async {
-    removed.add(markId);
-    _set(
-      DocumentStudy(
-        marks: [
-          for (final mark in _study.marks)
-            if (mark.id != markId) mark,
-        ],
-        analyzedUntil: _study.analyzedUntil,
-        complete: _study.complete,
-      ),
-    );
-    return right(unit);
-  }
-
-  @override
-  Future<Either<Failure, Unit>> savePart({
-    required String renditionId,
-    required String content,
-    required int partStart,
-    required int partEnd,
-    required StudyPartMarks marks,
-    required bool completes,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<Either<Failure, Unit>> clear(String renditionId) =>
-      throw UnimplementedError();
-}
 
 void main() {
   const pageOne = 'Primera página. Nada importante acá.';
@@ -236,12 +150,12 @@ void main() {
 
   group('en «Leer como libro»', () {
     late ProviderContainer container;
-    late _MemoryStudyRepository repository;
+    late MemoryStudyRepository repository;
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      repository = _MemoryStudyRepository(study);
+      repository = MemoryStudyRepository(study);
       container = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
@@ -263,7 +177,11 @@ void main() {
             home: DocumentReaderScreen(
               title: 'Un libro',
               content: content,
-              renditionId: renditionId ?? 'r1',
+              study: (
+                renditionId: renditionId ?? 'r1',
+                content: content,
+                markdown: true,
+              ),
             ),
           ),
         ),
@@ -374,7 +292,7 @@ void main() {
     });
 
     testWidgets('con la oración llena, lo avisa', (tester) async {
-      repository = _MemoryStudyRepository(
+      repository = MemoryStudyRepository(
         DocumentStudy(
           marks: [
             mark(
@@ -418,6 +336,38 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('abajo lleva los botones de estudiar, no «Resumir con IA»: '
+        'Resumir pinta el resumen en la página', (tester) async {
+      await pumpReader(tester);
+      await nextPage(tester);
+
+      expect(find.byType(SummarizeButton), findsNothing);
+      await tester.tap(find.byKey(const Key('study-toggle-summary')));
+      await tester.pumpAndSettle();
+
+      expect(view().state.layer, StudyLayer.summary);
+      expect(pieces(tester).where((p) => p.$2 == light.summary), isNotEmpty);
+    });
+
+    testWidgets('un texto que no se estudia —un adjunto— sigue con «Resumir '
+        'con IA»', (tester) async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            locale: Locale('es'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: DocumentReaderScreen(title: 'Un adjunto', content: content),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SummarizeButton), findsOneWidget);
+      expect(find.byKey(const Key('study-toggle-summary')), findsNothing);
     });
 
     testWidgets('lo de un texto no se pinta en otro', (tester) async {

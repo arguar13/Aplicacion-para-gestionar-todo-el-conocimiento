@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/document_reader_view.dart';
 
 /// El modo de lectura a pantalla completa, con su propia barra de título.
@@ -14,7 +15,7 @@ class DocumentReaderScreen extends StatelessWidget {
     required this.title,
     required this.content,
     this.markdown = true,
-    this.renditionId,
+    this.study,
     super.key,
   });
 
@@ -24,8 +25,8 @@ class DocumentReaderScreen extends StatelessWidget {
   /// Ver `TextResolvedViewer.markdown`.
   final bool markdown;
 
-  /// Ver `TextResolvedViewer.renditionId`.
-  final String? renditionId;
+  /// Ver `TextResolvedViewer.study`.
+  final StudyText? study;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +37,7 @@ class DocumentReaderScreen extends StatelessWidget {
           title: title,
           content: content,
           markdown: markdown,
-          renditionId: renditionId,
+          study: study,
           showFontControls: true,
           controlsAtBottom: true,
         ),

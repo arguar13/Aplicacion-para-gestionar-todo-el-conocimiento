@@ -161,6 +161,7 @@ void main() {
     String? summarizeResponse,
     List<Override> extraOverrides = const [],
     Future<void> Function()? beforeShow,
+    VoidCallback? onSummarize,
   }) async {
     harness = await LibraryHarness.create(
       chatModelReady: chatModelReady,
@@ -188,7 +189,7 @@ void main() {
                       .valueOrNull;
                   return current == null
                       ? const SizedBox.shrink()
-                      : SourcePanel(item: current);
+                      : SourcePanel(item: current, onSummarize: onSummarize);
                 },
               ),
             ),
@@ -654,6 +655,29 @@ void main() {
       expect(find.text('La idea en dos líneas.'), findsOneWidget);
       expect(harness.summarizationService.summarized, ['Un artículo largo.']);
       expect(tile(tester, 'source-panel-summarize').busy, isFalse);
+    });
+
+    testWidgets('en lo que se estudia, "Resumir" hace lo suyo —prender el '
+        'resumen en el original (F36)— en vez del diálogo', (tester) async {
+      var studied = 0;
+      await pumpPanel(
+        tester,
+        _source(
+          SourceKind.webPage,
+          url: 'https://ejemplo.org/nota',
+          texts: ['Un artículo largo.'],
+        ),
+        chatModelReady: true,
+        summarizeResponse: 'La idea en dos líneas.',
+        onSummarize: () => studied++,
+      );
+
+      await tester.tap(find.byKey(const Key('source-panel-summarize')));
+      await tester.pumpAndSettle();
+
+      expect(studied, 1);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(harness.summarizationService.summarized, isEmpty);
     });
 
     testWidgets('"Leer" abre la lectura para destilar', (tester) async {

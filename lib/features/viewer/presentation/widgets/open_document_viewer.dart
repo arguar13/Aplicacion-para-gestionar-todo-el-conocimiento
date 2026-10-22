@@ -63,18 +63,14 @@ Future<bool> openDocumentViewer(
         ),
       );
 
-    case TextResolvedViewer(
-      :final content,
-      :final markdown,
-      :final renditionId,
-    ):
+    case TextResolvedViewer(:final content, :final markdown, :final study):
       return _push(
         context,
         DocumentReaderScreen(
           title: item.title,
           content: content,
           markdown: markdown,
-          renditionId: renditionId,
+          study: study,
         ),
       );
 

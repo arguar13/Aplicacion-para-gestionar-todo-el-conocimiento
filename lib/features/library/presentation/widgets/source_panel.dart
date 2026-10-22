@@ -53,10 +53,15 @@ class SourcePanel extends ConsumerWidget {
   const SourcePanel({
     required this.item,
     this.extraSections = const [],
+    this.onSummarize,
     super.key,
   });
 
   final KnowledgeItem item;
+
+  /// Lo que hace «Resumir», si no es el resumen de siempre en un diálogo: en
+  /// lo que se estudia, prender el resumen en el original (F36).
+  final VoidCallback? onSummarize;
 
   /// Secciones de más, debajo de los mosaicos y con el mismo separador: el
   /// lugar donde F27 cuenta lo que la IA organizó sola ("La IA organizó
@@ -78,7 +83,7 @@ class SourcePanel extends ConsumerWidget {
           playerKey: const Key('video-audio-player'),
         ),
       if (_hasStatus(item)) _ProcessingStatus(item: item),
-      _ActionTiles(item: item),
+      _ActionTiles(item: item, onSummarize: onSummarize),
       ...extraSections,
     ];
 
@@ -292,9 +297,12 @@ String _emptyStateMessage(
 /// el mismo lugar: sin texto todavía —o mientras se vuelve a extraer— se ven
 /// apagadas, no desaparecen.
 class _ActionTiles extends ConsumerWidget {
-  const _ActionTiles({required this.item});
+  const _ActionTiles({required this.item, this.onSummarize});
 
   final KnowledgeItem item;
+
+  /// Ver [SourcePanel.onSummarize].
+  final VoidCallback? onSummarize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -327,7 +335,9 @@ class _ActionTiles extends ConsumerWidget {
                   : null,
             ),
           ),
-          Expanded(child: _SummarizeTile(content: text)),
+          Expanded(
+            child: _SummarizeTile(content: text, onSummarize: onSummarize),
+          ),
           Expanded(
             child: SourcePanelTile(
               key: const Key('source-panel-copy'),
@@ -384,12 +394,16 @@ class _ActionTiles extends ConsumerWidget {
 }
 
 /// "Resumir" con el mismo comportamiento que el botón de siempre —ver
-/// [SummarizeOnDemand]—: mientras espera el resumen, el ícono gira.
+/// [SummarizeOnDemand]—: mientras espera el resumen, el ícono gira. En lo que
+/// se estudia hace [onSummarize] (F36).
 class _SummarizeTile extends ConsumerStatefulWidget {
-  const _SummarizeTile({required this.content});
+  const _SummarizeTile({required this.content, this.onSummarize});
 
   /// Lo que se resume; `null` si todavía no hay texto.
   final String? content;
+
+  /// Ver [SourcePanel.onSummarize].
+  final VoidCallback? onSummarize;
 
   @override
   ConsumerState<_SummarizeTile> createState() => _SummarizeTileState();
@@ -410,7 +424,11 @@ class _SummarizeTileState extends ConsumerState<_SummarizeTile>
           ? l10n.sourcePanelNeedsText
           : l10n.summarizeAction,
       busy: summarizing,
-      onTap: content == null ? null : () => unawaited(summarize(content)),
+      onTap: switch ((content, widget.onSummarize)) {
+        (null, _) => null,
+        (_, final onSummarize?) => onSummarize,
+        (final content?, null) => () => unawaited(summarize(content)),
+      },
     );
   }
 }

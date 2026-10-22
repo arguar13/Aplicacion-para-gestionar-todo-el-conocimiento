@@ -58,6 +58,8 @@ import 'package:sinapsis/features/organize/presentation/widgets/tag_editor.dart'
 import 'package:sinapsis/features/reference/presentation/widgets/reference_section.dart';
 import 'package:sinapsis/features/study/domain/study_target.dart';
 import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_document_card.dart';
+import 'package:sinapsis/features/study/presentation/widgets/study_toggles.dart';
 import 'package:sinapsis/features/viewer/presentation/providers/playback_session.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/embedded_file_viewer.dart';
 import 'package:sinapsis/l10n/generated/app_localizations.dart';
@@ -237,12 +239,16 @@ class _DetailBodyState extends State<_DetailBody> {
   /// Para que "Volver al audio" lleve a la palabra que suena (F23).
   final _follow = PlaybackFollowLink();
 
+  /// La tarjeta de estudiar (F36): «Resumir» del panel de la fuente lleva
+  /// hasta ella.
+  final _studyCardKey = GlobalKey();
+
   /// Lo que se ofrece para leer en voz alta (F25): se arma de nuevo solo
   /// cuando el elemento cambia, no con cada cuadro.
   late ReadableDocument _readable = _readableOf(widget.item);
 
   /// Lo mismo con el texto plegado de un documento, recién cuando alguien
-  /// lo despliega: ver [_CollapsedExtractedText].
+  /// lo despliega: ver [_ExtractedTextBody].
   ReadableDocument? _unfolded;
 
   ReadableDocument _readableUnfolded() =>
@@ -312,6 +318,13 @@ class _DetailBodyState extends State<_DetailBody> {
     ThemeData theme,
     List<TextRendition> texts,
   ) {
+    // Lo que se estudia (F36); mientras se vuelve a extraer el texto, nada:
+    // lo estudiado se reubica al terminar.
+    final study = item.isBeingProcessed ? null : studyTextOf(item);
+    // Con la tarjeta de estudiar, el texto de un documento se lee en su
+    // «Extraer texto».
+    final textInCard = study != null && item.source.kind == SourceKind.document;
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -397,10 +410,34 @@ class _DetailBodyState extends State<_DetailBody> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       EmbeddedFileViewer(item: item, gapBelow: 12),
-                      _SourcePanelWithAi(item: item),
+                      _SourcePanelWithAi(
+                        item: item,
+                        studyCardKey: _studyCardKey,
+                      ),
                     ],
                   ),
                 ),
+
+                // Estudiar el documento o la página (F36): resaltar el resumen
+                // o la síntesis en el original y extraerlos.
+                if (study != null) ...[
+                  const SizedBox(height: 16),
+                  StudyDocumentCard(
+                    key: _studyCardKey,
+                    text: study,
+                    webPage: item.source.kind == SourceKind.webPage,
+                    extractedText: textInCard
+                        ? (context) => _ExtractedTextBody(
+                            item: item,
+                            texts: texts,
+                            readable: _readableUnfolded,
+                          )
+                        : null,
+                    extractedTextSubtitle: AppLocalizations.of(
+                      context,
+                    )!.detailExtractedTextSubtitle,
+                  ),
+                ],
 
                 // Con qué está vinculado, a la vista (F28): arriba del texto y
                 // de las tarjetas, no al final de un libro entero. Vincular
@@ -420,7 +457,9 @@ class _DetailBodyState extends State<_DetailBody> {
 
                 // El texto, salvo mientras se vuelve a extraer: ahí el panel
                 // cuenta cómo va, y el viejo deja de verse.
-                if (texts.isNotEmpty && !item.isBeingProcessed) ...[
+                if (texts.isNotEmpty &&
+                    !item.isBeingProcessed &&
+                    !textInCard) ...[
                   const SizedBox(height: 16),
                   if (item.source.kind == SourceKind.document)
                     _CollapsedExtractedText(
@@ -535,15 +574,39 @@ String _userNoteKey(String itemId) => 'note:$itemId';
 /// Se decide acá y no dentro de la línea: el panel separa cada franja con
 /// una raya, y una franja que se dibuja vacía dejaría la raya sola al pie.
 class _SourcePanelWithAi extends ConsumerWidget {
-  const _SourcePanelWithAi({required this.item});
+  const _SourcePanelWithAi({required this.item, required this.studyCardKey});
 
   final KnowledgeItem item;
+
+  /// La tarjeta de estudiar, adonde lleva «Resumir» en lo que se estudia.
+  final GlobalKey studyCardKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ai = ref.watch(aiItemSummaryProvider(item.id));
+    final study = item.isBeingProcessed ? null : studyTextOf(item);
     return SourcePanel(
       item: item,
+      // En un documento o una página web, «Resumir» prende el resumen en el
+      // original y lleva a la tarjeta (F36), en vez del párrafo del diálogo.
+      onSummarize: study == null
+          ? null
+          : () {
+              unawaited(
+                showStudyLayer(ref, context, study, StudyLayer.summary),
+              );
+              final card = studyCardKey.currentContext;
+              if (card != null) {
+                unawaited(
+                  Scrollable.ensureVisible(
+                    card,
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOutCubic,
+                    alignment: 0.1,
+                  ),
+                );
+              }
+            },
       extraSections: [
         if (ai.isVisible)
           AiOrganizedLine(itemId: item.id, itemTitle: item.title, summary: ai),
@@ -653,7 +716,8 @@ class _MapNoteToggle extends ConsumerWidget {
   }
 }
 
-/// El texto que se sacó de un documento, plegado (F21, decisión A).
+/// El texto que se sacó de un documento, plegado (F21, decisión A), cuando no
+/// hay tarjeta de estudiar donde va su «Extraer texto» (F36).
 ///
 /// En un documento lo principal es el original, arriba, en su visor: el
 /// texto extraído existe para la búsqueda, el chat, las tarjetas y el quiz,
@@ -699,25 +763,44 @@ class _CollapsedExtractedText extends StatelessWidget {
         // Un `Builder`: plegado, `ExpansionTile` no monta lo de adentro, y
         // así tampoco se parte el texto en líneas.
         Builder(
-          builder: (context) => ReadableRegion(
-            document: readable(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final rendition in texts) ...[
-                  if (rendition.kind == RenditionKind.blocks)
-                    _BlocksRendition(item: item, rendition: rendition)
-                  else
-                    _TextRenditionView(item: item, rendition: rendition),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ),
-          ),
+          builder: (context) =>
+              _ExtractedTextBody(item: item, texts: texts, readable: readable),
         ),
       ],
     );
   }
+}
+
+/// El texto que se sacó de un documento, desplegado: se lee en voz alta
+/// (F25), y lo estudiado se ve con sus colores (F36). Lo mismo plegado en el
+/// detalle que en el «Extraer texto» de la tarjeta de estudiar.
+class _ExtractedTextBody extends StatelessWidget {
+  const _ExtractedTextBody({
+    required this.item,
+    required this.texts,
+    required this.readable,
+  });
+
+  final KnowledgeItem item;
+  final List<TextRendition> texts;
+  final ReadableDocument Function() readable;
+
+  @override
+  Widget build(BuildContext context) => ReadableRegion(
+    document: readable(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final rendition in texts) ...[
+          if (rendition.kind == RenditionKind.blocks)
+            _BlocksRendition(item: item, rendition: rendition)
+          else
+            _TextRenditionView(item: item, rendition: rendition),
+          const SizedBox(height: 16),
+        ],
+      ],
+    ),
+  );
 }
 
 /// Una forma de texto plano, Markdown o la transcripción de un video o un

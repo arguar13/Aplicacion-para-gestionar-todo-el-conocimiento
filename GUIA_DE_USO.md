@@ -403,13 +403,16 @@ De arriba hacia abajo, vas a encontrar:
    ahí mismo (ver [Ver los archivos originales](#ver-los-archivos-originales)).
 9. **El panel del elemento**, justo debajo: una tarjeta con todo lo que se
    puede hacer con su contenido (ver [El panel del elemento](#el-panel-del-elemento)).
+   En un documento o una página web, debajo va **«Estudiar el documento»**
+   (ver [Estudiar el documento](#estudiar-el-documento-resumen-síntesis-y-palabras-clave)).
 10. Un **grafo local** con sus vínculos más cercanos, a la vista: lo que
     vinculás se ve acá sin tener que bajar hasta el final.
 11. El **«Contenido»**, si es una página o una publicación que trae archivos:
     sus fotos, documentos, audios y videos, cada uno con su texto (ver
     [Todo lo que trae una página: el «Contenido»](#todo-lo-que-trae-una-página-el-contenido)).
 12. El **contenido/texto** extraído. En un PDF, un libro o un Word está
-    plegado bajo **"Texto extraído"**: tocalo para verlo.
+    plegado en **«Extraer texto»**, dentro de la tarjeta de estudiar:
+    tocalo para verlo.
 13. Sus **tarjetas de repaso**, si generaste alguna.
 14. **Relacionado**: la lista de vínculos con otros elementos (podés agregar
     uno nuevo con el botón de cadena, eligiendo qué tipo de relación es:
@@ -435,7 +438,8 @@ ordenado en un solo lugar, y solo muestra lo que corresponde a ese elemento:
 3. **Cuatro botones grandes**:
    - **Leer**: abre el [modo lectura](#modo-lectura-leer-para-destilar).
    - **Resumir**: la IA arma un resumen y te lo muestra para leerlo o
-     copiarlo.
+     copiarlo. En un documento o una página web, en cambio, resalta el
+     resumen en el original y te lleva a la tarjeta de estudiar.
    - **Copiar**: copia todo el texto.
    - **Más**: abre una lista con lo que se usa de vez en cuando, cada
      opción con una línea que explica qué hace:
@@ -563,6 +567,65 @@ sin conexión. Si alguna no se pudo guardar (por ejemplo, porque pesaba
 demasiado), se carga de internet cuando hay conexión. Las páginas que
 guardaste antes también muestran sus fotos, incluso las que la página
 cargaba recién al bajar.
+
+### Estudiar el documento: resumen, síntesis y palabras clave
+
+En un **documento** (PDF, Word, EPUB, texto) o una **página web guardada**,
+debajo del original aparece la tarjeta **«Estudiar el documento»** («Estudiar
+la página», en una página web). La IA marca en el documento **sus propias
+oraciones**, como con un resaltador: no escribe nada nuevo, así que todo lo
+resaltado está en el original, tal cual.
+
+- **Resumir** (verde) resalta las oraciones con las ideas principales,
+  cerca de una de cada cuatro.
+- **Sintetizar** (celeste) resalta lo esencial, el hilo del documento, en
+  pocas oraciones.
+- Funcionan como un interruptor: se ve **el resumen o la síntesis**, nunca
+  los dos encima. Tocar el que está prendido lo apaga.
+- **Palabras clave** (rosa, en negrita) muestra, en cada oración resaltada,
+  hasta **4 palabras** que la sostienen. Las propone la IA y **las elegís
+  vos**: tocá el **lápiz** y después tocá una palabra de una oración
+  resaltada para agregarla o sacarla. Si la oración ya tiene 4, te avisa.
+- Una leyenda chica, debajo de los botones, recuerda qué es cada color.
+
+**Dónde se ve lo resaltado:** sobre las letras del PDF real, en el lector
+de un Word, un EPUB o un texto, sobre la página web tal como se guardó, en
+«Leer como libro» y «Ver la página» a pantalla completa (que llevan los
+mismos botones arriba o abajo), y en el texto extraído. En una página
+escaneada de un PDF no hay letras donde pintar: la página lo dice, y lo
+resaltado se ve en el texto extraído.
+
+**El primer toque analiza el documento** con el modelo elegido en Ajustes
+(Gemma en el teléfono, o el de la nube). Si el modelo no está listo, la app
+te avisa con el botón para resolverlo y no baja nada sola. Una sola pasada
+da las tres cosas, así que pasar del resumen a la síntesis es instantáneo.
+Un documento largo se analiza **por partes**: la franja dice *«Analizando
+el documento… parte 3 de 12»*, con su barra y **«Parar»**, y lo resaltado
+va apareciendo a medida que avanza. Cada parte se guarda al terminar: si
+cerrás la app o lo parás, sigue desde ahí la próxima vez. Si se corta (sin
+conexión, sin cuota), la franja lo dice y **«Reintentar»** sigue desde donde
+quedó.
+
+**«Extraer»**, abajo en la tarjeta, tiene filas que se despliegan:
+
+- **Extraer texto** (en un documento): el texto extraído de siempre, con
+  todo lo de antes —leer en voz alta, subrayar, seleccionar—.
+- **Extraer resumen** y **Extraer síntesis**: sus oraciones en orden, como
+  texto corrido, con cuántas oraciones y palabras son.
+- **Extraer palabras clave**: las palabras como etiquetas, cada una una
+  vez, en el orden en que aparecen.
+- Cada fila trae **Copiar**. Antes de analizar dicen *«Tocá Resumir o
+  Sintetizar para empezar»*.
+
+El mosaico **«Resumir»** del panel, en un documento o una página web, prende
+el resumen y te lleva a la tarjeta. En un video, un audio o una nota sigue
+como siempre: un resumen escrito en un diálogo.
+
+**«Volver a analizar»**, en el menú **⋮** de la tarjeta, rehace todo desde
+cero. Antes pregunta, porque también borra las palabras clave que elegiste a
+mano. Lo estudiado se guarda en la bóveda: si volvés a extraer el texto, se
+reubica igual que tus subrayados, y entra en el respaldo y en la unión de
+bóvedas.
 
 Un video de YouTube solo muestra una miniatura: tocarla abre YouTube de
 verdad, no un reproductor propio dentro de la app. Su audio, en cambio, sí

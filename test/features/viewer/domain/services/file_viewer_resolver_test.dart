@@ -150,7 +150,11 @@ void main() {
     final resolved = await resolver.resolve(item) as WebPageResolvedViewer;
 
     expect(resolved.url, 'https://ejemplo.org/nota');
-    expect(resolved.text, (renditionId: 'rend-1', content: 'El artículo.'));
+    expect(resolved.text, (
+      renditionId: 'rend-1',
+      content: 'El artículo.',
+      markdown: true,
+    ));
   });
 
   test('un video de YouTube resuelve a su miniatura, sin importar si hay '
@@ -350,6 +354,7 @@ void main() {
       expect((withText as PdfResolvedViewer).text, (
         renditionId: 'rend-1',
         content: 'Página uno.',
+        markdown: false,
       ));
       expect((blank as PdfResolvedViewer).text, isNull);
     });
@@ -381,14 +386,54 @@ void main() {
 
         expect(
           resolved,
-          isA<TextResolvedViewer>().having(
-            (v) => v.content,
-            'content',
-            'El contenido ya extraído del documento.',
-          ),
+          isA<TextResolvedViewer>()
+              .having(
+                (v) => v.content,
+                'content',
+                'El contenido ya extraído del documento.',
+              )
+              .having((v) => v.study?.renditionId, 'study', 'rend-1'),
         );
       },
     );
+
+    test('si lo que se estudia es otra forma de texto que la que muestra, '
+        'no lleva lo estudiado —se pintaría fuera de lugar—', () async {
+      final path = await files.save(
+        bytes: Uint8List.fromList('contenido binario de un docx'.codeUnits),
+        suggestedName: 'archivo.docx',
+        id: 'item-1',
+      );
+      final item = buildItem(
+        kind: SourceKind.document,
+        originalFilePath: path,
+        renditions: [
+          Rendition.text(
+            id: 'bloques',
+            itemId: 'item-1',
+            kind: RenditionKind.blocks,
+            content: 'Los bloques del documento.',
+            isPrimary: true,
+            createdAt: DateTime(2026),
+          ),
+          Rendition.text(
+            id: 'texto',
+            itemId: 'item-1',
+            kind: RenditionKind.markdown,
+            content: 'El texto que se estudia.',
+            isPrimary: false,
+            createdAt: DateTime(2026),
+          ),
+        ],
+      );
+
+      expect(
+        await resolver.resolve(item),
+        isA<TextResolvedViewer>()
+            .having((v) => v.content, 'content', 'Los bloques del documento.')
+            .having((v) => v.study, 'study', isNull),
+      );
+    });
 
     test(
       'un documento sin ninguna forma de texto todavía no resuelve a nada',

@@ -1,3 +1,5 @@
+import 'package:sinapsis/features/study/domain/study_target.dart';
+
 /// Qué visor le corresponde al archivo original de un elemento, ya resuelto
 /// —con la ruta absoluta en mano y el formato identificado— pero sin decidir
 /// todavía **cómo** mostrarlo.
@@ -43,10 +45,6 @@ class PdfResolvedViewer extends ResolvedViewer {
   final StudyText? text;
 }
 
-/// El texto extraído de un PDF o de una página web y la forma de texto de la
-/// que es: lo estudiado se guarda contado en ese texto (F36).
-typedef StudyText = ({String renditionId, String content});
-
 /// La vista previa de un video de YouTube: su miniatura, para tocar y
 /// abrir el video de verdad —en la app de YouTube o en el navegador—, no
 /// un reproductor propio.
@@ -85,11 +83,7 @@ class WebPageResolvedViewer extends ResolvedViewer {
 /// texto—, así que lo que se resuelve es el contenido en sí, listo para el
 /// modo de lectura paginado.
 class TextResolvedViewer extends ResolvedViewer {
-  const TextResolvedViewer(
-    this.content, {
-    this.markdown = true,
-    this.renditionId,
-  });
+  const TextResolvedViewer(this.content, {this.markdown = true, this.study});
 
   final String content;
 
@@ -97,7 +91,7 @@ class TextResolvedViewer extends ResolvedViewer {
   /// texto tal cual, como un `.txt` (F22).
   final bool markdown;
 
-  /// La forma de texto de la que sale [content]: con ella, el lector pinta
-  /// lo estudiado del documento (F36).
-  final String? renditionId;
+  /// El texto que se estudia, si [content] es ese texto: con él, el lector
+  /// pinta lo estudiado del documento y lleva sus botones (F36).
+  final StudyText? study;
 }
