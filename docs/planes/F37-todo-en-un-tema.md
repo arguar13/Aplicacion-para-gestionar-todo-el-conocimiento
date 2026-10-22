@@ -1,7 +1,7 @@
 # F37 — Todo lo que guardás, en un tema (y en varios, si querés)
 
-> **Estado: para aprobar** (2026-10-22). Se aprueba con *«aprobado»* en el chat; si querés otra
-> cosa en alguna de las decisiones A–E, decímela al aprobar.
+> **Estado: aprobado, por construir** (2026-10-22). Aprobado en el chat: *"apruebo todos los
+> planes"* —con las decisiones A–E tal como están—. Va después de terminar F36.
 >
 > Pedido: *"si es la primera vez que agrego un elemento que al elegir el elemento que quiero
 > agregar o guardar en la biblioteca que me obligue a crear un tema así se guarde en ese tema
@@ -97,4 +97,4 @@
 
 ## Avance
 
-Todavía nada: espera tu «aprobado».
+Todavía nada: empieza al cerrar F36.
