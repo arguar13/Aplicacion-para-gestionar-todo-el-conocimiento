@@ -357,24 +357,30 @@ List<int> _grow(
 }
 
 /// El vecindario de [focus] para el nivel de temas del grafo (F14, D5): los
-/// temas del foco y los que se unen directamente a alguno, hasta [limit].
+/// temas del foco y los que están a [degree] saltos o menos, hasta [limit].
 ///
-/// A diferencia de [selectTopics], no crece por más saltos ni se completa con
-/// lo más importante del resto: al acercarse a una comunidad se ve ella y lo
-/// que la toca, no toda la bóveda. Si el foco solo ya pasa el tope, entran los
-/// más importantes de él; si sobra lugar, los vecinos que más los unen.
-/// `hidden` cuenta lo que el foco y sus vecinos tenían de más.
+/// [degree] es el «Grado» que elige la persona: 0, solo el foco; 1, también
+/// los que se unen directamente a alguno —lo de siempre—; 2, también los
+/// unidos a esos; `null`, todo lo que se alcanza. A diferencia de
+/// [selectTopics], no se completa con lo más importante del resto: al
+/// acercarse a una comunidad se ve ella y lo que la toca, no toda la bóveda.
+///
+/// Va por anillos: los vecinos más cercanos antes que los lejanos, y en cada
+/// anillo primero los que más los unen con lo de adentro. Si el foco solo ya
+/// pasa el tope, entran los más importantes de él. `hidden` cuenta lo que el
+/// foco y sus anillos tenían de más.
 TopicSelection selectNeighborhood(
   TopicGraph graph, {
   required Set<int> focus,
+  int? degree = 1,
   TopicGraphWeights weights = const TopicGraphWeights(),
   int limit = kMaxVisibleTopics,
 }) {
   final n = graph.nodes.length;
   final valid = focus.where((t) => t >= 0 && t < n).toList()..sort();
-  final inFocus = Uint8List(n);
+  final reached = Uint8List(n);
   for (final topic in valid) {
-    inFocus[topic] = 1;
+    reached[topic] = 1;
   }
 
   final strength = topicStrength(graph, weights);
@@ -387,26 +393,35 @@ TopicSelection selectNeighborhood(
     });
   final chosen = <int>[...byImportance.take(limit)];
 
-  // Los vecinos, por cuánto los une con el foco.
-  final affinity = Float64List(n);
-  for (final edge in graph.edges) {
-    final weight = weights.of(edge);
-    if (inFocus[edge.a] == 1 && inFocus[edge.b] == 0) {
-      affinity[edge.b] += weight;
-    } else if (inFocus[edge.b] == 1 && inFocus[edge.a] == 0) {
-      affinity[edge.a] += weight;
+  var ringed = 0;
+  for (var hop = 1; degree == null || hop <= degree; hop++) {
+    // El próximo anillo, por cuánto lo une con lo ya alcanzado.
+    final affinity = Float64List(n);
+    for (final edge in graph.edges) {
+      final weight = weights.of(edge);
+      if (reached[edge.a] == 1 && reached[edge.b] == 0) {
+        affinity[edge.b] += weight;
+      } else if (reached[edge.b] == 1 && reached[edge.a] == 0) {
+        affinity[edge.a] += weight;
+      }
     }
+    final ring =
+        [
+          for (var i = 0; i < n; i++)
+            if (affinity[i] > 0) i,
+        ]..sort((x, y) {
+          final byAffinity = affinity[y].compareTo(affinity[x]);
+          return byAffinity != 0 ? byAffinity : x.compareTo(y);
+        });
+    if (ring.isEmpty) break;
+
+    for (final topic in ring) {
+      reached[topic] = 1;
+    }
+    ringed += ring.length;
+    final room = limit - chosen.length;
+    if (room > 0) chosen.addAll(ring.take(room));
   }
-  final neighbors =
-      [
-        for (var i = 0; i < n; i++)
-          if (affinity[i] > 0) i,
-      ]..sort((x, y) {
-        final byAffinity = affinity[y].compareTo(affinity[x]);
-        return byAffinity != 0 ? byAffinity : x.compareTo(y);
-      });
-  final room = limit - chosen.length;
-  if (room > 0) chosen.addAll(neighbors.take(room));
 
   chosen.sort();
   final inside = Uint8List(n);
@@ -419,6 +434,6 @@ TopicSelection selectNeighborhood(
       for (var e = 0; e < graph.edges.length; e++)
         if (inside[graph.edges[e].a] == 1 && inside[graph.edges[e].b] == 1) e,
     ],
-    hidden: valid.length + neighbors.length - chosen.length,
+    hidden: valid.length + ringed - chosen.length,
   );
 }

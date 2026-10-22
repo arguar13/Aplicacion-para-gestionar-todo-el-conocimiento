@@ -1271,7 +1271,11 @@ Muestra tu bóveda como una red, con cuatro formas de mirarla:
 - **Esquema**: un árbol que se despliega desde un tema elegido.
 - **Grafo**: una red interactiva con tres niveles de zoom — comunidades
   (círculos grandes) → temas → elementos individuales. Tocás un nodo para
-  entrar, o hacés pellizco para acercar/alejar.
+  entrar, o hacés pellizco para acercar/alejar. Ya dentro de una comunidad,
+  arriba está **"Grado"**: **0** muestra solo sus temas, **1** también los
+  que se unen directamente a ellos (lo que se ve al entrar), **2** suma los
+  unidos a esos, y **Todos**, todo lo que se alcanza desde ahí (hasta 300
+  temas, los más cercanos primero).
 
 **Cómo llegar:** ítem **"Mapa"** en la navegación (en el celular, dentro
 de **"Organizar"**).

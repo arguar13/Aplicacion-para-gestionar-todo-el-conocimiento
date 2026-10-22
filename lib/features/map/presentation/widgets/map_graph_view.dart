@@ -10,6 +10,7 @@ import 'package:sinapsis/core/domain/entities/topic_dimension.dart';
 import 'package:sinapsis/core/error/failure_messages.dart';
 import 'package:sinapsis/features/graph/domain/services/graph_view_fit.dart';
 import 'package:sinapsis/features/graph/presentation/widgets/ai_suggest_relations_dialog.dart';
+import 'package:sinapsis/features/graph/presentation/widgets/degree_selector.dart';
 import 'package:sinapsis/features/library/domain/entities/library_query.dart';
 import 'package:sinapsis/features/library/presentation/providers/library_providers.dart';
 import 'package:sinapsis/features/library/presentation/widgets/entity_presentation.dart';
@@ -121,6 +122,10 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
   /// Los temas en foco en el nivel de temas, por valor.
   Set<String> _focus = {};
   String? _focusLabel;
+
+  /// Hasta cuántos saltos del foco se ven sus temas: el «Grado» que se elige
+  /// arriba —0, 1, 2 o todos (`null`)—. Arranca en 1, lo que se veía antes.
+  int? _degree = 1;
 
   /// El tema del nivel de elementos, por valor.
   String? _topicId;
@@ -330,7 +335,7 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
         scene = sceneOfTopics(
           _graph,
           widget.snapshot.detection,
-          selectNeighborhood(_graph, focus: focus),
+          selectNeighborhood(_graph, focus: focus, degree: _degree),
         );
       case GraphLevel.items:
         final items = await ref
@@ -692,6 +697,18 @@ class _MapGraphViewState extends ConsumerState<MapGraphView> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: Text(l10n.mapGraphHint, style: theme.textTheme.bodySmall),
+          ),
+        // Con un foco, cuánto de alrededor se ve: lo mismo que el grafo de
+        // un elemento. En el panorama no hay desde dónde contar saltos.
+        if (_level == GraphLevel.topics)
+          DegreeSelector(
+            key: const ValueKey('map-graph-degree'),
+            degree: _degree,
+            onChanged: (degree) {
+              if (degree == _degree) return;
+              setState(() => _degree = degree);
+              unawaited(_show(warm: true));
+            },
           ),
         SizedBox(
           height: 3,

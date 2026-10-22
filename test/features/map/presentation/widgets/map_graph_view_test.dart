@@ -243,6 +243,35 @@ void main() {
     expect(node('topic:a1'), findsNothing);
   });
 
+  testWidgets('en los temas se elige el grado: 0, solo la comunidad; todos, '
+      'lo que se alcanza; en el panorama no está', (tester) async {
+    await pump(tester);
+    final degree = find.byKey(const ValueKey('map-graph-degree'));
+    Finder chip(String label) => find.descendant(
+      of: degree,
+      matching: find.widgetWithText(ChoiceChip, label),
+    );
+
+    expect(degree, findsNothing);
+
+    await tester.tap(node('overview:0'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(chip('1')).selected, isTrue);
+
+    await tester.tap(chip('0'));
+    await tester.pumpAndSettle();
+
+    expect(node('topic:a1'), findsOneWidget);
+    expect(node('topic:b1'), findsNothing);
+
+    await tester.tap(chip(es.graphDegreeAll));
+    await tester.pumpAndSettle();
+
+    expect(node('topic:b1'), findsOneWidget);
+    expect(node('topic:b3'), findsOneWidget);
+    expect(tester.widget<ChoiceChip>(chip(es.graphDegreeAll)).selected, isTrue);
+  });
+
   testWidgets('tocar un tema ofrece sus elementos y su material', (
     tester,
   ) async {

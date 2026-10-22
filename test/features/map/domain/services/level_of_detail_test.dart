@@ -420,6 +420,52 @@ void main() {
       },
     );
 
+    group('con el grado que se elige', () {
+      // 0 ─ 1 ─ 2 ─ 3 ─ 4 en cadena, y 5 ─ 6 aparte.
+      final chain = graphOf(
+        7,
+        unions: [(0, 1, 5), (1, 2, 5), (2, 3, 5), (3, 4, 5), (5, 6, 5)],
+      );
+
+      test('grado 0: solo el foco', () {
+        final selection = selectNeighborhood(chain, focus: {1}, degree: 0);
+
+        expect(selection.topics, [1]);
+        expect(selection.edges, isEmpty);
+        expect(selection.hidden, 0);
+      });
+
+      test('grado 2: también lo unido a los vecinos', () {
+        final selection = selectNeighborhood(chain, focus: {0}, degree: 2);
+
+        expect(selection.topics, [0, 1, 2]);
+        expect(selection.edges, [0, 1]);
+      });
+
+      test('todos: lo que se alcanza, nunca lo que no está unido', () {
+        final selection = selectNeighborhood(chain, focus: {0}, degree: null);
+
+        expect(selection.topics, [0, 1, 2, 3, 4]);
+        expect(selection.hidden, 0);
+      });
+
+      test('el anillo de más cerca entra antes que el de más lejos, aunque '
+          'el lejano una más', () {
+        // 0 ─ 1 flojo; 1 ─ 2 fuerte: con lugar para dos, entra el 1.
+        final graph = graphOf(3, unions: [(0, 1, 1), (1, 2, 9)]);
+
+        final selection = selectNeighborhood(
+          graph,
+          focus: {0},
+          degree: null,
+          limit: 2,
+        );
+
+        expect(selection.topics, [0, 1]);
+        expect(selection.hidden, 1);
+      });
+    });
+
     test('un foco fuera de rango o vacío no elige nada', () {
       final graph = graphOf(3, unions: [(0, 1, 1)]);
 
