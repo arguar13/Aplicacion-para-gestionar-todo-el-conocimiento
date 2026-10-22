@@ -283,6 +283,44 @@ void main() {
       },
     );
 
+    test('un PDF lleva su texto ya extraído, para pintar lo estudiado '
+        '(F36); sin texto, nada', () async {
+      final path = await files.save(
+        bytes: Uint8List.fromList('%PDF-1.7 contenido'.codeUnits),
+        suggestedName: 'archivo.pdf',
+        id: 'item-1',
+      );
+      Rendition text(String content) => Rendition.text(
+        id: 'rend-1',
+        itemId: 'item-1',
+        kind: RenditionKind.markdown,
+        content: content,
+        isPrimary: true,
+        createdAt: DateTime(2026),
+      );
+
+      final withText = await resolver.resolve(
+        buildItem(
+          kind: SourceKind.document,
+          originalFilePath: path,
+          renditions: [text('Página uno.')],
+        ),
+      );
+      final blank = await resolver.resolve(
+        buildItem(
+          kind: SourceKind.document,
+          originalFilePath: path,
+          renditions: [text('   ')],
+        ),
+      );
+
+      expect((withText as PdfResolvedViewer).text, (
+        renditionId: 'rend-1',
+        content: 'Página uno.',
+      ));
+      expect((blank as PdfResolvedViewer).text, isNull);
+    });
+
     test(
       'un DOCX con texto ya extraído resuelve al contenido, no al archivo',
       () async {

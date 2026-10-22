@@ -267,3 +267,29 @@ Va en el detalle, entre el original y lo demás, solo en documentos. Tiene tres 
   equivalente, porque el texto renderizado no tiene huecos entre segmentos. Dos sobrevivientes
   llevaron a sacar una condición de más y a una prueba de tramos vacíos.
 - Falta dónde prenderlo: los botones van en la tarjeta del paso 6.
+
+### Paso 5 (hecho)
+
+- Cada página del PDF se ubica en su texto extraído (`pdf_study_pages.dart`):
+  - con un separador menos que páginas, el tramo N es la página N, y el texto de la página lo
+    confirma al leerla;
+  - si no da la cuenta, o una página con letras propias no coincide con su tramo, se recorren en
+    orden (`PdfPageWalker`), que es exacto aunque una página traiga un `---` adentro. Del
+    recorrido se guarda solo dónde cae cada una, no un libro entero de letras en memoria.
+- `cleanPdfPageText` y el separador salen del parser a `transform/domain/documents/pdf_page_text.dart`,
+  con `pdfCleanToRawIndices`: un `\r\n` de PDFium es un solo salto en el texto, y cada letra del
+  texto vuelve a la suya en la página.
+- `PdfStudyOverlay` pinta con `pagePaintCallbacks`: lee el texto de una página recién cuando hay
+  que pintarla, arma un rectángulo por renglón y por color (la palabra clave encima de su oración,
+  sin estirarse por un salto de renglón ni saltar de columna) y lo **multiplica** con el papel, así
+  que la letra queda negra, como un resaltador. Los colores son los claros también en modo
+  oscuro, porque la página es blanca.
+- Una página escaneada no tiene esas letras: si algo resaltado cae en ella, lleva el aviso «Página
+  escaneada: lo resaltado se ve en el texto extraído».
+- Eligiendo palabras clave, tocar una letra del PDF agrega o saca su palabra; cualquier otro toque
+  sigue con la selección de siempre.
+- El PDF lleva su texto extraído desde el resolver (`PdfResolvedViewer.text`), en el detalle y a
+  pantalla completa.
+- Pruebas: 4 de la correspondencia de letras, 21 de la ubicación y los rectángulos, 8 de la capa
+  sobre un PDF falso, 1 del resolver. Mutación 22/22. Dos que sobrevivían al principio llevaron a
+  probar la última página con un sello y un salto de renglón con lugar en la página.

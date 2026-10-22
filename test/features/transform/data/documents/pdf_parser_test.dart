@@ -9,6 +9,7 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/transform/data/documents/pdf_parser.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
 import 'package:sinapsis/features/transform/domain/entities/cancellation_signal.dart';
 import 'package:sinapsis/features/transform/domain/transformers/transform_context.dart';
 

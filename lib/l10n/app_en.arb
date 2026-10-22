@@ -10178,5 +10178,7 @@
   "aiRecheckSwitchLater": "No, thanks",
   "@aiRecheckSwitchLater": {"description": "Revisar con otro modelo (F33): no aceptar el aviso; no vuelve a salir para ese modelo."},
   "studyKeywordsSentenceFull": "This sentence already has its {count} keywords: remove one to pick another.",
-  "@studyKeywordsSentenceFull": {"description": "Estudiar (F36): al elegir palabras clave, la oración tocada ya tiene el máximo; count es ese máximo.", "placeholders": {"count": {"type": "int"}}}
+  "@studyKeywordsSentenceFull": {"description": "Estudiar (F36): al elegir palabras clave, la oración tocada ya tiene el máximo; count es ese máximo.", "placeholders": {"count": {"type": "int"}}},
+  "studyScannedPage": "Scanned page: highlights show in the extracted text",
+  "@studyScannedPage": {"description": "Estudiar (F36): sobre una página escaneada de un PDF, que no tiene letras donde pintar lo resaltado."}
 }

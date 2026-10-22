@@ -140,23 +140,31 @@ class FileViewerResolver {
         ? FileFormat.unknown
         : detectFileFormat(head, name: p.basename(relativePath));
 
+    final primary = item.renditions
+        .whereType<TextRendition>()
+        .where((r) => r.isPrimary)
+        .firstOrNull;
+    final rendition = primary == null || primary.content.trim().isEmpty
+        ? null
+        : primary;
+
     // Recién acá, con el formato ya confirmado como PDF, hace falta la ruta
     // absoluta que pide el visor de verdad — ver el comentario de la clase.
+    // Lleva su texto, si ya se extrajo, para pintar lo estudiado (F36).
     if (format == FileFormat.pdf) {
-      return PdfResolvedViewer(await _files.resolve(relativePath));
+      return PdfResolvedViewer(
+        await _files.resolve(relativePath),
+        text: rendition == null
+            ? null
+            : (renditionId: rendition.id, content: rendition.content),
+      );
     }
 
     // Para el resto de los documentos —DOCX, EPUB, texto suelto— lo que se
     // resuelve es el contenido que ya extrajo el transformador
     // correspondiente: no hay razón para volver a leer el archivo si ya se
     // sabe qué dice.
-    final rendition = item.renditions
-        .whereType<TextRendition>()
-        .where((r) => r.isPrimary)
-        .firstOrNull;
-    if (rendition == null || rendition.content.trim().isEmpty) {
-      return const NoResolvedViewer();
-    }
+    if (rendition == null) return const NoResolvedViewer();
 
     return TextResolvedViewer(
       rendition.content,

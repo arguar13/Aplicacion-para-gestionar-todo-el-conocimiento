@@ -169,11 +169,15 @@ List<PaintedRange> paintsWithin(
 
 /// Las capas de lo estudiado del texto de [renditionId], con los colores del
 /// tema, y cada cambio: lo que pintan el lector y «Texto extraído».
+///
+/// [brightness] fija los colores en vez del tema: la página de un PDF es
+/// blanca también en modo oscuro.
 List<PaintedRange> watchStudyPaints(
   WidgetRef ref,
   BuildContext context,
-  String renditionId,
-) {
+  String renditionId, {
+  Brightness? brightness,
+}) {
   final view = ref.watch(studyViewProvider(renditionId));
   if (view.layer == null && !view.showsKeywords) return const [];
   final study = ref.watch(documentStudyProvider(renditionId)).valueOrNull;
@@ -181,7 +185,7 @@ List<PaintedRange> watchStudyPaints(
   return studyPaints(
     study,
     view,
-    StudyPalette.of(Theme.of(context).brightness),
+    StudyPalette.of(brightness ?? Theme.of(context).brightness),
   );
 }
 

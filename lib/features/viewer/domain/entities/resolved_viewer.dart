@@ -34,10 +34,18 @@ class MediaResolvedViewer extends ResolvedViewer {
 }
 
 class PdfResolvedViewer extends ResolvedViewer {
-  const PdfResolvedViewer(this.path);
+  const PdfResolvedViewer(this.path, {this.text});
 
   final String path;
+
+  /// Su texto ya extraído, si tiene: con él, el visor pinta lo estudiado
+  /// sobre las letras de la página (F36).
+  final PdfStudyText? text;
 }
+
+/// El texto extraído de un PDF y la forma de texto de la que es: lo
+/// estudiado se guarda contado en ese texto (F36).
+typedef PdfStudyText = ({String renditionId, String content});
 
 /// La vista previa de un video de YouTube: su miniatura, para tocar y
 /// abrir el video de verdad —en la app de YouTube o en el navegador—, no

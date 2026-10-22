@@ -815,6 +815,20 @@ class PaintedRange {
   /// Encima de los resaltados de la persona —una palabra clave— o debajo
   /// —una oración entera—.
   final bool aboveHighlights;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PaintedRange &&
+      other.start == start &&
+      other.end == end &&
+      other.background == background &&
+      other.foreground == foreground &&
+      other.bold == bold &&
+      other.aboveHighlights == aboveHighlights;
+
+  @override
+  int get hashCode =>
+      Object.hash(start, end, background, foreground, bold, aboveHighlights);
 }
 
 /// Una capa ya traducida al texto renderizado.

@@ -46,8 +46,11 @@ Future<bool> openDocumentViewer(
         MediaPlayerScreen(path: path, title: item.title, isVideo: isVideo),
       );
 
-    case PdfResolvedViewer(:final path):
-      return _push(context, PdfViewerScreen(path: path, title: item.title));
+    case PdfResolvedViewer(:final path, :final text):
+      return _push(
+        context,
+        PdfViewerScreen(path: path, title: item.title, text: text),
+      );
 
     case WebPageResolvedViewer(:final path):
       return _push(context, WebPageViewerScreen(path: path, title: item.title));

@@ -1,8 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:pdfrx/pdfrx.dart';
 import 'package:sinapsis/core/design/reading_scroll_physics.dart';
+import 'package:sinapsis/features/study/presentation/study_highlighting.dart';
+import 'package:sinapsis/features/viewer/domain/entities/resolved_viewer.dart';
 import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection.dart';
+import 'package:sinapsis/features/viewer/presentation/widgets/pdf_study_overlay.dart';
+import 'package:sinapsis/l10n/generated/app_localizations.dart';
 
 /// El PDF, paginado y con zoom, igual que cualquier lector nativo —Adobe
 /// Reader, el visor del sistema—.
@@ -20,24 +27,81 @@ import 'package:sinapsis/features/viewer/presentation/widgets/pdf_drag_selection
 /// para ajustarlo y el menú "Copiar / Seleccionar todo" de `pdfrx`. Ese menú solo se puede construir dentro de
 /// [PdfrxMaterialBridge]: ver ahí por qué.
 ///
+/// Con [text], lo estudiado del documento (F36) se pinta sobre las letras de
+/// cada página —ver [PdfStudyOverlay]—, y eligiendo palabras clave, tocar una
+/// palabra la agrega o la saca.
+///
 /// Sin `Scaffold` propio a propósito: `PdfViewerScreen` lo envuelve para
 /// mostrarlo a pantalla completa, y `EmbeddedFileViewer` lo embebe tal cual
 /// dentro de un marco acotado en el detalle del elemento.
-class PdfViewerView extends StatefulWidget {
-  const PdfViewerView({required this.path, super.key});
+class PdfViewerView extends ConsumerStatefulWidget {
+  const PdfViewerView({required this.path, this.text, super.key});
 
   final String path;
 
+  /// El texto extraído del PDF y su forma: de ahí sale lo estudiado.
+  final PdfStudyText? text;
+
   @override
-  State<PdfViewerView> createState() => _PdfViewerViewState();
+  ConsumerState<PdfViewerView> createState() => _PdfViewerViewState();
 }
 
-class _PdfViewerViewState extends State<PdfViewerView> {
+class _PdfViewerViewState extends ConsumerState<PdfViewerView> {
   final _controller = PdfViewerController();
   late final _dragSelection = PdfLongPressDragSelection(_controller);
+  late final _study = PdfStudyOverlay(_controller);
+
+  /// La misma lista siempre: `pdfrx` compara los parámetros, y lo que cambia
+  /// lo pinta [PdfStudyOverlay] pidiendo que se redibuje.
+  late final _paintCallbacks = [_study.paintPage];
+
+  bool _picking = false;
+
+  /// Eligiendo palabras clave, un toque sobre una letra la agrega o la saca;
+  /// cualquier otro toque sigue a la selección de siempre.
+  bool _onGeneralTap(
+    BuildContext context,
+    PdfViewerController controller,
+    PdfViewerGeneralTapHandlerDetails details,
+  ) {
+    final text = widget.text;
+    if (text != null &&
+        _picking &&
+        details.type == PdfViewerGeneralTapType.tap) {
+      final offset = _study.offsetAt(details.documentPosition);
+      if (offset != null) {
+        unawaited(
+          toggleStudyKeywordAt(
+            ref,
+            this.context,
+            renditionId: text.renditionId,
+            content: text.content,
+            offset: offset,
+          ),
+        );
+        return true;
+      }
+    }
+    return _dragSelection.onGeneralTap(context, controller, details);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final text = widget.text;
+    if (text != null) {
+      _picking = ref.watch(studyViewProvider(text.renditionId)).picking;
+      _study.update(
+        content: text.content,
+        // La página de un PDF es blanca también en modo oscuro.
+        paints: watchStudyPaints(
+          ref,
+          context,
+          text.renditionId,
+          brightness: Brightness.light,
+        ),
+        scannedNotice: AppLocalizations.of(context)!.studyScannedPage,
+      );
+    }
     final drag = _dragSelection;
     return PdfrxMaterialBridge(
       child: Listener(
@@ -60,7 +124,8 @@ class _PdfViewerViewState extends State<PdfViewerView> {
             scrollPhysics: ReadingScrollPhysics(
               parent: PdfViewerParams.getScrollPhysics(context),
             ),
-            onGeneralTap: drag.onGeneralTap,
+            onGeneralTap: _onGeneralTap,
+            pagePaintCallbacks: _paintCallbacks,
             customizeContextMenuItems: drag.hideMenuWhileDragging,
             textSelectionParams: const PdfTextSelectionParams(
               buildSelectionHandle: buildPdfSelectionHandle,

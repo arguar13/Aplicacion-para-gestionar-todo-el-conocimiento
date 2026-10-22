@@ -134,11 +134,11 @@ class EmbeddedFileViewer extends ConsumerWidget {
         onExpand: expand,
         child: MediaPlayerView(path: path, isVideo: isVideo),
       ),
-      PdfResolvedViewer(:final path) => _EmbeddedViewerFrame(
+      PdfResolvedViewer(:final path, :final text) => _EmbeddedViewerFrame(
         tall: true,
         onExpand: expand,
         readAsBook: true,
-        child: PdfViewerView(path: path),
+        child: PdfViewerView(path: path, text: text),
       ),
       WebPageResolvedViewer(:final path) => _EmbeddedViewerFrame(
         tall: true,

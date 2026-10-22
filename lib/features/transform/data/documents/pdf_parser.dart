@@ -9,6 +9,7 @@ import 'package:sinapsis/core/storage/file_format.dart';
 import 'package:sinapsis/core/storage/file_store.dart';
 import 'package:sinapsis/features/reference/domain/services/extraction/pdf_metadata_reader.dart';
 import 'package:sinapsis/features/transform/domain/documents/document_parser.dart';
+import 'package:sinapsis/features/transform/domain/documents/pdf_page_text.dart';
 import 'package:sinapsis/features/transform/domain/services/image_text_extractor.dart';
 
 /// Saca el texto de un PDF.
@@ -142,7 +143,7 @@ class PdfParser implements DocumentParser {
       return ParsedDocument(
         markdown: pages.every((page) => page.isEmpty)
             ? ''
-            : pages.join('\n\n---\n\n'),
+            : pages.join(pdfPageSeparator),
         title: metadata.title,
         author: _authorLine(metadata.reference.contributors),
         pageCount: document.pages.length,
@@ -329,28 +330,6 @@ class PdfParser implements DocumentParser {
 /// centenar—, así que el camino frágil queda reservado para el caso
 /// verdaderamente atípico.
 const _maxDirectLoadBytes = 64 * 1024 * 1024;
-
-/// El texto de una página de PDF, tal como lo trae el documento (F22).
-///
-/// Lo único que cambia son los finales de línea —`\r\n` y `\r` pasan a
-/// `\n`, el mismo salto escrito de otra forma— y una página que es solo
-/// espacios cuenta como vacía: no tiene ninguna letra, y es lo que marca una
-/// página escaneada (ver `PdfParser`).
-///
-/// El resto queda: los saltos de línea de la maquetación, los guiones
-/// de corte al final del renglón, los espacios que alinean columnas. Antes
-/// se "limpiaba" —se unían los renglones, se juntaban `cono-` y `cimiento`,
-/// se colapsaban los espacios—, y eso borraba la forma de poemas, listas,
-/// tablas e índices, pegaba compuestos como `teórico-práctico` en
-/// `teóricopráctico` y rangos como `1990-1995` en `19901995`. Ninguna de
-/// esas uniones hacía falta: la búsqueda encuentra una frase aunque cruce un
-/// salto de línea, y encuentra la palabra cortada por guion porque el índice
-/// —solo el índice— recibe también la versión con esas palabras unidas (ver
-/// `chunkSearchText` en `search_index.dart`).
-String cleanPdfPageText(String raw) {
-  final text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  return text.trim().isEmpty ? '' : text;
-}
 
 /// Los autores que `readPdfMetadata` encontró, como un único texto —«Gabriel
 /// García Márquez; Jane Doe»—: lo que trae `ParsedDocument.author`, igual que
